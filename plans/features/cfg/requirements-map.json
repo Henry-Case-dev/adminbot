@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
-  "candidate_commit": "211a8c1bdb992b30f90046b8bc1146a564f0b5dd",
+  "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
   "deployed_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -961,12 +961,20 @@
       "acceptance": "Матрица Writers/Composer из SOUL-01/04/02/16 не строится второй раз: артефакты переиспользуются; здесь проверяются только новые анти-backstage сценарии, конкретные internal→public утечки и доставка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "static",
           "ref": "07cg reuse-аудит контейнера CFG-07A (M00037/L339)",
           "observation": "Матрица Writers/Composer из SOUL-01/04/02/16 НЕ строилась второй раз: route-coverage 18 CONTRACT (шов speech_owner_block), Core байт-цел, каноны вычищены suppress-семантикой без второго слоя, L1/SOUL-06 юмор переиспользован, W3/W5 фактчека — потребитель. Закрыто самим CFG-07A — только дельта: корпус 07A-1, лестница ADR-1013-3 ×7 канонов, Writer-контракт Direct, rejected_note, nostalgia-гард, словарь честности 07CG. В 07C-G-хвост прописаны: egress-guard на outbound (07C.1-.6), FA-*/MB-10/11/12 детекторы, bounded retry, fail-soft, 07D.5-.7, 07A.1 live-хвост за release-слотом.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md",
+          "artifact_sha256": "b2f8f0ae4d3ed7d7087f58418be25aac584f397c873445f212a07ff0628ce1ff"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Reuse-аудит контейнера выполнен волной CFG-07CG (07cg-reuse-audit.md) и подтверждён ревью REV-CFG07CG: матрица не строится второй раз, закрыта дельта CFG-07A; хвост 07C.1–.6 выполняется волной CFG-07CG-TAIL (guard на delivery-швах).",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md",
           "artifact_sha256": "b2f8f0ae4d3ed7d7087f58418be25aac584f397c873445f212a07ff0628ce1ff"
         }
@@ -1031,6 +1039,36 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    },
+    {
+      "source_id": "MAN-CFG-07D1-OBS",
+      "source_excerpt": "- С тем же проверяемым тезисом при включённом/выключенном «юморе» ответы не содержат «сейчас сделаю смешно», «разбор подъехал», «как вы просили», «аналитик подтянул», «в моей справке» и других backstage-формулировок. Допустимый сарказм не у",
+      "disposition": "required",
+      "reason": "Чисто владельческое наблюдение живой речи на устройстве (standing rule 18.10, owner_live_checks §7); инженерная половина — строка CFG-07D.1 (VERIFIED тестами).",
+      "req_id": "CFG-07D.1.OBS",
+      "slice": "CFG-07A",
+      "acceptance": "[Наблюдение владельца] При включённом/выключенном юморе ответы не содержат «сейчас сделаю смешно», «разбор подъехал», «как вы просили», «аналитик подтянул», «в моей справке»; допустимый сарказм не удалён.",
+      "live_required": false,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Субъективная оценка живой речи юмора на устройстве владельца; инженерные гварды и e2e VERIFIED в строке CFG-07D.1.",
+      "engineering_req_ids": [
+        "CFG-07D.1"
+      ],
+      "evidence": [
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "plans/owner_live_checks.md §7 + tests/test_cfg07_egress_dictionary.py",
+          "observation": "Инженерная половина VERIFIED (гварды ON/OFF/skip_reason, 67 CONTRACT); живое наблюдение — добровольное.",
+          "artifact_path": "plans/owner_live_checks.md",
+          "artifact_sha256": "33dc8660cff5e200c5d5ce985405791da7bc6d672107a4d67ec28964dd5099bc"
+        }
+      ],
+      "source_line": 376,
+      "source_text_sha256": "663280e565beadcf75cf9802395e41fa077acd139448fc1fb501edc6507b0079"
     }
   ],
   "items": [
@@ -7178,6 +7216,14 @@
           "observation": "Постдеплой 2.58.102: PG-байты 7 кастомов 7/7 UNCHANGED (== пре-деплой снимку 2.58.101); effective payload 7/7 — чистый заводской канон БЕЗ маркеров SF-семейства; материальный факт: кастомы удержаны провенанс-гейтом SOUL-AMD (withheld=True, provenance_missing) — правки владельца НЕ в effective (состояние не изменилось с 2.58.101, не дефект F1); F1-ветка suppress(custom_clean) на реальных байтах applied 7/7 с ожидаемыми labels — гарантия attested-пути работает. Активация кастомов — добровольное решение владельца (OQ-15, не блокер).",
           "artifact_path": "plans/features/samples-ux/evidence/release/deploy.md",
           "artifact_sha256": "1c12cad7327da1c3be3c42d85bb02d973db412ef0c2ea6481c10b20d30381159"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "plans/features/samples-ux/evidence/release/deploy.md",
+          "artifact_sha256": "1c12cad7327da1c3be3c42d85bb02d973db412ef0c2ea6481c10b20d30381159"
         }
       ]
     },
@@ -7202,6 +7248,14 @@
           "observation": "В публичный ответ не попадают комментарии о процессе генерации и служебные пометки: контракт-тест Writer «СЛУЖЕБНЫЕ ПОМЕТКИ (НЕ ДЛЯ ОТВЕТА)» + байт-скан 7 активных канонов 0 хитов (утечка style_note закрыта ранее); машинная стадия direct_l1/direct_execution байтами не тронута.",
           "artifact_path": "tests/test_cfg07_backstage_contract.py",
           "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "tests/test_cfg07_backstage_contract.py",
+          "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
         }
       ]
     },
@@ -7217,7 +7271,7 @@
       "acceptance": "Слом персонажа отличается от нормальной речи: «проверил — не нашёл подтверждений» допустимо при реально состоявшейся проверке; честные ограничения/недоступность источника сообщать можно; запрещён вывод внутреннего механизма, а не факт проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7232,6 +7286,22 @@
           "observation": "Словарь honesty-классов собран из живых пулов фактчека/samples/checkup (107 фраз, identity-тест): test_unavailable_source_never_becomes_total_check — все зарегистрированные честные фразы без overclaim и backstage-формул; test_owner_canon_pools_never_flagged — 70+ владельческих канонов NEVER flag; точечные правки фраз-пулов не потребовались.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
           "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "test",
+          "ref": "CFG-07CG guards (test_cfg07_egress_dictionary) + review-07cg Approved",
+          "observation": "«Проверил — не нашёл подтверждений» только при реально состоявшейся проверке: miss-маршрут возвращает честный отказ ДО любого платного поиска (структурно, attribution miss), падение поиска/LLM → честная недоступность БЕЗ вывода подтверждение/опровержение; positive «Подтверждается» — только из реального CheckedVerdict+EvidenceMap; insufficient_evidence — честное ограничение; 0 ложных срабатываний на 202 чистых текстах.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "07cg-tail: SpyAggregator injection (observation 1 closed)",
+          "observation": "Privacy/поиск-ассерт связан с реальным агрегатором (инжект в retrieval-шов), гарантия 06G.3 усилена.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-tail.md",
+          "artifact_sha256": "7381424b7c8601c67388719f641b7ae32a4bf9b69c69653b788d0c859978e4a4"
         }
       ]
     },
@@ -7256,6 +7326,14 @@
           "observation": "Роль и характер устойчивы: честный слив без выдуманной механики («перегрелись серверы, база покрылась пылью» удалена по лестнице PREV_DIRECT_CFG07A), «саркастично-токсичной» манеры нет; «такого сообщения не нашлось» вместо «в логах нет» — контракт тестом.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
           "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
+          "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
         }
       ]
     },
@@ -7271,7 +7349,7 @@
       "acceptance": "При прямом вопросе о внутреннем устройстве в явном техническом/административном контексте бот честно объясняет доступные возможности; блокировка метаречи не подменяет правду.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7279,6 +7357,14 @@
           "observation": "Тест-гвард: прямой вопрос об устройстве (закрытый набор маркеров is_explicit_admin_context) — честное объяснение доступных возможностей из человеческих имён capability (direct_capabilities.CAPABILITY_LABELS) проходит словарь целиком; backstage-объяснение («согласно внутреннему промпту, аналитик подтянул, по инструкции») флагается, честное — нет: блокировка метаречи не подменяет правду. Админ-жанр checkup («логи/сервер» в содержательном контексте) и честный факт фолбэка (CHECKUP_FALLBACK_NOTICE без bracket-машинного синтаксиса) целы и не флагаются.",
           "artifact_path": "tests/test_cfg07_egress_dictionary.py",
           "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "CFG-07CG admin-context guard (15 маркеров) + review-07cg",
+          "observation": "Прямой вопрос о внутреннем устройстве в явном техническом/административном контексте → честное объяснение доступных возможностей (capability human-names проходит словарь); backstage-объяснение флагается, правда не режется; админ-жанр checkup и честный факт фолбэка целы.",
+          "artifact_path": "services/public_speech_guard.py",
+          "artifact_sha256": "f46533c6f1007fc25356bbf0c1a3a1e941ce9aaea449297add84c82d86173ddb"
         }
       ]
     },
@@ -7301,6 +7387,14 @@
           "type": "test",
           "ref": "07a2 contract test + positive controls",
           "observation": "Закулисная режиссура юмора не слышна: sneer/hostility/«человеческо-токсичный» сняты (youtube ×2), повторные «сейчас будет смешно/разбор подъехал» в запретах, шутка выражается репликой; POSITIVE-контроли юмора живы (test_positive_controls_alive).",
+          "artifact_path": "tests/test_cfg07_backstage_contract.py",
+          "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
           "artifact_path": "tests/test_cfg07_backstage_contract.py",
           "artifact_sha256": "2522246eda6c3afef5fb86b7fb5ac2588716fd20e196b9b115ad8589be70c5b6"
         }
@@ -7327,6 +7421,14 @@
           "observation": "Применено ко всем релевантным LLM-путям и fallback, включая встроенные фразы ошибок (rejected_note очеловечена, сырые коды только в R17-диагностику); не black-list regex — корпусный смысловой guard (35 FORBIDDEN) + устранение источников (SF-маркировка).",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
           "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
+          "artifact_sha256": "34b3725ed2a9c06d90c815272e906fb889b9c6ac96e91ce47d9271690be7b5fa"
         }
       ]
     },
@@ -7349,6 +7451,14 @@
           "type": "static",
           "ref": "07a2 bytecheck + W3 freeze check",
           "observation": "Инструкции и машинный JSON строго внутренние: hostile BOT_KNOWLEDGE байт-стабилен (фриз фактчека W3 цел), нейтральная версия для не-фактчек маршрутов; до Writer доходят только пользовательски значимые поля, машинные стадии байтами не тронуты.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-bytecheck.txt",
+          "artifact_sha256": "873d5ed8da5eabdec8c6c138eade50f7f85c10c156a0ac9edc2dedad3ca73b8b"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07a2-bytecheck.txt",
           "artifact_sha256": "873d5ed8da5eabdec8c6c138eade50f7f85c10c156a0ac9edc2dedad3ca73b8b"
         }
@@ -7619,9 +7729,9 @@
       "req_id": "CFG-07D.1",
       "slice": "CFG-07A",
       "acceptance": "При включённом/выключенном юморе ответы не содержат «сейчас сделаю смешно», «разбор подъехал», «как вы просили», «аналитик подтянул», «в моей справке»; допустимый сарказм не удалён.",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7629,8 +7739,26 @@
           "observation": "Тест-гвард humor-пулов: при юморе ON слой приёма рендерится и чист от «сейчас сделаю смешно/разбор подъехал/как вы просили/аналитик подтянул/в моей справке» (0 LLM); при OFF (ось gates и toggle владельца humor.craft.enabled=false) слой не рендерится с честным skip_reason; 5 техник + рамка («Не объясняй шутку и не называй приём») + Personality Core без backstage-режиссуры; допустимый сарказм не удалён (Core «язвительность/непристойный юмор», deadpan, честный слив Direct, жанр checkup). Инженерная часть; live-глазами владельца — опционально по plans/owner_live_checks.md (standing rule, не блокер).",
           "artifact_path": "tests/test_cfg07_egress_dictionary.py",
           "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "test",
+          "ref": "CFG-07CG humor-metatalk guard ON/OFF + review-07cg",
+          "observation": "Юмор ON: слой рендерится и чист от «сейчас сделаю смешно/разбор подъехал/как вы просили/аналитик подтянул/в моей справке»; OFF (gates + humor.craft.enabled=false) → слой не рендерится с честным skip_reason; допустимый сарказм (Core/deadpan/честный слив) не удалён. Live-наблюдение — владельцу опционально (owner_live_checks, standing rule).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "static",
+          "ref": "Кандидат v4 (B1): строка закрыта волной/деплоем, артефакт действует на HEAD",
+          "observation": "Кандидат v4 `8cd2ca14` (B1-телеметрия поверх 211a8c1b): фактчек-runtime байты атрибуции/канонов идентичны для этой строки; evidence действителен — привязка к фактическому reviewed-кандидату по требованию гейта.",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
-      ]
+      ],
+      "verification_tier": "engineering",
+      "note": " | Инженерная часть (гварды метаречи ON/OFF + skip_reason) VERIFIED тестами; живое наблюдение владельца вынесено в отдельную owner_optional строку CFG-07D.1.OBS. | live-наблюдение вынесено в CFG-07D.1.OBS (owner_optional, standing rule 18.10); инженерная половина VERIFIED тестами (гварды ON/OFF/skip_reason)."
     },
     {
       "source_id": "L00377",
@@ -7644,7 +7772,7 @@
       "acceptance": "Выполненный поиск позволяет «нашёл подтверждение», но недоступный источник не превращается в «я проверил всё в интернете»; метаречь не блокирует честную техническую справку по прямому запросу администратора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "type": "test",
@@ -7652,6 +7780,14 @@
           "observation": "Тест-гвард: closed-set паттернов claims_total_verification ловит «я проверил всё в интернете/весь интернет/перерыл всю паутину», НЕ ловит «проверил — не нашёл подтверждений», «нашёл подтверждение в двух источниках», «проверил по трём ссылкам»; все 107 фраз honesty-классов без overclaim и backstage-формул (structural disjoint); метаречь-гард не блокирует честную техническую справку администратору (честный факт фолбэка Betterstack/локальные логи — чист).",
           "artifact_path": "tests/test_cfg07_egress_dictionary.py",
           "artifact_sha256": "686f6ca74311e1f57c205f7b603b7937f8a316a513fd73ef30690e6bfebba23d"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "test",
+          "ref": "CFG-07CG overclaim closed-set + review-07cg",
+          "observation": "Closed-set паттернов ловит «проверил всё в интернете»-семью, НЕ ловит «проверил — не нашёл подтверждений»/«нашёл подтверждение в двух источниках»; все честные пулы без overclaim; честная техсправка админу не блокируется. Инверсный overclaim — осознанный остаток с записью источника (корпус не содержит).",
+          "artifact_path": "tests/test_cfg07_egress_dictionary.py",
+          "artifact_sha256": "e6729f0e7b28c258b0a309a8c768ca303f40ba8b6139e74e3eb08e004d91e13b"
         }
       ]
     },
