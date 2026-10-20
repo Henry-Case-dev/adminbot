@@ -1,0 +1,120 @@
+{
+  "lane": "DEVOPS-DEPLOY-99",
+  "release": "2.58.99",
+  "date_utc": "2026-10-20",
+  "candidate": {
+    "review": "REV-REL-25899",
+    "verdict": "Approved for controlled deployment, parent not DONE",
+    "review_artifact": "plans/features/cfg/evidence/release-25899/review-rel.md",
+    "code_candidate": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+    "head_docs": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+    "deployed_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+    "deployed_commit_note": "origin/master; CAND_TO_OM_NONPLANS=0 (46303ecd..7142ffcf = plans/evidence only, 3 files) - runtime bytes == reviewed candidate",
+    "deploy_source": "origin/master",
+    "mutable_worktree_required": false,
+    "write_scope": ["prod repo /var/www/admin_bot (checkout -B master)", "prod PG bot_settings (1 key upsert)", "prod /tmp (transient)", "DevOps scratch OPENCODE_WORKFLOW_SCRATCH/deploy99", "plans/features/cfg/evidence/release-25899/", "requirements-map.json deployed_commit field"]
+  },
+  "pre_state": {
+    "version": "2.58.98",
+    "head": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+    "main_pid": 3883387,
+    "nrestarts": 0,
+    "healthz": {"status": "ok", "version": "2.58.98"},
+    "tracked_mod": 0,
+    "untracked": 13,
+    "pg_factcheck_keys": ["flags.factcheck_enabled=true (only factcheck key at 09:38:15Z recon)"]
+  },
+  "post_state": {
+    "version": "2.58.99",
+    "head": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+    "branch": "master",
+    "main_pid": 3966377,
+    "nrestarts": 0,
+    "exec_main_start_utc": "2026-10-20T09:44:12Z",
+    "exec_main_status": 0,
+    "t0_phase1_utc": "2026-10-20T09:40:53Z (epoch 1792489253)",
+    "t1_flag_utc": "2026-10-20T09:44:07Z (epoch 1792489447)",
+    "tracked_mod": 0,
+    "healthz": {"status": "ok", "version": "2.58.99"},
+    "https_external": {"/healthz": "200 2.58.99", "/web/": 200, "/static/app.css": 200, "host": "admin-bot.duckdns.org"}
+  },
+  "delta": {
+    "total_files": 167,
+    "runtime_files": 12,
+    "runtime_set_eq": true,
+    "runtime_whitelist": [
+      "config/settings.py", "handlers/factcheck.py",
+      "services/factcheck_context.py", "services/factcheck_orchestrator.py",
+      "services/factcheck_planner.py", "services/factcheck_renderer.py",
+      "services/factcheck_service.py", "services/factcheck_suitability.py",
+      "services/param_catalog.py", "services/smart_cache.py",
+      "services/smartmodule_phrases.py", "services/tool_router.py"
+    ],
+    "other_nonstd": 0,
+    "hashes_verified": "17/17 sha256_12 == local git blobs @ 7142ffcf (web/app.js, index.html, app.css unchanged from 98)",
+    "factcheck_byte_parity": "all factcheck* + tool_router + smart_cache + smartmodule_phrases blobs == 8f220b60 (settings/param_catalog differ as expected: version bump 2.58.99 + catalog +3 flags)"
+  },
+  "markers": {
+    "APP_VERSION_25899": 1,
+    "FLAG_DEFAULT_OFF_settings": 1,
+    "CATALOG_PIPELINE_V2_PGID": 1,
+    "CATALOG_PGID_TOTAL": "43 (was 40 in 98, +3 flags.factcheck_*)",
+    "F8META_8F220B60": 1
+  },
+  "journal_phase1_since_T0": {
+    "lines": 213,
+    "err": 0, "err_402": 0, "skips": 0, "runtimewarn": 0,
+    "cancelled_shutdown": 0, "graceful_drain_lines": 2, "local_bot_api_marker": 1,
+    "config_cache_init": "settings=532 roles=4 admins=3",
+    "sqlite_user_version": "36 -> 36 (ddl_delta=0, pending=[]; v37 samples-ux NOT in release)",
+    "prompt_migrations": "owner customs preserved (13x 'not touched'), others already canonical; no new migrations"
+  },
+  "journal_phase2_since_T1": {
+    "lines": 210,
+    "err": 0, "err_402": 0, "skips": 0, "runtimewarn": 0, "cancelled": 0,
+    "config_cache_init": "settings=532 (key already existed from phase-1 catalog seed; true value loaded at init)"
+  },
+  "flag": {
+    "key": "flags.factcheck_pipeline_v2",
+    "before": "false (catalog-seeded at phase-1 boot; ABSENT at recon 09:38:15Z)",
+    "after": "true (jsonb bool, category=flags, updated_at 2026-10-20T09:44:06.723Z)",
+    "method": "PG upsert via prod venv+asyncpg (DSN from .env, never printed) + ONE planned restart",
+    "deviation_note": "brief said 'hot, no restart'; code reality: services/hot_config reads in-memory ConfigCache; bot_settings has NO TTL and NO LISTEN/NOTIFY; external SQL write is picked up only at init (config_cache.py init->_load_all); TMA-authenticated POST /api/config is the only in-process setter and is unavailable to DevOps (and chat messages are forbidden). Precedent soul-release-prep.md step 1 = PG upsert + restart. Both restarts planned, NRestarts=0."
+  },
+  "smoke": {
+    "healthz_loopback": "200 2.58.99 (phase1 09:41:30Z, phase2 09:44:38Z)",
+    "routes": {"/healthz": 200, "/web/": 200, "/static/app.css": 200},
+    "served_app_js_sha12": "885094459700 (== disk == 98)",
+    "chat_messages": "NONE sent (lane prohibition)",
+    "honest_gap": "no flag-enabled pipeline runs yet (no organic traffic observed in journal); direct runtime probe of the flag unavailable without TMA - evidence is PG=true + ConfigCache init reload after restart; observation continues"
+  },
+  "rollback": {
+    "used": false,
+    "soft": "PG upsert flags.factcheck_pipeline_v2 -> 'false'::jsonb (category flags) + systemctl restart admin_bot; wide_context/suitability_gate implied under v2 only, no other flags touched",
+    "soft_note": "flag=false requires restart to reach the running process (same mechanism as enable)",
+    "cold": "git checkout -f 29cc49baa4c4a2e25ac5907470dbc18f62ed69bc (== origin/release/fix-2.58.98, pushed) + systemctl restart admin_bot -> 2.58.98",
+    "rollback_boundary": "origin/release/fix-2.58.98 verified on prod after fetch (RB_REF == 29cc49ba)"
+  },
+  "ssh_budget": {
+    "connects": 3,
+    "single_login": "nik",
+    "fail2ban_incidents": 0,
+    "notes": "recon 09:38:15Z (read-only, 15s timeouts); main phase1 09:40:50Z; flag phase2 09:44:04Z; >1min pauses, no parallel/pollers; passwords via stdin only (sudo -S, credential-helper), never printed/argv"
+  },
+  "gate": {
+    "command": "requirements_gate.py check --map plans/features/cfg/requirements-map.json --stage release --candidate 7142ffcf... --deployed-commit 7142ffcf... --repo .",
+    "result": "EXIT 1 (errors=442, full 246-row CFG map; includes unmet post-release rows of CFG-06: 06G.1/06G.4 test-harness canaries and 06G.3 post-release - outside deploy lane scope)",
+    "map_update": "deployed_commit -> 7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+    "parent_status": "NOT DONE; final --stage release pass due after test-harness canaries close mapped rows (per review-rel.md 'Постдеплой' items 3-4)"
+  },
+  "incidents": [
+    {"sev": "info", "desc": "external HTTPS by bare IP fails TLS handshake (schannel, no SNI) - normal for Caddy by-name hosting; probes done via https://admin-bot.duckdns.org"},
+    {"sev": "info", "desc": "flags.factcheck_pipeline_v2 appeared in PG as 'false' between recon (09:38, absent) and flag phase (09:44): phase-1 boot of 2.58.99 catalog-seeded new ParamSpec keys - expected project behavior"},
+    {"sev": "info", "desc": "DB_PATH probe via system python3 empty (needs venv) as in 98; DDL delta covered by app journal (36->36, pending=[]) - no prod impact"}
+  ],
+  "result": "VERIFIED_DEPLOY + flag enabled (deploy lane); parent NOT DONE until CFG-06 post-release canaries + final --stage release",
+  "artifacts": {
+    "evidence_dir": "plans/features/cfg/evidence/release-25899/",
+    "scratch": "OPENCODE_WORKFLOW_SCRATCH/deploy99/ (recon99.txt, deploy99-run.txt, flag99-run.txt, journal99-since-T0.raw, journal99-since-T1.raw, expect99.txt, scripts recon99/main99/flag99/_expect_99/_cat_count)"
+  }
+}
