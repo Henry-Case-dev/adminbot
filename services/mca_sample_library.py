@@ -1169,7 +1169,11 @@ async def restore_factory_preview(db=None, *,
         return {"available": False, "reason": "db_unavailable",
                 "items": []}
     try:
-        rows = await list_samples(db, chat_id=chat_id, limit=500)
+        # REV-SAMPLES-UX b.1: tombstone-заводские карточки тоже затронуты
+        # восстановлением — без include_tombstoned проверка tombstone ниже
+        # была dead-check, а владелец не видел удалённые строки в diff.
+        rows = await list_samples(db, chat_id=chat_id, limit=500,
+                                  include_tombstoned=True)
     except Exception:
         logger.warning("[humor-samples] restore preview failed", exc_info=True)
         return {"available": False, "reason": "read_error", "items": []}

@@ -3256,18 +3256,29 @@ async def post_examples_why(
             for row in await samples_lib.list_samples(db, chat_id=chat_id,
                                                       status="active")]
     policy, source = await samples_lib.resolve_policy(chat_id)
-    selection = samples_lib.select_samples(
-        rows, chat_id=int(chat_id or 0), technique=str(body.technique or ""),
-        extent=str(body.extent or ""), context=str(body.message or ""),
-        policy=policy)
+    # REV-SAMPLES-UX b.3: диагностика без дрейфа по категориям — тот же
+    # категорийный контур, что в runtime (resolve_refs): юмор-пул с выбранной
+    # техникой и отдельный general-пул (без техники), а не общий список.
+    chat_int = int(chat_id or 0)
+    extent = str(body.extent or "")
+    context = str(body.message or "")
+    humor = samples_lib.select_samples(
+        rows, chat_id=chat_int, technique=str(body.technique or ""),
+        extent=extent, context=context, category="humor", policy=policy)
+    general = samples_lib.select_samples(
+        rows, chat_id=chat_int, technique="", extent=extent,
+        context=context, category="general", policy=policy)
     return {
         "ok": True, "policy_source": source,
         "policy": policy,
-        "library_version": selection.library_version,
-        "reason_code": selection.reason_code,
-        "selected": [dict(r) for r in selection.reasons],
-        "excluded": [dict(r) for r in selection.excluded][:50],
-        "tokens_estimate": selection.tokens_estimate,
+        "library_version": humor.library_version or general.library_version,
+        "reason_code": humor.reason_code if humor.samples
+        else general.reason_code,
+        "selected": [dict(r) for r in
+                     tuple(humor.reasons) + tuple(general.reasons)],
+        "excluded": [dict(r) for r in
+                     tuple(humor.excluded) + tuple(general.excluded)][:50],
+        "tokens_estimate": humor.tokens_estimate + general.tokens_estimate,
         "note": ("Отбор ничего не отправляет: это та же политика, что "
                  "применяется в runtime, показанная на вашем примере."),
     }

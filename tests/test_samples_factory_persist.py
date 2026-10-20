@@ -202,6 +202,19 @@ async def test_restore_preview_lists_only_affected_and_all_needs_confirm(db):
     assert untouched["owner_modified"] is False   # чужие карточки не тронуты
 
 
+@pytest.mark.asyncio
+async def test_restore_preview_includes_tombstoned_factory(db):
+    """REV-SAMPLES-UX b.1: удалённая заводская карточка видна в массовом
+    сравнении перед восстановлением (tombstone-проверка не dead-check)."""
+    row = await _seeded_factory_row(db)
+    await sl.delete_sample(db, row["id"])
+    preview = await sl.restore_factory_preview(db, chat_id=None)
+    assert preview["available"] is True
+    item = next(i for i in preview["items"] if i["id"] == row["id"])
+    assert item["tombstone"] is True
+    assert item["factory_in_code"] is True
+
+
 # ═══ параллельная правка → revision_conflict без потери ════════════════════
 
 @pytest.mark.asyncio

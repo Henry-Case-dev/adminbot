@@ -4790,7 +4790,11 @@ html.cover-editor-open { overflow: hidden; }
 .speech-sample-title {
   display: flex; align-items: center; gap: 8px; min-width: 0;
   cursor: pointer;
+  /* REV-SAMPLES-UX b.2: бейдж статуса («Используется») не переносится
+     по буквам; при нехватке места уходит на отдельную строку карточки. */
+  flex-wrap: wrap;
 }
+.speech-sample-title .badge { flex: 0 0 auto; white-space: nowrap; }
 .speech-sample-title .text-sm { min-width: 0; overflow-wrap: anywhere; }
 .speech-sample-lines { cursor: pointer; min-width: 0; }
 .speech-sample-lines > div {
