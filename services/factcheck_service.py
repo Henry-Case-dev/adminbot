@@ -104,6 +104,56 @@ def _fmt_evidence_date(published_at) -> str:
         return "unknown"
 
 
+# ── CFG-06 W5: человекочитаемый дайджест вердикта для вербализатора ─────────
+# (06A.5: enum-статусы/precision/as_of больше не попадают в payload
+# вербализатора — только человеческие формулировки; «unknown» → слова).
+
+_HUMAN_FACTUAL_VERDICT = {
+    "supported": "утверждение подтверждается доступными данными",
+    "refuted": "доступные данные утверждение не подтверждают",
+    "mixed": "данные противоречивы — утверждение верно лишь частично",
+}
+
+
+def _human_factual_verdict(factual: str | None) -> str:
+    return _HUMAN_FACTUAL_VERDICT.get(
+        str(factual or ""), "данных недостаточно для уверенного вывода")
+
+
+_HUMAN_TEMPORAL_STATUS = {
+    "current": "данные актуальны",
+    "outdated": "данные устарели",
+    "old_but_valid": "данные старые, но к утверждению остаются применимы",
+    "misleading_reuse": "старые данные поданы как свежие",
+}
+
+
+def _human_temporal_status(status: str | None) -> str:
+    return _HUMAN_TEMPORAL_STATUS.get(
+        str(status or ""), "свежесть данных определить не удалось")
+
+
+def _human_evaluated_period(period: dict | None) -> str:
+    """Даты периода проверки по-человечески; дат нет → '' (ключ в payload
+    не попадает, никакого «unknown»/precision в тексте)."""
+    def _fmt(ts):
+        if not ts:
+            return None
+        try:
+            return datetime.datetime.fromtimestamp(
+                int(ts), datetime.timezone.utc).strftime("%d.%m.%Y")
+        except (TypeError, ValueError, OSError, OverflowError):
+            return None
+
+    p = period or {}
+    p_from, p_to = _fmt(p.get("from")), _fmt(p.get("to"))
+    if p_from and p_to and p_from != p_to:
+        return f"с {p_from} по {p_to}"
+    if p_from:
+        return f"на {p_from}"
+    return ""
+
+
 class FactCheckService:
     """Фактчек: поиск фактов по целевому тексту → LLM-вердикт → cleanup."""
 
@@ -123,9 +173,14 @@ class FactCheckService:
         forward_source: str | None = None,
         chat_id: int | None = None,
         chat_context: str | None = None,
+        search_results: str | None = None,
     ) -> str:
         """MCA-17 (`factcheck.run`): терминал verify — success/failed +
-        reason из словаря §17.2, затем делегация в пайплайн 10.22."""
+        reason из словаря §17.2, затем делегация в пайплайн 10.22.
+
+        ``search_results`` (CFG-06 W6, 06C.8): готовая выдача единого
+        retrieval-контура v2 — внутренний поиск агрегатора пропускается
+        (один поиск на прогон). None → прежний путь байт-в-байт."""
         started = time.monotonic()
 
         def duration_ms() -> int:
@@ -135,7 +190,7 @@ class FactCheckService:
             result = await self._check_claim_pipeline(
                 target_text, user_hint=user_hint,
                 forward_source=forward_source, chat_id=chat_id,
-                chat_context=chat_context)
+                chat_context=chat_context, search_results=search_results)
         except AllSearchEnginesFailedException:
             _emit_factcheck("failed", level="WARN", chat_id=chat_id,
                             reason_code="provider_unavailable",
@@ -165,6 +220,7 @@ class FactCheckService:
         forward_source: str | None = None,
         chat_id: int | None = None,
         chat_context: str | None = None,
+        search_results: str | None = None,
     ) -> str:
         """Фактчек-пайплайн (10.22, ADR-1022-3): агрегатор → (System 2:
         Аналитик JSON → Вербализатор) либо одиночный путь 10.21.
@@ -173,6 +229,8 @@ class FactCheckService:
           невалидном JSON/провале Stage-2/исчерпании validator-loop — fallback
           на одиночный путь (пользователь ВСЕГДА получает ответ).
         * OFF → байт-в-байт 10.21 (один вызов `self.llm.generate`/tool-loop).
+        * ``search_results`` (W6): готовая выдача единого retrieval-контура
+          v2 → агрегатор не вызывается; None → прежний поиск байт-в-байт.
         Raises: AllSearchEnginesFailedException (поиск) / LLMError (LLM)."""
         # F7 (ADR-1023-7 D4): один сквозной id на вердикт фактчека.
         correlation_id = usage_events.new_correlation_id()
@@ -183,7 +241,10 @@ class FactCheckService:
         # persisted-значение канона проходит провенанс/вычистку legacy-речи.
         system_prompt = resolve_prompt("prompts.factcheck_system_prompt",
                                        FACTCHECK_SYSTEM_PROMPT)
-        results = await self.aggregator.search(target_text, max_symbols)
+        if search_results is None:
+            results = await self.aggregator.search(target_text, max_symbols)
+        else:
+            results = str(search_results)
         if self.memory is not None and chat_id is not None:
             fire_and_forget(
                 self.memory.memorize_facts(chat_id, results, "search_fact"), "factcheck")
@@ -750,29 +811,39 @@ class FactCheckService:
             base = ("Перескажи проверку фактов кратко и по-человечески. "
                     "СОХРАНИ существенные даты и оговорки; не выдумывай "
                     "дат и фактов; недостаток данных честно называй.")
-        temporal_note = (
-            "Обязательно сохрани в ответе: период проверки "
-            f"({verdict.evaluated_period.get('precision') or 'unknown'}), "
-            "статус актуальности отдельно от фактической оценки, и "
-            "существенную дату (дату оригинала), если она важна. "
-            "Никаких технических схем и reason-кодов в тексте.")
+        # CFG-06 W5 (06A.5/06B, утечка «период проверки (unknown)»):
+        # style_note с техполями удалён; вербализатор получает
+        # человекочитаемый дайджест вердикта, сырые служебные поля
+        # (enum-статусы, precision, as_of, тех-ключи uncertainty) — мимо
+        # payload («unknown» → человеческие слова). Раскладка остального
+        # текста (обёртка сообщений, порядок человекочитаемых ключей,
+        # fallback_note) сохранена — байт-защита тестом W5.
         payload = {
-            "verdict": verdict.factual_verdict,
-            "temporal_status": verdict.temporal_status,
-            "evaluated_period": verdict.evaluated_period,
-            "assessment_mode": verdict.assessment_mode,
-            "as_of": verdict.as_of,
-            "uncertainty": verdict.uncertainty,
-            "parts": list(verdict.parts),
-            "claim": env.claim_text,
-            "style_note": temporal_note,
+            "verdict": _human_factual_verdict(verdict.factual_verdict),
+            "freshness": _human_temporal_status(verdict.temporal_status),
         }
+        period_phrase = _human_evaluated_period(verdict.evaluated_period)
+        if period_phrase:
+            payload["period"] = period_phrase
+        caveats = [str(v).strip()
+                   for v in (verdict.uncertainty or {}).values()
+                   if str(v or "").strip()]
+        if caveats:
+            payload["caveats"] = caveats
+        payload["parts"] = list(verdict.parts)
+        payload["claim"] = env.claim_text
         if fallback_used:
             payload["fallback_note"] = (
                 "структурированный анализ не удался — не утверждай больше, "
                 "чем следует из данных")
+        # UNIFIED-CORE (P0, владелец 20.10.2026): временной вербализатор —
+        # пользовательская речь → тот же штатный шов, что Stage-2/одиночный
+        # путь: Core + Expression владельца ПОСЛЕДНИМ блоком system (характер
+        # по настройкам владельца; блок пуст → сборка байт-в-байт прежняя).
+        owner_block = await speech_owner_block(getattr(env, "chat_id", None))
+        system = f"{base}\n\n{owner_block}" if owner_block else base
         messages = [
-            {"role": "system", "content": base},
+            {"role": "system", "content": system},
             {"role": "user", "content": "ВЕРДИКТ (JSON):\n" + json.dumps(
                 payload, ensure_ascii=False)},
         ]

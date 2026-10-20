@@ -1,0 +1,4 @@
+6312a08c28d765fee10280e0f60f92b11291c647b35397d7bfe353e376de0dc0  plans\features\cfg\evidence\cfg-06\w4-notes.md
+74aa0e1ac1b6846ee4cfe7ca8c7db0854c500c4430fb685724d250d7e83f0d3b  plans\features\cfg\evidence\cfg-06\w4-red-green.txt
+0dcace198154d4e04c2050ef74f856a8160c240949585618f4e1c575e98c014f  services\factcheck_planner.py
+f894bc38c7e5b273dd2261a110eac153ccfc3a10dc77b182df724751d399a5a5  tests\test_factcheck_planner_cfg06.py

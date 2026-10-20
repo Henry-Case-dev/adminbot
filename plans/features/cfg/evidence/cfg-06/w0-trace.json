@@ -1,0 +1,96 @@
+{
+ "deployed_sha": "29cc49ba",
+ "probes": [
+  {
+   "probe": "06A.4 search_queries_for/decompose_claim",
+   "decompose_count": 2,
+   "decompose_is_sentence_split": [
+    "В 2019 году в Килякете выпало рекордное ",
+    "Урожай погиб полностью."
+   ],
+   "queries": [
+    "в 2019 году в килякете выпало рекордное количество осадков. урожай погиб полностью. 2019",
+    "в 2019 году в килякете выпало рекордное количество осадков. урожай погиб полностью."
+   ],
+   "query0_len": 88,
+   "query_is_raw_claim_slice": true
+  },
+  {
+   "probe": "06A.6/06A.7 aggregator output -> evidence rows",
+   "rows": [
+    {
+     "evidence_id": "ev-1",
+     "url": "https://example.org/a",
+     "support_has_url": true
+    },
+    {
+     "evidence_id": "ev-2",
+     "url": "https://example.org/b",
+     "support_has_url": true
+    }
+   ],
+   "structured_url_separate_from_text": true
+  },
+  {
+   "probe": "06A.3 legacy _check_claim_pipeline single 10.21 (SYSTEM2 OFF path not forced; two_call used)",
+   "search_queries_sent_to_aggregator": [
+    {
+     "query": "Дрожжи это грибы и их нельзя есть постящимся",
+     "max_symbols": 8000
+    }
+   ],
+   "llm_calls": [
+    {
+     "step": "stage1",
+     "system_head": "СИСТЕМНАЯ РОЛЬ:\nТы — аналитик-фактчекер. Твоя задача — разобрать проверяемый тез",
+     "user_head": "<claim>Дрожжи это грибы и их нельзя есть постящимся</claim>\n\n<chat_context note=\"...\">\n[01.01.2025 10:00 | Vasya | msg:1"
+    },
+    {
+     "step": "single",
+     "system_head": "СИСТЕМНАЯ РОЛЬ:\nТы — токсичный, ироничный фактчекер, третейский судья в интернет",
+     "user_head": "<claim>Дрожжи это грибы и их нельзя есть постящимся</claim>\n\n<chat_context note=\"...\">\n[01.01.2025 10:00 | Vasya | msg:1"
+    }
+   ],
+   "verdict": "Вердикт-заглушка"
+  },
+  {
+   "probe": "06A.5/06A.7 temporal envelope pipeline",
+   "search_queries_sent_to_aggregator": [
+    "в 2019 году в килякете выпало рекордное количество осадков. урожай погиб полностью. 2019",
+    "в 2019 году в килякете выпало рекордное количество осадков. урожай погиб полностью."
+   ],
+   "llm_call_steps": [
+    "temporal_verdict",
+    "temporal_validator",
+    "temporal_verbalize"
+   ],
+   "verdict_text_sent_to_telegram": "Ответ вербализатора (период проверки unknown - тест)",
+   "verdict_payload_style_note_present": false,
+   "verbalize_user_payload_full": "ВЕРДИКТ (JSON):\n{\"verdict\": \"refuted\", \"temporal_status\": \"unknown\", \"evaluated_period\": {\"from\": null, \"to\": null, \"precision\": \"unknown\"}, \"assessment_mode\": \"contextual\", \"as_of\": 1760900000, \"unce",
+   "evidence_urls_in_final_verbalize_payload": false
+  },
+  {
+   "probe": "06I.2 FACTCHECK_CONTEXT_TOTAL_CAP clamp",
+   "requested": [
+    500,
+    500
+   ],
+   "clamped": [
+    40,
+    0
+   ],
+   "cap": 40
+  },
+  {
+   "probe": "06A.5 style_note source bytes",
+   "lines_753_758": [
+    "        temporal_note = (",
+    "            \"Обязательно сохрани в ответе: период проверки \"",
+    "            f\"({verdict.evaluated_period.get('precision') or 'unknown'}), \"",
+    "            \"статус актуальности отдельно от фактической оценки, и \"",
+    "            \"существенную дату (дату оригинала), если она важна. \"",
+    "            \"Никаких технических схем и reason-кодов в тексте.\")"
+   ]
+  }
+ ]
+}

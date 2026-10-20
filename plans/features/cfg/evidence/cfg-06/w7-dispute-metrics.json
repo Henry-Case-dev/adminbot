@@ -1,0 +1,18 @@
+{
+ "fixture_messages": 260,
+ "wide_context_min": 200,
+ "cap40_exceeded": true,
+ "final_decision": "checkable_in_context",
+ "decision_path": [
+  "checkable_in_context"
+ ],
+ "claim_source": "topic",
+ "antecedent_anchor_tg": 8000,
+ "antecedent_author": "Вася",
+ "expected_author": "Вася",
+ "attribution_ok": true,
+ "recall_antecedent_found": true,
+ "searches_before_verdict": 1,
+ "latency_ms_mock": 4,
+ "delivered_messages": 1
+}

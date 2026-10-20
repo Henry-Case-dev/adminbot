@@ -1,0 +1,46 @@
+{
+ "wave": "CFG-06-W7",
+ "date": "20.10.2026",
+ "composite": {
+  "criterion": "CFG-06.B (L290): gate → реальные источники или честное ограничение → без служебных данных → краткий читаемый Telegram-вердикт с проверяемыми ссылками → единый контракт на всех маршрутах и fallback",
+  "test": "tests/test_factcheck_w7_acceptance_cfg06.py",
+  "scenarios": [
+   {"id": "S1", "name": "осмысленный + источники", "result": "gate=checkable_in_context; план→агрегатор→SafeFetcher (1 fetch, дедуп); href ровно 1; visible без URL; служебных полей нет"},
+   {"id": "S2", "name": "осмысленный без URL-источников", "result": "честное ограничение «первоисточники открыть не удалось»; выдуманных ссылок нет"},
+   {"id": "S3", "name": "движки недоступны (план+внутренний)", "result": "честная ошибка 5.4b из пула; без самоуверенного подтверждения"},
+   {"id": "S4", "name": "бессмысленное", "result": "no_claim_after_context; поиск НЕ запускался (order=[]); короткая реплика из пула"},
+   {"id": "S5", "name": "нуждается в контексте", "result": "needs_context → дозапрос (2 выборки окна) → context_unavailable; продолжение без выдуманного тезиса"},
+   {"id": "S6", "name": "спор-контекст 260 сообщений", "result": "checkable_in_context по доминирующему спору; анцедент tg=8000, автор «Вася» сохранён"},
+   {"id": "S7", "name": "fallback legacy + LLM-ошибка", "result": "честная фраза 5.5 из пула; fallback-ветка отработала под общими guard'ами"},
+   {"id": "S8", "name": "ambiguous (два спора)", "result": "ambiguous_needs_clarification; уточнение через speech_owner_block (последний блок system); поиска нет"}
+  ],
+  "composite_points_proven": ["gate_first", "real_sources_or_honest", "no_service_leak", "readable_verdict_verifiable_links", "single_contract_all_routes_fallback"]
+ },
+ "dispute_200_plus": {
+  "fixture_messages": 260,
+  "wide_context": ">cap-40 (260)",
+  "claim_source": "topic",
+  "antecedent_anchor_tg": 8000,
+  "attribution_ok": true,
+  "recall_antecedent_found": true,
+  "latency_ms_mock": 4,
+  "needs_context_path": "проверен отдельно (S5)",
+  "evidence": "w7-dispute-metrics.json"
+ },
+ "prod_smoke": {
+  "method": "HTTP-only GET /healthz (SSH не использовался — fail2ban-дисциплина)",
+  "response": {"status": "ok", "version": "2.58.98"},
+  "prod_state": "deployed 29cc49ba; W0–W6 не закоммичены → v2-контур на проде ОТСУТСТВУЕТ; флаг FACTCHECK_PIPELINE_V2_ENABLED в прод-коде отсутствует (появит только кандидат)",
+  "rollback_base": "прод жив на 2.58.98 без v2; кандидат включается только флагом после релиза"
+ },
+ "acceptance_06g": [
+  {"req": "CFG-06G.1", "agent": "PARTIAL_PROVEN — атомизация (W2 mixed_claim), осмысленные запросы (W4), источники/первоисточник (W4), различение частей — корпус W2; Saccharomyces-кейс — латиница-сущности покрыты архитектурно, отдельного кейса нет", "live": "владельцу/препрод (live_required)", "proof": "tests W2 corpus, W4 tests, w7 composite S1"},
+  {"req": "CFG-06G.2", "agent": "PROVEN — no_claim без поиска при изученном контексте (S4, корпус W2), короткая реплика без фальшивой базы", "live": "опционально владельцу", "proof": "w7 S4; w2-corpus.json"},
+  {"req": "CFG-06G.3", "agent": "PARTIAL — атрибуция/цитата/автор в резолюции доказаны (W2 CR, W7 S6); privacy участников — тест; отдельный локальный tool «кто сказал» НЕ реализован (за пределом W4-плана)", "live": "—", "proof": "w2 tests (attribution), w7 S6 privacy"},
+  {"req": "CFG-06G.4", "agent": "PROVEN_ON_MOCKS — осмысленный запрос, выдача, дата публикации (meta), inline-href (S1); РЕАЛЬНЫЙ веб-вызов в W7 не выполнялся (платные canary — при включении флага/владельцу)", "live": "владельцу/препрод (live_required), canary при выкате", "proof": "w7 S1; w6 e2e"},
+  {"req": "CFG-06G.5", "agent": "PROVEN — W5 срезал style_note/unknown/precision/as_of (байт-защита), egress-тесты W3/W6/W7: служебных полей в тексте нет", "live": "—", "proof": "w5-renderer.md §3; w6 e2e; w7 S1 common"},
+  {"req": "CFG-06G.6", "agent": "PROVEN (агрегировано по волнам): невалидный JSON/validator-fallback (mca-20 тесты + W3), чужой evidence_id (allowlist), HTML-инъекция/чанки (W5 36 тестов), пустой поиск (S2/S3), таймаут (W6 budget), кеш-хит (W6 renderer), редактирование (target_revision в кеш-компонентах, mca-20 тесты)", "live": "—", "proof": "w5-renderer.md §4; w6; w7 S2/S3"},
+  {"req": "CFG-06G.7", "agent": "PROVEN — трасса маршрутов: skip_search (S4/S8 order=[]), web_used (S1 order=search→verdict), chat_used (W2), метрики attempted/used/refs (W6 digest); «инструмент вызван, а использована выдумка» отсечён allowlist evidence (W3) + grounding-тесты round1021", "live": "—", "proof": "w6 metrics test; w7 scenarios order"},
+  {"req": "CFG-06G.8", "agent": "PROVEN (разметка): parse_mode=HTML, жирный заголовок, href-ссылки, entity-safe чанки ≤4096; мобильный/десктоп-рендер — клиент Telegram", "live": "владельцу (postdeploy, опционально)", "proof": "w5 tests; w7 S1 chunks/href"}
+ ]
+}

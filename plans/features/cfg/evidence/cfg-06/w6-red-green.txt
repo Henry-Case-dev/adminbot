@@ -1,0 +1,25 @@
+== CFG-06 W6 RED/GREEN (20.10.2026) ==
+== RED-1 (join-конфликт §6 воспроизведён): pre-W5 ассерт
+   `assert "example.org" not in bot.sent[0]["text"]`
+   против текущего W5 renderer → FAILED:
+FAILED tests/test_factcheck_planner_cfg06.py::TestOrchestratorAnchor::test_legacy_branch_evidence_filled_args_parity
+1 failed, 2 warnings in 4.42s
+   (демо: OPENCODE_WORKFLOW_SCRATCH/cfg06/w6_join_demo.py break/restore)
+== GREEN-1: после join-патча (§5/§6-контракт: href ровно 1 раз,
+   в visible_text полного URL нет, label = домен) → 1 passed in 4.23s
+== RED-2 (W6-механики до волны): зафиксированы чужой полосой —
+   w5-renderer.md §6 п.1 (join-конфликт W4-теста) и п.2 (envelope
+   cache-hit отвечает plain мимо renderer). Текущее состояние кода:
+   run_retrieval present: True | budget_exhausted: True
+== GREEN-2: tests/test_factcheck_w6_cfg06.py → 6 passed (сквозной
+   egress, cache-hit через renderer, бюджет 06C.8, метрики 06G.7, OFF)
+== GREEN-3: W4-файл после join-патча → 15 passed
+== Финальный общий фокусированный прогон (задача 5):
+   333 passed / 0 failed:
+   orchestrator(16)+planner(15)+gate(18)+context(11)+renderer(36)+W6(6)
+   +unified_core_route_coverage(18 CONTRACT)+handlers+service
+   +two_call+prompts+grounding_cove+tool_grounding+tools+B07
+   +settings_helpers+smart_cache
+== Известные вне диффа (подтверждены отдельным прогоном, ровно 4):
+   test_outgoing_guard_round1022 — 2 FAIL (aiogram-дрейф
+   InputRichMessageMedia), test_asap7_direct_settings — 2 FAIL (v35)

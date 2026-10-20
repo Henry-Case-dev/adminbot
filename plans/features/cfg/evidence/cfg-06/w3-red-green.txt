@@ -1,0 +1,37 @@
+﻿== CFG-06 W3 RED/GREEN (20.10.2026) ==
+== RED: без services/factcheck_orchestrator.py (модуль временно вынесен) ==
+
+=================================== ERRORS ====================================
+_________ ERROR collecting tests/test_factcheck_orchestrator_cfg06.py _________
+ImportError while importing test module 'C:\Code\Python\adminbot\tests\test_factcheck_orchestrator_cfg06.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_factcheck_orchestrator_cfg06.py:26: in <module>
+    from services import factcheck_orchestrator as orch
+E   ImportError: cannot import name 'factcheck_orchestrator' from 'services' (C:\Code\Python\adminbot\services\__init__.py)
+============================== warnings summary ===============================
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+..\..\..\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464
+  C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\site-packages\_pytest\config\__init__.py:1464: PytestConfigWarning: Unknown config option: timeout_method
+  
+    self._warn_or_fail_if_strict(f"Unknown config option: {key}\n")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+ERROR tests/test_factcheck_orchestrator_cfg06.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+2 warnings, 1 error in 2.85s
+== GREEN: с модулем ==
+16 passed, 2 warnings in 3.13s
+
+== Полный фокусированный CFG-06 + швы (orchestrator+gate+W1+handlers+deep-context+route-coverage+service+two-call+settings+smart_cache+B07) ==
+275 passed, 2 warnings in 6.62s
+
+== Известные 2 pre-existing v35 фейла test_asap7_direct_settings — вне диффа (см. w1-red-green.txt stash-прогон) ==

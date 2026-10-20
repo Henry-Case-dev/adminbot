@@ -2699,6 +2699,23 @@ class Settings:
     # Жёсткий суммарный потолок окна (сообщений) — код-кап, НЕ настройка:
     # ClassVar → вне каталога/UI (Δ каталога ровно +2). Ограничивает стоимость.
     FACTCHECK_CONTEXT_TOTAL_CAP: ClassVar[int] = 40
+    # CFG-06 W1 (06I.2): широкий адаптивный контекст фактчека 200–500 —
+    # гейт отката, default OFF (прод-контур не меняется до W3). Hot-ключ
+    # отката без рестарта: flags.factcheck_wide_context.
+    FACTCHECK_WIDE_CONTEXT_ENABLED: bool = _env_bool(
+        "FACTCHECK_WIDE_CONTEXT_ENABLED", False)
+    # CFG-06 W2 (06B/06J): suitability gate до платного поиска — гейт
+    # отката, default OFF; активен только вместе с широким контекстом.
+    # Hot-ключ отката: flags.factcheck_suitability_gate.
+    FACTCHECK_SUITABILITY_GATE_ENABLED: bool = _env_bool(
+        "FACTCHECK_SUITABILITY_GATE_ENABLED", False)
+    # CFG-06 W3 (06H): единый оркестратор run_factcheck — миграционный
+    # рубильник, default OFF (байт-паритет прод-пути 2.58.98). Внутри v2
+    # широкий контекст и suitability-гейт подразумеваются (консолидация
+    # W1/W2-флагов: см. evidence/cfg-06/w3-schemas.md §флаги).
+    # Hot-ключ отката: flags.factcheck_pipeline_v2.
+    FACTCHECK_PIPELINE_V2_ENABLED: bool = _env_bool(
+        "FACTCHECK_PIPELINE_V2_ENABLED", False)
     SEARCH_CONTEXT_MESSAGES: int = _env_int_min("SEARCH_CONTEXT_MESSAGES", 6, 0)
     # LLM-реранкинг выдачи (Anthropic Contextual Retrieval: rerank до −67% промахов).
     SEARCH_RERANK_ENABLED: bool = _env_bool("SEARCH_RERANK_ENABLED", True)

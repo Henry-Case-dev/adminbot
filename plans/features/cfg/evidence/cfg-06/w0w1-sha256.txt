@@ -1,0 +1,6 @@
+a480dcec14367195686e4208c4ce59682751daa1e35b6e711310e3568193b3f9  plans\features\cfg\evidence\cfg-06\w0-audit.md
+875144f534df65ed41d6be590e9b04b7c6503618bf8ad6b5578c04942f8e1e20  plans\features\cfg\evidence\cfg-06\w0-trace.json
+fc0b89a41ffdd8901c21bf6aa54ea8c7293a4270b6ce1958b5de18197d54230d  plans\features\cfg\evidence\cfg-06\w1-red-green.txt
+9da592df5365f2fa08c71b3ac44e308857e8c1ea2fe7c517b0a78f7d786783b6  plans\features\cfg\evidence\cfg-06\w1-notes.md
+4f9a25e09cb229b166db41485e553236b127fe39872bf1fdff2c6c82cda82aaa  services\factcheck_context.py
+16e5a3d2619df6bca2ca99777174de878af058a9af14c38790fa0dbc4a7641c7  tests\test_factcheck_context_cfg06.py

@@ -1,0 +1,5 @@
+69c9405d7a4363e98bb1d07f7ea897bd7337a6115322c4b9a559cfc27105b0fe  plans\features\cfg\evidence\cfg-06\w3-schemas.md
+c7aacb14b149741b58d846e05345d407c486d230511de1f57ae6fbc885879220  plans\features\cfg\evidence\cfg-06\w3-notes.md
+835d81595d2af789f3518ee43224b021459eae2a7de07587b5d8f9ec109b2557  plans\features\cfg\evidence\cfg-06\w3-red-green.txt
+1e2c4646ec1193c56bfba284cdce13d2818c027346933c290ddf2edfb601e8e2  services\factcheck_orchestrator.py
+9e83792917a0ce0844c230802f7285308cf9453939a9d185743106bbee2a66b1  tests\test_factcheck_orchestrator_cfg06.py

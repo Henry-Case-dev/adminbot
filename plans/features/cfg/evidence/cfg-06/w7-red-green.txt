@@ -1,0 +1,14 @@
+== CFG-06 W7 RED/GREEN + приёмка (20.10.2026) ==
+== Композит CFG-06.B: 8 сценариев через единый run_factcheck ==
+S1 осмысленный+источники: gate=checkable → план → агрегатор → SafeFetcher(1) → HTML href×1, visible без URL — passed
+S2 без URL-источников: честное ограничение «первоисточники…не удалось», href=0 — passed
+S3 движки недоступны (план+внутренний): фраза 5.4b, без самоуверенности — passed
+S4 бессмысленное: no_claim, поиск НЕ запускался (order=[]), реплика из пула — passed
+S5 мало контекста: needs_context → дозапрос (2 выборки) → context_unavailable, без выдумки — passed
+S6 спор 260 сообщений: checkable по доминирующему спору; анцедент tg=8000, автор «Вася» — passed
+S7 fallback legacy + LLMError: фраза 5.5 из пула — passed
+S8 два спора: ambiguous → персона-уточнение ([PERSONA] последним блоком), без поиска — passed
+== Спор-фикстура: метрики в w7-dispute-metrics.json (260 сообщений, >кап-40; recall анцедента=1.0; attribution ok; latency_mock=4мс) ==
+== Смоук прода: HTTP-only GET /healthz → 200 {status:ok, version:2.58.98}; SSH не использовался; прод=29cc49ba без v2 (база отката) ==
+== GREEN: tests/test_factcheck_w7_acceptance_cfg06.py → 8 passed ==
+== Финальный общий прогон (с W7): ФАКТ: 341 passed / 0 failed (18 файлов, вкл. W7-набор) ==

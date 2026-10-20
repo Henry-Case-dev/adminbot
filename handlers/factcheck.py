@@ -39,6 +39,7 @@ from services.smartmodule_concurrency import (
 from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
+    FACTCHECK_NO_CLAIM_PHRASES,
     LLM_ERROR_PHRASES,
     SMARTMODULE_BUSY_PHRASES,
 )
@@ -63,6 +64,41 @@ def _temporal_on() -> bool:
         return bool(mca_gates.temporal_factcheck_enabled())
     except Exception:      # pragma: no cover - гейт не бросает
         return False
+
+
+def _pipeline_v2_enabled() -> bool:
+    """CFG-06 W3: миграционный рубильник единого оркестратора (default OFF)."""
+    try:
+        from services import factcheck_orchestrator as orchestrator
+        return orchestrator.pipeline_v2_enabled()
+    except Exception:      # pragma: no cover — гейт не бросает
+        return False
+
+
+async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
+                                 target: types.Message, target_text: str,
+                                 user_hint: str | None,
+                                 forward_source: str | None) -> None:
+    """CFG-06 W3 (06H.2): все входы → один run_factcheck. Кулдаун/пустой
+    таргет — выше по контракту; ошибки — те же семантики фраз внутри
+    оркестратора."""
+    from services import factcheck_orchestrator as orchestrator
+    chat_id = message.chat.id
+    try:
+        default_mode = await _cp_g(
+            chat_id, "temporal.default_mode",
+            getattr(settings, "TEMPORAL_DEFAULT_MODE", "contextual"))
+    except Exception:
+        default_mode = getattr(settings, "TEMPORAL_DEFAULT_MODE", "contextual")
+    kind = "reply" if target is not message else "command"
+    req = orchestrator.FactcheckRequest(
+        chat_id=chat_id,
+        trigger_tg_message_id=message.message_id,
+        target_tg_message_id=target.message_id,
+        target_text=target_text, user_hint=user_hint,
+        forward_source=forward_source, kind=kind,
+        default_mode=str(default_mode or "contextual"))
+    await orchestrator.run_factcheck(req, service=_service, db=_db, bot=bot)
 
 
 async def _factcheck_temporal(message: types.Message, bot: Bot,
@@ -148,14 +184,23 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
         return
     try:
         async with typing_active(bot, chat_id):
-            chat_context = await _fetch_chat_context(
+            chat_context, gate_decision = await _fetch_context_with_gate(
                 chat_id,
                 hot.get("limits.factcheck_context_before",
                         settings.FACTCHECK_CONTEXT_BEFORE),
                 hot.get("limits.factcheck_context_after",
                         settings.FACTCHECK_CONTEXT_AFTER),
                 target_tg_message_id=target.message_id,
-                trigger_message_id=message.message_id)
+                trigger_message_id=message.message_id,
+                claim_text=target_text, user_hint=user_hint)
+            # CFG-06 W2 (06B.3/06J.3): тезиса нет после изучения контекста —
+            # короткая реплика БЕЗ псевдопроверки и БЕЗ платного поиска.
+            if gate_decision is not None \
+                    and gate_decision.decision == "no_claim_after_context":
+                await send_chunked_reply(
+                    bot, chat_id, random.choice(FACTCHECK_NO_CLAIM_PHRASES),
+                    target.message_id)
+                return
             if envelope is not None:
                 run = await _service.check_claim_envelope(
                     envelope, chat_context=chat_context or None)
@@ -208,12 +253,50 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
         permit.release()
 
 
+async def _fetch_context_with_gate(
+        chat_id: int, before: int, after: int, *,
+        target_tg_message_id=None, trigger_message_id=None,
+        claim_text: str | None = None,
+        user_hint: str | None = None):
+    """Контекст + W2 suitability gate (06B.1: один гейт для обоих маршрутов).
+
+    Гейт OFF (default) ИЛИ широкий контекст OFF → (прежний
+    ``_fetch_chat_context``, None) — байт-паритет прод-пути. Гейт ON →
+    протокол двух проходов (needs_context → одно ограниченное расширение,
+    06J.1) на ConversationContext из W1; возврат (фид, решение)."""
+    from services import factcheck_context as _fcx
+    from services import factcheck_suitability as _fsg
+    if not (_fcx.wide_context_enabled()
+            and _fsg.suitability_gate_enabled()):
+        return (await _fetch_chat_context(
+            chat_id, before, after, target_tg_message_id=target_tg_message_id,
+            trigger_message_id=trigger_message_id, claim_text=claim_text),
+            None)
+    decision, ctx = await _fsg.evaluate_with_expansion(
+        _db, chat_id, claim_text=claim_text or "", user_hint=user_hint,
+        target_tg_message_id=target_tg_message_id,
+        trigger_tg_message_id=trigger_message_id,
+        cache=get_smart_cache())
+    feed = ctx.render_feed() if ctx is not None else ""
+    logger.info("[factcheck] suitability gate | chat=%s | decision=%s | "
+                "type=%s | scope=%s | items=%d | conf=%.2f", chat_id,
+                decision.decision, decision.claim_type, decision.scope,
+                len(decision.claim_items), decision.confidence)
+    return feed, decision
+
+
 async def _fetch_chat_context(chat_id: int, before: int, after: int,
                               target_tg_message_id=None,
-                              trigger_message_id=None) -> str:
+                              trigger_message_id=None,
+                              claim_text: str | None = None) -> str:
     """Epic 65 + 10.23 (F2, ADR-1023-2): двунаправленное окно фактчека —
     ``before`` сообщений старше целевого + якорь + ``after`` новее (ASC),
     плюс программный граф реплаев вокруг якоря.
+
+    CFG-06 W1 (06I.2): широкий адаптивный контекст 200–500 за гейтом
+    ``flags.factcheck_wide_context`` (default OFF → байт-паритет прежнего
+    пути; включение — этап W3). Гейт ON: успешный широкий фид заменяет окно,
+    пустой/ошибка → fail-open в узкое окно ниже.
 
     Fail-open: ЛЮБАЯ ошибка (БД/цепочка/рендер) → '' (R1023F2-03: рендер
     внутри общего try — прежнее поведение без контекста); цепочка — отдельный
@@ -221,6 +304,14 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
     from services.chat_context import build_chat_context     # локальный импорт — без циклов
     if _db is None:
         return ""
+    # CFG-06 W1: широкий срез строго за флагом (OFF → прежний путь).
+    from services import factcheck_context as _fcx
+    if _fcx.wide_context_enabled():
+        wide = await _fcx.build_factcheck_context(
+            _db, chat_id, target_tg_message_id=target_tg_message_id,
+            trigger_message_id=trigger_message_id, claim_text=claim_text)
+        if wide:
+            return wide
     b, a = _clamp_window(before, after)
     if b <= 0 and a <= 0:
         return ""
@@ -419,6 +510,12 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     # MCA-20 (ADR-1028-20 D3/D9, round 10.44): K1 ON → единый resolver + один
     # envelope-пайплайн + кеш slug `factcheck_temporal` (составной ключ);
     # OFF → легаси-путь ниже БИТ-В-БИТ (легаси slug `factcheck`, d298f1f).
+    # CFG-06 W3 (06H.2): единый оркестратор run_factcheck за миграционным
+    # флагом (default OFF → прежняя развилка байт-в-байт).
+    if _pipeline_v2_enabled():
+        await _factcheck_pipeline_v2(message, bot, target, target_text,
+                                     user_hint, forward_source)
+        return
     if _temporal_on():
         await _factcheck_temporal(message, bot, target, target_text,
                                   user_hint, forward_source)
@@ -446,14 +543,24 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
-            chat_context = await _fetch_chat_context(
+            chat_context, gate_decision = await _fetch_context_with_gate(
                 message.chat.id,
                 hot.get("limits.factcheck_context_before",
                         settings.FACTCHECK_CONTEXT_BEFORE),
                 hot.get("limits.factcheck_context_after",
                         settings.FACTCHECK_CONTEXT_AFTER),
                 target_tg_message_id=target.message_id,
-                trigger_message_id=message.message_id)
+                trigger_message_id=message.message_id,
+                claim_text=target_text, user_hint=user_hint)
+            # CFG-06 W2 (06B.3/06J.3): короткая реплика без поиска —
+            # без кеш-записи (идемпотентность 59.2 сохранена).
+            if gate_decision is not None \
+                    and gate_decision.decision == "no_claim_after_context":
+                await send_chunked_reply(
+                    bot, message.chat.id,
+                    random.choice(FACTCHECK_NO_CLAIM_PHRASES),
+                    target.message_id)
+                return
             verdict = await _service.check_claim(
                 target_text, user_hint, forward_source, chat_id=message.chat.id,
                 chat_context=chat_context or None,

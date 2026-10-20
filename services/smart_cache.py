@@ -51,6 +51,9 @@ _NORMALIZERS = {
     # tzr1+related+pipeline). Legacy slug `factcheck` остаётся для
     # OFF-пути (бит-в-бит d298f1f) — namespace сменился без удаления.
     "factcheck_temporal": "text",
+    # CFG-06 W1 (06I.9): кеш широкого контекст-среза (версия+диапазон+ID
+    # сообщений в компонентах ключа; см. services/factcheck_context.py).
+    "factcheck_wide_context": "text",
     "search": "text",
     "youtube": "url",
     "web": "url",
