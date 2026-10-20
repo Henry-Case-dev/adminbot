@@ -1,0 +1,126 @@
+{
+  "lane": "DEVOPS-DEPLOY-258100",
+  "release": "2.58.100",
+  "feature": "samples-ux (sample library: 3 categories, editable factory sets, UI) + SQLite DDL v37",
+  "date_utc": "2026-10-20",
+  "candidate": {
+    "review": "REV-REL-258100",
+    "verdict": "Approved (push + deploy; v37 applies at start; postdeploy: healthz / library data preserved / ERR)",
+    "review_artifact": "plans/features/samples-ux/evidence/release/review-rel.md",
+    "review_candidate": "acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+    "slice_candidate_samples_ux": "27b1165aced5c54faf83845160509b1ad2307318",
+    "deployed_commit": "acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+    "deployed_commit_note": "origin/master; verified on prod (fetch + checkout -B master + rev-parse); samples-ux runtime bytes == 27b1165a (bump has no samples-ux files, review-rel par.1)",
+    "deploy_source": "origin/master",
+    "mutable_worktree_required": false,
+    "write_scope": [
+      "prod repo /var/www/admin_bot (checkout -B master)",
+      "prod SQLite local_database.db ( штатная миграция v37 at service start)",
+      "prod /tmp (transient scripts/env, removed after)",
+      "DevOps scratch OPENCODE_WORKFLOW_SCRATCH/deploy-258100",
+      "plans/features/samples-ux/evidence/release/ (deploy.md, deploy.json)",
+      "plans/features/samples-ux/requirements-map.json deployed_commit field"
+    ]
+  },
+  "pre_state": {
+    "version": "2.58.99",
+    "head": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+    "main_pid": 3966377,
+    "nrestarts": 0,
+    "tracked_mod": 0,
+    "untracked": 13,
+    "healthz": {"status": "ok", "version": "2.58.99"},
+    "db": {"user_version": 36, "humor_samples_rows": 31, "humor_samples_cols": 25}
+  },
+  "post_state": {
+    "version": "2.58.100",
+    "head": "acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+    "branch": "master",
+    "main_pid": 3989095,
+    "nrestarts": 0,
+    "exec_main_start_utc": "2026-10-20T11:37:06Z",
+    "exec_main_status": 0,
+    "active_state": "active",
+    "tracked_mod": 0,
+    "t0_utc": "2026-10-20T11:36:48Z (epoch 1792496208)",
+    "restart_rc": 0,
+    "app_version_pin": 1,
+    "healthz": {"status": "ok", "version": "2.58.100"},
+    "healthz_external_utc": "2026-10-20T11:40:40Z (startup ~4min incl. backup-guard VACUUM)"
+  },
+  "migration_v37": {
+    "journal_markers": [
+      "[database] migrations: start | current user_version=36 | pending=[37]",
+      "[database] migration backup-guard: start | target_version=36",
+      "memory_backup: pre-migration copy created + read-back ok | target_version=36",
+      "[database] migration backup-guard: done in 153.0s",
+      "[database] migration v37: humor_samples +columns ['category','expression_mode','tombstone','tombstone_at','owner_modified','owner_modified_at']",
+      "[database] migration v37: category backfill {'mat': 12, 'humor': 16, 'legacy': 3, 'mode_from_tag': 12}",
+      "[database] migration v37 applied in 0.3s | humor_samples_v37",
+      "[database] migrations: complete | user_version=37 | total 153.3s"
+    ],
+    "user_version": "36 -> 37",
+    "columns_added": 6,
+    "rows_before": 31,
+    "rows_after": 31,
+    "cols_before": 25,
+    "cols_after": 31,
+    "backfill_counts": {"mat": 12, "humor": 16, "legacy": 3, "mode_from_tag": 12},
+    "post_category_distribution": {"humor": 16, "legacy": 3, "mat": 12},
+    "post_expression_mode": {"off": 4, "occasional": 4, "frequent": 4, "empty": 19},
+    "data_preservation": "rows unchanged 31->31; category dist == backfill counts; id/text/approved fields untouched by design (additive ALTER + backfill UPDATE category/mode only)",
+    "backfill_errors": 0,
+    "samples_warnings": 0,
+    "probe_limitation": "tombstone-distribution probe used wrong column id (is_tombstoned vs tombstone) - not captured; probe-side bug only, no prod impact"
+  },
+  "journal_since_T0": {
+    "lines": 311,
+    "err_lines": 2,
+    "err_classification": "single incident inc_c16332769f7648179ffeb44f57bf3ab3, reason_code=incident_opened, pipeline_type=vision.media, stage=takeover (11:40:01-02Z) - restart artifact: old PID logged '[vision] drain timeout | inflight=1' at 11:36:54Z (planned-stop drain); vision worker healthy after 11:40:02Z start (5s ticks OK, no failures); pre-existing restart pattern, NOT a 2.58.100 defect; runtime ERR after stabilization = 0",
+    "crit": 0,
+    "traceback": 0,
+    "migration_v36_lines": 0,
+    "config_cache_init": "settings=532 roles=4 admins=3",
+    "prompt_migrations": "13x 'кастом юзера — НЕ трогаем' preserved (precedent pattern); others already canonical"
+  },
+  "smoke": {
+    "healthz_loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.100\"} (11:42:43Z)",
+    "healthz_external": "200 {\"status\":\"ok\",\"version\":\"2.58.100\"} (11:40:40Z, admin-bot.duckdns.org)",
+    "web_route": "/web/ 200",
+    "served_app_js": "200, sha256 db8457cafa9b520641123524badba771caee414a95d4e29d0111594cba2cf2c7 == prod disk == local git blob acc285d7:web/app.js",
+    "chat_messages": "NONE sent (lane prohibition)",
+    "factcheck_flag": "not touched (ON since 2.58.99)"
+  },
+  "rollback": {
+    "used": false,
+    "cold": "git checkout -f 7142ffcf47ce4667cf22113c56881d3f1abb29a2 (== origin/release/fix-2.58.99, verified on prod after fetch: RB=7142ffcf) + sudo systemctl restart admin_bot -> 2.58.99",
+    "compatibility": "v37 schema safe for old code: all +6 columns NOT NULL DEFAULT / nullable (review-rel par.3); re-deploy of 2.58.100 idempotent",
+    "data_fallback": "pre-migration backup on prod (pre_migration_*, created by backup-guard before DDL, read-back ok)"
+  },
+  "gate": {
+    "command": "requirements_gate.py check --map plans/features/samples-ux/requirements-map.json --stage release --repo .",
+    "runs": [
+      {"candidate": "acc285d7", "deployed": "acc285d7", "result": "EXIT 1 errors=129 (row evidence bound to slice candidate 27b1165a)"},
+      {"candidate": "27b1165a", "deployed": "acc285d7", "result": "EXIT 1 errors=1 ('deployed differs from reviewed candidate'; all other checks green)"}
+    ],
+    "cause": "gate v2 compares SHAs literally; release-train deploy (HEAD acc285d7) vs slice-candidate evidence binding (27b1165a) with identical feature bytes is not representable; bindings were NOT rewritten",
+    "map_update": "deployed_commit -> acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
+    "parent_status": "deploy lane VERIFIED; final release verdict for the train - Orchestrator/Reviewer (structural gate limitation documented in deploy.md)"
+  },
+  "incidents": [
+    {"sev": "info", "desc": "vision drain-timeout on old PID stop -> INCIDENT incident_opened (vision.media) takeover on new PID; restart artifact, worker healthy; observation optional outside lane"},
+    {"sev": "info", "desc": "startup with backup-guard VACUUM INTO takes ~4min on prod volume - healthz unavailable ~3min after restart; documented code behavior, plan future windows"},
+    {"sev": "info", "desc": "probe-side bug: tombstone distribution not captured (wrong column id in probe); no prod impact"}
+  ],
+  "ssh_budget": {
+    "connects": 3,
+    "single_login": "nik",
+    "fail2ban_incidents": 0,
+    "notes": "recon 11:35:08Z (ro), main 11:36:46Z, final 11:42:43Z (ro); >1min pauses; passwords via stdin (sudo -S) and SFTP 0600 env file (git askpass), never printed/argv; scrub in outputs; external probes via HTTPS 443 domain"
+  },
+  "result": "VERIFIED_DEPLOY: prod 2.58.100 live, v37 applied cleanly (36->37, +6 cols, 31/31 rows preserved, backfill verified), healthz 200, served bytes == candidate; ERR=2 lines classified as restart artifact",
+  "artifacts": {
+    "evidence_dir": "plans/features/samples-ux/evidence/release/",
+    "scratch": "OPENCODE_WORKFLOW_SCRATCH/deploy-258100/ (recon100.txt, main100-run.txt, final100-run.txt, journal100-since-T0.raw, postdeploy_http.txt, rc100/dp100/fn100 .py+.sh)"
+  }
+}
