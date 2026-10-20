@@ -41,6 +41,7 @@ from services.smartmodule_utils import (
     send_chunked_reply,
 )
 from services.smartmodule_phrases import (
+    FACTCHECK_ATTRIBUTION_MISS_PHRASES,
     FACTCHECK_CLARIFY_PHRASES,
     FACTCHECK_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
@@ -328,6 +329,43 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                        chat_id=req.chat_id)
         return
 
+    # 3b. CFG-06 06G.3 — локальный tool «кто это сказал»: атрибуционный
+    # спор («X сказал Y») решается ПО ConversationContext ДО любого
+    # платного поиска. Совпадения нет → честный отказ БЕЗ домыслов и
+    # БЕЗ внешнего поиска (участники приватного чата в веб не утекают);
+    # реплика найдена → дальше проверяется по существу ТОЛЬКО тезис
+    # (privacy-клейм), атрибуция идёт в EvidenceMap (source_kind=chat).
+    attribution = None
+    attribution_match = None
+    external_claim = req.target_text
+    try:
+        from services import factcheck_attribution as fat
+        attribution = fat.detect_attribution_claim(req.target_text)
+        if (attribution is not None and fat.mention_is_participant(
+                ctx, attribution.author_mention)):
+            attribution_match = fat.resolve_attribution(ctx, attribution)
+            if attribution_match is None:
+                logger.info("[factcheck_v2] attribution miss | chat=%s",
+                            req.chat_id)
+                await send_chunked_reply(
+                    bot, req.chat_id,
+                    random.choice(FACTCHECK_ATTRIBUTION_MISS_PHRASES),
+                    req.target_tg_message_id)
+                tf.stage_event("deliver", "skipped",
+                               reason_code="attribution_not_found",
+                               chat_id=req.chat_id)
+                return
+            external_claim = fat.external_safe_claim(req.target_text, ctx,
+                                                     attribution)
+            logger.info("[factcheck_v2] attribution resolved | chat=%s",
+                        req.chat_id)
+    except Exception:
+        logger.warning("[factcheck_v2] attribution tool failed",
+                       exc_info=True)
+        attribution = None
+        attribution_match = None
+        external_claim = req.target_text
+
     # 4. План: маршрут — внутренняя ветка (не продуктовая развилка).
     use_envelope = envelope is not None and mca_gates.temporal_factcheck_enabled()
     plan = FactcheckPlan(
@@ -343,8 +381,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     # ≤3 запроса (план) + общий дедлайн контура; ошибки — честный fallback
     # на внутренний поиск ветки (search_results=None).
     from services import factcheck_planner as fsp
+    # 06G.3: план строится от privacy-клейма (тезис без участников чата);
+    # без атрибуционного спора external_claim == req.target_text (паритет).
     retrieval_plan = fsp.build_retrieval_plan(decision, ctx=ctx,
-                                              claim_text=req.target_text)
+                                              claim_text=external_claim)
     if retrieval_plan is not None and retrieval_plan.queries:
         logger.info("[factcheck_v2] retrieval plan | chat=%s | queries=%d | "
                     "intents=%s | privacy_dropped=%d", req.chat_id,
@@ -367,6 +407,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
 
     # 5. Ветка вычисления → CheckedVerdict.
     if use_envelope:
+        # 06G.3 privacy: поисковые стадии временной ветки получают тезис
+        # без участников чата (frozen-replace, provenance не меняется).
+        if attribution_match is not None:
+            envelope = fat.with_external_claim(envelope, external_claim)
         verdict = await _run_envelope_branch(req, service, db, bot, cache,
                                              envelope, feed, tf, mca_gates)
     else:
@@ -374,7 +418,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                           if retrieval_outcome is not None
                           and retrieval_outcome.search_text else None)
         verdict = await _run_legacy_branch(req, service, cache, feed,
-                                           search_results=search_results)
+                                           search_results=search_results,
+                                           target_text=external_claim)
 
     # 6. Presentation (egress-whitelist) → 7. Delivery.
     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
@@ -388,6 +433,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                     "links=%d", req.chat_id,
                     len(retrieval_outcome.evidence_map.refs),
                     len(retrieval_outcome.evidence_map.links()))
+    # 06G.3: атрибуционное evidence (автор/цитата/дата локальной реплики) —
+    # в EvidenceMap текущего прогона (id chat-1, ссылки ev-N не сдвигаются).
+    if attribution_match is not None:
+        verdict = fat.attach_attribution_evidence(verdict,
+                                                  attribution_match)
     presentation = build_presentation(
         verdict, reply_to_message_id=req.target_tg_message_id)
     # CFG-06 W5 (06E): детерминированный renderer → Telegram-HTML
@@ -472,7 +522,8 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
 
 
 async def _run_legacy_branch(req: FactcheckRequest, service, cache,
-                             feed, *, search_results: str | None = None
+                             feed, *, search_results: str | None = None,
+                             target_text: str | None = None
                              ) -> CheckedVerdict:
     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
     же аргументами, что прод-путь 2.58.98 (байт-паритет ветки), slug
@@ -480,14 +531,18 @@ async def _run_legacy_branch(req: FactcheckRequest, service, cache,
 
     W6 (06C.8): ``search_results`` — выдача единого retrieval-контура v2
     (один поиск на прогон); None → внутренний поиск ветки (честный fallback),
-    в этом случае план не выполнен и EvidenceMap не наполняется."""
+    в этом случае план не выполнен и EvidenceMap не наполняется.
+    06G.3: ``target_text`` — privacy-клейм (тезис без участников чата);
+    None → req.target_text (байт-паритет неатрибуционных прогонов)."""
     cache_key = cache.build_key("factcheck", _v2_cache_input(req))
     cached = await cache.get(cache_key)
     if cached is not None:
         return CheckedVerdict(verdict_text=str(cached), route="legacy_single",
                               cache_hit=True)
+    claim_text = str(target_text if target_text is not None
+                     else req.target_text)
     verdict = await service.check_claim(
-        req.target_text, req.user_hint, req.forward_source,
+        claim_text, req.user_hint, req.forward_source,
         chat_id=req.chat_id, chat_context=feed or None,
         search_results=search_results)
     return CheckedVerdict(verdict_text=verdict, route="legacy_single")

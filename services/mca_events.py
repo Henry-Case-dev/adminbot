@@ -326,6 +326,10 @@ REASON_CODES = frozenset({
     "temporal_insufficient_evidence", "temporal_source_unavailable",
     "temporal_media_pending", "temporal_fallback_mode",
     "temporal_cache_disabled", "fact_check_disabled",
+    # расширение CFG-06 06G.3 (спор «кто это сказал»: локальная резолюция
+    # по ConversationContext без совпадения → честный отказ, внешний поиск
+    # не вызывается; privacy — участники чата не утекают в веб).
+    "attribution_not_found",
     # расширение ASAP 8 v6.3 (B01/B02 W1-CHAT-INTEL; §17.2 — словарь
     # расширяемый): честные исходы observer инициативы и семантического
     # опыта; машинные оси при отсутствующем коде несут значение в stage.

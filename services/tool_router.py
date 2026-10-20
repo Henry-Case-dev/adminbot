@@ -2469,6 +2469,26 @@ class ToolRouter:
                 return _json.dumps({"status": "failed",
                                     "reason": "temporal_insufficient_evidence"},
                                    ensure_ascii=False)
+            # CFG-06 06G.3: атрибуционный спор («кто это сказал») —
+            # локальная резолюция по ConversationContext ДО платного
+            # поиска; совпадения нет → честный skip БЕЗ внешнего поиска
+            # (участники приватного чата в веб не утекают), реплика
+            # найдена → поисковые стадии получают privacy-клейм (тезис).
+            try:
+                from services import factcheck_attribution as fat
+                attribution = fat.detect_attribution_claim(claim)
+                if (attribution is not None and fat.mention_is_participant(
+                        fctx, attribution.author_mention)):
+                    if fat.resolve_attribution(fctx, attribution) is None:
+                        skip_reason = "attribution_not_found"
+                    else:
+                        envelope = fat.with_external_claim(
+                            envelope,
+                            fat.external_safe_claim(claim, fctx,
+                                                    attribution))
+            except Exception:
+                logger.warning("[tools] fact_check attribution failed",
+                               exc_info=True)
             if skip_reason is not None:
                 tf.stage_event("deliver", "skipped",
                                reason_code=skip_reason, chat_id=ctx.chat_id)

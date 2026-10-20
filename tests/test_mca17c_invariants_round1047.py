@@ -33,7 +33,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_reason_280_single_delta():
     # 279 → 280 (mca-17c) → 285: +5 кодов Initiative v2 (ASAP 8 F6: writer_failed, initiative и др. — см. f6-report §8).
     # v6.3 B01/B02 (W1-CHAT-INTEL): 285→290 (+5: initiative_writer_unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/semantic_parse_error).
-    assert len(mca_events.REASON_CODES) == 301
+    # CFG-06 06G.3 (29b91004): +1 attribution_not_found
+    assert len(mca_events.REASON_CODES) == 302
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
     for alien in ("oversight_cancel", "oversight_resume", "oversight_retry",
@@ -140,7 +141,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.99"
+    assert APP_VERSION == "2.58.100"
 
 
 def test_routes_plus3_and_registration():

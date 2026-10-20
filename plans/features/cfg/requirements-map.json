@@ -6173,7 +6173,7 @@
       "acceptance": "Спор «кто это сказал»: обязательный локальный tool с цитатой/датой/автором, отказ от домыслов без совпадения; участники частного чата не утекают во внешний поиск.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -6182,9 +6182,17 @@
           "observation": "PARTIAL честно: атрибуция/цитата/privacy доказаны (corpus в: автор Петя, dropped_privacy, анцедент tg-якорь), но выделенный локальный tool «кто это сказал» с обязательной цитатой/датой/автором НЕ реализован (атрибуция решается резолюцией контекста).",
           "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
           "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "29b91004b52325c8a97a4bc387caeeda70b21668",
+          "type": "test",
+          "ref": "tests/test_factcheck_attribution_cfg06.py (CONTRACT owner=CFG-06) + services/factcheck_attribution.py (fat1)",
+          "observation": "CFG-06G.3 закрыт локальным tool «кто это сказал» в инфраструктуре фактчека v2 (services/factcheck_attribution.py, интеграция: оркестратор _run_inner этап 3b + tool-маршрут fact_check v2-ветка): клейм «X сказал Y» → детерминированное распознавание (без LLM) → локальная резолюция реплики-источника в ConversationContext v2: автор (участник) + дословная цитата + дата/время → EvidenceRef(source_kind=chat, url=None) в EvidenceMap текущего прогона (id chat-1, ev-N ссылки не сдвигаются). Совпадения нет → честный отказ (attribution_not_found, пул FACTCHECK_ATTRIBUTION_MISS_PHRASES) БЕЗ домыслов и БЕЗ внешнего поиска (агрегатор не вызывается — тест). Реплика найдена → по существу проверяется только тезис: external_safe_claim вычищает участников чата (включая упомянутого автора) из поисковых запросов на ВСЕХ ветках (legacy, temporal-envelope, tool-route) — регресс W4-инварианта privacy; публичные фигуры («Путин сказал») идут обычным контуром без изменений. Всё за FACTCHECK_PIPELINE_V2_ENABLED; OFF-паритет тестом (tool-маршрут: клейм не менялся, gate не вызывается). Фикс выполнен поверх 29b91004 БЕЗ коммита (запрещено: параллельный lane samples-ux; изменение в рабочем дереве). Прогоны: новый файл 21 passed; focused factcheck-семья (orchestrator/gate/context/planner/renderer/tool_route) + unified_core_route_coverage 18 → 144 passed; расширенная семья (w6/w7/handlers/service и др.) → 189 passed; tool_router/observability/tool_loop → зелёные.",
+          "artifact_path": "tests/test_factcheck_attribution_cfg06.py",
+          "artifact_sha256": "4eb1ec1bfb404cc91cfff9d4044a593207e47e3386825e23f1fec8aabe70ad25"
         }
       ],
-      "note": "Честный гап (не закрывается тестом): нужен локальный chat-history tool «кто сказал» с цитатой/датой/автором и отказом от домыслов; участник не утекает во внешний поиск (privacy уже доказан). Строка в списке гапов для оркестратора."
+      "note": "Закрыто 20.10.2026 (лейн CFG-06G3): локальный tool «кто это сказал» — services/factcheck_attribution.py; детекция клейма, локальная резолюция по ConversationContext (автор+цитата+дата), честный отказ без домыслов и без внешнего поиска, privacy участников на всех ветках. Историческая PARTIAL-запись @5af56d8b сохранена (честный гап W7); VERIFIED по фиксу поверх 29b91004 (коммитить запрещено — параллельный lane samples-ux), артефакт — контракт-тесты."
     },
     {
       "source_id": "L00284",
