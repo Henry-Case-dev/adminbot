@@ -1,11 +1,11 @@
-"""CFG-07C-G — словарь egress-классов public_speech_guard.
+"""CFG-07C-G — словарь egress-классов и runtime-guard public_speech_guard.
 
 ЕДИНЫЙ ИСТОЧНИК honesty-классов («честное ограничение / честный отказ /
 честная недоступность / подтверждённый вердикт») и FORBIDDEN-словаря
 метаречи для тест-гардов CFG-07A.3/.5, CFG-07D.1/.2
-(tests/test_cfg07_egress_dictionary.py) и будущего guard'а на точке
-outbound (07C.1–.6 — интеграция на delivery-швах, отдельная волна;
-этот файл — её основа по cfg-07-build-plan.md §3 «Переиспользовать»).
+(tests/test_cfg07_egress_dictionary.py) и runtime-guard'а на точке
+outbound (07C.1–.6, CFG-07CG-TAIL: детерминированный `guard_public_text`
+на delivery-швах фактчека v2 — factcheck_orchestrator + tool_route).
 
 Границы словаря (07A.7 — НЕ растущий black-list):
 
@@ -23,8 +23,9 @@ outbound (07C.1–.6 — интеграция на delivery-швах, отдел
   контексте разрешает честное объяснение возможностей (07A.5) — блокировка
   метаречи не подменяет правду;
 * каноны фактчека/промптов не трогаются (W3-фриз CFG-06); модуль —
-  read-only проекция + детерминированные предикаты, 0 LLM-вызовов;
-  машинные артефакты корпуса (FA-*) — территория 07D.5-guard'а;
+  детерминированные предикаты + детерминированный sanitize (0 LLM-
+  вызовов, 0 сетевых обращений);
+* машинные артефакты корпуса (FA-*) — территория 07D.5-guard'а;
 * предикаты применяются к ОТВЕТАМ модели (реплики, fallback-фразы),
   НЕ к байтам канонов: каноны легитимно содержат запреты-примеры
   (блок ANTI_BOT перечисляет запрещённые самоописания дословно).
@@ -266,13 +267,25 @@ def is_honest_unavailability(text) -> bool:
     return _has_phrase(text, HONEST_UNAVAILABLE)
 
 
+def is_honest_limitation(text) -> bool:
+    """Текст — каноническое честное ограничение (пул/пример в классе).
+
+    Наблюдение 3 review-07cg: PC-01 «проверил — не нашёл подтверждений»
+    и honest_limitation-каноны renderer'а должны проходить allow-путь,
+    иначе хвостовой guard на delivery-швах режет честное ограничение."""
+    return _has_phrase(text, HONEST_LIMITATION)
+
+
 def honest_failure_is_allowed(text) -> bool:
-    """Честный отказ/недоступность без overclaim и без метаречи.
+    """Честный отказ/недоступность/ограничение без overclaim и без
+    метаречи.
 
     Инвариант CFG-07A.3/07D.2: честные пулы проходят; «я проверил всё
-    в интернете» и backstage-формулы — нет."""
+    в интернете» и backstage-формулы — нет. Наблюдение 3 review-07cg:
+    honest_limitation (PC-01, «Недостаточно данных») входит в allow-путь."""
     t = str(text or "")
-    return ((is_honest_refusal(t) or is_honest_unavailability(t))
+    return ((is_honest_refusal(t) or is_honest_unavailability(t)
+             or is_honest_limitation(t))
             and not claims_total_verification(t)
             and not contains_backstage_metatext(t))
 
@@ -298,3 +311,87 @@ def is_explicit_admin_context(text) -> bool:
     об устройстве/возможностях бота (07A.5)."""
     body = str(text or "").casefold()
     return any(m in body for m in _ADMIN_QUESTION_MARKERS)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Runtime-guard на точке outbound (07C.1–.5, CFG-07CG-TAIL)
+# Детерминированный sanitize: 0 LLM-вызовов, факты/ссылки/имена/цитаты/
+# числа не меняются; honesty-классы и админ-контекст проходят байт-в-байт.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@dataclasses.dataclass(frozen=True)
+class GuardResult:
+    """Итог guard'а на одном outbound-тексте.
+
+    ``text`` — что доставлять: исходный текст (чисто/honesty/админ),
+    урезанный (маркеры срезаны, факты целы) или "" (вырожденный остаток —
+    шов ОБЯЗАН подставить честный класс: enum-статус/пул, 07C.4).
+    ``findings`` — головные фразы семей + ``overclaim:total_verification``.
+    """
+
+    text: str
+    findings: tuple[str, ...] = ()
+    changed: bool = False
+    admin_context: bool = False
+    repaired: bool = True
+
+
+_ALL_MARKER_RES: tuple[re.Pattern, ...] = tuple(
+    r for _fam, rs in _MARKERS for r in rs)
+
+
+def _wrap_strip_re(r: re.Pattern) -> re.Pattern:
+    """Срез-версия маркера: захват окружающих пробелов и одной висячей
+    запятой/двоеточия («По моим логам, источники…» → «источники…»,
+    «проверил всё в интернете: тезис…» → «тезис…») без огрызков."""
+    return re.compile(rf"\s*(?:{r.pattern})(?:\s*[,:])?", re.IGNORECASE)
+
+
+_STRIP_RES: tuple[re.Pattern, ...] = tuple(
+    _wrap_strip_re(r) for r in _ALL_MARKER_RES + _TOTAL_RE)
+
+
+def _strip_matches(text: str) -> str:
+    """Срез FORBIDDEN-формул/overclaim + уборка следов вырезания (пустые
+    скобки, двойные пробелы, висячая пунктуация в начале). Меняет ТОЛЬКО
+    найденные формулы — содержательные слова/числа остаются."""
+    out = text
+    for r in _STRIP_RES:
+        out = r.sub(" ", out)
+    out = re.sub(r"\(\s*\)", " ", out)
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    return re.sub(r"^[\s,;:\-–—]+", "", out)
+
+
+def guard_public_text(text, *, admin_context: bool = False) -> GuardResult:
+    """Egress-guard одного исходящего текста (07C.1/.2): детерминированно,
+    без LLM, fail-soft (внутренняя ошибка → исходный текст без флагов).
+
+    Порядок решения: пустой/честный класс/админ-контекст → байт-в-байт;
+    FORBIDDEN-маркеры и overclaim-формулы → срез + findings; результат без
+    букв/цифр → ``text=""`` (вырожден, шов подменяет честным классом).
+    Применяется ТОЛЬКО к ответам модели — не к клеймам, поисковым
+    запросам, машинному JSON и логам (07C.5)."""
+    src = str(text or "")
+    try:
+        if not src.strip():
+            return GuardResult(text=src, admin_context=bool(admin_context))
+        if admin_context:
+            # Наблюдение 4 review-07cg: легитимная техсправка админу не
+            # режется (развязка через is_explicit_admin_context на шве).
+            return GuardResult(text=src, admin_context=True)
+        if honest_failure_is_allowed(src):
+            return GuardResult(text=src)
+        findings = list(find_backstage_metatext(src))
+        overclaim = claims_total_verification(src)
+        if overclaim:
+            findings.append("overclaim:total_verification")
+        if not findings:
+            return GuardResult(text=src)
+        cleaned = _strip_matches(src)
+        repaired = bool(re.search(r"[0-9a-zа-яё]", cleaned, re.IGNORECASE))
+        return GuardResult(text=cleaned if repaired else "",
+                           findings=tuple(findings), changed=True,
+                           repaired=repaired)
+    except Exception:      # fail-soft: guard не роняет доставку
+        return GuardResult(text=src, admin_context=bool(admin_context))

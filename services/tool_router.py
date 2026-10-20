@@ -52,6 +52,7 @@ bounded попытка `download(url, None)`. Кулдаун (D279) — толь
 """
 import asyncio
 import datetime
+import dataclasses
 import hashlib
 import json
 import logging
@@ -2340,6 +2341,36 @@ class ToolRouter:
 
     # ── fact_check (MCA-20, ADR-1028-20 D4/§7.5, round 10.44) ─────────────
 
+    @staticmethod
+    def _guard_tool_verdict(run):
+        """CFG-07C-G-хвост (07C.5, v2-only): human-language verdict-текст
+        tool-ответа агент ретранслирует в чат → public_speech_guard.
+        Служебные поля конверта (reason-коды/статусы/даты/claim) — машинный
+        JSON, НЕ трогаются (07C.5: guard не применяется к машинному JSON).
+        Возврат: guarded run | None (контент невыразим → шов отвечает
+        честным failed). Сбой guard'а → run как есть (fail-soft)."""
+        try:
+            from services.public_speech_guard import guard_public_text
+            g = guard_public_text(run.verdict_text)
+        except Exception:
+            logger.warning("[tools] fact_check speech guard failed — "
+                           "passthrough", exc_info=True)
+            return run
+        if not g.findings:
+            return run
+        logger.warning("[tools] fact_check guard | findings=%s | "
+                       "repaired=%s", ",".join(g.findings), g.repaired)
+        try:
+            from services import temporal_factcheck as tf
+            tf.stage_event("egress_guard", "flagged",
+                           reason_code=",".join(g.findings)[:120])
+        except Exception:      # события не рвут tool-ответ
+            pass
+        if not g.text:
+            return None
+        return (dataclasses.replace(run, verdict_text=g.text)
+                if g.changed else run)
+
     async def _fact_check(self, arguments: dict, ctx: ToolContext) -> str:
         """Tool временного фактчека (канон 14): ОДИН адаптер к общему
         сервису (FactCheckService.check_claim_envelope) — не второй
@@ -2499,6 +2530,15 @@ class ToolRouter:
             if v2:
                 run = await service.check_claim_envelope(
                     envelope, chat_context=feed or None)
+                run = self._guard_tool_verdict(run)
+                if run is None:
+                    # CFG-07C-G-хвост: вердикт-текст невыразим (сплошная
+                    # метаречь) → честный failed БЕЗ записи прогона и БЕЗ
+                    # ретранслируемой агентом метаречи (07C.4).
+                    return _json.dumps(
+                        {"status": "failed",
+                         "reason": "temporal_insufficient_evidence"},
+                        ensure_ascii=False)
             else:
                 run = await service.check_claim_envelope(envelope)
         except Exception as exc:

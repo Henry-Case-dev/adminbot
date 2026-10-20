@@ -363,5 +363,5 @@ class TestValidatorStage:
         initiative_sent) → 285 — вне validator-стадии."""
         from services import mca_events
         # v6.3 B01/B02 (W1-CHAT-INTEL): 285→290 (+5: initiative_writer_unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/semantic_parse_error).
-        assert len(mca_events.REASON_CODES) == 301
+        assert len(mca_events.REASON_CODES) == 302
         assert tf.TEMPORAL_VALIDATOR_SYSTEM

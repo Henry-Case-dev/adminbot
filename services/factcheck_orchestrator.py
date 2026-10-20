@@ -26,6 +26,10 @@ FactcheckPresentation. Полное описание —
   служебных полей в тексте срезаются детерминированно;
 * шов UNIFIED-CORE: короткая персона-реплика получает `speech_owner_block`
   ПОСЛЕДНИМ блоком system-сообщения (как Вербализатор Stage-2, MCA-08);
+* CFG-07C-G-хвост: egress-guard `public_speech_guard` на всех outbound-
+  швах v2 (07C.1–.5) — busy/no_claim/ambiguous/attribution_miss/error-
+  реплики и presentation-текст ДО renderer'а; honesty-классы и чистые
+  тексты байт-в-байт, детерминированный срез маркеров, честный fail-soft;
 * OFF (default) → handler идёт прежним путём 2.58.98 байт-в-байт.
 """
 from __future__ import annotations
@@ -221,6 +225,8 @@ async def persona_short_reply(service, chat_id: int, *, instruction: str,
                                          step="short_reply")
         text = cleanup_llm_text(strip_reasoning_tags(str(raw))).strip()
         if text:
+            text = _guard_outbound(text, where="short_reply")
+        if text:
             return _egress_clean(text)
     except Exception:
         logger.info("[factcheck_v2] persona short reply failed — canned "
@@ -228,6 +234,65 @@ async def persona_short_reply(service, chat_id: int, *, instruction: str,
     if fallback_phrases:
         return random.choice(tuple(fallback_phrases))
     return ""
+
+
+# ── CFG-07C-G-хвост: egress-guard на outbound-швах v2 (07C.1–.5) ─────────────
+
+def _guard_outbound(text: str, *, where: str,
+                    chat_id: int | None = None) -> str:
+    """public_speech_guard на одном исходящем тексте v2-контура.
+
+    Чистые тексты и honesty-классы проходят байт-в-байт; FORBIDDEN-маркеры
+    и overclaim-формулы срезаются детерминированно (факты/числа/ссылки не
+    меняются). Fail-soft (как в renderer-шве): любой сбой guard'а →
+    исходный текст — доставку не рвёт; вырожденный остаток → "" (шов
+    подставляет честный класс)."""
+    try:
+        from services.public_speech_guard import guard_public_text
+        res = guard_public_text(text)
+    except Exception:
+        logger.warning("[factcheck_v2] speech guard failed — passthrough | "
+                       "seam=%s", where, exc_info=True)
+        return text
+    if not res.findings:
+        return text
+    logger.warning("[factcheck_v2] speech guard | seam=%s | findings=%s | "
+                   "repaired=%s | chat=%s", where, ",".join(res.findings),
+                   res.repaired, chat_id)
+    try:
+        from services import temporal_factcheck as tf
+        tf.stage_event("egress_guard", "flagged",
+                       reason_code=",".join(res.findings)[:120],
+                       chat_id=chat_id)
+    except Exception:      # события не рвут доставку
+        pass
+    return res.text
+
+
+def _apply_delivery_guard(presentation: FactcheckPresentation,
+                          verdict: CheckedVerdict
+                          ) -> tuple[FactcheckPresentation, CheckedVerdict]:
+    """Guard на presentation/delivery-шве (07C.1/.4): payload после Writer
+    (check_claim*/кеш-хит), ДО сериализации renderer'ом. Урезанный payload
+    сохраняет enum-вердикт (реальный статус CheckedVerdict); вырожденный
+    остаток → честный статус: заголовок enum или молчание с 🗿
+    (LLMBadResponseError) — fail-soft не выдаёт фиктивно уверенный
+    вердикт. Кеш пишет сырой текст: guard идемпотентен и применяется при
+    каждой доставке."""
+    guarded = _guard_outbound(presentation.text, where="delivery")
+    if guarded == presentation.text:
+        return presentation, verdict
+    if not guarded:
+        from services.factcheck_renderer import _VERDICT_HEADLINE
+        headline = _VERDICT_HEADLINE.get(str(verdict.factual_verdict or ""))
+        if not headline:
+            raise LLMBadResponseError("factcheck_v2: verdict unguardable")
+        logger.warning("[factcheck_v2] delivery unguardable — enum status "
+                       "only | route=%s | enum=%s", verdict.route,
+                       verdict.factual_verdict)
+        verdict = dataclasses.replace(verdict, factual_verdict=None)
+        guarded = headline
+    return dataclasses.replace(presentation, text=guarded), verdict
 
 
 # ── Оркестратор ──────────────────────────────────────────────────────────────
@@ -250,7 +315,9 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
         from services.smartmodule_phrases import SMARTMODULE_BUSY_PHRASES
         logger.warning("[factcheck_v2] concurrency slot timeout | chat=%s",
                        chat_id)
-        await _reply(bot, chat_id, random.choice(SMARTMODULE_BUSY_PHRASES),
+        await _reply(bot, chat_id,
+                     _guard_outbound(random.choice(SMARTMODULE_BUSY_PHRASES),
+                                     where="busy", chat_id=chat_id),
                      req.trigger_tg_message_id)
         return
     try:
@@ -263,16 +330,23 @@ async def run_factcheck(req: FactcheckRequest, *, service, db, bot,
         await react_moai(bot, chat_id, req.target_tg_message_id)
     except AllSearchEnginesFailedException:
         logger.exception("[factcheck_v2] search failed | chat=%s", chat_id)
-        await _reply(bot, chat_id, random.choice(FACTCHECK_ERROR_PHRASES),
+        await _reply(bot, chat_id,
+                     _guard_outbound(random.choice(FACTCHECK_ERROR_PHRASES),
+                                     where="search_error", chat_id=chat_id),
                      req.target_tg_message_id)
     except LLMError as exc:
         logger.warning("[factcheck_v2] LLM failed | chat=%s | error=%s",
                        chat_id, exc)
-        await _reply(bot, chat_id, random.choice(LLM_ERROR_PHRASES),
+        await _reply(bot, chat_id,
+                     _guard_outbound(random.choice(LLM_ERROR_PHRASES),
+                                     where="llm_error", chat_id=chat_id),
                      req.target_tg_message_id)
     except Exception:
         logger.exception("[factcheck_v2] unexpected error | chat=%s", chat_id)
-        await _reply(bot, chat_id, random.choice(LLM_ERROR_PHRASES),
+        await _reply(bot, chat_id,
+                     _guard_outbound(random.choice(LLM_ERROR_PHRASES),
+                                     where="unexpected_error",
+                                     chat_id=chat_id),
                      req.target_tg_message_id)
     finally:
         permit.release()
@@ -309,7 +383,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     # 3. Gate-маршруты ДО платного поиска (06B.1/06J.3).
     scope = decision.scope if decision is not None else "web"
     if decision is not None and decision.decision == fsg.DECISION_NO_CLAIM:
-        text = random.choice(FACTCHECK_NO_CLAIM_PHRASES)
+        text = _guard_outbound(random.choice(FACTCHECK_NO_CLAIM_PHRASES),
+                               where="no_claim", chat_id=req.chat_id)
         await send_chunked_reply(bot, req.chat_id, text,
                                  req.target_tg_message_id)
         tf.stage_event("deliver", "skipped", reason_code="no_claim_after_context",
@@ -349,7 +424,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                             req.chat_id)
                 await send_chunked_reply(
                     bot, req.chat_id,
-                    random.choice(FACTCHECK_ATTRIBUTION_MISS_PHRASES),
+                    _guard_outbound(
+                        random.choice(FACTCHECK_ATTRIBUTION_MISS_PHRASES),
+                        where="attribution_miss", chat_id=req.chat_id),
                     req.target_tg_message_id)
                 tf.stage_event("deliver", "skipped",
                                reason_code="attribution_not_found",
@@ -440,6 +517,11 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                                                   attribution_match)
     presentation = build_presentation(
         verdict, reply_to_message_id=req.target_tg_message_id)
+    # CFG-07C-G-хвост (07C.1): egress-guard на outbound-payload — после
+    # Writer (check_claim*/кеш-хит), ДО сериализации renderer'ом. Renderer
+    # при этом добавляет enum-заголовок из того же (обновлённого) вердикта,
+    # поэтому фиктивно уверенного вердикта не возникает.
+    presentation, verdict = _apply_delivery_guard(presentation, verdict)
     # CFG-06 W5 (06E): детерминированный renderer → Telegram-HTML
     # (bold-вердикт по enum CheckedVerdict, структура, ссылки ТОЛЬКО из
     # EvidenceMap текущего прогона); entity-safe доставка через

@@ -336,12 +336,16 @@ async def test_attribution_miss_after_real_check_is_honest_refusal(v2_on):
     честный отказ «не нашёл» из пула; проверки и внешнего поиска нет."""
     agg = SpyAggregator()
     svc = SpyService()
+    # Наблюдение 1 review-07cg: SpyAggregator инжектится в retrieval-шов
+    # run_factcheck (getattr(service, "aggregator")) — ассерт ниже связан
+    # с реальным агрегатором, а не пустышкой.
+    svc.aggregator = agg
     bot = FakeBot()
     await run_factcheck(_req(CLAIM_MISS), service=svc,
                         db=FakeDB(rows=_miss_rows()), bot=bot,
                         cache=FakeCache())
     assert svc.check_calls == []             # платная проверка не начиналась
-    assert agg.searches == []                # и внешний поиск (privacy 06G.3)
+    assert agg.searches == []                # внешний поиск тоже (privacy 06G.3)
     assert len(bot.sent) == 1
     text = bot.sent[0]["text"]
     assert text in FACTCHECK_ATTRIBUTION_MISS_PHRASES
