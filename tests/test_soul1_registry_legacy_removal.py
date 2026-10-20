@@ -443,7 +443,15 @@ async def test_direct_base_channel_resolved_through_registry():
         },
     }))
     text, source = await pr.resolve_chat_speech(key, canon, chat_id=777)
-    assert source == "chat" and text == custom
+    # FIX-CFG07A-F1: attested override — по-прежнему действующий слой
+    # (source=chat, владельческая правка цела), но корпусные legacy-маркеры
+    # в payload 7 канонов CFG07A гасятся и в кастом-значениях (на сборке,
+    # хранение не трогается).
+    assert source == "chat"
+    assert "локальная правка чата" in text
+    assert "бот-абьюзер" not in text
+    assert text == pr.suppress_legacy_speech(custom, source="chat",
+                                             custom_clean=True)[0]
     # нет ни override, ни PG → кодовый fallback байт-в-байт
     chat_params.set_chat_params_cache(ChatCache({}))
     hot.set_config_cache(None)

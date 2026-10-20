@@ -647,7 +647,9 @@ def _inherit_view(block_id: str) -> dict:
                 "provenance_reason": resolved.provenance_reason,
                 "stored_sha256_12": resolved.withheld_sha256_12}
     text, _info = pr.suppress_legacy_speech(
-        text, source="global" if present else "default")
+        text, source="global" if present else "default",
+        custom_clean=pr.payload_custom_clean_scope(
+            spec.pg_key, "global" if present else "default"))
     return {"source": "global" if present else "Factory",
             "sha256_12": pr.sha12(text),
             "differs_from_factory": text != factory_default(block_id)}

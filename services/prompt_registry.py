@@ -72,7 +72,10 @@ Factcheck, Summary, Search, Checkup, Youtube, Web (ветки режимов и�
      ПЕРСИСТЕНТНОГО слоя (``chat``/``global``) и только если байты значения
      совпадают с ИЗВЕСТНЫМ каноном. Кастом владельца не переписывается и не
      редактируется «на лету» — он виден как ``legacy_persona_present``
-     (витрина конфликта, W6).
+     (витрина конфликта, W6). ИСКЛЮЧЕНИЕ (FIX-CFG07A-F1, deploy 2.58.101):
+     для 7 не-фактчек канонов CFG-07A-2 (``CFG07A_PAYLOAD_CLEAN_KEYS``)
+     корпусные legacy-маркеры (07A-1) гасятся и в кастом-значениях —
+     на сборке effective-payload, сам текст в PG не меняется.
   4. Кодовый fallback (PG недоступен) остаётся байт-в-байт прежним:
      OFF-паритет W2 (``evidence/direct-runtime-assembly.txt``) сохраняется,
      а нормализация самих фабричных редакций — отдельный шаг JB-3/W2-factory.
@@ -1525,7 +1528,37 @@ class EffectivePrompt:
         return "Global Custom" if self.differs_from_factory else "Factory"
 
 
-def suppress_legacy_speech(text: str, *, source: str) -> tuple:
+#: FIX-CFG07A-F1 (deploy 2.58.101, ADR-1013-3): 7 не-фактчек канонов
+#: CFG-07A-2. Прод-значения этих ключей — кастом владельца (прежний канон +
+#: владельческая правка), поэтому анти-backstage чистка 07A-2 по дизайну
+#: «защиты кастома» не достигла effective-пейлоадов. Для ТОЛЬКО этих ключей
+#: корпусные legacy-маркеры (07A-1) гасятся и в кастом-значениях — на
+#: сборке payload, без записи в PG. Фактчек-каноны (W3-freeze) и прочие
+#: блоки в скоуп не входят: их кастом по-прежнему не правится.
+CFG07A_PAYLOAD_CLEAN_KEYS: frozenset = frozenset({
+    "prompts.direct_chat_system_prompt",
+    "prompts.summary_system_prompt",
+    "prompts.checkup_system_prompt",
+    "prompts.search_system_prompt",
+    "prompts.youtube_system_prompt",
+    "prompts.youtube_video_system_prompt",
+    "prompts.webpage_system_prompt",
+})
+
+
+def payload_custom_clean_scope(pg_key: str, source: str) -> bool:
+    """F1-скоуп корпусной чистки кастома: 7 канонов × persisted-слой.
+
+    ``True`` ⇒ ``suppress_legacy_speech`` вправе гасить корпусные
+    legacy-маркеры и в значении, не совпадающем байтами с известным
+    каноном. Кодовый fallback (``default``) и ключи вне скоупа — никогда.
+    """
+    return (source in ("chat", "global")
+            and str(pg_key or "") in CFG07A_PAYLOAD_CLEAN_KEYS)
+
+
+def suppress_legacy_speech(text: str, *, source: str,
+                           custom_clean: bool = False) -> tuple:
     """Вычистить известные сегменты legacy-личности из ПЕРСИСТЕНТНОГО значения.
 
     Возвращает ``(текст, LegacySuppression)``. Правила (bounded, точные):
@@ -1534,6 +1567,13 @@ def suppress_legacy_speech(text: str, *, source: str) -> tuple:
       fallback (``default``) остаётся байт-в-байт прежним (OFF-паритет W2);
     * применяется ТОЛЬКО если байты значения совпадают с ИЗВЕСТНЫМ каноном
       (``known_canon_hashes``): кастом владельца никогда не правится;
+    * FIX-CFG07A-F1 (deploy 2.58.101): при ``custom_clean=True`` те же
+      правила применяются и к НЕ-каноническому (кастомному) значению —
+      ТОЛЬКО для 7 не-фактчек канонов CFG-07A-2
+      (``CFG07A_PAYLOAD_CLEAN_KEYS``, скоуп см.
+      ``payload_custom_clean_scope``). Хранимый текст не меняется: чистка
+      идёт на сборке effective-payload, владелец видит/правит свой текст
+      как раньше, а LLM уходит версия без корпусных legacy-маркеров;
     * идемпотентна: повторный вызов не находит сегментов (``removed == 0``);
     * не трогает несвязанные контракты (инструменты, JSON-схемы,
       анти-галлюцинации, маркировка цели, канальный формат) — они не являются
@@ -1549,7 +1589,13 @@ def suppress_legacy_speech(text: str, *, source: str) -> tuple:
     known = sha12(raw) in known_canon_hashes()
     present = bool(_legacy_persona_marker_re.search(raw))
     info = LegacySuppression(known_canon=known, legacy_present=present)
-    if not known or not present:
+    if not known and not custom_clean:
+        return raw, info
+    if custom_clean and not known and not present:
+        # F1: у значения могут быть только корпусные маркеры вне старого
+        # маркер-набора («перегрелись серверы», «Архивная справка»).
+        present = bool(_corpus_extra_marker_re.search(raw))
+    if not present:
         return raw, info
     cleaned = raw
     removed = 0
@@ -1619,7 +1665,9 @@ def effective_prompt(pg_key_or_id: str, *, pg_value=None,
     resolved = resolve_speech_value(spec.pg_key or spec.block_id, text,
                                     source=source)
     stripped = resolved.text
-    info = suppress_legacy_speech(text, source=source)[1]
+    info = suppress_legacy_speech(
+        text, source=source,
+        custom_clean=payload_custom_clean_scope(spec.pg_key, source))[1]
     diagnostics.extend(resolved.diagnostics)
     if stripped != text and not resolved.withheld:
         diagnostics.append("legacy_speech_suppressed")
@@ -1792,6 +1840,24 @@ _LEGACY_PERSONA_RULES_RAW: tuple[tuple[str, str, str], ...] = (
     ("summary.l2_dvach_vocabulary",
      r"Сарказм, интернет-сленг, двачерские обороты и мат разрешены",
      "Сарказм, интернет-сленг и мат разрешены"),
+    # 12. FIX-CFG07A-F1 (21.10.2026, deploy 2.58.101 F1; корпус SF-09):
+    #     Direct-канон: выдуманные внутренние причины при честном сливе
+    #     («перегрелись серверы, база покрылась пылью») — источник семьи
+    #     «по моим логам» (MB-01). Скобочная вставка снимается; честное
+    #     признание косяка (правило 9) остаётся — байт-равно активному
+    #     канону. На чистых канонах фразы нет (no-op, байт-регресс).
+    ("direct.honest_concession_invented_causes",
+     r"\s*\(перегрелись серверы,\s*база покрылась пылью\)",
+     ""),
+    # 13. FIX-CFG07A-F1 (корпус SF-16/E3): Summary-канон: метка данных
+    #     «помечены как "Архивная справка"» — источник семьи «в моей
+    #     справке» (MB-02, эхо-риск ярлыка). Заменяется на нейтральную
+    #     формулировку байт-в-байт активного канона; сами метки в ДАННЫХ
+    #     (canonical_context) не затрагиваются — правило применяется только
+    #     к тексту речевого канона.
+    ("summary.archive_data_label",
+     r"помечены как \"Архивная справка\"",
+     "содержат архивные факты"),
 )
 
 LEGACY_PERSONA_RULES: tuple[tuple[str, "re.Pattern[str]", str], ...] = tuple(
@@ -1806,6 +1872,13 @@ LEGACY_PERSONA_RULES: tuple[tuple[str, "re.Pattern[str]", str], ...] = tuple(
 #: что расширение не меняет их обработку.
 _legacy_persona_marker_re = re.compile(
     r"токсичн|бот-абьюзер|унизить|унизив|двач", re.IGNORECASE | re.UNICODE)
+
+#: FIX-CFG07A-F1: дополнительные корпусные маркеры (07A-1: SF-09/SF-16),
+#: которых нет в старом маркер-наборе. Нужен только для custom_clean-пути:
+#: кастом может нести исключительно эти сегменты. На гейт known-canon
+#: пути не влияет (поведение known-ветки байт-неизменно).
+_corpus_extra_marker_re = re.compile(
+    r"перегрелись|Архивная справка", re.IGNORECASE | re.UNICODE)
 
 _BLANK_RUN_RE = re.compile(r"\n{3,}")
 
@@ -2012,6 +2085,10 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
     """
     spec = by_pg_key(pg_key)
     raw = str(value or "")
+    # FIX-CFG07A-F1: скоуп корпусной чистки кастома (7 канонов CFG-07A-2);
+    # для остальных ключей поведение прежнее (кастом не правится).
+    custom_clean = payload_custom_clean_scope(
+        spec.pg_key if spec is not None else "", source)
     if source not in ("chat", "global") or not raw or spec is None:
         text, _info = suppress_legacy_speech(raw, source=source)
         return SpeechResolution(text=text, source=source)
@@ -2034,11 +2111,13 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
                 diagnostics=tuple(diagnostics), withheld=True,
                 withheld_sha256_12=sha12(raw),
                 provenance_reason=reason, provenance=entry)
-        text, _info = suppress_legacy_speech(raw, source=source)
+        text, _info = suppress_legacy_speech(raw, source=source,
+                                             custom_clean=custom_clean)
         return SpeechResolution(text=text, source=source,
                                 diagnostics=("provenance_attested",),
                                 provenance_reason=reason, provenance=entry)
-    text, _info = suppress_legacy_speech(raw, source=source)
+    text, _info = suppress_legacy_speech(raw, source=source,
+                                         custom_clean=custom_clean)
     return SpeechResolution(text=text, source=source)
 
 
@@ -2178,6 +2257,7 @@ __all__ = [
     "factory_text", "factory_default", "factory_revision", "factory_texts",
     "factory_set_fingerprint", "production_kind", "effective_prompt",
     "registry_view", "suppress_legacy_speech", "known_canon_hashes",
+    "CFG07A_PAYLOAD_CLEAN_KEYS", "payload_custom_clean_scope",
     "is_known_canon", "legacy_persona_present", "resolve_persisted_speech",
     "resolve_chat_speech", "resolve_chat_speech_ex", "resolve_hot_prompt_ex",
     "resolve_speech_value", "withholding_required", "withholding_blocks",
