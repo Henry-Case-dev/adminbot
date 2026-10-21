@@ -61,7 +61,8 @@ PREV_CHAT_VERBALIZER_R1023 chars=1359 -> after scrub chars=1324 removed=1
 ==============================================================================
 ## P4  Direct L1 PLANNER (pre-tool decision layer)
 note: real DirectChatService._plan_direct_l1; llm.generate stub returns a valid L1Plan JSON, no network.
-SYSTEM chars=2423 tokens=685 sha256_12=99a207313889
+note: FIX-CORRECTIVE-R1 (21.10.2026): правила 2-3 канона L1 обновлены (директива владельца §1); прежние байты 2423/99a207313889 — ступень PREV_DIRECT_L1_PLANNER_1021.
+SYSTEM chars=3022 tokens=855 sha256_12=5fdc90b3f114
   system == prompts.direct_l1_planner_system_prompt (PG->code): True
 USER (build_l1_context) chars=569 tokens=197 sha256_12=28548261096e
 USER section headers actually present (in order):

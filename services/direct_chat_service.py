@@ -1958,6 +1958,32 @@ class DirectChatService:
                          exc_info=True)
             return False
 
+    async def _recent_bot_replies(self, chat_id: int,
+                                  limit: int = 3) -> tuple[str, ...]:
+        """FIX-CORRECTIVE-R1 (direct-l1-rootcause P2, 21.10.2026): тексты
+        недавних ответов бота из СУЩЕСТВУЮЩЕЙ таблицы bot_replies — контекст
+        L1-планера («разговор уже завершён» видно из собственной реплики).
+        То же окно ``CHAT_BOT_REPLIED_RECENTLY_SECONDS`` и тот же паттерн
+        прямого чтения, что у ``_bot_replied_recently``; новых хранилищ нет.
+        Хронологический порядок (старое → свежее). Fail-open → ()."""
+        window_s = bot_replied_recently_window_seconds()
+        if window_s <= 0 or limit <= 0:
+            return ()
+        try:
+            cursor = await self.db.db.execute(
+                "SELECT text FROM bot_replies WHERE chat_id = ? "
+                "AND last_used_at > ? ORDER BY last_used_at DESC LIMIT ?",
+                (chat_id, time.time() - window_s, int(limit)))
+            rows = await cursor.fetchall()
+        except Exception:
+            logger.debug("[l1] recent bot_replies read failed",
+                         exc_info=True)
+            return ()
+        texts = [str(row["text"] or "").strip() for row in rows or []]
+        texts = [t for t in texts if t]
+        texts.reverse()                      # старое → свежее
+        return tuple(texts)
+
     async def _decision_context(self, chat_id: int, message,
                                 query: str) -> DecisionContext:
         """Контекст §47 из существующих источников (без нового хранилища).
@@ -2806,7 +2832,14 @@ class DirectChatService:
                             image_enabled=bool(image_enabled),
                             force_required=bool(_force_required),
                             reply_bot=bool(_reply_bot),
-                            extra_media_markers=_extra_media_markers)
+                            extra_media_markers=_extra_media_markers,
+                            bot_replies=await self._recent_bot_replies(chat_id),
+                            bot_replied_recently=bool(
+                                _dctx.bot_replied_recently
+                                if _dctx is not None else False),
+                            reactions_enabled=bool(getattr(
+                                _toggles if decision_on else None,
+                                "reactions", False)))
                     except NoApiKeyForChat as exc:
                         # D03 (§18C.1): permission-политика (forbidden/
                         # budget) блокирует и dedicated L1 — тот же
@@ -4035,7 +4068,10 @@ class DirectChatService:
                               character_block: str, lore_enabled: bool,
                               image_enabled: bool, force_required: bool,
                               reply_bot: bool,
-                              extra_media_markers: tuple = ()) -> tuple:
+                              extra_media_markers: tuple = (),
+                              bot_replies: tuple[str, ...] = (),
+                              bot_replied_recently: bool = False,
+                              reactions_enabled: bool = False) -> tuple:
         """§1.1/§1.5/§1.6 + v6 D03: pre-tool L1 Planner — 1 LLM call →
         L1Plan.
 
@@ -4110,6 +4146,19 @@ class DirectChatService:
                 _pcomp.compose_machine_system(
                     system_prompt_l1, writer="l1_planner", chat_id=chat_id,
                     run_id=correlation_id))
+        # FIX-CORRECTIVE-R1 (P2/P3): УСЛОВИЯ собирают существующие факты —
+        # force/autonomous + «бот недавно отвечал» + allowed-набор реакций
+        # (правило 2 канона ссылается на «разрешённый набор, если указан в
+        # контексте»; раньше набор до планера не доезжал вообще).
+        _l1_condition_parts = [
+            _l1.FORCE_LINE if force_required
+            else (_l1.AUTONOMOUS_LINE if reply_bot else "")]
+        if bot_replied_recently:
+            _l1_condition_parts.append("бот недавно сам отвечал в этом чате")
+        if reactions_enabled:
+            _l1_condition_parts.append(
+                "разрешённые реакции: "
+                + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
         context_text = _l1.build_l1_context(
             query=query,
             current_question=self._render_current_question(
@@ -4120,9 +4169,9 @@ class DirectChatService:
             memory_hints=_bundle_scoped_slice(bundle),
             speech_hints=self._l1_speech_hints(message, query, bundle),
             capabilities=available_caps,
-            force_line=(_l1.FORCE_LINE if force_required else
-                        (_l1.AUTONOMOUS_LINE if reply_bot else "")),
-            persona_frame=str(character_block or ""))
+            force_line="; ".join(p for p in _l1_condition_parts if p),
+            persona_frame=str(character_block or ""),
+            bot_replies=tuple(bot_replies or ()))
         input_chars = len(context_text)
         messages = [
             {"role": "system", "content": system_prompt_l1},

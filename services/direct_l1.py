@@ -94,9 +94,17 @@ class FutureIntent:
 DEFAULT_DIRECT_L1_EVIDENCE_MAX_CHARS = 4000
 
 # §1.5: force/direct-address факты (детерминированные, LLM их не решает).
+# FIX-CORRECTIVE-R1 (21.10.2026, P2): autonomous-строка называет блок с
+# предыдущими ответами бота и явное равноправие silent/react (без новых
+# механизмов — только текст существующего факта).
 FORCE_LINE = "прямое обращение к боту: текстовый ответ обязателен"
 AUTONOMOUS_LINE = ("автономный контекст (ответ на сообщение бота): действие "
-                   "свободное")
+                   "свободное; твой предыдущий ответ - в блоке ОТВЕТЫ БОТА, "
+                   "если он есть; молчание и реакция - равноправные исходы")
+
+# FIX-CORRECTIVE-R1 (P2): заголовок секции недавних ответов бота в L1-контексте
+# (тексты берутся из существующей таблицы bot_replies, вызывающий передаёт).
+BOT_REPLIES_SECTION = "ОТВЕТЫ БОТА (недавние)"
 
 _WS_RE = re.compile(r"\s+")
 
@@ -581,12 +589,16 @@ def build_l1_context(*, query, current_question: str = "",
                      memory_hints: str = "", speech_hints: str = "",
                      capabilities=(), force_line: str = "",
                      persona_frame: str = "",
+                     bot_replies: tuple[str, ...] = (),
                      budget_tokens: int | None = None) -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
     дет. деградация — сначала сокращается окно (заголовки/сообщение/
     участники неприкосновенны), затем hint-секции, затем жёсткий кап.
-    Никогда не бросает."""
+    FIX-CORRECTIVE-R1 (P2): ``bot_replies`` — недавние ответы бота
+    (существующая таблица bot_replies; вызывающий решает, сколько давать);
+    секция даёт планеру собственную предыдущую реплику — критерий
+    «разговор уже завершён» из правила 3 канона. Никогда не бросает."""
     try:
         sections: list[tuple[str, str]] = []
         current = str(current_question or query or "").strip()
@@ -595,6 +607,11 @@ def build_l1_context(*, query, current_question: str = "",
         if str(reply_block or "").strip():
             sections.append(("ОТВЕТ НА (reply/цитата)",
                              str(reply_block).strip()[:L1_REPLY_BLOCK_CHARS]))
+        bot_lines = [str(line or "").strip()[:L1_REPLY_BLOCK_CHARS]
+                     for line in (bot_replies or ())]
+        bot_lines = [line for line in bot_lines if line][:3]
+        if bot_lines:
+            sections.append((BOT_REPLIES_SECTION, "\n".join(bot_lines)))
         window_lines = render_window_lines(window, L1_WINDOW_MESSAGES)
         speaker = str(speaker or "неизвестно").strip()
         addressee = str(addressee or "чат").strip()
