@@ -19383,6 +19383,93 @@
                          'capabilities']) },
         ];
       },
+      // ═ SOUL-14.1: узлы диаграммы «Как рождается ответ» ═══════════════════
+      // Пайплайн Core → SelfModel → L1 → (lessons, examples, humor) → Writer.
+      // Статусы — ТОЛЬКО реальные оси /api/speech/overview (gates/sections/
+      // layers); данных слоя нет → честный «—», ничего не выдумываем. Это
+      // карта сборки, а не журнал внутренних событий (§15: «не вторая
+      // аналитическая стена»).
+      speechLayerNodes: function () {
+        var ov = this.speechOverview || {};
+        var gates = ov.gates || {};
+        var layers = ov.layers || {};
+        var byId = {};
+        var rows = ov.sections || [];
+        var i;
+        for (i = 0; i < rows.length; i++) byId[rows[i].id] = rows[i];
+        var l1 = layers.l1 || {};
+        var sm = layers.self_model || {};
+        var core = byId.core || {};
+        var learning = byId.learning || {};
+        var examples = byId.examples || {};
+        var humor = byId.humor || {};
+        // flag(true)→«вкл», flag(false)→«выкл», иначе «—» (данных нет).
+        var flag = function (v) {
+          if (v === true) return 'вкл';
+          if (v === false) return 'выкл';
+          return '—';
+        };
+        var flagClass = function (v) {
+          return v === true ? 'badge-info' : 'badge-muted';
+        };
+        var smDetails = [];
+        if (sm.applied != null && sm.rejected != null) {
+          smDetails.push('правил о себе сейчас: ' + sm.applied);
+        }
+        if (sm.stale) smDetails.push('данные устарели');
+        if (sm.fallback) smDetails.push('работает резервный снимок');
+        var l1Details = [];
+        if (l1.fallback === false) l1Details.push('без резерва модели');
+        return [
+          { key: 'core', section: 'core', icon: 'psychology',
+            title: 'Характер (Core)',
+            desc: 'постоянный характер: кто бот и как держится тон — в каждый ответ',
+            badge: flag(gates.character_core_enabled),
+            badgeClass: flagClass(gates.character_core_enabled),
+            detail: core.detail || '' },
+          { key: 'self_model', section: '', icon: 'badge',
+            title: 'Самоощущение (SelfModel)',
+            desc: 'как бот воспринимает себя сейчас и какие правила о себе применяет',
+            badge: flag(sm.enabled),
+            badgeClass: flagClass(sm.enabled),
+            detail: smDetails.join(' · ') },
+          { key: 'l1', section: '', icon: 'bolt',
+            title: 'Планировщик (L1)',
+            desc: 'по реплике выбирает: ответить, поставить реакцию или промолчать; задаёт длину — от «одного слова» до развёрнутого',
+            badge: flag(l1.enabled),
+            badgeClass: flagClass(l1.enabled),
+            detail: l1Details.join(' · ') },
+          { key: 'lessons', section: 'learning', icon: 'trending_up',
+            title: 'Уроки (опыт)',
+            desc: 'что запомнено из ваших реакций: что зашло, а что нет',
+            badge: flag(gates.experience_lessons_enabled),
+            badgeClass: flagClass(gates.experience_lessons_enabled),
+            detail: learning.detail || '' },
+          { key: 'examples', section: 'examples', icon: 'auto_stories',
+            title: 'Примеры (образцы)',
+            desc: 'карточки-эталоны, по которым Writer сверяет манеру',
+            badge: (examples.state === 'ready' ? 'готово'
+                    : (examples.state === 'off' ? 'выкл' : '—')),
+            badgeClass: examples.state === 'ready'
+              ? 'badge-info' : 'badge-muted',
+            detail: examples.detail || '' },
+          { key: 'humor', section: 'humor', icon: 'extension',
+            title: 'Юмор (стратегия)',
+            desc: 'какой приём шутки уместен в этой реплике и сколько места он займёт',
+            badge: flag(gates.humor_library_enabled),
+            badgeClass: flagClass(gates.humor_library_enabled),
+            detail: humor.detail || '' },
+          { key: 'writer', section: '', icon: 'edit_note',
+            title: 'Writer',
+            desc: 'собирает финальный текст; перед отправкой — проверка длины, фактов и правил стиля письма',
+            badge: 'активен',
+            badgeClass: 'badge-info',
+            detail: (gates.unified_composer_enabled === true
+                     ? 'сборка: единый композер'
+                     : (gates.unified_composer_enabled === false
+                        ? 'сборка: прежняя композиция' : '')) },
+        ];
+      },
       // P0A-UX §6.3: цель сохранения — на раздел; «только этот чат» без
       // выбранного чата не предлагается (устраняет 422-запросы из UI).
       speechScopeFor: function (section) {

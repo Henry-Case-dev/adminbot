@@ -4539,6 +4539,60 @@ html.cover-editor-open { overflow: hidden; }
 .speech-card-adv { min-height: 64px; }
 .speech-adv-note { grid-column: 1 / -1; }
 
+/* ═ SOUL-14.1: диаграмма «Как рождается ответ» (витрина «Речи и характера»).
+   Статичная карта слоёв Core → SelfModel → L1 → (lessons, examples, humor)
+   → Writer; НЕ журнал событий. Верстка одной колонкой без горизонтального
+   скролла: перенос — overflow-wrap:anywhere, коннектор — линия CSS в желобе
+   иконки (без зависимости от шрифта). Поверхность строк — конвенция
+   .speech-tab (плотная тёмная подложка внутри стеклянной карточки). ═ */
+.speech-layers {
+  grid-column: 1 / -1;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.speech-layers-head { display: flex; align-items: flex-start; gap: 8px; min-width: 0; }
+.speech-layers-glyph { color: var(--teal-500, #42D6C4); font-size: 20px; flex: none; }
+.speech-layers-headtext { min-width: 0; }
+.speech-layers-title { font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+.speech-layers-sub { font-size: 11px; color: var(--text-3, #A2B0C6); overflow-wrap: anywhere; }
+.speech-layers-flow { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0; }
+.speech-layer { display: flex; flex-direction: column; min-width: 0; }
+.speech-layer:not(:last-child) { padding-bottom: 10px; }
+.speech-layer:not(:last-child)::after {
+  content: '';
+  width: 0;
+  height: 10px;
+  margin-left: 19px; /* центр желоба иконки: 10px padding + 9px половина */
+  border-left: 2px solid rgba(148, 163, 184, .24);
+}
+.speech-layer-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  text-align: left;
+  color: inherit;
+  background: rgba(9, 14, 25, .72);
+  border: 1px solid rgba(148, 163, 184, .24);
+  border-radius: 10px;
+  min-width: 0;
+}
+.speech-layer-card-btn { cursor: pointer; }
+.speech-layer-icon { font-size: 18px; line-height: 1; flex: none; color: var(--teal-500, #42D6C4); padding-top: 1px; }
+.speech-layer-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.speech-layer-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.speech-layer-title { font-size: 13px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.speech-layer-top > .badge { flex: none; }
+.speech-layer-desc { font-size: 11px; color: var(--text-2, #AAB6C8); overflow-wrap: anywhere; }
+.speech-layer-detail { font-size: 11px; color: var(--text-3, #A2B0C6); overflow-wrap: anywhere; }
+.speech-layer-go { flex: none; font-size: 18px; color: var(--text-3, #A2B0C6); align-self: center; }
+.speech-layers-note { font-size: 11px; color: var(--text-3, #A2B0C6); line-height: 1.35; overflow-wrap: anywhere; }
+
 /* Раздел: панели/ряды/действия */
 .speech-section {
   display: grid;

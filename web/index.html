@@ -7642,6 +7642,54 @@
                    техника/диагностика — в «Дополнительно» (TJ-4: служебная
                    строка уехала в раздел «Все инструкции»). ── -->
               <div v-else-if="!speechSection" class="speech-grid" data-speech-groups>
+                <!-- ═ SOUL-14.1: диаграмма влияния слоёв «Как рождается
+                     ответ» — статичная карта сборки реплики (Core, SelfModel,
+                     L1, lessons, examples, humor → Writer), НЕ журнал
+                     внутренних событий. Статусы — только реальные оси
+                     /api/speech/overview; нет данных — честный «—». ═ -->
+                <div class="card speech-layers" data-speech-layers>
+                  <div class="speech-layers-head">
+                    <span class="msr speech-layers-glyph" aria-hidden="true">{{ iconGlyph('smart_toy') }}</span>
+                    <div class="speech-layers-headtext">
+                      <div class="speech-layers-title">Как рождается ответ</div>
+                      <div class="speech-layers-sub">Слои, из которых собирается каждая реплика, — и что сейчас включено. Это карта сборки, а не журнал событий.</div>
+                    </div>
+                  </div>
+                  <ol class="speech-layers-flow" data-speech-layer-flow>
+                    <li v-for="(n, ni) in speechLayerNodes()"
+                        :key="'soul14-' + n.key" class="speech-layer">
+                      <button v-if="n.section" type="button"
+                              class="speech-layer-card speech-layer-card-btn"
+                              :data-speech-layer="n.key"
+                              :aria-label="'Открыть раздел: ' + n.title"
+                              @click="openSpeechSection(n.section)">
+                        <span class="msr speech-layer-icon" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+                        <span class="speech-layer-body">
+                          <span class="speech-layer-top">
+                            <span class="speech-layer-title">{{ n.title }}</span>
+                            <span class="badge" :class="n.badgeClass">{{ n.badge }}</span>
+                          </span>
+                          <span class="speech-layer-desc">{{ n.desc }}</span>
+                          <span v-if="n.detail" class="speech-layer-detail">{{ n.detail }}</span>
+                        </span>
+                        <span class="msr speech-layer-go" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
+                      </button>
+                      <div v-else class="speech-layer-card"
+                           :data-speech-layer="n.key">
+                        <span class="msr speech-layer-icon" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
+                        <span class="speech-layer-body">
+                          <span class="speech-layer-top">
+                            <span class="speech-layer-title">{{ n.title }}</span>
+                            <span class="badge" :class="n.badgeClass">{{ n.badge }}</span>
+                          </span>
+                          <span class="speech-layer-desc">{{ n.desc }}</span>
+                          <span v-if="n.detail" class="speech-layer-detail">{{ n.detail }}</span>
+                        </span>
+                      </div>
+                    </li>
+                  </ol>
+                  <div class="speech-layers-note">Почему реплика — одно слово: длину задаёт планировщик (L1). Почему шутка длинная — влияют «Выражение» и выбранный приём юмора. Как прошёл конкретный ответ, смотрят в «Effective Prompt Inspector».</div>
+                </div>
                 <template v-for="g in speechShowcaseGroups()" :key="'g-' + g.id">
                   <div class="speech-group-title" :data-speech-group="g.id">{{ g.title }}</div>
                   <button v-for="s in g.cards" :key="'sp-' + s.id" type="button"

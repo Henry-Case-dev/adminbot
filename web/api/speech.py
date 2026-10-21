@@ -736,6 +736,46 @@ def _gate_state() -> dict:
     return out
 
 
+async def _layers_payload(chat_id: int | None) -> dict:
+    """SOUL-14.1: оси слоёв, которых нет в sections/gates (L1, SelfModel).
+
+    Диаграмма «Как рождается ответ» читает отсюда честные статусы: реальный
+    флаг/числа или ``None`` (UI покажет «—»), ничего не выдумывается.
+    Снапшот SelfModel — fail-open: ошибка чтения не ломает витрину, а
+    честно оставляет «нет данных». R17: числа/коды, без raw-текста.
+    """
+    out: dict = {}
+    try:
+        from services import direct_l1
+        out["l1"] = {"available": True,
+                     "enabled": bool(direct_l1.direct_l1_enabled()),
+                     "fallback": bool(direct_l1.l1_fallback_enabled())}
+    except Exception:
+        logger.warning("[speech] layers l1 read failed", exc_info=True)
+        out["l1"] = {"available": False, "enabled": None, "fallback": None}
+    sm: dict = {"available": True, "enabled": None, "applied": None,
+                "rejected": None, "stale": None, "fallback": None}
+    try:
+        from services import mca_gates
+        sm["enabled"] = bool(mca_gates.self_model_enabled())
+        if sm["enabled"]:
+            from services import lore_runtime
+            from services import mca_self_model as msm
+            db = lore_runtime.get_lore_db()
+            if db is not None:
+                snap = await msm.resolve_self_model(db, chat_id)
+                frame = msm.select_behavior(snap)
+                sm["applied"] = len(frame.applied_rules)
+                sm["rejected"] = len(frame.rejected_rules)
+                sm["stale"] = bool(getattr(snap, "stale", False))
+                sm["fallback"] = bool(getattr(snap, "fallback", False))
+    except Exception:
+        # Гейт мог успеть прочитаться — оставляем его, остальное честно «—».
+        logger.warning("[speech] layers self_model read failed", exc_info=True)
+    out["self_model"] = sm
+    return out
+
+
 def _read_global_doc(cache, key: str):
     """Глобальный JSON-документ: из переданного ConfigCache, иначе hot.get.
 
@@ -1786,6 +1826,10 @@ async def get_overview(
         "chat_id": chat_id,
         "inheritance": core.get("inheritance"),
         "gates": gates,
+        # SOUL-14.1: аддитивный блок статусов слоёв для диаграммы
+        # «Как рождается ответ» (L1/SelfModel; остальные слои витрина
+        # уже получает в sections/gates).
+        "layers": await _layers_payload(chat_id),
         "sections": [
             {"id": "core", "icon": "psychology", "title": "Характер",
              "subtitle": "Постоянный характер: полная и компактная редакции",

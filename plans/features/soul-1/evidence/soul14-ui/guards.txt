@@ -1,0 +1,57 @@
+# SOUL-14.1 — UI-диаграмма «Как рождается ответ» — прогоны гвардов (21.10.2026)
+
+Кандидат: коммит feat(soul-1) 14.1 в этом репозитории (см. Git); база HEAD bf17a972.
+
+## Команда и результат (кандидат)
+
+1. `node --check web/app.js` → OK (exit 0)
+2. `.venv\Scripts\python.exe tests\ui_soul14_layers_e2e.py --shots ... --json ...`
+   → Итог: failures=0 (5 сценариев: 360/390 с данными, no-layers,
+   unknown/off-состояния, desktop full-width). Лог: soul14-layers-e2e.txt,
+   машинный отчёт: layers-e2e-report.json, скриншоты: shots/*.png
+3. `.venv\Scripts\python.exe -m pytest tests\test_soul14_layers_payload.py -q`
+   → 6 passed (честные оси, числа из снапшота, fail-open, аддитивность
+   overview). Лог: layers-payload-pytest.txt
+4. `.venv\Scripts\python.exe -m pytest tests\test_soul1_w6_speech_ui.py
+   tests\test_webapp_design_tokens_round1025.py tests\test_webapp_js_unit.py
+   tests\test_font_subset.py -q` → 113 passed
+5. `.venv\Scripts\python.exe tests\ui_p0a_ux_speech_compact_e2e.py`
+   → ИТОГ: failures=0, POST=22 (витрина/сохранения/изоляция чатов не сломаны)
+6. `.venv\Scripts\python.exe tests\ui_speech_mobile_entry_e2e.py`
+   → ИТОГ: failures=0 (320/390/1280)
+7. `.venv\Scripts\python.exe -m pytest tests\test_soul1_w4_examples_scope.py -q`
+   → 5 passed (реальный get_overview с новым ключом layers)
+8. `.venv\Scripts\python.exe -m pytest tests\test_webapp_parity_smoke.py
+   tests\test_soul14_layers_payload.py tests\test_soul1_w6_speech_ui.py -q`
+   → 41 passed
+9. requirements_gate: `py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py
+   check --map plans/features/soul-1/requirements-map.json --stage plan`
+   → EXIT 0 (см. gate-plan.txt)
+
+## Реальная браузерная проба (Browser Use, живой Chrome, не Playwright)
+
+Локальный сервер web/ + стабы /api (OPENCODE_WORKFLOW_SCRATCH, не коммитится):
+- 390×844: overflow=0, 7 узлов `[data-speech-layer]` в порядке
+  core → self_model → l1 → lessons → examples → humor → writer;
+- клик по узлу «Характер (Core)» открыл раздел (.speech-section + редактор);
+- возврат на витрину: группы «1. Характер»/«2. Манера речи» на месте;
+- визуально: карточка в существующем dark/glass-стиле, коннекторы,
+  бейджи ВКЛ/ГОТОВО/АКТИВЕН, честный «—» для L1 при available:false.
+
+## Предсуществующие фейлы (НЕ от этого кандидата)
+
+- `tools/ui_soul1_w6_speech_e2e.py`: 2 FAIL «предпросмотр выражения не
+  обновился» (390/1440). Воспроизведены 1-в-1 на чистом HEAD bf17a972
+  (git worktree): failures=2, POST=16, shots=94 — идентично кандидату.
+- `tests/ui_soul1_glass_tiera_e2e.py verify`: FAIL lens_edge_* — на HEAD
+  фейлов БОЛЬШЕ, чем на кандидате (8 vs 6), exit 0 в обоих; оптические
+  проверки чувствительны к среде, стекло этим лейном не трогалось.
+
+## Изменённые файлы
+
+- web/api/speech.py — `_layers_payload()` + аддитивный `"layers"` в get_overview
+- web/app.js — `speechLayerNodes()` (узлы/статусы из overview)
+- web/index.html — карточка `[data-speech-layers]` на витрине «Речи и характера»
+- web/static/app.css — блок `.speech-layers*` (конвенция .speech-tab)
+- tests/ui_soul14_layers_e2e.py — CONTRACT e2e (owner=SOUL-14.1)
+- tests/test_soul14_layers_payload.py — CONTRACT pytest (owner=SOUL-14.1)
