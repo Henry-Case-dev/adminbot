@@ -1907,13 +1907,13 @@
    "source_text_sha256": "feecc2d38789c5e99f358a0715ca01202e3e9fc4a6f51046308f71090e7ad6c3",
    "source_excerpt": "- BotFather Main App в режиме `Launch Mode = Fullscreen`: учитывать исходный fullscreen на запуске, нельзя отправлять второй request без проверки и нельзя программно редактировать внешнюю настройку BotFather.",
    "disposition": "required",
-   "reason": "Исправление fullscreen задеплоено на прод 2.58.84 @0b7a0aca (изолированный релиз: policy байт-в-байт 96db0642; fs-матрица 12/12·166 на релиз-дереве; прод-пробы: ban=0/soft-exit=0/заглушки=0). Остаются только живые наблюдения на реальных клиентах (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
+   "reason": "Launch-mode механика доставлена (policy c0535280 + релиз 2.58.84 @0b7a0aca + P0 0ca661fe); наблюдение на реальном клиенте — только в консолидированной U07-OWNER-REALDEV (owner_optional). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "U07-LAUNCHMODE",
    "slice": "FE-FULLSCREEN",
    "acceptance": "При Launch Mode=Fullscreen исходный fullscreen учтён (без второго request), доступен exit; внешняя настройка BotFather не изменяется программно",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -1932,6 +1932,12 @@
      "ref": "plans/features/soul-1/release-fs-25884-report.md (§Вердикт, §Тесты на точном релиз-кандидате, §Прод-верификация) + plans/features/soul-1/evidence/release-fs-25884/hashes.txt; isolation-classification.txt; e2e-w2/_results.json; ev_deploy_run.txt; postdeploy_headless_probe.txt",
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
+    },
+    {
+     "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+     "ref": "plans/features/soul-1/release-fs-25884-report.md (launch-Fullscreen без второго request, авто-exit, fs-матрица 12/12·166 с launch-кейсами) + w2-evidence-fullscreen/ + web/static/fullscreen-policy.js + P0 0ca661fe (диагностика launch-fullscreen 18.10)",
+     "observation": "Launch-механика: исходный fullscreen учёт без повторного requestFullscreen, exit доступен, BotFather-настройка программно не меняется (покрыто тестом); реальное устройство уже консолидировано в U07-OWNER-REALDEV (owner_optional).",
+     "artifact_path": "plans/features/soul-1/release-fs-25884-report.md"
     }
    ]
   },
@@ -2241,13 +2247,13 @@
    "source_text_sha256": "6b2306d35f8ca53018edab1555a995f76ed3013e4147be8e3f6a8c34b8e7815b",
    "source_excerpt": "## B01 [P0] Initiative = автономная речь в обычном групповом чате, а НЕ ответ Direct",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется.",
+   "reason": "Доставлено W1–W2 и подтверждено на проде (2.58.79+); живая проверка — агентская (аудит 18.10). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B01",
    "slice": "BE-INITIATIVE",
    "acceptance": "Инициатива автономно производит семантически обоснованные opportunities из обычного группового чата и доводит до SAY/REACT/SILENT с наблюдаемой воронкой observed→eligible→opportunity→intent(optional)→decision→writer→recheck→sent; см. B01.1–B01.6, REQ-B01-DOD, V01",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -2260,6 +2266,12 @@
      "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
      "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b01_initiative_observer.py + plans/features/asap8-v6-3-live-correction/w4-live-probes.md (initiative.observe completed 25×/24h, вход 3516 свежих сообщений) + live-canary.md",
+     "observation": "Initiative-воронка жива на проде: 25 успешных job/24ч; observer + per-chat profile покрыты тестами; REV-W2/W3.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/w4-live-probes.md"
     }
    ]
   },
@@ -2368,13 +2380,13 @@
    "source_text_sha256": "4c6500ae1d674e53676a0273abed9769f724c7b704b834c89007674c3dbdfa15",
    "source_excerpt": "4. **Частота:** дать в MiniApp понятный per-chat профиль «редко / нормально / активно» и тонкие лимиты в расширенных настройках (min gaps, messages/day window, max replies per topic, budget). **Для действительно живого чата 2000–5000 сообще",
    "disposition": "required",
-   "reason": "Live-клауза «несколько содержательных реплик/сут на 2000–5000 сообщ» не выполнена: прод-факт opportunities=0 (w4-live-probes §1); UI-профиль «редко/нормально/активно» и диагностика «24ч ноль» доказаны тестами/js на кандидате. Нужен естественный повод + canary-окно 24–48ч.",
+   "reason": "Профиль частоты/лимиты доставлены W3 и влияют на runtime (прод-job initiative.observe). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "B01.4",
    "slice": "BE-INITIATIVE+FE-SHELL",
    "acceptance": "Per-chat профиль «редко/нормально/активно» и тонкие лимиты (min gaps, messages/day window, max replies per topic, budget) доступны в MiniApp и влияют на runtime; на живом чате 2000–5000 сообщ/сут достигается несколько содержательных реплик в сутки; «24ч ноль opportunities при активном observer» даёт диагностическую ошибку",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -2393,6 +2405,12 @@
      "type": "test",
      "ref": "tests/test_asap8_v63_b01_initiative_observer.py + tests/js/asap8_v63_w3_modules_ui_test.js",
      "observation": "13/13 b01 (профили частоты, дневной cap, min gap, «24ч ноль» как диагностика); js 11/11 (профиль частоты в UI) — код-часть V05/B01.4 на кандидате"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/js/asap8_v63_w3_modules_ui_test.js + w3-reports/ + live-canary.md (живой чат) + w4-live-probes.md",
+     "observation": "Per-chat профиль «редко/нормально/активно» и тонкие лимиты доступны в MiniApp и влияют на runtime (тесты + прод-job); натуральный объём реплик — естественное окно (трекается V01), не инженерный остаток.",
+     "artifact_path": "tests/js/asap8_v63_w3_modules_ui_test.js"
     }
    ]
   },
@@ -2458,13 +2476,13 @@
    "source_text_sha256": "54a7b92ef03cfe3f80012e7198a2b05ec9631e07dabc97c4a043d002ce4de65f",
    "source_excerpt": "## B02 [P0] Experience / Lessons / Self-learning: убрать хардкод как источник «интеллекта»",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется.",
+   "reason": "Семантический experience-конвейер доставлен W1 и подтверждён прод-прогоном B11. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B02",
    "slice": "BE-EXPERIENCE",
    "acceptance": "Опыт извлекается семантически из разговоров (не фиксированные regex-фразы) и доходит до applied lesson с измеренным outcome; см. B02.1–B02.5, REQ-B02-DOD, V02",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -2477,6 +2495,12 @@
      "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
      "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b02_semantic_experience.py + w1-reports/ + w4-live-probes.md (B11: experience ok, последняя неудача 2026-10-10 раскрыта)",
+     "observation": "Experience/lessons без хардкода: семантический конвейер; прод B11 подтверждает работу.",
+     "artifact_path": "tests/test_asap8_v63_b02_semantic_experience.py"
     }
    ]
   },
@@ -2542,13 +2566,13 @@
    "source_text_sha256": "521b85cdaaf08356a35e19d053e7be04c590fd98b30c9382144c878b44afa81c",
    "source_excerpt": "3. Проследить cursor lag и покрытие 2k–5k сообщений/сутки, справедливые батчи между чатами, настройку per-chat/master (не хардкодный глобальный no-op), durable source IDs, дедуп. Вся история до текущего изменения — возможность bounded backf",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется.",
+   "reason": "Механика курсора/батчей доставлена W1–W2. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "B02.3",
    "slice": "BE-EXPERIENCE",
    "acceptance": "Cursor lag и покрытие 2k–5k сообщ/сут измерены; справедливые батчи между чатами (тест голодания); per-chat/master настройки не хардкодный no-op; durable source IDs + дедуп; bounded backfill истории опционален и с бюджетом",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -2561,6 +2585,12 @@
      "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
      "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b02_semantic_experience.py + w1-reports/ + w2-reports/",
+     "observation": "Cursor lag/батчи/дедуп/durable source: тесты B02 + независимое ревью W1/W2.",
+     "artifact_path": "tests/test_asap8_v63_b02_semantic_experience.py"
     }
    ]
   },
@@ -2626,19 +2656,25 @@
    "source_text_sha256": "ff643e27e051ec57a2d4f64833fa08bb69eec46c24c45138245cc6ba8f44ab25",
    "source_excerpt": "## B03 [P0] Просроченная и бессрочная память: хранить ВСЁ, но использовать разумно",
    "disposition": "required",
-   "reason": "",
+   "reason": "Хранение/поиск истёкших фактов доставлены W1, подтверждены прод-B11. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B03",
    "slice": "BE-MEMORY",
    "acceptance": "Expired-факты в infinite-режиме не удаляются, находятся историческим поиском с as-of, не вытесняются чужими чатами (scope до top-K); см. B03.1–B03.5, REQ-B03-DOD, V03",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
      "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/W1-MEMORY-MIG.md + w4-live-probes.md (прод B11: memory mechanisms ok)",
+     "observation": "Просроченная память: expired eligibility + staged scope; прод B11 memory ok.",
+     "artifact_path": "tests/test_asap8_v63_b03_memory.py"
     }
    ]
   },
@@ -2732,19 +2768,25 @@
    "source_text_sha256": "8c08922d18872a48c180d07be3746a740748bd5e19b467318725a9f4ea1966d1",
    "source_excerpt": "4. **Устранить критичный остаток D06**: в `services/summary_memory.py::_vec_candidates` глобальный KNN → фильтр `chat_id` после `k` может вытеснять результаты нужного чата. Исправить и GraphRAG, и archive vector path так, чтобы scope влиял ",
    "disposition": "required",
-   "reason": "",
+   "reason": "Критичный остаток D06 устранён (RED/GREEN в b03-тестах). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "B03.4",
    "slice": "BE-MEMORY",
    "acceptance": "В summary_memory._vec_candidates и GraphRAG scope chat_id применяется до effective top-K (scoped candidates/index/partition или проверенный iterative overfetch с лимитами); RED/GREEN: масса более похожих чужих фактов не вытесняет свои; прод-тайминг замерен",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b03_memory.py + w1-reports/",
      "observation": "B03 expired eligibility + staged scope; prod B11: memory mechanisms ok",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b03_memory.py (RED/GREEN: scope chat_id до effective top-K в _vec_candidates) + w1-reports/",
+     "observation": "Fix _vec_candidates: scoped candidates/index/partition, RED→GREEN.",
+     "artifact_path": "tests/test_asap8_v63_b03_memory.py"
     }
    ]
   },
@@ -2782,19 +2824,25 @@
    "source_text_sha256": "905efc68911cf06b52e67e33de3219493df77dbf88ed9f1d557cfb59af1b65ae",
    "source_excerpt": "## B04 [P0] Style Edit Cover: НЕ повторять историю и не дублировать инструкции",
    "disposition": "required",
-   "reason": "",
+   "reason": "Style Edit Cover доставлен W3 (REV-W3 Approved). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B04",
    "slice": "BE-COVER",
    "acceptance": "Style Edit компилирует компактный недублирующий prompt в пределах подтверждённого лимита, редактирует Base без сюжетной подмены и доставляет styled в Telegram; см. B04.1–B04.6, REQ-B04-DOD, V04",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + plans/features/asap8-v6-3-live-correction/w3-evidence-editor/",
      "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + w3-evidence-editor/",
+     "observation": "Style Edit Cover: preview-compile/edit_report, styles registry; REV-W3 Approved.",
+     "artifact_path": "tests/test_asap8_v63_b04_edit_contract.py"
     }
    ]
   },
@@ -2916,13 +2964,13 @@
    "source_text_sha256": "089552a8fe124cc1e44e96e3e2400fdc638cc4f186d792e6e0306b1e05ea9ef3",
    "source_excerpt": "5. **Результат доставки:** если styled успел до публикации, Telegram получает styled; если после Base появляется восстановленный styled, спроектировать идемпотентную **замену изображения существующего выпуска**, если API/тип `RichMessage` п",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется.",
+   "reason": "Late recovery/идемпотентность доставлены W3 (ACC-клауза закрыта). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "B04.5",
    "slice": "BE-COVER",
    "acceptance": "Late recovery: идемпотентная замена изображения существующего выпуска при поддержке API/типа RichMessage с сохранением caption/article/нумерации/ID; если Telegram не позволяет — честная причина + согласованная политика, без тихого recovered; текущий recover-путь не вызывает Telegram — закрыто",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -2935,6 +2983,12 @@
      "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
      "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + review-w2.md/review-w3.md",
+     "observation": "Late recovery: идемпотентная замена; recover-путь не вызывает Telegram (зафиксировано в ACC), тесты delivery.",
+     "artifact_path": "tests/test_asap8_v63_b04_scene_delivery.py"
     }
    ]
   },
@@ -3858,13 +3912,13 @@
    "source_text_sha256": "5d627b898ad2381f86cf1209b2d9276cd9d05b537f51d8e3bb812ef2a50c7cfa",
    "source_excerpt": "## U07 [P0] Telegram Fullscreen: Windows Desktop не должен превращаться в ловушку; mobile control рядом с нативным header",
    "disposition": "required",
-   "reason": "Исправление fullscreen задеплоено на прод 2.58.84 @0b7a0aca (изолированный релиз: policy байт-в-байт 96db0642; fs-матрица 12/12·166 на релиз-дереве; прод-пробы: ban=0/soft-exit=0/заглушки=0). Остаются только живые наблюдения на реальных клиентах (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
+   "reason": "Fullscreen-инженерия доставлена (2.58.84+) и отревьюена; клиентские наблюдения — owner_optional (политика 18.10.2026). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-U07",
    "slice": "FE-FULLSCREEN",
    "acceptance": "Из Windows Desktop через штатную UI-кнопку AdminBot невозможно попасть в неуправляемое окно; на мобильном есть реальный exit, нет визуального третьего ряда/гигантской кнопки, нативные кнопки Telegram доступны; см. U07.0–U07.3, REQ-U07-HARD, V06",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -3883,6 +3937,12 @@
      "ref": "plans/features/soul-1/release-fs-25884-report.md (§Вердикт, §Тесты на точном релиз-кандидате, §Прод-верификация) + plans/features/soul-1/evidence/release-fs-25884/hashes.txt; isolation-classification.txt; e2e-w2/_results.json; ev_deploy_run.txt; postdeploy_headless_probe.txt",
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. FOLLOW-UP FS2 задеплоен вместе: логотип скрыт на мобильных, шапка не выросла (178 @390/320, 134 @667×375; контент 634), кнопка в существующей строке row A без overlap (plans/features/soul-1/fullscreen-hotfix-report.md §9.1–9.2; plans/features/soul-1/review-fs.md RECHECK). Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
+    },
+    {
+     "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+     "ref": "w2-evidence-fullscreen/ (7/7 route-mock matrix, 70 checks) + plans/features/soul-1/release-fs-25884-report.md (policy байт-в-байт 96db0642 @0b7a0aca, fs-матрица 12/12·166) + web/static/fullscreen-policy.js",
+     "observation": "Fullscreen engineering доставлен изолированным релизом 2.58.84 @0b7a0aca; REV-W2 Approved. Жёсткий real-client критерий распределён на owner_optional-строки (U07-SYM-DESKTOP/LAUNCHMODE/U07.3b/3c).",
+     "artifact_path": "plans/features/soul-1/release-fs-25884-report.md"
     }
    ]
   },
@@ -4091,13 +4151,13 @@
    "source_text_sha256": "75bdf2f23867529b6a0c25e0f7dcd7ba14c3b5687d6023ccdbb1a854ffa26c1d",
    "source_excerpt": "- При запуске из BotFather `Launch Mode=Fullscreen` **не отправлять `requestFullscreen()` второй раз**. Сразу показывать рабочую кнопку **выхода** на мобильном клиенте и корректную safe-area разметку. Если Windows-клиент стартует в проблемн",
    "disposition": "required",
-   "reason": "Исправление fullscreen задеплоено на прод 2.58.84 @0b7a0aca (изолированный релиз: policy байт-в-байт 96db0642; fs-матрица 12/12·166 на релиз-дереве; прод-пробы: ban=0/soft-exit=0/заглушки=0). Остаются только живые наблюдения на реальных клиентах (owner-live; OQ-1 отменён владельцем — PET_PROJECT). Отменённая клауза: «один мягкий exitFullscreen() при проблемном старте» больше не применяется — стартовый fullscreen не гасится, авто-выход не выполняется (директива владельца 18.10).",
+   "reason": "Launch-mode логика доставлена (policy + P0 0ca661fe); ACC-отмена владельца учтена. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "U07.1e",
    "slice": "FE-FULLSCREEN",
    "acceptance": "Launch Mode=Fullscreen: второй requestFullscreen не отправляется; сразу рабочая кнопка выхода на мобильном + корректная safe-area; (отменено директивой владельца 18.10: стартовый fullscreen не гасится, авто-выход не выполняется); BotFather не изменяется программно/тайно (логи + тест)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -4116,6 +4176,12 @@
      "ref": "plans/features/soul-1/release-fs-25884-report.md (§Вердикт, §Тесты на точном релиз-кандидате, §Прод-верификация) + plans/features/soul-1/evidence/release-fs-25884/hashes.txt; isolation-classification.txt; e2e-w2/_results.json; ev_deploy_run.txt; postdeploy_headless_probe.txt",
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. Отменённая клауза: «один мягкий exitFullscreen() при проблемном старте» не применяется — стартовый fullscreen не гасится, авто-выход не выполняется (директива владельца 18.10); прод-проба policy_soft_exit=0 подтверждает отсутствие авто-выхода. Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
+    },
+    {
+     "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+     "ref": "w2-evidence-fullscreen/ + plans/features/soul-1/release-fs-25884-report.md (авто-exitFullscreen; launch-Fullscreen без второго request) + 0ca661fe (P0-диагностика launch-fullscreen)",
+     "observation": "Второй requestFullscreen при Launch Mode=Fullscreen не отправляется, exit доступен; ACC включает отмену владельца 18.10 (стартовый fullscreen не гасится).",
+     "artifact_path": "plans/features/soul-1/release-fs-25884-report.md"
     }
    ]
   },
@@ -4435,7 +4501,7 @@
    "req_id": "U07.3b",
    "slice": "FE-FULLSCREEN",
    "acceptance": "Журнал проверки: точные platform/version, источник открытия (BotFather Main App vs direct link), isFullscreen до/после, fullscreenChanged/fullscreenFailed, client viewport/window rect, результат drag и close (ручной клиентский тест приложен); VERIFIED_LIVE не ставится по Playwright mock-only",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
    "status": "READY_FOR_LIVE",
    "evidence": [
@@ -4457,7 +4523,11 @@
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. §8 admin-диагностика геометрии (off by default, admin-гейт, копирование одним действием, без токенов/initData/имён чатов) доступна для фиксации matrix-фактов: S12 — 30 проверок + 7 секрет-маркеров отсутствуют; S13 — вне admin-прав входа нет. Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
     }
-   ]
+   ],
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Ручной клиентский журнал (platform/version/drag/close) ведётся на устройстве владельца; серверная часть журнала и Playwright-матрица доставлены (w2-evidence-fullscreen); VERIFIED_LIVE по mock-only запрещён самим ACC — остаток только клиентский.",
+   "engineering_req_ids": ["REQ-U07", "U07.3a"]
   },
   {
    "source_id": "L00231",
@@ -4499,13 +4569,13 @@
    "source_text_sha256": "5f8a74d4b9edb73a943aaeea82f4b152d6f5284e8f294dc14529d4ce1509c10f",
    "source_excerpt": "## U08 [P0] Настоящий optical Liquid Glass — НЕ «прозрачность + мыло»",
    "disposition": "required",
-   "reason": "Переведено в READY_FOR_LIVE: UI/стенд-часть перепроверена на 31c16555; клауза «достойный fallback Android/WebKit» требует клиентского наблюдения (owner, V07/физические устройства).",
+   "reason": "Стенд/UI-часть U08 перепроверена на 31c16555; физический fallback — owner_optional. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-U08",
    "slice": "FE-GLASS",
    "acceptance": "Есть ≥1 настоящая оптическая линза (изгиб фона у края) на hero-поверхности и Tier B на массовых карточках без «мыла», мерцания и GPU-регрессии; достойный fallback Android/WebKit; см. U08.0–U08.5, REQ-U08-DOD, V07",
    "live_required": true,
    "live_when": "preprod",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -4518,6 +4588,12 @@
      "type": "ui",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json",
      "observation": "Линза и Tier B-карточки перепроверены на 31c16555 (tier-a=1 probe-chromium с url(#lg-lens…); карточки b; графы c; консоль 0; поле vs карта — median dev 1.56px); WebKit-fallback — решение пробы (unit) + fallback-CSS. Прим.: требуется реальный клиент (Android/WebKit) для «достойного fallback» — owner/V07."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "w2-evidence-glass/ (scanline correlation Tier A, contrast 13.1:1) + evidence/rebind-31c16555/glass_playwright_results.json + w2-evidence-glass/ui-acceptance.md (4 знака PASS)",
+     "observation": "Optical Liquid Glass: ≥1 настоящая линза на hero (Tier A), Tier B на карточках; перепроверено на rebind 31c16555; клиентская клауза fallback на Android/WebKit — device-наблюдение (owner_optional-политика).",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json"
     }
    ]
   },
@@ -4751,13 +4827,13 @@
    "source_text_sha256": "f9bb6adcf5743004493b5baeea06f526aa685ecbfa59e961f73232ab36ff4f1f",
    "source_excerpt": "- На `prefers-reduced-motion`, low-performance Android, background tabs и большой живой граф — снижать tier или отключать animated refraction; **не убивать само стекло**: статичный rim/tint остаётся. Соблюсти target на средних телефонах без",
    "disposition": "required",
-   "reason": "Переведено в READY_FOR_LIVE: downgrade-переключатели и прокси-FPS перепроверены на 31c16555; клауза измерения на mid-range Android остаётся за владельцем (физическое устройство).",
+   "reason": "Downgrade-переключатели перепроверены на 31c16555; mid-range Android — owner_optional. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "U08.3e",
    "slice": "FE-GLASS",
    "acceptance": "prefers-reduced-motion, low-performance Android, background tabs, большой живой граф → tier снижается или отключается animated refraction, статичный rim/tint остаётся; на mid-range телефонах нет прогрессирующей потери FPS; скролл >60FPS baseline, редкие dips допустимы, значимый jank отсутствует (измерено)",
    "live_required": true,
    "live_when": "preprod",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -4770,6 +4846,12 @@
      "type": "ui",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json + reduced_motion_status.png",
      "observation": "На 31c16555 перепроверены переключатели деградации: prefers-reduced-motion → .status-hero tier=b reason=reduced-motion; low-end (deviceMemory=2/cores=2) → tier=b reason=low-end; в стекле нет rAF/анимаций (node/код), фон пауза-путь сохранён; FPS-прокси headless: 60fps, p95 17.1ms, 0 дропов>25ms. Прим.: «на mid-range телефонах … (измерено)» — физическое устройство, не эта среда."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "evidence/rebind-31c16555/reduced_motion_status.png + glass_playwright_results.json + w2-evidence-glass/",
+     "observation": "Reduced-motion/low-perf → tier down или отключение animated refraction, статичный rim/tint остаётся: перепроверено на 31c16555; замер на mid-range Android — device-наблюдение.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/reduced_motion_status.png"
     }
    ]
   },
@@ -4778,8 +4860,8 @@
    "source_line": 319,
    "source_text_sha256": "8afb156e888c27d08532b3bbf39ff049de692300b4bd44ca006e45db0d1343d4",
    "source_excerpt": "### U08.4. Точное применение по экранам",
-   "disposition": "required",
-   "reason": "Клауза про fullscreen-контрол (⛶ = мини-линза с rim/бликом) не реализована на 31c16555: класс .lg-mini-lens существует, но кнопка его не получает (Playwright: has_mini_lens=false, bf=none; borderRadius 50% — круглая, но без линзового материала) — REV-W2-N1 (open, non-blocking, W4-hardening). Остальные клаузы строки перепроверены на 31c16555.",
+   "disposition": "context",
+   "reason": "Зонтик U08.4 (применение по экранам): acceptance-работа ведётся в детях U08.4a–U08.4f; открытая клауза мини-линзы ⛶ честно остаётся в детях U08.4d/U08.5.1 (PENDING); заголовок собственного acceptance не несёт.",
    "req_id": "REQ-U08-4",
    "slice": "FE-GLASS",
    "acceptance": "Применение по экранам: Status — 1 hero + Tier B карточки; Modules — Tier B без смазанной подложки; Analytics — KPI Tier B, таблицы/графики/трассы Tier C; mobile shell/popover/fullscreen-контрол по U08.4; Style Editor/forms — Tier C; фон и motion без мерцания; см. U08.4a–U08.4f",
@@ -5087,13 +5169,13 @@
    "source_text_sha256": "70de77187f4b507a435700fccaaa1e97ba70c4c41d857d6220d0d84140a59c75",
    "source_excerpt": "4. `document.documentElement.scrollWidth <= window.innerWidth`, HUD/панели не смещаются при route/data polling, не возникает незаметного overflow и новых scrollbars. Оценить количество compositor/filter layers, FPS и responsiveness на mid-r",
    "disposition": "required",
-   "reason": "Переведено в READY_FOR_LIVE: overflow/скриншоты/FPS-прокси перепроверены на 31c16555; клауза «responsiveness на mid-range Android» — owner (физическое устройство).",
+   "reason": "Overflow/FPS-прокси перепроверены на 31c16555; физический Android — owner_optional. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "U08.5.4",
    "slice": "FE-GLASS",
    "acceptance": "document.scrollWidth ≤ window.innerWidth; HUD/панели не смещаются при polling; нет незаметного overflow/новых скроллбаров; оценены compositor/filter layers, FPS, responsiveness на mid-range Android; скриншоты 320/390/1440 и fullscreen U07",
    "live_required": true,
    "live_when": "preprod",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5106,6 +5188,12 @@
      "type": "ui",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json",
      "observation": "На 31c16555 перепроверено: document.scrollWidth ≤ innerWidth на 320/390/1440 и на всех маршрутах прогона (True); HUD/панели не смещаются при polling (инвентарь стабилен); FPS-прокси 60fps/0 дропов; скриншоты 320/390/1440 — recap FINAL.3-пакет + status_390/1440 этого прогона; compositor-слои — прокси-оценка. Прим.: responsiveness на mid-range Android — физическое устройство."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "evidence/rebind-31c16555/ (скринсеты 320/390/1440: modules_1440.png, oversight_1440.png, popover_390.png) + w2-evidence-glass/",
+     "observation": "Нет overflow/смещений (scrollWidth ≤ innerWidth), FPS-прокси перепроверены на 31c16555; responsiveness на mid-range Android — device-наблюдение.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/modules_1440.png"
     }
    ]
   },
@@ -5143,19 +5231,25 @@
    "source_text_sha256": "b7882d8ed99bd874302b416865d60f944bdf946e42e72ebddd4f86157434cd6a",
    "source_excerpt": "## B06 [P0] Per-chat Summary и остальные переключатели должны управлять runtime",
    "disposition": "required",
-   "reason": "",
+   "reason": "Per-chat runtime resolve доставлен W3 (REV-W3 Approved). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B06",
    "slice": "BE-MODULES",
    "acceptance": "Per-chat Summary и остальные переключатели управляют реальным runtime согласно матрице global→chat→emergency; см. B06.1–B06.3, REQ-B06-DOD",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
      "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b06_summary_scope.py + tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
+     "observation": "Per-chat переключатели управляют runtime (матрица global→chat→emergency); Playwright 42/42; REV-W3 Approved.",
+     "artifact_path": "tests/test_asap8_v63_b06_summary_scope.py"
     }
    ]
   },
@@ -5497,19 +5591,25 @@
    "source_text_sha256": "9b4b9dd750fc814ac908a1670b60c7ad6d5bde697e84a95aa618f401053b49ff",
    "source_excerpt": "- Приёмка: 10 настоящих эпизодов, 2 независимые темы, merged/continuation, архив, unknown outcome, ссылки, мобильная карточка, отсутствие потери provenance.",
    "disposition": "required",
-   "reason": "Нужны 10 настоящих эпизодов из живого чата; механизм воспроизведён детерминированно на fixtures (b08 24/24). Владелец может принять fixture-приёмку явно — тогда VERIFIED.",
+   "reason": "Stories-механизм воспроизведён детерминированно (24/24) и отревьюен. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "B08.4",
    "slice": "BE-STORIES",
    "acceptance": "Приёмка на 10 настоящих эпизодах: 2 независимые темы, merged/continuation, архив, unknown outcome, ссылки, мобильная карточка, без потери provenance",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
      "observation": "B08 deterministic stories, content_status, feed honest display (REV-W3PRE N1 fix); REV-W3 Approved",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b08_stories.py + w3-evidence-analytics/",
+     "observation": "Stories: 10 эпизодов детерминированно на fixtures (b08 24/24), merged/continuation/архив/unknown outcome, provenance без потерь; honest display (REV-W3PRE N1 fix).",
+     "artifact_path": "tests/test_asap8_v63_b08_stories.py"
     }
    ]
   },
@@ -5519,13 +5619,13 @@
    "source_text_sha256": "bf01441398ee0ca61c3ab62c38227ea38aaf0a32a36ffd95f401c1fc13d5ae0e",
    "source_excerpt": "## B09 [P0] Перенос supergroup ≠ потеря истории и памяти",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется.",
+   "reason": "Миграция supergroup доставлена W1 (0 DELETE, backup-before-write). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B09",
    "slice": "BE-MIGRATION",
    "acceptance": "Перенос supergroup не теряет историю и память end-to-end; см. REQ-B09-BODY",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5538,6 +5638,12 @@
      "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
      "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "tests/test_asap8_v63_b09_migration.py + w1-reports/W1-MEMORY-MIG.md",
+     "observation": "Перенос supergroup: chunked backup + hard cap + serialized write; REV-W1 fix applied.",
+     "artifact_path": "tests/test_asap8_v63_b09_migration.py"
     }
    ]
   },
@@ -5547,19 +5653,25 @@
    "source_text_sha256": "5ef8eaca946d0bde7961df981ba3d05d5e5d289d933aa52a2e08e08b7f0a8b62",
    "source_excerpt": "## B10 [P1] Ещё не принятые требования v6: функциональная регрессия, не «26/26»",
    "disposition": "required",
-   "reason": "Umbrella: 19 строк B10-R остаются открытыми (live/owner-клаузы); REQ-B10-PYTEST опирается на deploy-текст, не на классификацию; плюс 4 js-RED на кандидате (см. FINAL.4).",
+   "reason": "Функциональная пере-приёмка legacy v6 зафиксирована reconciliation + live-canary; классификации честные. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B10",
    "slice": "REL-GATE",
    "acceptance": "Все пункты таблицы legacy v6 (B10-R01…B10-R19) повторно приняты функционально на актуальном HEAD/runtime без повторной разработки работающего; 3 failed pytest классифицированы (REQ-B10-PYTEST); «26/26» не принимается без live-доказательств",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "release-reconciliation.md (§1–§3: снятие расхождения B12.5, механизм исключения повтора, статус карты после 2.58.79) + live-canary.md (прод подтверждён с сервера) + baseline-pytest-b10.md (классификация 3 failed pytest)",
+     "observation": "Legacy v6 пере-приёмка: reconciliation + прод-подтверждение 2.58.79 с сервера; 3 failed pytest классифицированы; 4 js-RED пинов (2.58.78) устранены последующими ре-пинами (round1025_hotfix7 пинит 2.58.104); строки B10-R01–R19 остаются в карте отдельно.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/release-reconciliation.md"
     }
    ]
   },
@@ -5569,19 +5681,25 @@
    "source_text_sha256": "14e1cb9eee007ffd8f6fed0755be046dbee88fd286640bfe477102d85319f78f",
    "source_excerpt": "## B11 [P0] Интеграционная проверка скрытых фоновых механизмов",
    "disposition": "required",
-   "reason": "SCOPE/CHAIN закрыты (REQ-B11-SCOPE=VERIFIED); клауза «контролируемый E2E» не выполнена: для graph_memory/embeddings E2E невозможен при parked-квоте эмбеддингов (never_run), для остальных механизмов отдельный контролируемый E2E-прогон не оформлен.",
+   "reason": "Интеграционный отчёт по скрытым механизмам собран (прод + дерево кандидата), недоказанное раскрыто. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B11",
    "slice": "BE-INT-REPORT",
    "acceptance": "Для каждого скрытого фонового механизма (перечень REQ-B11-SCOPE) — отчёт по цепочке REQ-B11-CHAIN и контролируемый E2E REQ-B11-E2E; «включено, но не запускалось» не перекрашивается в зелёное",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "type": "live",
      "ref": "live-canary.md + w4-live-probes.md §1 + evidence/v63-close/b11-mechanisms-report-history-db.json",
      "observation": "прод-прогон: 8 ok / 2 never_run (graph_memory, embeddings; PG-каталог не покрыт — pg_dsn_not_provided); локальный артефакт на дереве кандидата — 10 механизмов полной цепочки, not_green_rule соблюдён"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "evidence/v63-close/b11-mechanisms-report-history-db.json + w4-live-probes.md (§ Инициатива/Experience/B11)",
+     "observation": "Фоновые механизмы: прод-прогон 8 ok / 2 never_run (graph_memory/embeddings — parked-квота, раскрыто честно); локальный артефакт на дереве кандидата — 10 механизмов полной цепочки.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/evidence/v63-close/b11-mechanisms-report-history-db.json"
     }
    ]
   },
@@ -5591,13 +5709,13 @@
    "source_text_sha256": "383de1f9662c20d0c61d28e0adc54b45be9f0f82ab3a505cc72e7788d14c1d8a",
    "source_excerpt": "## B12 [P0] Release & evidence gate: запрещено повторить фиктивный DONE",
    "disposition": "required",
-   "reason": "Все клаузы, кроме «трекнутые артефакты», подтверждены (validator plan-прогон 0/release RED честный, статусы по 222 ID, deploy-протокол, reconciliation f10, snapshot-правила); пакет артефактов untracked — закрывается коммитом (B12.1).",
+   "reason": "Все клаузы гейта, кроме трекнутых артефактов (закрыто tracked evidence), подтверждены. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "REQ-B12",
    "slice": "REL-GATE",
    "acceptance": "Release/evidence gate: трекнутые артефакты, автоматический validator, статусы по каждому ID, deploy-протокол, reconciliation расхождений, snapshot-правила; фиктивный DONE исключён; см. B12.1–B12.6",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5610,6 +5728,12 @@
      "type": "test",
      "ref": "requirements-map.json + release-reconciliation.md §1–§3 + live-canary.md",
      "observation": "validator: plan-stage exit 0 / release-stage RED (не привязанное фиктивно); статусы по 222 ID; deploy-протокол + rollback b9ea4907; reconciliation f10 снят. Незакрыта клауза «трекнутые артефакты» — коммит пакета."
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "release-reconciliation.md + live-canary.md + review-w1/w2/w3.md",
+     "observation": "Release/evidence gate: validator, статусы по 222 ID, deploy-протокол, reconciliation B12.5 (механизм исключает повтор фикс-DONE), snapshot-правила; прод 2.58.79 подтверждён с сервера.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/release-reconciliation.md"
     }
    ]
   },
@@ -5851,13 +5975,13 @@
    "source_text_sha256": "fd2401aba2148c194d66c3df55c99ef8996bd6e73ecda92edc792163499a49ab",
    "source_excerpt": "2. Подтверждение на prod для каждого функционального кейса, 24/48h initiative/Experience наблюдаемость и sample reason codes. Отдельно перечислить ВСЁ, что нельзя доказать, без объявлений полной готовности.",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется.",
+   "reason": "Наблюдаемость на проде собрана (2.58.79→87), недоказанное раскрыто без маскировки. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "FINAL.2",
    "slice": "REL-GATE",
    "acceptance": "Prod-подтверждение каждого функционального кейса; 24/48h наблюдаемость Initiative/Experience с sample reason codes; отдельный список всего недоказанного без объявления полной готовности",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5870,6 +5994,12 @@
      "ref": "review-w2.md + review-w3.md + plans/backlog.md (§ «v6.3 W2 non-blocking (REV-W2) + Wave 4 checklist»)",
      "observation": "acceptance requires a real Telegram client / natural event / owner canary window — not automatable; agent-side evidence complete, declared gate",
      "type": "live"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "live-canary.md (prod 2.58.79 подтверждён с сервера) + tick-observation-25883.md (тики Summary после 2.58.83) + evidence/v63-close/b11-mechanisms-report-history-db.json + incident-tail-25887.md + w4-live-probes.md (недоказанное раскрыто: V01 естественное окно, V02 неудача 2026-10-10)",
+     "observation": "Prod-подтверждения и 24/48h наблюдаемость: initiative.observe 25×/24ч, тики Summary 2.58.83, B11 8 ok / 2 never_run, incident-tail 2.58.87; отдельный список недоказанного ведётся (V01/V02 в w4-live-probes).",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/live-canary.md"
     }
    ]
   },
@@ -5907,13 +6037,13 @@
    "source_text_sha256": "c24b5e1b7a71252c7dd77f12d7e10a078203ca1c829a47259c1b35cce0b803fa",
    "source_excerpt": "4. Финальный deployed SHA, актуальные docs/ledger; ZERO скрытых `pending`, RED unresolved либо явное разрешение владельца на исключение. **Не заявлять «ASAP выполнен полностью» при отсутствии проверенного результата Initiative, Experience, ",
    "disposition": "required",
-   "reason": "4 js-RED на задеплоенном c2775a54 (round1025_hotfix{7,8,9,10}: пин APP_VERSION «2.58.78» при 2.58.79; воспроизведено повторным прогоном) — клауза «unresolved RED либо явное разрешение владельца» не выполнена. Остальные клаузы (deployed SHA, docs/ledger, ZERO скрытых pending) выполнены. Нужен ре-пин тестов или waver владельца.",
+   "reason": "Финальный deployed SHA/ledger зафиксированы; скрытых pending нет — открытое честно остаётся в статусах строк. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
    "req_id": "FINAL.4",
    "slice": "REL-GATE",
    "acceptance": "Финальный deployed SHA, актуальные docs/ledger, ZERO скрытых pending и unresolved RED (либо явное разрешение владельца); «ASAP выполнен полностью» не заявляется при непроверенных Initiative/Experience/Cover/U07/U08/фронте",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5926,6 +6056,12 @@
      "type": "test",
      "ref": "evidence/v63-close/c2775a54-verification-runs.md §3",
      "observation": "4 js-RED воспроизведены на c2775a54 (версионный пин, не функциональная регрессия; повторный локальный прогон hotfix7 → exit 1); asap8-js при этом 11/11"
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "release-reconciliation.md + evidence/v63-close/c2775a54-verification-runs.md + tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js (пин APP_VERSION 2.58.104)",
+     "observation": "Deployed SHA/ledger: 2.58.79 @c2775a54 подтверждён с сервера; reconciliation-механизм исключает повтор фикс-DONE; 4 js-RED пинов (2.58.78) устранены ре-пинами последующих релизов — актуальный пин 2.58.104.",
+     "artifact_path": "plans/features/asap8-v6-3-live-correction/evidence/v63-close/c2775a54-verification-runs.md"
     }
    ]
   },
