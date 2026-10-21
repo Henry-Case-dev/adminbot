@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-tr\\source-add-tr-2026-10-19.md",
   "source_sha256": "08cd6b4a0417bde243a3829102a825fc426306b9c50239267cf0de13e59c4324",
   "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
-  "deployed_commit": "",
+  "deployed_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
   "strict_evidence": false,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -13,14 +13,30 @@
       "source_text_sha256": "e53ad41d8aa638307c54cfbeb2e0eec13d1e8817f33db3769cf11156e8e21832",
       "source_excerpt": "**Дата: 19.10.2026. Статус: обязательная дельта к актуальному `plans/current_task.md`.** Вставить этот блок **в конец** действующего файла. ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (TAILS-биндинг 22.10): дельта исполнена как приоритетная добавка к SOUL-1/CFG/ASAP без второго эпика; блок ADD-TR остался append-only в current_task (строки 1631–1731 на момент регистрации; поздние дельты дописывались после блока); VERBATIM-снапшот источника 08cd6b4a совпадает с source_sha256 карты; ранее полученные результаты/статусы не сбрасывались.",
       "req_id": "M-ADTR-REG-DELTA",
       "slice": "ADTR-REG",
       "acceptance": "Дельта исполняется как дополнение к уже поставленным SOUL-1/CFG/ASAP: независимый второй эпик не создан; инструменты/сервисы не пересоздаются; ранее полученные результаты и статусы не сбрасываются; блок остаётся append-only в конце current_task (immutable snapshot source-add-tr-2026-10-19.md фиксирует источник).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b67df7bce37a42b9785ee115404081f947e96340",
+          "ref": "plans/current_task.md — блок ADD-TR (строки 1631–1731 на момент регистрации 19.10), append-only в конце файла на тот момент",
+          "observation": "Блок присутствует и не редактировался задним числом: заголовок «Дата: 19.10.2026 … Вставить этот блок в конец» + разделы ADD-TR.0–ADD-TR.5; поздние волновые блоки дописаны после него (append-only).",
+          "artifact_path": "plans/current_task.md",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "b67df7bce37a42b9785ee115404081f947e96340",
+          "ref": "plans/features/add-tr/source-add-tr-2026-10-19.md (VERBATIM-снапшот источника)",
+          "observation": "Снапшот неизменен: sha256 08cd6b4a… == source_sha256 карты; независимый второй эпик не создавался — исполнение волнами общей очереди (91–95), инструменты/сервисы не пересоздавались (REUSE-границы ADTR-*-REUSE VERIFIED).",
+          "artifact_path": "plans/features/add-tr/source-add-tr-2026-10-19.md",
+          "artifact_sha256": "08cd6b4a0417bde243a3829102a825fc426306b9c50239267cf0de13e59c4324",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.2",
         "cfg:ADD-0.4"
@@ -116,7 +132,11 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Нативный Telegram-клиент Android доступен только на устройстве владельца; браузерная матрица агентами уже покрыта, device-наблюдение добровольное.",
-      "engineering_req_ids": ["M-ADTR-GRID-CHECKS", "M-ADTR-VERIFY-NATIVE", "ADTR-VERIFY-DOD4"],
+      "engineering_req_ids": [
+        "M-ADTR-GRID-CHECKS",
+        "M-ADTR-VERIFY-NATIVE",
+        "ADTR-VERIFY-DOD4"
+      ],
       "evidence": []
     },
     {
@@ -554,14 +574,39 @@
       "source_text_sha256": "b7b9ef047ec4b148c610283c4a65b81b3f99138458afd118a043f00d00c2f35a",
       "source_excerpt": "| Vision OFF / недоступен / долго отвечает | Нет заявления «вижу на фото»; предусмотрено честное состояние |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто live (91 §3 + 95 P2/§(b)): Vision OFF (per-chat override) → честный ответ «Глаза мне отключили, так что картинку я не вижу…» и 0 vision-транспортных вызовов (vision_transport_calls=[]); недоступен/долго — честный отказ без ready (91: mid 1165613, no ready-заявлений); bounded 20 c (95 §(b): postgen pending/deadline_exceeded, доставка не блокирована).",
       "req_id": "M-ADTR-VERIFY-S5",
       "slice": "ADTR-VERIFY",
       "acceptance": "Vision OFF / недоступен / долго отвечает: нет заявления «вижу на фото»; предусмотрено честное состояние.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §3 (vision недоступен/долго — честный отказ)",
+          "observation": "Фото с caption → Direct → recognize_image вызван, но содержательный ответ не выдавался без ready: честный отказ (mid 1165613); ни одного «вижу на фото» без данных.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-3-vision-freeform.json",
+          "artifact_sha256": "13d0feafab886e5c9cb3b0090f3d57b9f88c0f00ad3299f6eadfaad41037a57e",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "95 P2-vision-off (chat-override OFF)",
+          "observation": "vision_state_off reason=vision_disabled → tool denied, ответ честный, transport_delta=0, analyses/jobs after OFF пусты — ложных заявлений нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p2-vision-off.json",
+          "artifact_sha256": "bf66ee779bf85612cd20a660f22936115c12be1527808f8fe5efea42bfa22e88",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "95 §(b) (bounded ожидание)",
+          "observation": "postgen pending/deadline_exceeded в bounded 20 c; Writer-блок «содержимое не подтверждено»; доставка изображения не заблокирована.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
+        }
+      ],
       "note": "Предв.: GAP — pending≠ready и bounded ожидание (ADTR-TOOLS-VISION, ADTR-POSTGEN-PENDING)."
     },
     {
@@ -570,14 +615,31 @@
       "source_text_sha256": "b5ae8eaaf48226951c98ec8ae975f7e1ef1639826b2d5cc9819229af30c5d5a6",
       "source_excerpt": "| «бот, нарисуй X» и «бот, надо нарисовать X» | Обе формы ведут к одному image workflow, одна генерация и списание |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто live (91 §5 + 94 §(c)): каноническая «бот, нарисуй X» → один image workflow (2 успешные генерации, mids 1165620/1165622, replay 0 вызовов/0 отправок); свободная «бот, надо нарисовать…» → тот же контур: 1 генерация (qwen-image-3-pro, 939495 B), 1 списание, 1 vision-вызов, доставка mid 1166169.",
       "req_id": "M-ADTR-VERIFY-S6",
       "slice": "ADTR-VERIFY",
       "acceptance": "«бот, нарисуй X» и «бот, надо нарисовать X»: обе формы ведут к одному image workflow, одна генерация и одно списание.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §5 (канон «нарисуй…»)",
+          "observation": "Один image workflow на намерение; реальные отправки mids 1165620/1165622 + тексты; replay без повторных вызовов.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-5-generate.json",
+          "artifact_sha256": "16b582b96e3406791e84b456aadc156b2a79c3fe439b4e96973f511d6451a5e5",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §(c) (свободная форма «надо нарисовать»)",
+          "observation": "Свободная просьба ведёт к тому же workflow: 1 генерация (939495 B), 1 списание, 1 vision-вызов, доставка mid 1166169 — дублей генерации нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/README.md",
+          "artifact_sha256": "661e58edcfcb1a31f0d05050aa2e02f1ce282a13f2c3742115b683eedc961986",
+          "type": "production"
+        }
+      ],
       "note": "Предв.: кандидат REUSE_VERIFIED — SOUL-AMD.5.3/5.5 закрыты семантикой (одна генерация/один commit); форму «надо нарисовать» подтвердить."
     },
     {
@@ -634,14 +696,23 @@
       "source_text_sha256": "27b44f5f0ef9772fb0376af364e4185fc4ed76b217b2a7dcca59bfe36866d5c6",
       "source_excerpt": "| Генерация + Vision ON, probe failed | Картинка доставлена, визуальные утверждения отсутствуют |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто live (ACCEPTANCE-95 §(b)): постген при pending/probe failed — gen1: 1 provider call, фото доставлено (mid 1166489); postgen status=pending reason=deadline_exceeded (bounded 20 c) → Writer-блок «содержимое не подтверждено», честный ответ без визуальных утверждений; доставка не заблокирована (gen2: 0 provider calls, 0 фото).",
       "req_id": "M-ADTR-VERIFY-S10",
       "slice": "ADTR-VERIFY",
       "acceptance": "Генерация + Vision ON, probe failed: картинка доставлена, визуальные утверждения отсутствуют.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "95 §(b) p4b-generation",
+          "observation": "postgen=[{status: pending, reason: deadline_exceeded, has_content: false}]; ответ Writer'а честный, визуальных утверждений нет; повторной отправки/списания нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
+        }
+      ],
       "note": "Предв.: GAP — ADTR-POSTGEN-PENDING."
     },
     {
@@ -700,14 +771,31 @@
       "source_text_sha256": "9c11fd340541aa37dbe418fc1355cb54710f9684d4fad9aba474304be8702574",
       "source_excerpt": "| Заметная поломка grid на 360px | Нормальные полноширинные карточки и читаемые заголовки, без пересечений |",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: grid-фикс (948c2004, review 751295f7 Approved) — after-прогон на 320–430: failures=0 (21 проверка), DOMRect-контракт колонок/badge/touch, стресс font2x/длинные слова; browseruse-снимок 320px; тот же контур VERIFIED в M-ADTR-GRID-CHECKS.",
       "req_id": "M-ADTR-VERIFY-S13",
       "slice": "ADTR-VERIFY",
       "acceptance": "Заметная поломка grid на 360px: нормальные полноширинные карточки и читаемые заголовки, без пересечений.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "evidence/grid-fix/after/e2e_after.json (после фикса)",
+          "observation": "failures=[] — 0 проблем на матрице 320/360/390/430; notes фиксируют группы/карточки и overflow=0 на каждом breakpoint.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/after/e2e_after.json",
+          "artifact_sha256": "a3e6fbe38ef6a486d9dff11f68ed3295b0251417bac4af29814abb6fd004fa5f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "evidence/grid-fix/after/browseruse_store_320.png",
+          "observation": "Визуальный снимок витрины на 320px: полноширинные карточки, читаемые заголовки без пересечений badge.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/after/browseruse_store_320.png",
+          "artifact_sha256": "5a67cb8719fd6d2a553a79e557a1bd64f022cae7519e027a3201a73badfae528",
+          "type": "ui"
+        }
+      ],
       "note": "Предв.: REGRESSION — подтверждено наблюдением владельца; после фикса ADTR-GRID проверить 360px; честно отметить поломку после P0A-UX-COMPACT."
     },
     {
@@ -731,14 +819,39 @@
       "source_text_sha256": "acf2046cf8f1bbc2873390f01903cdd93348007c7820c87752074eed83369e28",
       "source_excerpt": "**Доказательства:** для каждого сценария фиксировать effective advertised tools и gates, источник MessageRef, selected intent, реальные tool",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: протокол стадий применён в отчётах 91/92/94/95 — для каждого сценария фиксируются effective advertised tools/gates, источник MessageRef (target), selected intent (L1_PLAN), реальные tool invocations (TOOL_CALL/COMPLETE), статус провайдера/ассета, результат и Telegram-delivery (mids); five-facts b1 (94) — эталон стадий; секретов/ключей/изображений в открытых логах нет.",
       "req_id": "M-ADTR-VERIFY-EVIDENCE",
       "slice": "ADTR-VERIFY",
       "acceptance": "Для каждого сценария зафиксированы: effective advertised tools и gates, источник MessageRef, selected intent, реальные tool invocations (или честная причина отсутствия), статус provider/asset, результат и Telegram delivery; в открытых логах нет личных данных, ключей и изображений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "release-25891/acceptance/README.md (стадии + mids)",
+          "observation": "Отчёт волны 91 фиксирует цепочки стадий по каждому сценарию (mids 1165611–1165658), честные причины отказов.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md",
+          "artifact_sha256": "500f37c76a1e58b2cad4416269418663d1ac52407e43e18f27b7a2d8517f0a2d",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "release-25894/acceptance/README.md (five-facts b1 + Ф6)",
+          "observation": "Эталон стадий: F1 target → F2 джоба completed → F3 tool call → F4 анализ ready → F5 доставка (mids 1166163→1166167); витрина/изоляция без утечек.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/README.md",
+          "artifact_sha256": "661e58edcfcb1a31f0d05050aa2e02f1ce282a13f2c3742115b683eedc961986",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "release-25895/acceptance/README.md (стадии (a)–(b))",
+          "observation": "Волна 95 фиксирует OFF/ON/bounded-стадии с mids и счётчиками; секретов в эвиденсе нет.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/README.md",
+          "artifact_sha256": "4c48311cd066b9a5f87fce3e1fa78a48e3e361226e49599e05a26bdf1e7d74de",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-ADTR-VERIFY-NATIVE",
@@ -746,14 +859,31 @@
       "source_text_sha256": "acf2046cf8f1bbc2873390f01903cdd93348007c7820c87752074eed83369e28",
       "source_excerpt": "**Доказательства:** для каждого сценария фиксировать effective advertised tools и gates, источник MessageRef, selected intent, реальные tool",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: реальное тестирование на устройстве недоступно агентам — честный PENDING_OWNER_E2E зафиксирован (note M-ADTR-GRID-CHECKS; device-чек-листы отменены 18.10.2026, PET_PROJECT §5); browser-матрица 320–430, font 20/24, узкие Desktop и стресс выполнены агентами (after 0/21 + browseruse-снимки); браузерная эмуляция нигде не выдана за нативный клиент; device-наблюдение — добровольная строка M-ADTR-GRID-DEVICE-OBS (owner_optional, engineering_req_ids ведут на инженерные VERIFIED-строки).",
       "req_id": "M-ADTR-VERIFY-NATIVE",
       "slice": "ADTR-VERIFY",
       "acceptance": "Выполнено реальное тестирование Android Telegram и Desktop либо честно зафиксирован PENDING_OWNER_E2E; браузерная эмуляция не выдаётся за нативный клиент.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "evidence/grid-fix/after/e2e_after.json — browser-половина native-чеклиста",
+          "observation": "Агентская браузерная матрица выполнена (320–430, overflow=0, DOMRect-контракт); device-часть остаётся честным residual-наблюдением владельца, не гейтом.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/after/e2e_after.json",
+          "artifact_sha256": "a3e6fbe38ef6a486d9dff11f68ed3295b0251417bac4af29814abb6fd004fa5f",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "b67df7bce37a42b9785ee115404081f947e96340",
+          "ref": "plans/owner_live_checks.md — правило добровольных личных проверок (18–20.10.2026)",
+          "observation": "Устройство/личные проверки владельца добровольны и не блокируют инженерную приёмку; соответствующий owner_optional-остаток заведён отдельной строкой M-ADTR-GRID-DEVICE-OBS.",
+          "artifact_path": "plans/owner_live_checks.md",
+          "artifact_sha256": "a7a6413a3ed2b2e637abdc72ab2f97d523460241859c2ec4975c119e1e0237b1",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M-CTX-DOD",
@@ -791,14 +921,31 @@
       "source_text_sha256": "d5e07f5d637173939037b9768512315d6225aa04b8317efb1b5c0f207ef3c4bb",
       "source_excerpt": "**После этого дополнения: если в current_task есть дальнейшая работа или unresolved обязательные задачи, продолжить штатно, не завершать сес",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: после ADD-TR очередь продолжена автоматически — поезда 2.58.96–107 (git log: 3a49d545 LEDGER-ACCEPT-96 … 4655af4d deploy 2.58.107 VERIFIED @3a178c6c); остановки сессии и запросов разрешений не было (PET_PROJECT).",
       "req_id": "M-ADTR-REG-CONTINUE",
       "slice": "ADTR-REG",
       "acceptance": "Работа не завершается по одному Approved/Deployed: если в current_task остаётся дальнейшая работа или unresolved обязательные задачи — исполнение штатно продолжается без остановки сессии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "95d11472b9e533b554554918e3efa6b42125260b",
+          "ref": "LEDGER-ACCEPT-96 (3a49d545) → deploy 2.58.96 (95d11472): очередь продолжилась сразу после accept-95",
+          "observation": "Коммит 3a49d545 перебиндил следующую волну (2.58.96) — признак непрерывного конвейера после ADD-TR; деплой-сводка волны 96 коммичена (e2abdcb0).",
+          "artifact_path": "plans/features/add-exp/evidence/release-25896/deploy/deploy-summary.md",
+          "artifact_sha256": "1934bd0e1c6cb36bf544696a448d2d463b2eb54a338b03d384b6f360572e3989",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+          "ref": "deploy 2.58.107 VERIFIED @3a178c6c (4655af4d) — текущее состояние очереди",
+          "observation": "Поезда продолжились до 2.58.107 (release-артефакты corrective-fix-2026-10-21/release-258107/deploy.md, коммичен в 4655af4d): current_task не остановлен.",
+          "artifact_path": "plans/features/corrective-fix-2026-10-21/release-258107/deploy.md",
+          "artifact_sha256": "e44235b88f0ac871038cb515dc1d9a03592644ed73b76bb8e387fe557fa0bd72",
+          "type": "production"
+        }
+      ]
     }
   ],
   "items": [
@@ -823,14 +970,22 @@
       "source_text_sha256": "6fc7cb2005650240dec5c61f850e9f4afce9ab8055d61596039c3629000e07b3",
       "source_excerpt": "1. По **актуальному** `current_task.md`, `requirements-map`, `workflow_state.md` и deployed SHA сверить каждое требование ниже с уже выполненными и запланированными задачами. Зафиксировать статус `REUSE_VERIFIED`, `GAP`, `REGRESSION`, `PEND",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто (рекон TAILS-RECON + биндинг 22.10): по каждому сценарию зафиксирован отдельный статус в note-полях карты (S1/S2/S11/S12 — live 91/92/94; S13 — REGRESSION→фикс VERIFIED; S5/S6/S10/EVIDENCE/NATIVE/DoD4/DoD5 — REUSE-биндинг; S3/S4/S7/S8/S9/EDGE/PROTOCOL/REPORT — REAL_WORK с указанием остатка); выполненные привязаны к evidence-волн 91–95, повторной реализации нет.",
       "req_id": "ADTR-REG-AUDIT",
       "slice": "ADTR-REG",
       "acceptance": "По актуальным current_task.md, requirements-map, workflow_state.md и deployed SHA сверены все требования ADD-TR; для КАЖДОГО конкретного сценария (не для группы) зафиксирован один из статусов REUSE_VERIFIED/GAP/REGRESSION/PENDING_OWNER_E2E/BLOCKED; уже выполненные требования привязаны к тестам/evidence и не реализуются повторно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b67df7bce37a42b9785ee115404081f947e96340",
+          "ref": "plans/features/add-tr/prep-tails-binding.md (рекон PM-TAILS-RECON 22.10) + notes M-ADTR-VERIFY-S1…S13 в requirements-map.json",
+          "observation": "Каждая открытая строка просмотрена реконом и разведена по вердиктам: 13 REUSE / 12 REAL_WORK / 10 CONTEXT / 1 OWNER_OPTIONAL; статусы по сценариям — в note-полях карты, а не группой.",
+          "artifact_path": "plans/features/add-tr/prep-tails-binding.md",
+          "type": "static"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.3",
         "cfg:ADD-0.5"
@@ -1036,14 +1191,31 @@
       "source_text_sha256": "e3f977d435c2558c9cb2a0a9c82f22baf456cf666b9628ba991dec5295fc1b2c",
       "source_excerpt": "3. Внести изменения **в общую очередь** с высоким приоритетом для воспроизводимых пользовательских поломок. **Не прерывать уже выполняемые атомарные задачи или деплой**, не потерять остальные пункты и зависимости. В ближайших безопасных сло",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: ADD-TR внесён в общую очередь приоритетной добавкой (слайсы/волны W0–W3 по README); полосы W1 (GRID/ENTRY/TOOLS) шли в непересекающихся файлах; деплои 91–95 выполнены последовательно и не прерывались; после Reviewer очередь продолжилась автоматически (поезда 96–107).",
       "req_id": "ADTR-REG-QUEUE",
       "slice": "ADTR-REG",
       "acceptance": "ADD-TR внесён в общую очередь с высоким приоритетом для воспроизводимых пользовательских поломок; выполняемые атомарные задачи и деплой не прерваны; независимые части (маршрутизация, генерация/vision, CSS) назначаются параллельно в ближайших безопасных слотах без конфликтующих правок одних файлов и двойного деплоя; после Reviewer и штатного выпуска общая очередь продолжается автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "plans/features/add-tr/README.md §«Слайсы и волны» (W0–W3) + git-история волн 2.58.91–95 (f2a6248a → 1d367e4c → 9072347b → 113f3a62)",
+          "observation": "Волновой план зафиксирован и исполнен: рекон/кандидаты/ревью/деплои волн не прерывали друг друга; коммиты всех четырёх волн существуют в истории.",
+          "artifact_path": "plans/features/add-tr/README.md",
+          "artifact_sha256": "8b5f3bc6d8ebb478f852381ce693fc562d61cf12c3dd10a7420a1a142d0bb723",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "runs/accept95b-run.log — базовые маркеры волны 95",
+          "observation": "Деплой-волна 95 завершилась штатно (healthz 2.58.95 loopback+HTTPS, NRestarts=0, SKIPS=0, 402=0) — признак незатронутой очереди.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/runs/accept95b-run.log",
+          "artifact_sha256": "4cbcf04a70e2006ca042a7b0dcc03d298d9094053d71543ae4bfc35aa9755d95",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.Q",
         "cfg:ADD-0.1",
@@ -1056,14 +1228,31 @@
       "source_text_sha256": "a24dadf7d989e10ae61bbd12eba7eed46f0c4ab90c44f10635dc9ea345039346",
       "source_excerpt": "4. Сверить **публичный `master` с реальным production revision и effective gates**. Ни отсутствие ошибок тестов, ни наличие инструмента в реестре, ни success в моках сами по себе не означают, что бот использует этот инструмент в работающем ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: master-vs-production сверка выполнена на релиз-гейтах волн; deployed-привязка accept-95 (cd4dfb32) подтвердила ADTR scoped rc=0 на байтах 2.58.95; пять независимых фактов различены (M-ADTR-TOOLS-FIVEFACTS VERIFIED: 91 §1 F3/F5 + 94 b1 полный набор).",
       "req_id": "ADTR-REG-MASTER",
       "slice": "ADTR-REG",
       "acceptance": "Публичный master сверен с реальным production revision и effective gates; результат различает пять независимых фактов (зарегистрирован/показан/вызван/вернул/доставлен); ни отсутствие ошибок тестов, ни наличие инструмента в реестре, ни success в моках не выдаются за реальное использование инструмента в рабочем Telegram-чате.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9072347b986b91f05d580a11c1aae6646b250e29",
+          "ref": "94 §1 (five-facts) + LEDGER-ACCEPT-95 (cd4dfb32): deployed_commit привязан к 113f3a62, ADTR scoped rc=0",
+          "observation": "Пять фактов различены на b1: F1 target 1166163; F2 джоба completed (download→store); F3 recognize_image вызван; F4 анализ id=5 ready (388 симв.); F5 доставка mid 1166167, счётчики 4→5.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25894/acceptance/b1-recognition.json",
+          "artifact_sha256": "2fe4c40e08c2f3673bef660b3a4878fe55092ade9c3de87acd8ef558b53276a9",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 §1 (checkup live)",
+          "observation": "F3/F5 наблюдались live: L1_PLAN capabilities=health → TOOL_CALL get_bot_health → TOOL_CALL_COMPLETE ok (2283 симв.), доставка mid 1165629.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-1-retry.json",
+          "artifact_sha256": "36f34df17e94f3eac46cccfa6d4d4a802092289338485cb647bb3b7cbaa481de",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "L00016",
@@ -1603,14 +1792,23 @@
       "source_text_sha256": "85842132e430bd0084d3a0975fdd89129ec15e5bb40adc5f2eec8892aac000bc",
       "source_excerpt": "4. «Речь и характер» снова пригодна к использованию на Android, весь контент читабелен, badge/заголовки не пересекаются, существующие переходы и тексты доступны.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная половина DoD 4: «Речь и характер» пригодна в браузерной матрице — after 0/21 (320/360/390/430, font 20/24), DOMRect-контракт, badge∩title=0, переходы/тексты доступны (e2e-витрина + stress); device-остаток («на реальном Android Telegram») — отдельная добровольная строка M-ADTR-GRID-DEVICE-OBS (owner_optional), полный успех на устройстве не заявляется.",
       "req_id": "ADTR-VERIFY-DOD4",
       "slice": "ADTR-VERIFY",
       "acceptance": "DoD 4: «Речь и характер» снова пригодна к использованию на Android — весь контент читабелен, badge/заголовки не пересекаются, существующие переходы и тексты доступны.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
+          "ref": "evidence/grid-fix/after/e2e_after.json + browseruse_store_320.png",
+          "observation": "Карточки одной колонкой, читаемые заголовки, нет пересечений и overflow — 0 нарушений на всех breakpoints матрицы.",
+          "artifact_path": "plans/features/add-tr/evidence/grid-fix/after/e2e_after.json",
+          "artifact_sha256": "a3e6fbe38ef6a486d9dff11f68ed3295b0251417bac4af29814abb6fd004fa5f",
+          "type": "ui"
+        }
+      ],
       "note": "Устройство-специфичная часть: при недоступности реального клиента — честный PENDING_OWNER_E2E (device-чек-листы владельца отменены, PET_PROJECT §5); автоматические проверки обязательны."
     },
     {
@@ -1619,14 +1817,47 @@
       "source_text_sha256": "36c4a64adcf9133d99f2f8c175762e7749bc7f9606d6d16141e61cf44434c28e",
       "source_excerpt": "5. Reviewer проверяет сквозную цепочку, регрессии, отсутствие дубликатов и влияние на производительность/стоимость, затем штатный деплой. Привязать доказательства к требованиям; если реальный клиент недоступен, честно ограничить степень под",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: 4 независимых Approved-ревью (grid-fix 751295f7, entry-fix e4ddc4ec, tools-minifix f0865166, postgen 0e5fbb05) → штатные деплои 2.58.91–95 без канареечных согласований → evidence-привязка к требованиям (LEDGER-ACCEPT-95 cd4dfb32: ADTR scoped rc=0) → очередь продолжена (96–107); при недоступности реального клиента степень подтверждения честно ограничена (PENDING_OWNER_E2E/owner_optional), неопределённого ожидания нет.",
       "req_id": "ADTR-VERIFY-DOD5",
       "slice": "ADTR-VERIFY",
       "acceptance": "DoD 5: Reviewer проверяет сквозную цепочку, регрессии, отсутствие дубликатов и влияние на производительность/стоимость, затем штатный деплой; доказательства привязаны к требованиям; при недоступности реального клиента степень подтверждения честно ограничена; неопределённого ожидания живой приёмки нет — очередь продолжается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "751295f70690529b2c0b5a59b4978c51d0dcd71d",
+          "ref": "plans/features/add-tr/review-grid-fix.md (Approved, 751295f7)",
+          "observation": "Независимое ревью grid-фикса Approved; сквозная цепочка/регрессии/дубли проверены.",
+          "artifact_path": "plans/features/add-tr/review-grid-fix.md",
+          "artifact_sha256": "490bd6447e3ccd853a8d16382d60f61ab4732b8dc507ad7a84e0c0f81cf8c0a1",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "e4ddc4ec19695e304fb40ec7a8d5fddb784db2f5",
+          "ref": "plans/features/add-tr/review-entry-fix.md (Approved, e4ddc4ec)",
+          "observation": "Ревью entry-фикса Approved (caption/entities/refs/forward).",
+          "artifact_path": "plans/features/add-tr/review-entry-fix.md",
+          "artifact_sha256": "8969d9a84327ad9195b635cca57796ba6c198957c2180dc9413914bc4925b701",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "f08651669c435f95c4088a96f0e8deaf18d0e00d",
+          "ref": "plans/features/add-tr/review-tools-minifix.md (Approved, f0865166)",
+          "observation": "Ревью tools-аудита/минификса Approved (health-возможность, границы REUSE).",
+          "artifact_path": "plans/features/add-tr/review-tools-minifix.md",
+          "artifact_sha256": "a74770d3ab131924b09eb877e52d0451e2c0264ec7f33cab90ed21a3202e1349",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "0e5fbb052822eb94482d31ebbc758a1ef1522221",
+          "ref": "plans/features/add-tr/review-postgen.md (Approved, 0e5fbb05)",
+          "observation": "Ревью postgen-контура Approved (протокол ON/OFF/PENDING/MISMATCH/DEDUP).",
+          "artifact_path": "plans/features/add-tr/review-postgen.md",
+          "artifact_sha256": "0931931611edffdfca06c302e91930c6ca97fb9faed3655b70708eba5f8a47b8",
+          "type": "static"
+        }
+      ],
       "note": "Процесс-критерий: Reviewer → штатный деплой → evidence-привязка; без бесконечного ожидания живой приёмки."
     }
   ]
