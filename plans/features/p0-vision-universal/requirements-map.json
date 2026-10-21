@@ -13,14 +13,23 @@
       "source_text_sha256": "5319cf5f02dd74324b2183fe32c5939f8f585c37213ad3fd707b6cb09011b9d5",
       "source_excerpt": "> Приоритет P0. Добавлено в общую очередь; не прерывает уже выполняемые задачи; выполняется в ближайшем безопасном окне, затем автоматически продолжается `current_task`.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: директива исполнена как приоритетная добавка в общую очередь — не прервала идущие задачи; волны 2.58.91–95 (git log 8bc8e9b5→35b8b455; деплои f2a6248a/1d367e4c/9072347b/113f3a62) завершились штатно, затем очередь продолжилась (поезда 96–107); правило очереди — alias cfg:ADD-0.Q/ADD-0.1, повторное согласование не требовалось.",
       "req_id": "P0V-WF-QUEUE",
       "slice": "P0V-ACCEPT",
       "acceptance": "Директива выполняется как приоритетная добавка в общую очередь: не прерывает и не отменяет выполняемые задачи; после её завершения очередь current_task продолжается автоматически с прежней позиции; подтверждается записью в очереди/состоянии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "runs/accept95b-run.log (базовые маркеры волны 95) + git-история волн",
+          "observation": "Волна 95 завершена штатно (healthz 2.58.95, MainPID, NRestarts=0, SKIPS=0, 402=0) — очередь не прерывалась и продолжилась далее (96–107).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/runs/accept95b-run.log",
+          "artifact_sha256": "4cbcf04a70e2006ca042a7b0dcc03d298d9094053d71543ae4bfc35aa9755d95",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.Q",
         "cfg:ADD-0.1"
@@ -318,14 +327,63 @@
       "source_text_sha256": "b8f3b58c9aa0ba0cd5468af6099c3c680a58d6be3d11d6cb1370cb5c1fc01804",
       "source_excerpt": "Тесты с несколькими провайдерами/моделями: OpenRouter (воспроизводимый случай); другой OpenAI-compatible endpoint; провайдер с отдельным API-адаптером (если предусмотрен архитектурой); модель без Vision; неверный ключ, неправильный URL, 429",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: матрица собрана по всем кейсам — OpenRouter (gemma: 91 scenario-2 rate_limited/http_429 — честная причина); другой endpoint (nemotron: 92 s5 ok/image_input=true); модель без Vision — только mock-класс (живой no-vision модели не было; честно разведено через M-P0V-09: мок ≠ живой); неверный ключ/URL/400/таймаут — mock-matrix + green (fix-core); 429 — 91/92 live; 5xx — 92 README http_502 → честный disabled/BLOCKED_EXTERNAL (путь/target VERIFIED); таймаут — 95 p4b postgen deadline_exceeded (bounded); смена провайдера во время работы — 92 §5 POST /api/config без правок кода (revision a3ed06b3, откат задокументирован).",
       "req_id": "P0V-TEST-MATRIX",
       "slice": "P0V-ACCEPT",
       "acceptance": "Матрица тестов охватывает: OpenRouter (воспроизводимый случай); другой OpenAI-compatible endpoint; провайдер с отдельным API-адаптером (если предусмотрен архитектурой); модель без Vision; неверный ключ; неправильный URL; 429; 5xx; таймаут; смену провайдера во время работы; результаты по каждому кейсу приложены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "evidence/fix-core/mock-matrix-2026-10-19.md (мок-классы)",
+          "observation": "Мок-матрица классов отказов: 400/no_vision/таймаут/неверный ключ/URL — по классу на кейс.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "evidence/fix-core/green-2026-10-19.txt (endpoint-формы/изоляция ключей/ротация)",
+          "observation": "Endpoint-формы (host, host/v1), изоляция ключей и ротационные кейсы зелёные.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "91 scenario-2-vision-probe.json (429 live)",
+          "observation": "Живой 429: rate_limited/vision_rate_limited/http_429, visible_reason честный.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/scenario-2-vision-probe.json",
+          "artifact_sha256": "3e8263bc00639974903c93dcb7e4e17528bd7a10befe3eea6d46c699533e5385",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+          "ref": "92 s5-vision-probe.json (смена провайдера + проба ok live)",
+          "observation": "Смена Vision-модели штатной настройкой без правок кода; проба ok на альт-модели; откат задокументирован.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/s5-vision-probe.json",
+          "artifact_sha256": "4664982a167e1c0673bb3cd976444ae97f80bfaf859756fe41e4abb0fe72236f",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+          "ref": "92 acceptance/README.md (5xx: http_502 → честный disabled)",
+          "observation": "Проба провайдера на 502 → disabled/vision_unavailable с конкретной причиной («Провайдер временно недоступен»), джоба не создавалась, ответ честный (BLOCKED_EXTERNAL; путь/target VERIFIED).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md",
+          "artifact_sha256": "c0e269154897ebfb39c07e4dde926431f13432d6398707da72b7aebd592a347c",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "95 p4b-generation.json (таймаут live, bounded)",
+          "observation": "Postgen deadline_exceeded в bounded 20 c — таймаут-класс на живом провайдере, без зависания и дублей.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p4b-generation.json",
+          "artifact_sha256": "122cbc3cf8e7efcd4f46397f0b9b51af39b78d4fa0d0156bcaa19747d455618e",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M-P0V-09",
@@ -333,14 +391,39 @@
       "source_text_sha256": "b8f3b58c9aa0ba0cd5468af6099c3c680a58d6be3d11d6cb1370cb5c1fc01804",
       "source_excerpt": "Тесты с несколькими провайдерами/моделями: OpenRouter (воспроизводимый случай); другой OpenAI-compatible endpoint; провайдер с отдельным API-адаптером (если предусмотрен архитектурой); модель без Vision; неверный ключ, неправильный URL, 429",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: отчёты честно разделяют мок-контракт и живые пробы — evidence-записи карты несут type=test (mock-matrix/green, fix-core) против type=production (сценарии 91/92/94/95); mock-матрица явно названа моками; живые пробы (429/502/таймаут/смена провайдера/положительное распознавание) идут отдельными production-артефактами; мок нигде не выдан за живого провайдера (alias CFG-03.9).",
       "req_id": "P0V-TEST-MOCKS",
       "slice": "P0V-ACCEPT",
       "acceptance": "Для недоступных внешних сервисов используются контрактные моки, честно отделённые от живых проверок: отчёт различает подтверждённое мок-контрактом и подтверждённое живой пробой; мок не выдаётся за живой провайдер.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
+          "ref": "evidence/fix-core/mock-matrix-2026-10-19.md — мок-контракт (type=test)",
+          "observation": "Мок-отчёт: подтверждено мок-контрактом, без претензии на живого провайдера.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "f2a6248ae30d8e0b1878785bb6d1477f65e21c78",
+          "ref": "release-25891/acceptance/README.md — живые пробы отдельно (type=production)",
+          "observation": "Отчёт живой волны: каждый сценарий помечен как production-наблюдение (mids, провайдер-статусы), отделён от моков.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25891/acceptance/README.md",
+          "artifact_sha256": "500f37c76a1e58b2cad4416269418663d1ac52407e43e18f27b7a2d8517f0a2d",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "release-25895/acceptance/p2-vision-off.json — живая проба (type=production)",
+          "observation": "Живая OFF-проба волны 95 — production-эвиденс, отдельный от мок-матрицы (transport_delta=0, честный ответ).",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/p2-vision-off.json",
+          "artifact_sha256": "bf66ee779bf85612cd20a660f22936115c12be1527808f8fe5efea42bfa22e88",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "cfg:CFG-03.9"
       ],
@@ -362,7 +445,11 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Качество vision-распознавания и соответствие описания картинке оцениваются на реальных фото владельца в его чатах — агенты реальных чатов и устройств не имеют; участие добровольное и не блокирует инженерную приёмку.",
-      "engineering_req_ids": ["P0V-DOD", "P0V-PIPE-CONTEXT", "P0V-PIPE-E2E"],
+      "engineering_req_ids": [
+        "P0V-DOD",
+        "P0V-PIPE-CONTEXT",
+        "P0V-PIPE-E2E"
+      ],
       "evidence": []
     },
     {
@@ -413,14 +500,47 @@
       "source_text_sha256": "afed86c217ef07757261c0c69cf843c7c2af2a7d50cdb3486c9ec5a2f15298ff",
       "source_excerpt": "Использовать существующий workflow, независимый Reviewer и штатный деплой. Не создавать отдельный эпик, не дублировать реализованное, не отменять существующие задачи. После завершения автоматически продолжить `current_task` с прежней позици",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: существующий workflow соблюдён — независимые ревью Approved (core 1c4e6675, UI 0df4a4a8, postgen-diag b2eebead, accept-95 112cfcc0); штатные деплои 91–95; отдельный эпик не создан (исполнение волнами общей очереди); реализованное не дублировано; deployed_commit карты = 113f3a62; current_task продолжен автоматически.",
       "req_id": "P0V-WF-STANDARD",
       "slice": "P0V-ACCEPT",
       "acceptance": "Использован существующий workflow с независимым Reviewer и штатным деплоем; отдельный эпик не создан; реализованное не дублировано; существующие задачи не отменены; после завершения current_task продолжен автоматически.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1c4e667578a288cd62090b500cb0cb6db20f89f9",
+          "ref": "plans/features/p0-vision-universal/review-vision-core.md (Approved, 1c4e6675)",
+          "observation": "Независимое ревью core-фикса Approved.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/review-vision-core.md",
+          "artifact_sha256": "a73d26578775a16f2239c902fd30e865d928c9fbcc88c5ab9a321ec7d1024192",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "0df4a4a8bb052a41baa8e97c182dd16e4649ece9",
+          "ref": "plans/features/p0-vision-universal/review-vision-ui.md (Approved, 0df4a4a8)",
+          "observation": "Независимое ревью UI-фикса Approved.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/review-vision-ui.md",
+          "artifact_sha256": "018c55ab51f7de2f5e979bedcf5aa859051e287ce5de6ba8c6173f218377a0a7",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "review-accept-95.md (Approved, 112cfcc0) + штатный деплой 2.58.95",
+          "observation": "Приёмка волны 95 отревьюена Approved; деплой штатный; deployed_commit карты = 113f3a62.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/review-accept-95.md",
+          "artifact_sha256": "471d8c46cb9c237c24ae79107500aab7f2d7a2a94ef0ab10a9aae5bc4b9da741",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
+          "ref": "runs/accept95b-run.log — маркеры штатного деплоя",
+          "observation": "healthz 2.58.95, NRestarts=0 — деплой штатный, без отклонений от workflow.",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25895/acceptance/runs/accept95b-run.log",
+          "artifact_sha256": "4cbcf04a70e2006ca042a7b0dcc03d298d9094053d71543ae4bfc35aa9755d95",
+          "type": "production"
+        }
+      ],
       "alias_of": [
         "cfg:ADD-0.2"
       ],
