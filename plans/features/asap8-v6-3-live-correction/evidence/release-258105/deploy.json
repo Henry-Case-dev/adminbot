@@ -1,0 +1,126 @@
+{
+  "schema": "adminbot-deploy-evidence-v1",
+  "train": "2.58.105",
+  "lane": "DEVOPS-DEPLOY-258105",
+  "release_review": "REV-REL-258105 Approved (evidence/release-258105/review-rel.md)",
+  "candidate_commit": "a6246e33fc8db237cc2f57232006d62ab885b50d",
+  "deployed_commit": "a6246e33fc8db237cc2f57232006d62ab885b50d",
+  "deploy_source": "origin/master @ a6246e33 (pushed before deploy); server: git fetch + git checkout -B master origin/master",
+  "server_head_confirmed": "a6246e33fc8db237cc2f57232006d62ab885b50d",
+  "server_tracked_modifications": 0,
+  "rollback_branch": {
+    "name": "release/fix-2.58.104",
+    "sha": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+    "pushed": true,
+    "server_rb_ref_confirmed": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+    "procedure": "git -C /var/www/admin_bot checkout -f 8ea6ed4e016cf8fbb23e1447cb02503c54131650 && sudo systemctl restart admin_bot",
+    "ddl_revert_needed": false
+  },
+  "predeploy": {
+    "recon_utc": "2026-10-21T08:24:25Z",
+    "old_head": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+    "old_version": "2.58.104",
+    "old_pid": 29475,
+    "old_nrestarts": 0
+  },
+  "t0_epoch": 1792571534,
+  "t0_utc": "2026-10-21T08:32:14Z",
+  "restarts": 1,
+  "postdeploy": {
+    "main_pid": 167058,
+    "nrestarts": 0,
+    "active_state": "active",
+    "sub_state": "running",
+    "exec_main_start": "Wed 2026-10-21 08:32:26 UTC",
+    "exec_main_status": 0,
+    "healthz_loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.105\"}",
+    "healthz_external_443": "200 {\"status\":\"ok\",\"version\":\"2.58.105\"} (https://admin-bot.duckdns.org)",
+    "final_check_utc": "2026-10-21T08:38:24Z"
+  },
+  "delta": {
+    "total_files": 308,
+    "runtime_set": [
+      "config/settings.py",
+      "web/app.js",
+      "web/index.html",
+      "web/static/app.css"
+    ],
+    "delta_ddl": 0,
+    "delta_other_nonstd": 0,
+    "migrations": "none (prompt/config migration lines in journal are no-op: 'уже новый канон/дефолт', 'кастом юзера — НЕ трогаем')"
+  },
+  "byte_checks": {
+    "raw_sha256_12": {
+      "web/app.js": "b8bc731fab83",
+      "web/index.html": "31d3c30ec25b",
+      "web/static/app.css": "86b20be01644",
+      "config/settings.py": "96079207f49f",
+      "README.md": "2e68f44858ed",
+      "services/database.py": "b7fdd7615a52 (control, unchanged -> dDDL=0)"
+    },
+    "git_blob_sha1_12": {
+      "web/app.js": "d218ea8bf2ba",
+      "web/index.html": "ed752b3c8e20",
+      "web/static/app.css": "8f2eb0b39db2",
+      "config/settings.py": "cd5cbe58d790"
+    },
+    "served_bytes_loopback_8000": {
+      "/web/app.js": "b8bc731fab83 OK",
+      "/web/index.html": "3b2d62b691ff OK (= raw + __APP_VERSION__->2.58.105, by design web/app.py::_render_index)",
+      "/web/static/app.css": "86b20be01644 OK",
+      "routes": "/healthz 200, /web/ 200"
+    },
+    "served_bytes_external_443": {
+      "/web/index.html": "3b2d62b691ff OK, 'header-fs-btn lg-mini-lens' x1, '?v=2.58.105' x15",
+      "/web/app.js": "b8bc731fab83 OK, lg-mini-lens x3",
+      "/web/static/app.css": "86b20be01644 OK"
+    }
+  },
+  "mini_lens_probe": {
+    "method": "HTTPS 443 byte probe (no browser, no chat messages); visual live check is owner-optional per plans/owner_live_checks.md",
+    "class_on_served_index_html": true,
+    "blob_matches_local": {
+      "app.js": "d218ea8bf2ba == d218ea8bf2ba",
+      "index.html": "ed752b3c8e20 == ed752b3c8e20",
+      "app.css": "8f2eb0b39db2 == 8f2eb0b39db2"
+    },
+    "result": "OK"
+  },
+  "journal": {
+    "source": "journalctl -u admin_bot --since @1792571534",
+    "raw": "OPENCODE_WORKFLOW_SCRATCH/deploy-258105/journal105-since-T0.raw",
+    "lines": 415,
+    "err": 3,
+    "err_nature": "3x safe_fetch too_many_bytes (runtime tool errors on external pages, pre-existing class, not deploy/boot related)",
+    "critical": 0,
+    "traceback": 0,
+    "runtime_warn": 0,
+    "prompt_migration": "16 lines, all no-op (11 custom-owner untouched, 5 already-new-canon), 0 errors",
+    "boot": "graceful stop PID 29475 -> Started admin_bot.service 08:32:26 UTC -> PID 167058 'Bot started' 08:32:42, polling 08:32:44"
+  },
+  "ssh_connections": {
+    "count": 4,
+    "discipline": "single login nik, >=90s spacing, no pollers/retries; HTTP/443 probes unlimited by policy",
+    "log": [
+      "recon (read-only) 08:24:25Z",
+      "main attempt 1 08:26:23Z - aborted by local probe-parser bug BEFORE restart; tree safely restored to 8ea6ed4e; prod stayed live 2.58.104",
+      "main attempt 2 08:32:08Z - deploy success, single restart",
+      "final verify (read-only) 08:38:24Z"
+    ]
+  },
+  "incidents": [
+    "attempt 1: false gate failure - dict(re.findall) inverted hash/path keys in local probe script; server-side hashes were correct; no prod impact (no restart, tree restored)",
+    "attempt 2 post-restart served-index 'mismatch': probe expectation error - index.html is served with __APP_VERSION__ substitution by design (web/app.py::_render_index); expected rendered hash computed locally = 3b2d62b691ff, exactly what prod serves; service remained live and healthy on 2.58.105, no rollback needed"
+  ],
+  "gate": {
+    "command": "requirements_gate.py check --map plans/features/asap8-v6-3-live-correction/requirements-map.json --stage release --candidate a6246e33fc8db237cc2f57232006d62ab885b50d --deployed-commit a6246e33fc8db237cc2f57232006d62ab885b50d",
+    "output": "evidence/release-258105/gate-release-check.txt",
+    "note": "legacy openworkflow-coverage-v1 map; pre-existing convention residual (rows bound to historical wave candidates, re-binding forbidden by review-tailbind) -> exit 1 documented honestly, same class as release-25883; train-level release binding = REV-REL-258105 Approved + deploy evidence bound to deployed commit; U08.4d/U08.5.1 now bind clean to a6246e33"
+  },
+  "map_binding": {
+    "U08.4d": "VERIFIED @ a6246e33 (deploy evidence + blob checks)",
+    "U08.5.1": "VERIFIED @ a6246e33 (deploy evidence + blob checks)",
+    "deployed_commit_updated": true
+  },
+  "result": "VERIFIED"
+}

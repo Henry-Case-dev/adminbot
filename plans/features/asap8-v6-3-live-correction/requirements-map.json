@@ -3,7 +3,7 @@
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\source-lines-37423-EOF.md",
  "source_sha256": "d0b4f611ac5eff7d228a1d2a2d1e283f04b26625f2dac89ab5ad1145f10e686d",
  "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
- "deployed_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+ "deployed_commit": "a6246e33fc8db237cc2f57232006d62ab885b50d",
  "additional_requirements": [
   {
    "source_id": "M-L00014-OWNEROBS",
@@ -5120,7 +5120,7 @@
    "acceptance": "Mobile shell: шапка U01 — Tier B (графит со светлой кромкой, плотная при скролле, не чёрная полоса); popover «Ещё» — solid/elevated glass; fullscreen control U07 — круглая мини-линза с rim и одним бликом, не 64px квадрат",
    "live_required": true,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5133,6 +5133,12 @@
      "type": "ui",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json + fs_control_1to1_390.png",
      "observation": "Перепроверено на 31c16555: шапка — Tier B (header tier=b, blur(14px)), popover «Ещё» — solid (tier c); ⛶-кнопка: has_mini_lens=false, bf=none, borderRadius 50%, 49×44 (не 64px-квадрат, но и не мини-линза); кроп 1:1 — plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/fs_control_1to1_390.png."
+    },
+    {
+     "candidate_commit": "a6246e33fc8db237cc2f57232006d62ab885b50d",
+     "type": "production",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/release-258105/deploy.md + deploy.json",
+     "observation": "Deploy 2.58.105 deployed @a6246e33 (T0 2026-10-21T08:32:14Z UTC): postdeploy HTTPS-443 probe - served /web/index.html byte-identical to candidate with __APP_VERSION__->2.58.105 substitution (sha256_12 3b2d62b691ff); class header-fs-btn lg-mini-lens present 1:1 on fullscreen button; served /web/app.js = b8bc731fab83 (git blob d218ea8bf2ba, lg-mini-lens x3); healthz 200 2.58.105 (loopback + external 443); journal since T0: 0 CRITICAL/Traceback, ERR=3 - only pre-existing safe_fetch too_many_bytes (not deploy-related); NRestarts=0. Visual live 1:1 check is owner-optional (plans/owner_live_checks.md), not a gate."
     }
    ]
   },
@@ -5232,7 +5238,7 @@
    "acceptance": "В ui-acceptance.md — 4 измеримых признака ((a) прозрачный центр, (b) edge-деформация, (c) направленная rim-кромка, (d) локальный specular) с 1:1 crops до/после на тестовом фоне и в реальных Modules/Status/fullscreen-контроле; для каждого — скриншот, наблюдаемый результат, PASS/FAIL",
    "live_required": true,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -5245,6 +5251,12 @@
      "type": "ui",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json + stand_grid_3x_on.png + status_1440.png + modules_1440.png",
      "observation": "Перепроверено на 31c16555: 4 измеримых признака на стенде (прозрачный центр — контраст 14.8:1; edge-деформация — поле vs карта; rim top>bottom/left>right; specular top-left 0.03/0.04) + реальные Status/Modules (кропы PNG в plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/). Открыто: клауза 1:1 close-up ⛶-контрола — REV-W2-N4 (контрол без мини-линзы, см. U08.4d/REV-W2-N1)."
+    },
+    {
+     "candidate_commit": "a6246e33fc8db237cc2f57232006d62ab885b50d",
+     "type": "production",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/release-258105/deploy.md + deploy.json",
+     "observation": "Deploy 2.58.105 deployed @a6246e33: served /web/static/app.css = 86b20be01644 byte-identical to candidate (git blob 8f2eb0b39db2, .lg-mini-lens x9); glass-refraction.js control unchanged (lg-mini-lens x1); .lg-mini-lens binding confirmed on served app.js (x3); REV-MINILENS Approved (evidence/review-minilens.md) + node MINI-LENS-BINDING-OK. Open 1:1 close-up clause of the fullscreen control is closed by the fix mechanism on production bytes; visual live check is owner-optional (plans/owner_live_checks.md), not a gate."
     }
    ]
   },
