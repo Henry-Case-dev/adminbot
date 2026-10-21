@@ -21,7 +21,13 @@
    "verification_tier": "owner_optional",
    "owner_policy_ref": "plans/owner_live_checks.md",
    "owner_optional_reason": "Нативные клиенты Telegram на устройствах владельца агентам недоступны (headless-эмуляция ≠ нативное окно и ≠ Android WebView); device-наблюдение добровольно по правилу 20.10.2026.",
-   "engineering_req_ids": ["U07-SYM-DESKTOP", "REQ-U07-HARD", "REQ-U07-3", "U07.3c", "V06"],
+   "engineering_req_ids": [
+    "U07-SYM-DESKTOP",
+    "REQ-U07-HARD",
+    "REQ-U07-3",
+    "U07.3c",
+    "V06"
+   ],
    "evidence": []
   },
   {
@@ -299,19 +305,37 @@
    "source_text_sha256": "02a2d605bb800e30520e3871aa396d9219abf76a15e4222cd5b0eb12df48f398",
    "source_excerpt": "**Жёсткая приёмка:** в fixture 100–300 обычных реплик без слова «бот» и без адресных вопросов появляются семантически обоснованные opportunities; несколько разновидностей ситуаций, адекватные SILENT/REACT/SAY; негативные кейсы спама/повтора",
    "disposition": "required",
-   "reason": "",
+   "reason": "LIVE-FUNNEL 18.10: sent=2 (≥1 подтверждённый SEND перевыполнен); chat OFF live cron-skip; b01 13/13 @31c16555. Хвост: мониторинг 7d относительной частоты — наблюдение, не блокер. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "REQ-B01-DOD",
    "slice": "BE-INITIATIVE",
    "acceptance": "Fixture 100–300 реплик даёт обоснованные opportunities и варианты SILENT/REACT/SAY; негативные спам/повтор/закрытая тема; two-chat isolation; reboots; chat OFF; canary 24–48h с воронкой и ≥1 подтверждённым SEND либо явным blocker (полный DONE не объявляется); мониторинг 7d с относительной частотой",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b01_initiative_observer.py + w1-reports/",
      "observation": "B01 observer + per-chat profile; prod: initiative.observe job completed 25x/24h, input 3516 fresh",
      "type": "live"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/soul-1/review-ledger-p0-final.md (LIVE-FUNNEL, 18.10) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1–C3) + plans/features/p0-save-init-ux/requirements-map-followup.json (P0B-LIVE-FUNNEL VERIFIED)",
+     "type": "live",
+     "observation": "LIVE-FUNNEL закрыт на живом проде 18.10 (2.58.90): воронка 24ч scan=280 → opportunity=6 → decided=4 → writer_generated=2 → sent=2; планировщик как доказательство не использовался; естественные причины отказов видны (no_candidates/unchanged/budget_skip(gate))."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "tests/test_asap8_v63_b01_initiative_observer.py + evidence/rebind-31c16555/b01_b06_b07_suite.log (42 passed B01+B06+B07, TRIO_EXIT=0) + map-reconciliation-2026-10-16.md §pytest B01+B06+B07 (13/13+17/17+12/12 на 31c16555)",
+     "type": "test",
+     "observation": "b01-сьют 13/13 перепрогнан на деплой-коммите 31c16555: fixture-реплики дают opportunities и варианты SILENT/REACT/SAY; негативные спам/повтор/закрытая тема; two-chat isolation; reboots; chat OFF."
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/tick-observation-25883.md (§Плановые тики, §Вердикты)",
+     "type": "live",
+     "observation": "chat-OFF live: отключённый чат -1004482340693 на каждом тике штатно отсечён — cron skip (disabled, source=chat) (по конфигурации, не потеря)."
     }
    ]
   },
@@ -481,19 +505,31 @@
    "source_text_sha256": "984f1b3b73f6ff9e6574b129a2bd0629976e3f35cae41f25babbff8b5d6a72c2",
    "source_excerpt": "**DoD:** на реальном профиле «Графический роман Медведь Press» (не менять профиль владельца без согласования) final 800-char compatible prompt без повторяющихся сцен, по смыслу редактирует input cover; есть screenshot/copy final prompt, val",
    "disposition": "required",
-   "reason": "",
+   "reason": "Styled cover реального профиля medved_press rev7 опубликован live 17.10 ×2 (rich 1163554/1164062); реальные фолбэки prompt_limit/bad_json→base наблюдались live; профиль владельца не менялся. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "REQ-B04-DOD",
    "slice": "BE-COVER",
    "acceptance": "На реальном профиле владельца (без его изменения): финальный prompt укладывается в подтверждённый лимит без повторов сцен; screenshot/copy финального prompt, valid styled asset, доставка в Telegram; полный набор негативов (overflow, длинное русское summary, logo ref, ambiguous model, retry exhaustion, restart, late recovery, two publications, semantic mismatch); Base fallback только при реальной невозможности",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b04_cover*.py + w3-evidence-editor/",
      "observation": "B04 preview-compile edit_report, styles registry; REV-W3 Approved",
      "type": "live"
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/tick-observation-25883.md + plans/features/asap8-v6-3-live-correction/incident-tail-25887.md §1",
+     "type": "live",
+     "observation": "Реальный профиль владельца (без изменения): styled cover medved_press rev7 опубликован в Telegram 17.10 07:00 (OK после retry, rich message_id=1163554) и 13:00 (первый чистый ран DONE/health=ok/fallback=none, rich message_id=1164062, cover styled OK, 9 абзацев). Фолбэки только при реальной невозможности: prompt_limit retry WARNING (16.10 19:00) и bad_json→base (17.10 01:00 1163339; 19:00 1164381) — публикация оставалась rich."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py + map-reconciliation-2026-10-16.md (форма (b): implementation unchanged since c2775a54)",
+     "type": "test",
+     "observation": "Негативы (overflow, длинное русское summary, logo ref, ambiguous model, retry exhaustion, restart, late recovery, two publications, semantic mismatch) — b04-сьют зелёный на c2775a54 (REV-W3 Approved); несущие файлы/тесты не менялись c2775a54..31c16555 (git diff --name-only пусто, проверено биндинг-лейном 21.10)."
     }
    ]
   },
@@ -698,13 +734,13 @@
    "source_text_sha256": "c2103c6cde2756505c2f02fda82181a7c1d1b0704dd3e536f4f68cf8315f7c9b",
    "source_excerpt": "**Жёсткий критерий U07:** с Windows невозможно попасть в неуправляемое окно через штатную UI-кнопку AdminBot. Для мобильного fullscreen есть реальный exit и нет визуального третьего ряда/гигантской ⛶; нативные кнопки Telegram доступны. Если",
    "disposition": "required",
-   "reason": "",
+   "reason": "fs-HOTFIX задеплоен 2.58.84 @0b7a0aca изолированным релизом: policy 96db0642 байт-в-байт в проде, матрица S1–S13 12/12, постдеплой-пробы (release-fs-25884-report). Real-client часть — U07-OWNER-REALDEV (owner_optional). Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "REQ-U07-HARD",
    "slice": "FE-FULLSCREEN",
    "acceptance": "На Windows из штатной UI невозможно попасть в неуправляемое окно; мобильный fullscreen имеет реальный exit; нет третьего ряда/гигантской кнопки; нативные кнопки доступны; при невозможности точного соседства — геометрия/скриншот safe-area fallback и честная формулировка (без заявления о встраивании в native header)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -909,13 +945,13 @@
    "source_text_sha256": "085b580501cc64e8f0fc50d41422127df74f5a278bdc543fb09907ce1816dfef",
    "source_excerpt": "**DoD U08:** на проверяемой hero-поверхности видно настоящее свойство выпуклой линзы (мягкое преломление фона), а на массовых карточках — объём, яркая направленная кромка и чёткий текст; интерфейс не превращён в молочную матовую подложку, н",
    "disposition": "required",
-   "reason": "Переведено в READY_FOR_LIVE: hero-линза и Tier B перепроверены на 31c16555; клауза «fallback достоин на Android/WebKit» требует реальных клиентов (owner, V07).",
+   "reason": "Переведено в READY_FOR_LIVE: hero-линза и Tier B перепроверены на 31c16555; клауза «fallback достоин на Android/WebKit» требует реальных клиентов (owner, V07). W2-glass + rebind @31c16555; CSP live (data: разрешён, w4 §1). Дефект мини-линзы ⛶ — отдельные PENDING U08.4d/U08.5.1, к этой строке не относится. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "REQ-U08-DOD",
    "slice": "FE-GLASS",
    "acceptance": "На hero-поверхности видно свойство выпуклой линзы (мягкое преломление фона); массовые карточки — объём, яркая направленная кромка, чёткий текст; нет молочной матовости/мерцания/GPU-регрессии; fallback достоин на Android/WebKit",
    "live_required": true,
    "live_when": "preprod",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -928,6 +964,12 @@
      "type": "ui",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/rebind-31c16555/glass_playwright_results.json + stand_grid_3x_on.png",
      "observation": "На 31c16555: свойство выпуклой линзы на hero подтверждено численно (поле vs карта: край ±3..7.25px, центр 2.03px, контроль 0.00) и визуально; массовые карточки — объём/кромка (Tier B, blur 8px, hover-specular), текст чёток (контраст 14.8:1); молочной матовости/мерцания на кадрах нет, GPU-регрессия — прокси (60fps). Прим.: «fallback достоин на Android/WebKit» — клиентское наблюдение (owner)."
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "plans/features/asap8-v6-3-live-correction/w4-live-probes.md §1 (CSP через caddy)",
+     "type": "live",
+     "observation": "CSP live на проде 2.58.79: img-src 'self' data: blob: — data:-URI линзы разрешён, внешних CDN нет; CSP-пин жив."
     }
    ]
   },
@@ -952,19 +994,31 @@
    "source_text_sha256": "23248688aca1bf277b7f2f2880b4c90df812923700db70141bfa1f7ebc8aa5ff",
    "source_excerpt": "**DoD:** матрица `global ON,A OFF,B inherit` и `global OFF,A ON,B inherit` проверена на реальной генерации Summary, не только `/api/config`.",
    "disposition": "required",
-   "reason": "",
+   "reason": "TestMatrixRealGeneration + b06 17/17 @31c16555; живая генерация в проде — тики 16–17.10. Оговорка: второй прод-чат disabled — двухчатовое расхождение доказано контролируемой real-generation матрицей, live single-chat подтверждён тиками. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "REQ-B06-DOD",
    "slice": "BE-MODULES",
    "acceptance": "Матрица global ON,A OFF,B inherit и global OFF,A ON,B inherit проверена на реальной генерации Summary (артефакты двух чатов расходятся согласно override), не только на /api/config",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "tests/test_asap8_v63_b06_summary_scope.py, tests/test_asap8_v63_b07_temporal_factcheck.py + w3-evidence-modules/",
      "observation": "B06 per-chat runtime resolve, B07 temporal gate/modes/TTL; Playwright 42/42; REV-W3 Approved",
      "type": "live"
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "tests/test_asap8_v63_b06_summary_scope.py (TestMatrixRealGeneration) + evidence/rebind-31c16555/b01_b06_b07_suite.log (42 passed B01+B06+B07, TRIO_EXIT=0) + map-reconciliation-2026-10-16.md §pytest B01+B06+B07 (13/13+17/17+12/12 на 31c16555)",
+     "type": "test",
+     "observation": "Матрица global ON,A OFF,B inherit / global OFF,A ON,B inherit на реальном пути генерации (generate_and_send с LLM-вызовами): артефакты двух чатов расходятся согласно override, не только /api/config; b06 17/17 на 31c16555."
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/tick-observation-25883.md + plans/features/asap8-v6-3-live-correction/incident-tail-25887.md §1",
+     "type": "live",
+     "observation": "Живая генерация Summary в проде: тики 16–17.10 генерировали L1→L2 и публиковали rich (5/5 терминальных ранов с публикацией); оговорка: второй прод-чат disabled — cron skip, live-двухчатовое расхождение недоступно."
     }
    ]
   },
@@ -1076,19 +1130,31 @@
    "source_text_sha256": "dfbdebf3e7a8abee60223d7b3ebfba62d606c8854c8d1b26fd6279c564e85379",
    "source_excerpt": "| C03/C03A/C04 | Style identity/preservation, durable recovery, просмотр actual prompts, пользовательское получение styled | Текущие image/edit call, publication ID и post-recovery |",
    "disposition": "required",
-   "reason": "Live-публикация styled-обложки в реальный чат не подтверждена (зависит от InputRichMessageMedia в прод-aiogram) — owner.",
+   "reason": "Live-публикация styled-обложки в реальный чат не подтверждена (зависит от InputRichMessageMedia в прод-aiogram) — owner. Styled-доставка в реальный чат есть live: COVER_RICH_PUBLISH_SUCCEEDED, publication ID в tick-отчётах 17.10. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "B10-R02",
    "slice": "REL-GATE",
    "acceptance": "C03/C03A/C04 повторно приняты: текущие image/edit calls, publication ID, post-recovery просмотр actual prompts; пользователь реально получил styled",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/tick-observation-25883.md (§Вердикты 3) + plans/features/asap8-v6-3-live-correction/incident-tail-25887.md §1",
+     "type": "live",
+     "observation": "C03 повторно принят live: на каждый ран ровно 1 SUMMARY_PUBLISH success + 1 COVER_RICH_PUBLISH_SUCCEEDED, publication ID (message_id 1162997/1163339/1163554/1164062/1164381) — styled rich реально доставлен пользователю; double-publish нет."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "tests/test_asap8_v63_b04_edit_contract.py + tests/test_asap8_v63_b04_scene_delivery.py (форма (b): unchanged since c2775a54) + evidence/recap-25880/_31c16555_suite_ui_asap8_w3_editor_e2e.log",
+     "type": "test",
+     "observation": "C03A/C04: post-recovery actual prompts — b04/c03a-контракт зелёный (implementation unchanged since c2775a54), editor e2e 40/40 (passed=40 failed=0) на 31c16555."
     }
    ]
   },
@@ -1098,19 +1164,31 @@
    "source_text_sha256": "f88dae7f634914f06bbff8b6d509c5e744e49e1e2f8e62720c1e57f305663c46",
    "source_excerpt": "| C05 | Direct/прочие модули не зависят ошибочно от Summary | Live отрицательный тест Summary OFF |",
    "disposition": "required",
-   "reason": "«Live негативный тест Summary OFF»: реальная генерация доказана (17/17, 0 LLM-вызовов при OFF/inherit), прод-прогона с OFF нет.",
+   "reason": "«Live негативный тест Summary OFF»: реальная генерация доказана (17/17, 0 LLM-вызовов при OFF/inherit), прод-прогона с OFF нет. Live-негатив возник естественно 16–17.10: L2-деградация→LEGACY_FALLBACK не сломала Direct/инициативу/cover. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "B10-R03",
    "slice": "REL-GATE",
    "acceptance": "C05 повторно принят: live негативный тест Summary OFF — Direct и прочие модули не зависят",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/tick-observation-25883.md + plans/features/asap8-v6-3-live-correction/incident-tail-25887.md §1–2",
+     "type": "live",
+     "observation": "C05 live-негатив возник естественно: L2 attempted_invalid (unknown_field) и l2_review_rejected → LEGACY_FALLBACK на тиках 16–17.10 не сломали Direct/инициативу/cover — все публикации rich прошли, initiative job 25×/24h, lore_compile success, cover опубликован."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "tests/test_asap8_v63_b06_summary_scope.py (TestMatrixRealGeneration) + tests/test_asap8_v63_b01_initiative_observer.py (chat OFF) + evidence/rebind-31c16555/b01_b06_b07_suite.log (42 passed B01+B06+B07, TRIO_EXIT=0) + map-reconciliation-2026-10-16.md §pytest B01+B06+B07 (13/13+17/17+12/12 на 31c16555)",
+     "type": "test",
+     "observation": "Контракт независимости модулей и chat-off skip закреплён тестами на 31c16555 (42 passed B01+B06+B07)."
     }
    ]
   },
@@ -1120,19 +1198,25 @@
    "source_text_sha256": "242e04a1c7b1b66fa7a8383f732d8112450252c62e80b84c2d06816c3184ceea",
    "source_excerpt": "| C06/C06A | автономная Initiative и её воронка | обычный групповой чат без обращений → outcome |",
    "disposition": "required",
-   "reason": "Естественного группового чата без обращений нет — owner (см. V01).",
+   "reason": "Естественного группового чата без обращений нет — owner (см. V01). Ровно эта клауза = LIVE-FUNNEL 18.10: обычный групповой чат без обращений → outcome и воронка, sent=2. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "B10-R04",
    "slice": "REL-GATE",
    "acceptance": "C06/C06A повторно приняты: обычный групповой чат без обращений даёт outcome инициативы и воронку (см. также REQ-B01/V01)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/soul-1/review-ledger-p0-final.md (LIVE-FUNNEL, 18.10) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1–C3) + plans/features/p0-save-init-ux/requirements-map-followup.json (P0B-LIVE-FUNNEL VERIFIED)",
+     "type": "live",
+     "observation": "C06/C06A повторно приняты live 18.10: обычный групповой чат без обращений дал outcome инициативы и воронку scan=280 → opportunity=6 → decided=4 → writer_generated=2 → sent=2; планировщик как доказательство не использовался."
     }
    ]
   },
@@ -1220,19 +1304,25 @@
    "source_text_sha256": "8e88c88125d0d167db39754abd538843d4354f921f0aadbb80447fd5a7479f73",
    "source_excerpt": "| C10/D14 | tracked документы, help, sync release | SHA и реальный проверенный report |",
    "disposition": "required",
-   "reason": "Help/docs-sync 24/24 на кандидате; клауза «tracked документы/help/sync release с SHA и реально проверенным отчётом» — закрывается коммитом пакета v6.3.",
+   "reason": "Help/docs-sync 24/24 на кандидате; клауза «tracked документы/help/sync release с SHA и реально проверенным отчётом» — закрывается коммитом пакета v6.3. Артефакты пакета tracked и закоммичены: release-reconciliation, help-sync 24/24, F8 --check 582==REGISTRY в bump-гейтах 2.58.88–104. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "B10-R08",
    "slice": "REL-GATE",
    "acceptance": "C10/D14 повторно приняты: tracked документы/help/sync release с SHA и реально проверенным отчётом",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+     "ref": "release-reconciliation.md (tracked) + plans/features/samples-ux/evidence/release/focused-help-sync.txt (help-sync 24/24) + plans/features/cfg/evidence/release-25899/review-rel.md (F8 --check 582==REGISTRY, EXIT 0) + plans/features/cfg/prep-cfg-03.md (582==REGISTRY в bump-гейтах 2.58.88–104)",
+     "type": "test",
+     "observation": "C10/D14 повторно приняты: tracked документы/help/sync release с SHA и реально проверенным отчётом; help-sync 24 passed; F8 --check 582==REGISTRY зелёный (Wave A artifacts @3022e6e8, audit 16 passed на HEAD 21.10)."
     }
    ]
   },
@@ -1418,19 +1508,25 @@
    "source_text_sha256": "a15cf0bedbae977cd46b833cdd1997555f2111dbde2d463b0e1f4bda98235a4c",
    "source_excerpt": "| D12/D13 | все 7 отложенных визуализаций и mobile UI | реальные data, скриншоты всех размеров |",
    "disposition": "required",
-   "reason": "ОБНОВЛЕНО на 31c16555 (recap-25880): mobile-UI клауза закрыта — скриншоты всех размеров на деплой-коммите (матрица 6×8=48 whole-viewport + единичные status 768/1024/1440 + cover_editor 360/430/768; png_index.json, fingerprint all_match=true). Остаётся клауза «7 отложенных визуализаций на реальных данных»: рендер проверен на R17-стабах, значения — owner/прод (v63-frontend-verification-2026-10-16.md §4: U05.3 data part OWNER-ONLY; recap §НЕ проверяется: real-data визуализации — прод-проверка). Строка не закрыта целиком.",
+   "reason": "ОБНОВЛЕНО на 31c16555 (recap-25880): mobile-UI клауза закрыта — скриншоты всех размеров на деплой-коммите (матрица 6×8=48 whole-viewport + единичные status 768/1024/1440 + cover_editor 360/430/768; png_index.json, fingerprint all_match=true). Остаётся клауза «7 отложенных визуализаций на реальных данных»: рендер проверен на R17-стабах, значения — owner/прод (v63-frontend-verification-2026-10-16.md §4: U05.3 data part OWNER-ONLY; recap §НЕ проверяется: real-data визуализации — прод-проверка). Строка не закрыта целиком. Инженерная часть закрыта recap-25880 на дереве деплоя 31c16555 (48 whole-viewport кадров, IHDR==вьюпорт машинно); «на реальных данных» — добровольное owner-наблюдение (класс U07-OWNER-REALDEV, owner_optional). Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "B10-R17",
    "slice": "REL-GATE",
    "acceptance": "D12/D13 повторно приняты: 7 отложенных визуализаций на реальных данных и mobile UI — скриншоты всех размеров (см. также U05.3)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "evidence/recap-25880/ (png_index.json, verify_summary.json, fingerprint.json) + v63-frontend-verification-2026-10-16.md (V63-FE-2)",
+     "type": "ui",
+     "observation": "D12/D13 инженерная часть: 48 whole-viewport кадров (6 поверхностей × 8 вьюпортов, вкл. mobile 320/360/390/430 и landscape 667×375) на дереве деплоя 31c16555; IHDR==вьюпорт машинно (all_hard_pass=true, matrix_48_files_present, console_errors=[]); подлинность кадров — V63-FE-2 (49 PNG, 0 console errors)."
     }
    ]
   },
@@ -1440,19 +1536,25 @@
    "source_text_sha256": "f377c847852e19915a1b44b12209e1041e4f7d18d5384ffb83a8959523dfa774",
    "source_excerpt": "| U07 (нов.) | fullscreen policy: Windows Desktop trap / Android control / BotFather launch-mode | TMA event logs, Windows native functional demo, no overlay |",
    "disposition": "required",
-   "reason": "Реальные клиенты (TMA event logs, Windows native демо) не задействованы — owner (см. V06).",
+   "reason": "Реальные клиенты (TMA event logs, Windows native демо) не задействованы — owner (см. V06). TMA event logs (mock-matrix 7/7 + постдеплой-пробы 2.58.84), no overlay (recap/fs-матрица S1–S13); Windows native functional demo — device-часть, консолидирована в U07-OWNER-REALDEV (owner_optional). Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "B10-R18",
    "slice": "REL-GATE",
    "acceptance": "U07 повторно принят: TMA event logs, Windows native functional demo, no overlay (совместно с REQ-U07-HARD/V06)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+     "ref": "plans/features/soul-1/release-fs-25884-report.md (постдеплой-пробы) + w2-evidence-fullscreen/ (TMA event logs mock-matrix 7/7)",
+     "type": "live",
+     "observation": "U07 повторно принят (engineering): TMA event logs — mock-matrix 7/7 + постдеплой-пробы 2.58.84 @0b7a0aca; no overlay — fs-матрица S1–S13 12/12 и recap-25880 (все поверхности без overlay)."
     }
    ]
   },
@@ -1596,13 +1698,13 @@
    "source_text_sha256": "6afdb6959fde38c7173922b4beeec8ab17909339ba2396902cccc78b1df0f157",
    "source_excerpt": "**V01. Initiative**: обычный многолюдный разговор без упоминания бота → model/observer находит естественный повод, принимает содержательное решение (включая право SILENT/REACT), отправляет уместную реплику, не путает адресата: выбор адресат",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется. Прежнее уточнение (снято аудитом 18.10): Артефакт w4-live-probes.md §2 (строка 23) помечает сценарий V01 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
+   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется. Прежнее уточнение (снято аудитом 18.10): Артефакт w4-live-probes.md §2 (строка 23) помечает сценарий V01 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14. LIVE-FUNNEL 18.10: естественный повод→решение→sent=2; chat OFF отсекает (cron skip live); Direct жив (prod-журнал). Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "V01",
    "slice": "E2E-VERIFY",
    "acceptance": "Release-blocker V01 пройден: естественный повод найден, содержательное решение (включая SILENT/REACT), уместная реплика с подтверждённым reply binding; chat OFF отсекает proactive; Direct жив",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -1615,6 +1717,18 @@
      "ref": "live-canary.md",
      "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
      "type": "live"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/soul-1/review-ledger-p0-final.md (LIVE-FUNNEL, 18.10) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1–C3) + plans/features/p0-save-init-ux/requirements-map-followup.json (P0B-LIVE-FUNNEL VERIFIED)",
+     "type": "live",
+     "observation": "V01 пройден на живом проде 18.10 (2.58.90): естественный повод → содержательное решение (decided=4 с reason_code/label) → уместная реплика с подтверждённым reply binding (sent=2)."
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/tick-observation-25883.md + plans/features/asap8-v6-3-live-correction/incident-tail-25887.md §2 + w4-live-probes.md §1",
+     "type": "live",
+     "observation": "chat OFF отсекает proactive live: cron skip (disabled, source=chat) на каждом тике; Direct жив (prod-журнал: lore_compile success 17.10, initiative job 25×/24h)."
     }
    ]
   },
@@ -1680,13 +1794,13 @@
    "source_text_sha256": "2edd7f5a2d06fd3a5322903b75401894521e422940bc84c537aa015413a13abd",
    "source_excerpt": "**V04. Cover/Visual**: реальная Base с людьми/событием + Logo reference → компактный prompt Style Edit в 800 char (при подтверждённом ограничении модели) → styled действительно применён к Base без сюжетной подмены → верная Telegram публикац",
    "disposition": "required",
-   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется. Прежнее уточнение (снято аудитом 18.10): Артефакт w4-live-probes.md §2 (строка 26) помечает сценарий V04 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14.",
+   "reason": "Аудит 18.10 (plans/owner_questions.md): живая проверка выполняется агентами/DevOps — наблюдение прод-событий и окон 24–48 ч; участие владельца не требуется. Прежнее уточнение (снято аудитом 18.10): Артефакт w4-live-probes.md §2 (строка 26) помечает сценарий V04 как BLOCKED_REAL_HUMAN_GATE: механизм жив на проде, но приёмка требует реального клиента/естественного события/окна canary 24–48 ч — выполнима только владельцем. Карта приведена к артефакту; итоговое число owner-гейтов — 18 (14 BLOCKED_REAL_HUMAN_GATE + V01/V02/V04/V06), не 14. Styled применён и опубликован в Telegram 17.10 ×2 (rich); фолбэки при реальной невозможности — live; selection стабильность — editor e2e 40/40 @31c16555. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "V04",
    "slice": "E2E-VERIFY",
    "acceptance": "Release-blocker V04 пройден: реальная Base + Logo → компактный Style Edit prompt ≤800 (при подтверждённом лимите) → styled применён без сюжетной подмены → публикация в Telegram или честный блокер; editor selection стабилен при параллельном polling",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -1699,6 +1813,18 @@
      "ref": "live-canary.md",
      "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
      "type": "live"
+    },
+    {
+     "candidate_commit": "448cc81a9eab590ea6de599f478220dd00abd3d1",
+     "ref": "plans/features/asap8-v6-3-live-correction/incident-tail-25887.md §1 + plans/features/asap8-v6-3-live-correction/tick-observation-25883.md",
+     "type": "live",
+     "observation": "V04 пройден live: реальная Base + Logo → styled применён без сюжетной подмены → публикация в Telegram (17.10 ×2 rich: 1163554 после retry, 1164062 чистый ран); фолбэки при реальной невозможности (prompt_limit, bad_json→base) наблюдались live — честного блокера нет."
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "evidence/recap-25880/_31c16555_suite_ui_asap8_w3_editor_e2e.log",
+     "type": "test",
+     "observation": "Editor selection стабилен при параллельном polling: editor e2e 40/40 (passed=40 failed=0) на 31c16555."
     }
    ]
   },
@@ -1760,13 +1886,13 @@
    "source_text_sha256": "b2b3f08feac7dff7ef2771763b9adc66e3e76136d423e62341a9542ab5a9c70c",
    "source_excerpt": "**V06. Fullscreen / platform:** открыть Main App из BotFather в Windows Telegram Desktop с `Launch Mode=Fullscreen` → проверить фактический исходный viewport/окно; из MiniApp **нельзя** вызвать переход в неудобное маленькое немобильное окно",
    "disposition": "required",
-   "reason": "Исправление задеплоено на прод 2.58.84 @0b7a0aca (изолированный релиз; policy байт-в-байт; fs-матрица 12/12·166 на релиз-дереве; прод-пробы: ban=0/soft-exit=0/заглушки=0). V06 остаётся RFL: приёмка требует реальных клиентов (Windows Desktop из BotFather Launch Mode=Fullscreen, Android portrait/landscape, ⋮/✕, ack) — выполняются живыми наблюдениями после выката (owner-live; OQ-1 отменён владельцем — PET_PROJECT). Историческая сверка: w4-live-probes.md §2 помечал V06 как BLOCKED_REAL_HUMAN_GATE; карта приведена к артефакту (18 owner-гейтов = 14 + V01/V02/V04/V06).",
+   "reason": "Исправление задеплоено на прод 2.58.84 @0b7a0aca (изолированный релиз; policy байт-в-байт; fs-матрица 12/12·166 на релиз-дереве; прод-пробы: ban=0/soft-exit=0/заглушки=0). V06 остаётся RFL: приёмка требует реальных клиентов (Windows Desktop из BotFather Launch Mode=Fullscreen, Android portrait/landscape, ⋮/✕, ack) — выполняются живыми наблюдениями после выката (owner-live; OQ-1 отменён владельцем — PET_PROJECT). Историческая сверка: w4-live-probes.md §2 помечал V06 как BLOCKED_REAL_HUMAN_GATE; карта приведена к артефакту (18 owner-гейтов = 14 + V01/V02/V04/V06). Engineering-часть: mock-matrix + постдеплой-пробы 2.58.84 @0b7a0aca; real-client часть — U07-OWNER-REALDEV (owner_optional). Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "V06",
    "slice": "E2E-VERIFY",
    "acceptance": "Release-blocker V06 пройден: Windows+Launch Mode=Fullscreen — исходный viewport проверен, из MiniApp нельзя получить неудобное маленькое окно; Android portrait/landscape — маленькая кнопка максимально близко к native controls, ⋮/✕ не перехвачены, ack-события честные; при невозможности — safe-area fallback screenshot + honest constraint",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -1794,13 +1920,13 @@
    "source_text_sha256": "3c9a60c4e243a3c23ca2fee66a14ae797c50ff38c53c805d3c89dc72ce03a253",
    "source_excerpt": "**V07. Optical Glass:** на самостоятельно созданном контрольном фоне с контрастными прямыми линиями/волной за выбранной Status hero-линзой видно прозрачный центр и измеримую edge distortion (линия меняет геометрию за кромкой); присутствуют ",
    "disposition": "required",
-   "reason": "",
+   "reason": "ui-acceptance.md (optical Tier A / frost Tier B PASS), rebind glass_playwright_results + reduced_motion; CSP live (w4 §1); физический FPS — добровольное device-наблюдение. Биндинг LEDGER-ASAP8-RFL 21.10.2026 по prep-rfl-binding.md (PM-рекон 2026-10-21).",
    "req_id": "V07",
    "slice": "E2E-VERIFY",
    "acceptance": "Release-blocker V07 пройден: прозрачный центр + измеримая edge distortion за Status hero-линзой; rim + локальный specular; Modules Tier B без размытия текста; Analytics таблицы Tier C; low-end/reduced-motion fallback без FPS/selection-регрессий; ui-acceptance.md с полными и 1:1 до/после",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
@@ -1813,6 +1939,18 @@
      "ref": "live-canary.md",
      "observation": "prod 2.58.79 @c2775a54: healthz ok, /web/ 200 (727KB), fullscreen-policy/glass-probe/polygon-background 200, CSP img-src 'self' data: blob: (feImage lens allowed), journal 0 ERROR/Traceback",
      "type": "live"
+    },
+    {
+     "candidate_commit": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+     "ref": "w2-evidence-glass/ui-acceptance.md (optical Tier A / frost Tier B PASS) + evidence/rebind-31c16555/glass_playwright_results.json + evidence/rebind-31c16555/reduced_motion_status.png",
+     "type": "ui",
+     "observation": "Прозрачный центр + измеримый edge distortion за Status hero-линзой (край ±3..7.25px, центр 2.03px, контроль 0.00); rim + локальный specular; Tier B без размытия текста; reduced-motion fallback зафиксирован на 31c16555."
+    },
+    {
+     "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
+     "ref": "plans/features/asap8-v6-3-live-correction/w4-live-probes.md §1",
+     "type": "live",
+     "observation": "CSP live на проде: img-src data: разрешён — линза жива; физический FPS — добровольное device-наблюдение (не блокер)."
     }
    ]
   },
@@ -4527,7 +4665,10 @@
    "verification_tier": "owner_optional",
    "owner_policy_ref": "plans/owner_live_checks.md",
    "owner_optional_reason": "Ручной клиентский журнал (platform/version/drag/close) ведётся на устройстве владельца; серверная часть журнала и Playwright-матрица доставлены (w2-evidence-fullscreen); VERIFIED_LIVE по mock-only запрещён самим ACC — остаток только клиентский.",
-   "engineering_req_ids": ["REQ-U07", "U07.3a"]
+   "engineering_req_ids": [
+    "REQ-U07",
+    "U07.3a"
+   ]
   },
   {
    "source_id": "L00231",
