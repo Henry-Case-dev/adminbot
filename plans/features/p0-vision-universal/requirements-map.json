@@ -339,7 +339,7 @@
           "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
           "ref": "evidence/fix-core/mock-matrix-2026-10-19.md (мок-классы)",
           "observation": "Мок-матрица классов отказов: 400/no_vision/таймаут/неверный ключ/URL — по классу на кейс.",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
           "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
           "type": "test"
         },
@@ -347,7 +347,7 @@
           "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
           "ref": "evidence/fix-core/green-2026-10-19.txt (endpoint-формы/изоляция ключей/ротация)",
           "observation": "Endpoint-формы (host, host/v1), изоляция ключей и ротационные кейсы зелёные.",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/evidence/fix-core/green-2026-10-19.txt",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/green-2026-10-19.txt",
           "artifact_sha256": "2d339c24c3bb4acbe68cd2f513e54788b05dcf10783f46313b1d3740090e7c41",
           "type": "test"
         },
@@ -403,7 +403,7 @@
           "candidate_commit": "76b156e06c4e6132bc14f79e3571d52ebf71fbb6",
           "ref": "evidence/fix-core/mock-matrix-2026-10-19.md — мок-контракт (type=test)",
           "observation": "Мок-отчёт: подтверждено мок-контрактом, без претензии на живого провайдера.",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/evidence/fix-core/mock-matrix-2026-10-19.md",
+          "artifact_path": "plans/features/p0-vision-universal/evidence/fix-core/mock-matrix-2026-10-19.md",
           "artifact_sha256": "d4ff4e0c7c71793b76d26e58a43bed04377c0be724891426be44a932796e2ac2",
           "type": "test"
         },
@@ -512,7 +512,7 @@
           "candidate_commit": "1c4e667578a288cd62090b500cb0cb6db20f89f9",
           "ref": "plans/features/p0-vision-universal/review-vision-core.md (Approved, 1c4e6675)",
           "observation": "Независимое ревью core-фикса Approved.",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/review-vision-core.md",
+          "artifact_path": "plans/features/p0-vision-universal/review-vision-core.md",
           "artifact_sha256": "a73d26578775a16f2239c902fd30e865d928c9fbcc88c5ab9a321ec7d1024192",
           "type": "static"
         },
@@ -520,7 +520,7 @@
           "candidate_commit": "0df4a4a8bb052a41baa8e97c182dd16e4649ece9",
           "ref": "plans/features/p0-vision-universal/review-vision-ui.md (Approved, 0df4a4a8)",
           "observation": "Независимое ревью UI-фикса Approved.",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/review-vision-ui.md",
+          "artifact_path": "plans/features/p0-vision-universal/review-vision-ui.md",
           "artifact_sha256": "018c55ab51f7de2f5e979bedcf5aa859051e287ce5de6ba8c6173f218377a0a7",
           "type": "static"
         },
@@ -528,7 +528,7 @@
           "candidate_commit": "113f3a629cab54f7fcc261349a7c9af3b90f56d7",
           "ref": "review-accept-95.md (Approved, 112cfcc0) + штатный деплой 2.58.95",
           "observation": "Приёмка волны 95 отревьюена Approved; деплой штатный; deployed_commit карты = 113f3a62.",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/review-accept-95.md",
+          "artifact_path": "plans/features/p0-vision-universal/review-accept-95.md",
           "artifact_sha256": "471d8c46cb9c237c24ae79107500aab7f2d7a2a94ef0ab10a9aae5bc4b9da741",
           "type": "static"
         },
