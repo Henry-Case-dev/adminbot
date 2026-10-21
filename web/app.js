@@ -15544,9 +15544,9 @@
         var self = this;
         var policy = (typeof window !== 'undefined') && window.__FullscreenPolicy;
         if (policy) {
-          // FS-HOTFIX 18.10: маркер data-fs-scheme и glass-подложка кнопки
-          // удалены (стиль — как у нативных кнопок клиента), поэтому тема
-          // здесь больше не прокидывается — политика инит-факты не требует.
+          // FS-HOTFIX 18.10: маркер data-fs-scheme удалён; материал кнопки —
+          // Tier B мини-линза .lg-mini-lens (U08.4d), поэтому тема здесь
+          // больше не прокидывается — политика инит-факты не требует.
           policy.init();
           if (!this._fsPolicySubscribed) {
             this._fsPolicyUnsub = policy.subscribe(function () {

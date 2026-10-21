@@ -3635,10 +3635,12 @@
      hidden  — html.fs-hidden: кнопка не рендерится (v-if в index.html);
                data-fs-reason на <html> — dev-маркер причины, НЕ UI.
 
-   Стиль FS-HOTFIX (18.10, директива владельца): «как у нативных» —
-   ПРОЗРАЧНЫЙ фон, без стеклянной подложки/::before, без backdrop-filter,
-   без крупного круга и любого Liquid Glass. Иконка 18px (норма 16–18px),
-   сам узел остаётся hit-целью ≥44×44 (U07.2/U01). */
+   Геометрия FS-HOTFIX (18.10): иконка 18px (норма 16–18px), сам узел
+   остаётся hit-целью ≥44×44 (U07.2/U01). Материал (21.10, U08.4d/U08.5.1,
+   REV-W2-N1 закрыт биндингом): Tier B мини-линза .lg-mini-lens (W2-GLASS
+   ниже; rim + один блик, НЕ «64px затемнённый квадрат») — правила
+   .header-fs-btn больше не красят фон/рамку и не добавляют своё стекло,
+   материал приходит ТОЛЬКО из .lg-mini-lens. */
 .header-fs-btn {
   position: relative;
   display: inline-flex;
@@ -3647,17 +3649,15 @@
   min-width: 44px;
   min-height: 44px;
   padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: .5rem;
-  color: var(--text-1, #E7EDF7);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  transition: background 0.12s ease;
+  transition: filter 0.12s ease;
 }
 .header-fs-btn .fs-ic { display: block; }
-.header-fs-btn:hover { background: rgba(255, 255, 255, .07); }
-.header-fs-btn:active { background: rgba(255, 255, 255, .12); }
+/* U08.4d: hover/active НЕ перекрашивают материал линзы плоским фоном
+   (стирали бы градиент) — обратная связь яркостью. */
+.header-fs-btn:hover { filter: brightness(1.12); }
+.header-fs-btn:active { filter: brightness(.92); }
 .header-fs-btn:focus-visible {
   outline: 2px solid rgba(139, 92, 246, .7);
   outline-offset: 2px;
@@ -3837,9 +3837,10 @@
 /* ═══ /HOTFIX-TIERA ═══ */
 
 /* ═══ W2-GLASS (U08.4d): lg-mini-lens — круглый Tier B-контрол ⛶ ═══
-   Материал для кнопки U07 (класс применяет FULLSCREEN-лейн; геометрия —
-   их собственность, здесь только визуал: круглая мини-линза с rim и
-   одним бликом, НЕ «64px затемнённый квадрат»). */
+   Материал для кнопки U07 (класс применён в разметке ⛶ index.html,
+   21.10, U08.4d/U08.5.1 — REV-W2-N1; геометрия — за fullscreen-лейном,
+   здесь только визуал: круглая мини-линза с rim и одним бликом, НЕ
+   «64px затемнённый квадрат»). */
 .lg-mini-lens {
   position: relative;
   isolation: isolate;

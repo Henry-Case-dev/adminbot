@@ -422,8 +422,11 @@ async function main() {
     'шапка обходит нативную зону целиком (sum-формула)');
   assert.ok(!appCss.includes('fs-slot-float') && !appCss.includes('data-fs-scheme'),
     'float-слот/схема темы удалены (слот только inline)');
-  assert.ok(!/\.header-fs-btn::before/.test(appCss) && !/header-fs-btn[^{]*\{[^}]*backdrop-filter/.test(appCss),
-    'у кнопки ⛶ нет стеклянной подложки/размытия (стиль как у нативных)');
+  assert.ok(!/\.header-fs-btn::before/.test(appCss) &&
+            !/\.header-fs-btn[^{,]*\{[^}]*backdrop-filter/.test(appCss) &&
+            !/\.header-fs-btn[^{,]*\{[^}]*\bbackground\s*:/.test(appCss),
+    'материал ⛶ только из .lg-mini-lens (U08.4d): правила header-fs-btn не ' +
+    'красят фон и не добавляют своё стекло (геометрия — за fullscreen-лейном)');
   assert.ok(/\.header-fs-btn\s*\{[^}]*min-width:\s*44px/.test(appCss) &&
             /\.header-fs-btn\s*\{[^}]*min-height:\s*44px/.test(appCss),
     'кнопка ⛶ остаётся hit-целью ≥44×44');
