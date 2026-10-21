@@ -2067,8 +2067,16 @@
       "acceptance": "В разделе Речь и характер показана понятная диаграмма влияния слоёв Core, SelfModel, L1, lessons, examples, humor strategy на Writer; администратор без чтения JSON понимает, почему ответ получился таким, какой режим, почему использовано одно слово, почему шутка длинная и какие данные были подтверждены, и это не новая панель всех внутренних событий (второй аналитической стены нет)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "2f1a49adcc3ec8d392728711158bd94f6557793a",
+          "ref": "plans/features/soul-1/evidence/soul14-ui/(guards.txt; soul14-layers-e2e.txt; layers-payload-pytest.txt; gate-plan.txt; layers-e2e-report.json; shots/) + tests/ui_soul14_layers_e2e.py + tests/test_soul14_layers_payload.py + web/api/speech.py (_layers_payload) + web/index.html ([data-speech-layers]) + web/app.js (speechLayerNodes)",
+          "observation": "На витрине «Речь и характер» карточка «Как рождается ответ» [data-speech-layers]: 7 узлов Core → SelfModel → L1 → lessons → examples → humor → Writer с человеческими подписями (режим «ответить/реакция/молчание», длина от «одного слова», приём юмора, проверка длины/фактов/стиля перед отправкой) и честными статусами из /api/speech/overview (gates/sections + аддитивный layers: L1, SelfModel); нет данных — «—», ничего не выдумывается. Прогоны кандидата: e2e 5 сценариев failures=0 (360/390/no-layers/off+unknown/desktop), pytest layers 6 passed, p0a-витрина failures=0, mobile-entry failures=0, js-unit+design-tokens+speech-ui+font-subset 113 passed; живая браузерная проба 390px: overflow=0, клик Core открывает раздел, витрина не переделана. Это карта сборки, не журнал событий (второй аналитической стены нет); per-message «почему» остаётся за Inspector/телеметрией 14.2.",
+          "type": "ui",
+          "artifact_path": "plans/features/soul-1/evidence/soul14-ui/guards.txt"
+        }
+      ]
     },
     {
       "source_id": "M00195",
