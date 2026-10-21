@@ -2038,6 +2038,58 @@ def _revision_int(revision: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _emit_extent_metric(outcome: StyleOutcome, *, chat_id: int, stage: str
+                        ) -> None:
+    """SOUL-14.2: пер-сообщенческая метрика extent в СУЩЕСТВУЮЩИЙ
+    telemetry-контур (``mca_events``, event ``speech_extent``).
+
+    Сырьё распределения «распределение extent including exact one_word
+    compliance»: одно событие на каждый проход, где extent-check реально
+    выполнился; агрегация — по существующей таблице ``mca_events`` (новой
+    таблицы/сервиса нет). Только счётчики/коды (R17, без текстов):
+    extent/status/words/reason. ``one_word_exact`` = финальный текст
+    ровно одно слово (pass/repaired после минимальной правки). Исход
+    отображается в валидный outcome из ``ALL_OUTCOMES`` (урок B1:
+    невалидный outcome build_event молча роняет). Fail-open; когда
+    extent-check не выполнялся (style OFF / без плана) — события нет
+    (честное отсутствие, не ноль)."""
+    try:
+        check = outcome.extent
+        if check is None:
+            return      # extent-check не шёл — метрика не выдумывается
+        from services import mca_events as _events
+        status = str(getattr(check, "status", "") or "")
+        extent = str(getattr(check, "extent", "") or "")
+        reason = str(getattr(check, "reason", "") or "")
+        word_count = len(tuple(getattr(check, "words", ()) or ()))
+        one_word = 1 if extent == "one_word" else 0
+        compliant = 1 if status in ("pass", "repaired") else 0
+        if status in ("failed", "conflict"):
+            outcome_code, level = "failed", "WARN"
+        elif status == "not_applicable":
+            outcome_code, level = "skipped", "INFO"
+        else:                                   # pass / repaired
+            outcome_code, level = "success", "INFO"
+        payload: dict = {
+            "extent": extent or "auto",
+            "status": status,
+            "one_word": one_word,
+            "one_word_exact": (one_word and compliant) or 0,
+            "context": str(outcome.context or "regular"),
+        }
+        if status != "not_applicable":
+            payload["words"] = word_count
+        if reason:
+            payload["reason"] = reason
+        _events.emit_mca_event(
+            "speech_extent", outcome=outcome_code, level=level,
+            component="style_policy", stage=str(stage)[:60],
+            chat_id=int(chat_id or 0), usage_json=payload)
+    except Exception:      # pragma: no cover - метрика не роняет ответ
+        logger.warning("[style_policy] extent metric emit failed",
+                       exc_info=True)
+
+
 def _emit_style_event(outcome: StyleOutcome, *, chat_id: int, stage: str
                       ) -> None:
     """Notable-событие о непроходном исходе (fail-open, R17-safe)."""
@@ -2177,6 +2229,9 @@ async def apply_style_policy(text: Any, *, chat_id: int = 0, plan=None,
     result.elapsed_ms = (time.perf_counter() - started) * 1000.0
     if emit_events and chat_id:
         _emit_style_event(result, chat_id=chat_id, stage=stage)
+        # SOUL-14.2: метрика extent (распределение/one_word) — на каждый
+        # проход с выполненным extent-check, не только notable-исходы.
+        _emit_extent_metric(result, chat_id=chat_id, stage=stage)
     return result
 
 
