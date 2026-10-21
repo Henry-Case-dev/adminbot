@@ -197,7 +197,10 @@ class TestSchemaFreeze:
             "verdict_text", "route", "factual_verdict", "temporal_status",
             "evaluated_period", "uncertainty", "evidence", "reason_code",
             "as_of", "gate_version", "fallback_used", "cache_hit",
-            "already_delivered")
+            "already_delivered",
+            # fcv3 (FC-RENDER, owner 21.10.2026 §3.6): цитаты/части для
+            # привязки ссылок к утверждениям; internal, в egress не входят
+            "evidence_refs", "parts")
 
     def test_presentation_fields_frozen_and_service_free(self):
         import dataclasses

@@ -75,7 +75,7 @@ class TestRenderStructure:
             "• Данные расходятся.\n"
             "• Источник один.\n\n"
             "Источники:\n"
-            "1. <a href=\"https://example.org/a\">example.org</a>")
+            "1. <a href=\"https://example.org/a\">example.org</a> — пересказ")
         # снапшот фиксирован: egress-поля в разметке не появляются
         assert "fsg1" not in p.text and "1760900000" not in p.text
 

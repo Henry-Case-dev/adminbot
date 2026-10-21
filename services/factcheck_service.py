@@ -535,8 +535,16 @@ class FactCheckService:
         *,
         chat_context: str | None = None,
         stage_trace: tf.StageTrace | None = None,
+        retrieval=None,
     ) -> tf.TemporalRunResult:
-        """Сквозной пайплайн `temporal.factcheck` v1 (8 стадий, D15).
+        """Сквозной пайплайн `temporal.factcheck` (8 стадий, D15).
+
+        ``retrieval`` (FC-UNIFY, owner 21.10.2026 §3.2): выдача единого
+        retrieval-контура v2 (factcheck_planner.RetrievalOutcome) — внутренний
+        temporal-поиск не дублируется (один поиск на прогон); evidence
+        строится из структурных строк планировщика (включая primary-выдержки
+        SafeFetcher). None → прежний внутренний поиск (теперь тоже смысловые
+        запросы, FC-SEMQUERY).
 
         Raises: LLMBadResponseError (пустой ответ вербализатора на всех
         ветках) — вызывающий решает показ ошибки; поиск НИКОГДА не даёт
@@ -560,37 +568,70 @@ class FactCheckService:
         trace.add("claim_decompose", "success")
         tf.stage_event("claim_decompose", "success", chat_id=env.chat_id)
 
-        # temporal_search (D8): существующий агрегатор (REUSE), запросы с
-        # временными ограничениями; отказ движков → honest verdict, не
-        # исключение до пользователя (F-1).
-        queries = tf.search_queries_for(parts, env)
+        # temporal_search (D8/FC-UNIFY): выдача ЕДИНОГО retrieval-контура v2,
+        # когда план выполнен оркестратором (один поиск на прогон); None →
+        # внутренний fallback — теперь тоже СМЫСЛОВЫЕ запросы по частям
+        # (FC-SEMQUERY), а не слайс начала публикации. Отказ движков →
+        # honest verdict, не исключение до пользователя (F-1).
+        plan_results = ""
+        if retrieval is not None:
+            plan_results = str(getattr(retrieval, "search_text", "") or "")
         results_parts: list[str] = []
         search_reason = None
-        for q in queries:
-            try:
-                chunk = await self.aggregator.search(q, 2500)
-            except AllSearchEnginesFailedException:
-                search_reason = "temporal_insufficient_evidence"
-                continue
-            except Exception:
-                search_reason = "temporal_insufficient_evidence"
-                continue
-            if chunk and str(chunk).strip():
-                results_parts.append(str(chunk))
-        results = "\n\n".join(results_parts)
-        trace.add("temporal_search", "success" if results else "skipped",
-                  reason=search_reason)
-        tf.stage_event("temporal_search",
-                       "success" if results else "skipped",
-                       reason_code=search_reason, chat_id=env.chat_id)
+        if plan_results.strip():
+            results = plan_results
+            trace.add("temporal_search", "success", reason="unified_retrieval")
+            tf.stage_event("temporal_search", "success",
+                           reason_code="unified_retrieval",
+                           chat_id=env.chat_id)
+        else:
+            queries = tf.search_queries_for(parts, env)
+            from services.search_aggregator import content_terms
+            for q in queries:
+                try:
+                    if hasattr(self.aggregator, "search_relevant"):
+                        # FC-EVIDQ: нерелевантная выдача уровня → следующий
+                        # провайдер каскада (внутри агрегатора)
+                        chunk = await self.aggregator.search_relevant(
+                            q, 2500, relevance_terms=content_terms(q,
+                                                                   limit=10))
+                    else:
+                        chunk = await self.aggregator.search(q, 2500)
+                except AllSearchEnginesFailedException:
+                    search_reason = "temporal_insufficient_evidence"
+                    continue
+                except Exception:
+                    search_reason = "temporal_insufficient_evidence"
+                    continue
+                if chunk and str(chunk).strip():
+                    results_parts.append(str(chunk))
+            results = "\n\n".join(results_parts)
+            trace.add("temporal_search",
+                      "success" if results else "skipped",
+                      reason=search_reason)
+            tf.stage_event("temporal_search",
+                           "success" if results else "skipped",
+                           reason_code=search_reason, chat_id=env.chat_id)
 
         # evidence_validate (D9): evidence-контракт из выдачи (стабильные
-        # ID ev-N); D10/§18G.1: попытка fetch/parse даты публикации каждого
-        # web-evidence (bounded, fail-open) — parse failure не прерывает
-        # pipeline и не подставляет now(). Пусто → insufficient_evidence
-        # (no-false-acceptance).
-        evidence = tf.evidence_rows_from_results(
-            results, max_rows=_temporal_max_evidence())
+        # ID ev-N); FC-UNIFY: структурные строки единого контура (включая
+        # primary-выдержки SafeFetcher с уже извлечёнными датами) вместо
+        # повторного разбора текста. D10/§18G.1: попытка fetch/parse даты
+        # публикации оставшихся web-evidence (bounded, fail-open) — parse
+        # failure не прерывает pipeline и не подставляет now().
+        # Пусто → insufficient_evidence (no-false-acceptance).
+        retrieval_refs = ()
+        if retrieval is not None:
+            retrieval_refs = tuple(
+                getattr(getattr(retrieval, "evidence_map", None),
+                        "refs", ()) or ())
+        if retrieval_refs:
+            evidence = tf.evidence_rows_from_refs(
+                retrieval_refs, fallback_results=results,
+                max_rows=_temporal_max_evidence())
+        else:
+            evidence = tf.evidence_rows_from_results(
+                results, max_rows=_temporal_max_evidence())
         date_summary = None
         if evidence and tf.evidence_date_fetch_enabled():
             try:

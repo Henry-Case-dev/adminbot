@@ -31,10 +31,14 @@ import re
 
 from services import temporal_factcheck as tf
 from services.factcheck_orchestrator import EvidenceMap, EvidenceRef
+from services.search_aggregator import classify_source_kind
 
 logger = logging.getLogger(__name__)
 
-PLANNER_VERSION = "fp1"
+# fp2 (FC-SEMQUERY/FC-EVIDQ, owner 21.10.2026 §3.3–3.4): запросы строятся
+# от самостоятельных частей клейма (claim_items/предложения) + generic
+# синонимы; выдача проверяется на содержательную релевантность.
+PLANNER_VERSION = "fp2"
 
 # Интенты запросов (06C: 2–4 запроса с различающей целью).
 INTENT_ENTITY_CHECK = "entity_check"
@@ -96,7 +100,7 @@ class RetrievalPlan:
 
 def _claim_terms(text: str, *, limit: int = 8) -> list[str]:
     """Ключевые термины клейма — ДЕТЕРМИНИРОВАННО по исходному порядку
-    (W6: set-итерация давала плавающий порядок запросов между процессами).
+    (W6: set-итерация давала плавающий порядок запросов между процессам).
     Токены в lowercase (поисковый запрос), без стоп-слов, дедуп."""
     from services.factcheck_context import _STOPWORDS
     seen: set[str] = set()
@@ -110,6 +114,48 @@ def _claim_terms(text: str, *, limit: int = 8) -> list[str]:
         if len(terms) >= limit:
             break
     return terms
+
+
+# ── FC-SEMQUERY (owner §3.3): generic синонимы/терминология ─────────────────
+# Общие разговорные→книжные пары БЕЗ предметных терминов (работают на
+# произвольной теме: медицина, история, экономика, технологии). Дают
+# поисковику вторую формулировку того же смысла: в публикациях для широкой
+# аудитории почти всегда разговорное слово, в проверяемых источниках —
+# книжное. Никаких медицинских/тематических словарей.
+_SYNONYM_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("всплеск", ("рост", "увеличение")),
+    ("скачок", ("рост", "повышение")),
+    ("рекорд", ("максимум", "рекордный")),
+    ("болезнь", ("заболевание",)),
+    ("заболели", ("заболеваемость",)),
+    ("врачи", ("медики", "специалисты")),
+    ("учёные", ("исследователи", "специалисты")),
+    ("молодёжь", ("молодые",)),
+    ("подорожал", ("рост", "цен")),
+    ("подешевел", ("снижение", "цен")),
+    ("вырос", ("рост",)),
+    ("упал", ("снижение",)),
+    ("запретили", ("запрет", "ограничение")),
+    ("разрешили", ("разрешение",)),
+    ("отменили", ("отмена",)),
+    ("закрыли", ("закрытие",)),
+    ("открыли", ("открытие",)),
+    ("выпустил", ("выпуск", "запуск")),
+)
+
+
+def _expand_terms(terms: list[str], *, limit: int = 12) -> list[str]:
+    """Дописать 1–2 generic-синонима для встретившихся слов (порядок
+    детерминированный, дедуп, потолок ``limit``)."""
+    out = list(terms)
+    low = {t.lower() for t in out}
+    for word, synonyms in _SYNONYM_GROUPS:
+        if word in low:
+            for syn in synonyms:
+                if syn not in low and len(out) < limit:
+                    out.append(syn)
+                    low.add(syn)
+    return out
 
 
 def _entities(text: str) -> list[str]:
@@ -191,6 +237,23 @@ def build_retrieval_plan(decision, ctx=None, *,
         return None
 
 
+def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
+    """FC-SEMQUERY: самостоятельные проверяемые части для запросов —
+    верифицируемые тексты claim_items; единый тезис-«всё сообщение»
+    разбивается на предложения (как decompose_claim). Детерминированно."""
+    units: list[str] = []
+    for item in items or ():
+        text = str(getattr(item, "text", "") or "").strip()
+        if text and getattr(item, "verifiable", True) is not False \
+                and text.lower() not in {u.lower() for u in units}:
+            units.append(text)
+    if not units or (len(units) == 1 and units[0].lower() == claim.lower()):
+        # гейт не декомпозировал → предложения самого клейма
+        units = [s.strip() for s in re.split(r"(?<=[.!?;])\s+", claim)
+                 if s.strip()] or [claim]
+    return [u for u in units if u][:cap]
+
+
 def _build_plan_inner(decision, ctx, *, claim_text, max_queries
                       ) -> RetrievalPlan | None:
     if decision is None:
@@ -223,36 +286,64 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
     terms = _claim_terms(claim)
     entities = [e for e in _entities(claim)
                 if e.lower() not in {t.lower() for t in terms}][:3]
-    base_terms = (entities + terms)[:8]
 
     queries: list[SearchQuery] = []
     seen: set[str] = set()
 
-    def _add(query: SearchQuery | None) -> None:
+    def _add(query: SearchQuery | None) -> bool:
         if query is None or len(queries) >= max(1, int(max_queries)):
-            return
+            return False
         key = query.text.lower()
         if key in seen:
-            return
+            return False
         # 06A.4-фикс: запрос НЕ весь клейм дословно (реформулировка)
         if key == str(claim).lower().strip()[:_QUERY_MAX_CHARS]:
-            return
+            return False
         seen.add(key)
         queries.append(query)
+        return True
 
-    _add(_make_query(base_terms, INTENT_ENTITY_CHECK))
-    numeric = _numeric_phrases(claim)
-    if numeric:
-        _add(_make_query(base_terms, INTENT_NUMERIC,
-                         tail=" ".join(numeric)))
-    years = _years(claim)
-    if years:
-        _add(_make_query(base_terms, INTENT_TEMPORAL,
-                         tail=" ".join(years)))
+    # FC-SEMQUERY (owner §3.3): запрос — от самостоятельной части клейма
+    # (claim_items/предложения), с сущностями/числами/годами ЭТОЙ части;
+    # НЕ первые 8 токенов всего сообщения. Цели запросов различаются
+    # (06C.2), бюджеты сохранены (≤3 запроса, ≤200 символов). Privacy:
+    # каждый unit проходит тот же фильтр участников, что и весь клейм.
+    entity_done = numeric_done = temporal_done = False
+    for raw_unit in _claim_units(items, claim):
+        unit, _unit_dropped = _strip_privacy(raw_unit, authors)
+        if not unit:
+            continue
+        uterms = _claim_terms(unit, limit=8)
+        uents = [e for e in _entities(unit)
+                 if e.lower() not in {t.lower() for t in uterms}][:3]
+        if not entity_done:
+            base = _expand_terms((uents + uterms)[:10])
+            if _add(_make_query(base, INTENT_ENTITY_CHECK)):
+                entity_done = True
+        numeric = _numeric_phrases(unit)
+        if not numeric_done and numeric:
+            if _add(_make_query(_expand_terms(uterms), INTENT_NUMERIC,
+                                tail=" ".join(numeric))):
+                numeric_done = True
+        years = _years(unit)
+        if not temporal_done and years:
+            if _add(_make_query(_expand_terms(uterms), INTENT_TEMPORAL,
+                                tail=" ".join(years))):
+                temporal_done = True
+        if entity_done and numeric_done and temporal_done:
+            break
+    # Цитата → проверка происхождения (цитата может быть в любой части)
     quoted = _QUOTED_RE.search(claim)
     if quoted:
-        _add(_make_query(entities or base_terms[:4], INTENT_ORIGIN,
+        _add(_make_query(entities or terms[:4], INTENT_ORIGIN,
                          quoted=quoted.group(1)))
+    # Деградация: ни одна часть не дала запроса (например, короткий клейм)
+    if not queries:
+        base = _expand_terms((entities + terms)[:8])
+        _add(_make_query(base, INTENT_ENTITY_CHECK))
+        years = _years(claim)
+        if years:
+            _add(_make_query(base, INTENT_TEMPORAL, tail=" ".join(years)))
     if not queries:
         return None
     return RetrievalPlan(
@@ -268,13 +359,19 @@ def evidence_refs_from_search(results_text: str, *,
                               intent: str | None = None,
                               max_rows: int = 6) -> tuple[EvidenceRef, ...]:
     """Структурированные EvidenceRef из выдачи агрегатора: URL отдельно от
-    текста (06D.4), support = заголовок+сниппет (без URL-дублирования)."""
+    текста (06D.4), support = заголовок+сниппет (без URL-дублирования).
+    FC-EVIDQ (§3.4): тип источника — classify_source_kind (первоисточник/
+    исследование/энциклопедия/пересказ); дубли-блоки (url=None дубль) со
+    срезаны."""
     if not results_text or not str(results_text).strip():
         return ()
     blocks = [b.strip() for b in re.split(r"\n\s*\n", str(results_text))
               if b.strip()]
     refs: list[EvidenceRef] = []
-    for block in blocks[:max(1, int(max_rows))]:
+    seen: set[str] = set()
+    for block in blocks:
+        if len(refs) >= max(1, int(max_rows)):
+            break
         lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
         if not lines:
             continue
@@ -292,10 +389,14 @@ def evidence_refs_from_search(results_text: str, *,
         support = f"{title}. {snippet}".strip(". ")[:400]
         if not support:
             continue
+        key = re.sub(r"\W+", "", support.lower())[:100]
+        if key in seen:                 # url=None дубли (FC-EVIDQ §3.4)
+            continue
+        seen.add(key)
         refs.append(EvidenceRef(
             evidence_id="",            # проставляется в EvidenceMap-сборке
             url=url, support=support,
-            source_kind="secondary", published_at=None))
+            source_kind=classify_source_kind(url), published_at=None))
     return tuple(refs)
 
 
@@ -395,7 +496,14 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     """Единый контур: план → bounded запросы → структурный evidence +
     строка выдачи для user-content. Дедлайн бюджета/ошибки запросов —
     честная деградация (partial результат, пусто → ok=False). Никогда
-    не бросает."""
+    не бросает.
+
+    FC-EVIDQ (§3.4): запрос идёт через relevance-вход агрегатора
+    (``search_relevant`` — непустая, но нерелевантная выдача уровня не
+    останавливает каскад; фейки без метода — прежний ``search``); строки
+    evidence ранжируются overlap'ом с клеймом (стабильная сортировка), и
+    primary-fetch идёт по самым релевантным. URL ≠ доказательство: 
+    содержимое подходящих страниц достаётся существующим SafeFetcher."""
     loop = asyncio.get_running_loop()
     deadline = loop.time() + float(
         budget_seconds if budget_seconds is not None
@@ -406,6 +514,7 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         budget_exhausted=False)
     if plan is None or not plan.queries or aggregator is None:
         return outcome_empty
+    relevance_search = getattr(aggregator, "search_relevant", None)
     refs: list[EvidenceRef] = []
     blocks: list[str] = []
     attempted = 0
@@ -417,8 +526,14 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             budget_exhausted = True
             break
         attempted += 1
+        query_terms = _claim_terms(query.text, limit=10)
         try:
-            chunk = await aggregator.search(query.text, query.max_symbols)
+            if relevance_search is not None:
+                chunk = await relevance_search(
+                    query.text, query.max_symbols,
+                    relevance_terms=query_terms)
+            else:
+                chunk = await aggregator.search(query.text, query.max_symbols)
         except Exception:
             fetch_errors += 1
             logger.info("[factcheck_planner] query failed | intent=%s",
@@ -428,14 +543,37 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
             continue
         used += 1
         blocks.append(str(chunk))
-        refs.extend(evidence_refs_from_search(
-            str(chunk), intent=query.intent, max_rows=max_rows_per_query))
+        # FC-EVIDQ: дубли срезаются и МЕЖДУ запросами (один и тот же
+        # источник из двух запросов — не «второе доказательство»)
+        seen_support = {re.sub(r"\W+", "", r.support.lower())[:100]
+                        for r in refs}
+        for ref in evidence_refs_from_search(
+                str(chunk), intent=query.intent,
+                max_rows=max_rows_per_query):
+            key = re.sub(r"\W+", "", ref.support.lower())[:100]
+            if key in seen_support:
+                continue
+            seen_support.add(key)
+            refs.append(ref)
         if len(refs) >= _MAX_EVIDENCE_REFS:
             break
+    if refs:
+        # §3.4: строки с содержательным overlap'ом с клеймом — первыми
+        # (стабильная сортировка: порядок провайдеров в группах сохранён).
+        claim_terms_all = _claim_terms(plan.claim_text, limit=24)
+
+        def _score(ref: EvidenceRef) -> int:
+            haystack = str(ref.support or "").lower()
+            return sum(1 for t in claim_terms_all if t in haystack)
+
+        refs.sort(key=_score, reverse=True)
     if refs and plan.needs_primary_fetch and loop.time() < deadline:
+        # §3.4: URL ≠ доказательство — содержимое страниц достаётся только
+        # для строк с overlap'ом по клейму (когда такие есть среди строк).
+        fetch_pool = [r for r in refs if _score(r) > 0] or refs
         fetched: list[EvidenceRef] = []
         seen_urls: set[str] = set()
-        for ref in refs:
+        for ref in fetch_pool:
             if len(fetched) >= _MAX_PRIMARY_FETCHES:
                 break
             if loop.time() >= deadline:

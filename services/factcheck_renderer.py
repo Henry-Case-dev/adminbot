@@ -14,6 +14,11 @@
   вердикта/URL невозможна;
 * ``render_factcheck`` не меняет факты/числа/ссылки вербализатора —
   только структуру и экранирование (все предложения сохраняются);
+* FC-RENDER (owner 21.10.2026 §3.6): ссылки привязываются к утверждениям
+  (части вердикта с evidence_refs), у каждого источника объясняется роль
+  (первоисточник/исследование/энциклопедия/пересказ/чат), непроцитированные
+  хосты не выводятся списком «на всякий случай»; url=None строки в
+  источниках не участвуют; рендеринг не искажает вердикт аналитика;
 * доставка — через СУЩЕСТВУЮЩИЙ ``send_chunked_reply(parse_mode=...)``
   (общая функция в smartmodule_utils НЕ меняется): pre-split на
   entity-safe чанки (теги не рвутся, каждая часть ≤ лимита), reply только
@@ -59,6 +64,28 @@ _VERDICT_HEADLINE = {
 _NO_LINKS_NOTICE = (
     "Первоисточники в этот раз открыть не удалось — вывод сделан по "
     "выдержкам без проверяемых ссылок.")
+
+#: FC-RENDER (owner §3.6): роль каждого источника объясняется — списка
+#: доменов без объяснения больше нет. source_kind → человеческая роль
+#: (доступность источника, не истинность утверждений).
+_SOURCE_KIND_LABELS = {
+    "primary": "первоисточник",
+    "research": "исследование",
+    "reference": "энциклопедия",
+    "secondary": "пересказ",
+    "chat": "сообщение чата",
+}
+
+#: FC-PERCLAIM/FC-RENDER: короткие подписи вердикта части при разборе.
+_PART_LABELS = {
+    "supported": "подтверждается",
+    "refuted": "не подтверждается",
+    "mixed": "подтверждается частично",
+    "insufficient_evidence": "данных недостаточно",
+}
+
+_MAX_BOUND_PARTS = 4              # bound: разбор ≤4 ключевых утверждений
+_PART_TEXT_MAX_CHARS = 110
 
 _MAX_POINTS = 4                      # 2–4 пункта сути (бриф W5)
 
@@ -131,6 +158,16 @@ def _content(presentation: FactcheckPresentation,
     headline = (_VERDICT_HEADLINE.get(verdict.factual_verdict)
                 if verdict is not None else None)
     links = _safe_links(presentation.links)
+    if verdict is not None:
+        # FC-RENDER (§3.6): есть цитаты аналитика → показываем ТОЛЬКО
+        # процитированные URL (непроцитированные хосты не «мусорный
+        # список»); без цитат — прежний список всех ссылок прогона.
+        cited = {str(r) for r in (verdict.evidence_refs or ())}
+        if cited:
+            refs = _refs_by_id(verdict)
+            cited_urls = {refs[r].url for r in cited if r in refs}
+            if cited_urls:
+                links = tuple(u for u in links if u in cited_urls)
     notice = str(presentation.notice or "").strip()
     if not links and not notice and verdict is not None \
             and verdict.evidence.refs:
@@ -138,9 +175,79 @@ def _content(presentation: FactcheckPresentation,
     return headline, str(presentation.text or ""), links, notice
 
 
-def _serialize(presentation, verdict, *, html_mode: bool) -> str:
+def _trim(text: str, limit: int = _PART_TEXT_MAX_CHARS) -> str:
+    cleaned = " ".join(str(text or "").split())
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[:limit - 1].rstrip() + "…"
+
+
+def _refs_by_id(verdict: CheckedVerdict | None) -> dict:
+    if verdict is None or verdict.evidence is None:
+        return {}
+    return {ref.evidence_id: ref for ref in verdict.evidence.refs if ref.url}
+
+
+def _part_bindings(verdict: CheckedVerdict | None) -> list:
+    """FC-RENDER (§3.6): (текст части, вердикт части, [EvidenceRef]) —
+    разбор ключевых утверждений с цитатами, привязанными к каждому.
+    Только URL из EvidenceMap текущего прогона (allowlist уже проверен
+    сервером в verdict_from_payload)."""
+    if verdict is None:
+        return []
+    refs = _refs_by_id(verdict)
+    out = []
+    seen_texts: set[str] = set()
+    for part in (verdict.parts or ()):
+        if not isinstance(part, dict) or len(out) >= _MAX_BOUND_PARTS:
+            break
+        text = str(part.get("text") or "").strip()
+        if not text:
+            continue
+        key = text.lower()[:100]
+        if key in seen_texts:
+            continue
+        part_refs = [refs[str(r)] for r in (part.get("evidence_refs") or ())
+                     if isinstance(r, str) and str(r) in refs]
+        if not part_refs:
+            continue
+        seen_texts.add(key)
+        out.append((text, str(part.get("factual_verdict") or ""), part_refs))
+    return out
+
+
+def _sources_rows(verdict: CheckedVerdict | None, links, *,
+                  bound_urls: set, esc, esc_attr, html_mode: bool
+                  ) -> list[str]:
+    """Строки «Источники:» с ролью каждого источника (FC-RENDER §3.6:
+    никаких доменов без объяснения); ссылки, уже привязанные к частям,
+    во втором списке не повторяются."""
+    kind_by_url: dict = {}
+    if verdict is not None and verdict.evidence is not None:
+        for ref in verdict.evidence.refs:
+            if ref.url and ref.url not in kind_by_url:
+                kind_by_url[ref.url] = _SOURCE_KIND_LABELS.get(
+                    ref.source_kind, "")
+    rows: list[str] = []
+    for url in links:
+        if url in bound_urls:
+            continue
+        kind = kind_by_url.get(url, "")
+        label = _safe_host(url) or "источник"
+        suffix = f" — {kind}" if kind else ""
+        if html_mode:
+            rows.append(f"{len(rows) + 1}. <a href=\"{esc_attr(url)}\">"
+                        f"{esc(label)}</a>{esc(suffix)}")
+        else:
+            rows.append(f"{len(rows) + 1}. {url}{suffix}")
+    return rows
+
+
+def _serialize(presentation: FactcheckPresentation,
+               verdict: CheckedVerdict | None, *, html_mode: bool) -> str:
     headline, body, links, notice = _content(presentation, verdict)
     esc = _esc if html_mode else (lambda s: s)
+    esc_attr = _esc_attr if html_mode else (lambda s: s)
     blocks: list[str] = []
     if headline:
         headline = str(headline)
@@ -150,13 +257,37 @@ def _serialize(presentation, verdict, *, html_mode: bool) -> str:
         blocks.append("\n".join("• " + esc(p) for p in points))
     elif body.strip():
         blocks.append(esc(body.strip()))
-    if links:
-        rows = "\n".join(
-            f"{i}. <a href=\"{_esc_attr(u)}\">"
-            f"{esc(_safe_host(u) or 'источник')}</a>"
-            if html_mode else f"{i}. {u}"
-            for i, u in enumerate(links, 1))
-        blocks.append("Источники:\n" + rows)
+    # FC-RENDER: разбор ключевых утверждений с цитатами при каждом тезисе +
+    # роль каждого источника. Без вердикта (legacy plain) — прежний список.
+    bindings = _part_bindings(verdict)
+    if bindings:
+        lines: list[str] = []
+        for text, part_verdict, part_refs in bindings:
+            label = _PART_LABELS.get(part_verdict)
+            cites = []
+            for ref in part_refs:
+                host = _safe_host(ref.url) or "источник"
+                if html_mode:
+                    cites.append(f"<a href=\"{esc_attr(ref.url)}\">"
+                                 f"{esc(host)}</a>")
+                else:
+                    cites.append(ref.url)
+            cites_text = ", ".join(cites)
+            trimmed = _trim(text)
+            if html_mode:
+                prefix = f"• {esc(trimmed)} — {esc(label)}: " if label \
+                    else f"• {esc(trimmed)}: "
+                lines.append(prefix + cites_text)
+            else:
+                prefix = f"• {trimmed} — {label}: " if label \
+                    else f"• {trimmed}: "
+                lines.append(prefix + cites_text)
+        blocks.append("По утверждениям:\n" + "\n".join(lines))
+    bound_urls = {ref.url for _t, _v, refs in bindings for ref in refs}
+    rows = _sources_rows(verdict, links, bound_urls=bound_urls,
+                         esc=esc, esc_attr=esc_attr, html_mode=html_mode)
+    if rows:
+        blocks.append("Источники:\n" + "\n".join(rows))
     if notice:
         blocks.append(f"<i>{esc(notice)}</i>" if html_mode else notice)
     return "\n\n".join(blocks) if blocks else esc(body.strip())

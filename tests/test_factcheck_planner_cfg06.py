@@ -374,8 +374,12 @@ class TestOrchestratorAnchor:
         assert "example.org" in visible          # label = домен (контракт W5)
 
     @pytest.mark.asyncio
-    async def test_envelope_branch_evidence_not_overwritten(
-            self, planner_on, monkeypatch):
+    async def test_envelope_branch_unified_retrieval(self, planner_on,
+                                                     monkeypatch):
+        """FC-UNIFY (owner 21.10.2026 §3.2): envelope-ветка выполняет retrieval
+        через ЕДИНЫЙ контур планировщика (агрегатор зовётся планировщиком,
+        выдача уходит в сервис параметром retrieval); EvidenceMap при этом
+        НЕ перезаписывается — temporal-ветка несёт ev-N текущего прогона."""
         origin = {"text": "в килякете 120 мм", "caption": None,
                   "origin_type": None, "origin_sent_at": None,
                   "sent_at": 1700000000, "current_revision": None,
@@ -388,8 +392,13 @@ class TestOrchestratorAnchor:
         class _EnvelopeService:
             aggregator = agg
 
+            def __init__(self):
+                self.retrievals = []
+
             async def check_claim_envelope(self, envelope, *,
-                                           chat_context=None):
+                                           chat_context=None,
+                                           retrieval=None):
+                self.retrievals.append(retrieval)
                 from services.temporal_factcheck import (
                     TemporalRunResult, TemporalVerdict)
                 verdict = TemporalVerdict(
@@ -404,6 +413,7 @@ class TestOrchestratorAnchor:
                                     "support": "s", "source_kind":
                                     "secondary", "published_at": None},))
 
+        svc = _EnvelopeService()
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled", lambda: True)
         monkeypatch.setattr(
@@ -416,10 +426,18 @@ class TestOrchestratorAnchor:
                 target_tg_message_id=TARGET_TG,
                 target_text="в Килякете выпало 120 мм осадков за сутки",
                 kind="reply"),
-            service=_EnvelopeService(), db=db, bot=bot, cache=FakeCache())
-        # temporal-ветка уже несёт ev-N текущего прогона — планировщик НЕ
-        # перезаписывает EvidenceMap (агрегатор не вызывался)
-        assert agg.calls == []
+            service=svc, db=db, bot=bot, cache=FakeCache())
+        # единый механизм: планировщик выполнил осмысленные запросы...
+        assert agg.calls, "envelope-ветка должна идти через единый retrieval"
+        # ...и выдача контура передана сервису (второго поиска нет)
+        assert svc.retrievals and svc.retrievals[0].search_text
+        # из planner-запросов: privacy (участники не утекают)
+        for query, _max in agg.calls:
+            assert "вася" not in query.lower()
+        # EvidenceMap остался от ветки (не перезаписан planner-картой):
+        # доставленный текст — вердикт ветки, рендер выполнен
+        assert len(bot.sent) == 1
+        assert "Вердикт temporal-ветки" in bot.sent[0]["text"]
 
     @pytest.mark.asyncio
     async def test_v2_off_planner_never_called(self, monkeypatch):

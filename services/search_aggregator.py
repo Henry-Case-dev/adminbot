@@ -12,6 +12,7 @@ DDG (уровень 3): duckduckgo-search 8.x — sync-only (AsyncDDGS удал�
 """
 import asyncio
 import logging
+import re
 import time
 from typing import Awaitable, Callable
 
@@ -33,6 +34,88 @@ EXA_URL = "https://api.exa.ai/search"
 
 class AllSearchEnginesFailedException(Exception):
     """Все уровни каскада (Tavily → Exa → DDG) упали."""
+
+
+# ── FC-EVIDQ (owner 21.10.2026 §3.4): лёгкая релевантность + тип источника ──
+# Дешёвые детерминированные эвристики БЕЗ тяжёлого ранжировщика и БЕЗ
+# дополнительных LLM-вызовов. Никаких доменных словарей темы клейма.
+
+_RELEVANCE_WORD_RE = re.compile(r"[0-9a-zа-яё]{4,}", re.IGNORECASE)
+_RELEVANCE_STOPWORDS = frozenset({
+    "это", "этого", "этому", "того", "том", "тем", "чтобы", "как", "так",
+    "вот", "или", "если", "когда", "тогда", "для", "над", "под", "про",
+    "что", "чего", "чем", "все", "всё", "весь", "вся", "свои", "свой",
+    "одно", "один", "два", "три", "будет", "были", "было", "есть", "нет",
+    "они", "них", "него", "нее", "ней", "ним", "ими", "мне", "тебе",
+    "себе", "даже", "уже", "ещё", "очень", "более", "менее", "самый",
+    "который", "которые", "также", "этот", "эта", "эти", "сейчас", "год",
+    "года", "году", "very", "this", "that", "with", "from", "have",
+    "about", "the", "and", "for", "are", "was",
+})
+
+
+def content_terms(text: str, *, limit: int = 10) -> list[str]:
+    """Содержательные термины запроса/текста (детерминированно, lowercase,
+    без стоп-слов, в исходном порядке). Для overlap-эвристики релевантности
+    и смысловых запросов fallback-поиска."""
+    seen: list[str] = []
+    seen_set: set[str] = set()
+    for match in _RELEVANCE_WORD_RE.finditer(str(text or "").lower()):
+        word = match.group(0)
+        if word in _RELEVANCE_STOPWORDS or word in seen_set:
+            continue
+        seen_set.add(word)
+        seen.append(word)
+        if len(seen) >= max(1, int(limit)):
+            break
+    return seen
+
+
+def is_relevant_result(text: str, relevance_terms) -> bool:
+    """Overlap-эвристика «запрос ↔ выдача»: достаточно ли выдача говорит
+    о терминах запроса. Нет терминов → True (поведение прежнее). Порог
+    консервативный: ≥2 совпадений И ≥20% терминов — мусорная выдача по
+    неродственной теме отсекается, смежная тема проходит."""
+    terms = [str(t) for t in (relevance_terms or ()) if t]
+    if not terms:
+        return True
+    haystack = str(text or "").lower()
+    matched = sum(1 for t in terms if t in haystack)
+    return matched >= min(2, len(terms)) and matched >= 0.2 * len(terms)
+
+
+_PRIMARY_HOST_RE = re.compile(r"\.(?:gov(?:\.[a-z]{2})?|edu|mil)(?:/|:|$)",
+                              re.IGNORECASE)
+_RESEARCH_HOST_RE = re.compile(
+    r"(pubmed|ncbi\.nlm|doi\.org|arxiv\.org|medrxiv|biorxiv|jstor\.org|"
+    r"nature\.com|science\.org|sciencedirect|springer\.com|wiley\.com|"
+    r"oup\.com|thelancet|bmj\.com|nejm\.org|jamanetwork|cell\.com|"
+    r"plos\.org|frontiersin|mdpi\.com|tandfonline|scielo|elibrary\.ru|"
+    r"cyberleninka|e-library)", re.IGNORECASE)
+_RESEARCH_PATH_RE = re.compile(
+    r"/(?:doi|pmc|pubmed|abstract|articles?/|paper|records?)/", re.IGNORECASE)
+_REFERENCE_HOST_RE = re.compile(
+    r"(wikipedia\.org|britannica\.com|academic\.ru|encyclopedia)", re.IGNORECASE)
+
+
+def classify_source_kind(url: str) -> str:
+    """Тип источника по лёгким признакам домена/структуры (§3.4, без LLM):
+    primary (официальные gov/edu/mil) | research (журналы/препринты/DOI) |
+    reference (энциклопедии/справочники) | secondary (пересказ, дефолт).
+    Классифицируется ДОСТУПНОСТЬ источника, не истинность утверждений."""
+    low = str(url or "").lower()
+    if not low.startswith(("http://", "https://")):
+        return "secondary"
+    # research раньше primary: pubmed.ncbi.nlm.nih.gov — индекс
+    # исследований, хотя домен формально gov
+    if _RESEARCH_HOST_RE.search(low) or _RESEARCH_PATH_RE.search(low):
+        return "research"
+    if _PRIMARY_HOST_RE.search(low):
+        return "primary"
+    if _REFERENCE_HOST_RE.search(low):
+        return "reference"
+    return "secondary"
+
 
 
 class SearchAggregator:
@@ -62,9 +145,15 @@ class SearchAggregator:
             self._client = httpx.AsyncClient()
         return self._client
 
-    async def search(self, query: str, max_symbols: int) -> str:
+    async def search(self, query: str, max_symbols: int,
+                     relevance_terms: list[str] | None = None) -> str:
         """Каскад: Tavily → Exa → DDG. Возвращает агрегированный текст
-        (обрезка до max_symbols). Raises AllSearchEnginesFailedException."""
+        (обрезка до max_symbols). Raises AllSearchEnginesFailedException.
+
+        ``relevance_terms`` (FC-EVIDQ, §3.4): опциональные термины запроса —
+        непустая, но содержательно нерелевантная выдача уровня (overlap-
+        эвристика без ранжировщика) не останавливает каскад, поиск
+        продолжается следующими провайдерами. None → прежнее поведение."""
         levels: list[tuple[str, Callable[[str], Awaitable[str]], str | None]] = [
             ("tavily", self._search_tavily, self._tavily_api_key),
             ("exa", self._search_exa, self._exa_api_key),
@@ -80,6 +169,12 @@ class SearchAggregator:
                 text = await fn(query)
                 if not text.strip():
                     raise ValueError("empty result")
+                if relevance_terms and not is_relevant_result(
+                        text, relevance_terms):
+                    # §3.4: URL/непустой текст ≠ доказательство — пробуем
+                    # следующего провайдера
+                    raise ValueError(
+                        "irrelevant results (low query overlap)")
                 latency_ms = (time.monotonic() - started) * 1000.0
                 logger.info(
                     "SearchAggregator: level ok | provider=%s | latency_ms=%.0f | chars=%d",
@@ -94,6 +189,16 @@ class SearchAggregator:
         raise AllSearchEnginesFailedException(
             f"all search engines failed (tavily → exa → ddg) | query={query!r}"
         )
+
+    async def search_relevant(self, query: str, max_symbols: int,
+                              relevance_terms: list[str] | None = None
+                              ) -> str:
+        """Явный relevance-вход контура фактчека (FC-EVIDQ): тот же каскад
+        с проверкой содержательной релевантности выдачи. Существующие
+        вызовы `search()` (сводки и пр.) не меняются."""
+        return await self.search(query, max_symbols,
+                                 relevance_terms=relevance_terms)
+
 
     async def close(self) -> None:
         """Закрыть ленивый httpx-клиент (on_shutdown). DDG — только внутри вызова."""

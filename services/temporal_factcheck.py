@@ -48,6 +48,7 @@ import uuid
 
 from config.settings import settings
 from services import mca_events
+from services.search_aggregator import classify_source_kind
 from services.smart_cache import normalize_text
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,10 @@ logger = logging.getLogger(__name__)
 # ── версии (D13): изменение алгоритма TZ/границ суток или пайплайна →
 # bump → старые кеш-ключи/run-записи естественно выпадают. ──────────────────
 TEMPORAL_TZ_RESOLUTION_VERSION = "tzr1"
-TEMPORAL_PIPELINE_VERSION = "tf1"
+# tf2 (FC-UNIFY/FC-PERCLAIM/FC-SEMQUERY, owner 21.10.2026 §3.2–3.6):
+# единый retrieval-контур в envelope-ветке, смысловые запросы, per-claim
+# агрегация — старые кеш-ключи/run-записи tf1 естественно выпадают (D13).
+TEMPORAL_PIPELINE_VERSION = "tf2"
 
 SOURCE_TYPES = ("text", "caption", "ocr", "transcript", "url", "free_text")
 DATE_SOURCES = ("telegram_origin", "telegram_message", "publication_metadata",
@@ -670,6 +674,40 @@ async def write_temporal_cache(cache, envelope: TemporalClaimEnvelope, *,
 
 # ── Валидация вердикта (D10/D11): честные дефолты, guard misleading_reuse ───
 
+def _aggregate_factual_verdict(top: str, parts: tuple) -> str:
+    """FC-PERCLAIM (§3.5, owner 21.10.2026): финальный enum выводится из
+    вердиктов частей, чтобы глобальный «Недостаточно данных» не прятал
+    частичные результаты. Недостаточность честна, ТОЛЬКО когда ни одна
+    часть не подтверждена/опровергнута после корректного поиска; выдуманных
+    подтверждений нет — агрегат опирается только на вердикты модели по
+    частям. Детерминированно, без новых LLM-вызовов."""
+    vals: list[str] = []
+    for part in parts or ():
+        if isinstance(part, dict):
+            value = part.get("factual_verdict")
+            if value in FACTUAL_VERDICTS:
+                vals.append(value)
+    if not vals or top not in FACTUAL_VERDICTS:
+        return top
+    if all(v == "supported" for v in vals):
+        agg = "supported"
+    elif all(v == "refuted" for v in vals):
+        agg = "refuted"
+    elif any(v in ("supported", "refuted", "mixed") for v in vals):
+        agg = "mixed"
+    else:
+        return top                      # все части без доказательств — честно
+    if top == agg:
+        return top
+    if top == "insufficient_evidence":
+        return agg                      # частичные доказательства ≠ «неизвестно»
+    if top == "supported" and agg == "mixed":
+        return "mixed"                  # глобальное подтверждение скрывает часть
+    if top == "refuted" and agg in ("mixed", "supported"):
+        return "mixed"                  # опровержение целого при подтверждённой части
+    return top
+
+
 def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
                          fallback_reason: str | None = None,
                          allowed_refs=None) -> TemporalVerdict:
@@ -700,6 +738,16 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
     parts = payload.get("parts")
     parts_tuple = tuple(p for p in parts if isinstance(p, dict)) \
         if isinstance(parts, list) else ()
+    if parts_tuple and allowed_refs is not None:
+        # §18G.3 + FC-PERCLAIM: цитаты в ЧАСТЯХ — под тем же current-run
+        # allowlist, что и верхнеуровневые evidence_refs (выдуманный ev-N
+        # не становится доказательством ни на одном уровне).
+        parts_tuple = tuple(
+            p if not isinstance(p.get("evidence_refs"), list)
+            else {**p, "evidence_refs": [
+                r for r in p["evidence_refs"]
+                if isinstance(r, str) and r in allowed_refs]}
+            for p in parts_tuple)
     refs = payload.get("evidence_refs")
     refs_tuple = tuple(str(r) for r in refs) if isinstance(refs, list) else ()
     if allowed_refs is not None:
@@ -709,6 +757,21 @@ def verdict_from_payload(payload: dict, envelope: TemporalClaimEnvelope, *,
     reason = payload.get("reason") or fallback_reason
     if reason is not None and reason not in mca_events.REASON_CODES:
         reason = fallback_reason
+    # FC-PERCLAIM/FC-RENDER: части модели дополняются текстом из СЕРВЕРНОЙ
+    # декомпозиции (deterministic, по part_id) — вербализатор и renderer
+    # показывают разбор утверждений с реальными формулировками клейма,
+    # а не пересказ модели.
+    if parts_tuple:
+        part_texts = {p.part_id: p.text for p in decompose_claim(envelope)}
+        parts_tuple = tuple(
+            p if not isinstance(p, dict) or p.get("text")
+            or not part_texts.get(p.get("part_id"))
+            else {**p, "text": part_texts[p.get("part_id")]}
+            for p in parts_tuple)
+    # §3.5 (owner 21.10.2026): глобальный enum не скрывает частичные
+    # результаты корректного исследования (одна стадия-схема и для
+    # аналитика, и для validator — TH-2 не обходится через corrected).
+    factual = _aggregate_factual_verdict(factual, parts_tuple)
     return TemporalVerdict(
         factual_verdict=factual,
         temporal_status=temporal,
@@ -827,13 +890,60 @@ def _extract_numeric_claim(chunk: str) -> dict | None:
         "value": value, "unit": (m.group(3) or "").lower() or None}
 
 
+# ── Смысловые поисковые запросы (FC-SEMQUERY, owner §3.3) ────────────────────
+# Запрос строится от самостоятельной проверяемой части (ClaimPart): сущности +
+# содержательные термины + числа. НЕ дословный слайс первых 200 символов.
+# Произвольные темы: никаких зашитых предметных терминов, только общая
+# лексика. Ограничение по числу запросов сохранено.
+
+_QUERY_ENTITY_RE = re.compile(
+    r"(?<![.!?…]\s)(?<!^)\b[А-ЯЁA-Z][а-яёa-z]{3,}\b", re.UNICODE)
+
+
+def _query_entities(text: str, *, cap: int = 3) -> list[str]:
+    """Потенциальные именованные сущности части (детерминированно)."""
+    out: list[str] = []
+    for match in _QUERY_ENTITY_RE.finditer(str(text or "")):
+        token = match.group(0)
+        if token.lower() not in {t.lower() for t in out}:
+            out.append(token)
+        if len(out) >= cap:
+            break
+    return out
+
+
+def _numeric_tail(text: str) -> str:
+    """Первая числовая фраза части (для проверки чисел отдельным смыслом)."""
+    m = _NUM_RE.search(str(text or ""))
+    if m and any(ch.isdigit() for ch in m.group(0)):
+        return m.group(0).strip()
+    return ""
+
+
+def _semantic_query_text(text: str, *, limit: int = 200) -> str:
+    """Смысловая формулировка части: сущности + термины + числа."""
+    from services.search_aggregator import content_terms
+    terms = content_terms(text, limit=8)
+    ents = [e for e in _query_entities(text)
+            if e.lower() not in {t.lower() for t in terms}]
+    pieces = ents + terms
+    numeric = _numeric_tail(text)
+    if numeric:
+        pieces.append(numeric)
+    query = re.sub(r"\s{2,}", " ", " ".join(pieces)).strip()
+    return query[:limit].strip()
+
+
 def search_queries_for(parts: tuple[ClaimPart, ...],
                        envelope: TemporalClaimEnvelope,
                        *, max_queries: int = 2) -> list[str]:
-    """Temporal search (D8): запрос = сущность/событие + ВРЕМЕННОЕ
-    ограничение в тексте запроса (date filter поисковика — вспомогателен).
-    Годы заявленного периода добавляются к запросу."""
+    """Поисковые запросы temporal-поиска (D8/FC-SEMQUERY): по одному
+    смысловому запросу на самостоятельную часть (сущности/термины/числа
+    этой части), НЕ копия начала публикации. Годы заявленного периода
+    добавляются к первому запросу (временное ограничение D8 сохранено).
+    Деградация: пустые части → смысловая формулировка всего клейма."""
     queries: list[str] = []
+    seen: set[str] = set()
     years: list[int] = []
     for p in parts:
         for ts in (p.period_from, envelope.original_published_at):
@@ -842,11 +952,21 @@ def search_queries_for(parts: tuple[ClaimPart, ...],
                     ts, datetime.timezone.utc).year
                 if year not in years:
                     years.append(year)
-    base = normalize_text(envelope.claim_text)[:200]
-    if years:
-        years_str = " OR ".join(str(y) for y in years[:3])
-        queries.append(f"{base} {years_str}")
-    queries.append(base)
+    years_str = " OR ".join(str(y) for y in years[:3]) if years else ""
+    for p in parts:
+        if len(queries) >= max(1, int(max_queries)):
+            break
+        text = _semantic_query_text(p.text)
+        if not text:
+            continue
+        query = f"{text} {years_str}" if years_str and not queries else text
+        if query.lower() not in seen:
+            seen.add(query.lower())
+            queries.append(query)
+    if not queries:
+        base = (_semantic_query_text(envelope.claim_text)
+                or normalize_text(envelope.claim_text)[:200])
+        queries.append(f"{base} {years_str}" if years_str else base)
     return queries[:max(1, int(max_queries))]
 
 
@@ -860,7 +980,8 @@ TEMPORAL_ANALYST_SYSTEM = (
     '"temporal_status": "current|outdated|old_but_valid|misleading_reuse|'
     'unknown", "evaluated_period": {"from": <unix|null>, "to": <unix|null>, '
     '"precision": "day|month|year|interval|unknown"}, "parts": [{"part_id": '
-    '"p1", "factual_verdict": "...", "temporal_status": "...", "note": "..."}'
+    '"p1", "factual_verdict": "...", "temporal_status": "...", "note": "...", '
+    '"evidence_refs": ["ev-1"]}'
     '], "uncertainty": {"summary": "..."}, "reason": "<reason_code из '
     'словаря или null>"}\n'
     "Правила: (1) нет результатов поиска или источник исчез → "
@@ -874,7 +995,13 @@ TEMPORAL_ANALYST_SYSTEM = (
     "по отношению к периоду) помечай в uncertainty как "
     "\"retrospective\"; (7) числа проверяй только по evidence."
     " (8) evidence_refs — ТОЛЬКО стабильные ID выдержек из <evidence> "
-    "(ev-1, ev-2, …); выдержки, которых нет в списке, ссылаться нельзя."
+    "(ev-1, ev-2, …); выдержки, которых нет в списке, ссылаться нельзя.\n"
+    "(9) у многочастного утверждения заполни verdict КАЖДОЙ части в parts "
+    "(включая evidence_refs части).\n"
+    "(10) если хотя бы одна часть подтверждена или опровергнута, а для "
+    "остальных данных недостаточно — общий factual_verdict=mixed, НЕ "
+    "insufficient_evidence; недостаточность целого — только когда ни одна "
+    "часть не проверена."
 )
 
 _TEMPORAL_FALLBACK_SYSTEM = (
@@ -901,8 +1028,10 @@ TEMPORAL_VALIDATOR_SYSTEM = (
     '"supported|refuted|mixed|insufficient_evidence|null", '
     '"corrected_temporal_status": "current|outdated|old_but_valid|'
     'misleading_reuse|unknown|null", "note": "<короткое пояснение>"}\n'
-    "Правила: (1) выдержки не подтверждают утверждение → "
-    "corrected_factual_verdict=insufficient_evidence; (2) возраст "
+    "Правила: (1) выдержки не подтверждают утверждение ЦЕЛИКОМ → "
+    "corrected_factual_verdict=insufficient_evidence; НО если из parts "
+    "черновика видно, что отдельные части подтверждены, а другие нет — "
+    "mixed, а не insufficient_evidence; (2) возраст "
     "публикации сам по себе не опровергает утверждение: старое, но верное "
     "— old_but_valid; (3) misleading_reuse — только если утверждение "
     "подаётся как свежее; (4) не выдумывай даты и факты, недостаток "
@@ -1073,15 +1202,25 @@ def evidence_rows_from_results(results: str, *,
     """Evidence-контракт (D9) из выдачи агрегатора: support = блок, url —
     первая ссылка блока; стабильные current-run ID `ev-N` (§18G.3 —
     allowlist для model evidence_refs); published_at честно unknown ДО
-    попытки parse (попытка — enrich_evidence_dates, §18G.1)."""
+    попытки parse (попытка — enrich_evidence_dates, §18G.1).
+    FC-EVIDQ (§3.4): дубли-блоки без URL срезаются (url=None дубль не
+    «второе доказательство»), тип источника — лёгкая классификация
+    classify_source_kind (первоисточник/исследование/энциклопедия/пересказ)."""
     if not results or not str(results).strip():
         return ()
     blocks = [b.strip() for b in re.split(r"\n\s*\n", str(results)) if b.strip()]
     rows: list[dict] = []
-    for i, block in enumerate(blocks[:max(1, int(max_rows))]):
+    seen: set[str] = set()
+    for block in blocks:
+        if len(rows) >= max(1, int(max_rows)):
+            break
+        key = re.sub(r"\W+", "", block.lower())[:100]
+        if key in seen:                 # url=None дубли (FC-EVIDQ §3.4)
+            continue
+        seen.add(key)
         url_m = _URL_RE.search(block)
         rows.append({
-            "evidence_id": f"ev-{i + 1}",
+            "evidence_id": f"ev-{len(rows) + 1}",
             "claim_part": None,
             "url": url_m.group(0)[:512] if url_m else None,
             "support": block[:1200],
@@ -1092,7 +1231,44 @@ def evidence_rows_from_results(results: str, *,
             "retrieved_at": int(time.time()),
             "temporal_relevance": None,
             "relation": None,
-            "source_kind": "secondary"})
+            "source_kind": classify_source_kind(
+                url_m.group(0) if url_m else None)})
+    return tuple(rows)
+
+
+def evidence_rows_from_refs(refs, *, fallback_results: str | None = None,
+                            max_rows: int = 20) -> tuple[dict, ...]:
+    """D9-строки из СТРУКТУРНОГО evidence единого retrieval-контура v2
+    (FC-UNIFY, owner §3.2): выдержки планировщика (включая primary-выдержки
+    SafeFetcher) сохраняют source_kind и уже извлечённый published_at —
+    повторный fetch не нужен. Пусто → fallback на разбор текстовой выдачи.
+    Никогда не бросает; элементы без .support пропускаются."""
+    rows: list[dict] = []
+    for ref in list(refs or ())[:max(1, int(max_rows))]:
+        support = str(getattr(ref, "support", "") or "")
+        if not support.strip():
+            continue
+        url = getattr(ref, "url", None) or None
+        published_at = getattr(ref, "published_at", None)
+        source_kind = str(getattr(ref, "source_kind", "") or "secondary")
+        rows.append({
+            "evidence_id": str(getattr(ref, "evidence_id", "")
+                               or f"ev-{len(rows) + 1}"),
+            "claim_part": None,
+            "url": url,
+            "support": support[:1200],
+            "source_ref": None,
+            "published_at": published_at,
+            "published_at_source": ("planner_fetch"
+                                    if published_at
+                                    and source_kind == "primary" else None),
+            "date_parse_status": "parsed" if published_at else "unknown",
+            "retrieved_at": int(time.time()),
+            "temporal_relevance": None,
+            "relation": None,
+            "source_kind": source_kind})
+    if not rows and fallback_results:
+        return evidence_rows_from_results(fallback_results, max_rows=max_rows)
     return tuple(rows)
 
 

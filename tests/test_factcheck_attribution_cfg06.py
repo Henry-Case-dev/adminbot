@@ -174,7 +174,7 @@ class FakeService:
         return "Тезис по данным источников подтверждается частично."
 
     async def check_claim_envelope(self, envelope, *, chat_context=None,
-                                   stage_trace=None):
+                                   stage_trace=None, retrieval=None):
         self.envelope_calls.append({"envelope": envelope,
                                     "chat_context": chat_context})
         verdict = tf.verdict_from_payload(

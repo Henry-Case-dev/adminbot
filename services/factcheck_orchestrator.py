@@ -63,7 +63,7 @@ from services.summary_cleanup import cleanup_llm_text
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_VERSION = "fcv2"
+PIPELINE_VERSION = "fcv3"      # fcv3: единый retrieval в envelope-ветке (FC-UNIFY)
 
 # ── Фриз-схемы (join-barrier; изменение полей = bump + review W4/W5) ────────
 
@@ -136,6 +136,11 @@ class CheckedVerdict:
                                          # True → шов ниже пропускает рендер/
                                          # доставку (кеш-хит идёт общим
                                          # потоком — однократно)
+    # FC-RENDER (owner 21.10.2026 §3.6, fcv3): цитаты и части для привязки
+    # ссылок к утверждениям. INTERNAL (не входят в FactcheckPresentation);
+    # необязательные с дефолтами — совместимость с fcv2-потребителями.
+    evidence_refs: tuple = ()            # цитированные ev-N текущего прогона
+    parts: tuple = ()                    # части вердикта (словари) с цитатами
 
 
 @dataclasses.dataclass(frozen=True)
@@ -455,11 +460,12 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         cache_slug="factcheck_temporal" if use_envelope else "factcheck")
 
     # CFG-06 W6 (06C.8): единый retrieval-контур v2 — план выполняется ДО
-    # вычисления вердикта (один поиск на прогон: выдача идёт в legacy-ветку
-    # вместо её внутреннего поиска; envelope-ветка несёт собственный
-    # temporal_search — документировано в w6-integration.md §2). Бюджеты:
-    # ≤3 запроса (план) + общий дедлайн контура; ошибки — честный fallback
-    # на внутренний поиск ветки (search_results=None).
+    # вычисления вердикта (один поиск на прогон). FC-UNIFY (owner 21.10.2026
+    # §3.2): план выполняется для ОБЕИХ веток — временная проверка становится
+    # частью единого фактчека (второго поискового механизма нет); выдача
+    # идёт в legacy-ветку и в envelope-ветку (search_text), EvidenceMap —
+    # в обе. Бюджеты: ≤3 запроса (план) + общий дедлайн контура; ошибки —
+    # честный fallback на внутренний поиск ветки (search_results=None).
     from services import factcheck_planner as fsp
     # 06G.3: план строится от privacy-клейма (тезис без участников чата);
     # без атрибуционного спора external_claim == req.target_text (паритет).
@@ -472,8 +478,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                     ",".join(q.intent for q in retrieval_plan.queries),
                     len(retrieval_plan.dropped_privacy))
     retrieval_outcome = None
-    if (retrieval_plan is not None and retrieval_plan.needs_web
-            and not use_envelope):
+    if retrieval_plan is not None and retrieval_plan.needs_web:
         aggregator = getattr(service, "aggregator", None)
         if aggregator is not None:
             try:
@@ -492,7 +497,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         if attribution_match is not None:
             envelope = fat.with_external_claim(envelope, external_claim)
         verdict = await _run_envelope_branch(req, service, db, bot, cache,
-                                             envelope, feed, tf, mca_gates)
+                                             envelope, feed, tf, mca_gates,
+                                             retrieval_outcome)
     else:
         search_results = (retrieval_outcome.search_text
                           if retrieval_outcome is not None
@@ -547,10 +553,15 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
 
 
 async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
-                               cache, envelope, feed, tf, mca_gates
+                               cache, envelope, feed, tf, mca_gates,
+                               retrieval=None
                                ) -> CheckedVerdict:
     """Envelope-ветка: тот же составной кеш/запись run (порт из handler
-    _factcheck_temporal, 06H.6 — один контракт кеша)."""
+    _factcheck_temporal, 06H.6 — один контракт кеша).
+
+    FC-UNIFY (owner §3.2): ``retrieval`` — выдача ЕДИНОГО retrieval-контура
+    v2 (planner CFG-06), передаётся в сервис; сервис не строит второй
+    поиск. None → внутренний fallback-поиск сервиса (смысловые запросы)."""
     scope = f"chat:{req.chat_id}"
     cache_key = tf.build_temporal_cache_key(envelope, scope=scope)
     if cache_key is not None and mca_gates.temporal_factcheck_cache_enabled():
@@ -583,7 +594,12 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
                 reason_code=cached_verdict.reason,
                 as_of=cached_verdict.as_of,
                 cache_hit=True)
-    run = await service.check_claim_envelope(envelope, chat_context=feed or None)
+    if retrieval is not None:
+        run = await service.check_claim_envelope(
+            envelope, chat_context=feed or None, retrieval=retrieval)
+    else:
+        run = await service.check_claim_envelope(
+            envelope, chat_context=feed or None)
     if cache_key is not None and mca_gates.temporal_factcheck_cache_enabled():
         await tf.write_temporal_cache(cache, envelope, scope=scope,
                                       text=run.verdict_text,
@@ -604,7 +620,9 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
         evidence=EvidenceMap(refs=refs,
                              allowlist=tuple(r.evidence_id for r in refs)),
         reason_code=run.verdict.reason, as_of=run.verdict.as_of,
-        fallback_used=run.fallback_used)
+        fallback_used=run.fallback_used,
+        evidence_refs=tuple(run.verdict.evidence_refs or ()),
+        parts=tuple(run.verdict.parts or ()))
 
 
 async def _run_legacy_branch(req: FactcheckRequest, service, cache,
@@ -635,14 +653,15 @@ async def _run_legacy_branch(req: FactcheckRequest, service, cache,
 
 
 def _v2_cache_input(req: FactcheckRequest) -> str:
-    """W6: кеш legacy-ветки под версией контура v2 (`fcv2`+`fp1`, 06H.6) —
-    записи прод-пути 2.58.98 и v2 не пересекаются в обе стороны."""
+    """W6: кеш legacy-ветки под версией контура v2 (`fcv3`+`fp2`, 06H.6) —
+    записи прод-пути 2.58.98 и v2 не пересекаются в обе стороны; bump
+    fcv2→fcv3 (FC-UNIFY) старые записи естественно выпадают."""
     try:
         from services import factcheck_planner as fsp
         planner_version = fsp.PLANNER_VERSION
     except Exception:      # pragma: no cover
         planner_version = "fp0"
-    return f"fcv2\x00{PIPELINE_VERSION}\x00{planner_version}\x00{req.target_text}"
+    return f"fcv3\x00{PIPELINE_VERSION}\x00{planner_version}\x00{req.target_text}"
 
 
 async def write_legacy_cache(req: FactcheckRequest, verdict_text: str,
