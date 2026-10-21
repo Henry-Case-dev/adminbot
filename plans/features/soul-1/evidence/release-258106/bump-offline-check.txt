@@ -1,0 +1,23 @@
+REL-258106 bump offline check (procedure of pkg-105; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.106
+  [PASS] settings no stale 2.58.105 pin
+  [PASS] README has v2.58.106
+  [PASS] README no stale v2.58.105
+  [PASS] F8-meta APP_VERSION 2.58.106
+  [PASS] F8-meta HEAD edab6582
+  [PASS] F8-meta no stale 2.58.105/7e42c7ee
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by PKG-106 bump)
+  [PASS] delta set == 31 expected
+  [PASS] bump set == procedure-105 set
+  [PASS] bump set disjoint from factcheck/06G.3/foreign guard
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas)
+  [PASS] delta DDL of bump set == 0
+  [PASS] release-to-release DDL == 0 (schema stays v37; chat_migration.py = backup-logic only)
+  [PASS] factory fingerprint 037080375ac8 unchanged (runtime == constant)
+  [PASS] import config.settings -> 2.58.106
+candidate HEAD (release-train head, brief PKG-106): edab658284219f7a750ebf0e781515d7eb60ff07
+git HEAD (pre-bump): edab658284219f7a750ebf0e781515d7eb60ff07
+release train: 14.1 layers diagram 2f1a49ad+20252faa (web+API+e2e, Approved) + 14.2 telemetry a8d049f3+6f8710a8 (Approved) + cdb0492f migrator backup-gap fix (ΔDDL=0) + 4f0ae438 asap8 tests/docs + edab6582 label/write-points audit (brief PKG-106; F8-meta HEAD stamp = edab6582 = HEAD of the release delta)
+factory fingerprint: 037080375ac8 (probe rc=0, live='037080375ac8 037080375ac8', registry file in delta: False)
+bump files: 31; line pairs: 33; foreign uncommitted: 180
+OFFLINE CHECK: EXIT 0

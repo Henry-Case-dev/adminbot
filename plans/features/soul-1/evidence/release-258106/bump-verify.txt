@@ -1,0 +1,5 @@
+REL-258106 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump; git): edab658284219f7a750ebf0e781515d7eb60ff07
+release train: 14.1 layers diagram 2f1a49ad+20252faa (web+API+e2e, Approved) + 14.2 telemetry a8d049f3+6f8710a8 (Approved) + cdb0492f migrator backup-gap fix (ΔDDL=0) + 4f0ae438 asap8 tests/docs + edab6582 label/write-points audit (brief PKG-106; F8-meta HEAD stamp = edab6582 = HEAD of the release delta)
+files=31 changed-line-pairs=33 (expected 33)
+CHECK OK

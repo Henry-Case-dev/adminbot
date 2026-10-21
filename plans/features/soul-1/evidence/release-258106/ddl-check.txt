@@ -1,0 +1,16 @@
+REL-258106 delta-DDL-check (brief PKG-106: delta DDL = 0; no migrations in the train)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.105 -> 2.58.106) - expected NONE:
+   PKG-106 train: 14.1 layers diagram (web+API+e2e), 14.2 telemetry (style_policy
+   + tests, existing mca_events contour - no new table/service), cdb0492f migrator
+   backup-gap fix, docs/test commits. SQLite schema stays v37.
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in working-tree delta
+   release-delta perimeter files a6246e33..HEAD: services/chat_migration.py
+   [ PASS ] cdb0492f chat_migration.py diff adds no DDL tokens (scanned: CREATE TABLE, ALTER TABLE, user_version, DDL_STATEMENTS, ADD COLUMN; hits: none) - backup-rows logic only
+   => no DevOps migration notice required for this release.
