@@ -1,0 +1,27 @@
+REL-258106 gate log (verbatim) — 21.10.2026, map plans/features/soul-1/requirements-map.json
+(legacy two-map epic, strict_evidence NOT opted in; established proof workflow per
+evidence/verify/release-line.txt: plan gate EXIT=0 + slice review gates + per-row
+production evidence; full-map release stage on a 198-row epic map is expected FAIL
+on rows outside the train — same situation as DEPLOY-25897 read-only check).
+
+$ py -3 %USERPROFILE%\.config\opencode\tools\requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage plan
+stage=plan inventory=101 manual=97 scoped=0 errors=0
+EXIT=0
+
+$ py -3 ... requirements_gate.py check --map plans/features/soul-1/requirements-map.json --stage release --candidate dad9afce6a0a13bc785d44ab23282e5d1dfb3d90 --deployed-commit dad9afce6a0a13bc785d44ab23282e5d1dfb3d90
+FAIL: SOUL-10.1..SOUL-19.x ... (225 errors: строки чужих срезов — PENDING будущих
+волн, RFL owner-наблюдений и исторические бинды кандидатов; ни одна не относится
+к поезду REL-258106)
+stage=release inventory=101 manual=97 scoped=185 errors=225
+EXIT=1  — ожидаемо для легаси-эпик-карты; карта этим лейном НЕ переписывалась под гейт.
+--slice W8 на release-стадии не скоупит (фильтр срезов в этой версии гейта действует
+только на review-стадии с graph-сайдкаром).
+
+Биндинг поезда REL-258106 (эталон — карты строк, не счётчик гейта):
+- SOUL-14.1 → VERIFIED (live-проба 2.58.106, evidence release-258106/deploy.json);
+- SOUL-14.2 → READY_FOR_LIVE, honest-заметка «ждёт первое реальное сообщение»
+  (live_required=true, postdeploy — по правилам RFL недопустим в финальном DONE);
+- SOUL-14.0 (umbrella) → VERIFIED сохранён (бинд dad9afce, регресса нет), reason
+  дополнен постдеплой-фактами.
+Вердикт лейна: deploy VERIFIED for 14.1; релиз-срез 14.2 = WAITING_EXTERNAL
+(первое реальное сообщение владельца), полный DONE по SOUL-14 — не заявляется.

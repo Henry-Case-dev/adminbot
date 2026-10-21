@@ -2067,7 +2067,7 @@
       "acceptance": "В разделе Речь и характер показана понятная диаграмма влияния слоёв Core, SelfModel, L1, lessons, examples, humor strategy на Writer; администратор без чтения JSON понимает, почему ответ получился таким, какой режим, почему использовано одно слово, почему шутка длинная и какие данные были подтверждены, и это не новая панель всех внутренних событий (второй аналитической стены нет)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "2f1a49adcc3ec8d392728711158bd94f6557793a",
@@ -2075,6 +2075,12 @@
           "observation": "На витрине «Речь и характер» карточка «Как рождается ответ» [data-speech-layers]: 7 узлов Core → SelfModel → L1 → lessons → examples → humor → Writer с человеческими подписями (режим «ответить/реакция/молчание», длина от «одного слова», приём юмора, проверка длины/фактов/стиля перед отправкой) и честными статусами из /api/speech/overview (gates/sections + аддитивный layers: L1, SelfModel); нет данных — «—», ничего не выдумывается. Прогоны кандидата: e2e 5 сценариев failures=0 (360/390/no-layers/off+unknown/desktop), pytest layers 6 passed, p0a-витрина failures=0, mobile-entry failures=0, js-unit+design-tokens+speech-ui+font-subset 113 passed; живая браузерная проба 390px: overflow=0, клик Core открывает раздел, витрина не переделана. Это карта сборки, не журнал событий (второй аналитической стены нет); per-message «почему» остаётся за Inspector/телеметрией 14.2.",
           "type": "ui",
           "artifact_path": "plans/features/soul-1/evidence/soul14-ui/guards.txt"
+        },
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "type": "live",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.json",
+          "observation": "Live-проба на проде 2.58.106 (T0=2026-10-21T10:35:28Z, выкат dad9afce, runtime-дельта кандидата 83012fcf): /api/speech/overview 200 — блок layers присутствует, оси l1+self_model; l1 {available,enabled,fallback}=True; self_model {available:True, enabled:True, applied:0, rejected:8, stale:False, fallback:False} — реальные числа. HTML на 443 содержит [data-speech-layers] (1); web/app.js и web/static/app.css на сервере blob-равны кандидату (c35adefe8310 / 08913f637f00); speechLayerNodes=7 узлов (core, self_model, l1, lessons, examples, humor, writer), «—» при отсутствии данных. healthz loopback+443 200 2.58.106; journal с T0 0 CRIT/0 TB; NRestarts=0. Инициализация пробы: валидный initData, подписанный серверным токеном (audit user, read-only GET, без сообщений в чаты)."
         }
       ]
     },
@@ -2099,6 +2105,12 @@
           "artifact_path": "plans/features/soul-1/evidence/soul14-telemetry/soul14-telemetry-report.md",
           "artifact_sha256": "5559e634877c0815fa577d6c06b372187245983297054bd9639d0d232559c102",
           "type": "test"
+        },
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "type": "live-contour",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.json",
+          "observation": "Выкат 2.58.106 подтверждён (healthz 200, journal 0 CRIT/0 TB, NRestarts=0, services/style_policy.py blob-равен кандидату). Read-only сверка контура: mca_events event_name='speech_extent' = 0 за окно T0..10:54Z (и total=0) — реальных сообщений в окне не было, генерация сообщений агентом запрещена. События появятся с первым реальным проходом style policy (style OFF → событий нет — норма, не регресс). Ждёт первое реальное сообщение; строка остаётся READY_FOR_LIVE до живого подтверждения."
         }
       ]
     },
@@ -3556,7 +3568,7 @@
       "source_text_sha256": "719fefb8612eee9795c5fa0404ff4faef27cf7b064637b9ddad73b87b0bff733",
       "source_excerpt": "## 15. SOUL-14 — Observability, эффективность и проверяемые улучшения речи",
       "disposition": "required",
-      "reason": "Umbrella §15 закрыт артефактами всех четырёх детей (бинд 21.10.2026, лейн SOUL-14.0 A/B, ПОСЛЕДНИМ): 14.1 диаграмма влияния слоёв - артефакты plans/features/soul-1/evidence/soul14-ui/ (e2e 5/5, payload 6p), коммиты 2f1a49ad/20252faa, статус READY_FOR_LIVE (live-проба на поезде 2.58.106, трекается на своей строке); 14.2 telemetry - soul14-telemetry-report.md (sha256 4ad1ea65), a8d049f3/6f8710a8, READY_FOR_LIVE (та же причина); 14.3 A/B - VERIFIED (слепое сравнение 33x2, evidence/ab, 1aadf16b); 14.4 flag+rollback - VERIFIED (REUSE: релиз 2.58.86 исполнен, паритет 13/13, ось флага в A/B переключалась 66/66). Прежняя причина 'у 14.1 нет закоммиченных артефактов' устарела: UI-лейн закоммичен 21.10. Критерий строки 'подтверждены артефактами' выполнен по всем четырём пунктам; если живые пробы 14.1/14.2 на 2.58.106 выявят регресс, зонтик пересматривается.",
+      "reason": "Umbrella §15: артефакты всех четырёх детей (бинд 21.10.2026, dad9afce). Постдеплой-уточнение 21.10.2026 (2.58.106, deploy.json): 14.1 live-подтверждена (VERIFIED, оси l1/self_model, 7 узлов в HTML, blob-равенство веб-файлов); 14.2 выкат подтверждён, телеметрия ждёт первое реальное сообщение (не регресс: событий и не должно быть без прохода style policy); 14.3/14.4 VERIFIED ранее. Условие бинда «если живые пробы выявят регресс, зонтик пересматривается» — регресса нет; 14.2 трекается на своей строке READY_FOR_LIVE.",
       "req_id": "SOUL-14.0",
       "slice": "W8",
       "acceptance": "Раздел SOUL-14 покрыт: диаграмма влияния слоёв, telemetry-метрики, A/B и feature flag с rollback подтверждены артефактами",

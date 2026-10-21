@@ -1,0 +1,69 @@
+{
+  "schema": "rel-deploy-evidence-v1",
+  "release": "2.58.106",
+  "candidate_commit": "83012fcf (runtime-дельта, REV-REL-258106 Approved)",
+  "docs_riders": ["1aadf16b", "db2fa706", "dad9afce (docs/evidence/map only)"],
+  "deployed_head": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+  "deployed_head_short": "dad9afce",
+  "deploy_source": "origin/master, git pull --ff-only на проде",
+  "t0_utc": "2026-10-21T10:35:28Z",
+  "ddl_delta": 0,
+  "healthz": {
+    "loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.106\"}",
+    "public_443": "200 {\"status\":\"ok\",\"version\":\"2.58.106\"} (admin-bot.duckdns.org)"
+  },
+  "service": {
+    "active": "active/running",
+    "main_pid_after_restart": 192071,
+    "nrestarts": 0,
+    "exec_main_status": 0
+  },
+  "journal_since_t0": {
+    "lines_at_10_53z": 739,
+    "critical_traceback": 0
+  },
+  "blob_identity_head_vs_worktree": {
+    "web/app.js": "c35adefe8310 OK",
+    "web/static/app.css": "08913f637f00 OK",
+    "web/index.html": "c06b0d47a5dc OK",
+    "web/api/speech.py": "7c3a6b7f7265 OK (main-run)",
+    "services/style_policy.py": "8385a5329756 OK (main-run)",
+    "services/chat_migration.py": "71691eac5128 OK (main-run)",
+    "config/settings.py": "df7bbc6a503f OK (main-run)"
+  },
+  "probe_soul_14_1": {
+    "status": "VERIFIED",
+    "api": "GET /api/speech/overview 200 (валидный initData, подписанный серверным токеном; audit-user, read-only GET)",
+    "layers_present": true,
+    "axes": ["l1", "self_model"],
+    "l1": {"available": true, "enabled": true, "fallback": true},
+    "self_model": {"available": true, "enabled": true, "applied": 0, "rejected": 8, "stale": false, "fallback": false},
+    "html_marker_443": "[data-speech-layers] присутствует (1)",
+    "nodes_in_served_app_js": ["core", "self_model", "l1", "lessons", "examples", "humor", "writer"],
+    "dash_placeholder": true,
+    "note": "loopback GET / без follow-redirect маркера не вернул; маркер и байты проверены на публичном 443 + blob-равенство с кандидатом"
+  },
+  "probe_soul_14_2": {
+    "status": "READY_FOR_LIVE (выкат подтверждён; живое событие ждёт первое реальное сообщение)",
+    "mca_events_speech_extent_since_t0": 0,
+    "mca_events_speech_extent_total": 0,
+    "contour": "read-only; реальных сообщений в окне T0..10:54Z не было; генерация сообщений агентом запрещена; style OFF → событий нет = норма"
+  },
+  "ssh_discipline": {
+    "recon": "1 коннект 10:32:22Z (~15с)",
+    "main": "1 коннект 10:35:28Z (pull+restart+loopback+journal+mca)",
+    "verification": "4 одиночных коннекта 10:38–10:53Z (пауза ≥70с; завершение обязательных live-проб; без поллеров)",
+    "auth_failures": 0,
+    "secrets": "не печатались, в evidence не попали"
+  },
+  "rollback": {
+    "branch": "release/fix-2.58.105 = a6246e33 (запушена в origin)",
+    "procedure": "git checkout release/fix-2.58.105 + systemctl restart admin_bot; ΔDDL=0, миграций нет — откат чистый"
+  },
+  "findings": [
+    "Probe-only: header-вариант initData получал 400 'Invalid HTTP request received' от сервера (специфика aiohttp/h11 на длинном заголовке); query-параметр (?initData=) работает штатно — это фолбек deps.py, не дефект релиза.",
+    "Probe-only: python urllib на сервере не соединяется с 127.0.0.1:8000 (вероятен env-прокси); curl с --noproxy работает.",
+    "review-migfix.md отсутствует на диске — в docs-хвост не включён (носитель B12.6-вердикта: evidence/asap8-v6-3-live-correction/evidence/review-exec-tails.md, см. review-rel.md)."
+  ],
+  "chat_messages_sent": 0
+}
