@@ -1,0 +1,46 @@
+{
+ "kind": "amd_probes_verdict_reconciliation",
+ "date_utc": "2026-10-21",
+ "issue": "чек P1_gen_* в харнесе использовал префикс метки detail= вместо реального level= (core_detail_label) — поведение корректно, ассерт ошибочен; 4 тега FAIL в results.json (summary ok=8/12) — артефакт чека, не пробы",
+ "fix": "чек в scripts/amd_probes_harness.py исправлен (level=); вердикты перевыведены из ЗАХВАЧЕННЫХ манифестов/ответов results.json БЕЗ новых платных вызовов",
+ "expected_core_revisions": {
+  "full": "fac:040581a3b4b0",
+  "compact": "fac:ff28f0720a23"
+ },
+ "recheck": [
+  {
+   "run": "full/S1_absurd",
+   "recheck_ok": true,
+   "detail": "level=full reason=owner_setting origin=owner_edit words=249 doc=factory",
+   "revision": "fac:040581a3b4b0",
+   "layer_tokens": 709,
+   "reply_chars": 616
+  },
+  {
+   "run": "full/S2_serious",
+   "recheck_ok": true,
+   "detail": "level=full reason=owner_setting origin=owner_edit words=249 doc=factory",
+   "revision": "fac:040581a3b4b0",
+   "layer_tokens": 709,
+   "reply_chars": 3928
+  },
+  {
+   "run": "compact/S1_absurd",
+   "recheck_ok": true,
+   "detail": "level=compact reason=owner_setting origin=owner_edit words=249 doc=factory",
+   "revision": "fac:ff28f0720a23",
+   "layer_tokens": 484,
+   "reply_chars": 737
+  },
+  {
+   "run": "compact/S2_serious",
+   "recheck_ok": true,
+   "detail": "level=compact reason=owner_setting origin=owner_edit words=249 doc=factory",
+   "revision": "fac:ff28f0720a23",
+   "layer_tokens": 484,
+   "reply_chars": 3396
+  }
+ ],
+ "recheck_summary": "ok=4/4",
+ "other_checks_unchanged": "P1_ref_*, P1_distinct_outputs, P2_*, P3_class_fit — PASS без изменений; данные проб не пересоздавались"
+}

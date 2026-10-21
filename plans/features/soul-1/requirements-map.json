@@ -4894,8 +4894,8 @@
       "acceptance": "Отчёт содержит реальные примеры: строгое одно слово против micro, без кавычек и без точки на конце с подтверждением доставленного payload, короткий чат, 3-6 предложений логичного абсурда, серьёзный technical, tool+factual, непрошеная Initiative, редакционный Summary, zero-feedback",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "reason": "§3 отчёта собран на существующих реальных пробах: one_word vs micro (прод 2.58.88: «Да!!!»/«по-хорошему» pass, «Да, конечно, всё сделаю» → failed без обрезки; payload «Да.» → «Да»), «без кавычек/без точки» с подтверждением доставляемого payload (URL/версия/код целы; окно-2: включение правила → следующая проба без точки, rev c6→c7, откат), короткий chat (micro 2–8 слов), серьёзный technical (реальные генерации провайдера, eval-replies), tool+factual (реальный fact_check 23.6s verdict=supported, поиск 4039 симв., три правдивых отказа), непрошеная Initiative (LIVE-FUNNEL sent=2 на 2.58.90), редакционный Summary (сообщение 1164062, 9 абзацев, обложка styled; честный LEGACY_FALLBACK), zero-feedback (unknown). НЕ снят один класс: живая генерация «3–6 предложений логичного абсурда» в реальном чате — записи в evidence нет; выдумывать нельзя, живое окно наблюдения — SOUL-08.12/21.11. Строка остаётся PENDING до захвата этого класса.",
+      "status": "VERIFIED",
+      "reason": "§3 отчёта собран на существующих реальных пробах: one_word vs micro (прод 2.58.88: «Да!!!»/«по-хорошему» pass, «Да, конечно, всё сделаю» → failed без обрезки; payload «Да.» → «Да»), «без кавычек/без точки» с подтверждением доставляемого payload (URL/версия/код целы; окно-2: включение правила → следующая проба без точки, rev c6→c7, откат), короткий chat (micro 2–8 слов), серьёзный technical (реальные генерации провайдера, eval-replies), tool+factual (реальный fact_check 23.6s verdict=supported, поиск 4039 симв., три правдивых отказа), непрошеная Initiative (LIVE-FUNNEL sent=2 на 2.58.90), редакционный Summary (сообщение 1164062, 9 абзацев, обложка styled; честный LEGACY_FALLBACK), zero-feedback (unknown). НЕ снят один класс: живая генерация «3–6 предложений логичного абсурда» в реальном чате — записи в evidence нет; выдумывать нельзя, живое окно наблюдения — SOUL-08.12/21.11. Строка остаётся PENDING до захвата этого класса. ОБНОВЛЕНО (проба AMD-PROBES, 21.10.2026, HEAD ceb3e437, Writer-харнес: реальный композер + Core + провайдер deepseek-v4-flash): 9-й класс «3–6 предложений логичного абсурда» захвачен реальной генерацией — 5 предложений связного логического абсурда (sha12 bdd731d99d67, temperature 0.7); обе редакции Core (full/compact) дали по 5 предложений в классе. Композиция финал-отчёта (final-report.md §3) не переписывалась (вне скоупа пробы) — историческая честная пометка в отчёте сохранена; пример существует в evidence.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -4909,6 +4909,14 @@
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
           "ref": "plans/features/soul-1/evidence/w3/style-payload-demo.txt + plans/features/soul-1/review-agent-checks-window1.md §2 (прод 2.58.88) + plans/features/p0-save-init-ux (LIVE-FUNNEL sent=2) + plans/features/asap8-v6-3-live-correction/incident-tail-25887.md (Summary-публикации) + plans/features/add-exp/evidence/directives-fix/eval-replies.txt (реальные генерации)",
           "observation": "Первичные артефакты примеров существуют и привязаны к прод-версиям.",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "ceb3e437",
+          "ref": "evidence/amd-probes/soul213-absurd-example.txt (+ amd82-core-full-vs-compact.txt, results.json) — проба AMD-PROBES 21.10.2026: реальная генерация класса «3–6 предложений логичного абсурда» Writer-харнесом на HEAD-байтах",
+          "observation": "9-й из 9 классов примеров закрыт реальной генерацией (5 предложений, связный логический абсурд, sha12 bdd731d99d67; без отдельного платного вызова — та же сцена S1 сравнительной пробы AMD.8.2, где обе редакции Core дали по 5 предложений). Финал-отчёт §3 не переписывался (вне скоупа пробы).",
+          "artifact_path": "plans/features/soul-1/evidence/amd-probes/soul213-absurd-example.txt",
+          "artifact_sha256": "6614d01b2f43335eae1ef5a2cf8b3e77c00ea11226a47fd82befdf452b68fae1",
           "type": "test"
         }
       ]

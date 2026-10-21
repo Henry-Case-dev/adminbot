@@ -2024,14 +2024,23 @@
       "source_text_sha256": "5ff8606235c9039e7564e6f45399c41c1f6ebfb712abbd21fc81f83479ba18a9",
       "source_excerpt": "- Сравнить полную и компактную редакции SOUL-02 на реальных, обезличенных сценах чата: естественный мат, остроумие, абсурдные последовательные сравнения, отсутствие «соевого» ассистентского голоса, неагрессивные серьёзные ответы. Не объявля",
       "disposition": "required",
-      "reason": "Сравнение полной и компактной редакций SOUL-02 на реальных обезличенных сценах не проводилось (редакций Core ещё нет)",
+      "reason": "ЗАКРЫТО пробой AMD-PROBES (21.10.2026, HEAD ceb3e437, локальный харнес на HEAD-байтах): полный (fac:040581a3b4b0, 2835 зн.) vs компактный (fac:ff28f0720a23, 1934 зн.) Core на 2 обезличенных сценах через РЕАЛЬНЫЙ композер (speech_plain/l2_writer, resolve_core_ref, выбор уровня владельцем) — 4 реальные генерации deepseek-v4-flash; оба режима дали согласованный персонаж по всем 5 размерностям acceptance, ручной разбор задокументирован",
       "req_id": "SOUL-AMD.8.2",
       "slice": "W2",
       "acceptance": "Полная и компактная редакции SOUL-02 сравнены на реальных обезличенных сценах чата: естественный мат, остроумие, абсурдные последовательные сравнения, отсутствие «соевого» ассистентского голоса, неагрессивные серьёзные ответы; качество не объявлено доказанным только по высокому баллу LLM-судьи",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "ceb3e437",
+          "ref": "evidence/amd-probes/amd82-core-full-vs-compact.txt (+ results.json, README.md) — проба AMD-PROBES: захваченные манифесты (core rendered, fac-ревизии, токены слоя) и ответы обеих редакций на обе сцены + разбор различий",
+          "observation": "4/4 генерации в персонаже: естественный мат по месту (full «большее говно», compact «с криком „ты заебал“»), остроумие, связный абсурд (по 5 предложений в S1 обеими редакциями), несоевость, неагрессивная серьёзность. LLM-судья НЕ использовался (запрещено acceptance) — разбор ручной. Ограничение: 2 сцены, 1 модель, 1 проход.",
+          "artifact_path": "plans/features/soul-1/evidence/amd-probes/amd82-core-full-vs-compact.txt",
+          "artifact_sha256": "e84f23cc014c8c1c15674a066592872be7119270b9074d9ff3eee62682fd93ea",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "L00123",
@@ -2401,7 +2410,7 @@
       "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
       "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): остаток подтверждён — `video_summary = not_configured/media_source_unconfigured/cobalt_absent` в обоих прогонах; сценарий без медиа-источника невыполним (невоспроизводимо); поиск/фактчек закрыты окном-1; живой сценарий видео — необязательная наблюдаемость.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): остаток подтверждён — `video_summary = not_configured/media_source_unconfigured/cobalt_absent` в обоих прогонах; сценарий без медиа-источника невыполним (невоспроизводимо); поиск/фактчек закрыты окном-1; живой сценарий видео — необязательная наблюдаемость. ОБНОВЛЕНО (проба AMD-PROBES, 21.10.2026, HEAD ceb3e437, локальный харнес на HEAD-байтах, реальные ToolRouter.dispatch): поиск и фактчек дополнительно подтверждены живыми локальными прогонами — `execute_web_search` 4073 симв./2.3s по реальному запросу; `fact_check` v2-контур (env-зеркало прод-hot `flags.factcheck_pipeline_v2=true`, персистентные конфиги не тронуты) 48s `status=ready, factual_verdict=supported, temporal_status=current, mode=contextual` (durable-запись локально невозможна: dev-схема БД без `mca_factcheck_runs`; durable-пруф остаётся продовым `tfr-38ab2b7fa98b44cb`). Видео: capability `not_configured/media_source_unconfigured/cobalt_absent` локально совпадает с прод-окнами — WAITING_EXTERNAL (провайдера нет; платный видео-пайплайн намеренно не запускался; Human Gate не создаётся). Acceptance требует все три контура — строка остаётся READY_FOR_LIVE до настройки медиа-источника.",
       "req_id": "SOUL-AMD.8.11",
       "slice": "W10",
       "acceptance": "Те же принципы проверены минимум для поиска, фактчека и видео по одному реальному сценарию каждому, а не только для image tool",
@@ -2430,6 +2439,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "ceb3e437",
+          "ref": "evidence/amd-probes/amd811-search-factcheck-video.txt (+ results.json, README.md) — проба AMD-PROBES 21.10.2026: живые локальные пробы поиска и фактчека на HEAD-байтах через реальные ToolRouter.dispatch",
+          "observation": "search: реальный запрос → 4073 символа результатов за 2.3s; fact_check: v2-контур, 48s, status=ready, factual_verdict=supported, temporal_status=current, mode=contextual (run_id=null — локальная dev-схема БД без таблицы прогонов, durable-пруф продовой tfr-38ab2b7fa98b44cb); видео: capability not_configured/media_source_unconfigured/cobalt_absent — WAITING_EXTERNAL, платный пайплайн не запускался, Human Gate не создавался.",
+          "artifact_path": "plans/features/soul-1/evidence/amd-probes/amd811-search-factcheck-video.txt",
+          "artifact_sha256": "b8e551462d3ddc0c1ef771b570fa2c7c7808ed381ea47ca64024d2f4f26b5c14",
+          "type": "test"
         }
       ]
     },
