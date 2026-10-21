@@ -1,0 +1,13 @@
+{
+ "kind": "soul1_ab_integrity_check",
+ "runs": 66,
+ "problems": [],
+ "duplicate_replies": {
+  "e81804c3e2e1": [
+   "ab21:off",
+   "ab21:on"
+  ]
+ },
+ "verdict": "OK",
+ "note": "systems recomputed deterministically (build_off_system/build_on_system, no LLM) and compared by sha12 for all 66 records; reply hashes and scripted flags re-derived"
+}

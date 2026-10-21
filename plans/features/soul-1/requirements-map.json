@@ -3556,14 +3556,41 @@
       "source_text_sha256": "719fefb8612eee9795c5fa0404ff4faef27cf7b064637b9ddad73b87b0bff733",
       "source_excerpt": "## 15. SOUL-14 — Observability, эффективность и проверяемые улучшения речи",
       "disposition": "required",
-      "reason": "Umbrella §15: закрывается после 14.1-14.4. A/B (14.3), telemetry (14.2, VERIFIED a8d049f3) и flag/rollback (14.4, REUSE) имеют артефакты; 14.1 (диаграмма влияния слоёв в MiniApp) — отдельный UI-лейн, в дереве пока нет закоммиченных артефактов (web-изменения вне этого лейна не закоммичены). Бинд 14.0 — после закрытия 14.1",
+      "reason": "Umbrella §15 закрыт артефактами всех четырёх детей (бинд 21.10.2026, лейн SOUL-14.0 A/B, ПОСЛЕДНИМ): 14.1 диаграмма влияния слоёв - артефакты plans/features/soul-1/evidence/soul14-ui/ (e2e 5/5, payload 6p), коммиты 2f1a49ad/20252faa, статус READY_FOR_LIVE (live-проба на поезде 2.58.106, трекается на своей строке); 14.2 telemetry - soul14-telemetry-report.md (sha256 4ad1ea65), a8d049f3/6f8710a8, READY_FOR_LIVE (та же причина); 14.3 A/B - VERIFIED (слепое сравнение 33x2, evidence/ab, 1aadf16b); 14.4 flag+rollback - VERIFIED (REUSE: релиз 2.58.86 исполнен, паритет 13/13, ось флага в A/B переключалась 66/66). Прежняя причина 'у 14.1 нет закоммиченных артефактов' устарела: UI-лейн закоммичен 21.10. Критерий строки 'подтверждены артефактами' выполнен по всем четырём пунктам; если живые пробы 14.1/14.2 на 2.58.106 выявят регресс, зонтик пересматривается.",
       "req_id": "SOUL-14.0",
       "slice": "W8",
       "acceptance": "Раздел SOUL-14 покрыт: диаграмма влияния слоёв, telemetry-метрики, A/B и feature flag с rollback подтверждены артефактами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "20252faacb5c56802785a79de4c5bc4dd4866efa",
+          "ref": "plans/features/soul-1/evidence/soul14-ui/ - 14.1 диаграмма влияния слоёв 'Как рождается ответ' (Core, SelfModel, L1, lessons, examples, humor, Writer) в разделе Речь и характер",
+          "observation": "UI-артефакты 14.1 закоммичены: e2e 5 сценариев failures=0, payload 6 passed; живая проба preprod - на поезде 2.58.106.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "6f8710a8a561516b890276d3e3275cac84659843",
+          "ref": "plans/features/soul-1/evidence/soul14-telemetry/soul14-telemetry-report.md - 14.2 telemetry: распределение extent incl exact one_word compliance через speech_extent event в существующем mca_events контуре",
+          "observation": "Telemetry-артефакт закоммичен (11 CONTRACT тестов, 0 LLM, OFF-байт-паритет); живая проба postdeploy - на поезде 2.58.106.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
+          "ref": "plans/features/soul-1/evidence/ab/report.md - 14.3 A/B: слепое сравнение OFF vs ON на 33 сценах x 2 руки, 66 реальных генераций deepseek-v4-flash",
+          "observation": "A/B-артефакты закоммичены (results.json с манифестами обеих рук, слепая процедура, анализ, spend-ledger 78 билльных/186 инвокаций); строка 14.3 VERIFIED.",
+          "artifact_path": "plans/features/soul-1/evidence/ab/report.md",
+          "artifact_sha256": "21bfde8aa7f644fbe9150eb42067bc49326a6ed31d949500f2bfc18bfac4978e",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "ad1d4057d21e574ae42abc81db495b1171e20713",
+          "ref": "plans/features/soul-1/release-2.58.86-report.md:134-135 - 14.4 flag+rollback исполнены в проде (PG jsonb-флаги + env-ось + graceful restart; OFF = прежняя сборка без отката данных)",
+          "observation": "Feature flag и quick rollback подтверждены исполненным релизом и паритет-тестами 13/13; в A/B ось флага переключала сборку 66/66 раз; автоматической настройки характера нет (L199, прод-флаги не переключались).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "L00201",
@@ -5013,26 +5040,34 @@
       "source_text_sha256": "266558889a9022bcad421cdb84e83cdaf8af115d937479869b60e3c3d3e6b2de",
       "source_excerpt": "5. A/B оценку с методикой, качеством, стоимостью, регрессиями и откатом, не обещания улучшения.",
       "disposition": "required",
-      "reason": "A/B-оценка НЕ проводилась: инфраструктура A/B (SOUL-14.0) не построена («A/B-helper» — в plans/backlog.md). §5 отчёта честно фиксирует это и приводит только фактические замеры (resolve политики p50=0.170мс/p95=0.261мс n=600, проход формы p50=0.207мс, 0 дополнительных LLM-вызовов, OFF-паритет 13/13), без обещаний улучшения. Строка остаётся PENDING (зависимость от SOUL-14.0); A/B-данные не выдуманы.",
+      "reason": "A/B-оценка ПРОВЕДЕНА (21.10.2026, лейн SOUL-14.0): слепое сравнение старой (OFF) и новой (ON) композиции на 33 анонимизированных сценах (11 типов x 3) x 2 руки = 66 реальных генераций deepseek-v4-flash (temp 0.7) на одной HEAD-копии 6f8710a8; ось - единственный флаг UNIFIED_COMPOSER_ENABLED; порядок пар и позиций рук seeded (20261021) до разбора, вскрытие после записанных оценок; БЕЗ LLM-судьи (4 скриптовые метрики пересчитаны из сырых ответов + 6 ручных размерностей). Отчёт содержит методику/качество/стоимость (78 билльных генераций из 186 инвокаций; авария провайдера 500/503 задокументирована в spend-ledger.json)/регрессии/откат, без обещаний улучшения: evidence/ab/report.md; машинный захват с манифестами обеих рук - evidence/ab/results.json; финал-отчёт §5 заменён с 'не проводилась' на фактическую оценку. Итог качества (описательный, не 'победа по одному мему'): ON лучше по остроумию 12:3 (18 ничьих), адресат 5:0, уместность 5:2; связность/естественность 33/33 ничьих; единственное фактическое расхождение - OFF под давлением фальшивой поправки сконфабулировал признание ошибки, ON отказал; форматные ограничения 12/12, инъекции отклонены обеими руками. Осталось до VERIFIED: (1) live_when=postdeploy - живая проба на поезде 2.58.106; (2) под-пункт 'оценка владельца' (L289: субъективное подтверждение качества владельцем) - добровольное личное наблюдение по plans/owner_live_checks.md, агентами не собирается; PM может разделить строку на engineering (готов) и owner_optional.",
       "req_id": "SOUL-21.5",
       "slice": "W9",
       "acceptance": "Отчёт содержит A/B оценку с методикой, качеством, стоимостью, регрессиями и откатом, включая оценку владельца (производное от L289), без обещаний улучшения",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
+      "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
-          "ref": "plans/features/soul-1/final-report.md §5",
-          "observation": "Раздел «A/B-оценка — не проводилась (честно)» с причиной, фактическими замерами и нулём обещаний.",
+          "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
+          "ref": "plans/features/soul-1/evidence/ab/report.md (A/B-отчёт: методика/качество/стоимость/регрессии/откат) + analysis.md + blind-scores.json + verdict-recheck.json",
+          "observation": "Слепой A/B: 33 пары, ON лучше по остроумию 12:3/18 ничьих, адресат 5:0; инъекции и утечки 0/0; формат 12/12; флаги не переключались (L199).",
+          "artifact_path": "plans/features/soul-1/evidence/ab/report.md",
+          "artifact_sha256": "21bfde8aa7f644fbe9150eb42067bc49326a6ed31d949500f2bfc18bfac4978e",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
+          "ref": "plans/features/soul-1/final-report.md §5 (фактическая A/B-оценка вместо 'не проводилась') + plans/features/soul-1/evidence/ab/spend-ledger.json (стоимость) + integrity-check.json (детерминированная сверка сборок обеих рук по всем 66 записям)",
+          "observation": "Стоимость: 78 оплаченных генераций / 186 инвокаций (5xx провайдера не биллятся); system ON ~5754 симв. (~1438 токенов, Core 709) vs OFF 2140 (~2.7x входных токенов); ответы ON 1158 vs OFF 978 симв.",
           "artifact_path": "plans/features/soul-1/final-report.md",
-          "artifact_sha256": "6c4ad7ff1f9cf4fa6f6ebd1d5ac1e57a1397684c096b9b8f7595f3cea09ba79c",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0",
           "type": "static"
         },
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
-          "ref": "plans/features/soul-1/evidence/w3/cost-measurement.txt + plans/features/soul-1/w3-style-report.md:89,286",
-          "observation": "Единственные доступные стоимостно-временные замеры; A/B-механики в репо нет.",
+          "ref": "plans/features/soul-1/evidence/w3/cost-measurement.txt + plans/features/soul-1/w3-style-report.md:89,286 (исторические замеры цены композиции, цитируются в §5)",
+          "observation": "resolve политики p50=0.170мс/p95=0.261мс (n=600), проход формы p50=0.207мс, 0 дополнительных LLM-вызовов - дополняют стоимость A/B.",
           "type": "static"
         }
       ]
