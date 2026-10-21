@@ -1,0 +1,10 @@
+REL-258105 frozen fingerprint
+release-train head (brief PKG-105 / F8-meta stamp): 7e42c7ee028518bd3be3ff869721ad6b494e5211
+git HEAD (pre-bump; docs-only parallel commits may sit on top): 7a70e41a07f5e7c0a2906e9e6443084526e66bc5
+release train (brief PKG-105): mini-lens fix 6c1dea40 (web-only U08.4d/U08.5.1, REV-MINILENS Approved) + prep note 7e42c7ee (brief PKG-105; F8-meta HEAD stamp = 7e42c7ee = HEAD of the release delta; docs-only commits may sit on top - 104 precedent)
+factory fingerprint: 037080375ac8 unchanged (brief acceptance)
+post-bump sha256_12:
+  config/settings.py: 96079207f49f
+  README.md: 2e68f44858ed
+  plans/docs/param-registry-round1025.meta.md: af3617b6be5c
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files + set-config + evidence).

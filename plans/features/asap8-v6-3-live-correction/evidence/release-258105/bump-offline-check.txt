@@ -1,0 +1,23 @@
+REL-258105 bump offline check (procedure of pkg-104; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.105
+  [PASS] settings no stale 2.58.104 pin
+  [PASS] README has v2.58.105
+  [PASS] README no stale v2.58.104
+  [PASS] F8-meta APP_VERSION 2.58.105
+  [PASS] F8-meta HEAD 7e42c7ee
+  [PASS] F8-meta no stale 2.58.104/d860a529
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by PKG-105 bump)
+  [PASS] delta set == 31 expected
+  [PASS] bump set == procedure-104 set
+  [PASS] bump set disjoint from factcheck/06G.3/foreign guard
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas)
+  [PASS] delta DDL of bump set == 0
+  [PASS] release-to-release DDL == 0 (schema stays v37)
+  [PASS] factory fingerprint 037080375ac8 unchanged (runtime == constant)
+  [PASS] import config.settings -> 2.58.105
+candidate HEAD (release-train head, brief PKG-105): 7e42c7ee028518bd3be3ff869721ad6b494e5211
+git HEAD (pre-bump; may carry docs-only commits on top of the train head): 7a70e41a07f5e7c0a2906e9e6443084526e66bc5
+release train: mini-lens fix 6c1dea40 (web-only U08.4d/U08.5.1, REV-MINILENS Approved) + prep note 7e42c7ee (brief PKG-105; F8-meta HEAD stamp = 7e42c7ee = HEAD of the release delta; docs-only commits may sit on top - 104 precedent)
+factory fingerprint: 037080375ac8 (probe rc=0, live='037080375ac8 037080375ac8', registry file in delta: False)
+bump files: 31; line pairs: 33; foreign uncommitted: 3
+OFFLINE CHECK: EXIT 0

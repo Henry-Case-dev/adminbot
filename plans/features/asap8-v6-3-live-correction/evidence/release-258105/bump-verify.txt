@@ -1,0 +1,5 @@
+REL-258105 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump; git): 7a70e41a07f5e7c0a2906e9e6443084526e66bc5
+release train: mini-lens fix 6c1dea40 (web-only U08.4d/U08.5.1, REV-MINILENS Approved) + prep note 7e42c7ee (brief PKG-105; F8-meta HEAD stamp = 7e42c7ee = HEAD of the release delta; docs-only commits may sit on top - 104 precedent)
+files=31 changed-line-pairs=33 (expected 33)
+CHECK OK

@@ -382,3 +382,16 @@ def test_js_unit_asap42_step2c2_layout():
     before/after + Material arrow, editor preview ограничен."""
     _run_js(os.path.join("tests", "js", "asap42_step2c2_layout_test.js"),
             ok_marker="ASAP42-STEP2C2-LAYOUT-OK")
+
+
+def test_js_unit_asap8_u084d_mini_lens_binding():
+    """U08.4d/U08.5.1 (asap8-v6.3 FE-GLASS-MINILENS, 6c1dea40; REV-MINILENS
+    Approved) — REGRESSION REV-W2-N1: fullscreen-кнопка шапки несёт
+    .lg-mini-lens (ровно 1 в index.html), @click=toggleFullscreen →
+    FullscreenPolicy.request/exit (не локальный DOM-toggle), Tier-A
+    glass-селекторы видят кнопку (_lgGlassSelector + SURFACE_SELECTOR),
+    rim/44px-цель/hover без background-подмены. Включён в JS-unit набор
+    по явному разрешению брифа PKG-105 (правки самого теста запрещены)."""
+    _run_js(os.path.join("tests", "js",
+                         "asap8_u084d_mini_lens_binding_test.js"),
+            ok_marker="MINI-LENS-BINDING-OK")

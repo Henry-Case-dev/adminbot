@@ -1,0 +1,14 @@
+REL-258105 delta-DDL-check (brief PKG-105: delta DDL = 0; bump-only package)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.104 -> 2.58.105) - expected NONE:
+   PKG-105 is a version-bump package over the mini-lens train (6c1dea40 web-only
+   U08.4d/U08.5.1 binding + prep note 7e42c7ee; REV-MINILENS Approved); SQLite schema
+   stays at v37 already deployed with 2.58.100.
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in working-tree delta
+   => no DevOps migration notice required for this release.
