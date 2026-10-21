@@ -2084,14 +2084,13 @@
       "source_text_sha256": "3ccc0932b157062b85b6ad0654a23b9f913e748474fc7232b6f7d6fccdfc7941",
       "source_excerpt": "Telemetry key metrics: распределение extent including exact one_word compliance, доля фактических и адресных ошибок, повторяемость, фактическое число injected Core tokens, пропуски слоя с reason, diversity of comic strategies, latency/cost ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Реклассификация VERIFIED→READY_FOR_LIVE (FIX-SOUL142-LABEL, 21.10.2026): живой пробы на проде ещё не было; по конвенции проекта (прецедент 2.58.105) VERIFIED ставится постдеплоем. Доказательная база без изменений: контракт-тесты 11/11 + локальная эмуляция реального контура (артефакт отчёта остаётся); live-проба закрывается на выкате 2.58.106 (postdeploy).",
       "req_id": "SOUL-14.2",
       "slice": "W8",
       "acceptance": "Telemetry содержит метрики: распределение extent включая exact one_word compliance, доля фактических и адресных ошибок, повторяемость, фактическое число injected Core токенов, пропуски слоя с reason, diversity of comic strategies, latency и добавочная стоимость, feedback label counts по уверенности и чату без сырого текста, lessons applied с измеренными outcomes и честное обозначение stale или отсутствия событий; данные не выдумываются, дорогая per-message LLM-оценка по умолчанию не создаётся",
       "live_required": true,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
-      "reason": "Реклассификация VERIFIED→READY_FOR_LIVE (FIX-SOUL142-LABEL, 21.10.2026): живой пробы на проде ещё не было; по конвенции проекта (прецедент 2.58.105) VERIFIED ставится постдеплоем. Доказательная база без изменений: контракт-тесты 11/11 + локальная эмуляция реального контура (артефакт отчёта остаётся); live-проба закрывается на выкате 2.58.106 (postdeploy).",
       "evidence": [
         {
           "candidate_commit": "a8d049f3b0b5157b63538fa2fa895b3095e380ae",
@@ -2115,8 +2114,33 @@
       "acceptance": "Проведено сравнение на 30-50 анонимизированных реальных репликах разных типов (пустая шутка, технический вопрос, оскорбление, поддержка, история, творческий запрос, one_word, longform, грубая перепалка, factual correction, непрямой повод для Initiative); A/B старого и нового Composer на одинаковых model, provider и context со случайным слепым порядком и оценками остроумия, уместности, связности, мата, естественности, соблюдения длины, фактов, адресата, разнообразия и устойчивости к prompt injection; человеческие оценки могут собираться в MiniApp; один удачный мем не объявляется победой нового ядра",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6f8710a8a561516b890276d3e3275cac84659843",
+          "ref": "evidence/ab: results.json (66/66 реальных генераций deepseek-v4-flash, temp 0.7, HEAD 6f8710a8: манифесты обеих рук + ответы + флаги) + blind-pairs/blind-review/blind-scores/private-mapping (seed 20261021, позиции и порядок перемешаны до разбора, mapping вскрыт после оценок)",
+          "observation": "33 анонимизированные сцены x 2 руки = 66/66 генераций одной модели/провайдера/temperature на одной HEAD-копии; ось = единственный флаг UNIFIED_COMPOSER_ENABLED (ON = единый композер с Core full 709 tok/identity/expression occasional, OFF = compose_verbalizer_system + хвосты); per-record composer_gate корректен 66/66. Слепой разбор 33 пар по 6 ручным размерностям (0/1/2) + 4 скриптовые метрики, пересчитанные из сырых ответов (verdict-recheck OK, 0 расхождений). Итог описательный: ON лучше по остроумию 12:3 (18 ничьих), адресат 5:0, уместность 5:2; связность/естественность 33:33 ничьих; факты 32 ничьи + 1 ON (OFF признал ошибку, которой не делал, ON отказал). Инъекции отклонены обеими руками (мат/ПИУ-ПИУ/промпт), утечек 0, мат-флуда 0, one_word 6/6 exact, longform 6/6 ok. Победа по одному случаю не объявляется; MiniApp-оценки вне скоупа; ратер = оркестратор (ограничение слепоты зафиксировано). Авария провайдера 500/503 восстановлена слиянием трёх источников (merge_note/merge_stats в results.json), 0 пустых в итоговом наборе",
+          "artifact_path": "plans/features/soul-1/evidence/ab/report.md",
+          "artifact_sha256": "21bfde8aa7f644fbe9150eb42067bc49326a6ed31d949500f2bfc18bfac4978e",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "6f8710a8a561516b890276d3e3275cac84659843",
+          "ref": "evidence/ab/results.json — машинный захват: system-промпты обеих рук (ON mean 5754 симв / ~1438 токенов манифеста, Core 709; OFF mean 2140), ответы, extent_check, scripted flags, манифест-трейсы ON",
+          "observation": "Манифесты обеих рук приложены в capture (manifest_layers/rendered_layers/skip_reasons ON; compose_verbalizer_system-сборка OFF); env_axis_assert и per-record gates подтверждают переключение оси 66/66; merge_note/merge_stats описывают восстановление после аварии провайдера; calls_cumulative = 186 инвокаций / 78 оплаченных генераций",
+          "artifact_path": "plans/features/soul-1/evidence/ab/results.json",
+          "artifact_sha256": "4e6a7ad2995379cd00412eca5af83a9da349eecaf62f094a147dcef46ad7748f",
+          "type": "test"
+        },
+        {
+          "candidate_commit": "6f8710a8a561516b890276d3e3275cac84659843",
+          "ref": "evidence/ab/analysis-data.json + analysis.md (агрегаты) + verdict-recheck.json (независимый пересчёт скриптовых вердиктов) + spend-ledger.json (стоимость по процессам)",
+          "observation": "Агрегаты: ручные размерности (wins/ties/means), скриптовые метрики (форматы 12/12, инъекции 0/0, разнообразие 3-грамм 0.0003 vs 0.0006, дубли открытий 0 vs 1), сборка рук (ON rendered-слои, конфликты нет; OFF-сборка). Recheck: OK. Стоимость: 186 инвокаций / 78 оплаченных (5xx не биллятся), 2.7x входной текст ON против OFF",
+          "artifact_path": "plans/features/soul-1/evidence/ab/analysis-data.json",
+          "artifact_sha256": "84a4cc4372db8436394a8605c94f06e7e98ecfe82931f09a61be6b0db2e88bed",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00199",
@@ -2124,32 +2148,21 @@
       "source_text_sha256": "fdefed3c4b40012f56255d49f445fba34fba40ebc1135ce785a1ec641586be66",
       "source_excerpt": "Поддержать Feature Flag и quick rollback к старой композиции без отката данных. При показанном регрессе/деградации легко переключить. Никакой автоматической настройки характера ради максимизации engagement.",
       "disposition": "required",
-      "reason": "",
+      "reason": "REUSE-биндинг (лейн SOUL-14.0 A/B, 21.10.2026): флаг и быстрый rollback доставлены и исполнены ранее; автоматической настройки характера нет (по коду и по политике L199 - результаты A/B-оценки не переключают прод-флаги). Дополнительное подтверждение механики переключения - env-ось ON/OFF на одной HEAD-копии в evidence/ab (байт-разные сборки рук, 0 операций с данными).",
       "req_id": "SOUL-14.4",
       "slice": "W8",
       "acceptance": "Feature Flag и быстрый rollback к старой композиции работают без отката данных; при регрессе или деградации переключение выполняется легко; автоматической настройки характера ради engagement нет",
       "live_required": true,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "REUSE-биндинг (лейн SOUL-14.0 A/B, 21.10.2026): флаг и быстрый rollback доставлены и исполнены ранее; автоматической настройки характера нет (по коду и по политике L199 - результаты A/B-оценки не переключают прод-флаги). Дополнительное подтверждение механики переключения - env-ось ON/OFF на одной HEAD-копии в evidence/ab (байт-разные сборки рук, 0 операций с данными).",
       "evidence": [
         {
-          "candidate_commit": "ad1d4057d21e574ae42abc81db495b1171e20713",
-          "ref": "plans/features/soul-1/release-2.58.86-report.md:134-135 (исполненный релиз: PG jsonb-флаги flags.unified_composer_enabled/humor_* + .env UNIFIED_COMPOSER_ENABLED/HUMOR_* + graceful restart; композер включён в проде без отката данных)",
-          "observation": "Флаг включён штатным релизом 2.58.86; данные не откатывались; обратное переключение документировано как env-ось OFF + graceful restart независимо от PG.",
-          "type": "static"
-        },
-        {
-          "candidate_commit": "b4ea67798d008b61ed0c2baf62f359689e39f29b",
-          "ref": "plans/features/soul-1/soul-release-prep.md:48-51 (таблица осей: включение/откат по каждой оси; OFF = env-ось + graceful restart, PG-ключ отдельно; 'нет' в колонке отката данных; никакой автоматической настройки)",
-          "observation": "Quick rollback к старой композиции без отката данных: одна env-ось мастера (OFF независимо от PG), пер-чат тумблеры каталога; переключение при регрессе - рестарт, не миграция.",
-          "type": "static"
-        },
-        {
-          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
-          "ref": "services/prompt_composer.py:529-531 (resolve_gates: env OFF -> немедленный GateState(unified=False), ноль чтений hot/chat_params, OFF-путь бесплатный) + tests W2 OFF-parity 13/13 байт-в-байт (w2-composer-report.md)",
-          "observation": "Механика флага в коде: OFF - байт-в-байт прежняя сборка compose_verbalizer_system; в A/B-харнесе evidence/ab та же env-ось даёт байт-разные system рук на одной сборке (results.json.system_sha12), 0 операций с персистентными конфигами.",
-          "type": "static"
+          "candidate_commit": "6f8710a8a561516b890276d3e3275cac84659843",
+          "ref": "REUSE: tests/test_soul1_composer_parity_off.py (13 CONTRACT: off_path_is_default_and_does_not_consult_composer, p1-p5 recorded dumps, scrub-паритет) — зелёные 13/13 на байтах HEAD 6f8710a8 (прогон 21.10.2026 в этом лейне); флаг = env AND hot-flags per-chat (services/prompt_composer.py resolve_gates, services/mca_gates.py), OFF-путь direct_chat_service байт-в-байт прежний",
+          "observation": "Feature flag и быстрый откат без отката данных подтверждены с двух сторон: (1) контрактные тесты паритета 13/13 passed (2.61s) на текущих байтах — выключенный флаг не консультирует композер и собирает прежнюю речь; (2) живая ось в A/B: переключение UNIFIED_COMPOSER_ENABLED 66/66 раз меняет сборку (ON=композер с манифестом, OFF=старая сборка), т.е. откат в один флаг работает на реальных вызовах. Автонастройки характера нет: результаты A/B НЕ переключают прод-флаги (прод-конфиг не тронут), источник L199 соблюдён",
+          "artifact_path": "tests/test_soul1_composer_parity_off.py",
+          "artifact_sha256": "33c0d128b3a4dc5a986ddffbbb03f68db621e7608908cbdfe259435e4b5a0059",
+          "type": "test"
         }
       ]
     },
@@ -3357,7 +3370,11 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Живой enter/exit fullscreen на поддерживаемом клиенте владельца; инженерная часть доставлена (fullscreen-policy.js байт-в-байт 96db0642 @0b7a0aca, матрица 12/12·166, прод 2.58.86); ручные device-чек-листы отменены владельцем 18.10.2026.",
-      "engineering_req_ids": ["SOUL-12.1", "SOUL-12.2", "SOUL-12.4"]
+      "engineering_req_ids": [
+        "SOUL-12.1",
+        "SOUL-12.2",
+        "SOUL-12.4"
+      ]
     },
     {
       "source_id": "L00181",
@@ -3539,7 +3556,7 @@
       "source_text_sha256": "719fefb8612eee9795c5fa0404ff4faef27cf7b064637b9ddad73b87b0bff733",
       "source_excerpt": "## 15. SOUL-14 — Observability, эффективность и проверяемые улучшения речи",
       "disposition": "required",
-      "reason": "",
+      "reason": "Umbrella §15: закрывается после 14.1-14.4. A/B (14.3), telemetry (14.2, VERIFIED a8d049f3) и flag/rollback (14.4, REUSE) имеют артефакты; 14.1 (диаграмма влияния слоёв в MiniApp) — отдельный UI-лейн, в дереве пока нет закоммиченных артефактов (web-изменения вне этого лейна не закоммичены). Бинд 14.0 — после закрытия 14.1",
       "req_id": "SOUL-14.0",
       "slice": "W8",
       "acceptance": "Раздел SOUL-14 покрыт: диаграмма влияния слоёв, telemetry-метрики, A/B и feature flag с rollback подтверждены артефактами",
@@ -4435,7 +4452,11 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Визуал/perf стекла на физических Android/Windows клиентах владельца; инженерная часть подтверждена (review-tiera p50/p95 16.7/16.9 ms, 0 longtask; glass-and-ui-suites 7/7; байт-инвариантность 2.58.86); device-наблюдение — необязательная обратная связь по политике 18.10.2026.",
-      "engineering_req_ids": ["SOUL-17.0", "SOUL-17.2", "SOUL-17.3"]
+      "engineering_req_ids": [
+        "SOUL-17.0",
+        "SOUL-17.2",
+        "SOUL-17.3"
+      ]
     },
     {
       "source_id": "L00265",
@@ -4864,14 +4885,13 @@
       "source_text_sha256": "37323b5b96417a241e774d7fc7e9f535860d901a5c3a88b1738ecc8976eae414",
       "source_excerpt": "1. Старый и новый Prompt/Writer matrix; все источники характера, что исключено/мигрировано/сохранено.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Финальный отчёт эпика собран: §1 — старая матрица (аудит 16.10: 22 пути, 6 сборщиков, ≥14 копий legacy-персоны, 10 тихих фолбэков) и новая (композер + prompt_registry, 65 блоков) с владельцем сборки/профилем/наличием Core по каждому пути из acceptance (Direct L1/L2, legacy-fallback, System2, Initiative, Factcheck, Summary, Search, Web, YouTube, Checkup, сны/истории, ручные тесты, шаблоны) + исключено/мигрировано/сохранено по источникам характера.",
       "req_id": "SOUL-21.1",
       "slice": "W9",
       "acceptance": "Отчёт содержит старую и новую Prompt/Writer matrix и все источники характера с указанием, что исключено, мигрировано и сохранено; новая matrix обязательно включает пути Direct L1/L2, legacy/direct fallback, System2, Initiative, Factcheck, Summary human-facing, Search, Web, YouTube, Checkup, возможные сны/истории, ручные тесты и шаблоны",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "Финальный отчёт эпика собран: §1 — старая матрица (аудит 16.10: 22 пути, 6 сборщиков, ≥14 копий legacy-персоны, 10 тихих фолбэков) и новая (композер + prompt_registry, 65 блоков) с владельцем сборки/профилем/наличием Core по каждому пути из acceptance (Direct L1/L2, legacy-fallback, System2, Initiative, Factcheck, Summary, Search, Web, YouTube, Checkup, сны/истории, ручные тесты, шаблоны) + исключено/мигрировано/сохранено по источникам характера.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -4895,14 +4915,13 @@
       "source_text_sha256": "92915c4e7e6dd35184d2a8f5a4ad2cff9cdda871947e4e2d270992b65bf3e659",
       "source_excerpt": "2. Схему источников данных Core, персона, SelfModel, L1, Experience, Initiative и отдельного Speech Style Policy, правила приоритетов, а также причинно-следственный runtime manifest.",
       "disposition": "required",
-      "reason": "",
+      "reason": "§2 отчёта: схема источников (character.core global→chat, style.policy, Expression, персона/SelfModel с одной ревизией на ход, L1-план/extent, Experience-уроки, юмор, канальный контракт), приоритет chat→global→factory→код, фиксированный порядок слоёв (Core защищён от бюджета, машинные стадии без правил) и причинно-следственный runtime manifest (manifest_id, послойный trace с источником/ревизией/skip_reason, события деградации без текста промпта, diff, витрина в MiniApp).",
       "req_id": "SOUL-21.2",
       "slice": "W9",
       "acceptance": "Отчёт содержит схему источников данных Core, персона, SelfModel, L1, Experience, Initiative и Speech Style Policy, правила приоритетов и причинно-следственный runtime manifest",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "§2 отчёта: схема источников (character.core global→chat, style.policy, Expression, персона/SelfModel с одной ревизией на ход, L1-план/extent, Experience-уроки, юмор, канальный контракт), приоритет chat→global→factory→код, фиксированный порядок слоёв (Core защищён от бюджета, машинные стадии без правил) и причинно-следственный runtime manifest (manifest_id, послойный trace с источником/ревизией/skip_reason, события деградации без текста промпта, diff, витрина в MiniApp).",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -4926,14 +4945,13 @@
       "source_text_sha256": "b9d35093c9c98cdaabef51c31d64b02ebdb88502c9358342052177d9f881952a",
       "source_excerpt": "3. Реальные примеры: строгое одно слово vs micro; `без кавычек` + `без точки на конце` и подтверждение доставленного payload; короткий chat; 3–6 предложений логичного абсурда; серьёзный technical; tool+factual; непрошеная Initiative; редакц",
       "disposition": "required",
-      "reason": "",
+      "reason": "§3 отчёта собран на существующих реальных пробах: one_word vs micro (прод 2.58.88: «Да!!!»/«по-хорошему» pass, «Да, конечно, всё сделаю» → failed без обрезки; payload «Да.» → «Да»), «без кавычек/без точки» с подтверждением доставляемого payload (URL/версия/код целы; окно-2: включение правила → следующая проба без точки, rev c6→c7, откат), короткий chat (micro 2–8 слов), серьёзный technical (реальные генерации провайдера, eval-replies), tool+factual (реальный fact_check 23.6s verdict=supported, поиск 4039 симв., три правдивых отказа), непрошеная Initiative (LIVE-FUNNEL sent=2 на 2.58.90), редакционный Summary (сообщение 1164062, 9 абзацев, обложка styled; честный LEGACY_FALLBACK), zero-feedback (unknown). НЕ снят один класс: живая генерация «3–6 предложений логичного абсурда» в реальном чате — записи в evidence нет; выдумывать нельзя, живое окно наблюдения — SOUL-08.12/21.11. Строка остаётся PENDING до захвата этого класса. ОБНОВЛЕНО (проба AMD-PROBES, 21.10.2026, HEAD ceb3e437, Writer-харнес: реальный композер + Core + провайдер deepseek-v4-flash): 9-й класс «3–6 предложений логичного абсурда» захвачен реальной генерацией — 5 предложений связного логического абсурда (sha12 bdd731d99d67, temperature 0.7); обе редакции Core (full/compact) дали по 5 предложений в классе. Композиция финал-отчёта (final-report.md §3) не переписывалась (вне скоупа пробы) — историческая честная пометка в отчёте сохранена; пример существует в evidence.",
       "req_id": "SOUL-21.3",
       "slice": "W9",
       "acceptance": "Отчёт содержит реальные примеры: строгое одно слово против micro, без кавычек и без точки на конце с подтверждением доставленного payload, короткий чат, 3-6 предложений логичного абсурда, серьёзный technical, tool+factual, непрошеная Initiative, редакционный Summary, zero-feedback",
       "live_required": true,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "§3 отчёта собран на существующих реальных пробах: one_word vs micro (прод 2.58.88: «Да!!!»/«по-хорошему» pass, «Да, конечно, всё сделаю» → failed без обрезки; payload «Да.» → «Да»), «без кавычек/без точки» с подтверждением доставляемого payload (URL/версия/код целы; окно-2: включение правила → следующая проба без точки, rev c6→c7, откат), короткий chat (micro 2–8 слов), серьёзный technical (реальные генерации провайдера, eval-replies), tool+factual (реальный fact_check 23.6s verdict=supported, поиск 4039 симв., три правдивых отказа), непрошеная Initiative (LIVE-FUNNEL sent=2 на 2.58.90), редакционный Summary (сообщение 1164062, 9 абзацев, обложка styled; честный LEGACY_FALLBACK), zero-feedback (unknown). НЕ снят один класс: живая генерация «3–6 предложений логичного абсурда» в реальном чате — записи в evidence нет; выдумывать нельзя, живое окно наблюдения — SOUL-08.12/21.11. Строка остаётся PENDING до захвата этого класса. ОБНОВЛЕНО (проба AMD-PROBES, 21.10.2026, HEAD ceb3e437, Writer-харнес: реальный композер + Core + провайдер deepseek-v4-flash): 9-й класс «3–6 предложений логичного абсурда» захвачен реальной генерацией — 5 предложений связного логического абсурда (sha12 bdd731d99d67, temperature 0.7); обе редакции Core (full/compact) дали по 5 предложений в классе. Композиция финал-отчёта (final-report.md §3) не переписывалась (вне скоупа пробы) — историческая честная пометка в отчёте сохранена; пример существует в evidence.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -4965,14 +4983,13 @@
       "source_text_sha256": "36087b6e07cfe2911c73b73bd4cf5f12a26920a7331b78bfcf935dae24eb732d",
       "source_excerpt": "4. Снимки «Речь и характер», редактора «Стиль письма», проверки glass и Direct Prompt Library на 320/390/1440, мобильное редактирование/сохранение. Приложить исходные E2E артефакты, не только описание.",
       "disposition": "required",
-      "reason": "",
+      "reason": "§4 отчёта собирает существующие снимки и ИСХОДНЫЕ E2E-артефакты: «Речь и характер» — evidence/w6/shots (94 кадра, 320/360/390/430/768/1024/1440/landscape); glass — evidence/glass-tiera (391 артефакт, on/off/lens-diff, сьюты 7/7); «Стиль письма»/Direct Prompt Library с мобильным редактированием-сохранением-переоткрытием — evidence/mobile-prompts (161 файл, chain-320/390/430/1024-reopen) + speech-mobile-fix; примеры/обучение — w4/shots + shots_live; инструменты e2e перечислены (ui_soul1_w6/w4/w7, ui_asap8_w2_fullscreen, recap-25880 59 кадров 8 вьюпортов на deployed). Новые скриншоты не снимались — использованы существующие.",
       "req_id": "SOUL-21.4",
       "slice": "W9",
       "acceptance": "Отчёт содержит снимки Речь и характер, редактора Стиль письма, проверки glass и Direct Prompt Library на 320, 390 и 1440, мобильное редактирование и сохранение, а также исходные E2E артефакты, а не только описание",
       "live_required": true,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "§4 отчёта собирает существующие снимки и ИСХОДНЫЕ E2E-артефакты: «Речь и характер» — evidence/w6/shots (94 кадра, 320/360/390/430/768/1024/1440/landscape); glass — evidence/glass-tiera (391 артефакт, on/off/lens-diff, сьюты 7/7); «Стиль письма»/Direct Prompt Library с мобильным редактированием-сохранением-переоткрытием — evidence/mobile-prompts (161 файл, chain-320/390/430/1024-reopen) + speech-mobile-fix; примеры/обучение — w4/shots + shots_live; инструменты e2e перечислены (ui_soul1_w6/w4/w7, ui_asap8_w2_fullscreen, recap-25880 59 кадров 8 вьюпортов на deployed). Новые скриншоты не снимались — использованы существующие.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -4996,14 +5013,13 @@
       "source_text_sha256": "266558889a9022bcad421cdb84e83cdaf8af115d937479869b60e3c3d3e6b2de",
       "source_excerpt": "5. A/B оценку с методикой, качеством, стоимостью, регрессиями и откатом, не обещания улучшения.",
       "disposition": "required",
-      "reason": "",
+      "reason": "A/B-оценка НЕ проводилась: инфраструктура A/B (SOUL-14.0) не построена («A/B-helper» — в plans/backlog.md). §5 отчёта честно фиксирует это и приводит только фактические замеры (resolve политики p50=0.170мс/p95=0.261мс n=600, проход формы p50=0.207мс, 0 дополнительных LLM-вызовов, OFF-паритет 13/13), без обещаний улучшения. Строка остаётся PENDING (зависимость от SOUL-14.0); A/B-данные не выдуманы.",
       "req_id": "SOUL-21.5",
       "slice": "W9",
       "acceptance": "Отчёт содержит A/B оценку с методикой, качеством, стоимостью, регрессиями и откатом, включая оценку владельца (производное от L289), без обещаний улучшения",
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "reason": "A/B-оценка НЕ проводилась: инфраструктура A/B (SOUL-14.0) не построена («A/B-helper» — в plans/backlog.md). §5 отчёта честно фиксирует это и приводит только фактические замеры (resolve политики p50=0.170мс/p95=0.261мс n=600, проход формы p50=0.207мс, 0 дополнительных LLM-вызовов, OFF-паритет 13/13), без обещаний улучшения. Строка остаётся PENDING (зависимость от SOUL-14.0); A/B-данные не выдуманы.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -5027,14 +5043,13 @@
       "source_text_sha256": "12545438627c3fb927de12d7ab49063568e910490b53bbec12e8579da80e8e23",
       "source_excerpt": "6. Реальные evidence `observed → lesson → application → outcome` и сохранение chat isolation.",
       "disposition": "required",
-      "reason": "",
+      "reason": "§6 отчёта: реальный наблюдаемый сигнал (sends=1, signals={metaphor_continuation:1}) и полная цепочка observed→lesson→application→outcome на детерминированных сценариях реального контура (метафора подхвачена; просьба ослабила приём только в своём чате; бурная реакция без шутки ≠ успех; тишина = unknown; два чата независимы; один человек не накручивает — сторожа small_n/single_user/single_topic/brigading). Chat isolation подтверждена на нескольких контурах: уроки/окно антизалипания изолированы по чату, hot-apply Core независимо по чатам, Expression per-chat=off не пускает frequent в payload чата, override одного чата не создаёт профиль другого. Живое окно 24–48 ч с реальными собеседниками не выдано за закрытое — остаётся SOUL-08.12 (READY_FOR_LIVE).",
       "req_id": "SOUL-21.6",
       "slice": "W9",
       "acceptance": "Отчёт содержит реальные evidence observed - lesson - application - outcome и подтверждение chat isolation",
       "live_required": true,
       "live_when": "postdeploy",
       "status": "VERIFIED",
-      "reason": "§6 отчёта: реальный наблюдаемый сигнал (sends=1, signals={metaphor_continuation:1}) и полная цепочка observed→lesson→application→outcome на детерминированных сценариях реального контура (метафора подхвачена; просьба ослабила приём только в своём чате; бурная реакция без шутки ≠ успех; тишина = unknown; два чата независимы; один человек не накручивает — сторожа small_n/single_user/single_topic/brigading). Chat isolation подтверждена на нескольких контурах: уроки/окно антизалипания изолированы по чату, hot-apply Core независимо по чатам, Expression per-chat=off не пускает frequent в payload чата, override одного чата не создаёт профиль другого. Живое окно 24–48 ч с реальными собеседниками не выдано за закрытое — остаётся SOUL-08.12 (READY_FOR_LIVE).",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -5058,14 +5073,13 @@
       "source_text_sha256": "52427a518289de1bb9350dc8173b88241d2af0b15024458afd89ffa1c78064e2",
       "source_excerpt": "7. Полный разбор Fullscreen по platform/client/Launch Mode/SDK/actual view и отдельную диагностику отсутствующих инициативных SEND за проверенный период (а не только «heartbeat работает»). Ограничения Telegram host, которые нельзя исправить",
       "disposition": "required",
-      "reason": "",
+      "reason": "§7 отчёта: разбор по platform/client/Launch Mode/SDK/actual view на полях diagnostics() (platform, sdkVersion, launchParams, isFullscreenSupported, actualFullscreen, launchFullscreen, slot, reason/nextStep, safe-area, trace) с таблицей поведения (tdesktop — объяснение + инструкция BotFather вместо молчаливого скрытия; Android float-слот по safe-area; поддерживаемый TMA — request/exit единственные пути; вне Telegram — объяснение не навязывается), история c0535280→fs-hotfix 2.58.84→win-glass 2.58.85 и явные ограничения Telegram host (Launch Mode меняет только владелец в BotFather, бот не управляет родным окном Desktop, expand() — не замена, native ✕ сохранён). Отдельная диагностика отсутствующих инициативных SEND: причины молчания до 18.10 (лаг курсора 2.19 млн событий ≈ 38 суток, 28× silence_too_short на сверхактивном чате, direct_reply ×127 при min_gap=7200, diagnostic-job failed ×3) и результат после фиксов 2.58.90 — воронка scan=280→6→4→2→sent=2 с честными reason_codes. Живой enter/exit на реальном клиенте — добровольное наблюдение владельца (SOUL-12.0/17.4, owner_live_checks), не скрыто.",
       "req_id": "SOUL-21.7",
       "slice": "W9",
       "acceptance": "Отчёт содержит полный разбор Fullscreen по platform, client, Launch Mode, SDK и actual view и отдельную диагностику отсутствующих инициативных SEND за проверенный период с явным объяснением ограничений Telegram host",
       "live_required": true,
       "live_when": "postdeploy",
       "status": "VERIFIED",
-      "reason": "§7 отчёта: разбор по platform/client/Launch Mode/SDK/actual view на полях diagnostics() (platform, sdkVersion, launchParams, isFullscreenSupported, actualFullscreen, launchFullscreen, slot, reason/nextStep, safe-area, trace) с таблицей поведения (tdesktop — объяснение + инструкция BotFather вместо молчаливого скрытия; Android float-слот по safe-area; поддерживаемый TMA — request/exit единственные пути; вне Telegram — объяснение не навязывается), история c0535280→fs-hotfix 2.58.84→win-glass 2.58.85 и явные ограничения Telegram host (Launch Mode меняет только владелец в BotFather, бот не управляет родным окном Desktop, expand() — не замена, native ✕ сохранён). Отдельная диагностика отсутствующих инициативных SEND: причины молчания до 18.10 (лаг курсора 2.19 млн событий ≈ 38 суток, 28× silence_too_short на сверхактивном чате, direct_reply ×127 при min_gap=7200, diagnostic-job failed ×3) и результат после фиксов 2.58.90 — воронка scan=280→6→4→2→sent=2 с честными reason_codes. Живой enter/exit на реальном клиенте — добровольное наблюдение владельца (SOUL-12.0/17.4, owner_live_checks), не скрыто.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -5089,14 +5103,13 @@
       "source_text_sha256": "0c6c9d764252c02e8d74ee84181176697880d8efaba506587e4e22f84798897f",
       "source_excerpt": "8. Отдельную ведомость legacy v6.3 gates, экспозиции тестового стенда, embedding quota и несинхронизированных Git-артефактов.",
       "disposition": "required",
-      "reason": "",
+      "reason": "§8 отчёта — отдельная ведомость: реестр незакрытых гейтов v6.3 (evidence/w7/v63-live-gates-ledger.json: 42 READY_FOR_LIVE / 18 BLOCKED_REAL_HUMAN_GATE / 5 PENDING, 135 VERIFIED, у каждой строки slice/reason; последующие биндинги на HEAD — 27→42 VERIFIED, 33→18 RFL, честные хвосты B12.6/NOST-SCEN-B/U07.1a сохранены); тестовый стенд — публичная экспозиция закрыта (7 путей → 401/403/404, прод STAND_CODE=404 на 443, боевые ассеты 200); embedding quota — три ключа на одном провайдер-host apinet.cloud (вывод «три независимые квоты» не делается), различение absent/env/hot + WARN, reset horizon — внешний факт; git-артефакты — release-reconciliation/final-audit/live-canary tracked+clean, 225c3c2b разрешён как настоящий опубликованный коммит (docs-only, предок origin/master).",
       "req_id": "SOUL-21.8",
       "slice": "W9",
       "acceptance": "Отчёт содержит отдельную ведомость legacy v6.3 gates, экспозиции тестового стенда, embedding quota и несинхронизированных Git-артефактов",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "§8 отчёта — отдельная ведомость: реестр незакрытых гейтов v6.3 (evidence/w7/v63-live-gates-ledger.json: 42 READY_FOR_LIVE / 18 BLOCKED_REAL_HUMAN_GATE / 5 PENDING, 135 VERIFIED, у каждой строки slice/reason; последующие биндинги на HEAD — 27→42 VERIFIED, 33→18 RFL, честные хвосты B12.6/NOST-SCEN-B/U07.1a сохранены); тестовый стенд — публичная экспозиция закрыта (7 путей → 401/403/404, прод STAND_CODE=404 на 443, боевые ассеты 200); embedding quota — три ключа на одном провайдер-host apinet.cloud (вывод «три независимые квоты» не делается), различение absent/env/hot + WARN, reset horizon — внешний факт; git-артефакты — release-reconciliation/final-audit/live-canary tracked+clean, 225c3c2b разрешён как настоящий опубликованный коммит (docs-only, предок origin/master).",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -5120,14 +5133,13 @@
       "source_text_sha256": "0afad641c620de75b89927faed432eb0abc223f715e4ebfe734f5381df759c20",
       "source_excerpt": "9. Номер версии, commit SHA, deployed SHA, точный список пройденных/падающих тестов, reviewer status и список реально оставшихся ограничений.",
       "disposition": "required",
-      "reason": "",
+      "reason": "§9 отчёта: прод 2.58.104 @8ea6ed4e (деплой 20.10.2026 21:00:23Z, healthz/ERR=0/DDL=0/customs 7/7, rollback lossless), HEAD 78a92bb5, цепочка релизов эпика 2.58.84→104 с SHA (0b7a0aca, 95526863, eafbe2e7, 68cd05b2/c37b8577/d59fab94, 3b02366e, 29cc49ba, 46303ecd, acc285d7, e3c61445, a3535b68, 2a3e4fc9, 8ea6ed4e), точные числа тестов (SOUL-1 сет 599 passed и периметр 3917/0 на 2.58.86; guards 2.58.104: pins24 868p/0f, JS 38p+4/4+syntax 106/0, help-sync 24p, F8 582==REGISTRY; падающих на HEAD нет, 6 исторических перепроверены 6/6), reviewer status (независимые ревью волн/релизов Approved, перечень) и список реально оставшихся ограничений.",
       "req_id": "SOUL-21.9",
       "slice": "W9",
       "acceptance": "Отчёт содержит номер версии, commit SHA, deployed SHA, точный список пройденных и падающих тестов, reviewer status и список реально оставшихся ограничений",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "§9 отчёта: прод 2.58.104 @8ea6ed4e (деплой 20.10.2026 21:00:23Z, healthz/ERR=0/DDL=0/customs 7/7, rollback lossless), HEAD 78a92bb5, цепочка релизов эпика 2.58.84→104 с SHA (0b7a0aca, 95526863, eafbe2e7, 68cd05b2/c37b8577/d59fab94, 3b02366e, 29cc49ba, 46303ecd, acc285d7, e3c61445, a3535b68, 2a3e4fc9, 8ea6ed4e), точные числа тестов (SOUL-1 сет 599 passed и периметр 3917/0 на 2.58.86; guards 2.58.104: pins24 868p/0f, JS 38p+4/4+syntax 106/0, help-sync 24p, F8 582==REGISTRY; падающих на HEAD нет, 6 исторических перепроверены 6/6), reviewer status (независимые ревью волн/релизов Approved, перечень) и список реально оставшихся ограничений.",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",
@@ -5151,14 +5163,13 @@
       "source_text_sha256": "c8a32d09e1f19ee8420855d1af07b2073855279ba3e1b7f95d84671759d3509b",
       "source_excerpt": "10. Подробный, но обычным человеческим языком отчёт владельцу, без тысяч строк механистических run-ID. Полные технические логи/карты — в артефактах для независимого воспроизведения.",
       "disposition": "required",
-      "reason": "",
+      "reason": "§10 отчёта — человеческий отчёт владельцу простыми словами (что изменилось, что проверено, что честно не сделано: A/B, живое окно юмора, видео-провайдер), без run-ID; внутренние ID/пути вынесены в разделы 1–9 и техническое приложение, полные логи/карты — в plans/features/soul-1/** (evidence-папки волн и релизов).",
       "req_id": "SOUL-21.10",
       "slice": "W9",
       "acceptance": "Владельцу предоставлен подробный человеческий отчёт без тысяч run-ID, а полные технические логи и карты вынесены в артефакты для независимого воспроизведения",
       "live_required": false,
       "live_when": "preprod",
       "status": "VERIFIED",
-      "reason": "§10 отчёта — человеческий отчёт владельцу простыми словами (что изменилось, что проверено, что честно не сделано: A/B, живое окно юмора, видео-провайдер), без run-ID; внутренние ID/пути вынесены в разделы 1–9 и техническое приложение, полные логи/карты — в plans/features/soul-1/** (evidence-папки волн и релизов).",
       "evidence": [
         {
           "candidate_commit": "78a92bb5da428e754af8869aeaed1ce5ef646d76",

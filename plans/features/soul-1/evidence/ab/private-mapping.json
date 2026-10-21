@@ -1,0 +1,172 @@
+{
+ "kind": "soul1_ab_private_mapping",
+ "seed": 20261021,
+ "reveal_after": "blind-scores.json filled",
+ "pairs": {
+  "P01": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab33"
+  },
+  "P02": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab17"
+  },
+  "P03": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab27"
+  },
+  "P04": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab10"
+  },
+  "P05": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab06"
+  },
+  "P06": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab20"
+  },
+  "P07": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab23"
+  },
+  "P08": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab09"
+  },
+  "P09": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab03"
+  },
+  "P10": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab12"
+  },
+  "P11": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab29"
+  },
+  "P12": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab05"
+  },
+  "P13": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab14"
+  },
+  "P14": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab18"
+  },
+  "P15": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab07"
+  },
+  "P16": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab15"
+  },
+  "P17": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab04"
+  },
+  "P18": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab19"
+  },
+  "P19": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab02"
+  },
+  "P20": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab22"
+  },
+  "P21": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab26"
+  },
+  "P22": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab32"
+  },
+  "P23": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab24"
+  },
+  "P24": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab30"
+  },
+  "P25": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab16"
+  },
+  "P26": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab08"
+  },
+  "P27": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab28"
+  },
+  "P28": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab21"
+  },
+  "P29": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab11"
+  },
+  "P30": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab31"
+  },
+  "P31": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab13"
+  },
+  "P32": {
+   "pos0": "off",
+   "pos1": "on",
+   "scene_id": "ab01"
+  },
+  "P33": {
+   "pos0": "on",
+   "pos1": "off",
+   "scene_id": "ab25"
+  }
+ }
+}

@@ -1,0 +1,7 @@
+{
+ "kind": "soul1_ab_verdict_recheck",
+ "method": "scripted flags recomputed from raw captured replies",
+ "runs": 66,
+ "mismatches": [],
+ "result": "OK"
+}

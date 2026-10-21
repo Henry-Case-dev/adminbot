@@ -1,0 +1,40 @@
+{
+ "kind": "soul1_ab_spend_ledger",
+ "note": "invocations = LLM generate() calls; billable = successful generations (provider 5xx not billed)",
+ "entries": [
+  {
+   "invocations": 2,
+   "billable": 2,
+   "note": "W1 smoke: 1 scene x 2 arms, both ok"
+  },
+  {
+   "invocations": 66,
+   "billable": 23,
+   "note": "W2 run1 (dead-session launch 21:17-21:32, recovered from results-run1-outage.json); 43 provider 5xx empty"
+  },
+  {
+   "invocations": 66,
+   "billable": 22,
+   "note": "W2 run2 (this session 21:27-21:36); 44 provider 5xx empty"
+  },
+  {
+   "invocations": 21,
+   "billable": 0,
+   "note": "W2 fill pass 1 (21:37-21:39): all 21 attempts hit provider 5xx outage window, 0 billable, 0 recovered"
+  },
+  {
+   "invocations": 13,
+   "billable": 13,
+   "note": "W2 duplicate pass (killed after 13 slots, healthy window): 13/13 ok; 3 holes closed, 10 duplicate samples of already-ok slots (partial-deletion oversight, documented)"
+  },
+  {
+   "invocations": 18,
+   "billable": 18,
+   "note": "W2 targeted fill pass 3 (healthy window): 18/18 holes closed, 0 empty -> 66/66 complete"
+  }
+ ],
+ "totals": {
+  "invocations": 186,
+  "billable": 78
+ }
+}
