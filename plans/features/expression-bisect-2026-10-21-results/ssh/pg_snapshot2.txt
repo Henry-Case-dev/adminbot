@@ -1,0 +1,9 @@
+== env80 ==
+S
+== db_set ==
+DATABASE_URL EMPTY
+db_user= db_name=
+docker_ctr=adminbot-postgres
+== psql ==
+== prompts_list ==
+PGERR

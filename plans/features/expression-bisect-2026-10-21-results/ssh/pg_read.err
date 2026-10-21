@@ -1,0 +1,13 @@
+./.env: line 80: S: command not found
+sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit
+sudo: unknown user postgres
+sudo: error initializing audit plugin sudoers_audit

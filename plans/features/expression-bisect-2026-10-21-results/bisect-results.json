@@ -1,0 +1,456 @@
+{
+ "kind": "expression_bisect",
+ "date_utc": "2026-10-21 11:18:47",
+ "head": "dad9afce (2.58.106, prod healthz)",
+ "model": "deepseek-v4-flash",
+ "temperature": 0.7,
+ "chat": -1002661910336,
+ "chat_expression": {
+  "profanity": "frequent",
+  "wit": "high",
+  "sharpness": "sharp"
+ },
+ "stimulus": "бот, ну что думаешь про понедельник?",
+ "minimal_instruction": "используй мат, пиши как двачер",
+ "runs_per_arm": 4,
+ "calls": 36,
+ "arms": {
+  "B_full": {
+   "runs": [
+    {
+     "arm": "B_full",
+     "run": 0,
+     "reply": "Понедельник всегда приходит с таким лицом, будто ты ему что-то должен",
+     "reply_chars": 69,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.6
+    },
+    {
+     "arm": "B_full",
+     "run": 1,
+     "reply": "Понедельник - это вторник, который ещё не осознал, во что вляпался",
+     "reply_chars": 66,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.1
+    },
+    {
+     "arm": "B_full",
+     "run": 2,
+     "reply": "Понедельник - это воскресенье, которому наступили на хвост",
+     "reply_chars": 58,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 6.9
+    },
+    {
+     "arm": "B_full",
+     "run": 3,
+     "reply": "Понедельник - это воскресенье, которое решило дожать до конца",
+     "reply_chars": 61,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.4
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 64.0
+  },
+  "A_min": {
+   "runs": [
+    {
+     "arm": "A_min",
+     "run": 0,
+     "reply": "да хуйня этот твой понедельник, братан. классика жанра: просыпаешься — уже всё против тебя, кофе пролил, автобус ушёл, на работе опять этот ебейший созвон в 9 утра, где обсуждают то, что можно было в чат написать. день как будто специально спроектирован чтобы напомнить тебе, что ты не отдыхаешь, а существуешь в режиме \"дожил до пятницы\".\n\nно с другой стороны — понедельник это ж просто день, хули его демонизировать. календарь не виноват, что у тебя выходные пролетели как один час. так что завари чай, надень наушники, включи что-нибудь потяжелее и просто переживи эту хуйню. вторник уже будет норм, а к среде ты вообще забудешь, что он был.\n\nкороче, не парься, братишка. понедельник — это не приговор, это просто скип-функция перед нормальной неделей 🗿",
+     "reply_chars": 756,
+     "mat_roots": 3,
+     "mat_present": true,
+     "elapsed_s": 7.1
+    },
+    {
+     "arm": "A_min",
+     "run": 1,
+     "reply": "Бля, да хуйня этот твой понедельник, как и любой другой день, просто с ярлыком «пиздец начинается». Просыпаешься — уже проёб, кофе пролил, на улице мокро, все вокруг будто сговорились тебя докапывать именно сегодня. Классика, блядь.\n\nНо по факту понедельник — это просто отмазка, чтобы нихуя не делать и страдать красиво. Типа «ну а чё ты хотел, это же понедельник». Удобно, пиздец. Хотя реально — вся эта хуета с «тяжёлым понедельником» в голове сидит, а не в календаре. Вторник такой же хуёвый, просто ты к нему уже привык.\n\nТак что забивай, дрочи дальше свои дедлайны, вечером пивка ебни и всё. Понедельник кончится, начнётся хуйня поинтереснее — вторник.",
+     "reply_chars": 658,
+     "mat_roots": 9,
+     "mat_present": true,
+     "elapsed_s": 6.2
+    },
+    {
+     "arm": "A_min",
+     "run": 2,
+     "reply": "Да хуйня полная, братан. Понедельник — это когда будильник звонит в 6:40, а ты лежишь и думаешь: «ну нахуй, может, я заболел?» Проверяешь температуру — 36.6, блядь, здоров как бык, иди работай.\n\nСамое мерзкое — это даже не сам день, а то, что он как бы обнуляет всё. Всё, что ты не сделал на выходных, внезапно становится «планом на неделю». Стоишь утром с кружкой кофе, смотришь в стену, и в голове крутится один вопрос: а нахуя я вообще в это вписался.\n\nНо есть и плюс, если по-честному: понедельник — единственный день, когда всем вокруг так же хуёво, как и тебе. Так что можно с чистой совестью нихуя не делать первые пару часов и никто не заметит, все в таком же ахуе сидят.\n\nКороче, переживём. Главное — не начинать неделю с серьёзных решений, всё равно нахуй всё переиграешь к среде.",
+     "reply_chars": 790,
+     "mat_roots": 6,
+     "mat_present": true,
+     "elapsed_s": 7.2
+    },
+    {
+     "arm": "A_min",
+     "run": 3,
+     "reply": "Понедельник — это блядь не день недели, а диагностика: если ты утром в понедельник чувствуешь себя норм, значит с тобой что-то не так, братишка. Пиздец же в том, что он всегда приходит внезапно, как батя с ремнём, хотя ты вроде только что в пятницу пивка открыл.\n\nХуже всего эта хуйня с 6 утра: будильник орёт, ты лежишь и думаешь «да ну нахуй», а через 15 минут уже стоишь в очереди за кофе с ебалом человека, которого только что из гроба достали. И так каждую неделю, лол.\n\nНо знаешь что? Понедельник хотя бы честный. Он не притворяется пятницей. Он сразу говорит: «я буду хуйнёй, готовься». Уважаю за прямоту, чё. Так что не ной, завари чай, надень штаны и ползи. До пятницы не так далеко, как кажется, пидорас ты мой дорогой 🗿",
+     "reply_chars": 730,
+     "mat_roots": 6,
+     "mat_present": true,
+     "elapsed_s": 7.2
+    }
+   ],
+   "mat_present_n": 4,
+   "mat_roots_total": 24,
+   "avg_chars": 734.0
+  },
+  "C_full_nomat": {
+   "runs": [
+    {
+     "arm": "C_full_nomat",
+     "run": 0,
+     "reply": "Понедельник как понедельник, хуже он не стал от того, что мы о нём подумали",
+     "reply_chars": 75,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.7
+    },
+    {
+     "arm": "C_full_nomat",
+     "run": 1,
+     "reply": "Понедельник - хуйня, но переживём",
+     "reply_chars": 33,
+     "mat_roots": 1,
+     "mat_present": true,
+     "elapsed_s": 3.7
+    },
+    {
+     "arm": "C_full_nomat",
+     "run": 2,
+     "reply": "Понедельник придумали, чтоб воскресенье не расслаблялось",
+     "reply_chars": 56,
+     "mat_roots": 1,
+     "mat_present": true,
+     "elapsed_s": 4.2
+    },
+    {
+     "arm": "C_full_nomat",
+     "run": 3,
+     "reply": "понедельник это воскресенье, которое тебя уже выебало, а ты ещё даже не проснулся",
+     "reply_chars": 81,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.6
+    }
+   ],
+   "mat_present_n": 2,
+   "mat_roots_total": 2,
+   "avg_chars": 61.0
+  },
+  "D_nopersona": {
+   "runs": [
+    {
+     "arm": "D_nopersona",
+     "run": 0,
+     "reply": "понедельник придумали, чтобы вторник казался почти выходным",
+     "reply_chars": 59,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.8
+    },
+    {
+     "arm": "D_nopersona",
+     "run": 1,
+     "reply": "понедельник - это вторник, только притворяется, что тебе хуже всех",
+     "reply_chars": 66,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.3
+    },
+    {
+     "arm": "D_nopersona",
+     "run": 2,
+     "reply": "понедельник - это воскресенье, которое сдохло, но всё ещё делает вид, что работает",
+     "reply_chars": 82,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.0
+    },
+    {
+     "arm": "D_nopersona",
+     "run": 3,
+     "reply": "понедельник - это воскресенье, которому подрезали крылья",
+     "reply_chars": 56,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.3
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 66.0
+  },
+  "E_oldexpr": {
+   "runs": [
+    {
+     "arm": "E_oldexpr",
+     "run": 0,
+     "reply": "Понедельник был вчера и уже сдох - думать о нём поздно",
+     "reply_chars": 54,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 37.2
+    },
+    {
+     "arm": "E_oldexpr",
+     "run": 1,
+     "reply": "Про понедельник в справке ни строчки - так что либо конкретика, либо я пас",
+     "reply_chars": 74,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.4
+    },
+    {
+     "arm": "E_oldexpr",
+     "run": 2,
+     "reply": "Про понедельник в справке ни строчки, так что думаю ровно то, что там написано - ничего",
+     "reply_chars": 87,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.4
+    },
+    {
+     "arm": "E_oldexpr",
+     "run": 3,
+     "reply": "Понедельник как понедельник - день, который притворяется началом недели, а на деле просто пятница на минималках",
+     "reply_chars": 111,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.8
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 82.0
+  },
+  "F_expr_last": {
+   "runs": [
+    {
+     "arm": "F_expr_last",
+     "run": 0,
+     "reply": "Понедельник - это воскресенье, которому сломали хребет",
+     "reply_chars": 54,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.4
+    },
+    {
+     "arm": "F_expr_last",
+     "run": 1,
+     "reply": "понедельник - это воскресенье, которое уже сдалось",
+     "reply_chars": 50,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.2
+    },
+    {
+     "arm": "F_expr_last",
+     "run": 2,
+     "reply": "понедельник - это не день недели, а рецидив",
+     "reply_chars": 43,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.6
+    },
+    {
+     "arm": "F_expr_last",
+     "run": 3,
+     "reply": "понедельник был вчера, так что думаю о нём снисходительно, как о покойнике",
+     "reply_chars": 74,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.0
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 55.0
+  },
+  "G_no_hint": {
+   "runs": [
+    {
+     "arm": "G_no_hint",
+     "run": 0,
+     "reply": "Про понедельник у меня в справке ни хрена нет - ни фактов, ни прогнозов.",
+     "reply_chars": 72,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.2
+    },
+    {
+     "arm": "G_no_hint",
+     "run": 1,
+     "reply": "Понедельник был позавчера, так что думаю о нём с нежностью - он уже сдох.",
+     "reply_chars": 73,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.2
+    },
+    {
+     "arm": "G_no_hint",
+     "run": 2,
+     "reply": "Понедельник - это воскресенье, которое тебя кинуло.",
+     "reply_chars": 51,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 6.5
+    },
+    {
+     "arm": "G_no_hint",
+     "run": 3,
+     "reply": "Понедельник как понедельник - ничего нового, кроме того, что он снова наступит.",
+     "reply_chars": 79,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.6
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 69.0
+  },
+  "H_expr_bare": {
+   "runs": [
+    {
+     "arm": "H_expr_bare",
+     "run": 0,
+     "reply": "а что про него думать, он ещё не наступил, а уже виноват",
+     "reply_chars": 56,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 5.1
+    },
+    {
+     "arm": "H_expr_bare",
+     "run": 1,
+     "reply": "Про понедельник в справке ни строчки - так что ни хера не думаю",
+     "reply_chars": 63,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.5
+    },
+    {
+     "arm": "H_expr_bare",
+     "run": 2,
+     "reply": "шесть дней ещё, рано его хоронить",
+     "reply_chars": 33,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.9
+    },
+    {
+     "arm": "H_expr_bare",
+     "run": 3,
+     "reply": "По понедельнику у меня ноль вводных - справка пустая, гадать не буду",
+     "reply_chars": 68,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.2
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 55.0
+  },
+  "J_expr_blunt": {
+   "runs": [
+    {
+     "arm": "J_expr_blunt",
+     "run": 0,
+     "reply": "Про понедельник у меня в справке ни строчки, так что думаю ровно ничего",
+     "reply_chars": 71,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.5
+    },
+    {
+     "arm": "J_expr_blunt",
+     "run": 1,
+     "reply": "понедельник был вчера, так что думать о нём поздновато - он уже отработан и сбежал",
+     "reply_chars": 82,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 4.8
+    },
+    {
+     "arm": "J_expr_blunt",
+     "run": 2,
+     "reply": "Понедельник как понедельник - единственное, что про него известно",
+     "reply_chars": 65,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.8
+    },
+    {
+     "arm": "J_expr_blunt",
+     "run": 3,
+     "reply": "Про понедельник у меня в справке ни хрена нет",
+     "reply_chars": 45,
+     "mat_roots": 0,
+     "mat_present": false,
+     "elapsed_s": 3.4
+    }
+   ],
+   "mat_present_n": 0,
+   "mat_roots_total": 0,
+   "avg_chars": 66.0
+  }
+ },
+ "validation": {
+  "sample_sha12": "c484a481868a",
+  "sample_chars": 7070,
+  "core_full_in_sample": true,
+  "extent_micro_in_sample": true
+ },
+ "static_analysis": {
+  "base_factory_sha12": "1220b8898009",
+  "base_pg_stored_sha12": "39a7cce1523e",
+  "base_factory_has_identity_sentence": true,
+  "base_effective_has_identity_sentence": false,
+  "full_system_chars": 7252,
+  "full_system_tokens_est": 1813,
+  "expression_block": {
+   "chars": 989,
+   "share_pct": 13.6
+  },
+  "expression_position": 5940,
+  "expression_chars": 6262,
+  "expression_share_pct": 86.3,
+  "blocks": {
+   "expression": {
+    "chars": 989,
+    "share_pct": 13.6
+   },
+   "persona": {
+    "chars": 782,
+    "share_pct": 10.8
+   },
+   "character_rules": {
+    "chars": 240,
+    "share_pct": 3.3
+   },
+   "style_hint": {
+    "chars": 321,
+    "share_pct": 4.4
+   }
+  },
+  "neutralizing_phrases": {
+   "мат не вставляется насильно": 1,
+   "без мата": 1,
+   "оскорбления и травля не появляются": 1,
+   "травля": 1,
+   "агрессия": 2,
+   "не агрессия": 2,
+   "Не подменяй шутку оскорблением": 1,
+   "морализаторство": 1
+  }
+ },
+ "elapsed_total_s": 16.6
+}

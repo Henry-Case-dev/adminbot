@@ -1,0 +1,21 @@
+== healthz ==
+{"status":"ok","version":"2.58.106"}
+== model_env ==
+LLM_MODEL_NAME=deepseek-v4-flash
+== toggle_env ==
+UNIFIED_COMPOSER_ENABLED=1
+HUMOR_CRAFT_ENABLED=1
+HUMOR_LIBRARY_ENABLED=1
+== prompts_list ==
+PGERR
+== prompts_json ==
+PGERR
+== settings_json ==
+PGERR
+== chat_overrides_json ==
+PGERR
+== personas_json ==
+PGERR
+== traits_json ==
+PGERR
+== done ==
