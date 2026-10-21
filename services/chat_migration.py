@@ -124,7 +124,13 @@ async def migrate_chat_memory(db, old_chat_id: int, new_chat_id: int) -> dict:
         total_backup = 0
         for table in _ROW_TABLES:
             table_rows = 0
-            last_rid = -1
+            # rowid-сентинел = минимум 64-битного rowid (НЕ -1): у таблиц с
+            # PK-алиасом (chat_running_summary: PK(chat_id) = rowid) строки
+            # супергрупп имеют ОТРИЦАТЕЛЬНЫЙ rowid (= chat_id), и фильтр
+            # «rowid > -1» читал 0 строк → конспект переносился БЕЗ backup
+            # (находка B12.6 21.10.2026, контракт «backup ДО записи»).
+            # Дальнейшая пагинация идёт по фактическим rowid — знак не важен.
+            last_rid = -(2**63)
             abort_table = False
             while True:
                 try:

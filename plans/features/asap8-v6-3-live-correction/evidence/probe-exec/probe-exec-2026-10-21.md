@@ -153,6 +153,21 @@ rowid; у суперчатов chat_id отрицательный, а backup ч�
 пуст), но до реального переноса supergroup фикс обязателен. Код продукта в
 этом лейне не менялся (WRITE_SCOPE) — фикс отдельным лейном.
 
+> **FIX (лейн FIX-MIGRATE-BACKUP-GAP, 21.10.2026):** gap закрыт. В
+> `services/chat_migration.py` rowid-сентинел backup-петли заменён
+> `last_rid = -1` → `last_rid = -(2**63)` (минимально возможный 64-битный
+> rowid): отрицательные rowid PK-алиаса (chat_running_summary супергрупп)
+> теперь читаются в `chat_migration_backup` ДО переноса; пагинация дальше
+> идёт по фактическим rowid, знак не важен. strict-xfail
+> `test_backup_covers_running_summary_negative_pk` поднят до строгого
+> PASS-регресса (backup 1:1 + копия строки ДО переноса + данные 1:1 +
+> integrity + идемпотентность) и добавлен гвард положительного chat_id
+> (`test_backup_covers_running_summary_positive_pk`); в
+> `test_move_leaves_complete_measurable_trail` снят special-case-skip
+> chat_running_summary — backup теперь 1:1 для всех таблиц. Комментарий в
+> коде содержит обоснование выбора сентинела (Telegram chat_id ~ -10^15,
+> на порядки выше минимума 64-битного rowid -2^63).
+
 ## Гигиена артефактов
 
 - `capture1-db-journal.json` — захват №1 (S1 L2/стадии/окна, S2 vec/FTS/

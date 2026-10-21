@@ -23,6 +23,7 @@
 TEST-LIFECYCLE: REGRESSION owner=B12.6
 R17: только синтетические данные, никаких реальных переписок.
 """
+import json
 import time
 
 import pytest
@@ -222,10 +223,8 @@ class TestMigrationSideEffectsMeasurable:
             assert result["moved"]["chat_running_summary"] == 1
 
             # 2) backup-журнал покрывает каждую переадресованную строку 1:1
-            #    (для стандартных таблиц, rowid ≠ chat_id-алиас)
+            #    (включая PK-алиас chat_running_summary — фикс B12.6 21.10)
             for table, moved_n in result["moved"].items():
-                if table == "chat_running_summary":
-                    continue      # известный gap — отдельный xfail-тест ниже
                 cur = await db.db.execute(
                     "SELECT COUNT(*) AS n FROM chat_migration_backup "
                     "WHERE table_name = ?", (table,))
@@ -247,21 +246,53 @@ class TestMigrationSideEffectsMeasurable:
             await db.close()
 
     @pytest.mark.asyncio
-    @pytest.mark.xfail(
-        strict=True,
-        reason="ЗАМЕР B12.6 21.10.2026: chat_running_summary имеет "
-               "PK=chat_id=алиас rowid; у суперчатов chat_id отрицательный, "
-               "поэтому backup-петля (WHERE chat_id=? AND rowid > -1) читает "
-               "0 строк, но UPDATE переносит строку — конспект попадает в "
-               "перенос БЕЗ backup-журнала. Нарушает контракт «backup ДО "
-               "записи» (services/chat_migration.py, REV-W1 F1). Фикс — "
-               "отдельный лейн в services/; после фикса маркер снять.")
     async def test_backup_covers_running_summary_negative_pk(self):
-        """Дефект из замера B12.6: строка бегущего конспекта переносится
-        без backup-записи (PK-алиас rowid + отрицательный chat_id).
-        strict-xfail: сегодня падает (дефект воспроизведён); после починки
-        services/ станет XPASS и потребует снятия маркера."""
+        """REGRESSION owner=B12.6/migration-backup-gap (находка 21.10.2026,
+        супергрупп-кейс): строка бегущего конспекта (PK=chat_id=алиас rowid,
+        chat_id<0) переносится ТОЛЬКО вместе с backup-записью 1:1; данные
+        переезжают без потерь, под old пусто, повтор идемпотентен.
+        До фикса backup-петля («rowid > -1») читала 0 строк для
+        отрицательного rowid — конспект уезжал без журнала (нарушение
+        «backup ДО записи», REV-W1 F1)."""
         OLD, NEW = -100700, -100800
+        db = await _open()
+        try:
+            await db.upsert_running_summary(
+                OLD, "конспект", NOW - 600, NOW, 5, float(NOW), float(NOW))
+            await db.db.commit()
+            from services.chat_migration import (migrate_chat_memory,
+                                                 verify_chat_memory_integrity)
+            result = await migrate_chat_memory(db, OLD, NEW)
+            assert result["errors"] == [], result["errors"]
+            assert result["moved"].get("chat_running_summary") == 1
+            # backup-журнал: полная копия строки ДО переноса, под старым id
+            cur = await db.db.execute(
+                "SELECT row_json FROM chat_migration_backup "
+                "WHERE table_name = 'chat_running_summary'")
+            saved = json.loads((await cur.fetchone())["row_json"])
+            assert saved["chat_id"] == OLD and saved["summary"] == "конспект"
+            assert saved["raw_count"] == 5
+            # данные переехали 1:1 (0 потерь)
+            cur = await db.db.execute(
+                "SELECT chat_id, summary, raw_count FROM chat_running_summary")
+            row = await cur.fetchone()
+            assert (row["chat_id"], row["summary"],
+                    row["raw_count"]) == (NEW, "конспект", 5)
+            # под old пусто; integrity-отчёт ок
+            report = await verify_chat_memory_integrity(db, OLD, NEW)
+            assert report["ok"] is True, report["residual_old_rows"]
+            # идемпотентность: повтор — 0 строк и 0 новых backup-записей
+            second = await migrate_chat_memory(db, OLD, NEW)
+            assert second["moved"] == {} and second["backup_rows"] == 0
+        finally:
+            await db.close()
+
+    @pytest.mark.asyncio
+    async def test_backup_covers_running_summary_positive_pk(self):
+        """Гвард против регресса: обычный положительный chat_id (не
+        супергруппа) переносится с backup 1:1 как и раньше — фикс
+        rowid-сентинела не ломает стандартный кейс."""
+        OLD, NEW = 4242, 4343
         db = await _open()
         try:
             await db.upsert_running_summary(
@@ -269,11 +300,14 @@ class TestMigrationSideEffectsMeasurable:
             await db.db.commit()
             from services.chat_migration import migrate_chat_memory
             result = await migrate_chat_memory(db, OLD, NEW)
-            assert result["errors"] == []
+            assert result["errors"] == [], result["errors"]
             assert result["moved"].get("chat_running_summary") == 1
             cur = await db.db.execute(
                 "SELECT COUNT(*) AS n FROM chat_migration_backup "
                 "WHERE table_name = 'chat_running_summary'")
-            assert (await cur.fetchone())["n"] == 1   # сегодня: 0 → xfail
+            assert (await cur.fetchone())["n"] == 1
+            cur = await db.db.execute(
+                "SELECT chat_id FROM chat_running_summary")
+            assert (await cur.fetchone())["chat_id"] == NEW
         finally:
             await db.close()
