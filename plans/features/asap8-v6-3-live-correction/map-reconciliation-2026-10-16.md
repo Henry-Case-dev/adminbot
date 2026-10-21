@@ -167,3 +167,233 @@ Gate:
 FAILED-пункт U07.2 (горизонтальные safeAreaInset игнорируются); строки карты U07.2a/U07.2e/
 REQ-U07-2 («без перекрытия нативных зон») с ним расходятся и остаются VERIFIED — решение о
 корректировке за Orchestrator/владельцем.
+
+## Ledger re-bind to 2.58.80 (31c16555)
+
+Лейн PM-LEDGER-25880 (writer: `requirements-map.json` + этот раздел; без кода, деплоя, SSH, коммитов;
+`deploy-25880-report.md`, `recap-25880.md`, `evidence/**`, `review-*.md`, `decision-*`, `plans/features/soul-1/**`,
+`plans/current_task.md`, `plans/workflow_state.md` не трогались).
+
+Прод 2.58.80 = `31c165556dbe8c289606bd6bee1af49bb72d5794` (release commit; родитель `d9b7f389`; previous prod
+`c2775a54` — rollback target). `candidate_commit` = `deployed_commit` = `31c16555`. История evidence сохранена
+(новые элементы только добавлялись).
+
+### Что сделано
+
+- **95 VERIFIED-строк + FINAL.3** получили по одному новому evidence-элементу с `candidate_commit=31c16555`:
+  - форма (a) «re-verified at 31c16555» — где механизм реально перепрогонялся/проверялся на деплой-коммите:
+    recap-сьюты (shell 129/129; fullscreen 7/7 = 70 чеков; editor 40/40; modules W3-MODULES-E2E-OK; analytics 74/74;
+    status 26/26; логи `evidence/recap-25880/_31c16555_suite_*.log`), капчур-матрица 48 whole-viewport кадров
+    (`png_index.json`, `verify_summary.json`, `fingerprint.json all_match=true`), U07.2-геометрия (`_31c16555_rowa_*`,
+    `css.served_right_formula_x3`, `rowa.inset_geometry_ok`), deploy-протокол 2.58.80 (`deploy-25880-report.md`,
+    `evidence/deploy-25880/ev01+ev03`), validator-прогоны этого лейна, машинные сверки документов
+    (`git ls-files`; `git log --diff-filter=M` пуст после добавления) и SHA снапшотов (d0b4f611… / 91f754e3…);
+  - форма (b) «implementation unchanged since c2775a54» — B02/B03/B04/B08/B11-строки, B10-R05, REQ-B10-PYTEST:
+    несущие файлы вне дельты (`git diff --name-only c2775a54..31c16555 -- <files>` пусто: mca_experience*,
+    summary_memory, cover_style_edit/jobs, mca_episodes*, web_stories, tools/v63_b11_mechanisms_report.py,
+    baseline-pytest-b10.md, тесты `tests/test_asap8_v63_b0*.py`, `test_asap8_f7_stories.py`).
+- **FINAL.3 закрыта** (PENDING→VERIFIED): recap закрывает все три прежних гэпа — единичные whole-viewport кадры status
+  768/1024/1440; cover_editor/fullscreen 360/430/768 + landscape 667×375; fingerprint-привязка к деплой-коммиту;
+  плюс реальные header-размеры (116.2/93.8/113.4/109.4) и selected/copy 40/40.
+- **B10-R17 не закрыта**; reason сужен: mobile-UI клауза закрыта на 31c16555 (скриншоты всех размеров), остаётся
+  клауза «7 отложенных визуализаций на реальных данных» (owner/прод; U05.3 data part — OWNER-ONLY по
+  `v63-frontend-verification-2026-10-16.md` §4; recap §«НЕ проверяется»: real-data визуализации — прод-проверка).
+- **45 строк переведены в PENDING с причиной** (форма (c), строгий ре-бинд невозможен; см. ниже). Правило задачи
+  запрещает форму (b) для строк, указывающих на файл из дельта-набора; для этих групп дополнительно зафиксированы
+  hunk-уровневые факты (стекло-строк в diff `web/*` — 0; hunk `param_catalog.py` = +18 запись L1-planner в `_PROMPTS`;
+  hooks `direct_chat_service.py` — за default-OFF флагами).
+
+### Счётчики (222 строки; required=200)
+
+| | было | стало |
+|---|---|---|
+| VERIFIED | 140 | **96** |
+| READY_FOR_LIVE | 38 | 38 |
+| PENDING | 26 | **70** (required 48: B12.1, B12.6, REQ-0-1 + 45 демоушенов) |
+| BLOCKED_REAL_HUMAN_GATE | 18 | 18 |
+
+required: 96 VERIFIED / 38 READY_FOR_LIVE / 48 PENDING / 18 BLOCKED = 200.
+
+### Оставлено открытым в этом проходе (45)
+
+| Группа | Строк | Почему | Needed |
+|---|---|---|---|
+| U08 (FE-GLASS) | 31 | recap glass не прогонял; несущие файлы (app.css/app.js/index.html) в file-list дельты — чужие hunks, но форма (b) запрещена guard'ом; glass.js/glass-probe.js вне дельты | glass-прогон (tier map/scanline) на дереве 31c16555 ЛИБО hunk-приёмка Оркестратора/владельца |
+| B01* | 6 | `services/direct_chat_service.py` в дельте (4116c48a: hooks в initiative-L1/writer-путях за default-OFF флагами) | перепрогон `tests/test_asap8_v63_b01_initiative_observer.py` на 31c16555 ЛИБО приёмка parity gates-OFF |
+| B06/B07 | 8 | тестируемая матрица читает `services/param_catalog.py` (в дельте; hunk +18 — вне per-chat/temporal-логики) | перепрогон b06+b07 на 31c16555 ЛИБО hunk-приёмка |
+
+Не трогались (как были): 18 owner-гейтов, 38 READY_FOR_LIVE (вкл. B10-R17 с суженным reason), B12.1/B12.6/REQ-0-1,
+22 non-required PENDING.
+
+Наблюдение вне мандата лейна: клауза B12.1 «закоммичены» в диапазоне выполнена — `review-ledger.md`,
+`integration-evidence.md`, `v63-final-coverage-report-2026-10-16.md`, `ui-acceptance.md`, `live-canary.md`,
+`release-reconciliation.md` tracked на HEAD (коммиты 50a7e689/225c3c2b/4ca40730/8c960df6); перевод B12.1 —
+решение Оркестратора.
+
+### Gate outputs (verbatim)
+
+`py -3 <OPENCODE_CONFIG>/tools/requirements_gate.py check --map plans/features/asap8-v6-3-live-correction/requirements-map.json --stage plan` → exit 0:
+
+```
+stage=plan inventory=148 manual=74 scoped=0 errors=0
+```
+
+`... --stage release --candidate 31c165556dbe8c289606bd6bee1af49bb72d5794 --deployed-commit 31c165556dbe8c289606bd6bee1af49bb72d5794` → exit 1:
+
+```
+FAIL: U07-SYM-DESKTOP: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07-SYM-ANDROID: live requirement lacks evidence for stage release
+FAIL: U07-LAUNCHMODE: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U08-SYM: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: REQ-B01: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: B01.1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: B01.2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: B01.3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: B01.4: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B01.5: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: B01.6: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: REQ-B02: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: B02.3: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: REQ-B03: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B03.4: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: REQ-B04: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B04.5: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: REQ-B05: live requirement lacks evidence for stage release
+FAIL: B05.1: live requirement lacks evidence for stage release
+FAIL: B05.2: live requirement lacks evidence for stage release
+FAIL: B05.3: live requirement lacks evidence for stage release
+FAIL: REQ-U01: live requirement lacks evidence for stage release
+FAIL: U01.1: live requirement lacks evidence for stage release
+FAIL: U01.2: live requirement lacks evidence for stage release
+FAIL: U01.3: live requirement lacks evidence for stage release
+FAIL: U01.4: live requirement lacks evidence for stage release
+FAIL: REQ-U02: live requirement lacks evidence for stage release
+FAIL: U02.2: live requirement lacks evidence for stage release
+FAIL: REQ-U03: live requirement lacks evidence for stage release
+FAIL: REQ-U04: live requirement lacks evidence for stage release
+FAIL: REQ-U05: live requirement lacks evidence for stage release
+FAIL: U05.3: live requirement lacks evidence for stage release
+FAIL: U05.4: live requirement lacks evidence for stage release
+FAIL: REQ-U06: live requirement lacks evidence for stage release
+FAIL: U06.2: live requirement lacks evidence for stage release
+FAIL: REQ-U07: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07.1a: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07.1e: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: REQ-U07-2: live requirement lacks evidence for stage release
+FAIL: U07.2a: live requirement lacks evidence for stage release
+FAIL: U07.2e: live requirement lacks evidence for stage release
+FAIL: REQ-U07-3: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07.3b: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07.3c: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: REQ-U08: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: REQ-U08-0: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: REQ-U08-1: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: REQ-U08-2: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: REQ-U08-3: mandatory not ['VERIFIED'] (got PENDING)
+FAIL: U08.3a: mandatory not ['VERIFIED'] (got PENDING)
+... and 84 more
+stage=release inventory=148 manual=74 scoped=200 errors=134
+```
+
+Группировка всех 134 ошибок (полная энумерация read-only репликой логики гейта):
+
+- **104 × «mandatory not ['VERIFIED']»** = 48 PENDING (45 демоушенов этого прохода: U08×31, B01×6, B06/B07×8;
+  плюс B12.1, B12.6, REQ-0-1) + 38 READY_FOR_LIVE + 18 BLOCKED_REAL_HUMAN_GATE;
+- **30 × «live requirement lacks evidence for stage release»** — VERIFIED-строки с live_required без live/production-наблюдения
+  на 31c16555 (привязка есть; recap-артефакты локальные = type ui; deploy-наблюдение только у B12.4):
+  U07-SYM-ANDROID, REQ-B05, B05.1-3, REQ-U01, U01.1-4, REQ-U02, U02.2, REQ-U03, REQ-U04, REQ-U05, U05.3, U05.4,
+  REQ-U06, U06.2, REQ-U07-2, U07.2a, U07.2e, REQ-B08, FINAL.3, REQ-EVIDENCE-SELF, REQ-B05-DOD, REQ-U01-TESTS,
+  B10-R05, REQ-B11-SCOPE, V05;
+- **0** × candidate/deployed mismatch; **0** × «no evidence bound to reviewed candidate» (все 96 VERIFIED-строк привязаны к 31c16555).
+
+Красный release-гейт — штатное состояние: 45 демоушенов этого прохода + 59 ранее открытые required-строки (38 READY_FOR_LIVE +
+18 BLOCKED + B12.1/B12.6/REQ-0-1) + 30 live-клауз без live/prod-наблюдения на деплой-коммите. Ни одна строка не «озеленена» принудительно.
+
+## Re-verify open rows at 31c16555
+
+Лейн **V63-REBIND-45** (verify + bounded binding; touched: `requirements-map.json` — только перечисленные строки,
+этот раздел, `evidence/rebind-31c16555/**`; без кода, деплоя, SSH, коммитов). Работа — в **detached worktree**
+деплой-коммита, удалённом по завершении.
+
+### Fingerprint (дерево == деплой)
+
+`git rev-parse HEAD` = `31c165556dbe8c289606bd6bee1af49bb72d5794`; sha256: `web/static/app.css` =
+`70975eb2eac08f01beaecc1bf5be6ff005de75efada145f96785c0973c887be2`, `web/app.js` =
+`9774da6a4e932287123cc49f8c84337a77f2bdef63385b3e76a9d47d5f9cb8ac`, `web/index.html` =
+`e209d5faf7e8e54a907a35c570aba9f574cbfa9fbae2ae1fc8c95e53be26b3e0`, `services/param_catalog.py` =
+`1981d3382e2ee81222107027ead5e7e61ef438cbdc91afcd1c13e668d0d15ba7` — совпадают с
+`evidence/deploy-25880/ev03-verification-summary.md` (серверные файлы байт-в-байт = релизному коммиту, вкл.
+отданный `/web/static/app.css`).
+
+### Что перепрогнано на 31c16555 (артефакты — `evidence/rebind-31c16555/`)
+
+1. **Node glass-сьют** (в worktree): `glass_probe`, `design_tokens`, `hotfix6/7/9/10` — 6/6 `exit=0`
+   (`node_glass_suite.log`: `JS-UNIT-OK glass-probe`, `JS-UNIT-OK`, `HOTFIX6-LENS-HEARTBEAT-SHELL-OK`,
+   `HOTFIX10-GLASS-GEOMETRY-BG-OK`, `HOTFIX7-SHELL-GLASS-HEARTBEAT-OK`, `HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK`).
+2. **pytest B01+B06+B07** (в worktree, тот же venv): `42 passed in 5.10s` (`TRIO_EXIT=0`,
+   `b01_b06_b07_suite.log`); B08 сверх — `24 passed` (`b08_suite.log`).
+3. **Стенд + реальный Chrome 155** (`glass_rebind_check2.py`): probe `tierA=true/probe-chromium/svg=true`
+   (28ms); A/B-замер поля смещения (панель видна/скрыта, dpr=3, subpixel peak-метод): крайние линии
+   ±3..7.25px, ряд y+112 центр 2.03px, **контроль вне панели — ровно 0.00**; карта линзы расшифрована из
+   data-URI `index.html`: max|disp|=8.00px, центр |u|,|v|≤0.62 = **0.031px**, odd-симметрия — поле
+   согласовано с картой (dev median 1.56 / max 2.58px); контраст 14.8:1 (волна 16.3:1); rim top>bottom,
+   left>right; specular top-left (0.025/0.040); hit `#hero-btn` — inside, клик ok; Tier B: `url()` нет,
+   blur(~5px) есть, направленного сдвига нет (медиана 1.61px ≈ шум метода; линии видны, modulation 0.24).
+4. **Реальные страницы** (мок-API `ui_round1025_matrix`): tier map — статус 1×a+3×b+2×c (hero a probe-chromium
+   + inline `url("#lg-lens-…")`, cognition-graph c), oversight 5×b+1×c, modules 15 × `.module-card` b,
+   hover-specular none→`radial-gradient(120% 90% at 18% 0%)`; hit-тест центра hero — внутри; декор
+   pointer-events=none; консоль 0; overflow ok; **url()-фильтров в редакторе/oversight/modules — 0**;
+   390: header tier=b, popover «Ещё» tier=c, sceneSeed 424242→424242 (тот же canvas); prefers-reduced-motion →
+   hero tier=b reason=reduced-motion, low-end (mem=2/cores=2) → tier=b reason=low-end.
+   Примечания: (а) в мок-стубе `UI_LIQUID_GLASS_LIB=True` (прод-default False — `config/settings.py:1306`),
+   поэтому `ps-glass__surface` url()-frost на статусе — индуцирован стубом; (б) шум поля ~1.6px (blur-фон);
+   (в) WebKit в среде отсутствует (WebKit-ветка — unit-матрица decide()); (г) физические устройства/
+   mid-range Android — вне среды проверки.
+5. **FPS-прокси** (headless, 390): 60fps avg, p95 17.1ms, 0 дропов>25ms.
+
+### Применено к карте (46 строк: 39 → VERIFIED, 4 → READY_FOR_LIVE, 3 PENDING с суженной причиной; у каждой строки — 1 новый evidence с `candidate_commit=31c16555`, старые сохранены)
+
+* **VERIFIED (39).** U08 (24): U08-SYM, REQ-U08-0, REQ-U08-1, REQ-U08-2, REQ-U08-3, U08.3a/b/c/d,
+  U08.4a/b/c/e/f, REQ-U08-5, U08.5.2/5.3/5.5, REQ-U08-0-MATERIAL, REQ-U08-0-PALETTE, REQ-U08-1-AUDIT,
+  REQ-U08-1-PROBE, REQ-U08-2-LAYERS, REQ-U08-2-PARAMS. B01 (6): B01.1/2/3/5/6, REQ-B01-CLARIFY (13/13 b01 на
+  31c16555). B06/B07 (8): B06.1–3 (17/17), B07.1–3 + REQ-B07-BODY (12/12); **REQ-B07** — production-биндинг
+  (прод=31c16555, серверные файлы = коммит; temporal-код вне дельты c2775a54..31c16555). **B12.1** —
+  клауза «закоммичены» выполнена: review-ledger/integration-evidence/v63-final-coverage (50a7e689),
+  live-canary (4ca40730), release-reconciliation (8c960df6), ui-acceptance (c0535280 @w2-evidence-glass),
+  requirements-map (bc91b902) — tracked, все ancestors 31c16555; скриншоты в git (41/49/58/12 PNG);
+  `__PENDING__` = 0; журнал — `b12_1_tracking.txt`.
+* **READY_FOR_LIVE (4).** REQ-U08, U08.3e, U08.5.4, REQ-U08-DOD — UI/стенд-часть перепроверена на 31c16555,
+  остаётся клауза живого клиента (Android/WebKit fallback, физический mid-range FPS/responsiveness) — owner/V07.
+* **Остались PENDING (3).** REQ-U08-4, U08.4d, U08.5.1 — клауза «fullscreen-контрол ⛶ = круглая мини-линза»
+  не реализована на 31c16555: `.lg-mini-lens` — только CSS-класс (`app.css:3527`), кнопка `.header-fs-btn`
+  его не получает (Playwright 390: `has_mini_lens=false`, `bf=none`, borderRadius 50%, 49×44) —
+  **REV-W2-N1** (open, non-blocking → W4-hardening); close-up отсутствует — **REV-W2-N4**. Остальные клаузы
+  этих строк перепроверены (шапка b, popover c).
+
+### Gate (verbatim)
+
+`check --stage plan` → exit 0:
+
+```
+stage=plan inventory=148 manual=74 scoped=0 errors=0
+```
+
+`check --stage release --candidate 31c165556dbe8c289606bd6bee1af49bb72d5794 --deployed-commit 31c165556dbe8c289606bd6bee1af49bb72d5794` → **exit 1**:
+
+```
+FAIL: U07-SYM-DESKTOP: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07-SYM-ANDROID: live requirement lacks evidence for stage release
+FAIL: U07-LAUNCHMODE: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U08-SYM: live requirement lacks evidence for stage release
+FAIL: REQ-B01: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+... and 53 more
+stage=release inventory=148 manual=74 scoped=200 errors=103
+```
+
+Классификация всех 103: **65** × mandatory-not-VERIFIED (42 READY_FOR_LIVE + 18 BLOCKED_REAL_HUMAN_GATE +
+5 PENDING = U08.4d/REQ-U08-4/U08.5.1, B12.6, REQ-0-1) + **38** × live-lacks-evidence (VERIFIED с
+`live_required` без live/production-наблюдения; 8 из них — строки U08 этого прохода, ранее дававшие ту же
+одну ошибку в mandatory-классе). Было 134 → стало **103** (−39 снятых mandatory + 8 перешедших в live-класс).
+Красный release-гейт — штатное состояние; «озеленения»/force-green нет.
+
+Счётчики (222 строки; required=200): **VERIFIED 135 / READY_FOR_LIVE 42 / PENDING 27 / BLOCKED 18**.

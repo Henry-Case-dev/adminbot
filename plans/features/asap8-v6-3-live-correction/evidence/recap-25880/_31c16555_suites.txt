@@ -1,0 +1,26 @@
+RECAP-25880 - six UI suites re-run inside detached worktree @ 31c16555 (deployed commit)
+python: C:\Code\Python\adminbot\.venv\Scripts\python.exe (real suites, R17 route stubs, real web/ of the worktree)
+worktree: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\recap-31c16555
+date: 2026-10-16
+
+== ui_asap8_w2_shell_e2e (exit 0)
+   W2-SHELL-E2E-OK
+== ui_asap8_w2_fullscreen_e2e (exit 0)
+   [w2-fs] S1_android_float         PASS (21 checks)
+   [w2-fs] S2_inline_fallback       PASS (10 checks)
+   [w2-fs] S3_tdesktop_hidden       PASS (4 checks)
+   [w2-fs] S4_no_telegram           PASS (2 checks)
+   [w2-fs] S5_ack_flows             PASS (13 checks)
+   [w2-fs] S6S7_launch_fullscreen   PASS (5 checks)
+   [w2-fs] S8_widths                PASS (15 checks)
+   [w2-fs] ╨╕╤В╨╛╨│: 7/7 PASS, ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л: C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\recap-31c16555\plans\features\asap8-v6-3-live-correction\w2-evidence-fullscreen
+== ui_asap8_w3_editor_e2e (exit 0)
+   passed=40 failed=0 тЖТ C:\Users\main\.config\opencode\OpenCodeScratch\adminbot-ccef72c25768\recap-31c16555\plans\features\asap8-v6-3-live-correction\w3-evidence-editor\w3_editor_e2e_after.json
+== ui_asap8_w3_modules_e2e (exit 0)
+   W3-MODULES-E2E-OK
+== ui_asap8_w3_analytics_e2e (exit 0)
+   W3-ANALYTICS-E2E-OK: 74 checks, 21 screenshots
+== ui_asap8_v63_w3_status_e2e (exit 0)
+   W3-STATUS-E2E-OK
+
+Full raw stdout: _31c16555_suite_<suite>.log (UTF-8).

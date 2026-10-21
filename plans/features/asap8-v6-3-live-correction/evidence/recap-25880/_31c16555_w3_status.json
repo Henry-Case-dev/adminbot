@@ -1,0 +1,38 @@
+{
+ "console_errors": [],
+ "checks": {
+  "sleep_panels_single": true,
+  "sleep_canonical_title": true,
+  "sleep_unknown_label": true,
+  "no_1970": true,
+  "no_dup_sleep_badges": true,
+  "expired_total": true,
+  "expired_layout": true,
+  "mem_tech_present": true,
+  "initiative_funnel_stages": true,
+  "initiative_observed_420": true,
+  "initiative_liveness": true,
+  "experience_windows": true,
+  "exp_last_applied": true,
+  "logs_in_status_grid": true,
+  "log_rows_rendered": true,
+  "log_counters": true,
+  "log_top_counts": true,
+  "log_filters_present": true,
+  "copy_row_no_crash": true,
+  "analytics_no_logs_tab": true,
+  "analytics_no_logs_block": true,
+  "legacy_redirect_canon": true,
+  "legacy_active_tab_status": true,
+  "anchor_scroll_visible": true,
+  "no_h_overflow_mobile_390": true,
+  "no_h_overflow_narrow_320": true
+ },
+ "screenshots": [
+  "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\w3-evidence-status\\w3_status_desktop_1440.png",
+  "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\w3-evidence-status\\w3_status_logs_desktop.png",
+  "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\w3-evidence-status\\w3_status_mobile_390.png",
+  "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\w3-evidence-status\\w3_status_narrow_320.png"
+ ],
+ "ok": true
+}

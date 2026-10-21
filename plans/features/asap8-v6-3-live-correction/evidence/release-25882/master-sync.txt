@@ -1,0 +1,34 @@
+# RELEASE-INC-25882 — master re-sync evidence (push-only, no local ref move)
+
+Date: 2026-10-16 (UTC) / 17.10 local.
+
+## Method deviation (deliberate, safety)
+
+Previous lane moved the local `master` ref and repaired the main worktree with
+`git checkout HEAD -- <31 version files>`. That is UNSAFE now: the main worktree
+carries neighbor-lane WIP in `tests/test_unified_image_request_round1026.py`,
+which IS one of the 31 version-pin files (SOUL-1 W10 semantic change, not a pin).
+Overwriting it would destroy WIP (DO_NOT_TOUCH). Therefore: push-only.
+
+## Commands / results
+
+1. Safety check: `git diff 6d4b9a7d e4bb51d8 -- <31 version files>` →
+   only `tests/test_round1025_f8_registry.py` differs (+6 comment lines, W1
+   re-pin note; non-overlapping with the version string) → cherry-pick clean.
+2. `git worktree add --detach OPENCODE_WORKFLOW_SCRATCH/inc25882-master-sync e4bb51d8`
+3. `git cherry-pick 7e9ce8cb` → clean, new commit:
+   `9d8aeaf9d7e026886bfe3cbfbb7c7eb429632918` (31 files, 33+/33-)
+   settings APP_VERSION = "2.58.82".
+4. Sanity: `pytest tests/test_round1025_f8_registry.py tests/test_webapp_round1026_polygon.py`
+   → 52 passed; `tools/gen_param_registry_round1025.py --check` → CHECK OK (572).
+5. `git push origin HEAD:master` → `2e5aac1a..9d8aeaf9  HEAD -> master` (FF, no force).
+   `git ls-remote origin refs/heads/master` → `9d8aeaf9d7e026886bfe3cbfbb7c7eb429632918`.
+
+## State
+
+- origin/master = `9d8aeaf9` (2.58.82). Brought W3 (4c8405e7), incident fix
+  (e4bb51d8), test-only 746d2e8a, bump — all previously approved; W1 (3cc0b9c0)
+  was already on origin/master from the previous lane.
+- Local ref `master` INTENTIONALLY left at `e4bb51d8`; main worktree untouched.
+  Next pull in the main worktree will need the usual WIP/pin reconciliation
+  (test_unified_image_request_round1026.py has W10 WIP + bump touches its pin).

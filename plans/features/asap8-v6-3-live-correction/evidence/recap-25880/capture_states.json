@@ -1,0 +1,2968 @@
+{
+ "generated": "2026-10-16",
+ "lane": "RECAP-25880",
+ "port": 8871,
+ "worktree": "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\recap-31c16555",
+ "prefix": "_31c16555_",
+ "stub_notes": "config stub = deployed catalog, values blanked (R17); ONLY prompts.direct_l1_planner_system_prompt seeded with services.chat_prompts.DIRECT_L1_PLANNER_SYSTEM_PROMPT (len 2423 = prod probe value_len)",
+ "shots": [
+  "_31c16555_status_320x700.png",
+  "_31c16555_analytics_overview_320x700.png",
+  "_31c16555_analytics_processes_320x700.png",
+  "_31c16555_modules_320x700.png",
+  "_31c16555_editor_prompts_320x700.png",
+  "_31c16555_cover_editor_320x700.png",
+  "_31c16555_status_360x780.png",
+  "_31c16555_analytics_overview_360x780.png",
+  "_31c16555_analytics_processes_360x780.png",
+  "_31c16555_modules_360x780.png",
+  "_31c16555_editor_prompts_360x780.png",
+  "_31c16555_cover_editor_360x780.png",
+  "_31c16555_status_390x844.png",
+  "_31c16555_analytics_overview_390x844.png",
+  "_31c16555_analytics_processes_390x844.png",
+  "_31c16555_modules_390x844.png",
+  "_31c16555_editor_prompts_390x844.png",
+  "_31c16555_cover_editor_390x844.png",
+  "_31c16555_status_430x932.png",
+  "_31c16555_analytics_overview_430x932.png",
+  "_31c16555_analytics_processes_430x932.png",
+  "_31c16555_modules_430x932.png",
+  "_31c16555_editor_prompts_430x932.png",
+  "_31c16555_cover_editor_430x932.png",
+  "_31c16555_status_768x1024.png",
+  "_31c16555_analytics_overview_768x1024.png",
+  "_31c16555_analytics_processes_768x1024.png",
+  "_31c16555_modules_768x1024.png",
+  "_31c16555_editor_prompts_768x1024.png",
+  "_31c16555_cover_editor_768x1024.png",
+  "_31c16555_status_1024x768.png",
+  "_31c16555_analytics_overview_1024x768.png",
+  "_31c16555_analytics_processes_1024x768.png",
+  "_31c16555_modules_1024x768.png",
+  "_31c16555_editor_prompts_1024x768.png",
+  "_31c16555_cover_editor_1024x768.png",
+  "_31c16555_status_1440x900.png",
+  "_31c16555_analytics_overview_1440x900.png",
+  "_31c16555_analytics_processes_1440x900.png",
+  "_31c16555_modules_1440x900.png",
+  "_31c16555_editor_prompts_1440x900.png",
+  "_31c16555_cover_editor_1440x900.png",
+  "_31c16555_status_667x375.png",
+  "_31c16555_analytics_overview_667x375.png",
+  "_31c16555_analytics_processes_667x375.png",
+  "_31c16555_modules_667x375.png",
+  "_31c16555_editor_prompts_667x375.png",
+  "_31c16555_cover_editor_667x375.png",
+  "_31c16555_editor_prompts_l1_focus_390x844.png",
+  "_31c16555_direct_models_390x844.png",
+  "_31c16555_editor_prompts_l1_focus_1440x900.png",
+  "_31c16555_direct_models_1440x900.png",
+  "_31c16555_shell_more_open_390x844.png",
+  "_31c16555_fullscreen_on_390x844.png",
+  "_31c16555_fullscreen_on_1024x768.png",
+  "_31c16555_tdesktop_policy_1440x900.png",
+  "_31c16555_rowa_390_zero_390x844.png",
+  "_31c16555_rowa_667_right44_667x375.png",
+  "_31c16555_rowa_320_lr24_320x700.png"
+ ],
+ "states": {
+  "status/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 116,
+    "right": 320,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 288,
+    "h": 47,
+    "right": 304,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 255,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 304,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/360x780": {
+   "vw": 360,
+   "vh": 780,
+   "scrollWidth": 360,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 360,
+    "h": 116,
+    "right": 360,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 328,
+    "h": 47,
+    "right": 344,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 295,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 344,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/430x932": {
+   "vw": 430,
+   "vh": 932,
+   "scrollWidth": 430,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 430,
+    "h": 116,
+    "right": 430,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 398,
+    "h": 47,
+    "right": 414,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 365,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 414,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/768x1024": {
+   "vw": 768,
+   "vh": 1024,
+   "scrollWidth": 768,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 768,
+    "h": 113,
+    "right": 768,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 703,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 752,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1062,
+   "hOverflow": true,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 113,
+    "right": 1024,
+    "bottom": 113
+   },
+   "headerH": 113.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 959,
+    "y": 12,
+    "w": 49,
+    "h": 44,
+    "right": 1008,
+    "bottom": 56
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1478,
+   "hOverflow": true,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "status/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "headerH": 93.8,
+   "headerPad": {
+    "top": "5.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_overview/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/oversight",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "headerH": 93.8,
+   "headerPad": {
+    "top": "5.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "analytics_processes/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/oversight?view=processes",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "headerH": 93.8,
+   "headerPad": {
+    "top": "5.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "modules/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/modules",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "headerH": 93.8,
+   "headerPad": {
+    "top": "5.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "editor_prompts/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "headerH": 93.8,
+   "headerPad": {
+    "top": "5.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_chat_synthesizer_system_prompt",
+    "len": 0
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "cover_editor/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/modules/summary/styles",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 94,
+    "right": 667,
+    "bottom": 94
+   },
+   "headerH": 93.8,
+   "headerPad": {
+    "top": "5.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 52,
+    "w": 635,
+    "h": 35,
+    "right": 651,
+    "bottom": 87
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 602,
+    "y": 6,
+    "w": 49,
+    "h": 44,
+    "right": 651,
+    "bottom": 50
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": true
+  },
+  "editor_prompts_l1_focus/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct/prompts.direct_l1_planner_system_prompt",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_l1_planner_system_prompt",
+    "len": 2423
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "direct_models/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/modules/direct/models",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 2,
+   "l1SummaryCard": true,
+   "coverEditorOpen": false
+  },
+  "editor_prompts_l1_focus/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/ai/prompts/direct/prompts.direct_l1_planner_system_prompt",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [
+    "prompts.direct_chat_synthesizer_system_prompt",
+    "prompts.direct_l1_planner_system_prompt"
+   ],
+   "l1PromptPresent": true,
+   "l1PromptText": "L1 Planner: план ответа",
+   "promptTextarea": {
+    "key": "prompts.direct_l1_planner_system_prompt",
+    "len": 2423
+   },
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "direct_models/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/modules/direct/models",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 109,
+    "right": 1440,
+    "bottom": 109
+   },
+   "headerH": 109.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": {
+    "x": 1375,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 1424,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 2,
+   "l1SummaryCard": true,
+   "coverEditorOpen": false
+  },
+  "shell_more_open/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3 more-menu-open",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "fullscreen_on/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 139,
+    "right": 390,
+    "bottom": 139
+   },
+   "headerH": 138.6,
+   "headerPad": {
+    "top": "32px",
+    "right": "60px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 81,
+    "w": 314,
+    "h": 47,
+    "right": 330,
+    "bottom": 128
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 281,
+    "y": 32,
+    "w": 49,
+    "h": 44,
+    "right": 330,
+    "bottom": 76
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell fullscreen-mode shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "fullscreen_on/1024x768": {
+   "vw": 1024,
+   "vh": 768,
+   "scrollWidth": 1024,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 1024,
+    "h": 136,
+    "right": 1024,
+    "bottom": 136
+   },
+   "headerH": 135.8,
+   "headerPad": {
+    "top": "32px",
+    "right": "60px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 915,
+    "y": 34,
+    "w": 49,
+    "h": 44,
+    "right": 964,
+    "bottom": 78
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell fullscreen-mode shell-compact ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "tdesktop_policy/1440x900": {
+   "vw": 1440,
+   "vh": 900,
+   "scrollWidth": 1440,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 216,
+    "y": 0,
+    "w": 1224,
+    "h": 85,
+    "right": 1440,
+    "bottom": 85
+   },
+   "headerH": 85.4,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": null,
+   "sidebar": {
+    "x": 0,
+    "y": 0,
+    "w": 216,
+    "h": 900,
+    "right": 216,
+    "bottom": 900
+   },
+   "sidebarVisible": true,
+   "fsBtn": null,
+   "fsVisible": false,
+   "shellClass": "app-shell shell-desktop ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false
+  },
+  "rowa_390_zero/390x844": {
+   "vw": 390,
+   "vh": 844,
+   "scrollWidth": 390,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 390,
+    "h": 116,
+    "right": 390,
+    "bottom": 116
+   },
+   "headerH": 116.2,
+   "headerPad": {
+    "top": "9.6px",
+    "right": "16px",
+    "left": "16px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 58,
+    "w": 358,
+    "h": 47,
+    "right": 374,
+    "bottom": 106
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 325,
+    "y": 10,
+    "w": 49,
+    "h": 44,
+    "right": 374,
+    "bottom": 54
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false,
+   "inset_expected": {
+    "pad_right": 16.0,
+    "pad_left": 16.0,
+    "safe_right": 390
+   },
+   "inset_ok": true,
+   "inset_got": {
+    "pad_right": 16.0,
+    "pad_left": 16.0,
+    "safe_right": 390
+   }
+  },
+  "rowa_667_right44/667x375": {
+   "vw": 667,
+   "vh": 375,
+   "scrollWidth": 667,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 667,
+    "h": 114,
+    "right": 667,
+    "bottom": 114
+   },
+   "headerH": 113.8,
+   "headerPad": {
+    "top": "25.6px",
+    "right": "60px",
+    "left": "16px",
+    "bottom": "5.6px"
+   },
+   "nav": {
+    "x": 16,
+    "y": 72,
+    "w": 591,
+    "h": 35,
+    "right": 607,
+    "bottom": 107
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 558,
+    "y": 26,
+    "w": 49,
+    "h": 44,
+    "right": 607,
+    "bottom": 70
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false,
+   "inset_expected": {
+    "pad_right": 60.0,
+    "pad_left": 16.0,
+    "safe_right": 623
+   },
+   "inset_ok": true,
+   "inset_got": {
+    "pad_right": 60.0,
+    "pad_left": 16.0,
+    "safe_right": 623
+   }
+  },
+  "rowa_320_lr24/320x700": {
+   "vw": 320,
+   "vh": 700,
+   "scrollWidth": 320,
+   "hOverflow": false,
+   "hash": "#/",
+   "header": {
+    "x": 0,
+    "y": 0,
+    "w": 320,
+    "h": 136,
+    "right": 320,
+    "bottom": 136
+   },
+   "headerH": 136.2,
+   "headerPad": {
+    "top": "29.6px",
+    "right": "40px",
+    "left": "40px",
+    "bottom": "9.6px"
+   },
+   "nav": {
+    "x": 40,
+    "y": 78,
+    "w": 240,
+    "h": 47,
+    "right": 280,
+    "bottom": 126
+   },
+   "sidebar": null,
+   "sidebarVisible": false,
+   "fsBtn": {
+    "x": 231,
+    "y": 30,
+    "w": 49,
+    "h": 44,
+    "right": 280,
+    "bottom": 74
+   },
+   "fsVisible": true,
+   "shellClass": "app-shell shell-mobile ia-v2 shell-flex-v3 shell-glass-v2 shell-v3",
+   "promptKeys": [],
+   "l1PromptPresent": false,
+   "l1PromptText": null,
+   "promptTextarea": null,
+   "directStages": 0,
+   "l1SummaryCard": false,
+   "coverEditorOpen": false,
+   "inset_expected": {
+    "pad_right": 40.0,
+    "pad_left": 40.0,
+    "safe_right": 296
+   },
+   "inset_ok": true,
+   "inset_got": {
+    "pad_right": 40.0,
+    "pad_left": 40.0,
+    "safe_right": 296
+   }
+  }
+ },
+ "console_errors": [],
+ "served_css": {
+  "url": "http://127.0.0.1:8871/static/app.css",
+  "bytes": 195890,
+  "sha256": "70975eb2eac08f01beaecc1bf5be6ff005de75efada145f96785c0973c887be2",
+  "right_formula_count": 3,
+  "left_formula_count": 2,
+  "top_formula_count": 2,
+  "file_sha256_match": true
+ },
+ "inset_cases": {}
+}

@@ -1,0 +1,28 @@
+﻿== B12.1 tracking evidence @ 31c165556dbe8c289606bd6bee1af49bb72d5794
+
+== git ls-files (tracked at HEAD):
+plans/features/asap8-v6-3-live-correction/integration-evidence.md
+plans/features/asap8-v6-3-live-correction/live-canary.md
+plans/features/asap8-v6-3-live-correction/release-reconciliation.md
+plans/features/asap8-v6-3-live-correction/requirements-map.json
+plans/features/asap8-v6-3-live-correction/requirements-map.md
+plans/features/asap8-v6-3-live-correction/review-ledger.md
+plans/features/asap8-v6-3-live-correction/v63-final-coverage-report-2026-10-16.md
+plans/features/asap8-v6-3-live-correction/w2-evidence-glass/ui-acceptance.md
+
+== добавления (git log --diff-filter=A):
+TRACKED plans/features/asap8-v6-3-live-correction/review-ledger.md [added: 50a7e689 2026-10-16]
+TRACKED plans/features/asap8-v6-3-live-correction/integration-evidence.md [added: 50a7e689 2026-10-16]
+TRACKED plans/features/asap8-v6-3-live-correction/v63-final-coverage-report-2026-10-16.md [added: 50a7e689 2026-10-16]
+TRACKED plans/features/asap8-v6-3-live-correction/w2-evidence-glass/ui-acceptance.md [added: c0535280 2026-10-15]
+TRACKED plans/features/asap8-v6-3-live-correction/live-canary.md [added: 4ca40730 2026-10-16]
+TRACKED plans/features/asap8-v6-3-live-correction/release-reconciliation.md [added: 8c960df6 2026-10-16]
+TRACKED plans/features/asap8-v6-3-live-correction/requirements-map.md [added: bc91b902 2026-10-15]
+
+== PNG tracked (counts): w2-evidence-glass / evidence-v63-frontend / w2-evidence-fullscreen / v63-rowa-safearea:
+plans/features/asap8-v6-3-live-correction/w2-evidence-glass -> tracked=47 png=41
+plans/features/asap8-v6-3-live-correction/evidence/v63-frontend -> tracked=54 png=49
+plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen -> tracked=13 png=12
+plans/features/asap8-v6-3-live-correction/evidence/v63-rowa-safearea -> tracked=65 png=58
+
+== __PENDING__ в финальном отчёте: 0 вхождений

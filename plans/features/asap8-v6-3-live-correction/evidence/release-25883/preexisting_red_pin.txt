@@ -1,0 +1,12 @@
+﻿=== pre-existing RED pin test_webapp_ui_rework_round1020.py::TestLiquidGlass::test_modal_backdrop_blur_token ===
+--- delta 7e9ce8cb..448cc81a touching this test file / web assets (must be empty except version pins) ---
+--- reproduced on DEPLOYED 7e9ce8cb (isolated worktree incident-release-25882) ---
+HEAD=7e9ce8cb
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_ui_rework_round1020.py::TestLiquidGlass::test_modal_backdrop_blur_token
+1 failed in 4.13s
+--- reproduced on CANDIDATE 448cc81a (inc83-tests) ---
+HEAD=448cc81a
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_ui_rework_round1020.py::TestLiquidGlass::test_modal_backdrop_blur_token
+1 failed in 4.07s

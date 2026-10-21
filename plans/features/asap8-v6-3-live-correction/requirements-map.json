@@ -6,6 +6,25 @@
  "deployed_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
  "additional_requirements": [
   {
+   "source_id": "M-L00014-OWNEROBS",
+   "source_line": 14,
+   "source_text_sha256": "8bdf79c71919e59b3cddc5464bbf8ac5ccc293bf4fd9de9244e9558fb5efa306",
+   "source_excerpt": "- Windows Telegram Desktop: нажатие web-кнопки fullscreen иногда переводит MiniApp в небольшое неудобное окно вместо заполнения монитора; нарушаются ожидаемые возможности закрытия/перемещения. Проверить на настоящем клиенте, не предполагая,",
+   "disposition": "required",
+   "reason": "Сверка 20.10.2026 (OWNER-OBS-RECON): проверки на реальных клиентах владельца (Windows Telegram Desktop, Android portrait/landscape; Browser Use ≠ нативное окно/WebView) — добровольные личные device-наблюдения; инженерные e2e/журналы/эмуляции остаются обязательными в связанных строках.",
+   "req_id": "U07-OWNER-REALDEV",
+   "slice": "FE-FULLSCREEN",
+   "acceptance": "Добровольное наблюдение владельца на реальных клиентах: Windows Telegram Desktop — web-кнопка fullscreen не переводит MiniApp в маленькое неудобное окно, из штатной UI в неуправляемое окно попасть нельзя, exit доступен; Android Telegram portrait/landscape — fullscreen с реальным выходом, без третьего ряда/гигантской кнопки, нативные кнопки доступны.",
+   "live_required": false,
+   "live_when": "postdeploy",
+   "status": "PENDING",
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Нативные клиенты Telegram на устройствах владельца агентам недоступны (headless-эмуляция ≠ нативное окно и ≠ Android WebView); device-наблюдение добровольно по правилу 20.10.2026.",
+   "engineering_req_ids": ["U07-SYM-DESKTOP", "REQ-U07-HARD", "REQ-U07-3", "U07.3c", "V06"],
+   "evidence": []
+  },
+  {
    "source_id": "M001-L00001",
    "source_line": 1,
    "source_text_sha256": "ed91d8a1b15506f03943e48ea38e374e4fbbdf5fc67ba092c3ec9ddae23b8a6d",

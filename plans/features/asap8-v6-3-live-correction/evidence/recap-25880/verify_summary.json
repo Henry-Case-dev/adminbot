@@ -1,0 +1,42 @@
+{
+ "all_hard_pass": true,
+ "failed": [],
+ "states": 59,
+ "pngs_indexed": 71,
+ "hOverflow_states": {
+  "editor_prompts/1024x768": true,
+  "editor_prompts/1440x900": true
+ },
+ "checks": {
+  "fingerprint.head_match": true,
+  "fingerprint.all_files_match": true,
+  "fingerprint.code_paths_clean": true,
+  "css.served_right_formula_x3": true,
+  "css.served_sha256_equals_worktree_file": true,
+  "css.top_formula_present": true,
+  "css.left_formula_present": true,
+  "png.matrix_is_whole_viewport": true,
+  "png.matrix_offenders": [],
+  "png.matrix_48_files_present": true,
+  "png.matrix_missing": [],
+  "l1.entry_present_all_8_viewports": true,
+  "l1.entry_missing_states": [],
+  "l1.focus_editor_opened": true,
+  "l1.focus_textarea_lens": [
+   {
+    "key": "prompts.direct_l1_planner_system_prompt",
+    "len": 2423
+   },
+   {
+    "key": "prompts.direct_l1_planner_system_prompt",
+    "len": 2423
+   }
+  ],
+  "png.all_named_dimensions_match_ihdr": true,
+  "png.dim_offenders": [],
+  "rowa.inset_geometry_ok": true,
+  "rowa.inset_bad": [],
+  "console_errors_empty": true,
+  "console_errors": []
+ }
+}

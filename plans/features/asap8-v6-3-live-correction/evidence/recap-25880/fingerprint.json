@@ -1,0 +1,35 @@
+{
+ "worktree": "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\recap-31c16555",
+ "head": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+ "head_expected": "31c165556dbe8c289606bd6bee1af49bb72d5794",
+ "head_match": true,
+ "code_paths_dirty": null,
+ "files": {
+  "web/static/app.css": {
+   "sha256": "70975eb2eac08f01beaecc1bf5be6ff005de75efada145f96785c0973c887be2",
+   "expected_deployed": "70975eb2eac08f01beaecc1bf5be6ff005de75efada145f96785c0973c887be2",
+   "match": true
+  },
+  "web/app.js": {
+   "sha256": "9774da6a4e932287123cc49f8c84337a77f2bdef63385b3e76a9d47d5f9cb8ac",
+   "expected_deployed": "9774da6a4e932287123cc49f8c84337a77f2bdef63385b3e76a9d47d5f9cb8ac",
+   "match": true
+  },
+  "web/index.html": {
+   "sha256": "e209d5faf7e8e54a907a35c570aba9f574cbfa9fbae2ae1fc8c95e53be26b3e0",
+   "expected_deployed": "e209d5faf7e8e54a907a35c570aba9f574cbfa9fbae2ae1fc8c95e53be26b3e0",
+   "match": true
+  },
+  "services/param_catalog.py": {
+   "sha256": "1981d3382e2ee81222107027ead5e7e61ef438cbdc91afcd1c13e668d0d15ba7",
+   "expected_deployed": "1981d3382e2ee81222107027ead5e7e61ef438cbdc91afcd1c13e668d0d15ba7",
+   "match": true
+  },
+  "config/settings.py": {
+   "sha256": "5a31a2770ab27ba8b21f3f1fba499c50464b7798af15be8b79c09a31b9f722fd",
+   "expected_deployed": "5a31a2770ab27ba8b21f3f1fba499c50464b7798af15be8b79c09a31b9f722fd",
+   "match": true
+  }
+ },
+ "all_match": true
+}

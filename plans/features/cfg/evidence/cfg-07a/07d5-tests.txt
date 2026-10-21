@@ -1,0 +1,45 @@
+﻿CFG-07D.5 focus runs (base HEAD ce77b2c4, uncommitted worktree)
+date: 2026-10-21
+
+== combined: new + dictionary + tail + route-coverage + factcheck family ==
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+232 passed, 2 warnings in 10.39s
+
+== per-file counts ==
+test_cfg07_guard_07d5 : 39 passed, 2 warnings in 3.28s
+test_cfg07_egress_dictionary : 67 passed, 2 warnings in 3.21s
+test_cfg07_guard_tail : 29 passed, 2 warnings in 4.45s
+test_unified_core_route_coverage : 18 passed, 2 warnings in 4.07s
+test_anticliche_round1023 : 79 passed, 3 warnings in 6.25s
+test_mca08_style_form : 83 passed, 2 warnings in 6.97s
+test_negative_constraints_round1022 : 33 passed, 2 warnings in 3.25s
+test_mca15_chat_statistics_round1028 : 91 passed, 2 warnings in 5.41s
+test_tool_router : 45 passed, 2 warnings in 3.48s
+test_add_exp_expression : 36 passed, 3 warnings in 4.28s
+
+== mca20 temporal family ==
+47 passed, 2 warnings in 5.18s
+
+EXIT=0
+
+== fix-round review-07d5 (F1–F4), 2026-10-21 ==
+RED до ремонта:
+  combo new + nc1022: 1 failed (test_kill_switch_off_single_call,
+  assert 3 == 1 — тень-инстанс SYSTEM2_VALIDATOR_LOOP_ENABLED), 71 passed
+  probe F3: metatext_retry_reason('Тезис не подтверждён — весь интернет
+  я не проверил.') -> 'metatext_semantic:total_verification_variant'
+  probe F4: guard_public_text('Тезис подтверждается. Весь интернет я
+  проверил.') -> changed=True, text='Тезис подтверждается. .'
+
+GREEN после ремонта:
+  tests/test_cfg07_guard_07d5.py                : 41 passed (39+2)
+  combo new + nc1022 (F1 recheck)               : 74 passed, EXIT 0
+  combined focus (new+dict+tail+route+anticliche): 234 passed, EXIT 0
+  mca08 form + nc1022 + mca15 + tool_router     : 252 passed, EXIT 0
+  add_exp_expression                            : 36 passed, EXIT 0
+  temporal mca20_round1044 + b07 + d10          : 33+12+23 = 68, EXIT 0
+  probe POSITIVE-202 пулов smartmodule_phrases  : 202 checked, 0 bad
+  probe F3: honest negation -> None/(); dirty inverse -> reason (код)
+  probe F4: seam cuts inverse ('Тезис подтверждается. .'), repaired=True
+
+EXIT=0

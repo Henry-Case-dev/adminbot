@@ -1,0 +1,117 @@
+﻿[matrix] config stub: items=570 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=114
+{
+ "#/ai/prompts/direct/t1.2": {
+  "vw": 1440,
+  "scrollWidth": 1478,
+  "bodyScrollWidth": 1478,
+  "mainScrollW": [
+   1224,
+   1262
+  ],
+  "offenders": [
+   {
+    "tag": "SPAN",
+    "cls": "font-mono",
+    "right": 1478,
+    "w": 297,
+    "sw": 0,
+    "cw": 0
+   }
+  ],
+  "count": 1
+ },
+ "#/ai/prompts/direct/t2.7": {
+  "vw": 1440,
+  "scrollWidth": 1478,
+  "bodyScrollWidth": 1478,
+  "mainScrollW": [
+   1224,
+   1262
+  ],
+  "offenders": [
+   {
+    "tag": "SPAN",
+    "cls": "font-mono",
+    "right": 1478,
+    "w": 297,
+    "sw": 0,
+    "cw": 0
+   }
+  ],
+  "count": 1
+ },
+ "#/modules/direct/synthesizer/t1.2": {
+  "vw": 1440,
+  "scrollWidth": 1478,
+  "bodyScrollWidth": 1478,
+  "mainScrollW": [
+   1224,
+   1262
+  ],
+  "offenders": [
+   {
+    "tag": "SPAN",
+    "cls": "font-mono",
+    "right": 1478,
+    "w": 297,
+    "sw": 0,
+    "cw": 0
+   }
+  ],
+  "count": 1
+ },
+ "#/modules/direct/synthesizer/t2.7": {
+  "vw": 1440,
+  "scrollWidth": 1478,
+  "bodyScrollWidth": 1478,
+  "mainScrollW": [
+   1224,
+   1262
+  ],
+  "offenders": [
+   {
+    "tag": "SPAN",
+    "cls": "font-mono",
+    "right": 1478,
+    "w": 297,
+    "sw": 0,
+    "cw": 0
+   }
+  ],
+  "count": 1
+ },
+ "#/ai/prompts/direct/prompts.direct_l1_planner_system_prompt/t1.2": {
+  "vw": 1440,
+  "scrollWidth": 1440,
+  "bodyScrollWidth": 1440,
+  "mainScrollW": [
+   1224,
+   1224
+  ],
+  "offenders": [],
+  "count": 0
+ },
+ "#/ai/prompts/direct/prompts.direct_l1_planner_system_prompt/t2.7": {
+  "vw": 1440,
+  "scrollWidth": 1440,
+  "bodyScrollWidth": 1440,
+  "mainScrollW": [
+   1224,
+   1224
+  ],
+  "offenders": [],
+  "count": 0
+ },
+ "390/#/ai/prompts/direct": {
+  "vw": 390,
+  "scrollWidth": 390,
+  "bodyScrollWidth": 390,
+  "mainScrollW": [
+   390,
+   390
+  ],
+  "offenders": [],
+  "count": 0
+ }
+}

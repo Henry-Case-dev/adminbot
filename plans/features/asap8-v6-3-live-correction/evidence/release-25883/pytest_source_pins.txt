@@ -1,0 +1,126 @@
+﻿=== source-pins bot.py: 77 файлов (glob-паттерны релизного отчёта 25882) ===
+tests/test_t5150_startup_migrations_round1046.py
+tests/test_menu.py
+tests/test_permsoc.py
+tests/test_permsoc_f7_round1025.py
+tests/test_webapp_agi_ui.py
+tests/test_webapp_analytics_api.py
+tests/test_webapp_api.py
+tests/test_webapp_avatars_ui.py
+tests/test_webapp_back_button.py
+tests/test_webapp_deps.py
+tests/test_webapp_design_tokens_round1025.py
+tests/test_webapp_dm_ui.py
+tests/test_webapp_dns_round1017.py
+tests/test_webapp_f11_round1025.py
+tests/test_webapp_f4_round1025.py
+tests/test_webapp_f5_round1025.py
+tests/test_webapp_f6_round1025.py
+tests/test_webapp_f7_round1025.py
+tests/test_webapp_f9_round1025.py
+tests/test_webapp_gates_api.py
+tests/test_webapp_hotfix10_round1025.py
+tests/test_webapp_hotfix6_round1025.py
+tests/test_webapp_hotfix7_round1025.py
+tests/test_webapp_hotfix8_round1025.py
+tests/test_webapp_hotfix9_round1025.py
+tests/test_webapp_hubs_matrix_ui.py
+tests/test_webapp_js_unit.py
+tests/test_webapp_key_availability_ui.py
+tests/test_webapp_lore_ui.py
+tests/test_webapp_memory_overview_api.py
+tests/test_webapp_nav_disclosure_ui.py
+tests/test_webapp_oversight_api.py
+tests/test_webapp_oversight_ui.py
+tests/test_webapp_parity_smoke.py
+tests/test_webapp_rbac_ui.py
+tests/test_webapp_round1010_ui.py
+tests/test_webapp_round1011_ui.py
+tests/test_webapp_round1012_ui.py
+tests/test_webapp_round1013_f5_ui.py
+tests/test_webapp_round1013_ui.py
+tests/test_webapp_round1014_ui.py
+tests/test_webapp_round1015_graph.py
+tests/test_webapp_round1015_ui.py
+tests/test_webapp_round1017_sleep.py
+tests/test_webapp_round1020_ui.py
+tests/test_webapp_round1024_nodeflow.py
+tests/test_webapp_round1024_providers.py
+tests/test_webapp_round1026_polygon.py
+tests/test_webapp_round107_ui.py
+tests/test_webapp_round108_ui.py
+tests/test_webapp_round109_ui.py
+tests/test_webapp_status_control.py
+tests/test_webapp_teststand_guard.py
+tests/test_webapp_tma_fixes_ui.py
+tests/test_webapp_ui_rework_round1020.py
+tests/test_mca10c_game_stub_round1042.py
+tests/test_mca11_chain_stages_round1028.py
+tests/test_mca11_costs_round1028.py
+tests/test_mca11_money_limits_round1028.py
+tests/test_mca11_tool_result_round1028.py
+tests/test_mca17a_observability_core_round1027.py
+tests/test_mca19_block_a_round1043.py
+tests/test_mca19_block_b_round1043.py
+tests/test_mca19_block_c_round1043.py
+tests/test_mca19_block_d_round1043.py
+tests/test_mca19_block_e_round1043.py
+tests/test_mca19_block_f_round1043.py
+tests/test_mca19_block_g_round1043.py
+tests/test_mca19_rework_r1_round1044.py
+tests/test_graphrag_memory.py
+tests/test_summary_deploy_round1026.py
+tests/test_summary_publish_integration_round1026.py
+tests/test_asap8_f5_module_truth.py
+tests/test_betterstack_handler.py
+tests/test_betterstack_probe.py
+tests/test_log_ring.py
+tests/test_smoke_round1016_fixes.py
+........................................................................ [  3%]
+........................................................................ [  7%]
+........................................................................ [ 11%]
+........................................................................ [ 15%]
+........................................................................ [ 19%]
+........................................................................ [ 22%]
+........................................................................ [ 26%]
+........................................................................ [ 30%]
+........................................................................ [ 34%]
+........................................................................ [ 38%]
+........................................................................ [ 42%]
+........................................................................ [ 45%]
+........................................................................ [ 49%]
+........................................................................ [ 53%]
+........................................................................ [ 57%]
+........................................................................ [ 61%]
+.........................................................F.............. [ 65%]
+........................................................................ [ 68%]
+........................................................................ [ 72%]
+........................................................................ [ 76%]
+........................................................................ [ 80%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 91%]
+........................................................................ [ 95%]
+........................................................................ [ 99%]
+..........                                                               [100%]
+================================== FAILURES ===================================
+_______________ TestLiquidGlass.test_modal_backdrop_blur_token ________________
+
+self = <tests.test_webapp_ui_rework_round1020.TestLiquidGlass object at 0x000002C6AED6E840>
+
+    def test_modal_backdrop_blur_token(self):
+        rules = _rules_for(".modal-backdrop")
+        joined = " ".join(b for _, b, _ in rules)
+>       assert "var(--glass-blur)" in joined or "blur(16px)" in joined
+E       AssertionError: assert ('var(--glass-blur)' in '\n      position: fixed;\n      inset: 0;\n      background: rgba(0, 0, 0, 0.55);\n      backdrop-filter: blur(4px);\...op-filter: none;\n      backdrop-filter: none;\n     \n      padding-bottom: calc(1rem + var(--kb-offset, 0px));\n    ' or 'blur(16px)' in '\n      position: fixed;\n      inset: 0;\n      background: rgba(0, 0, 0, 0.55);\n      backdrop-filter: blur(4px);\...op-filter: none;\n      backdrop-filter: none;\n     \n      padding-bottom: calc(1rem + var(--kb-offset, 0px));\n    ')
+
+tests\test_webapp_ui_rework_round1020.py:302: AssertionError
+============================== warnings summary ===============================
+..\..\.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_webapp_ui_rework_round1020.py::TestLiquidGlass::test_modal_backdrop_blur_token
+1 failed, 1881 passed, 1 warning in 142.55s (0:02:22)

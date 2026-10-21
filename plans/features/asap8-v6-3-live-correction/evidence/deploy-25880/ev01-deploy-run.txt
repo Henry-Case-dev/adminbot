@@ -1,0 +1,150 @@
+DEPLOY-25880 evidence ev01 - production deploy transcript (2.58.79 -> 2.58.80)
+Deploy source: release commit 31c165556dbe8c289606bd6bee1af49bb72d5794
+Method: one main SSH session (paramiko invoke_shell), phases A-G.
+Secrets: never printed; encoding-aware scrub check found 0 secret occurrences.
+Terminal control sequences stripped; '###RC=0###' markers are remote shell RC.
+==============================================================================
+=== uploaded /tmp/deploy25880_probe.py ===
+=== A: pre-state ===
+cd /var/www/admin_bot && echo HEAD_BEFORE=$(git rev-parse HEAD) && echo HZ_BEFORE=$(curl -s http://127.0.0.1:8000/healthz) && echo DIRTY_BEFORE=$(git status --porcelain | wc -l) && echo SERVICE=$(systemctl is-active admin_bot); echo "###RC=$?###"
+
+
+HEAD_BEFORE=c2775a54258512a3e20c97341d3e8a6738b1a33b
+
+HZ_BEFORE={"status":"ok","version":"2.58.79"}
+
+DIRTY_BEFORE=13
+
+SERVICE=active
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== B: git pull --ff-only ===
+1c1655 (HEAD -> master, origin/master) chore(asap8-v6.3-release): bump 2.58.80 тАФ UI-╨║╨╛╤А╤А╨╡╨║╤Ж╨╕╤П v6.3 (review-ui-fixes Approved): U07.2 ╤И╨░╨┐╨║╨░ тАФ padding max(env(safe-area-inset-*), --tg-content-safe-area-inset-*, --tg-safe- area-inset-*) (inline fullscreen ╨╜╨╡ ╨┐╨╡╤А╨╡╨║╤А╤Л╨▓╨░╨╡╤В ╨╜╨░╤В╨╕╨▓╨╜╤Л╨╣ ╨┐╤А╨░╨▓╤Л╨╣ ╤Б╨╗╨╛╤В; 667 landscape 651тЖТ607 vs safe 623; zero-inset ╨▒╨╡╨╖ ╨╕╨╖╨╝╨╡╨╜╨╡╨╜╨╕╨╣); ╨║╨░╤В╨░╨╗╨╛╨│ +1: prompts.direct_l1_planner_system_prompt (L1 Planner ╨▓╨╕╨┤╨╡╨╜/╤А╨╡╨┤╨░╨║╤В╨╕╤А╤Г╨╡╨╝ ╨▓ Mini App; ╤А╨╡╨╡╤Б╤В╤А round1025 572/547/25, ╨┤╨╡╨╗╤М╤В╨░ 161); ╤З╨╡╤Б╤В╨╜╤Л╨╡ ╨┐╤Г╤Б╤В╤Л╨╡ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П (app.js/index.html тАФ ╨▒╨╡╨╖ ╨╗╨╛╨╢╨╜╨╛╨╣ q-╨▓╨╡╤В╨║╨╕). ╨Я╨╕╨╜╤Л: APP_VERSION/README/24 py + F8-meta (HEAD d9b7f389) + re-pin 4 JS-╤Е╨░╤А╨╜╨╡╤Б╤Б-╨┐╨╕╨╜╨╛╨▓ 2.58.78тЖТ2.58.80 (╨▒╤Л╨╗╨╕  RED ╨┐╤А╨╕ 2.58.79; ╤А╨╡-╨┐╨╕╨╜ тАФ ╨╖╨░╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╕╤А╨╛╨▓╨░╨╜╨╜╨╛╨╡ ╨╗╨╡╤З╨╡╨╜╨╕╨╡ ╨║╨╗╨░╤Г╨╖╤Л). ╨Я╤А╨╛╨▓╨╡╤А╨║╨╕: gen_param_registry --check OK; pytest f8_registry+polygon+f11+scope+design-tokens 146 passed; node hotfix7-10 4/4 OK. DDL=0, ╨╝╨╕╨│╤А╨░╤Ж╨╕╨╣ ╨╜╨╡╤В; UNIFIED _COMPOSER_ENABLED ╨╛╤Б╤В╨░╤С╤В╤Б╤П OFF. ╨Ю╤В╨║╨░╤В: c2775a54 (2.58.79).
+
+
+DIRTY_AFTER=13
+
+###PULL_DONE###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== C: artifact sha256 (deployed files) ===
+cd /var/www/admin_bot && echo web/static/app.css=$(sha256sum web/static/app.css | cut -d' ' -f1) && echo web/app.js=$(sha256sum web/app.js | cut -d' ' -f1) && echo web/index.html=$(sha256sum web/index.html | cut -d' ' -f1) && echo services/param_catalog.py=$(sha256sum services/param_catalog.py | cut -d' ' -f1) && echo config/settings.py=$(sha256sum config/settings.py | cut -d' ' -f1); echo "###RC=$?###"
+
+
+web/static/app.css=70975eb2eac08f01beaecc1bf5be6ff005de75efada145f96785c0973c887be2
+
+web/app.js=9774da6a4e932287123cc49f8c84337a77f2bdef63385b3e76a9d47d5f9cb8ac
+
+web/index.html=e209d5faf7e8e54a907a35c570aba9f574cbfa9fbae2ae1fc8c95e53be26b3e0
+
+services/param_catalog.py=1981d3382e2ee81222107027ead5e7e61ef438cbdc91afcd1c13e668d0d15ba7
+
+config/settings.py=5a31a2770ab27ba8b21f3f1fba499c50464b7798af15be8b79c09a31b9f722fd
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== C2: catalogue key + css formula present in deployed tree ===
+cd /var/www/admin_bot && echo CAT_KEY=$(grep -c 'direct_l1_planner_system_prompt' services/param_catalog.py) && echo CSS_TG_RIGHT=$(grep -c 'max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px))' web/static/app.css) && grep -n 'padding-right: calc(1rem + max(env(safe-area-inset' web/static/app.css | head -4; echo "###RC=$?###"
+
+
+CAT_KEY=1
+
+CSS_TG_RIGHT=3
+
+1017:      padding-right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
+
+1151:      padding-right: calc(1rem + max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px)));
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== D: restart + healthz ===
+BOOT_TS=2026-10-16 09:43:54
+TRY1=000
+
+TRY2=000
+
+TRY3=200
+
+
+echo HZ_BODY=$(curl -s http://127.0.0.1:8000/healthz); echo "###RC=$?###"
+
+
+HZ_BODY={"status":"ok","version":"2.58.80"}
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== E: 443 checks (caddy, --resolve to loopback) ===
+echo HZ443=$(curl -s --resolve admin-bot.duckdns.org:443:127.0.0.1 https://admin-bot.duckdns.org/healthz) && echo WEB_CODE=$(curl -s -o /tmp/deploy25880_web.html -w '%{http_code}' --resolve admin-bot.duckdns.org:443:127.0.0.1 https://admin-bot.duckdns.org/web/) && echo WEB_BYTES=$(wc -c < /tmp/deploy25880_web.html) && echo WEB_VER_HITS=$(grep -c '2.58.80' /tmp/deploy25880_web.html) && echo WEB_OLDVER_HITS=$(grep -c '2.58.79' /tmp/deploy25880_web.html) && echo API_HEALTH=$(curl -s -o /dev/null -w '%{http_code}' --resolve admin-bot.duckdns.org:443:127.0.0.1 https://admin-bot.duckdns.org/api/health) && echo API_CONFIG_UNAUTH=$(curl -s -o /dev/null -w '%{http_code}' --resolve admin-bot.duckdns.org:443:127.0.0.1 https://admin-bot.duckdns.org/api/config) && echo CSS_CODE=$(curl -s -o /tmp/deploy25880_app.css -w '%{http_code}' --resolve admin-bot.duckdns.org:443:127.0.0.1 https://admin-bot.duckdns.org/web/static/app.css) && echo CSS_SERVED_SHA=$(sha256sum /tmp/deploy25880_app.css | cut -d' ' -f1) && echo CSS_FORMULA_HITS=$(grep -c 'max(env(safe-area-inset-right, 0px), var(--tg-content-safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px))' /tmp/deploy25880_app.css); echo "###RC=$?###"
+
+
+HZ443={"status":"ok","version":"2.58.80"}
+
+WEB_CODE=200
+
+WEB_BYTES=728255
+
+WEB_VER_HITS=14
+
+WEB_OLDVER_HITS=0
+
+API_HEALTH=200
+
+API_CONFIG_UNAUTH=401
+
+CSS_CODE=200
+
+CSS_SERVED_SHA=70975eb2eac08f01beaecc1bf5be6ff005de75efada145f96785c0973c887be2
+
+CSS_FORMULA_HITS=3
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== F: /api/config path probe (deployed runtime, read-only) ===
+cd /var/www/admin_bot && PY=$(grep -m1 ExecStart /etc/systemd/system/admin_bot.service 2>/dev/null | sed 's/^.*ExecStart=//' | awk '{print $1}'); PY=${PY:-/var/www/admin_bot/venv/bin/python}; echo PY_INTERP=$PY; "$PY" /tmp/deploy25880_probe.py; echo "###RC=$?###"
+
+
+PY_INTERP=/var/www/admin_bot/venv/bin/python
+
+PROBE version=2.58.80
+
+PROBE catalog=True category=prompts group=prompts_direct_chat per_chat=True
+
+PROBE synthetic_present=True value_len=2423
+
+PROBE value_head='╨б╨Ш╨б╨в╨Х╨Ь╨Э╨Р╨п ╨а╨Ю╨Ы╨м:\n╨в╤Л - ╨┐╨╗╨░╨╜╨╕╤А╨╛╨▓╤Й╨╕╨║ ╨╛╤В╨▓╨╡╤В╨░ (L1) ╨▓ ╨│╤А╤Г╨┐╨┐╨╛╨▓╨╛╨╝ ╤З╨░╤В'
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== G: journal + service state ===
+
+
+
+[sudo] password for nik: 
+
+224 /tmp/deploy25880_boot.log
+
+ERR=0
+
+CRIT=0
+
+TRACEBACK=0
+
+LOCKED=0
+
+L1PLANNER_SEED=1
+
+MainPID=2815638 NRestarts=0 ExecMainStatus=0 ActiveState=active SubState=running 
+
+###ALL_DONE###
+
+###RC=0###
+
+nik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== RESULT: SUCCESS (deploy 31c16555 / 2.58.80) ===

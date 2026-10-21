@@ -1,0 +1,25 @@
+{
+ "probe": {
+  "tierA": "true",
+  "reason": "probe-chromium"
+ },
+ "panel": {
+  "x": 120,
+  "y": 294,
+  "w": 360,
+  "h": 140,
+  "declared": null,
+  "tier": "a",
+  "reason": null,
+  "bfTarget": "blur(5px) saturate(1.4) url(\"#lg-lens-stand-p1\")",
+  "bfTargetInline": "blur(5px) saturate(140%) url(\"#lg-lens-stand-p1\")",
+  "bfTargetPE": "none",
+  "selfPE": "auto",
+  "cls": "lg-panel lg-panel--hero stand-card-360"
+ },
+ "contrast_wave": {
+  "p5": 0.0079,
+  "p99_5": 0.8917,
+  "wcag": 16.26
+ }
+}

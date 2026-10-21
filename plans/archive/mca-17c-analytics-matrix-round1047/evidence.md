@@ -117,3 +117,9 @@
 **Дельта rework (финальные хеши sha256[:12], байты):** `web/api/oversight_router.py` `b0d8046bd7df` 28974 (было `115f5ab151bc`); `tests/test_mca17c_oversight_api_round1047.py` `3c952423195c` 26927 (было `00b076928883`); `tests/test_mca17c_invariants_round1047.py` `f695d81cb498` 7822 (было `de9012086ae6`); NEW `coverage_matrix.md` `6085b262c539` 25179. Остальные файлы кандидата — без изменений к итер.1. Словарь ALL_OUTCOMES/REASON_CODES — НЕ тронут (reason 280 без изменений).
 
 **Прогоны rework:** mca-17c фокус 23 passed (API 15 + инварианты 8); смежный слайс (mca-17a + mca-12 + webapp_deps + supervisor) 162 passed, exit 0; JS 62/62 (MCA17C-UI-OK); F8 CHECK OK 523; замеры: reason 280 / KS 85 / тулы 14 / реестр 47 / routes.py pin match=True. Полный pytest foreground — финальный отпечаток ниже.
+
+## Cross-lane artifact fix (post-archive, round 10.47)
+
+1. 	est_coverage_matrix_sync — путь coverage_matrix.md устойчив к архивации (features → archive/…round1047, PM-close 3e3bdb7); sync-проверки живы.
+2. Bounds-тесты round1026 (test_tool_coordinator/test_unified_image_request): allowlist + web/api/oversight_router.py (ADR-1028-23 D11, прод 2.58.66; routes.py пин 8153b8bd… цел).
+3. RED 3 failed → GREEN 110 passed (bounds ×2 + invariants + api focused); JS MCA17C-UI-OK.

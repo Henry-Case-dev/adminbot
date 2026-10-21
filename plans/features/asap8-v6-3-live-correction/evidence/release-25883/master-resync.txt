@@ -1,0 +1,111 @@
+﻿=== master re-sync (local, before push) ===
+origin/master (base) = 9d8aeaf9d7e026886bfe3cbfbb7c7eb429632918
+998bf4e2 chore(release-incident-iso): bump 2.58.83 тАФ ╨╕╨╖╨╛╨╗╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤А╨╡╨╗╨╕╨╖ residual-exit ╤Д╨╕╨║╤Б╨░ INC-SUMMARY-01 (bounded exit ╨┐╨╛╤Б╨╗╨╡ 'bye') ╨╜╨░ ╨▓╨╡╤В╨║╨╡ release/incident-2.58.83 (╨▒╨╡╨╖ SOUL-1).
+2c1cca5d fix(incident): bounded process exit after 'bye' тАФ the runtime SQLite owner is closed (aiosqlite worker thread is NOT a daemon).
+--- shared files vs release branch (must be empty) ---
+--- full diff resync vs release branch (names only) ---
+D	plans/features/soul-1/core-doc-report.md
+D	plans/features/soul-1/evidence/w1/README-restore.md
+D	plans/features/soul-1/evidence/w1/_core_checks.txt
+D	plans/features/soul-1/evidence/w1/_core_compact_revision.txt
+D	plans/features/soul-1/evidence/w1/_core_dump_manifest_direct_l2.py
+D	plans/features/soul-1/evidence/w1/_core_full_text_byte_exact.txt
+D	plans/features/soul-1/evidence/w1/_core_manifest_direct_l2.json
+D	plans/features/soul-1/evidence/w1/_core_manifest_direct_l2.txt
+D	plans/features/soul-1/evidence/w1/_core_provenance_probe.py
+D	plans/features/soul-1/evidence/w1/_core_run_checks.py
+D	plans/features/soul-1/evidence/w1/_core_selection_probe.json
+D	plans/features/soul-1/evidence/w1/_core_tests.txt
+D	plans/features/soul-1/evidence/w1/backup-speech-config.json
+D	plans/features/soul-1/evidence/w1/before-after-effective.json
+D	plans/features/soul-1/evidence/w1/before-after-effective.md
+D	plans/features/soul-1/evidence/w1/fix-pass-consumers.txt
+D	plans/features/soul-1/evidence/w1/fix-pass-perimeter.txt
+D	plans/features/soul-1/evidence/w1/fix-pass-probe.json
+D	plans/features/soul-1/evidence/w1/fix-pass-tests.txt
+D	plans/features/soul-1/evidence/w1/migration-preview.json
+D	plans/features/soul-1/evidence/w1/registry-snapshot.json
+D	plans/features/soul-1/evidence/w3/_fix-focused-suites.txt
+D	plans/features/soul-1/evidence/w3/_fix_after-f1f2.txt
+D	plans/features/soul-1/evidence/w3/_fix_after-f3f4.txt
+D	plans/features/soul-1/evidence/w3/_fix_after-final.txt
+D	plans/features/soul-1/evidence/w3/_fix_before-f1f2.txt
+D	plans/features/soul-1/evidence/w3/_fix_before-f3f4.txt
+D	plans/features/soul-1/evidence/w3/_fix_before-final.txt
+D	plans/features/soul-1/evidence/w3/_fix_capture_before.py
+D	plans/features/soul-1/evidence/w3/_fix_cost.py
+D	plans/features/soul-1/evidence/w3/_fix_cost.txt
+D	plans/features/soul-1/evidence/w3/_fix_probe_f1f2.py
+D	plans/features/soul-1/evidence/w3/_fix_probe_f3f4.py
+D	plans/features/soul-1/evidence/w3/_fix_probe_final.py
+D	plans/features/soul-1/evidence/w3/_fix_run.py
+D	plans/features/soul-1/evidence/w3/_w3_contract_demo.py
+D	plans/features/soul-1/evidence/w3/_w3_probe.py
+D	plans/features/soul-1/evidence/w3/catalog-delta-decision.txt
+D	plans/features/soul-1/evidence/w3/cost-measurement.txt
+D	plans/features/soul-1/evidence/w3/focused-suites.txt
+D	plans/features/soul-1/evidence/w3/full-suite.txt
+D	plans/features/soul-1/evidence/w3/parity-off.txt
+D	plans/features/soul-1/evidence/w3/requirements-coverage.md
+D	plans/features/soul-1/evidence/w3/style-contract-demo.txt
+D	plans/features/soul-1/evidence/w3/style-payload-demo.txt
+D	plans/features/soul-1/review-core.md
+D	plans/features/soul-1/review-w1.md
+D	plans/features/soul-1/review-w3.md
+D	plans/features/soul-1/w1-registry-report.md
+D	plans/features/soul-1/w3-style-report.md
+M	services/chat_prompts.py
+M	services/checkup_service.py
+M	services/direct_chat_service.py
+M	services/direct_l1.py
+M	services/factcheck_service.py
+M	services/param_catalog.py
+M	services/prompt_composer.py
+D	services/prompt_factory.py
+M	services/prompt_migrations.py
+D	services/prompt_registry.py
+M	services/prompt_style_blocks.py
+M	services/response_extent.py
+M	services/search_service.py
+D	services/style_policy.py
+M	services/summary_generator.py
+M	services/web_summarizer_service.py
+M	services/youtube_summarizer_service.py
+M	tests/fixtures/round1025/f8_baseline.json
+M	tests/js/round1025_design_tokens_test.js
+M	tests/test_hot_config.py
+M	tests/test_mca23_response_plan.py
+M	tests/test_prompt_migrations.py
+M	tests/test_round1025_f8_registry.py
+D	tests/test_soul1_core_composer_integration.py
+D	tests/test_soul1_core_doc_text.py
+D	tests/test_soul1_core_registry_api.py
+M	tests/test_soul1_core_version_propagation.py
+D	tests/test_soul1_direct_prompt_reads.py
+D	tests/test_soul1_extent_one_word.py
+D	tests/test_soul1_factory_defaults.py
+M	tests/test_soul1_legacy_custom_preserved.py
+D	tests/test_soul1_registry_completeness.py
+D	tests/test_soul1_registry_legacy_removal.py
+D	tests/test_soul1_style_payload.py
+D	tests/test_soul1_style_policy.py
+D	tests/test_soul1_style_repetition.py
+M	tests/test_ui_verbilizer_tabs_round1023.py
+--- FF check ---
+IS_FF_DESCENDANT_OF_ORIGIN_MASTER=True
+998bf4e2eef45be7cf96a1d5a1ebd00d3460bfdb
+--- version strings in resync branch (all 31 files must say 2.58.83) ---
+FILES_WITH_2_58_83=27  FILES_WITH_2_58_82=5
+bot.py
+plans/features/asap8-v6-3-live-correction/evidence/incident-summary-01/_exit_diagnosis.txt
+plans/features/asap8-v6-3-live-correction/incident-summary-01-shutdown-report.md
+services/summary_run_store.py
+tests/test_summary_inc01_exit.py
+....                                                                     [100%]
+868 passed in 71.78s (0:01:11)
+=== push result ===
+origin/master AFTER push = 998bf4e2eef45be7cf96a1d5a1ebd00d3460bfdb (was 9d8aeaf9d7e026886bfe3cbfbb7c7eb429632918)
+998bf4e2 chore(release-incident-iso): bump 2.58.83 тАФ ╨╕╨╖╨╛╨╗╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤А╨╡╨╗╨╕╨╖ residual-exit ╤Д╨╕╨║╤Б╨░ INC-SUMMARY-01 (bounded exit ╨┐╨╛╤Б╨╗╨╡ 'bye') ╨╜╨░ ╨▓╨╡╤В╨║╨╡ release/incident-2.58.83 (╨▒╨╡╨╖ SOUL-1).
+2c1cca5d fix(incident): bounded process exit after 'bye' тАФ the runtime SQLite owner is closed (aiosqlite worker thread is NOT a daemon).
+9d8aeaf9 chore(release-incident-iso): bump 2.58.82 тАФ ╨╕╨╖╨╛╨╗╨╕╤А╨╛╨▓╨░╨╜╨╜╤Л╨╣ ╤А╨╡╨╗╨╕╨╖ incident fix (INC-SUMMARY-01) ╨╜╨░ ╨▓╨╡╤В╨║╨╡ release/incident-2.58.82 (╨▒╨╡╨╖ SOUL-1). ╨С╨░╨╖╨░ = ╨╖╨░╨┤╨╡╨┐╨╗╨╛╨╡╨╜╨╜╤Л╨╣ 6d4b9a7d (2.58.81), cherry-pick ╤А╨╛╨▓╨╜╨╛ e4bb51d8: graceful shutdown (own signal handlers, handle_signals=False, drain 20 s, bye|elapsed_ms) + startup-╤Д╨╕╨╜╨░╨╗╨╕╨╖╨░╤В╨╛╤А ╨╛╤А╤Д╨░╨╜-╤А╨░╨╜╨╛╨▓ (grace 30 s, close_stale_run) + pre-generation bounds (budget 600 s / cap 20 / timeout 900 s / permit try_acquire 300 s, stage-╤Б╤В╤А╨╛╨║╨╕ run_* ╤Б duration_ms ╨▓ SOURCE_WINDOW, kill-switch SUMMARY_PREGEN_BOUNDS_ENABLED default ON). ╨Т╨╡╤А╤Б╨╕╨╛╨╜╨╜╤Л╨╣ bump: settings + README + F8-meta (HEAD 7ab0ef53) + 24 py-╨┐╨╕╨╜╨░ + 4 JS-╨┐╨╕╨╜╨░ = 31 ╤Д╨░╨╣╨╗. SOUL-1 (W1/W3) ╨▓ ╨┤╨╡╨╗╤М╤В╨╡ ╨╜╨╡╤В: diff ╨┐╨╛ services/prompt_registry.py|prompt_factory.py|prompt_composer.py|style_policy.py|chat_prompts.py|response_extent.py|direct_l1.py ╨┐╤Г╤Б╤В. ╨Ю╤В╨║╨░╤В: 6d4b9a7d (2.58.81). DDL=0.
+local master ref left at 0a532f9e (main worktree WIP preserved)

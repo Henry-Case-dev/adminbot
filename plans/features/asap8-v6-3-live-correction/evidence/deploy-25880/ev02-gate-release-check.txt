@@ -1,0 +1,59 @@
+DEPLOY-25880 evidence ev02 — requirements_gate.py check --stage release (read-only)
+candidate = deployed-commit = 31c165556dbe8c289606bd6bee1af49bb72d5794
+exit code = 1
+Map was NOT edited by this lane (DO_NOT_TOUCH); map candidate_commit is still
+c2775a54... (previous release). Parent FINAL.3 re-capture re-binds the map to the
+deployed SHA and attaches the deploy-25880 evidence.
+==============================================================================
+FAIL: candidate mismatch; map candidate_commit must match --candidate
+FAIL: U07-SYM-DESKTOP: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U07-SYM-ANDROID: no evidence bound to reviewed candidate
+FAIL: U07-SYM-ANDROID: live requirement lacks evidence for stage release
+FAIL: U07-LAUNCHMODE: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: U08-SYM: no evidence bound to reviewed candidate
+FAIL: U08-SYM: live requirement lacks evidence for stage release
+FAIL: U07-TMA-CONTRACT: no evidence bound to reviewed candidate
+FAIL: U07-TMA-EVENTS: no evidence bound to reviewed candidate
+FAIL: U07-PLATFORMS: no evidence bound to reviewed candidate
+FAIL: PRIN-OUTCOME: no evidence bound to reviewed candidate
+FAIL: PRIN-PIPELINE-FIRST: no evidence bound to reviewed candidate
+FAIL: PRIN-ONE-WORKFLOW: no evidence bound to reviewed candidate
+FAIL: PRIN-PRESERVE: no evidence bound to reviewed candidate
+FAIL: PRIN-VERIFY-HEAD: no evidence bound to reviewed candidate
+FAIL: REQ-B01: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: B01.1: no evidence bound to reviewed candidate
+FAIL: B01.2: no evidence bound to reviewed candidate
+FAIL: B01.3: no evidence bound to reviewed candidate
+FAIL: B01.4: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B01.5: no evidence bound to reviewed candidate
+FAIL: B01.6: no evidence bound to reviewed candidate
+FAIL: REQ-B02: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: B02.1: no evidence bound to reviewed candidate
+FAIL: B02.2: no evidence bound to reviewed candidate
+FAIL: B02.3: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: B02.4: no evidence bound to reviewed candidate
+FAIL: B02.5: no evidence bound to reviewed candidate
+FAIL: REQ-B03: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B03.1: no evidence bound to reviewed candidate
+FAIL: B03.2: no evidence bound to reviewed candidate
+FAIL: B03.3: no evidence bound to reviewed candidate
+FAIL: B03.4: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B03.5: no evidence bound to reviewed candidate
+FAIL: REQ-B04: mandatory not ['VERIFIED'] (got READY_FOR_LIVE)
+FAIL: B04.1: no evidence bound to reviewed candidate
+FAIL: B04.2: no evidence bound to reviewed candidate
+FAIL: B04.3: no evidence bound to reviewed candidate
+FAIL: B04.4: no evidence bound to reviewed candidate
+FAIL: B04.5: mandatory not ['VERIFIED'] (got BLOCKED_REAL_HUMAN_GATE)
+FAIL: B04.6: no evidence bound to reviewed candidate
+FAIL: REQ-B05: no evidence bound to reviewed candidate
+FAIL: REQ-B05: live requirement lacks evidence for stage release
+FAIL: B05.1: no evidence bound to reviewed candidate
+FAIL: B05.1: live requirement lacks evidence for stage release
+FAIL: B05.2: no evidence bound to reviewed candidate
+FAIL: B05.2: live requirement lacks evidence for stage release
+FAIL: B05.3: no evidence bound to reviewed candidate
+FAIL: B05.3: live requirement lacks evidence for stage release
+FAIL: REQ-U01: no evidence bound to reviewed candidate
+... and 198 more
+stage=release inventory=148 manual=74 scoped=200 errors=248

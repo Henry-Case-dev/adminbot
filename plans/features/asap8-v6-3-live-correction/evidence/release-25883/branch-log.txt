@@ -1,0 +1,2 @@
+﻿=== branch-log (7e9ce8cb..release/incident-2.58.83) ===
+7ebb44d4 fix(incident): bounded process exit after 'bye' тАФ the runtime SQLite owner is closed (aiosqlite worker thread is NOT a daemon).

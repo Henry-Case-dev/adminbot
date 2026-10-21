@@ -1,0 +1,224 @@
+{
+  "phase": "after",
+  "checks": {
+    "U06.1: всеСекцииПрисутствуют": true,
+    "U06.1: порядокПрофиль→Инструкция→Референсы→Сборка→TestEdit→Результат→Подробнее": true,
+    "U06.1: подробнееЭтоDetails": true,
+    "U06.2: строкаСборкиStyle·Anchor·Refs·System·Final/Limit": true,
+    "U06.2: цветТолькоПриПревышении(нет-over)": true,
+    "U06.2: preМоноширинный": true,
+    "U06.2: preСоСкроллом": true,
+    "U06.2: естьКнопкаКопировать": true,
+    "U06.2: edit_reportМетаданныеВПодробнее": true,
+    "U06.2: Final=фактическомуПромпту": true,
+    "B05.1: фонРедактораНепрозрачный": true,
+    "B05.1: центрРабочейОбластиНеКанвас": true,
+    "B05.1: канвасПодОверлеем": true,
+    "B05.2: copy=ФактическомуПромпту": true,
+    "U06.2: превышениеПодсвечено": true,
+    "U06.3: неизвестныйЛимитЧестно": true,
+    "B05.2: seedВыделения": true,
+    "B05.2: pollingРеальноАктивен": true,
+    "B05.2: данныеПришлиВоВыделение": true,
+    "B05.2: выделение13сНеподвижно": true,
+    "B05.2: DOMНеПересоздан": true,
+    "B05.2: draftРедактируем": true,
+    "B05.2: данныеНеПеретираютDirtyDraft": true,
+    "B05.3: guardДержитРедакторПриDirty": true,
+    "B05.3: cancelСохраняетDraft": true,
+    "B05.3: confirmЗакрывает": true,
+    "B05.3: чистыйЗакрываетсяБезДиалога": true,
+    "B05.3: saveContractТеЖеКлючи": true,
+    "B05.3: saveInstructionИзDraft": true,
+    "B05.1: reducedMotionОстанавливаетФон": true,
+    "B05.3: mobileOverlay=dvh(высотаВьюпорта)": true,
+    "B05.3: mobileEditorЗаполняетOverlay": true,
+    "B05.3: телоСкроллится": true,
+    "B05.3: документНеСкроллитсяЗаOverlay": true,
+    "B05.3: шапкаЗакрепленаСверху": true,
+    "B05.3: футерЗакрепленСнизу": true,
+    "B05.3: safeAreaОдинРаз(foot>=12px)": true,
+    "B05.3: overscrollНеУводитЗаOverlay": true,
+    "B05.3: футерНаМестеПослеСкроллаТела": true,
+    "B05.3: 320безГоризонтальногоОverflow": true
+  },
+  "measurements": {
+    "sections": {
+      "present": [
+        {
+          "s": "[data-cover-sec-profile]",
+          "present": true
+        },
+        {
+          "s": "[data-cover-sec-instruction]",
+          "present": true
+        },
+        {
+          "s": "[data-cover-sec-refs]",
+          "present": true
+        },
+        {
+          "s": "[data-cover-sec-compile]",
+          "present": true
+        },
+        {
+          "s": "[data-cover-sec-testedit]",
+          "present": true
+        },
+        {
+          "s": "[data-cover-sec-result]",
+          "present": true
+        },
+        {
+          "s": "[data-cover-sec-more]",
+          "present": true
+        }
+      ],
+      "ordered": true,
+      "moreAfterResult": true,
+      "moreOpen": true
+    },
+    "compile": {
+      "summary": "Style 250 · SceneAnchor 88 · Refs 62 · System 180 · Final 461 / 800 символов",
+      "overClass": false,
+      "className": "",
+      "preText": "Сохранить существующих персонажей, позы, события и композицию обложки; не добавлять новых событий. Выпуск ВЫПУСК 42 упомянуть один раз, без дублей текста. Графический роман: чёрно-белая штриховка, жёсткие контрасты, ретро-печатная текстура. Логотип «Медведь Press» применять как графический референс в углу, сюжет и персонажей не менять, композицию сохранять. Плашка выпуска — один раз, без дублей текста. Референсы: логотип Медведь Press — графический образец.",
+      "preMono": "ui-monospace, sfmono-regular, menlo, consolas, \"liberation mono\", monospace",
+      "preScrollable": true,
+      "preMaxH": "256px",
+      "preOverflowY": "auto",
+      "hasCopy": true,
+      "copyText": "Копировать",
+      "hasDetails": true
+    },
+    "geom_desktop": {
+      "overlay": {
+        "w": 1440,
+        "h": 900
+      },
+      "editor": {
+        "top": 24,
+        "bottom": 876,
+        "h": 852
+      },
+      "head": {
+        "top": 24,
+        "h": 59
+      },
+      "foot": {
+        "bottom": 876,
+        "h": 63
+      },
+      "bodyScrollTop": 650,
+      "bodyScrollable": true,
+      "docScrollTop": 0,
+      "mainScrollTop": 0,
+      "bg": "rgb(21, 27, 42)",
+      "bgAlpha": 1,
+      "bgRgb": [
+        21,
+        27,
+        42
+      ],
+      "centerHit": "DIV|flex flex-wrap gap-2",
+      "canvasZ": null,
+      "overlayZ": "50"
+    },
+    "clipboard_len": 461,
+    "compile_over": "Style 250 · SceneAnchor 88 · Refs 62 · System 180 · Final 681 / 800 символов",
+    "compile_unknown": "Style 250 · Refs 62 · System 180 · Final 461 / неизвестно",
+    "samples_n": 45,
+    "polling": {
+      "job_started": true,
+      "job_done": true,
+      "meta_calls": 2
+    },
+    "sel_first": {
+      "t": 305,
+      "taSel": [
+        10,
+        60
+      ],
+      "taSub": "й роман: чёрно-белая штриховка, жёсткие контрасты,",
+      "taMark": true,
+      "taScroll": 0,
+      "preSel": "Сохранить существующих персонажей, позы,",
+      "preMark": true
+    },
+    "sel_last": {
+      "t": 13509,
+      "taSel": [
+        10,
+        60
+      ],
+      "taSub": "й роман: чёрно-белая штриховка, жёсткие контрасты,",
+      "taMark": true,
+      "taScroll": 0,
+      "preSel": "Сохранить существующих персонажей, позы,",
+      "preMark": true
+    },
+    "save_body_keys": [
+      "connection_id",
+      "counter_enabled",
+      "counter_format",
+      "enabled",
+      "instruction",
+      "model_id",
+      "model_mode",
+      "name",
+      "next_issue_number",
+      "pipeline_mode"
+    ],
+    "polygon_frames": [
+      {
+        "present": true,
+        "frameCount1": 4
+      },
+      {
+        "present": true,
+        "frameCount1": 4
+      }
+    ],
+    "geom_mobile": {
+      "overlay": {
+        "w": 390,
+        "h": 844
+      },
+      "editor": {
+        "top": 0,
+        "bottom": 844,
+        "h": 844
+      },
+      "head": {
+        "top": 0,
+        "h": 59
+      },
+      "foot": {
+        "bottom": 844,
+        "h": 63
+      },
+      "bodyScrollTop": 80,
+      "bodyScrollable": true,
+      "docScrollTop": 0,
+      "mainScrollTop": 257,
+      "bg": "rgb(21, 27, 42)",
+      "bgAlpha": 1,
+      "bgRgb": [
+        21,
+        27,
+        42
+      ],
+      "centerHit": "SELECT|field",
+      "canvasZ": null,
+      "overlayZ": "50"
+    },
+    "geom_mobile_after_wheel": {
+      "docScrollTop": 0,
+      "mainScrollTop": 257,
+      "bodyScrollTop": 0
+    }
+  },
+  "errors": [],
+  "passed": 40,
+  "failed": 0
+}

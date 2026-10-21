@@ -1,0 +1,4 @@
+﻿node round1025_hotfix7_shell_glass_heartbeat_test.js -> exit=0 :: HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+node round1025_hotfix8_shell_aurora_test.js -> exit=0 :: HOTFIX8-SHELL-AURORA-OK
+node round1025_hotfix9_shell_flex_glass_aurora_test.js -> exit=0 :: HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+node round1025_hotfix10_glass_geometry_bg_test.js -> exit=0 :: HOTFIX10-GLASS-GEOMETRY-BG-OK

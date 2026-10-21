@@ -1,0 +1,142 @@
+[matrix] config stub: items=570 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=114
+{
+ "lib/1440x900": {
+  "hash": "#/ai/prompts/direct",
+  "libPresent": true,
+  "libClass": "col-span-full workspace-prompt-lib",
+  "promptKeys": [
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt"
+  ],
+  "l1Present": true,
+  "l1Text": "L1 Planner: ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░",
+  "editorPresent": true,
+  "textareaKey": "prompts.direct_chat_synthesizer_system_prompt",
+  "textareaLen": 0,
+  "directStages": 0,
+  "l1SummaryCard": false,
+  "l1SummaryText": null,
+  "hOverflow": true
+ },
+ "focus/1440x900": {
+  "hash": "#/ai/prompts/direct/prompts.direct_l1_planner_system_prompt",
+  "libPresent": true,
+  "libClass": "col-span-full workspace-prompt-lib is-editing",
+  "promptKeys": [
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt"
+  ],
+  "l1Present": true,
+  "l1Text": "L1 Planner: ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░",
+  "editorPresent": true,
+  "textareaKey": "prompts.direct_l1_planner_system_prompt",
+  "textareaLen": 0,
+  "directStages": 0,
+  "l1SummaryCard": false,
+  "l1SummaryText": null,
+  "hOverflow": false
+ },
+ "ws_synth/1440x900": {
+  "hash": "#/modules/direct/synthesizer",
+  "libPresent": true,
+  "libClass": "col-span-full workspace-prompt-lib",
+  "promptKeys": [
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt"
+  ],
+  "l1Present": true,
+  "l1Text": "L1 Planner: ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░",
+  "editorPresent": true,
+  "textareaKey": "prompts.direct_chat_synthesizer_system_prompt",
+  "textareaLen": 0,
+  "directStages": 0,
+  "l1SummaryCard": false,
+  "l1SummaryText": null,
+  "hOverflow": true
+ },
+ "ws_models/1440x900": {
+  "hash": "#/modules/direct/models",
+  "libPresent": false,
+  "libClass": null,
+  "promptKeys": [],
+  "l1Present": false,
+  "l1Text": null,
+  "editorPresent": false,
+  "textareaKey": null,
+  "textareaLen": null,
+  "directStages": 2,
+  "l1SummaryCard": true,
+  "l1SummaryText": "L1 Planner тАФ ╤Б╨▓╨╛╨┤╨║╨░ ╨Я╨╗╨░╨╜╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨╛╤В╨▓╨╡╤В╨░ ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╝ ╨▒╤Л╤Б╤В╤А╤Л╨╝ ╤И╨░╨│╨╛╨╝ ╨┤╨╛ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨╛╨▓. ╨Т╨║╨╗╤О╤З╤С╨╜ (╤В╤Г╨╝╨▒╨╗╨╡╤А)╨▓╤Л╨║╨╗╤О╤З╨╡╨╜Effective ╨╝╨╛╨┤╨╡╨╗╤М╨Ю╤Б╨╜╨╛╨▓╨╜╨░╤П ╨╝╨╛╨┤╨╡╨╗╤М (inherit): тАФFallback ╨╜╨░ ╨╛╤Б╨╜╨╛╨▓╨╜╤Г╤О ╨╝╨╛╨┤╨╡╨╗╤М╨▓╤Л╨║╨╗╤О╤З╨╡╨╜╨в╨╡╨╝╨┐╨╡╤А╨░╤В╤Г╤А╨░ / ╤В╨░╨╣╨╝╨░╤Г╤В1 ┬╖ 1 ╤Б╨С╤О╨┤╨╢╨╡╤В ╨╛╤В╨▓╨╡╤В╨░ / ╨║╨╛╨╜╤В╨╡╨║╤Б╤В1 ┬╖ 1 ╨Э╨░╤Б╤В╤А╨░╨╕╨▓╨░╨╡╨╝╤Л╨╡ ╨┐╨╛╨╗",
+  "hOverflow": false
+ },
+ "lib/390x844": {
+  "hash": "#/ai/prompts/direct",
+  "libPresent": true,
+  "libClass": "col-span-full workspace-prompt-lib",
+  "promptKeys": [
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt"
+  ],
+  "l1Present": true,
+  "l1Text": "L1 Planner: ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░",
+  "editorPresent": true,
+  "textareaKey": "prompts.direct_chat_synthesizer_system_prompt",
+  "textareaLen": 0,
+  "directStages": 0,
+  "l1SummaryCard": false,
+  "l1SummaryText": null,
+  "hOverflow": false
+ },
+ "focus/390x844": {
+  "hash": "#/ai/prompts/direct/prompts.direct_l1_planner_system_prompt",
+  "libPresent": true,
+  "libClass": "col-span-full workspace-prompt-lib is-editing",
+  "promptKeys": [
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt"
+  ],
+  "l1Present": true,
+  "l1Text": "L1 Planner: ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░",
+  "editorPresent": true,
+  "textareaKey": "prompts.direct_l1_planner_system_prompt",
+  "textareaLen": 0,
+  "directStages": 0,
+  "l1SummaryCard": false,
+  "l1SummaryText": null,
+  "hOverflow": false
+ },
+ "ws_synth/390x844": {
+  "hash": "#/modules/direct/synthesizer",
+  "libPresent": true,
+  "libClass": "col-span-full workspace-prompt-lib",
+  "promptKeys": [
+   "prompts.direct_chat_synthesizer_system_prompt",
+   "prompts.direct_l1_planner_system_prompt"
+  ],
+  "l1Present": true,
+  "l1Text": "L1 Planner: ╨┐╨╗╨░╨╜ ╨╛╤В╨▓╨╡╤В╨░",
+  "editorPresent": true,
+  "textareaKey": "prompts.direct_chat_synthesizer_system_prompt",
+  "textareaLen": 0,
+  "directStages": 0,
+  "l1SummaryCard": false,
+  "l1SummaryText": null,
+  "hOverflow": false
+ },
+ "ws_models/390x844": {
+  "hash": "#/modules/direct/models",
+  "libPresent": false,
+  "libClass": null,
+  "promptKeys": [],
+  "l1Present": false,
+  "l1Text": null,
+  "editorPresent": false,
+  "textareaKey": null,
+  "textareaLen": null,
+  "directStages": 2,
+  "l1SummaryCard": true,
+  "l1SummaryText": "L1 Planner тАФ ╤Б╨▓╨╛╨┤╨║╨░ ╨Я╨╗╨░╨╜╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨╛╤В╨▓╨╡╤В╨░ ╨╛╤В╨┤╨╡╨╗╤М╨╜╤Л╨╝ ╨▒╤Л╤Б╤В╤А╤Л╨╝ ╤И╨░╨│╨╛╨╝ ╨┤╨╛ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В╨╛╨▓. ╨Т╨║╨╗╤О╤З╤С╨╜ (╤В╤Г╨╝╨▒╨╗╨╡╤А)╨▓╤Л╨║╨╗╤О╤З╨╡╨╜Effective ╨╝╨╛╨┤╨╡╨╗╤М╨Ю╤Б╨╜╨╛╨▓╨╜╨░╤П ╨╝╨╛╨┤╨╡╨╗╤М (inherit): тАФFallback ╨╜╨░ ╨╛╤Б╨╜╨╛╨▓╨╜╤Г╤О ╨╝╨╛╨┤╨╡╨╗╤М╨▓╤Л╨║╨╗╤О╤З╨╡╨╜╨в╨╡╨╝╨┐╨╡╤А╨░╤В╤Г╤А╨░ / ╤В╨░╨╣╨╝╨░╤Г╤В1 ┬╖ 1 ╤Б╨С╤О╨┤╨╢╨╡╤В ╨╛╤В╨▓╨╡╤В╨░ / ╨║╨╛╨╜╤В╨╡╨║╤Б╤В1 ┬╖ 1 ╨Э╨░╤Б╤В╤А╨░╨╕╨▓╨░╨╡╨╝╤Л╨╡ ╨┐╨╛╨╗",
+  "hOverflow": false
+ }
+}

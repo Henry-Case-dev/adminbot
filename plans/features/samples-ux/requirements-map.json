@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\samples-ux\\source-add-samples-ux-2026-10-20.md",
   "source_sha256": "e6153cf15854fa47c2fc0ba99a296f4a0bb37f435a7a5706809ad2ca6ca8ad69",
   "candidate_commit": "27b1165aced5c54faf83845160509b1ad2307318",
-  "deployed_commit": "",
+  "deployed_commit": "acc285d77d03c7adbf5527dc7f0fa9e9904fed8e",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
