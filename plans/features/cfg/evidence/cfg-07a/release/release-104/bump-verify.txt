@@ -1,0 +1,5 @@
+REL-258104 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump): dd6acf831e2ce4db410198cfa98041410ad17097
+release train: 07D.5 wave d860a529 + docs-ledger dd6acf83 (pre-bump git HEAD; F8-meta HEAD stamp d860a529 per brief PKG-104; review Approved REV-07D5-R2)
+files=31 changed-line-pairs=33 (expected 33)
+CHECK OK

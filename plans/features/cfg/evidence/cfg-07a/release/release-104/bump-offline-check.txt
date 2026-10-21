@@ -1,0 +1,22 @@
+REL-258104 bump offline check (procedure of pkg-103; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.104
+  [PASS] settings no stale 2.58.103 pin
+  [PASS] README has v2.58.104
+  [PASS] README no stale v2.58.103
+  [PASS] F8-meta APP_VERSION 2.58.104
+  [PASS] F8-meta HEAD d860a529
+  [PASS] F8-meta no stale 2.58.103/79df9f5d
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by PKG-104 bump)
+  [PASS] delta set == 31 expected
+  [PASS] bump set == procedure-103 set
+  [PASS] bump set disjoint from factcheck/06G.3/foreign guard
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas)
+  [PASS] delta DDL of bump set == 0
+  [PASS] release-to-release DDL == 0 (schema stays v37)
+  [PASS] factory fingerprint 037080375ac8 unchanged (runtime == constant)
+  [PASS] import config.settings -> 2.58.104
+candidate HEAD (pre-bump; train head incl. docs-ledger): dd6acf831e2ce4db410198cfa98041410ad17097
+release train: 07D.5 wave d860a529 + docs-ledger dd6acf83 (pre-bump git HEAD; F8-meta HEAD stamp d860a529 per brief PKG-104; review Approved REV-07D5-R2)
+factory fingerprint: 037080375ac8 (probe rc=0, live='037080375ac8 037080375ac8', registry file in delta: False)
+bump files: 31; line pairs: 33; foreign uncommitted: 11
+OFFLINE CHECK: EXIT 0

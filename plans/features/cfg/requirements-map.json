@@ -3,7 +3,7 @@
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
   "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
   "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
-  "deployed_commit": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+  "deployed_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -7248,9 +7248,17 @@
           "observation": "Кандидат v6 (07D.5/07CG-TAIL, `d860a529`): строка закрыта волной CFG-07A/07CG; фактчек-runtime/артефакты строки байт-идентичны предыдущей привязке (после — только телеметрия B1 и леджер); независимые ревью review-07cg/review-07cg-tail/review-07d5-r2 Approved. Постдеплой 2.58.103: PG-байты владельца 7/7 UNCHANGED; effective = чистые каноны 07A-2, маркеры 0/7; лестницы 7/7; кастомы withheld провенанс-гейтом — OQ-15 добровольно.",
           "artifact_path": "plans/features/samples-ux/evidence/release/deploy.md",
           "artifact_sha256": "1c12cad7327da1c3be3c42d85bb02d973db412ef0c2ea6481c10b20d30381159"
+        },
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "type": "production",
+          "ref": "release-104/deploy.md §Постдеплой 07A-1 (PG read-only + resolve shim, deployed 2.58.104)",
+          "observation": "Постдеплой 2.58.104: PG-байты владельца 7/7 UNCHANGED (== база 2.58.103, провенанс-док 21f71e8d21e4 не менялся); effective = чистые каноны 07A-2, маркеры корпуса 0/7; лестницы 7/7; SET_CALLS=0. Кастомы withheld провенанс-гейтом — результат байт-в-байт совпадает с финалом deploy-258103 (пре-существующее состояние с 2.58.102, не регрессия поезда 104); OQ-15 добровольно.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.md",
+          "artifact_sha256": "12e0b43e9903cd3959cec5b55fe4ea56e8916152f02ba370f1cc37d3f1099ab3"
         }
       ],
-      "note": " | VERIFIED @ deployed 2a3e4fc9 (2.58.103), 21.10."
+      "note": " | VERIFIED @ deployed 2a3e4fc9 (2.58.103), 21.10. | VERIFIED @ deployed 8ea6ed4e (2.58.104), 21.10."
     },
     {
       "source_id": "L00342",

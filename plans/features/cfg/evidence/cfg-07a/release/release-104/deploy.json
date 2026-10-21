@@ -1,0 +1,108 @@
+{
+  "release": "2.58.104",
+  "lane": "DEVOPS-DEPLOY-258104",
+  "feature": "CFG-07D.5 bounded metatext retry + FA/MB detectors (public_speech_guard) + ledger CFG-07A + release bump",
+  "review": {
+    "doc": "plans/features/cfg/evidence/cfg-07a/release/release-104/review-rel.md",
+    "verdict": "Approved",
+    "reviewer": "REV (REV-REL-258104)",
+    "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+    "gate_review_stage": "EXIT 0 (slice CFG-07A, candidate d860a529)",
+    "binding_note": "Brief named 6388899d as candidate; it is an in-history ancestor (F1 fix), not the head. Authoritative binding per review-rel.md: train 8ea6ed4e."
+  },
+  "deploy_source": "origin/master (immutable commit)",
+  "mutable_worktree_required": false,
+  "deployed_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+  "previous_prod_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+  "t0_epoch": 1792530023,
+  "t0_utc": "2026-10-20T21:00:23Z",
+  "health": {
+    "healthz_loopback": "{\"status\":\"ok\",\"version\":\"2.58.104\"}",
+    "healthz_external_https": "200 {\"status\":\"ok\",\"version\":\"2.58.104\"}",
+    "web_route": 200,
+    "served_app_js_sha12": "db8457cafa9b",
+    "pid": 29475,
+    "nrestarts": 0,
+    "active_state": "running",
+    "exec_main_start_utc": "2026-10-20T21:00:38Z",
+    "err_since_t0": 0,
+    "journal_lines_final": 238
+  },
+  "delta": {
+    "base": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+    "total_files": 54,
+    "runtime_set": [
+      "config/settings.py",
+      "services/factcheck_service.py",
+      "services/negative_constraints.py",
+      "services/prompt_style_blocks.py",
+      "services/public_speech_guard.py"
+    ],
+    "ddl_delta": 0,
+    "user_version": 37,
+    "hashes_match_candidate": "8/8 (sha256_12 raw-byte vs git cat-file, pf104.py)"
+  },
+  "wiring_markers": {
+    "app_version_258104": 1,
+    "guard_public_text": 1,
+    "egress_guard_wiring": 2,
+    "standalone_flagged_guard_files": 0,
+    "bare_flagged_info": "3 (pre-existing lore_stats_recheck_flagged, tool_router)",
+    "factory_set_sha": "037080375ac8 =2",
+    "f8meta_head": "d860a529 =1",
+    "ladders_prev_cfg07a": 21,
+    "rollback_prompt_canons": 1,
+    "metatext_reason_fn": 1,
+    "metatext_guard_fn": 1,
+    "metatext_prompt_block": 1,
+    "metatext_negconst_fallback": 4,
+    "v2_gate_use_service": 2
+  },
+  "v2_flag": {
+    "hot_flags_factcheck_pipeline_v2": "true (bot_settings)",
+    "env_FACTCHECK_PIPELINE_V2_ENABLED": "UNSET",
+    "touched": false
+  },
+  "prompt_migration": {
+    "lines": 16,
+    "canon_updated": 0,
+    "custom_preserved": 11,
+    "already_new": 5,
+    "errors": 0
+  },
+  "postdeploy_cfg07a1": {
+    "stored_bytes": "7/7 UNCHANGED (== deploy-258103 base)",
+    "effective": "clean 07A-2 canons, corpus markers 0/7",
+    "ladders_applied": "7/7",
+    "set_calls": 0,
+    "customs": "withheld by provenance gate; owner_present=0 identical to deploy-258103 final (pre-existing since 2.58.102, not a 104 regression)"
+  },
+  "postdeploy_telemetry": {
+    "speech_guard_warn": 0,
+    "egress_guard_event": 0,
+    "metatext_journal": 0,
+    "status": "observation continues (07C.6 precedent): flagged traffic absent in window; wiring proven on deployed bytes"
+  },
+  "rollback": {
+    "applied": false,
+    "primary": "git checkout -f 2a3e4fc94705cf5741a6755e6098bb9e52f3c096 + systemctl restart admin_bot -> 2.58.103 (exact previous prod state, lossless, dDDL=0)",
+    "alt": "79df9f5d (origin/release/fix-2.58.103; same code, version pins 2.58.102 -> healthz would show 2.58.102)",
+    "soft": "hot flags.factcheck_pipeline_v2 -> false / env FACTCHECK_PIPELINE_V2_ENABLED=false (not applied)",
+    "brief_correction": "Brief/review-rel named 79df9f5d as the 2.58.103 boundary; it is the pre-bump docs commit (APP_VERSION=2.58.102), so primary rollback point corrected to 2a3e4fc9."
+  },
+  "ssh_budget": {
+    "connects": 3,
+    "login": "nik",
+    "recon_utc": "2026-10-20T20:58:52Z",
+    "main_utc": "2026-10-20T21:00:18Z",
+    "final_utc": "2026-10-20T21:02:00Z",
+    "incidents": "none (no fail2ban events, no retries, passwords stdin/env only)"
+  },
+  "telegram_messages_sent": 0,
+  "pg_writes": 0,
+  "evidence": {
+    "deploy_md": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.md",
+    "deploy_md_sha256": "12e0b43e9903cd3959cec5b55fe4ea56e8916152f02ba370f1cc37d3f1099ab3",
+    "raw_scratch": "OPENCODE_WORKFLOW_SCRATCH/deploy-258104/"
+  }
+}
