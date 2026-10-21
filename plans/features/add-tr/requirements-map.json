@@ -2,8 +2,8 @@
  "schema": "openworkflow-coverage-v1",
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\add-tr\\source-add-tr-2026-10-19.md",
  "source_sha256": "08cd6b4a0417bde243a3829102a825fc426306b9c50239267cf0de13e59c4324",
- "candidate_commit": "1b03c428a8e5b8f64e52b80f966f43f2ffcd5802",
- "deployed_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+ "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+ "deployed_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
  "strict_evidence": false,
  "slice_graph_path": "slice-graph.json",
  "additional_requirements": [
@@ -756,9 +756,17 @@
      "artifact_path": "plans/features/add-tr/evidence/harness-r1/vision-bitmap-select.json",
      "artifact_sha256": "56a10d6119c605f357b0695e1b277f4524baae125ecd2b3153a408348421e412",
      "type": "provider"
+    },
+    {
+     "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+     "ref": "REL-258108 deploy evidence: plans/features/add-tr/release-258108/deploy.json",
+     "observation": "Задеплоен be60041f (server-reported HEAD, healthz 2.58.108, blob identity); postdeploy-пробы S9/strip-fence на прод-байтах — ready. Live-половина закрыта фактом деплоя + пробами.",
+     "artifact_path": "plans/features/add-tr/release-258108/deploy.json",
+     "artifact_sha256": "fc303d22886bea3f694940f7f5e62b3334d848db72fd263606b27c13bcc84085",
+     "type": "production"
     }
    ],
-   "note": "Предв.: GAP — новый контур анализа финального изображения (ADTR-POSTGEN-ON). 94 §2: генерация+доставка VERIFIED (qwen-image-3-pro, 939495 B, mid 1166169), но postgen-описание bitmap — `vision_failed` (честный блок mid 1166170, не 502/429) — позитив требует новой генерации (POSTGEN-DIAG). || HARNESS-R1 22.10: контур LIVE-исполнен (генерация 334 064 B + доставка; постген: capability probe + анализ фактического bitmap, 2 vision-вызова), но ready-исход не получен: parse_error. КОРЕНЬ НАЙДЕН: модели отвечают корректным JSON в markdown-заборе, строгий parse_analysis_payload (services/mca_vision.py:1437, голый json.loads) честно отказывает — см. vision-bitmap-select.json (описание «Маленький красный квадрат…» внутри ```json). Фикс 3 строк (strip fence) — вне WRITE_SCOPE лейна, передан Orchestrator; до него ready честно не наблюдаем (без ретуши). || FIX-VISION-FENCE (1cf0f400): парсер исправлен — _strip_markdown_fence снимает ТОЛЬКО обёртку, строгая валидация json.loads сохранена (2 REGRESSION-теста: RED до фикса → 33 passed после; невалидный JSON остаётся parse_error). Офлайн-harness w5 (реальные провайдеры, 0 Telegram): ready достигнут — postgen-анализ фактического bitmap вернул описание содержимого, блок image_analysis status=\"ready\", Writer описал именно созданное изображение. VERIFIED по факту прогона; postdeploy-наблюдение на проде — волна деплоя (live_when сохранён)."
+   "note": "Предв.: GAP — новый контур анализа финального изображения (ADTR-POSTGEN-ON). 94 §2: генерация+доставка VERIFIED (qwen-image-3-pro, 939495 B, mid 1166169), но postgen-описание bitmap — `vision_failed` (честный блок mid 1166170, не 502/429) — позитив требует новой генерации (POSTGEN-DIAG). || HARNESS-R1 22.10: контур LIVE-исполнен (генерация 334 064 B + доставка; постген: capability probe + анализ фактического bitmap, 2 vision-вызова), но ready-исход не получен: parse_error. КОРЕНЬ НАЙДЕН: модели отвечают корректным JSON в markdown-заборе, строгий parse_analysis_payload (services/mca_vision.py:1437, голый json.loads) честно отказывает — см. vision-bitmap-select.json (описание «Маленький красный квадрат…» внутри ```json). Фикс 3 строк (strip fence) — вне WRITE_SCOPE лейна, передан Orchestrator; до него ready честно не наблюдаем (без ретуши). || FIX-VISION-FENCE (1cf0f400): парсер исправлен — _strip_markdown_fence снимает ТОЛЬКО обёртку, строгая валидация json.loads сохранена (2 REGRESSION-теста: RED до фикса → 33 passed после; невалидный JSON остаётся parse_error). Офлайн-harness w5 (реальные провайдеры, 0 Telegram): ready достигнут — postgen-анализ фактического bitmap вернул описание содержимого, блок image_analysis status=\"ready\", Writer описал именно созданное изображение. VERIFIED по факту прогона; postdeploy-наблюдение на проде — волна деплоя (live_when сохранён). || DEPLOY 22.10 (REL-258108): be60041f задеплоен (T0 18:19:57Z, NRestarts=0, journal 0 CRIT/0 TB); postdeploy-пробы 12/12 (deploy.md/postdeploy-probes.json)."
   },
   {
    "source_id": "M-ADTR-VERIFY-S10",
@@ -1618,13 +1626,13 @@
    "source_text_sha256": "f21109d2fdaaa0abda179de376759e7b34bbc0920bcb65ac0c3071b15ed083be",
    "source_excerpt": "- `image generated + sent`, **Vision отключён**: короткое естественное подтверждение доставки в действующем Personality Core («готово, держи», вариативно по ситуации), **без конкретных утверждений о содержимом итоговой картинки**. Не добавл",
    "disposition": "required",
-   "reason": "Код-половина: `image_analysis status=off reason=vision_disabled` + инструкция Writer без претензий; без сетевых вызовов; kill-switch OFF — блоки байт-в-байт прежние. Живая — postdeploy. READY_FOR_LIVE.",
+   "reason": "Код-половина: `image_analysis status=off reason=vision_disabled` + инструкция Writer без претензий; без сетевых вызовов; kill-switch OFF — блоки байт-в-байт прежние. Живая — postdeploy. READY_FOR_LIVE. || POSTDEPLOY 22.10 (be60041f задеплоен, server HEAD/blob/sha256 == кандидату, healthz 2.58.108): генерация при vision_enabled=false — фото доставлена (470 890 B), postgen off/vision_disabled, блок image_analysis status=off, 0 vision-вызовов; ответ Writer с явной пометкой «распознавание отключено» (эхо-наблюдение w3 — тюнинг Core, не контура). VERIFIED по факту проб.",
    "req_id": "ADTR-POSTGEN-OFF",
    "slice": "ADTR-POSTGEN",
    "acceptance": "`image generated + sent` при Vision отключён: короткое естественное подтверждение доставки в действующем Personality Core («готово, держи», вариативно по ситуации) — без конкретных утверждений о содержимом итоговой картинки; без жёстко прошитых формулировок и без обязательной второй реплики, если достаточно caption/статуса отправки.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
@@ -1640,6 +1648,14 @@
      "observation": "photo_sent=true (407 761 B), postgen=off/vision_disabled, vision_transport_zero=true, блок image_analysis status=off в контексте.",
      "artifact_path": "plans/features/add-tr/evidence/harness-r1/w3-postgen-off.json",
      "artifact_sha256": "f4678a660ff19fb51bd2421a85a5c29258e40e23d39fe7a50d7fc2be4be40a2e",
+     "type": "provider"
+    },
+    {
+     "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+     "ref": "REL-258108 postdeploy: healthz 443 = 2.58.108, server HEAD be60041f, blob/sha256-идентичность прод-байтов кандидату; офлайн-harness на прод-байтах (FakeBot, реальные провайдеры apinet, 0 сообщений в Telegram); plans/features/add-tr/release-258108/deploy.md",
+     "observation": "OFF: фото доставлена (470 890 B), postgen status=off reason=vision_disabled, image_analysis status=\"off\" в блоке, vision_transport=0; replay maybe_handle_keyword — байт-в-байт прецедент w3 (is_already=false, PG-journal already-replay офлайн недостижим — fail-open legacy); регресса нет.",
+     "artifact_path": "plans/features/add-tr/release-258108/postdeploy-probes.json",
+     "artifact_sha256": "06dc1e087f13e558219010aba8ed87709ae869a5c80f8ad9c719eb9b592de9a2",
      "type": "provider"
     }
    ],
@@ -1698,6 +1714,14 @@
      "observation": "Корень: корректный JSON внутри ```json-забора → parse_error строгого парсера; описание фактическое («красный квадрат»).",
      "artifact_path": "plans/features/add-tr/evidence/harness-r1/vision-bitmap-select.json",
      "artifact_sha256": "56a10d6119c605f357b0695e1b277f4524baae125ecd2b3153a408348421e412",
+     "type": "provider"
+    },
+    {
+     "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+     "ref": "REL-258108 postdeploy: healthz 443 = 2.58.108, server HEAD be60041f, blob/sha256-идентичность прод-байтов кандидату; офлайн-harness на прод-байтах (FakeBot, реальные провайдеры apinet, 0 сообщений в Telegram); plans/features/add-tr/release-258108/deploy.md",
+     "observation": "POSTDEPLOY ON: полный ход на прод-байтах — фото 480 826 B доставлена, postgen status=ready, описание фактического bitmap («A red square object centered on a plain white background.»), блок image_analysis status=\"ready\" source=\"final_bitmap\", 2 vision-вызова, Writer-ответ.",
+     "artifact_path": "plans/features/add-tr/release-258108/postdeploy-probes.json",
+     "artifact_sha256": "06dc1e087f13e558219010aba8ed87709ae869a5c80f8ad9c719eb9b592de9a2",
      "type": "provider"
     }
    ],
@@ -1768,13 +1792,13 @@
    "source_text_sha256": "bb14abfa5a9d386a6e4670a354a69e4ba886e61e44a4ec67870a42027e1caf1d",
    "source_excerpt": "- Дедуп: не отправлять одну и ту же картинку второй раз из-за повторного tool call, не добавлять несколько однотипных пост-ответов, не считать собственный generated image пользовательским запросом на повторную генерацию. Учитывать медиа-гру",
    "disposition": "required",
-   "reason": "Код-половина: дедуп `(chat_id, sha256(bytes))`, TTL 15 мин, ≤64; replay `already` не анализируется в обоих путях; повторный tool call гасится `skipped:already_handled`. Живая — postdeploy. READY_FOR_LIVE.",
+   "reason": "Код-половина: дедуп `(chat_id, sha256(bytes))`, TTL 15 мин, ≤64; replay `already` не анализируется в обоих путях; повторный tool call гасится `skipped:already_handled`. Живая — postdeploy. READY_FOR_LIVE. || POSTDEPLOY 22.10 (be60041f): replay того же update -> DIRECT_UPDATE_DEDUP_HIT (0 llm/0 vision/0 отправок); postgen-анализ тех же bytes -> cache_hit=true, 0 повторных vision-вызовов. VERIFIED по факту проб.",
    "req_id": "ADTR-POSTGEN-DEDUP",
    "slice": "ADTR-POSTGEN",
    "acceptance": "Дедуп: одна и та же картинка не отправляется второй раз из-за повторного tool call; нет нескольких однотипных пост-ответов; собственный generated image не считается пользовательским запросом на повторную генерацию; учтены медиа-группы, несколько результатов, ошибка Telegram delivery и idempotency.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "948c20041a9c23d620670a3a1a2a56800aff981b",
@@ -1806,6 +1830,14 @@
      "observation": "Повтор tool-вызова в OFF: блок off честен; дублирования постген-ответов нет (по одному пост-блоку на доставку).",
      "artifact_path": "plans/features/add-tr/evidence/harness-r1/w3-postgen-off.json",
      "artifact_sha256": "f4678a660ff19fb51bd2421a85a5c29258e40e23d39fe7a50d7fc2be4be40a2e",
+     "type": "provider"
+    },
+    {
+     "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+     "ref": "REL-258108 postdeploy: healthz 443 = 2.58.108, server HEAD be60041f, blob/sha256-идентичность прод-байтов кандидату; офлайн-harness на прод-байтах (FakeBot, реальные провайдеры apinet, 0 сообщений в Telegram); plans/features/add-tr/release-258108/deploy.md",
+     "observation": "DEDUP: DIRECT_UPDATE_DEDUP_HIT на replay того же update (0 llm / 0 vision / 0 отправок); postgen-анализ тех же bytes (480 826 B) -> cache_hit=true, status=ready, new_vision_calls=0.",
+     "artifact_path": "plans/features/add-tr/release-258108/postdeploy-probes.json",
+     "artifact_sha256": "06dc1e087f13e558219010aba8ed87709ae869a5c80f8ad9c719eb9b592de9a2",
      "type": "provider"
     }
    ],
@@ -1954,6 +1986,14 @@
      "artifact_path": "plans/features/add-tr/evidence/harness-r1/w1-postgen.json",
      "artifact_sha256": "b03846bae819089e0254a8351d316d295b4e8dde2797ebb9b6c722ba4d5db9fe",
      "type": "provider"
+    },
+    {
+     "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+     "ref": "REL-258108 postdeploy: healthz 443 = 2.58.108, server HEAD be60041f, blob/sha256-идентичность прод-байтов кандидату; офлайн-harness на прод-байтах (FakeBot, реальные провайдеры apinet, 0 сообщений в Telegram); plans/features/add-tr/release-258108/deploy.md",
+     "observation": "POSTDEPLOY S9: генерация + Vision ON success — описан именно созданный bitmap по фактическому Vision-результату (postgen ready + Writer-ответ); строгая валидация сохранена (fenced-невалидный -> честный parse_error).",
+     "artifact_path": "plans/features/add-tr/release-258108/postdeploy-probes.json",
+     "artifact_sha256": "06dc1e087f13e558219010aba8ed87709ae869a5c80f8ad9c719eb9b592de9a2",
+     "type": "provider"
     }
    ],
    "note": "Половина 1 (генератор не описывает непроверенные пиксели) — VERIFIED (948c2004; тест «промпт кот → рыжий пёс»). Половина 2 (= POSTGEN-ON): HARNESS-R1 подтвердил защиту — при failed/parse_error Writer НЕ описывает содержимое (w1-postgen.json); готовое описание по фактическому bitmap блокировано найденным корнем (markdown-fence у JSON → строгий parse_analysis_payload, см. ADTR-POSTGEN-ON). Фикс парсера закрывает половину 2 автоматически. || FIX-VISION-FENCE (1cf0f400): фикс исполнен, w5 — postgen ready, Writer описывает фактический bitmap; половина 2 VERIFIED по факту прогона."
@@ -2032,5 +2072,6 @@
    ],
    "note": "Процесс-критерий: Reviewer → штатный деплой → evidence-привязка; без бесконечного ожидания живой приёмки."
   }
- ]
+ ],
+ "note": null
 }

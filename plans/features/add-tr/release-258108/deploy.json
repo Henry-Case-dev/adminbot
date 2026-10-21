@@ -1,0 +1,68 @@
+{
+  "schema": "rel-deploy-evidence-v1",
+  "release": "2.58.108",
+  "candidate_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+  "candidate_short": "be60041f",
+  "review": "REV-REL-258108 Approved (plans/features/add-tr/release-258108/review-rel.md)",
+  "runtime_delta": "services/mca_vision.py (strip markdown-fence в parse_analysis_payload, 1cf0f400) + config/settings.py (APP_VERSION); ΔDDL=0; web/handlers/migrations = 0",
+  "deployed_commit": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+  "deploy_source": "origin/master, git pull --ff-only на проде",
+  "t0_utc": "2026-10-21T18:19:57Z",
+  "healthz": {
+    "loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.108\"} (финальная проба 19:13Z; проба в main-прогоне на +14s вернулась пустой — сервис начал слушать в 18:20:40Z по journal, артефакт тайминга старта, не релиза)",
+    "public_443": "200 {\"status\":\"ok\",\"version\":\"2.58.108\"} (admin-bot.duckdns.org)"
+  },
+  "service": {
+    "active": "active/running",
+    "main_pid_after_restart": 285197,
+    "nrestarts": 0,
+    "exec_main_status": 0
+  },
+  "journal_since_t0": {
+    "lines_at_18_20z": 48,
+    "lines_at_19_13z": 2182,
+    "critical": 0,
+    "traceback": 0,
+    "boot": "Started 18:20:19Z; Bot started 18:20:40Z; Start polling 18:20:42Z"
+  },
+  "blob_identity": {
+    "server_reported_head": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+    "config/settings.py": "git-blob 0b84f9afdf80 HEAD==worktree OK; prod-байты sha256 == локальный кандидат",
+    "services/mca_vision.py": "git-blob 8c1051d1a7dc HEAD==worktree OK; prod-байты (SFTP) sha256 a1c4da821570... == локальный кандидат be60041f",
+    "local_worktree": "runtime-дерево (services/handlers/config/web/migrations/main.py) чисто vs HEAD; локальные импорты == прод-байты"
+  },
+  "postdeploy_probes": {
+    "evidence": "plans/features/add-tr/release-258108/postdeploy-probes.json",
+    "method": "офлайн-harness ADTR-HARNESS-R1 на прод-байтах (FakeBot-доставка, реальные provider-вызовы apinet, 0 сообщений в Telegram); blob/sha256-идентичность прод-байтов кандидату",
+    "asserts_passed": "12/12",
+    "d_strip_fence": "fenced-валидный JSON -> ready (описание распарсено); fenced-невалидный/обрывок -> честный failed/parse_error; bare JSON -> прежний путь ready",
+    "s3": "голое фото -> UNHANDLED, 0 llm, 0 отправок",
+    "s4": "«что на картинке?» без цели -> ответ, 0 vision, 0 recognize_image (в окне Writer ответил по контексту — механика контура 0-vision подтверждена)",
+    "s7": "«как нарисовать кота?» -> объяснение, 0 генераций, 0 image-блоков",
+    "off": "генерация при vision_enabled=false: фото доставлено (470 890 B), postgen status=off reason=vision_disabled, блок image_analysis status=\"off\", 0 vision-вызовов, 0 CRIT",
+    "off_replay": "maybe_handle_keyword replay: new gen=1, delivery=\"sent\" — байт-в-байт совпадает с прецедентом w3 (is_already=false; PG-journal already-replay офлайн недостижим по дизайну — fail-open legacy, harness-r1-notes); регресса нет",
+    "s9_on": "полный ход Vision ON: фото 480 826 B доставлено, postgen status=ready, описание ФАКТИЧЕСКОГО bitmap («A red square object centered on a plain white background.»), блок image_analysis status=\"ready\" source=\"final_bitmap\", 2 vision-вызова (probe+анализ), Writer-ответ",
+    "dedup_update_replay": "тот же update -> DIRECT_UPDATE_DEDUP_HIT: 0 llm / 0 vision / 0 отправок",
+    "dedup_cache_hit": "postgen-анализ тех же bytes -> cache_hit=true, status=ready, 0 повторных vision-вызовов",
+    "p0v_heavy": "fixture 960x2600/1 114 350 B через штатный validate_or_normalize+analyze_adaptive на прод-байтах: status=ready, GT 3/3 (ZEBRA77, QUARTZ88, LOTUS99), 1 vision-вызов (было до фикса: failed/parse_error GT 0/3)",
+    "provider_budget": {"llm": 12, "vision": 3, "image_gen": 3, "embed": 0}
+  },
+  "ssh_discipline": {
+    "recon": "1 коннект 18:18:00Z (~15с timeout)",
+    "main": "1 коннект 18:19:57Z (пауза 95с; pull --ff-only -> blob-check -> SFTP prod-байтов -> рестарт -> верификация)",
+    "final": "1 коннект 19:13:51Z (svc/journal/healthz)",
+    "total_connects": 3,
+    "auth_failures": 0,
+    "secrets": "не печатались, в evidence не попали"
+  },
+  "rollback": {
+    "branch": "release/fix-2.58.107 = 3a178c6c0c5fa5bd37092df251de6eafc75330ba (запушена в origin)",
+    "procedure": "git checkout release/fix-2.58.107 + sudo systemctl restart admin_bot; ΔDDL=0, миграций нет — откат чистый"
+  },
+  "findings": [
+    "Env-note (не релиз-дефект): в .venv отсутствует Pillow (PIL) — секция heavy в общем окне упала до записи (ModuleNotFoundError), изолированный перезапуск на прод-байтах глобальным py -3 (Pillow 12.2.0; интерпретаторный прецедент w1-w5 harness) дал ready GT 3/3. Postgen-путь S9 (480 KB, normalize не нужен) в .venv работает.",
+    "Probe-note: teardown harness (close_all) подвисает на фоновых aiosqlite-хвостах — evidence спасается инкрементальным сохранением; процесы гашены, хвостов на машине не осталось.",
+    "Наблюдение (известное, не новое): OFF-ответ Writer эхо-повторяет предмет промпта («жёлтое на белом официально считается уткой») с явной пометкой «распознавание отключено» — совпадает с w3-прецедентом 22.10, механический контракт (data-only, 0 vision, честный статус) соблюдён; тюнинг Personality Core, не контура."
+  ],
+  "chat_messages_sent": 0
+}
