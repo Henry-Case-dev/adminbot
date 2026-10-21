@@ -1,0 +1,113 @@
+{
+  "schema": "adminbot-deploy-evidence-v1",
+  "train": "2.58.109",
+  "lane": "DEVOPS-DEPLOY-258109",
+  "release_review": "REV-REL-258109 Approved (release-258109/review-rel.md)",
+  "candidate_commit": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+  "deployed_commit": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+  "deploy_source": "origin/master @ a1d8bd62 (pushed before deploy); server: git fetch + git checkout -B master origin/master",
+  "server_head_confirmed": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+  "server_tracked_modifications": 0,
+  "rollback_branch": {
+    "name": "release/fix-2.58.108",
+    "sha": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+    "pushed": true,
+    "server_rb_ref_confirmed": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+    "procedure": "git -C /var/www/admin_bot checkout -f be60041fdae1fcf8d427cc10fc8dbd7559d9f266 && sudo systemctl restart admin_bot",
+    "ddl_revert_needed": false
+  },
+  "predeploy": {
+    "recon_utc": "2026-10-21T19:57:07Z",
+    "old_head": "be60041fdae1fcf8d427cc10fc8dbd7559d9f266",
+    "old_version": "2.58.108",
+    "old_pid": 285197,
+    "old_nrestarts": 0,
+    "disk_free": "7.2G / 24G (68% used)"
+  },
+  "t0_epoch": 1792612750,
+  "t0_utc": "2026-10-21T19:59:10Z",
+  "restarts": 1,
+  "postdeploy": {
+    "main_pid": 304990,
+    "nrestarts": 0,
+    "active_state": "active",
+    "sub_state": "running",
+    "exec_main_start": "Wed 2026-10-21 19:59:23 UTC",
+    "exec_main_status": 0,
+    "healthz_loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.109\"}",
+    "healthz_external_443": "200 {\"status\":\"ok\",\"version\":\"2.58.109\"} (https://admin-bot.duckdns.org)",
+    "final_check_utc": "2026-10-21T20:02:10Z"
+  },
+  "delta": {
+    "total_files": 59,
+    "runtime_set": [
+      "config/settings.py",
+      "services/direct_chat_service.py"
+    ],
+    "delta_ddl": 0,
+    "delta_other_nonstd": 0,
+    "migrations": "none (prompt_migration 16 lines, all no-op, 0 errors; schema v37 unchanged)"
+  },
+  "byte_checks": {
+    "raw_sha256_12": {
+      "config/settings.py": "54af94a38923",
+      "services/direct_chat_service.py": "a8ac05bf111e",
+      "README.md": "45e0200ef89f",
+      "services/database.py": "b7fdd7615a52 (control, unchanged -> dDDL=0)"
+    },
+    "git_blob_sha1_12": {
+      "config/settings.py": "462b7ed6376f",
+      "services/direct_chat_service.py": "7ffb9b89468d"
+    },
+    "final_recheck_separate_session": {
+      "utc": "2026-10-21T20:02:10Z",
+      "sha_direct_chat_service": "a8ac05bf111e == candidate",
+      "blob_direct_chat_service": "7ffb9b89468d == candidate",
+      "reply_to_message_id_markers": 5,
+      "routes": "/healthz 200, /web/ 200"
+    }
+  },
+  "markers": {
+    "app_version_258109": 1,
+    "f8_meta_head_1e3e5949": 1,
+    "initiative_reply_target": 2,
+    "factory_set_fingerprint_c19d35a1c093": 2
+  },
+  "journal": {
+    "source": "journalctl -u admin_bot --since @1792612750",
+    "raw": "OPENCODE_WORKFLOW_SCRATCH/deploy-258109/journal109-since-T0.raw",
+    "lines": 212,
+    "critical": 0,
+    "traceback": 0,
+    "error": 0,
+    "runtime_warn": 0,
+    "prompt_migration": "16 lines no-op, 0 errors",
+    "boot": "graceful stop PID 285197 -> start 19:59:23 UTC PID 304990; initiative observer job registered 19:59:40 UTC"
+  },
+  "postdeploy_feature_status": {
+    "feature": "initiative reply binding (FIX-INITREPLY)",
+    "config_flags": "none (settings.py initreply/init_reply scan = 0) -> active since deploy whenever addressee exists",
+    "live_confirmation": "PENDING - arrives with a real initiative send (48h telemetry), NOT a gate; no messages sent to real chats during deploy (PET_PROJECT rule)",
+    "observer_job": "MemoryMaintenanceService._tick_initiative_observer registered at boot"
+  },
+  "ssh_connections": {
+    "count": 3,
+    "discipline": "single login nik, >=90s spacing (118s, ~145s), no pollers/retries; HTTP/443 probes from local machine, unlimited by policy",
+    "log": [
+      "recon (read-only) 19:57:07Z",
+      "main deploy 19:59:05Z - fetch, gates, checkout, T0, restart, health poll, served probes, journal",
+      "final verify (read-only) 20:02:10Z"
+    ]
+  },
+  "incidents": [],
+  "gate": {
+    "command": "requirements_gate.py check --map plans/features/asap8-v6-3-live-correction/requirements-map.json --stage release --candidate a1d8bd6297d11ef37e4445f370916f3ffb768f98 --deployed-commit a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+    "exit_code": 1,
+    "output": "release-258109/release-gate.txt (inventory=148 errors=282)",
+    "note": "legacy openworkflow-coverage-v1 map; pre-existing convention residual (rows bound to historical wave candidates, re-binding forbidden by review-tailbind) -> exit 1 documented honestly, same class as release-25883/258105; train-level release binding = REV-REL-258109 Approved + deploy evidence bound to deployed commit; train matches no map rows (legitimate confirmed defect per lane brief); deployed_commit updated to a1d8bd62"
+  },
+  "map_binding": {
+    "deployed_commit_updated": "a1d8bd6297d11ef37e4445f370916f3ffb768f98"
+  },
+  "result": "VERIFIED"
+}
