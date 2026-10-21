@@ -1,0 +1,104 @@
+{
+  "schema": "rel-deploy-evidence-v1",
+  "release": "2.58.107",
+  "lane": "DEVOPS-DEPLOY-258107",
+  "release_review": "REV-REL-258107 Approved (plans/features/corrective-fix-2026-10-21/release-258107/review-rel.md)",
+  "candidate_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+  "deployed_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+  "deployed_commit_short": "3a178c6c",
+  "deploy_source": "origin/master @ 3a178c6c (запушен до деплоя); прод: git pull --ff-only",
+  "prev_prod_head": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90 (прод 2.58.106)",
+  "rollback_branch": {
+    "name": "release/fix-2.58.106",
+    "sha": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+    "pushed": true,
+    "procedure": "git -C /var/www/admin_bot checkout -f release/fix-2.58.106 && sudo systemctl restart admin_bot",
+    "ddl_revert_needed": false
+  },
+  "delta_ddl": 0,
+  "runtime_delta": {
+    "files": 21,
+    "scope": "config/settings.py + 20 services (factcheck x5, direct chat x3, mca_expression, nostalgia x2, prompt_registry/prompt_migrations/prompt_style_blocks, search x2, summary/checkup/web/youtube prompts)",
+    "web_handlers_migrations_scripts": 0,
+    "total_delta_files": 120
+  },
+  "predeploy": {
+    "recon_utc": "2026-10-21T14:33:43Z",
+    "old_head": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+    "old_version": "2.58.106",
+    "old_pid": 192071,
+    "old_nrestarts": 0
+  },
+  "t0_utc": "2026-10-21T14:35:46Z",
+  "restarts": 1,
+  "restart_sanction": "ПЛАНОВЫЙ рестарт обязателен и санкционирован ревью (review-rel.md: FACTORY_SET — runtime-константа процесса, горячее применение канонов невозможно; прецедент soul-release-prep). Отклонение от привычки no-restart зафиксировано как санкционированное.",
+  "postdeploy": {
+    "main_pid": 240598,
+    "nrestarts": 0,
+    "nrestarts_stable": "0 до рестарта (recon, PID 192071 с 21.10) и 0 через 4.3 мин после (final) — автоперезапусков нет",
+    "active_state": "active",
+    "sub_state": "running",
+    "exec_main_status": 0,
+    "boot": "Started admin_bot 14:36:02Z -> 'Bot started' 14:36:19Z -> 'Start polling' 14:36:21Z",
+    "healthz_loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.107\"} (final, 14:40:08Z)",
+    "healthz_external_443": "200 {\"status\":\"ok\",\"version\":\"2.58.107\"} (https://admin-bot.duckdns.org, ~14:36:30Z)",
+    "final_check_utc": "2026-10-21T14:40:08Z"
+  },
+  "blob_identity_head_vs_worktree": "21/21 OK (полный runtime-набор поезда, см. OPENCODE_WORKFLOW_SCRATCH/rel-258107/main-run.txt)",
+  "fingerprint_probe": {
+    "constant": "c19d35a1c093",
+    "computed": "c19d35a1c093",
+    "match": true,
+    "method": "read-only импорт services.prompt_registry venv-питоном прода (runtime-константа == factory_set_fingerprint())"
+  },
+  "effective_assembly_probe": {
+    "factory_core_mat_free": true,
+    "factory_expression_directive": true,
+    "prev_doc_superseded": true,
+    "prev_doc_effective_mat_free": true,
+    "compact_mat_free": true,
+    "verbalizer_mat_free": true,
+    "fingerprint": "c19d35a1c093",
+    "method": "0 LLM / 0 DB, сборка боевого system через реальный composer (адаптация deploy_simulation из REV-CORRECTIVE-R1)"
+  },
+  "custom_keys_7": {
+    "result": "7/7 EQ_BASELINE — байты владельца не тронуты",
+    "baseline_source": "deploy 2.58.101, plans/features/cfg/evidence/cfg-07a/release/deploy.md F1 (подтверждено живым журналом 19.10)",
+    "values": {
+      "prompts.direct_chat_system_prompt": "cf404931f84c/5294",
+      "prompts.summary_system_prompt": "d697b0745b29/3558",
+      "prompts.checkup_system_prompt": "1e8a3c69cf7b/2312",
+      "prompts.search_system_prompt": "ba43fb679db6/2622",
+      "prompts.youtube_system_prompt": "e0a1ffaf18a1/2252",
+      "prompts.youtube_video_system_prompt": "c8bba06ec6a8/2248",
+      "prompts.webpage_system_prompt": "7801085b6ef5/2071"
+    }
+  },
+  "journal": {
+    "source": "journalctl -u admin_bot --since 2026-10-21T14:35:46Z",
+    "lines_final": 326,
+    "critical": 0,
+    "traceback": 0,
+    "prompt_migration": "16 строк, ошибок 0: 12x «кастом юзера — НЕ трогаем» (защита кастома), 4x «уже новый канон», 0x перезаписи кастома",
+    "boot_clean": true
+  },
+  "postdeploy_observation_contours": {
+    "l1_plan_telemetry": "контур на месте; react/silent доли — наблюдение 48ч с живыми сообщениями (НЕ гейт, ожидание не требуется)",
+    "expression_diag": "контур на месте; сработает при следующих живых вызовах",
+    "factcheck_new_routes": "трассы при следующем реальном прогоне фактчека",
+    "note": "по плану ревьюера (review-rel.md §Postdeploy-plan): только констатация наличия контуров; реальное поведение придёт с живыми сообщениями"
+  },
+  "ssh_connections": {
+    "count": 3,
+    "discipline": "одиночный логин nik, паузы 123с/262с (>90с), без поллеров и ретраев; HTTP/443-пробы политикой не ограничены; секреты не печатались",
+    "log": [
+      "recon (read-only) 14:33:43Z",
+      "main (pull+21 blob+restart+svc+journal) 14:35:46Z",
+      "final (read-only: svc+journal+fingerprint+effective+custom7, SFTP-пробы в том же коннекте) 14:40:08Z"
+    ]
+  },
+  "chat_messages_sent": 0,
+  "gate_note": "requirements-map для corrective-fix-2026-10-21 не создаётся (коррективная волна; релизная привязка = REV-REL-258107 Approved + настоящий deploy-evidence; карты soul-1/cfg не менялись релизом)",
+  "raw_runs": "OPENCODE_WORKFLOW_SCRATCH/rel-258107/{main-run.txt,final-run.txt,recon-run.txt}",
+  "result": "VERIFIED"
+}
