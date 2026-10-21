@@ -345,21 +345,25 @@ def test_persona_phrase_guard_catches_old_text_regression():
 def test_summary_hybrid_l2_canon_legacy_voice_is_stripped():
     """FIX-SOUL-F1F3 (F1, регрессия): канон Summary hybrid-L2 не несёт старый голос.
 
-    Живой канон (``flags.summary_hybrid_l2_enabled=true``) содержал оборот
-    «сохраняй характер бота и атмосферу конфы» (инструкция сохранять старый
-    голос) и «двачерские обороты»; гейт-маркер расширен ``двач``, добавлены
-    ДВА узких правила. Голос канала — Core; структурные/фактические
-    контракты канона (грамматика, модальность, эвиденция, формат) целы;
-    кастом владельца и кодовый fallback (OFF-паритет W2) не затрагиваются.
+    Живой канон содержал оборот «сохраняй характер бота и атмосферу конфы»
+    (инструкция сохранять старый голос); гейт-маркер расширен ``двач``.
+    Голос канала — Core; структурные/фактические контракты канона
+    (грамматика, модальность, эвиденция, формат) целы; кастом владельца и
+    кодовый fallback (OFF-паритет W2) не затрагиваются.
+
+    CORRECTIVE-FOLLOWUP (21.10.2026, §2): разрешение мата («…и мат
+    разрешены») УДАЛЕНО из самого канона — источник устранён, поэтому
+    правило 11 (summary.l2_dvach_vocabulary) на текущем каноне больше не
+    срабатывает (осталось для СТАРЫХ persisted-байтов); «двачерские
+    обороты» сохранены по явному владельческому решению v1.1 (ASAP-2.1 §16).
     """
     canon = pr.factory_text("summary.base.l2_writer")
+    assert "мат разрешены" not in canon            # тема мата — только Expression
     stripped, info = pr.suppress_legacy_speech(canon, source="global")
     assert info.known_canon is True and info.legacy_present is True
-    assert info.removed == 2, "фикс неполный: должны сработать оба правила"
-    assert info.labels == ("summary.l2_legacy_voice_reference",
-                           "summary.l2_dvach_vocabulary")
+    assert info.removed == 1, "ожидалось ровно правило 10 (голос Core)"
+    assert info.labels == ("summary.l2_legacy_voice_reference",)
     assert "сохраняй характер бота и атмосферу конфы" not in stripped
-    assert "двачерские обороты" not in stripped
     assert "держи голос Core" in stripped
     for needle in ("ГРАММАТИКА", "ФАКТЫ И МОДАЛЬНОСТЬ", "ЭВИДЕНЦИЯ",
                    "АКЦЕНТЫ", "ЖЁСТКИЕ ПРАВИЛА", "ФИНАЛ",

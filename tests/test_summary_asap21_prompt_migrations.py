@@ -145,7 +145,7 @@ def test_prev_snapshots_byte_exact():
     assert sp.PREV_SUMMARY_L2_WRITER_R1028 == (
         sp._SUMMARY_L2_WRITER_R1027_BASE + "\n\n" + sp.TARGET_INSTRUCTION_BLOCK)
     assert sp.PREV_SUMMARY_NARRATOR_R1028 == (
-        sp._SUMMARY_NARRATOR_R1023_BASE + "\n\n" + sp.TYPOGRAPHY_BLOCK)
+        sp._SUMMARY_NARRATOR_R1023_BASE + "\n\n" + sp.PREV_TYPOGRAPHY_BLOCK)
     assert sp.PREV_SUMMARY_SYSTEM_R1028 == (
         sp._SUMMARY_R1021_BASE + sp.STYLE_BLOCKS_SUFFIX
         + "\n\n" + sp.BOT_KNOWLEDGE_INSTRUCTION)
@@ -159,7 +159,10 @@ def test_new_l2_canon_has_required_instructions():
     assert "заглавной буквы" in canon
     assert "случайных строчных начал" in canon
     # §16 двачерский голос (инструкция владельца) — запрет сленга снят.
-    assert "Сарказм, интернет-сленг, двачерские обороты и мат разрешены" in canon
+    # CORRECTIVE-FOLLOWUP (21.10.2026, §2): «и мат» удалено из списка —
+    # режим мата задаёт только <Expression_Settings>.
+    assert "Сарказм, интернет-сленг и двачерские обороты разрешены" in canon
+    assert "мат разрешены" not in canon
     assert "не превращай текст в стерильную журналистику" in canon.lower() or \
         "Не превращай текст в стерильную журналистику" in canon
     assert "никакого сленга" not in canon       # запрет снят

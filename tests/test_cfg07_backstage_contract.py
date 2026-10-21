@@ -224,14 +224,22 @@ _PERSISTED_TO_CLEAN = {
     "checkup": cp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
 }
 
+#: FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §2 владельца): suppress-правило 3
+#: (persona.tone_label) больше не оставляет разрешение мата — строка
+#: «Разрешен мат…» удаляется целиком; PREV_*_CFG07A ведут прод-байты на
+#: новый канон без мат-разрешения.
 
 @pytest.mark.parametrize("name", sorted(_PERSISTED_TO_CLEAN))
 def test_suppress_persisted_matches_new_canon_bytes(name):
     """Байт-паритет: suppress(persisted-канон с LEGACY-блоками) == активный
-    канон — кодовый дефолт и вычищенное persisted-значение совпадают."""
+    канон — кодовый дефолт и вычищенное persisted-значение совпадают.
+    CORRECTIVE-FOLLOWUP (21.10.2026, §2): suppress-правило 3 больше не
+    оставляет разрешение мата — строка «Разрешен мат…» удаляется целиком,
+    поэтому паритет строгий БЕЗ дополнительных правок."""
     prev = _PERSISTED_TO_CLEAN[name]
     stripped, info = pr.suppress_legacy_speech(prev, source="global")
     assert info.applied and info.removed > 0, name
+    assert "Разрешен мат" not in stripped, name
     assert stripped == ACTIVE_CANONS[name], name
 
 
@@ -311,13 +319,16 @@ def test_unchanged_echo_is_caught_by_token_guard():
     assert np.contains_unchanged_token(None) is False
 
 
-# ═══ 6. Стык Summary-L2 × Expression OFF (SF-14, план §6.7) ═════════════════
+# ═══ 6. Стык Summary-L2 × Expression (SF-14 + CORRECTIVE-FOLLOWUP) ══════════
 
 def test_summary_l2_profanity_seam_closed_by_p0_priority():
-    """Жанровое «мат разрешены и уместны» в L2-каноне НЕ спорит с Expression
-    OFF: P0-заголовок объявляет приоритет настроек над разрешением канона.
-    Правка канона (SF-14) по итогам теста не потребовалась."""
-    assert "мат разрешены и уместны" in sm.SUMMARY_L2_WRITER_SYSTEM_PROMPT
+    """CORRECTIVE-FOLLOWUP (21.10.2026, §2): жанровое «мат разрешены и
+    уместны» УДАЛЕНО из L2-канона — источник противоречия устранён, а не
+    перекрыт приоритетом. P0-строка приоритета в шапке Expression сохранена
+    (арбитраж с прочими канонными разрешениями остаётся)."""
+    assert "мат разрешены" not in sm.SUMMARY_L2_WRITER_SYSTEM_PROMPT
+    assert "Сарказм, интернет-сленг и двачерские обороты разрешены" \
+        in sm.SUMMARY_L2_WRITER_SYSTEM_PROMPT
     assert "эти настройки важнее общего разрешения канона" in mex.EXPRESSION_HEADER
     off_text = mex.render_expression_text({
         "enabled": True,

@@ -243,17 +243,28 @@ _CHAT_R1021_BASE_CFG07A = _CHAT_SYSTEM_PROMPT_REFERENCE.replace(
 assert "перегрелись серверы" not in _CHAT_R1021_BASE_CFG07A
 assert "СЛУЖЕБНЫЕ ПОМЕТКИ" in _CHAT_R1021_BASE_CFG07A
 
+# FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §2 владельца): строка «3. Разрешен
+# мат и сленг.» УДАЛЕНА из АКТИВНОЙ базы — регулирование мата принадлежит
+# только слою Expression (PRECEDENT: factcheck UNIFIED-CORE). Замороженные
+# эталоны и слепки PREV_* прежние байты сохраняют (лестница миграций).
+_CHAT_R1021_BASE_CORRECTIVE = _CHAT_R1021_BASE_CFG07A.replace(
+    "\n3. Разрешен мат и сленг. Будь грубым, но по факту.", "")
+assert "Разрешен мат" not in _CHAT_R1021_BASE_CORRECTIVE
+assert "Будь грубым, но по факту" not in _CHAT_R1021_BASE_CORRECTIVE
+assert "3. Разрешен мат и сленг. Будь грубым, но по факту." \
+    in _CHAT_SYSTEM_PROMPT_REFERENCE
+
 # Слепок прод-канона ДО MCA-23 (= прежний CHAT_SYSTEM_PROMPT 10.21/10.23)
 # — байт-в-байт, для авто-миграции PG.
 _PREV_CHAT_MCA23_SYSTEM_PROMPT_REFERENCE = (
     _CHAT_SYSTEM_PROMPT_REFERENCE
     + "\n\n" + TARGET_INSTRUCTION_BLOCK + STYLE_BLOCKS_SUFFIX)
 
-# Эталон активного канона (CFG-07A-2): чистая база + extent-блок MCA-23 +
-# правило маркировки + блоки A/B.
+# Эталон активного канона (CFG-07A-2 + FIX-CORRECTIVE-FOLLOWUP): чистая
+# база без мат-строки + extent-блок MCA-23 + правило маркировки + блоки A/B.
 _EXPECTED_CHAT_SYSTEM_PROMPT = (
-    _CHAT_R1021_BASE_CFG07A.replace(_MCA23_CAP_BLOCK_OLD,
-                                    _MCA23_LIMIT_BLOCK_NEW)
+    _CHAT_R1021_BASE_CORRECTIVE.replace(_MCA23_CAP_BLOCK_OLD,
+                                        _MCA23_LIMIT_BLOCK_NEW)
     + "\n\n" + TARGET_INSTRUCTION_BLOCK + STYLE_BLOCKS_SUFFIX)
 
 _EXPECTED_COOLDOWN = (

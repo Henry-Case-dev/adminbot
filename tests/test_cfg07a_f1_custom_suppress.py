@@ -242,14 +242,23 @@ def test_storage_not_mutated_by_payload_build(name):
 _PARITY_CANONS = ("search", "youtube", "youtube_video", "web", "checkup")
 
 
+#: FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §2 владельца): suppress-правило 3
+#: (persona.tone_label) больше не оставляет разрешение мата — строка
+#: «Разрешен мат…» удаляется целиком; PREV_*_CFG07A ведут прод-байты на
+#: новый канон без мат-разрешения.
+
 @pytest.mark.parametrize("name", _PARITY_CANONS)
 def test_known_canon_suppress_still_byte_equal_active(name):
     """(c) Существующий байт-паритет не сломан: suppress(PREV) == активный
     канон (правила 1-11 прежние; новые правила 12/13 — no-op на этих
-    байтах)."""
+    байтах). CORRECTIVE-FOLLOWUP (21.10.2026, §2): suppress-правило 3
+    удаляет разрешение мата целиком — паритет строгий; в вычищенном
+    значении и активном каноне строки «Разрешен мат…» нет."""
     stripped, info = pr.suppress_legacy_speech(PREV_CANONS[name],
                                                source="global")
     assert info.applied and info.removed > 0, name
+    assert "Разрешен мат" not in stripped, name
+    assert "Разрешен мат" not in ACTIVE_CANONS[name], name
     assert stripped == ACTIVE_CANONS[name], name
 
 

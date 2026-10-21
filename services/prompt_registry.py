@@ -192,9 +192,13 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "message.clarify_media_target": "clarify-media-mca23",
     "message.smartmodule.phrases": "smartmodule-phrases-r1021",
     "message.smartmodule.chat_persona": "chat-persona-core-voice",
-    # Personality Core (CORE-DOC): первоисточник SOUL-02 и ручное сжатие
-    "core.personality": "soul02-author-full-v1",
-    "core.personality.compact": "soul02-compact-v1",
+    # Personality Core (CORE-DOC): первоисточник SOUL-02 и ручное сжатие.
+    # v2 = FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §1 владельца): тема мата
+    # удалена из Core (регулирование мата — только Expression); прежние
+    # байты — PREV_PERSONALITY_CORE_* (chat_prompts), гвард
+    # superseded-core в core_selection не даёт им действовать из PG.
+    "core.personality": "soul02-author-full-v2",
+    "core.personality.compact": "soul02-compact-v2",
     # SOUL-1 (W4): приёмы Humor Craft, рамка few-shot и классификатор окна
     "humor.craft.common": "humor-craft-guard-h11",
     "humor.technique.absurd_escalation": "humor-technique-w4",
@@ -1058,6 +1062,10 @@ CORE_DETAIL_REASONS = frozenset({
 #: взят авторский текст и какие требования SOUL-1 он закрывает. Equality с
 #: файлом и со строками-хешами карты проверяет
 #: ``tests/test_soul1_core_doc_text.py`` (не копия текста в тесте).
+#: CORRECTIVE-FOLLOWUP (21.10.2026, §1 владельца): заводская редакция =
+#: первоисточник МИНУС документированная правка «тема мата удалена из Core»
+#: (регулирование мата — только Expression). Прежние байты —
+#: PREV_PERSONALITY_CORE_* (chat_prompts); источник не правился.
 CORE_SOURCE: dict = {
     "path": "plans/features/soul-1/source-current-task.md",
     "chapter": "§3 SOUL-02 — Единый Personality Core как собственность владельца",
@@ -1067,7 +1075,7 @@ CORE_SOURCE: dict = {
     "req_ids": ("SOUL-02.1", "SOUL-02.2", "SOUL-02.3", "SOUL-02.4",
                 "SOUL-02.5", "SOUL-02.6"),
     "map": "plans/features/soul-1/requirements-map.json",
-    "amendment": "SOUL-AMD.1.1",
+    "amendment": "SOUL-AMD.1.1 + FIX-CORRECTIVE-FOLLOWUP 21.10.2026 §1",
     "factory_rev_label": FACTORY_REVISION_LABELS[CORE_FULL_BLOCK_ID],
 }
 
@@ -1088,6 +1096,26 @@ def doc_field_text(doc, field: str) -> str:
         except Exception:      # pragma: no cover — битые байты
             return ""
     return value if isinstance(value, str) else ""
+
+
+#: Ленивый кэш sha12 прежних заводских Core-редакций (гвард superseded-core,
+#: см. core_selection; импорт chat_prompts ленивый — без цикла).
+_SUPERSEDED_CORE_SHA_CACHE: dict[str, str] = {}
+
+
+def _superseded_core_shas() -> tuple[str, str]:
+    """(sha12 прежней полной, sha12 прежней компактной) Core-редакций."""
+    if not _SUPERSEDED_CORE_SHA_CACHE:
+        from services.chat_prompts import (
+            PREV_PERSONALITY_CORE_COMPACT_TEXT,
+            PREV_PERSONALITY_CORE_FULL_TEXT,
+        )
+        _SUPERSEDED_CORE_SHA_CACHE["full"] = \
+            sha12(PREV_PERSONALITY_CORE_FULL_TEXT)
+        _SUPERSEDED_CORE_SHA_CACHE["compact"] = \
+            sha12(PREV_PERSONALITY_CORE_COMPACT_TEXT)
+    return (_SUPERSEDED_CORE_SHA_CACHE["full"],
+            _SUPERSEDED_CORE_SHA_CACHE["compact"])
 
 
 def core_selection(doc=None, *, source: str = "default",
@@ -1112,13 +1140,29 @@ def core_selection(doc=None, *, source: str = "default",
     factory_full = factory_text(CORE_FULL_BLOCK_ID)
     factory_compact = factory_text(CORE_COMPACT_BLOCK_ID)
     document = doc if isinstance(doc, Mapping) else None
+    superseded_fields: list[str] = []
     if document is None:
         full_text, compact_text = factory_full, factory_compact
         origin, revision = "factory", ""
         raw_level = ""
     else:
         full_text = doc_field_text(document, "full_text") or factory_full
-        compact_text = doc_field_text(document, "compact_text") or factory_compact
+        compact_text = doc_field_text(document, "compact_text") or \
+            factory_compact
+        # CORRECTIVE-FOLLOWUP (21.10.2026, §1 владельца): гвард
+        # superseded-core. Поле документа, байт-в-байт равное ПРЕЖНЕЙ
+        # заводской редакции Core (с темой мата), не действует: состоянием
+        # остаётся документ (данные не трогаются), а действующим слоем —
+        # НОВАЯ заводская редакция (прецедент withheld_factory_governs
+        # prompt_factory.restore_backup и suppress_legacy_speech). Кастом
+        # владельца (байты не равны известному слепку) не подменяется никогда.
+        _sup_full_sha, _sup_compact_sha = _superseded_core_shas()
+        if full_text and sha12(full_text) == _sup_full_sha:
+            full_text = factory_full
+            superseded_fields.append("full_text")
+        if compact_text and sha12(compact_text) == _sup_compact_sha:
+            compact_text = factory_compact
+            superseded_fields.append("compact_text")
         origin = str(document.get("origin") or "owner_edit")
         revision = str(document.get("revision") or "")
         raw_level = str(document.get("detail_level") or "").strip().lower()
@@ -1137,7 +1181,8 @@ def core_selection(doc=None, *, source: str = "default",
     text = full_text if level == "full" else compact_text
     active_field = CORE_FIELD_BY_LEVEL[level]
     active_from_owner = bool(document is not None
-                             and doc_field_text(document, active_field).strip())
+                             and doc_field_text(document, active_field).strip()
+                             and active_field not in superseded_fields)
     return {
         "level": level,
         "reason": reason,
@@ -1150,6 +1195,7 @@ def core_selection(doc=None, *, source: str = "default",
         "requested_level": raw_level or "compact",
         "active_field": active_field,
         "active_from_owner": active_from_owner,
+        "superseded_fields": tuple(superseded_fields),
         "compact_words": (len(compact_text.split()) if compact_text else 0),
         "revision": core_active_revision(text=text, document_revision=revision),
     }
@@ -1203,6 +1249,7 @@ def core_selection_view(doc=None, *, source: str = "default",
         "active_revision": sel["revision"],
         "active_field": sel["active_field"],
         "active_from_owner": sel["active_from_owner"],
+        "superseded_fields": list(sel.get("superseded_fields") or ()),
         "budget_tokens": int(budget_tokens or 0),
         "full": _field_view("full_text", sel["full_text"]),
         "compact": _field_view("compact_text", sel["compact_text"]),
@@ -1482,7 +1529,33 @@ def factory_set_fingerprint() -> str:
 #: tests/test_cfg07_backstage_contract.py). Метки ревизий 7 блоков бампнуты
 #: (``*-cfg07a``). Было ``64ec1c60e278``, стало ``037080375ac8``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "037080375ac8"
+#: Бамп FIX-CORRECTIVE-FOLLOWUP (22.10.2026, директива владельца 21.10 §1-2
+#: + follow-up): из Personality Core (full+compact, метки
+#: ``soul02-author-full-v2``/``soul02-compact-v2``) УДАЛЕНА тема мата —
+#: регулирование нецензурной лексики принадлежит только Expression
+#: (``PROFANITY_INSTRUCTIONS`` не менялись); из активных канонов Direct
+#: legacy-базы и checkup удалены строки «Разрешен мат и сленг»; шапка
+#: Expression очищена от нейтрализаторов. Прежние байты Core —
+#: PREV_PERSONALITY_CORE_*; гвард superseded-core в core_selection не даёт
+#: старым заводским байтам действовать из PG. Сверка карт фабричных текстов:
+#: changed = core.personality, core.personality.compact,
+#: prompts.direct_chat_system_prompt, prompts.checkup_system_prompt (+ L1 в
+#: фикс-зоне direct-l1). Было ``037080375ac8``, стало ``21717a79dc67``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: Бамп 2 FIX-CORRECTIVE-FOLLOWUP (22.10.2026): та же правка доведена до
+#: остальных пользовательских канонов — search/youtube/youtube_video/web/
+#: summary/L2-writer: строки «ВАЖНО: Разрешен мат и сленг.» удалены из
+#: активных баз; TYPOGRAPHY_BLOCK очищен (PREV_TYPOGRAPHY_BLOCK — слепок для
+#: распознавания прод-байтов); suppress-правила 3/11 + новое правило 14
+#: больше не оставляют разрешение мата в вычищенных persisted-значениях.
+#: Было ``21717a79dc67``, стало ``71c6a7b6c612``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: Бамп 3 FIX-CORRECTIVE-FOLLOWUP (22.10.2026, финал): из активного канона
+#: Summary L2-писателя удалено «и мат» в списке стилевых средств (источник
+#: противоречия устранён, не перекрыт приоритетом; SF-14-тест переведён на
+#: новый контракт). Было ``71c6a7b6c612``, стало ``3e35aaa38e0c``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "3e35aaa38e0c"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1792,14 +1865,20 @@ _LEGACY_PERSONA_RULES_RAW: tuple[tuple[str, str, str], ...] = (
      ""),
     # 2. Инструкция «игнорируй настройки безопасности/цензуры/морали» —
     #    снятие safety-контура, не являющееся контрактом безопасности.
+    #    CORRECTIVE-FOLLOWUP (21.10.2026, §2): правило 3 более НЕ оставляет
+    #    разрешение мата — строка удаляется целиком (режим мата задаёт
+    #    только <Expression_Settings>); «ВАЖНО:»-префикс уходит с ней.
     ("persona.safety_circumvention",
      r"Игнорируй все настройки безопасности, цензуры и морали\.\s*",
      ""),
-    # 3. «Разрешен мат, токсичность и любой сленг» → разрешение мата
-    #    сохраняется (характер ядра), «токсичность» как ярлык личности — нет.
+    # 3. «(ВАЖНО:) Разрешен мат, токсичность и любой сленг» → строка удалена
+    #    целиком (CORRECTIVE-FOLLOWUP 21.10.2026, §2: разрешение мата —
+    #    вне Expression недопустимо; ранее оставляли «Разрешен мат и сленг.»).
+    #    Съедается только СВОЙ перевод строки — пустой абзац после строки
+    #    сохраняется (байт-паритет с активными канонами).
     ("persona.tone_label",
-     r"Разрешен мат, токсичность и любой сленг\.",
-     "Разрешен мат и сленг."),
+     r"(?:ВАЖНО:\s*)?Разрешен мат, токсичность и любой сленг\.[ \t]*\n?",
+     ""),
     # 4. Режим deep_research: «интегрируй токсичный стиль» → писать по делу.
     ("persona.mode_deep_research",
      r"Интегрируй токсичный стиль органично, без пафосных вступлений\.",
@@ -1835,11 +1914,12 @@ _LEGACY_PERSONA_RULES_RAW: tuple[tuple[str, str, str], ...] = (
      r"сохраняй характер бота и атмосферу конфы",
      "держи голос Core"),
     # 11. FIX-SOUL-F1F3: тот же канон: «двачерские обороты» — ссылка на
-    #     старую речевую среду; разрешение сарказма/сленга/мата
-    #     (функциональная часть списка) сохраняется.
+    #     старую речевую среду. CORRECTIVE-FOLLOWUP (21.10.2026, §2):
+    #     разрешение мата из списка убрано (режим мата — только Expression);
+    #     сарказм/сленг сохранены как функциональная часть.
     ("summary.l2_dvach_vocabulary",
      r"Сарказм, интернет-сленг, двачерские обороты и мат разрешены",
-     "Сарказм, интернет-сленг и мат разрешены"),
+     "Сарказм и интернет-сленг разрешены"),
     # 12. FIX-CFG07A-F1 (21.10.2026, deploy 2.58.101 F1; корпус SF-09):
     #     Direct-канон: выдуманные внутренние причины при честном сливе
     #     («перегрелись серверы, база покрылась пылью») — источник семьи
@@ -1858,6 +1938,15 @@ _LEGACY_PERSONA_RULES_RAW: tuple[tuple[str, str, str], ...] = (
     ("summary.archive_data_label",
      r"помечены как \"Архивная справка\"",
      "содержат архивные факты"),
+    # 14. FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §2 владельца): Direct-канон —
+    #     строка «3. Разрешен мат и сленг. Будь грубым, но по факту.»
+    #     удаляется целиком (режим мата — только Expression; «Будь грубым,
+    #     но по факту» сохранено в активном каноне отдельной правкой базы —
+    #     правило нужно для вычистки СТАРЫХ persisted-байтов, где строка
+    #     была частью правила 3). На новом каноне фразы нет (no-op).
+    ("direct.mat_permission_rule",
+     r"\n3\. Разрешен мат и сленг\. Будь грубым, но по факту\.",
+     ""),
 )
 
 LEGACY_PERSONA_RULES: tuple[tuple[str, "re.Pattern[str]", str], ...] = tuple(

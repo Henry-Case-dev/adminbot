@@ -6,17 +6,18 @@ local PG is DOWN -> every hot_config.get() falls back to the code canon
 ==============================================================================
 ## P1  Direct L2 WRITER (primary Direct answer path)
 note: response_mode=serious | scrub_for_plan removed=0 | system_after_scrub_equals_reported=True
-SYSTEM  chars=2123 tokens=716 sha256_12=087837865ed2
+note: FIX-CORRECTIVE-FOLLOWUP (22.10.2026): канон Вербализатора и TYPOGRAPHY-блок очищены от «Разрешен мат и сленг» (прежние байты base 1725/a1d2e631959b — ступень PREV_CHAT_VERBALIZER_MCA23 на PREV_TYPOGRAPHY_BLOCK).
+SYSTEM  chars=2101 tokens=707 sha256_12=840d73d3f023
 USER    chars=277 tokens=90 sha256_12=5bbb2c1c44e7
 decomposition_exact=True
 ------------------------------------------------------------------------------
 idx block / source of truth                               chars   tok  sha12
-0   base: prompts.direct_chat_verbalizer_system_prompt     1725   588  a1d2e631959b
+0   base: prompts.direct_chat_verbalizer_system_prompt     1703   579  d0ef0d376fc3
 1   extent_block(replace MODE_serious)                      211    70  2579eaeb36dc
 2   character_block: Persona + Character_Rules              125    40  bd902f20c0ca
 3   style_directives: <Style_Requests>                       56    18  967168fb043a
 
-[base: prompts.direct_chat_verbalizer_system_prompt (PG->code)] len=1725 sha12=a1d2e631959b
+[base: prompts.direct_chat_verbalizer_system_prompt (PG->code)] len=1703 sha12=d0ef0d376fc3
 [extent_block(replace MODE_serious)] len=211 sha12=2579eaeb36dc
 [character_block: Persona + Character_Rules] len=125 sha12=bd902f20c0ca
 [style_directives: <Style_Requests>] len=56 sha12=967168fb043a
@@ -35,16 +36,16 @@ real _l1.build_l2_plan_block(L1Plan(detailed)) kwargs: exists=True
 ==============================================================================
 ## P2  Direct L2 WRITER (extent=micro, no style_directives, no persona)
 note: response_mode=serious | FINDING: plan_response_mode(ResponsePlan) returns 'serious' for any non-rich/non-report ResponsePlan, incl. micro chat (MODE alias mismatched; harmless only because extent_block replaces it)
-SYSTEM  chars=1971 tokens=675 sha256_12=8120b1ef26b4
+SYSTEM  chars=1949 tokens=666 sha256_12=e5f4b2cc8d67
 USER    chars=50 tokens=17 sha256_12=e9cd60e6a92e
 decomposition_exact=True
 ------------------------------------------------------------------------------
 idx block / source of truth                               chars   tok  sha12
-0   base: direct_chat_verbalizer_system_prompt (PG->cod    1725   588  a1d2e631959b
+0   base: direct_chat_verbalizer_system_prompt (PG->cod    1703   579  d0ef0d376fc3
 1   extent_block(micro) replaces MODE_casual                117    47  ea0a450a36aa
 2   character_block: Persona + Character_Rules              125    40  bd902f20c0ca
 
-[base: direct_chat_verbalizer_system_prompt (PG->code)] len=1725 sha12=a1d2e631959b
+[base: direct_chat_verbalizer_system_prompt (PG->code)] len=1703 sha12=d0ef0d376fc3
 [extent_block(micro) replaces MODE_casual] len=117 sha12=ea0a450a36aa
 [character_block: Persona + Character_Rules] len=125 sha12=bd902f20c0ca
 
@@ -94,17 +95,18 @@ idx block / source of truth                               chars   tok  sha12
 ==============================================================================
 ## P5b System2 Stage-2 VERBALIZER (same builder as L2)
 note: USER = 'СПРАВКА (JSON):' + stage2_payload(data)
-SYSTEM  chars=2123 tokens=716 sha256_12=087837865ed2
+note: FIX-CORRECTIVE-FOLLOWUP (22.10.2026): см. P1 (очистка Вербализатора/типографики).
+SYSTEM  chars=2101 tokens=707 sha256_12=840d73d3f023
 USER    chars=232 tokens=69 sha256_12=47ee6857d5c8
 decomposition_exact=True
 ------------------------------------------------------------------------------
 idx block / source of truth                               chars   tok  sha12
-0   base: prompts.direct_chat_verbalizer_system_prompt     1725   588  a1d2e631959b
+0   base: prompts.direct_chat_verbalizer_system_prompt     1703   579  d0ef0d376fc3
 1   extent_block(detailed) replaces MODE_serious            211    70  2579eaeb36dc
 2   character_block                                         125    40  bd902f20c0ca
 3   style_directives                                         56    18  967168fb043a
 
-[base: prompts.direct_chat_verbalizer_system_prompt (PG->code)] len=1725 sha12=a1d2e631959b
+[base: prompts.direct_chat_verbalizer_system_prompt (PG->code)] len=1703 sha12=d0ef0d376fc3
 [extent_block(detailed) replaces MODE_serious] len=211 sha12=2579eaeb36dc
 [character_block] len=125 sha12=bd902f20c0ca
 [style_directives] len=56 sha12=967168fb043a
