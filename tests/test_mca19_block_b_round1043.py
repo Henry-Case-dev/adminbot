@@ -462,6 +462,44 @@ def test_non_json_response_honest_failure():
     assert out2.uncertainty == ["блюр"]
 
 
+# TEST-LIFECYCLE: REGRESSION owner=POSTGEN-ON/S9 + P0V heavy (HARNESS-R1)
+
+def test_markdown_fenced_json_parsed():
+    """Модели стабильно заворачивают КОРРЕКТНЫЙ JSON в markdown-забор
+    (HARNESS-R1 22.10: raw_heads в vision-bitmap-select.json /
+    heavy-frame.json) — строгий парсер честно давал parse_error на валидном
+    JSON. Обёртка снимается, сам JSON по-прежнему валидируется строго."""
+    payload = json.dumps({
+        "ocr_blocks": [{"text": "красный квадрат", "bbox": [1, 2, 3, 4]}],
+        "visual_description": "Маленький красный квадрат на белом фоне.",
+        "uncertainty": [],
+        "self_reported_confidence": 1.0,
+    })
+    for raw in ("```json\n%s\n```" % payload,   # формат из evidence
+                "```\n%s\n```" % payload,       # забор без метки языка
+                "```JSON\n%s\n```" % payload):  # метка в другом регистре
+        out = mca_vision.parse_analysis_payload(raw)
+        assert out.status == "ready"
+        assert out.ocr_blocks[0]["text"] == "красный квадрат"
+        assert out.ocr_blocks[0]["bbox"] == [1.0, 2.0, 3.0, 4.0]
+        assert out.ocr_blocks[0]["channel"] == UNTRUSTED_DATA_CHANNEL
+        assert (out.visual_description
+                == "Маленький красный квадрат на белом фоне.")
+        assert out.self_reported_confidence == 1.0
+
+
+def test_fence_is_unwrap_not_json_repair():
+    """Снятие забора — не «умная починка»: невалидный JSON (в заборе и без)
+    остаётся честным failed/parse_error; усечённый забор без хвостового ```
+    не даёт bonus-информации — валидатор содержимого прежний."""
+    for raw in ("```json\nне JSON вообще\n```",
+                "{обрывок json",
+                "```",
+                "```json\n{\"ocr_blocks\": [ошибка}\n```"):
+        out = mca_vision.parse_analysis_payload(raw)
+        assert out.status == "failed" and out.error_reason == "parse_error", raw
+
+
 def test_conflict_preserved_not_resolved():
     """F-3: конфликт OCR/подпись/картинка — СОХРАНЯЕТСЯ (не разрешается
     молча): подпись не входит в анализ, живёт в канонической записи

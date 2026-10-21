@@ -1429,12 +1429,32 @@ def _untrusted_block(text: str, bbox=None) -> dict:
     return block
 
 
+def _strip_markdown_fence(raw: str) -> str:
+    """Снятие markdown-обёртки ответа модели: модели стабильно заворачивают
+    КОРРЕКТНЫЙ JSON в ```-забор (HARNESS-R1 22.10: raw_heads в
+    vision-bitmap-select.json / heavy-frame.json) — голый json.loads давал
+    честный parse_error на валидном JSON (POSTGEN-ON/S9, P0V heavy).
+    Снимается ТОЛЬКО обёртка (первая строка ```<метка> и хвостовой ```):
+    содержимое не правится и далее проходит строгую валидацию json.loads —
+    невалидный JSON остаётся parse_error (не «умная починка»)."""
+    text = str(raw or "").strip()
+    if not text.startswith("```"):
+        return raw
+    first_nl = text.find("\n")
+    if first_nl < 0:        # голый ``` без перевода строки — не обёртка JSON
+        return raw
+    body = text[first_nl + 1:].strip()
+    if body.endswith("```"):
+        body = body[:-3].strip()
+    return body
+
+
 def parse_analysis_payload(raw: str) -> VisionAnalysis:
     """Разбор ответа VLM в раздельный контракт. Не-JSON → честный `failed`
     (parse_error не маскируется в no_text); OCR-текст НИКОГДА не
     интерпретируется как инструкции — он только переносится в data-канал."""
     try:
-        payload = json.loads(str(raw or ""))
+        payload = json.loads(_strip_markdown_fence(str(raw or "")))
     except Exception:
         return VisionAnalysis("failed", [], "", ["ответ модели не JSON"],
                               None, "parse_error")

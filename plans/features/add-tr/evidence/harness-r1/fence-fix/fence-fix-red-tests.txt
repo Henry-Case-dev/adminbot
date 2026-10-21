@@ -1,0 +1,3 @@
+﻿=========================== short test summary info ===========================
+FAILED tests/test_mca19_block_b_round1043.py::test_markdown_fenced_json_parsed
+1 failed, 1 passed, 31 deselected, 2 warnings in 3.76s
