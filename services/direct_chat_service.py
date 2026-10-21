@@ -162,6 +162,7 @@ from services.smartmodule_utils import (
     REACTION_APPROVE,
     REACTION_FIRE,
     REACTION_LAUGH,
+    _is_reply_target_gone,
     _reply,
     escape_lore_html,
     react_moai,
@@ -9090,6 +9091,105 @@ def _ephemeral_intent_row(opportunity_row: dict | None, chat_id: int
     return row
 
 
+# ── INIT-REPLY-FIX (owner-obs diagnostics 21.10.2026 §4): транспортный хвост
+# адресата инициативы. addressee_user_id + source_refs доезжают до Writer/L1,
+# но send_text вызывался БЕЗ reply_to_message_id — все инициативные отправки
+# уходили standalone (журнал 18–21.10: 24/24). Механика — по прецеденту
+# smartmodule_utils (§4.2): reply ТОЛЬКО у первого чанка; 400 «message to be
+# replied not found» → ровно один повтор без reply (_is_reply_target_gone).
+# R17: в логах только id/коды, содержимое не логируется.
+
+_INITIATIVE_REPLY_MAX_AGE_S = 24 * 3600   # §4.3: протухшая цель → без reply
+
+
+def _initiative_ref_ids(intent_row) -> tuple[int, ...]:
+    """smart_messages.id из ``source_refs`` (``msg:<id>[,...]``) —
+    ephemeral-строка (build_opportunity_row) или durable
+    ``source_refs_json`` (JSON-список). Порядок сохранён, ≤4; мусор
+    отбрасывается. НЕ бросает."""
+    refs = None
+    if isinstance(intent_row, dict):
+        refs = intent_row.get("source_refs")
+        if not refs:
+            raw = intent_row.get("source_refs_json")
+            if isinstance(raw, str) and raw.strip():
+                try:
+                    parsed = json.loads(raw)
+                    refs = parsed if isinstance(parsed, (list, tuple)) else ()
+                except Exception:
+                    refs = ()
+    if isinstance(refs, str):
+        refs = refs.split(",")
+    ids: list[int] = []
+    for ref in list(refs or ())[:16]:
+        token = str(ref or "").strip()
+        if not token.startswith("msg:"):
+            continue
+        try:
+            value = int(token[4:])
+        except ValueError:
+            continue
+        if value > 0:
+            ids.append(value)
+        if len(ids) >= 4:
+            break
+    return tuple(ids)
+
+
+async def _initiative_reply_target(db, chat_id: int, intent_row) -> int | None:
+    """Резолвер «адресат → сообщение» (§4.1, best-effort, fail-open → None):
+
+    1) ``source_refs`` (msg:<smart_messages.id>) → колонка
+       ``smart_messages.tg_message_id`` этого же чата;
+    2) фолбэк — последний ``tg_message_id`` пользователя
+       ``addressee_user_id`` в чате.
+
+    Протухшая цель (старше ``_INITIATIVE_REPLY_MAX_AGE_S``) → None (§4.3) —
+    отправка уйдёт без reply. Ностальгия/heartbeat (строка без адресата и
+    msg-ссылок) детерминированно дают None. НИКОГДА не бросает."""
+    try:
+        if db is None or not isinstance(intent_row, dict):
+            return None
+        since = int(time.time()) - _INITIATIVE_REPLY_MAX_AGE_S
+
+        async def _tg_of(sql: str, args: tuple) -> int | None:
+            cursor = await db.db.execute(sql, args)
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            value = row_get(row, "tg_message_id")
+            try:
+                return int(value) if value not in (None, "", 0) else None
+            except (TypeError, ValueError):
+                return None
+
+        for msg_id in _initiative_ref_ids(intent_row):
+            tg_id = await _tg_of(
+                "SELECT tg_message_id FROM smart_messages "
+                "WHERE id = ? AND chat_id = ? AND tg_message_id IS NOT NULL "
+                "AND timestamp >= ?",
+                (msg_id, int(chat_id), since))
+            if tg_id is not None:
+                return tg_id
+        addressee = intent_row.get("addressee_user_id")
+        try:
+            addressee = (int(addressee)
+                         if addressee not in (None, "", 0) else None)
+        except (TypeError, ValueError):
+            addressee = None
+        if addressee is not None:
+            return await _tg_of(
+                "SELECT tg_message_id FROM smart_messages "
+                "WHERE chat_id = ? AND user_id = ? "
+                "AND tg_message_id IS NOT NULL AND timestamp >= ? "
+                "ORDER BY id DESC LIMIT 1",
+                (int(chat_id), addressee, since))
+    except Exception:
+        logger.warning("[mca09] initiative reply target resolve failed | "
+                       "chat=%s", chat_id, exc_info=True)
+    return None
+
+
 async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             prepared_text: str | None = None, db=None,
                             correlation_id: str | None = None,
@@ -9409,8 +9509,28 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                                              intent_id=decision.intent_id)
         sent_id = None
         sent = 0
-        for chunk in plan.chunks:
-            message = await _tg_send.send_text(bot, chat_id, chunk)
+        # INIT-REPLY-FIX (§4): при адресате reply на его сообщение — ТОЛЬКО
+        # у первого чанка (прецедент smartmodule_utils.send_chunked_reply).
+        # Без адресата/ссылок (ностальгия/heartbeat) — без reply, путь
+        # байт-в-байт прежний.
+        reply_target_id = await _initiative_reply_target(db, chat_id,
+                                                         intent_row)
+        for index, chunk in enumerate(plan.chunks):
+            reply_id = reply_target_id if index == 0 else None
+            try:
+                message = await _tg_send.send_text(
+                    bot, chat_id, chunk,
+                    **({"reply_to_message_id": reply_id} if reply_id else {}))
+            except TelegramBadRequest as exc:
+                # §4.3: цель исчезла к моменту отправки → РОВНО ОДИН повтор
+                # без reply (паттерн smartmodule_utils._send_once); прочие
+                # ошибки — наверх без изменений (ERROR остаётся наверху).
+                if reply_id is None or not _is_reply_target_gone(exc):
+                    raise
+                logger.warning("[mca09] initiative reply target gone — "
+                               "retry without reply | chat=%s msg=%s",
+                               chat_id, reply_id, exc_info=True)
+                message = await _tg_send.send_text(bot, chat_id, chunk)
             sent += 1
             if sent_id is None:
                 sent_id = getattr(message, "message_id", None)
