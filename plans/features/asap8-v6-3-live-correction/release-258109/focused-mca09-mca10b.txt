@@ -1,0 +1,4 @@
+..........................................................               [100%]
+58 passed in 11.01s
+
+WARNING: closed 7 leaked aiosqlite connection(s)

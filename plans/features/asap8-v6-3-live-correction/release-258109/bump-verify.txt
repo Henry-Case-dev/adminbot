@@ -1,0 +1,6 @@
+REL-258109 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump; git): 1e3e5949 (full: 1e3e59490c890ac72d6f9fb5500aa1350f80976a)
+release train: FIX-INITREPLY 77985666 (services/direct_chat_service.py reply_to_message_id binding for addressed initiative replies + tests/test_asap8_initreply_binding.py 5) + 1e3e5949 docs bindings (initreply evidence append owner-obs diag §4); F8-meta HEAD stamp = 1e3e5949 = HEAD of the release delta = git HEAD pre-bump
+files=31 changed-line-pairs=33 (expected 33)
+non-token deltas: NONE
+CHECK OK

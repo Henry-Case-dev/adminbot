@@ -1,0 +1,5 @@
+REL-258109 SET EQUAL check vs procedure-106..108
+ref(108)=31 bump(109)=31
+ONLY IN 108: none
+ONLY IN 109: none
+SET EQUAL: OK

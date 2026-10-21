@@ -1,0 +1,10 @@
+REL-258109 frozen fingerprint
+release-train head (brief PKG-109 / F8-meta stamp): 1e3e5949 (full: 1e3e59490c890ac72d6f9fb5500aa1350f80976a)
+git HEAD (pre-bump): 1e3e59490c890ac72d6f9fb5500aa1350f80976a
+release train (brief PKG-109): FIX-INITREPLY 77985666 (services/direct_chat_service.py reply_to_message_id binding for addressed initiative replies: resolver addressee->message, reply on FIRST chunk only, stale>24h/gone-400 guards; tests/test_asap8_initreply_binding.py 5) + 1e3e5949 docs bindings. Kanonov v poezde NET - fingerprint dolzhen ostatsya c19d35a1c093 (constant from corrective wave 44a4827a).
+factory fingerprint: c19d35a1c093 (probe live == constant == c19d35a1c093, sm. bump-offline-check.txt)
+post-bump sha256_12:
+  config/settings.py: 54af94a38923
+  README.md: 45e0200ef89f
+  plans/docs/param-registry-round1025.meta.md: 426b1b485d49
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files + evidence).
