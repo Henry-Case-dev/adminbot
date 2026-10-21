@@ -1,0 +1,85 @@
+{
+ "generated_utc": "2026-10-21T05:57:31Z",
+ "deployed_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+ "master": "a9917abb",
+ "map_candidate": "d860a529593079f20fd26fb830536b77c8ba1630",
+ "canary_base_25899": "7142ffcf47ce4667cf22113c56881d3f1abb29a2",
+ "master_a9917abb_in_deployed": false,
+ "map_candidate_d860a529_in_deployed": true,
+ "canary_base_7142ffcf_in_deployed": true,
+ "runtime_delta_8ea6ed4e_to_HEAD_nonplans": [],
+ "runtime_byte_equal_to_deployed": true,
+ "factcheck_family_files_at_canary_base": 10,
+ "factcheck_family_delta_7142ffcf_to_8ea6ed4e": {
+  "config/settings.py": "config/settings.py | 2 +-\n 1 file changed, 1 insertion(+), 1 deletion(-)",
+  "services/factcheck_orchestrator.py": "services/factcheck_orchestrator.py | 165 ++++++++++++++++++++++++++++++++++---\n 1 file changed, 153 insertions(+), 12 deletions(-)",
+  "services/factcheck_service.py": "services/factcheck_service.py | 25 +++++++++++++++++++++++--\n 1 file changed, 23 insertions(+), 2 deletions(-)"
+ },
+ "settings_delta_lines_non_version": [],
+ "snapshot_sha256_at_deployed": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
+ "snapshot_sha256_map_value": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
+ "snapshot_sha_match": true,
+ "snapshot_lines": 398,
+ "runtime_files_worktree_vs_deployed": {
+  "services/factcheck_orchestrator.py": {
+   "worktree_sha256_12": "2ee2c6582d75",
+   "deployed_sha256_12": "2ee2c6582d75",
+   "equal": true
+  },
+  "services/factcheck_service.py": {
+   "worktree_sha256_12": "afdbf77a3a2b",
+   "deployed_sha256_12": "afdbf77a3a2b",
+   "equal": true
+  },
+  "services/factcheck_context.py": {
+   "worktree_sha256_12": "288a5369a2a4",
+   "deployed_sha256_12": "288a5369a2a4",
+   "equal": true
+  },
+  "services/factcheck_planner.py": {
+   "worktree_sha256_12": "62c5ce107f58",
+   "deployed_sha256_12": "62c5ce107f58",
+   "equal": true
+  },
+  "services/factcheck_suitability.py": {
+   "worktree_sha256_12": "57e6721dced6",
+   "deployed_sha256_12": "57e6721dced6",
+   "equal": true
+  },
+  "services/factcheck_renderer.py": {
+   "worktree_sha256_12": "9dafeb79aed8",
+   "deployed_sha256_12": "9dafeb79aed8",
+   "equal": true
+  },
+  "services/factcheck_attribution.py": {
+   "worktree_sha256_12": "901225bddd99",
+   "deployed_sha256_12": "901225bddd99",
+   "equal": true
+  },
+  "handlers/factcheck.py": {
+   "worktree_sha256_12": "a17892935823",
+   "deployed_sha256_12": "a17892935823",
+   "equal": true
+  },
+  "services/public_speech_guard.py": {
+   "worktree_sha256_12": "bfcfa213eb59",
+   "deployed_sha256_12": "bfcfa213eb59",
+   "equal": true
+  },
+  "services/negative_constraints.py": {
+   "worktree_sha256_12": "e1ca1844e2ed",
+   "deployed_sha256_12": "e1ca1844e2ed",
+   "equal": true
+  },
+  "services/prompt_style_blocks.py": {
+   "worktree_sha256_12": "a7b76755e589",
+   "deployed_sha256_12": "a7b76755e589",
+   "equal": true
+  },
+  "config/settings.py": {
+   "worktree_sha256_12": "75d7cec36e84",
+   "deployed_sha256_12": "75d7cec36e84",
+   "equal": true
+  }
+ }
+}

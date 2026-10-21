@@ -1,0 +1,88 @@
+{
+ "boot": {
+  "pipeline_v2_enabled": true,
+  "planner_enabled": true,
+  "flag_hot": null,
+  "env_flag": "true",
+  "event_contract_enabled": true,
+  "temporal_gate": true,
+  "llm_model": "deepseek-v4-flash",
+  "llm_base_url_set": true,
+  "tavily_set": true,
+  "exa_set": true,
+  "prod_binding": {
+   "deployed": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+   "version": "2.58.104",
+   "hot_flag_note": "prod flags.factcheck_pipeline_v2=true (bot_settings, deploy-104 v2_flag.touched=false); локально effective=env true",
+   "runtime_byte_equal": "probe-delta.json: runtime_delta non-plans = []"
+  }
+ },
+ "g1": {
+  "decision": {
+   "decision": "checkable_in_context",
+   "claim_type": "checkable_factual_claim",
+   "claim_items": [
+    {
+     "text": "дрожжи — это грибы, а не бактерии, поэтому пробиотики с Saccharomyces boulardii восстанавливают микрофлору после антибиотиков",
+     "verifiable": true,
+     "source": "literal"
+    }
+   ],
+   "scope": "web",
+   "reason_code": "obvious_checkable_predicate",
+   "confidence": 0.8,
+   "temporal_hint": false
+  },
+  "plan": {
+   "queries": [
+    {
+     "text": "дрожжи грибы бактерии поэтому пробиотики saccharomyces boulardii восстанавливают",
+     "intent": "entity_check",
+     "max_symbols": 2500
+    }
+   ],
+   "needs_web": true,
+   "needs_primary_fetch": true,
+   "dropped_privacy": []
+  }
+ },
+ "g4": {
+  "decision": {
+   "decision": "checkable_in_context",
+   "claim_type": "checkable_factual_claim",
+   "claim_items": [
+    {
+     "text": "Население Земли превысило 8 миллиардов человек 15 ноября 2022 года",
+     "verifiable": true,
+     "source": "literal"
+    }
+   ],
+   "scope": "web",
+   "reason_code": "obvious_checkable_predicate",
+   "confidence": 0.8,
+   "temporal_hint": true
+  },
+  "plan": {
+   "queries": [
+    {
+     "text": "население земли превысило миллиардов человек ноября 2022 года",
+     "intent": "entity_check",
+     "max_symbols": 2500
+    },
+    {
+     "text": "население земли превысило миллиардов человек ноября 2022 года 8 м 15 2022 г",
+     "intent": "numeric_verification",
+     "max_symbols": 2500
+    },
+    {
+     "text": "население земли превысило миллиардов человек ноября 2022 года 2022",
+     "intent": "temporal_context",
+     "max_symbols": 2500
+    }
+   ],
+   "needs_web": true,
+   "needs_primary_fetch": true,
+   "dropped_privacy": []
+  }
+ }
+}

@@ -1,0 +1,92 @@
+{
+ "now_utc": "2026-10-21T06:28:12Z",
+ "base": "https://admin-bot.duckdns.org",
+ "expected_deployed": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+ "version": "2.58.104",
+ "healthz": {
+  "http": 200,
+  "body": "{\"status\":\"ok\",\"version\":\"2.58.104\"}"
+ },
+ "assets": {
+  "/web/": {
+   "http": 200,
+   "bytes": 886246,
+   "sha256_12": "7e7b075ac0d5"
+  },
+  "/web/app.js": {
+   "http": 200,
+   "bytes": 1296025,
+   "sha256_12": "db8457cafa9b"
+  },
+  "/web/static/app.css (raw)": {
+   "http": 200,
+   "bytes": 238162,
+   "sha256_12": "c89cfd993984"
+  },
+  "/static/app.css (subst)": {
+   "http": 200,
+   "bytes": 238142,
+   "sha256_12": "bf95231af74e"
+  },
+  "/web/static/polygon-background.js": {
+   "http": 200,
+   "bytes": 44018,
+   "sha256_12": "157874dfab7b"
+  }
+ },
+ "bytes_identity_raw_vs_8ea6ed4e": {
+  "web/app.js": {
+   "git_content_sha256_12": "db8457cafa9b",
+   "served_sha256_12": "db8457cafa9b",
+   "byte_identical": true
+  },
+  "web/static/app.css": {
+   "git_content_sha256_12": "c89cfd993984",
+   "served_sha256_12": "c89cfd993984",
+   "byte_identical": true
+  },
+  "web/static/polygon-background.js": {
+   "git_content_sha256_12": "157874dfab7b",
+   "served_sha256_12": "157874dfab7b",
+   "byte_identical": true
+  }
+ },
+ "subst_css_delta": {
+  "line_counts_equal": true,
+  "diff_lines": 2,
+  "all_placeholder_substitution": true
+ },
+ "served_markers": {
+  "PAGE_VER_index": 15,
+  "SUBST_CSS": 2,
+  "STICKY_SAVE_SERVED": 12,
+  "CFG04_SAVE_INDICATOR": 1,
+  "CFG04_TECH_KEY_LINES": 21,
+  "CFG04_KB_OFFSET_CSS": 14,
+  "CFG04_SAFE_AREA": 17,
+  "app_js_sticky_save": 22
+ },
+ "add22_limits": {
+  "app_js_section_limits_images_hits": 5,
+  "app_js_user_images_isolation_note": true,
+  "app_js_covers_isolation_note": true,
+  "factory_freq_default_line_found": true,
+  "factory_freq_default_value": "False"
+ },
+ "add25_glass": {
+  "git_blob_id": "c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3",
+  "git_blob_id_matches_c2ad97d4": true,
+  "served_equals_git_content": true,
+  "polygon_unchanged_since_99f5672c": true,
+  "lg_lens_in_served_index": true,
+  "scale_32_present": true
+ },
+ "verdict": {
+  "healthz_258104": true,
+  "bytes_identity_raw_all": true,
+  "subst_delta_only_version": true,
+  "add22_section_and_off_default": true,
+  "add25_glass_invariant": true,
+  "PASS": true
+ }
+}

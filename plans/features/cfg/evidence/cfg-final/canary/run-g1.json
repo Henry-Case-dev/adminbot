@@ -1,0 +1,188 @@
+{
+ "claim": "дрожжи — это грибы, а не бактерии, поэтому пробиотики с Saccharomyces boulardii восстанавливают микрофлору после антибиотиков",
+ "wall_seconds": 34.8,
+ "orchestrator_error": null,
+ "sent": [
+  {
+   "chat_id": -100999000701,
+   "text": "• Итак, гражданин заявил: дрожжи - грибы, а не бактерии, и посему Saccharomyces boulardii метёт микрофлору после антибиотиков. Разбираем по частям, благо частей всего две с половиной. Дрожжи - грибы. Да, это базовая биология, уровень пятого класса и пакетика сухих дрожжей на кухне. Тут спорить не с чем, и даже как-то неловко, что это пришлось отдельно подтверждать. Saccharomyces boulardii - дрожжевой пробиотик, который реально применяют при антибиотик-ассоциированных расстройствах. Тоже верно.\n• Штамм не выдуманный, не маркетинговый пузырь, работает по своему профилю. А теперь то, ради чего всё затевалось. Из \"дрожжи - грибы\" не следует \"пробиотик восстанавливает микрофлору\". Это два разных утверждения, склеенных союзом \"и потому\", и склейка держится на честном слове. Данные по S. boulardii касаются снижения риска антибиотик-ассоциированной диареи и рецидивов - то есть конкретной симптоматики, а не восстановления состава и разнообразия микробиоты.\n• Почувствуй разницу: тебе не заново засеяли газон, тебе просто перестали сыпать соль на дорожку. Или, если ближе к телу, лысину волосами не закрашивают - её закрывают кепкой и называют это стилем. Логика \"является грибом, значит восстанавливает флору\" - это уровень \"является жидкостью, значит тушит пожар\". Микробиота после антибиотиков - не пустой бак, который достаточно наполнить чем угодно, лишь бы оно было живым и не бактерией. Состав, разнообразие, конкуренция штаммов, сроки - всё это в заявлении не то что не раскрыто, а даже не понюхано. Отдельная вишенка: поисковая выдача по теме оказалась нерелевантной.\n• Даже сеть ничего путного не подкинула, и вывод по медицинской части собран на общих данных без свежего сетевого подтверждения. Это не делает вывод слабее - общие данные тут как раз уместны - но звучит как \"я всё проверил, гугл со мной не согласен, но я всё равно прав\". Если совсем коротко: первая половина в зачёт, вторая мимо кассы, причём с треском. Дрожжи - грибы, кто бы сомневался. А \"восстанавливает микрофлору\" - красивая обёртка на скромном факте про снижение риска диареи. Из того, что штамм не бактерия, не вытекает ничего, кроме того, что он не бактерия.\n\nИсточники:\n1. <a href=\"https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/more-models-one-copilot/4559035\">techcommunity.microsoft.com</a>",
+   "reply_to_message_id": 7000,
+   "parse_mode": "HTML"
+  }
+ ],
+ "chunk_lens": [
+  2302
+ ],
+ "aggregator_calls": [
+  {
+   "query": "дрожжи грибы бактерии поэтому пробиотики saccharomyces boulardii восстанавливают",
+   "max_symbols": 2500,
+   "ok": true,
+   "latency_s": 2.97,
+   "result_chars": 2500,
+   "urls": [
+    "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/more-models-one-copilot/4559035"
+   ]
+  }
+ ],
+ "llm_calls": [
+  {
+   "module": "factcheck",
+   "step": "stage1",
+   "model": "deepseek-v4-flash",
+   "in_chars": 4784,
+   "in_messages": 2,
+   "ok": true,
+   "latency_s": 14.95,
+   "out_chars": 2319
+  },
+  {
+   "module": "factcheck",
+   "step": "stage2",
+   "model": "deepseek-v4-flash",
+   "in_chars": 3501,
+   "in_messages": 2,
+   "ok": true,
+   "latency_s": 15.45,
+   "out_chars": 2147
+  }
+ ],
+ "primary_fetches": [
+  {
+   "url": "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/more-models-one-copilot/4559035",
+   "ok": true,
+   "source_kind": "primary",
+   "published_at": null,
+   "excerpt_chars": 600
+  }
+ ],
+ "retrieval_outcomes": [
+  {
+   "queries_attempted": 1,
+   "queries_used": 1,
+   "refs_collected": 3,
+   "fetch_errors": 0,
+   "budget_exhausted": false,
+   "planner_version": "fp1",
+   "search_text_chars": 2500,
+   "evidence_map": {
+    "allowlist": [
+     "ev-1",
+     "ev-2",
+     "ev-3"
+    ],
+    "refs": [
+     {
+      "evidence_id": "ev-1",
+      "url": "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/more-models-one-copilot/4559035",
+      "support": "More Models, One Copilot. ponents/nodes/NodeTitle-1791291270043\"}],\"cachedText({\\\"lastModified\\\":\\\"1791291270043\\\",\\\"locale\\\":\\\"en-US\\\",\\\"namespaces\\\":[\\\"components/messages/MessageTimeToRead\\\"]})\":[{\"__ref\":\"CachedAsset:text:en_US-components/messages/MessageTimeToRead-1791291270043\"}],\"cachedText({\\\"lastModified\\\":\\\"1791291270043\\\",\\\"locale\\\":\\\"en-US\\\",\\\"namespaces\\\":[\\\"components/messages/Messag",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-2",
+      "url": null,
+      "support": "Windows 8.1 ISO download for 64 and 32 bit | Microsoft Community Hub. </li:i18n>\\\" class=\\\"c-uhff-link\\\" href=\\\" data-m=\\\"{\"cN\":\"Footer_StoreandSupport_AccountProfile_nav\",\"id\":\"n1c2c1c1m1r1a2\",\"sN\":1,\"aN\":\"c2c1c1m1r1a2\"}\\\"> </li:i18n>\\\" class=\\\"c-uhff-link\\\" href=\\\" data-m=\\\"{\"cN\":\"Footer_StoreandSupport_DownloadCenter_nav\",\"id\":\"n2c2c1c1m1r1a2\",\"sN\":2,\"aN\":\"c2c1c1m1r1a2\"}\\\"> </li:i18n>\\\" class=\\",
+      "source_kind": "secondary",
+      "published_at": null
+     },
+     {
+      "evidence_id": "ev-3",
+      "url": "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/more-models-one-copilot/4559035",
+      "support": "Azure WAF html *{font-family:\"Segoe UI\",SegoeUI,\"Helvetica Neue\",Helvetica,Arial,sans-serif}body{display:flex;flex-direction:column;height:100vh;width:100vw;margin:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}@media (prefers-color-scheme:dark){body{background-color:#252525;color:#fff}}@media (prefers-color-scheme:light){body{background-color:#fff;color:#252525}}#header{height:10%}#main{display:flex;flex:1;flex-direction:column;justify-content:flex-start}#azure-ref{padding-left:3px;font-size:9px;color:#7a7a7a}h3{font-size:19px;margin-bottom:0}.error-div{height:100%;wid",
+      "source_kind": "primary",
+      "published_at": null
+     }
+    ]
+   }
+  }
+ ],
+ "boot": {
+  "pipeline_v2_enabled": true,
+  "planner_enabled": true,
+  "flag_hot": null,
+  "env_flag": "true",
+  "event_contract_enabled": true,
+  "temporal_gate": true,
+  "llm_model": "deepseek-v4-flash",
+  "llm_base_url_set": true,
+  "tavily_set": true,
+  "exa_set": true,
+  "prod_binding": {
+   "deployed": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+   "version": "2.58.104",
+   "hot_flag_note": "prod flags.factcheck_pipeline_v2=true (bot_settings, deploy-104 v2_flag.touched=false); локально effective=env true",
+   "runtime_byte_equal": "probe-delta.json: runtime_delta non-plans = []"
+  }
+ },
+ "offline_snapshot": {
+  "decision": {
+   "decision": "checkable_in_context",
+   "claim_type": "checkable_factual_claim",
+   "claim_items": [
+    {
+     "text": "дрожжи — это грибы, а не бактерии, поэтому пробиотики с Saccharomyces boulardii восстанавливают микрофлору после антибиотиков",
+     "verifiable": true,
+     "source": "literal"
+    }
+   ],
+   "scope": "web",
+   "reason_code": "obvious_checkable_predicate",
+   "confidence": 0.8,
+   "temporal_hint": false
+  },
+  "plan": {
+   "queries": [
+    {
+     "text": "дрожжи грибы бактерии поэтому пробиотики saccharomyces boulardii восстанавливают",
+     "intent": "entity_check",
+     "max_symbols": 2500
+    }
+   ],
+   "needs_web": true,
+   "needs_primary_fetch": true,
+   "dropped_privacy": []
+  }
+ },
+ "logs": [
+  "INFO services.factcheck_orchestrator: [factcheck_v2] retrieval plan | chat=-100999000701 | queries=1 | intents=entity_check | privacy_dropped=0",
+  "INFO services.search_aggregator: SearchAggregator: level ok | provider=tavily | latency_ms=2969 | chars=6887",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792562428 | event_name=safe_fetch | outcome=start | level=INFO | component=safe_fetch | entity_id=techcommunity.microsoft.com",
+  "INFO services.mca_events: mca_event=safe_fetch | ts=1792562430 | event_name=safe_fetch | outcome=success | level=INFO | component=safe_fetch | duration_ms=1375",
+  "INFO services.factcheck_orchestrator: [factcheck_v2] retrieval | chat=-100999000701 | attempted=1 | used=1 | refs=3 | fetch_errors=0 | budget_exhausted=False | version=fp1",
+  "INFO services.mca_events: mca_event=factcheck_run | ts=1792562430 | event_name=factcheck_run | outcome=success | level=INFO | component=factcheck.retrieval",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=14828 | in=5044 chars | out=7544 chars",
+  "INFO services.llm_client: LLM usage in=1823 out=1309",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=2319",
+  "INFO services.factcheck_service: factcheck LLM OK | out_chars=2319 | latency_ms=14953",
+  "INFO services.llm_client: LLM request OK | url=https://apinet.cloud/v1/chat/completions | status=200 | latency_ms=15453 | in=3647 chars | out=10706 chars",
+  "INFO services.llm_client: LLM usage in=1238 out=1920",
+  "INFO services.llm_client: LLM generate OK | model=deepseek-v4-flash | out_chars=2147",
+  "INFO services.factcheck_service: factcheck system2 verbalizer | chat=-100999000701 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+  "INFO services.mca_events: mca_event=factcheck_run | ts=1792562460 | event_name=factcheck_run | outcome=success | level=INFO | component=factcheck | chat_id=-100999000701 | duration_ms=30453",
+  "INFO services.factcheck_orchestrator: [factcheck_v2] evidence map | chat=-100999000701 | refs=3 | links=1"
+ ],
+ "guard_observations": {
+  "count": 0,
+  "lines": []
+ },
+ "checks": {
+  "payload_nonempty": true,
+  "chunks_le_4096": true,
+  "parse_mode_html": true,
+  "reply_first_only": true,
+  "payload_has_links": true,
+  "hrefs_from_evidencemap_only": true,
+  "no_service_markers": true,
+  "no_admin_tokens": true,
+  "not_literal_claim_echo": true,
+  "queries_not_literal_slice": true,
+  "binomen_in_queries": true,
+  "real_search_calls": 1,
+  "evidencemap_has_real_url": true,
+  "atomic_theses_extracted": true
+ },
+ "payload_hrefs": [
+  "https://techcommunity.microsoft.com/blog/microsoft-copilot-blog/more-models-one-copilot/4559035"
+ ]
+}

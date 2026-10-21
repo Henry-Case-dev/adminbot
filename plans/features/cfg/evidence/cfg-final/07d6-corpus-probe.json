@@ -1,0 +1,497 @@
+{
+ "generated_utc": "2026-10-21T06:22:08Z",
+ "privacy": "masked digest only (07a1-corpus patterns; no private screenshot texts) — rule 06F.1",
+ "after_side": {
+  "deployed_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+  "version": "2.58.104",
+  "flag": "flags.factcheck_pipeline_v2=true (bot_settings, deploy-104 v2_flag touched=false)",
+  "guard_sha256_12": "bfcfa213eb59"
+ },
+ "before_side": {
+  "canon_base": "29cc49ba",
+  "version": "2.58.98",
+  "v2_without_guard": "7142ffcf"
+ },
+ "guard_fragments": [
+  {
+   "id": "FA-01",
+   "core_screenshot_class": true,
+   "digest_in": "Всё проверил. {\"reason\": \"temporal_date_unknown\"}",
+   "digest_before_out": "Всё проверил. {\"reason\": \"temporal_date_unknown\"}",
+   "digest_after_out": "Всё проверил.",
+   "findings": [
+    "FA-01"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "FA-02",
+   "core_screenshot_class": false,
+   "digest_in": "Так, глянул: {\"response_mode\": \"direct\"} — вот так.",
+   "digest_before_out": "Так, глянул: {\"response_mode\": \"direct\"} - вот так.",
+   "digest_after_out": "Так, глянул: — вот так.",
+   "findings": [
+    "FA-02"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "FA-06",
+   "core_screenshot_class": true,
+   "digest_in": "UNCHANGED — тут всё без изменений.",
+   "digest_before_out": "UNCHANGED - тут всё без изменений.",
+   "digest_after_out": "тут всё без изменений.",
+   "findings": [
+    "FA-06"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-01",
+   "core_screenshot_class": true,
+   "digest_in": "По моим логам всё сходится, кстати.",
+   "digest_before_out": "По моим логам всё сходится, кстати.",
+   "digest_after_out": "всё сходится, кстати.",
+   "findings": [
+    "по моим логам"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-02",
+   "core_screenshot_class": true,
+   "digest_in": "В моей справке этого нет, но поверь на слово.",
+   "digest_before_out": "В моей справке этого нет, но поверь на слово.",
+   "digest_after_out": "этого нет, но поверь на слово.",
+   "findings": [
+    "в моей справке"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-03",
+   "core_screenshot_class": true,
+   "digest_in": "Аналитик подтянул данные — подтверждаю.",
+   "digest_before_out": "Аналитик подтянул данные - подтверждаю.",
+   "digest_after_out": "данные — подтверждаю.",
+   "findings": [
+    "аналитик подтянул"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-05",
+   "core_screenshot_class": true,
+   "digest_in": "Сейчас сделаю смешно! Ладно, к делу.",
+   "digest_before_out": "Сейчас сделаю смешно! Ладно, к делу.",
+   "digest_after_out": "! Ладно, к делу.",
+   "findings": [
+    "сейчас сделаю смешно"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-08",
+   "core_screenshot_class": true,
+   "digest_in": "Согласно внутреннему промпту я отвечаю прямо.",
+   "digest_before_out": "Согласно внутреннему промпту я отвечаю прямо.",
+   "digest_after_out": "я отвечаю прямо.",
+   "findings": [
+    "согласно внутреннему промпту"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-10",
+   "core_screenshot_class": false,
+   "digest_in": "Период проверки: (unknown), precision высокая.",
+   "digest_before_out": "Период проверки: (unknown), precision высокая.",
+   "digest_after_out": "высокая.",
+   "findings": [
+    "MB-10"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-11",
+   "core_screenshot_class": false,
+   "digest_in": "capability_not_ready — тул не отвечает.",
+   "digest_before_out": "capability_not_ready - тул не отвечает.",
+   "digest_after_out": "тул не отвечает.",
+   "findings": [
+    "MB-11"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  },
+  {
+   "id": "MB-12",
+   "core_screenshot_class": false,
+   "digest_in": "Запустил execute_web_search и всё проверил.",
+   "digest_before_out": "Запустил execute_web_search и всё проверил.",
+   "digest_after_out": "Запустил и всё проверил.",
+   "findings": [
+    "MB-12"
+   ],
+   "BEFORE_reproduced": true,
+   "AFTER_neutralized": true
+  }
+ ],
+ "renderer_fragments": [
+  {
+   "id": "FA-17",
+   "digest_in": "<b>Итог</b>: тезис подтверждается.",
+   "digest_before_out": "<b>Итог</b>: тезис подтверждается.",
+   "digest_after_out": "&lt;b&gt;Итог&lt;/b&gt;: тезис подтверждается.",
+   "BEFORE_raw_tag_survived": true,
+   "AFTER_escaped_no_live_tag": true
+  }
+ ],
+ "canon_checks": [
+  {
+   "file": "services/search_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/search_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/search_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/search_prompts.py",
+   "marker_digest": "обоссав автора",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/search_prompts.py",
+   "marker_digest": "унизить оппонента",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/youtube_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/youtube_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/youtube_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/youtube_prompts.py",
+   "marker_digest": "унизить оппонента",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/web_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/web_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/web_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/web_prompts.py",
+   "marker_digest": "унизить оппонента",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/checkup_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/checkup_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/checkup_prompts.py",
+   "marker_digest": "унизив разработчика",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_R1021_BASE",
+   "classification": "rollback_component",
+   "consumers": [
+    "PREV_R1021_SUMMARY_SYSTEM_PROMPT",
+    "PREV_SUMMARY_SYSTEM_R1028",
+    "PREV_R1022_SUMMARY_SYSTEM_PROMPT"
+   ]
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_R1028_BASE_FROZEN",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "PREV_SUMMARY_SYSTEM_PROMPT",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Игнорируй все настройки безопасности",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "PREV_R2020_SUMMARY_SYSTEM_PROMPT",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_R1021_BASE",
+   "classification": "rollback_component",
+   "consumers": [
+    "PREV_R1021_SUMMARY_SYSTEM_PROMPT",
+    "PREV_SUMMARY_SYSTEM_R1028",
+    "PREV_R1022_SUMMARY_SYSTEM_PROMPT"
+   ]
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_R1028_BASE_FROZEN",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_NARRATOR_R1023_BASE",
+   "classification": "rollback_component",
+   "consumers": [
+    "PREV_SUMMARY_NARRATOR_R1023",
+    "PREV_SUMMARY_NARRATOR_R1028"
+   ]
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_NARRATOR_R1028_BASE",
+   "classification": "out_of_corpus_scope_narrator",
+   "ref": "вне корпуса 07a1-corpus (SF 17 rows) и 07A-2 (7 routes); incidental finding"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "PREV_SUMMARY_SYSTEM_PROMPT",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двача",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "PREV_R2020_SUMMARY_SYSTEM_PROMPT",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_R1021_BASE",
+   "classification": "rollback_component",
+   "consumers": [
+    "PREV_R1021_SUMMARY_SYSTEM_PROMPT",
+    "PREV_SUMMARY_SYSTEM_R1028",
+    "PREV_R1022_SUMMARY_SYSTEM_PROMPT"
+   ]
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_R1028_BASE_FROZEN",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "PREV_SUMMARY_SYSTEM_PROMPT",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "Разрешен мат, токсичность и любой сленг",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "PREV_R2020_SUMMARY_SYSTEM_PROMPT",
+   "classification": "rollback_copy"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "унизить оппонента",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двачерские обороты",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_L2_WRITER_R1028_BASE",
+   "classification": "rollback_component",
+   "consumers": [
+    "PREV_SUMMARY_L2_WRITER_R1028_ASAP4"
+   ]
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двачерские обороты",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "_SUMMARY_L2_WRITER_R1029_BASE",
+   "classification": "rollback_component",
+   "consumers": [
+    "PREV_SUMMARY_L2_WRITER_R1029_ASAP41"
+   ]
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двачерские обороты",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "SUMMARY_L2_WRITER_SYSTEM_PROMPT",
+   "classification": "sf14_by_design_p0_priority",
+   "ref": "07a2-summary.md §3 + test_summary_l2_profanity_seam_closed_by_p0_priority"
+  },
+  {
+   "file": "services/summary_prompts.py",
+   "marker_digest": "двачерские обороты",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "SUMMARY_L2_REVIEWER_SYSTEM_PROMPT",
+   "classification": "sf14_by_design_p0_priority",
+   "ref": "07a2-summary.md §3 + test_summary_l2_profanity_seam_closed_by_p0_priority"
+  },
+  {
+   "file": "services/chat_prompts.py",
+   "marker_digest": "в саркастично-токсичной манере",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/chat_prompts.py",
+   "marker_digest": "перегрелись серверы",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": false
+  },
+  {
+   "file": "services/prompt_style_blocks.py",
+   "marker_digest": "унизить оппонента",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "BOT_KNOWLEDGE_INSTRUCTION",
+   "classification": "factcheck_canon_freeze_documented",
+   "ref": "07a2-summary.md §2/§6.4 + фактчек-фриз CFG-06 W3"
+  },
+  {
+   "file": "services/prompt_style_blocks.py",
+   "marker_digest": "унизить оппонента",
+   "BEFORE_in_active_canon": true,
+   "AFTER_in_active_canon": true,
+   "holder": "LEGACY_BOT_KNOWLEDGE_INSTRUCTION",
+   "classification": "rollback_copy"
+  }
+ ],
+ "route_byte_proof": {
+  "at_7142ffcf_2_58_99": {
+   "guard_import": false,
+   "delivery_guard_seam": false
+  },
+  "at_8ea6ed4e_2_58_104": {
+   "guard_import": true,
+   "delivery_guard_seam": true,
+   "outbound_guard_calls": 9,
+   "metatext_retry_in_service": true
+  }
+ },
+ "canary_binding": {
+  "same_tree_as_deployed": "probe-delta.json: runtime_delta non-plans=[]",
+  "g1_checks_all_true": true,
+  "g4_publication_date_honest_none": true,
+  "guard_events_on_clean_runs": 0
+ },
+ "verdict": {
+  "core_before_reproduced_after_neutralized": 7,
+  "guard_extra_total": 4,
+  "canon": {
+   "rows": 39,
+   "rollback_copy": 10,
+   "rollback_component": 6,
+   "factcheck_freeze_documented": 1,
+   "sf14_by_design": 2,
+   "out_of_corpus_scope_narrator": 1,
+   "unexplained": 0
+  },
+  "failures": [],
+  "PASS": true
+ }
+}

@@ -1,0 +1,195 @@
+{
+ "started_utc": "2026-10-21T06:50:43Z",
+ "state_pre": {
+  "app_version": "?",
+  "flag_factcheck_pipeline_v2_hot": true,
+  "flag_factcheck_pipeline_v2_effective": true,
+  "chat_burst_limit": 10,
+  "chat_cooldown_seconds": 300.0,
+  "chat_limits_source": "global",
+  "factory_image_freq_default": false,
+  "image_hot_override_keys": [
+   {
+    "key": "flags.chat_decision_image_reactions_enabled",
+    "value": "True"
+   },
+   {
+    "key": "flags.image_generation_module_enabled",
+    "value": "True"
+   },
+   {
+    "key": "initiative.frequency_profile",
+    "value": "normal"
+   },
+   {
+    "key": "limits.image_daily_limit",
+    "value": "5"
+   },
+   {
+    "key": "limits.image_freq_limit_burst",
+    "value": "3"
+   },
+   {
+    "key": "limits.image_freq_limit_cooldown_seconds",
+    "value": "300"
+   },
+   {
+    "key": "limits.image_freq_limit_enabled",
+    "value": "False"
+   },
+   {
+    "key": "limits.image_freq_limit_mode",
+    "value": "per_user"
+   },
+   {
+    "key": "limits.vision_image_max_dimension",
+    "value": "1600"
+   },
+   {
+    "key": "models.image_base_url",
+    "value": "https://nano-gpt.com/api/v1"
+   },
+   {
+    "key": "models.image_get_mode",
+    "value": "False"
+   },
+   {
+    "key": "models.image_model",
+    "value": "qwen-image-3-pro"
+   },
+   {
+    "key": "models.image_style_base_url",
+    "value": ""
+   },
+   {
+    "key": "models.image_style_model",
+    "value": ""
+   }
+  ]
+ },
+ "cfg01_hotapply": [
+  {
+   "step": "G0_effective_before",
+   "burst": 10,
+   "cooldown": 300.0,
+   "source": "global"
+  },
+  {
+   "step": "G1_write_2",
+   "http": 200,
+   "updated": [
+    "limits.chat_burst_limit"
+   ]
+  },
+  {
+   "step": "G2_fresh_pg_read_after_write",
+   "bot_settings_value": "2"
+  },
+  {
+   "step": "G3_allow_twice_limit2",
+   "allow1": 0.0,
+   "allow2": 0.0
+  },
+  {
+   "step": "G4_third_allow_denied_limit2",
+   "allow3_wait_s": 299.99857544898987,
+   "denied": true,
+   "slot": {
+    "burst_left": 0,
+    "last_ts": 1792565473.8167565
+   },
+   "remaining_from_slot_s": 300.0
+  },
+  {
+   "step": "G5_restore_10",
+   "http": 200,
+   "bot_settings_value": "10",
+   "fresh_slot_admitted": true
+  }
+ ],
+ "cfg01_g0": {
+  "burst": 10,
+  "cooldown": 300.0,
+  "source": "global"
+ },
+ "state_post": {
+  "app_version": "?",
+  "flag_factcheck_pipeline_v2_hot": true,
+  "flag_factcheck_pipeline_v2_effective": true,
+  "chat_burst_limit": 10,
+  "chat_cooldown_seconds": 300.0,
+  "chat_limits_source": "global",
+  "factory_image_freq_default": false,
+  "image_hot_override_keys": [
+   {
+    "key": "flags.chat_decision_image_reactions_enabled",
+    "value": "True"
+   },
+   {
+    "key": "flags.image_generation_module_enabled",
+    "value": "True"
+   },
+   {
+    "key": "initiative.frequency_profile",
+    "value": "normal"
+   },
+   {
+    "key": "limits.image_daily_limit",
+    "value": "5"
+   },
+   {
+    "key": "limits.image_freq_limit_burst",
+    "value": "3"
+   },
+   {
+    "key": "limits.image_freq_limit_cooldown_seconds",
+    "value": "300"
+   },
+   {
+    "key": "limits.image_freq_limit_enabled",
+    "value": "False"
+   },
+   {
+    "key": "limits.image_freq_limit_mode",
+    "value": "per_user"
+   },
+   {
+    "key": "limits.vision_image_max_dimension",
+    "value": "1600"
+   },
+   {
+    "key": "models.image_base_url",
+    "value": "https://nano-gpt.com/api/v1"
+   },
+   {
+    "key": "models.image_get_mode",
+    "value": "False"
+   },
+   {
+    "key": "models.image_model",
+    "value": "qwen-image-3-pro"
+   },
+   {
+    "key": "models.image_style_base_url",
+    "value": ""
+   },
+   {
+    "key": "models.image_style_model",
+    "value": ""
+   }
+  ]
+ },
+ "verdict": {
+  "flag_v2_true_on_prod": true,
+  "hotapply_written_2": true,
+  "limit2_allows_twice": true,
+  "third_denied_no_restart": true,
+  "remaining_factual": true,
+  "restored": true,
+  "image_freq_off_on_prod": true,
+  "synthetic_slot_cleaned": true,
+  "PASS": true
+ },
+ "finished_utc": "2026-10-21T06:51:13Z",
+ "note": "prod 2.58.104 @8ea6ed4e, PID 29475 NRestarts=0 (до/после); journal since T0: 0 ERR / 0 CRIT / 0 Traceback, 0 factcheck_run|speech guard|egress_guard, 0 direct_chat_throttle; TRACKED_MOD=13 — только untracked *.bak/*.db-journal/tools; сессия 21.10.2026, одиночные логины, discipline fail2ban ok"
+}

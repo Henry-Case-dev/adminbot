@@ -1,0 +1,57 @@
+{
+ "url": "https://admin-bot.duckdns.org/web/",
+ "now_utc": "2026-10-21 06:28:29",
+ "dialogs": [
+  {
+   "type": "confirm",
+   "message": "Есть несохранённые изменения (1) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+   "action": "dismiss"
+  },
+  {
+   "type": "confirm",
+   "message": "Есть несохранённые изменения (1) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+   "action": "accept"
+  }
+ ],
+ "steps": [
+  {
+   "step": "dirty",
+   "ok": true,
+   "state": {
+    "hash": "#/memory/rag",
+    "value": "4",
+    "panel": true,
+    "vh": 844
+   }
+  },
+  {
+   "step": "leave_dismiss",
+   "state": {
+    "hash": "#/memory/rag",
+    "value": "4",
+    "panel": true,
+    "vh": 844
+   }
+  },
+  {
+   "step": "leave_accept",
+   "state": {
+    "hash": "#/",
+    "value": null,
+    "panel": false,
+    "vh": 844
+   }
+  }
+ ],
+ "verdict": {
+  "dialog_shown": true,
+  "dialog_messages": [
+   "Есть несохранённые изменения (1) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)",
+   "Есть несохранённые изменения (1) для «Audit Chat». Уйти со страницы и потерять их? (Изменения можно сохранить кнопкой «Сохранить изменения»)"
+  ],
+  "dismiss_stays": true,
+  "value_kept_after_dismiss": true,
+  "accept_leaves": true,
+  "PASS": true
+ }
+}

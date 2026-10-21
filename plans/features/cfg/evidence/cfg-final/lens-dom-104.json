@@ -1,0 +1,16 @@
+{
+ "url": "https://admin-bot.duckdns.org/web/",
+ "now_utc": "2026-10-21T06:29:25Z",
+ "lens": {
+  "present": true,
+  "outer_html_len": 6251,
+  "scale_attr": "32",
+  "in_svg": true
+ },
+ "lens_outer_html_len": 6251,
+ "verdict": {
+  "present": true,
+  "scale_32": true,
+  "PASS": true
+ }
+}

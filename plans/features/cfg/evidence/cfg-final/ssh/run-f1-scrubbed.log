@@ -1,0 +1,142 @@
+[f1] recon start 18:48:56
+[f1] recon OK; sleeping 95 s before main connect
+[f1] uploaded probe 11926 bytes
+=== PRE: HEAD/systemctl/healthz ===
+date -u '+%Y-%m-%d %H:%M:%S UTC'; cd /var/www/admin_bot && echo HEAD=$(git rev-parse HEAD) && echo TRACKED_MOD=$(git status --porcelain | wc -l) && echo '--- porcelain:' && git status --porcelain | head -16 && echo '--- end porcelain' && systemctl show admin_bot -p MainPID -p NRestarts -p ActiveState --no-pager; curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+
+[?2004l
+2026-10-21 06:50:42 UTC
+
+HEAD=8ea6ed4e016cf8fbb23e1447cb02503c54131650
+
+TRACKED_MOD=13
+
+--- porcelain:
+
+?? info_text.md.bak.epic44
+
+?? info_text.md.bak.epic55
+
+?? info_text.md.bak.epic56
+
+?? info_text.md.bak.epic57
+
+?? info_text.md.bak.epic58
+
+?? info_text.md.bak.epic59
+
+?? info_text.md.bak.epic71
+
+?? info_text.md.bak.epic83
+
+?? info_text.md.pre1015.drift.bak
+
+?? pre_migration_20261001_161834.db-journal
+
+?? pre_migration_backup/
+
+?? test_subs.ru.json3
+
+?? tools/_s41_precheck.py
+
+--- end porcelain
+
+MainPID=29475
+
+NRestarts=0
+
+ActiveState=active
+
+{"status":"ok","version":"2.58.104"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== PROBE (foreground, <=240 s) ===
+cd /var/www/admin_bot && rm -f /tmp/cfg_final_f1.out && PYTHONIOENCODING=utf-8 timeout 220 /var/www/admin_bot/venv/bin/python /tmp/cfg_final_f1_probe.py > /tmp/cfg_final_f1.out 2>&1; echo PROBE_RC=$?; tail -c 12000 /tmp/cfg_final_f1.out; echo "###RC=$?###"
+
+[?2004l
+PROBE_RC=0
+
+F1J BOOT APP_VERSION=? pg_available=True
+
+F1J STATE-pre {"app_version": "?", "flag_factcheck_pipeline_v2_hot": true, "flag_factcheck_pipeline_v2_effective": true, "chat_burst_limit": 10, "chat_cooldown_seconds": 300.0, "chat_limits_source": "global", "factory_image_freq_default": false, "image_hot_override_keys": [{"key": "flags.chat_decision_image_reactions_enabled", "value": "True"}, {"key": "flags.image_generation_module_enabled", "value": "True"}, {"key": "initiative.frequency_profile", "value": "normal"}, {"key": "limits.image_daily_limit", "value": "5"}, {"key": "limits.image_freq_limit_burst", "value": "3"}, {"key": "limits.image_freq_limit_cooldown_seconds", "value": "300"}, {"key": "limits.image_freq_limit_enabled", "value": "False"}, {"key": "limits.image_freq_limit_mode", "value": "per_user"}, {"key": "limits.vision_image_max_dimension", "value": "1600"}, {"key": "models.image_base_url", "value": "https://nano-gpt.com/api/v1"}, {"key": "models.image_get_mode", "value": "False"}, {"key": "models.image_model", "value": "qwen-image-3-pro"}, {"key": "models.image_style_base_url", "value": ""}, {"key": "models.image_style_model", "value": ""}]}
+
+F1J CFG01 {"step": "G0_effective_before", "burst": 10, "cooldown": 300.0, "source": "global"}
+
+F1J CFG01 {"step": "G1_write_2", "http": 200, "updated": ["limits.chat_burst_limit"]}
+
+F1J CFG01 {"step": "G2_fresh_pg_read_after_write", "bot_settings_value": "2"}
+
+F1J CFG01 {"step": "G3_allow_twice_limit2", "allow1": 0.0, "allow2": 0.0}
+
+F1J CFG01 {"step": "G4_third_allow_denied_limit2", "allow3_wait_s": 299.99857544898987, "denied": true, "slot": {"burst_left": 0, "last_ts": 1792565473.8167565}, "remaining_from_slot_s": 300.0}
+
+F1J CFG01 {"step": "G5_restore_10", "http": 200, "bot_settings_value": "10", "fresh_slot_admitted": true}
+
+F1J CLEANUP synthetic throttle_state row deleted
+
+F1J STATE-post {"app_version": "?", "flag_factcheck_pipeline_v2_hot": true, "flag_factcheck_pipeline_v2_effective": true, "chat_burst_limit": 10, "chat_cooldown_seconds": 300.0, "chat_limits_source": "global", "factory_image_freq_default": false, "image_hot_override_keys": [{"key": "flags.chat_decision_image_reactions_enabled", "value": "True"}, {"key": "flags.image_generation_module_enabled", "value": "True"}, {"key": "initiative.frequency_profile", "value": "normal"}, {"key": "limits.image_daily_limit", "value": "5"}, {"key": "limits.image_freq_limit_burst", "value": "3"}, {"key": "limits.image_freq_limit_cooldown_seconds", "value": "300"}, {"key": "limits.image_freq_limit_enabled", "value": "False"}, {"key": "limits.image_freq_limit_mode", "value": "per_user"}, {"key": "limits.vision_image_max_dimension", "value": "1600"}, {"key": "models.image_base_url", "value": "https://nano-gpt.com/api/v1"}, {"key": "models.image_get_mode", "value": "False"}, {"key": "models.image_model", "value": "qwen-image-3-pro"}, {"key": "models.image_style_base_url", "value": ""}, {"key": "models.image_style_model", "value": ""}]}
+
+F1 SUMMARY {"started_utc": "2026-10-21T06:50:43Z", "state_pre": {"app_version": "?", "flag_factcheck_pipeline_v2_hot": true, "flag_factcheck_pipeline_v2_effective": true, "chat_burst_limit": 10, "chat_cooldown_seconds": 300.0, "chat_limits_source": "global", "factory_image_freq_default": false, "image_hot_override_keys": [{"key": "flags.chat_decision_image_reactions_enabled", "value": "True"}, {"key": "flags.image_generation_module_enabled", "value": "True"}, {"key": "initiative.frequency_profile", "value": "normal"}, {"key": "limits.image_daily_limit", "value": "5"}, {"key": "limits.image_freq_limit_burst", "value": "3"}, {"key": "limits.image_freq_limit_cooldown_seconds", "value": "300"}, {"key": "limits.image_freq_limit_enabled", "value": "False"}, {"key": "limits.image_freq_limit_mode", "value": "per_user"}, {"key": "limits.vision_image_max_dimension", "value": "1600"}, {"key": "models.image_base_url", "value": "https://nano-gpt.com/api/v1"}, {"key": "models.image_get_mode", "value": "False"}, {"key": "models.image_model", "value": "qwen-image-3-pro"}, {"key": "models.image_style_base_url", "value": ""}, {"key": "models.image_style_model", "value": ""}]}, "cfg01_hotapply": [{"step": "G0_effective_before", "burst": 10, "cooldown": 300.0, "source": "global"}, {"step": "G1_write_2", "http": 200, "updated": ["limits.chat_burst_limit"]}, {"step": "G2_fresh_pg_read_after_write", "bot_settings_value": "2"}, {"step": "G3_allow_twice_limit2", "allow1": 0.0, "allow2": 0.0}, {"step": "G4_third_allow_denied_limit2", "allow3_wait_s": 299.99857544898987, "denied": true, "slot": {"burst_left": 0, "last_ts": 1792565473.8167565}, "remaining_from_slot_s": 300.0}, {"step": "G5_restore_10", "http": 200, "bot_settings_value": "10", "fresh_slot_admitted": true}], "cfg01_g0": {"burst": 10, "cooldown": 300.0, "source": "global"}, "state_post": {"app_version": "?", "flag_factcheck_pipeline_v2_hot": true, "flag_factcheck_pipeline_v2_effective": true, "chat_burst_limit": 10, "chat_cooldown_seconds": 300.0, "chat_limits_source": "global", "factory_image_freq_default": false, "image_hot_override_keys": [{"key": "flags.chat_decision_image_reactions_enabled", "value": "True"}, {"key": "flags.image_generation_module_enabled", "value": "True"}, {"key": "initiative.frequency_profile", "value": "normal"}, {"key": "limits.image_daily_limit", "value": "5"}, {"key": "limits.image_freq_limit_burst", "value": "3"}, {"key": "limits.image_freq_limit_cooldown_seconds", "value": "300"}, {"key": "limits.image_freq_limit_enabled", "value": "False"}, {"key": "limits.image_freq_limit_mode", "value": "per_user"}, {"key": "limits.vision_image_max_dimension", "value": "1600"}, {"key": "models.image_base_url", "value": "https://nano-gpt.com/api/v1"}, {"key": "models.image_get_mode", "value": "False"}, {"key": "models.image_model", "value": "qwen-image-3-pro"}, {"key": "models.image_style_base_url", "value": ""}, {"key": "models.image_style_model", "value": ""}]}, "verdict": {"flag_v2_true_on_prod": true, "hotapply_written_2": true, "limit2_allows_twice": true, "third_denied_no_restart": true, "remaining_factual": true, "restored": true, "image_freq_off_on_prod": true, "synthetic_slot_cleaned": true, "PASS": true}, "finished_utc": "2026-10-21T06:51:13Z"}
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: journal since T0 (read-only, sudo) ===
+sudo -S journalctl -u admin_bot --since '2026-10-20 21:00:00' --no-pager | grep -c ' ERROR ' ; echo ---ERR_END; journalctl -u admin_bot --since '2026-10-20 21:00:00' --no-pager | grep -c ' CRITICAL ' ; echo ---CRIT_END; journalctl -u admin_bot --since '2026-10-20 21:00:00' --no-pager | grep -c 'Traceback' ; echo ---TB_END; journalctl -u admin_bot --since '2026-10-20 21:00:00' --no-pager | grep -ciE 'factcheck_run|speech guard|egress_guard' ; echo ---FACTCHECK_END; journalctl -u admin_bot --since '2026-10-20 21:00:00' --no-pager | grep -ciE 'direct_chat_throttle' ; echo ---THROTTLE_END; journalctl -u admin_bot -n 3 --no-pager ; echo ---TAIL_END ; echo "###RC=$?###"
+
+[?2004l
+[sudo] password for nik: 
+
+0
+
+---ERR_END
+
+0
+
+---CRIT_END
+
+0
+
+---TB_END
+
+0
+
+---FACTCHECK_END
+
+0
+
+---THROTTLE_END
+
+Oct 21 06:51:19 racknerd-f4e3456 python[29475]: 2026-10-21 06:51:19,936 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 11:51:24 +05)" executed successfully
+
+Oct 21 06:51:24 racknerd-f4e3456 python[29475]: 2026-10-21 06:51:24,892 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 11:51:29 +05)" (scheduled at 2026-10-21 11:51:24.865183+05:00)
+
+Oct 21 06:51:24 racknerd-f4e3456 python[29475]: 2026-10-21 06:51:24,916 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 11:51:29 +05)" executed successfully
+
+---TAIL_END
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== POST: systemctl/healthz after ===
+systemctl show admin_bot -p MainPID -p NRestarts -p ActiveState --no-pager; curl -s http://127.0.0.1:8000/healthz; echo "###RC=$?###"
+
+[?2004l
+MainPID=29475
+
+NRestarts=0
+
+ActiveState=active
+
+{"status":"ok","version":"2.58.104"}###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 
+=== CLEANUP /tmp ===
+rm -f /tmp/cfg_final_f1_probe.py /tmp/cfg_final_f1.out; echo CLEANED=1; echo "###RC=$?###"
+
+[?2004l
+CLEANED=1
+
+###RC=0###
+
+[?2004hnik@racknerd-f4e3456:/var/www/admin_bot$ 

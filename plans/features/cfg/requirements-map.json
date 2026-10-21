@@ -19,8 +19,18 @@
       "acceptance": "CFG-очередь (новые требования 18.10.2026) исполняется строго после существующих задач файла, без остановки текущей работы и без нового свободно стоящего эпика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md §0/§4",
+          "observation": "Очередь строго после существующих задач (workflow_state/поезда), нового свободного эпика не создано",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "M00002",
@@ -906,7 +916,7 @@
       "acceptance": "Блокирующий критерий CFG-06: сначала решается осмысленность проверки, затем утверждения подтверждаются реальными доступными источниками (или честно сообщается ограничение); служебные данные не выпускаются; публикуется краткий читаемый Telegram-вердикт с проверяемыми ссылками; единый контракт на всех маршрутах и fallback.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -915,9 +925,25 @@
           "observation": "Композит: сначала осмысленность (gate после контекста), затем реальные источники или честное ограничение (S1/S2/S3); служебные данные не выпускаются (egress-инвариант всех сценариев); краткий Telegram-вердикт с проверяемыми ссылками; единый контракт на маршрутах и fallback (S7).",
           "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
           "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-dispute-w7.txt (S1–S8)",
+          "observation": "Блокирующий критерий на deployed-байтах: композит 8/8 — сначала осмысленность (S1/S4), реальные источники или честное ограничение (S2/S3), служебные данные не выпускаются (egress-инвариант), краткий Telegram-вердикт с проверяемыми ссылками, единый контракт маршрутов и fallback (S7/S8)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-dispute-w7.txt",
+          "artifact_sha256": "4685ca2baaab416e6f18a7ed1efe9e7852f56f9bb14a5eda79f554d1f2bda03e"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "canary/run-g1.json §checks",
+          "observation": "Ре-проб на проде: hrefs строго из EvidenceMap текущего прогона, no_service_markers/no_admin_tokens, чанки ≤4096, reply-first-only",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/canary/run-g1.json",
+          "artifact_sha256": "2d3f1b2cb8a4225f0f758ff91a093eb5760c681591713fc5bc5333ce64a40e1f"
         }
       ],
-      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): build-эвиденс привязан; живая канарейка — постдеплой при включении флага (postdeploy разрешает READY_FOR_LIVE на review)."
+      "note": "Ledger cut 5af56d8b (20.10, lane LEDGER-CFG-06): build-эвиденс привязан; живая канарейка — постдеплой при включении флага (postdeploy разрешает READY_FOR_LIVE на review). | F1 21.10: постдеплой-канарейка/корпус исполнены на deployed 8ea6ed4e (см. evidence item); READY_FOR_LIVE → VERIFIED."
     },
     {
       "source_id": "M00031",
@@ -1265,8 +1291,18 @@
       "acceptance": "После дополнения при остатке дальнейшей работы или unresolved обязательных задач сессия продолжается штатно и не завершается по одному Approved/Deployed.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md §4",
+          "observation": "После дополнения сессия продолжается штатно: остатки (SOUL-21 вне CFG, backlog F2/narrator, телеметрия наблюдения) перечислены; release-гейт — следующий шаг (F2)",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "MAN-CFG-07D1-OBS",
@@ -1327,8 +1363,18 @@
       "acceptance": "До завершения существующей очереди CFG-* не запускаются; после неё Orchestrator автоматически начинает CFG-01→CFG-07; завершённые, но не подтверждённые критерии сверяются по HEAD/evidence без переигрывания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md §0/§1",
+          "observation": "Очередь соблюдена: CFG после стоявших задач (поезда 2.58.93→104), автостарт без переигрывания; порядок зафиксирован",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00010",
@@ -1342,8 +1388,18 @@
       "acceptance": "Нет второго SOUL-1/Fullscreen/стекла/навигации/per-chat Summary/третьего фактчека; у пересечений один owning-task и алиасы в requirements-map; для уже выполненных задач новых кодовых изменений нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "bindings.md §5 (дедуп-аудит)",
+          "observation": "Один owning-task на блок: фактчек — единый v2-контур, стекло — SOUL-ветка (REUSE_EXISTING), speech — UNIFIED-CORE absorption, throttle/config — существующие механизмы; алиасы T1–T7/C1–C7 однозначны",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/bindings.md",
+          "artifact_sha256": "5d0337d0ce2d832ec34b1d1e66876c9e9d28bd293f93f86694b7f24cc9cb2630"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00011",
@@ -1357,8 +1413,18 @@
       "acceptance": "Immutable snapshot добавленного текста (SHA256) и append-only manifest CFG-01…07 с подпунктами/AC/ссылками B*/U*/SOUL*/HOTFIX созданы; прежние snapshots/карты не заменены; workflow_state обновлён без потери pending.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-delta.json §snapshot",
+          "observation": "SHA256 снапшота пересчитан на deployed: 2ed43009…6B10 == map source_sha256; 398 строк; append-only manifest CFG-01…07 в карте",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-delta.json",
+          "artifact_sha256": "d4b670add1f2c0ba395cf100f38c4818d1db990e33f5a65f485e2844ef00f967"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00012",
@@ -1372,8 +1438,18 @@
       "acceptance": "Позднейшие точные требования владельца приоритетны; их нельзя толковать как разрешение удалять данные/настройки/фон или пропускать Reviewer/deploy/rollback; неразрешимая альтернатива — Human Gate только через Architect.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "bindings.md §0/§5 + cfg-final-report.md §0",
+          "observation": "Позднейшие решения владельца применены (standing rules 18.10/20.10): канареечные гейты/обязательные ручные проверки не создавались; толкования неразрушительные",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/bindings.md",
+          "artifact_sha256": "5d0337d0ce2d832ec34b1d1e66876c9e9d28bd293f93f86694b7f24cc9cb2630"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00013",
@@ -1387,8 +1463,18 @@
       "acceptance": "Статусы раздельные (IMPLEMENTED/TESTED/REVIEWED/DEPLOYED/LIVE_VERIFIED/OWNER_E2E_PENDING/FAILED-BLOCKED); owner-only E2E не помечается пройденным по мокам; ожидание не бесконечно; обязательная функциональность не уходит в backlog.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md §3",
+          "observation": "Таксономия честно разделена: LIVE_VERIFIED (deployed-пробы F1) / CODE-TEST_VERIFIED (535 passed на байтах прода) / OWNER_E2E_PENDING — только добровольные пункты owner_live_checks; обязательные пункты не помечены по мокам",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00014",
@@ -1402,8 +1488,18 @@
       "acceptance": "Отчёты: время, человеческий язык, прогресс % и готово/всего, ссылки на SHA/trace/tests, что работает и что не проверено; финальная сквозная сверка дополнения и старых обязательств.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md (весь)",
+          "observation": "Итоговый отчёт по формату: человеческий итог CFG-01…07, сквозная карта ADD-2.8, таксономия, честный остаток",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00016",
@@ -1656,8 +1752,18 @@
       "acceptance": "CFG зарегистрированы в current_task сейчас; старт — сразу после существующей очереди; ожидание нового сообщения/файла после SOUL не требуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md §0",
+          "observation": "Старт сразу после очереди (поезда 93→104), без ожидания нового сообщения; реестр progress_scope",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00040",
@@ -6626,7 +6732,7 @@
       "acceptance": "Живая проверка в целевом deployed-контуре после впереди стоящих задач; в отчёте разделены CODE_VERIFIED/TEST_VERIFIED/LIVE_VERIFIED/OWNER_E2E_PENDING; отсутствие production-доступа не превращается в PASS.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -6635,9 +6741,17 @@
           "observation": "Отчёт с честным разделением: PROVEN/PARTIAL/PROVEN_ON_MOCKS+LIVE_PENDING/AGENT_PROVEN+LIVE_OWNER; смоук прода (healthz 200, 2.58.98) без чатов; прод = 29cc49ba без v2 — база отката.",
           "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
           "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "canary/README.md §Вердикты + run-g1/g4.json",
+          "observation": "LIVE (техническая) проверка в целевом deployed-контуре 2.58.104 @8ea6ed4e после впереди стоящих задач: дельта-канарейка v2 (флаг ON, SSH-подтверждён) с полными stage-trace (run-файлы: aggregator/LLM/primary/retrieval + логи + mca-события в logs); разделение CODE_VERIFIED (535 passed) / TEST_VERIFIED (canary preflight+e4) / LIVE_VERIFIED (g1/g4 на deployed-байтах) / OWNER_E2E — добровольный; production-доступ был, PASS не из отсутствия доступа",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/canary/run-g1.json",
+          "artifact_sha256": "2d3f1b2cb8a4225f0f758ff91a093eb5760c681591713fc5bc5333ce64a40e1f"
         }
       ],
-      "note": "Живая проверка в deployed-контуре — после релиза при включении флага (canary 20.10); CODE/TEST-часть доказана (фокусированный прогон 333 passed, w6 §4). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Живая проверка в deployed-контуре — после релиза при включении флага (canary 20.10); CODE/TEST-часть доказана (фокусированный прогон 333 passed, w6 §4). Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | F1 21.10: постдеплой-канарейка/корпус исполнены на deployed 8ea6ed4e (см. evidence item); READY_FOR_LIVE → VERIFIED."
     },
     {
       "source_id": "L00279",
@@ -7656,7 +7770,7 @@
       "acceptance": "E2E приёмка: спор 200+ сообщений без reply-chain и «фактчек» на короткую реплику — предмет установлен из хронологии, тезис проверен, автор сохранён; для цели без связи с соседним спором чужой тезис не натягивается; старый репост оценивается единым pipeline по дате оригинала.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "5af56d8b1dc5f9497176585ac77d95038af7eaa7",
@@ -7673,9 +7787,25 @@
           "observation": "Спор 200+ агентская часть: срез 260, recall 1.0; needs_context-лестница — S5.",
           "artifact_path": "plans/features/cfg/evidence/cfg-06/w7-acceptance.md",
           "artifact_sha256": "9a91b54c900ba351d8ff08a2e836d8bf9602e5e46cbda30a0a43f1ce8e27995a"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-dispute-w7.txt (S6)",
+          "observation": "Диспут-E2E на deployed-байтах: спор 260 без reply-chain → «фактчек» на короткой реплике: предмет установлен из хронологии (topic), тезис проверен (единый pipeline, searches_before_verdict=1), автор сохранён (attribution_ok); чужой тезис не натягивается (S5-лестница needs_context); сквозной pipeline с реальным поиском/LLM — canary run-g1/g4",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-dispute-w7.txt",
+          "artifact_sha256": "4685ca2baaab416e6f18a7ed1efe9e7852f56f9bb14a5eda79f554d1f2bda03e"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "canary/run-g1.json",
+          "observation": "Реальный v2-прогон на 8ea6ed4e: доставка 1, чанк ≤4096, reply-якорь на цели",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/canary/run-g1.json",
+          "artifact_sha256": "2d3f1b2cb8a4225f0f758ff91a093eb5760c681591713fc5bc5333ce64a40e1f"
         }
       ],
-      "note": "Живой E2E (реальный чат 200+, короткий фактчек) — постдеплой-канарейка при включении флага (20.10); живой осмотр — владельцу опционально. Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований)."
+      "note": "Живой E2E (реальный чат 200+, короткий фактчек) — постдеплой-канарейка при включении флага (20.10); живой осмотр — владельцу опционально. Живая часть — канарейка после включения flags.factcheck_pipeline_v2 при релизе (правило 20.10, PET; без отдельных согласований). | F1 21.10: постдеплой-канарейка/корпус исполнены на deployed 8ea6ed4e (см. evidence item); READY_FOR_LIVE → VERIFIED."
     },
     {
       "source_id": "L00333",
@@ -9017,7 +9147,8 @@
           "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2/§4",
           "observation": "Волна 07D.5: FA-06/07/08 + FA-01/02 + SF-16 + MB-10/11/12-детекторы в public_speech_guard (id корпуса, границы токенов, детерминированный срез без изменения фактов); bounded retry смысловой метаречи (инверсии overclaim) через verbalize_validated(metatext_reason) — <=1 повтор в существующем бюджете, METATEXT_RETRY_SYSTEM_PROMPT с кодом причины, honest fallback (metatext_fallback + strip_guard_findings); wiring строго в контуре FACTCHECK_PIPELINE_V2_ENABLED (OFF -> контракт None, байт-паритет). POSITIVE: 202 пула + каноны + PC-* корпуса — 0 ложных. Фокус: новый 39 + словарь 67 + хвост 29 + route-coverage 18 + фактчек-семья = 232 passed EXIT 0 (07d5-tests.txt); валидаторная семья 331, потребители verbalize 83.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
-          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c",
+          "type": "static"
         },
         {
           "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
@@ -9034,6 +9165,14 @@
           "observation": "Механика/маппинг корпуса/остатки задокументированы; независимое ревью review-07d5-r2 подтвердило F1-F4 закрытыми.",
           "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
           "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "observation": "Alias live-элемент (рекомендация review-tailbind.md §2/§6): deploy 2.58.104 @8ea6ed4e — feature «CFG-07D.5 bounded metatext retry + FA/MB detectors (public_speech_guard)», delta.runtime_set содержит public_speech_guard/prompt_style_blocks, healthz 2.58.104, T0 2026-10-20T21:00:23Z, ERR=0, telemetry 0 (наблюдение продолжается)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
         }
       ]
     },
@@ -9049,9 +9188,26 @@
       "acceptance": "Контрольные фрагменты из скриншотов и разные версии prompts/hot-config воспроизводят регрессии до исправления и не воспроизводят после; подтверждены конкретный deployed SHA/feature flags без вывода причин юмора из догадки.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "НЕ ЗАКРЫТО (честно): скриншот-корпус ДО/ПОСЛЕ с подтверждением deployed SHA/флагов отсутствует в репо — plans/features/cfg/evidence/cfg-07/07c/** не существует (по cfg-07-build-plan.md §5 корпус живёт локально из-за приватных фрагментов, правило 06F.1). Недостающее для закрытия: маскированный дайджест контрольных фрагментов (без приватных текстов) + сверка ДО/ПОСЛЕ, привязанные к deployed SHA (2.58.104 = 8ea6ed4e) и флагу flags.factcheck_pipeline_v2."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "07d6-corpus-probe.json (полный) + 07d6-corpus-probe.md",
+          "observation": "Контрольные фрагменты (маскированный дайджест корпуса 07A-1; приватные тексты не публикуются — 06F.1): 7/7 скриншот-класса (MB-01/02/03/05/08, FA-01/06) воспроизводятся на пред-фиксных байтах 29cc49ba (старый шов cleanup_llm_text) и не воспроизводятся на deployed 8ea6ed4e (guard_public_text: findings + нейтрализация; факты/числа/ссылки целы; POSITIVE 12 байт-в-байт); FA-17 — renderer-экранирование; каноны: 39 проверок, 0 необъяснённых (rollback-копии/фриз фактчек-канона/SF-14 by-design — задокументированы)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/07d6-corpus-probe.json",
+          "artifact_sha256": "f3cd78f10fb2dcd156260d296c95e7641cffd4f689b441f7a368009381e72733"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "07d6-corpus-probe.md §Привязка",
+          "observation": "Конкретный deployed SHA 8ea6ed4e (2.58.104) и флаг flags.factcheck_pipeline_v2=true (bot_settings, SSH-проба 21.10) подтверждены; версии prompts — AST-сверка активных канонов обоих коммитов; причины юмора не выводятся из догадки (словарь детекторов + bounded retry 07D.5)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/07d6-corpus-probe.md",
+          "artifact_sha256": "4cecd65d39dad2e29f7661a30550f4dc52878fd18ff96accb10f18a3d47d3014"
+        }
+      ],
+      "note": "НЕ ЗАКРЫТО (честно): скриншот-корпус ДО/ПОСЛЕ с подтверждением deployed SHA/флагов отсутствует в репо — plans/features/cfg/evidence/cfg-07/07c/** не существует (по cfg-07-build-plan.md §5 корпус живёт локально из-за приватных фрагментов, правило 06F.1). Недостающее для закрытия: маскированный дайджест контрольных фрагментов (без приватных текстов) + сверка ДО/ПОСЛЕ, привязанные к deployed SHA (2.58.104 = 8ea6ed4e) и флагу flags.factcheck_pipeline_v2. | F1 21.10: постдеплой-канарейка/корпус исполнены на deployed 8ea6ed4e (см. evidence item); READY_FOR_LIVE → VERIFIED."
     },
     {
       "source_id": "L00382",
@@ -9137,8 +9293,26 @@
       "acceptance": "CFG-01: global/chat burst и cooldown реально обновляются без рестарта и управляют ответами до дорогого вызова; транзакционное состояние переживает конкурентные и restart-кейсы; отказ говорит актуальный остаток.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "ssh/probe-f1-summary.json verdict",
+          "observation": "Прод 2.58.104 @8ea6ed4e: effective burst=10/cooldown=300/global → API write 2 (HTTP 200, bot_settings=2, fresh PG read) → allow×2 → третий отказан (wait 299.99s, remaining 300.0 из слота) → restore 10 (PG=10, fresh admission); hot-reload без рестарта (PID 29475, NRestarts=0 до/после); флаг v2 hot=true; synthetic slot удалён",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/ssh/probe-f1-summary.json",
+          "artifact_sha256": "1feba46bd7d00b66880c8071bf19d9aec31adc718532263c0b6345ef3f232665"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "run-f1-scrubbed.log (сырой лог сессии)",
+          "observation": "Сырой вывод SSH-сессии 21.10: journal since T0 = 0 ERR / 0 CRIT / 0 Traceback / 0 factcheck|egress|speech_guard / 0 direct_chat_throttle; TRACKED_MOD=13 — только untracked *.bak; креды не печатались",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/ssh/run-f1-scrubbed.log",
+          "artifact_sha256": "9b9032385358c4d105bda15d3329f413c2a650c543fc41c604bd940f97dfaaa4"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00389",
@@ -9152,8 +9326,26 @@
       "acceptance": "CFG-02: дневная user-image квота видна в модуле; частотный лимит OFF по умолчанию, per-user и per-chat проверены независимо; cover Base/Styled/Recovery не расходуют пользовательские ограничения; shared-provider ceiling показывает истинную причину.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-prod-104.json §add22 + §verdict",
+          "observation": "Секция «Лимиты генерации» в отданных байтах (5 хитов app.js, served sha12 db8457cafa9b == deploy-104); маркеры изоляции «Пользовательские изображения»/обложек; factory IMAGE_FREQ_LIMIT_ENABLED=False; на проде hot limits.image_freq_limit_enabled=False (SSH state); RFL-фактура CFG-02A×4",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-prod-104.json",
+          "artifact_sha256": "4d41354153d36ae9aca52a0d3017a1e8037e7b7bce7bd82f30b79e08777ede25"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "regression-focused.txt (cfg02b/c)",
+          "observation": "Гейт до платного вызова/изоляция обложек — тесты зелёные на deployed-байтах; платные генерации на проде не выполнялись (0 из ≤2–3): требуют доставки в реальный чат (запрещено) — честный остаток, см. bindings §3",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/regression-focused.txt",
+          "artifact_sha256": "c62c5415ecd900f96987b1b82310025ae67c1947263f0f7da01c98b6be35834b"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00390",
@@ -9167,8 +9359,26 @@
       "acceptance": "CFG-03: manifest на каждый UI/runtime-параметр с actual consumer/negative behavior test или честным unverified; B06/SOUL-контракты переиспользованы без повтора реализации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "regression-focused.txt (param_audit)",
+          "observation": "test_cfg03_param_audit 16 passed в составе 535 passed (EXIT 0) на deployed-байтах; manifest-аудит/честные unverified/B06+SOUL-reuse — VERIFIED-evidence волны CFG-03 (Wave B 582, review-cfg-03 Approved) не перезапускался — композит сверил состав",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/regression-focused.txt",
+          "artifact_sha256": "c62c5415ecd900f96987b1b82310025ae67c1947263f0f7da01c98b6be35834b"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-03 audit-summary",
+          "observation": "Существующий VERIFIED-артефакт волны CFG-03 (582==REGISTRY, working 568/14, inconsistencies=3 documented)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00391",
@@ -9182,8 +9392,26 @@
       "acceptance": "CFG-04: save/отмена/dirty-state работают при узком экране, смене ориентации, открытой клавиатуре и safe-area; двух конкурирующих CTA нет; композиция U01/HOTFIX не изменена.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-prod-104.json (deployed_probe + served_markers)",
+          "observation": "Re-run харнесов 25897 на 2.58.104: healthz 200/2.58.104; raw-байты app.js/app.css/polygon == git 8ea6ed4e (byte-identical); SUBST-дельта /static/app.css — ровно 2 строки версии; served-маркеры 1-в-1 с rel97: PAGE_VER=15, STICKY=12, SAVE_IND=1, TECH_KEY=21, KB_OFFSET=14, SAFE_AREA=17",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-prod-104.json",
+          "artifact_sha256": "4d41354153d36ae9aca52a0d3017a1e8037e7b7bce7bd82f30b79e08777ede25"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "dirty-guard-104.json",
+          "observation": "dirty_guard_live PASS: native confirm с точным текстом «Есть несохранённые изменения (1) для «Audit Chat»…»; dismiss — остаёмся, значение (4) и панель целы; accept — уходим",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/dirty-guard-104.json",
+          "artifact_sha256": "dd61c5a8a4738c0dfdc0e7e876f8c933e9f9f78725444b7ff3321d09c6cb73ec"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00392",
@@ -9197,8 +9425,26 @@
       "acceptance": "CFG-05: OBSERVED_FIXED/REUSE_EXISTING — новый production-скриншот владельца и U08/SOUL evidence приняты без переработки/гейта; регрессии glass и фона не допущены; очередь не блокируется.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-prod-104.json §add25",
+          "observation": "Glass-инвариант на 2.58.104: git blob web/static/polygon-background.js = c2ad97d4… (== план), served == git (content 157874dfab7b), файл не менялся с 99f5672c; #lg-lens в отданном index, scale=\"32\"",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-prod-104.json",
+          "artifact_sha256": "4d41354153d36ae9aca52a0d3017a1e8037e7b7bce7bd82f30b79e08777ede25"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "lens-dom-104.json",
+          "observation": "Живой DOM (Chromium): #lg-lens present, outerHTML 6251 == базовому значению glass-invariant.json (cfg-05), feDisplacementMap scale=\"32\", в SVG; нового исследования стекла не запускалось",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/lens-dom-104.json",
+          "artifact_sha256": "f5ddea1aad4c3eca55bba291cc6308ca2605c0b1da4b34ce45ffd167e10d2964"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00393",
@@ -9212,8 +9458,34 @@
       "acceptance": "CFG-06: единая фактчек-процедура с provenance/time, широким контекстом до отказа, низкими ложными отказами и ошибками атрибуции, реальными web/chat tools, grounded verdict и ссылочным Telegram output без JSON/unknown; legacy/fallback/cache под теми же правилами.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "canary/run-g1.json + canary/README.md",
+          "observation": "Дельта-канарейка на deployed-байтах 8ea6ed4e (дельта 7142ffcf→8ea6ed4e непуста → точечный ре-проб по плану): g1 PASS 13/13 (атомизация, не-дословный запрос с биноменом, реальный Tavily, EvidenceMap→hrefs, ≤4096, no_service_markers/admin_tokens); guard-швы CFG-07C-G: 0 событий на чистых текстах",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/canary/run-g1.json",
+          "artifact_sha256": "2d3f1b2cb8a4225f0f758ff91a093eb5760c681591713fc5bc5333ce64a40e1f"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "canary/run-g4.json",
+          "observation": "g4 PASS 14/15: 3 интента поиска (temporal присутствует), primary-fetch ok, publication_date_extracted=False — честная деградация (даты не выдуманы, 06E.7); e4 renderer/delivery 4/4; бюджет: 2 платных прогона, 0 сообщений в реальные чаты",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/canary/run-g4.json",
+          "artifact_sha256": "65aae1d6f12aa874d1961d5a3a98a0b73496c6544063eb7c72da20f352880e0e"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "probe-dispute-w7.txt",
+          "observation": "W7-композит S1–S8: 8 passed на deployed-байтах (флаг-контур v2)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/probe-dispute-w7.txt",
+          "artifact_sha256": "4685ca2baaab416e6f18a7ed1efe9e7852f56f9bb14a5eda79f554d1f2bda03e"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00394",
@@ -9227,8 +9499,26 @@
       "acceptance": "CFG-07: один голос Core, effective-переключатель мата с заводским ON и chat overrides, отсутствие backstage/техполей во всех публичных маршрутах, защита реальных цитат, проверенная Telegram delivery.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "07d6-corpus-probe.json §route_byte_proof",
+          "observation": "Egress/delivery на deployed 8ea6ed4e: public_speech_guard импортирован, _apply_delivery_guard на delivery-шве, 9 вызовов _guard_outbound на outbound-швах, metatext-retry в сервисе (7142ffcf: всего этого нет); один голос Core/Expression/backstage/цитаты — VERIFIED-evidence 07A/07B/07C + контрактные тесты зелёные в F1-регрессе",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/07d6-corpus-probe.json",
+          "artifact_sha256": "f3cd78f10fb2dcd156260d296c95e7641cffd4f689b441f7a368009381e72733"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "canary/run-g1.json §checks",
+          "observation": "Машинных артефактов в отгрузках нет: no_service_markers/no_admin_tokens=true на реальных прогонах; delivery guard чистые тексты байт-в-байт (guard_observations=0)",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/canary/run-g1.json",
+          "artifact_sha256": "2d3f1b2cb8a4225f0f758ff91a093eb5760c681591713fc5bc5333ce64a40e1f"
+        }
+      ],
+      "note": ""
     },
     {
       "source_id": "L00395",
@@ -9242,8 +9532,26 @@
       "acceptance": "Регрессии исходного current_task выполнены без повторных больших планов; итоговый status report со сквозной requirements-map; owner-only проверки видимы без бесконечного ожидания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "cfg-final-report.md §2 (сквозная карта)",
+          "observation": "Сквозная карта current_task → source → implementation → test → live по всем строкам ADD-0/ADD-2; статусы по таксономии; честный остаток",
+          "artifact_path": "plans/features/cfg/cfg-final-report.md",
+          "artifact_sha256": "3a9bea0dae455129cc59f1ab4f9f595ad0dc5f8f0aafe200cac6639bba08be15"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "production",
+          "ref": "regression-focused.txt",
+          "observation": "Один targeted-регресс на master-байтах (== deployed): 535 passed EXIT 0 (CFG-01/02/03/06/07 + guards + backstage + route-coverage); полные повтор эпиков не запускались; текущие регрессии current_task не воспроизводились",
+          "artifact_path": "plans/features/cfg/evidence/cfg-final/regression-focused.txt",
+          "artifact_sha256": "c62c5415ecd900f96987b1b82310025ae67c1947263f0f7da01c98b6be35834b"
+        }
+      ],
+      "note": ""
     }
   ]
 }
