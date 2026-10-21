@@ -526,10 +526,10 @@ class NostalgiaWorker:
         if candidate["weight"] < threshold:
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
-                            {"reason": "threshold",
+                            {**self._candidate_meta(candidate),
+                             "reason": "threshold",
                              "weight": round(candidate["weight"], 3),
-                             "threshold": round(threshold, 3),
-                             "candidate_text": candidate["text"]})
+                             "threshold": round(threshold, 3)})
             logger.info(
                 "[nostalgia] skip | chat=%s | reason=threshold "
                 "(weight=%.2f < %.2f)", chat_id, candidate["weight"],
@@ -557,8 +557,8 @@ class NostalgiaWorker:
         if is_unchanged_response(text):
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
-                            {"reason": "unchanged", "llm_skipped": True,
-                             "candidate_text": candidate["text"]})
+                            {**self._candidate_meta(candidate),
+                             "reason": "unchanged", "llm_skipped": True})
             out["skipped"] += 1
             logger.info(
                 "[nostalgia] LLM UNCHANGED — skip | chat=%s | kind=%s",
@@ -569,8 +569,8 @@ class NostalgiaWorker:
         if not text:
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
-                            {"reason": "empty", "llm_skipped": True,
-                             "candidate_text": candidate["text"]})
+                            {**self._candidate_meta(candidate),
+                             "reason": "empty", "llm_skipped": True})
             out["skipped"] += 1
             logger.info("[nostalgia] empty LLM text — skip | chat=%s",
                         chat_id)
@@ -580,15 +580,15 @@ class NostalgiaWorker:
         if contains_unchanged_token(text):
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
-                            {"reason": "unchanged_echo", "llm_skipped": True,
-                             "candidate_text": candidate["text"]})
+                            {**self._candidate_meta(candidate),
+                             "reason": "unchanged_echo",
+                             "llm_skipped": True})
             out["skipped"] += 1
             logger.info(
                 "[nostalgia] UNCHANGED echo — skip | chat=%s | kind=%s",
                 chat_id, candidate["kind"])
             return
-        meta = {"reason": "sent", "candidate": candidate["kind"],
-                "candidate_text": candidate["text"]}
+        meta = {**self._candidate_meta(candidate), "reason": "sent"}
         # MCA-09 (T-5038, ADR-1028-16 D6): K1+K3 ON → готовый кандидат
         # делегируется в ЕДИНЫЙ Decision/транспорт (source=nostalgia,
         # trigger_kind=nostalgia_due, prepared_text_ref); решение может
@@ -608,17 +608,15 @@ class NostalgiaWorker:
                 await self._log(
                     chat_id, now, candidate["kind"],
                     candidate.get("fact_id"), _STATUS_ERROR,
-                    {"reason": "bot_api", "path": "initiative",
-                     "candidate": candidate["kind"],
-                     "candidate_text": candidate["text"]})
+                    {**self._candidate_meta(candidate),
+                     "reason": "bot_api", "path": "initiative"})
                 out["errors"] += 1
             else:
                 await self._log(
                     chat_id, now, candidate["kind"],
                     candidate.get("fact_id"), _STATUS_SKIPPED,
-                    {"reason": f"initiative_{status}",
-                     "candidate": candidate["kind"],
-                     "candidate_text": candidate["text"]})
+                    {**self._candidate_meta(candidate),
+                     "reason": f"initiative_{status}"})
                 out["skipped"] += 1
                 logger.info(
                     "[nostalgia] initiative path | chat=%s | status=%s",
@@ -635,8 +633,8 @@ class NostalgiaWorker:
             await self._log(
                 chat_id, now, candidate["kind"], candidate.get("fact_id"),
                 _STATUS_ERROR,
-                {"reason": "bot_api", "candidate": candidate["kind"],
-                 "candidate_text": candidate["text"]})
+                {**self._candidate_meta(candidate),
+                 "reason": "bot_api"})
             out["errors"] += 1
             return
         await self._log(chat_id, now, candidate["kind"],
@@ -865,3 +863,21 @@ class NostalgiaWorker:
             logger.warning(
                 "[nostalgia] log failed — fail-open | chat_id=%s",
                 chat_id, exc_info=True)
+
+    @staticmethod
+    def _candidate_meta(candidate: dict) -> dict:
+        """Meta-поля кандидата для nostalgia_log.
+        FIX-CORRECTIVE-R1 (nostalgia-audit §1/§5.3, 21.10.2026): раньше в
+        `candidate_text` попадала ТОЛЬКО первая строка пула (year_lines[0]),
+        а LLM получал весь пул ≤3 строк — построчная сверка финал↔источник
+        по логу была невозможна (слепое пятно аудита). Теперь лог несёт
+        ПОЛНЫЙ пул (year_lines + golden_lines)."""
+        meta = {"candidate": candidate.get("kind"),
+                "candidate_text": candidate.get("text")}
+        year_lines = candidate.get("year_lines") or []
+        golden_lines = candidate.get("golden_lines") or []
+        if year_lines:
+            meta["year_lines"] = list(year_lines)
+        if golden_lines:
+            meta["golden_lines"] = list(golden_lines)
+        return meta

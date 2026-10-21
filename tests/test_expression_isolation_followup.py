@@ -124,9 +124,9 @@ def test_factory_texts_registered_set_has_no_mat_outside_expression():
 
 
 def test_fingerprint_constant_matches_recomputed_registry():
-    """FACTORY_SET пересчитан после правки Core/канонов (бамп задокументирован
+    """FACTORY_SET пересчитан после правки канонов (бампы задокументированы
     в prompt_registry: 037080375ac8 -> 21717a79dc67 -> 71c6a7b6c612 ->
-    3e35aaa38e0c; итерации — очистка search/youtube/web/summary/L2-writer/
-    typography)."""
+    3e35aaa38e0c -> c19d35a1c093; итерации: Core/каноны речи, очистка
+    search/youtube/web/summary/L2-writer/typography, канон ностальгии)."""
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
-    assert pr.FACTORY_SET_SHA256_12 == "3e35aaa38e0c"
+    assert pr.FACTORY_SET_SHA256_12 == "c19d35a1c093"
