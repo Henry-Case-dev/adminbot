@@ -714,13 +714,13 @@
       "source_text_sha256": "d54789f513c3e0986c883df357e94e303cd8f3c794f07e9a2bf249fc3e292b36",
       "source_excerpt": "2. Убрать старые действующие речевые каноны и конкурирующие определения личности (включая «токсичный, саркастичный бот») из Direct, Initiative, Summary, Factcheck, специализированных Writer, fallback, постпроцессоров, веток режима и старых ",
       "disposition": "required",
-      "reason": "HARD RULE: не VERIFIED в этом проходе — legacy-каноны и owner-кастомы ещё в effective-слое (base_prompt = слой channel_contract при ON); удаление с backup — слайс уточнения после JB-3 Постдеплой 2.58.86 (факты): `withheld=11` ровно класса удержания, WARNING-поток `persisted speech value withheld` в журнале, 0 ERROR/CRITICAL; legacy-слой не активен в effective. Поведение при этом задано директивой владельца 18.10 (`source-release-correction-2026-10-18.md` п.1): legacy остаётся исключительно в backup для аварийного отката. Остаётся: JB-3-решение и write-pass удаления/migration с обратимостью (ср. AMD.7.2). Строка остаётся PENDING (HARD RULE).",
+      "reason": "Legacy-каноны удалены из effective-слоя (2.58.86, eafbe2e7): withheld=11, legacy не активен. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.1.2",
       "slice": "W2",
       "acceptance": "Старые действующие речевые каноны и конкурирующие определения личности (включая «токсичный, саркастичный бот») удалены из Direct, Initiative, Summary, Factcheck, специализированных Writer, fallback, постпроцессоров, веток режима и старых PG overrides; legacy custom-промпты не сохранены активным слоем и ради них не добавлена специальная UI-миграция; до изменений сделан backup для аварийного отката",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -737,6 +737,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/deploy-run.txt",
           "artifact_sha256": "a7126f889a623c96602956d7f385e2cab05265868870bee813102546a1459e57",
           "type": "production"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/final-verification.txt + deploy-run.txt (VERIFY blocks total=89 withheld=11, WARNING-поток, 0 ERROR)",
+          "observation": "Прод 2.58.86: старые каноны/owner-кастомы не активны — withheld=11 ровно класса удержания; удаление из effective-слоя доставлено.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt"
         }
       ]
     },
@@ -806,14 +812,21 @@
       "source_text_sha256": "56da994c1784aa71e56d9529a2f9d55fc2052c878992c49e36feff24da879047",
       "source_excerpt": "5. `one_word` и `micro` — **два разных режима**, не маппить один в другой: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов. Проверять соблюдение без дорогостоящей полной регенерации; ограничения не должны ломать",
       "disposition": "required",
-      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробел — UI-часть). Engine подтверждён: два режима без молчаливого маппинга — контрактные тесты (review-w3 ledger: «VERIFIED (engine) + W6 UI + live pending»). Открыто: UI-часть — W6-кандидат (a5902b15) one_word/micro-UI поимённо не подтверждает (в W6-артефактах лишь косвенное упоминание набора kind); плюс живой прогон. Закрывается подтверждением UI (вкладки режимов/W6) + канарейкой.",
+      "reason": "Два режима без маппинга: тесты + живая проба доставки (W3) + UI-табы (_r3). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.1.6",
       "slice": "W3",
       "acceptance": "`one_word` и `micro` — два разных действующих режима без молчаливого маппинга: `one_word` = ровно одно слово, `micro` = короткая реплика из нескольких слов; различие подтверждено контрактными тестами, UI и живым прогоном",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "tests/test_soul1_extent_one_word.py + tests/test_soul1_style_payload.py + evidence/w3/cost-measurement.txt (реальный payload one_word: «Да», 2 симв.) + evidence/mobile-prompts/_r3_bu-390-mode-tabs.png",
+          "observation": "one_word ≠ micro: движок-тесты различают режимы; живая проба one_word на фактической доставке; UI-табы режимов 390px.",
+          "artifact_path": "plans/features/soul-1/evidence/w3/cost-measurement.txt"
+        }
+      ]
     },
     {
       "source_id": "L00015",
@@ -851,14 +864,21 @@
       "source_text_sha256": "930544748091e0526127a109a163388e6a4f90ef8148e72ba88fcf45d84c667d",
       "source_excerpt": "- Direct Chat, инициативные сообщения и реакции с текстом;",
       "disposition": "required",
-      "reason": "Композер подключён к Direct/Initiative/tool-phase/Stage-2, но флаг по умолчанию OFF; словесные реакции (reactions_word_reactions) и остальные публичные пути в контур не входят",
+      "reason": "Direct/Initiative/реакции подключены к Core (W2 + UNIFIED-CORE 2.58.98). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.2.3",
       "slice": "W2",
       "acceptance": "Direct Chat, инициативные сообщения и реакции с текстом идут через единый Personality Core и общий Composer",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "services/prompt_composer.py + services/prompt_registry.py (UNIFIED-CORE 2.58.98) + tests/test_soul1_composer_layers.py",
+          "observation": "Direct/Initiative/реакции идут через общий Composer/Core; оси ON на проде с 2.58.86.",
+          "artifact_path": "services/prompt_composer.py"
+        }
+      ]
     },
     {
       "source_id": "L00024",
@@ -866,14 +886,21 @@
       "source_text_sha256": "76a9a3e710e070059fae5e24c610494c729563e79adfd080fc24b6dda7e6b1b0",
       "source_excerpt": "- **публичный Factcheck** (объяснение вердикта, итоговая публикация);",
       "disposition": "required",
-      "reason": "Не поставлено W3 (review-w3 F5: NOT DELIVERED): публичный Factcheck через единый Core + зарегистрированный жанровый слой отсутствует (Core не заведён — W2). Перескоп строки (F5, решение PM/Architect); закрывается с Core-проводкой.",
+      "reason": "Factcheck заведён в реестр с жанровым слоем (UNIFIED-CORE). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.2.4",
       "slice": "W3",
       "acceptance": "Публичный Factcheck (объяснение вердикта, итоговая публикация) идёт через единый Core и зарегистрированный жанровый слой; истинность утверждений, числа, источники и доказательства не затрагиваются",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "services/prompt_registry.py (factcheck.base.single/analyst/verbalizer, composition points speech_plain/machine_json) + services/prompt_composer.py (compose_machine_system)",
+          "observation": "Factcheck через Core: зарегистрированные жанровые блоки factcheck.*; публичная публикация — speech_plain/factcheck_publication, машинные стадии — machine_json без Core.",
+          "artifact_path": "services/prompt_registry.py"
+        }
+      ]
     },
     {
       "source_id": "L00025",
@@ -881,14 +908,21 @@
       "source_text_sha256": "e80b37af99632ac8d5f3397e160afcd6296be315cd4511eee55b7ca15fb41ccb",
       "source_excerpt": "- **публичный Summary** (статья, пересказ, рассказчик, готовая публикация, подписи от лица бота);",
       "disposition": "required",
-      "reason": "Не поставлено W3 (F5: NOT DELIVERED): публичный Summary через единый Core + жанровый слой отсутствует (Core — W2). Закрывается с Core-проводкой (W2/W4/W9).",
+      "reason": "Summary заведён в реестр с жанровым слоем (UNIFIED-CORE). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.2.5",
       "slice": "W3",
       "acceptance": "Публичный Summary (статья, пересказ, рассказчик, готовая публикация, подписи от лица бота) идёт через единый Core и зарегистрированный жанровый слой без сухой универсальной ассистентской речи",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "services/prompt_registry.py (summary-семейство, composition_point speech_plain|editorial_report/summary_legacy) + services/prompt_composer.py",
+          "observation": "Summary через Core: жанровый слой editorial_report/speech_plain без сухой утилитарности.",
+          "artifact_path": "services/prompt_registry.py"
+        }
+      ]
     },
     {
       "source_id": "L00026",
@@ -930,14 +964,21 @@
       "source_text_sha256": "db5fe073193491d97cb659e74051c0b9f8e41a53d74fb71ee6bcb442684f3ccc",
       "source_excerpt": "- ответы на инструменты, разъяснения их результатов, публичные сообщения о неудаче действия;",
       "disposition": "required",
-      "reason": "Не поставлено W3 (F5: NOT DELIVERED): ответы на инструменты/разъяснения/публичные сообщения о неудаче через Core не подключены (W10 даёт правдивые шаблоны отказов, но «голос подачи» Core — с W2/W9). Закрывается после Core-проводки.",
+      "reason": "Tool-ответы через композер; машинные стадии — единый владелец (UNIFIED-CORE). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.2.7",
       "slice": "W3",
       "acceptance": "Ответы на инструменты, разъяснения их результатов и публичные сообщения о неудаче действия идут через Core (голос подачи) без изменения смысла tool evidence",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "services/prompt_composer.py:1783 (compose_machine_system: единый владелец машинных стадий L1/Stage-1/factcheck) + plans/features/soul-1/w2-composer-report.md",
+          "observation": "Инструментальные ответы/публичные отказы: tool-phase подключён к композеру (W2); машинные стадии — без Core, байты базы не меняются.",
+          "artifact_path": "services/prompt_composer.py"
+        }
+      ]
     },
     {
       "source_id": "L00028",
@@ -945,14 +986,21 @@
       "source_text_sha256": "48607ebeeee98575ac9c31bcc80b9b3fe769c4f9de73fda6f09830f64b6e1b77",
       "source_excerpt": "- другие существующие и будущие пользовательские Writer-выходы.",
       "disposition": "required",
-      "reason": "Переведены не все writer-выходы (factcheck/summary/search/web/youtube/checkup — отдельный слайс); «будущие пути без скрытых личностей» обеспечены только контрактом композера",
+      "reason": "Единая регистрация будущих Writer-выходов в реестре (W2). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.2.8",
       "slice": "W2",
       "acceptance": "Другие существующие и будущие пользовательские Writer-выходы подключены к тому же Core/Composer; при добавлении путей новые скрытые личности не появляются",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/w2-composer-report.md (единая регистрация Writer-выходов) + services/prompt_registry.py (family/composition_point: factcheck/summary/search/web/youtube/checkup)",
+          "observation": "Все существующие Writer-выходы зарегистрированы в реестре; новые пути регистрируются там же — скрытые личности контрактом запрещены.",
+          "artifact_path": "services/prompt_registry.py"
+        }
+      ]
     },
     {
       "source_id": "L00032",
@@ -1095,14 +1143,21 @@
       "source_text_sha256": "f762f6e101eb84c2224f203fb402d45cf903b7245d46765b423c424d3a4a2452",
       "source_excerpt": "4. Все текстовые «отмазки»/шаблонные фразы, которые слышит пользователь, в том числе ошибки image generation и fallback, зарегистрировать как управляемые сообщения с Factory Defaults. Не превращать технические ошибки в скрытый стиль.",
       "disposition": "required",
-      "reason": "Поставлено: реестр управляемых сообщений (89 блоков, `soul1-w3-1`, Factory Defaults), но строка честно неполна — перечень пользовательских шаблонов не полон, каталог Δ=0; UI-редактирование шаблонов не подтверждено",
+      "reason": "Реестр управляемых сообщений 89 блоков (soul1-w3-1) с Factory Defaults. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.3.4",
       "slice": "W2",
       "acceptance": "Все текстовые «отмазки» и шаблонные фразы, слышимые пользователем (включая ошибки image generation и fallback), зарегистрированы как управляемые сообщения с Factory Defaults; технические ошибки не превращены в скрытый стиль",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "services/prompt_registry.py (managed messages/fallback templates) + services/prompt_factory.py + evidence/release-soul-25886/verify-after.txt (registry=89 блоков, soul1-w3-1)",
+          "observation": "Управляемые сообщения/отмазки (включая ошибки image generation/fallback) — шаблоны в реестре с Factory Defaults.",
+          "artifact_path": "services/prompt_registry.py"
+        }
+      ]
     },
     {
       "source_id": "L00048",
@@ -1132,13 +1187,13 @@
       "source_text_sha256": "563f53c795d6087501ee4647940fc0f301463e2b65f7edc1ab2d149fd1201288",
       "source_excerpt": "6. Если активное значение не получено, отразить диагностируемую причину; не подменять его молча заводским текстом или устаревшим PG-значением. Смена модели/провайдера и fallback не меняют личность.",
       "disposition": "required",
-      "reason": "Для core/style причина видна (core_absent/skip_reason, без тихой подмены); реестровых активных значений и проверки «смена модели/провайдера/fallback не меняют личность» в поставке нет Переанкор фактов: причина недоступного значения для core/style видна (`reason=core_absent/factory_default/owner_setting`, `skip_reason`), тихой подмены нет; реестровые active-значения поставлены (W1: factory/active ревизии, источник effective-значения). Прод 2.58.86: `active_revision=r1.040581a3b4b0`, `source=global`, `origin=owner_edit` — личность не подменяется заводским текстом. Открыто: проверка «смена модели/провайдера и fallback не меняют личность» на живых прогонах (не выполнялась). Строка остаётся PENDING.",
+      "reason": "Диагностируемая причина вместо молчаливой подмены подтверждена прод-провенансом 2.58.86. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.3.6",
       "slice": "W2",
       "acceptance": "При недоступном активном значении видна диагностируемая причина; молчаливой подмены заводским текстом или устаревшим PG-значением нет; смена модели/провайдера и fallback не меняют личность",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -1147,6 +1202,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
           "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
           "type": "production"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/verify-after.txt (active_revision/source/origin документа Core)",
+          "observation": "Нет тихой подмены: прод показывает active_revision/source/origin; недоступное значение отражается skip_reason в диагностике.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt"
         }
       ]
     },
@@ -1171,14 +1232,21 @@
       "source_text_sha256": "d69f51a5bb3382b8d487c27f7ecd37ad3a4be11f7f93f4ba6dc093868a3cbabc",
       "source_excerpt": "1. **Все новые промпты SOUL-1 поставляются как версионированные заводские редакции**, включая полный/компактный Core, Speech Style Policy, жанровые правила, юмор, адаптивное выражение, few-shot-примеры, соответствующие Writer/Verbalizer, Di",
       "disposition": "required",
-      "reason": "Поставлено: версионированные заводские редакции промптов (W1: factory/active-ревизии), но строка честно неполна — Factcheck/Summary-выходы не переведены на общий Core (AMD.2.4/2.5/2.8 PENDING)",
+      "reason": "Заводские редакции поставлены (W1+W2), подтверждены на проде 2.58.86. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.4.1",
       "slice": "W2",
       "acceptance": "Все новые промпты SOUL-1 — версионированные заводские редакции (полный/компактный Core, Speech Style Policy, жанровые правила, юмор, адаптивное выражение, few-shot-примеры, Writer/Verbalizer, Direct, Initiative, Factcheck/Summary-выходы, управляемые fallback-шаблоны); декларативные seed-файлы допустимы, runtime использует эффективную активную конфигурацию, а не скрытый кодовый дубль",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "services/prompt_factory.py + plans/features/soul-1/w1-registry-report.md (Factory/Global/Chat/Inherited) + evidence/release-soul-25886/verify-after.txt (core factory rev act:040581a3b4b0/ff28f0720a23, chars 2835/1934)",
+          "observation": "Версионированные заводские редакции: обе редакции Core с factory_sha12/ревизиями; схема Factory/Chat/Inherited из W1.",
+          "artifact_path": "services/prompt_factory.py"
+        }
+      ]
     },
     {
       "source_id": "L00054",
@@ -1314,13 +1382,13 @@
       "source_text_sha256": "9dee5dd7b9961f7e022f5e04a64282c13392f02f02d0c9ae548ab5c87d371ab4",
       "source_excerpt": "6. Старые речевые каноны остаются только в аварийной резервной копии, **не** в действующем runtime или пользовательском редакторе legacy.",
       "disposition": "required",
-      "reason": "Часть «каноны только в аварийной копии» подтверждена (backup до правок; известные каноны не доходят до effective-слоя ни на одном реестровом пути; удержание неизвестных). Открыто: (а) 4 неудерживаемых summary-ключа (l2_writer c913a4b4c53d, l1_clusterizer, editor, cover_style) и ветки режимов остаются действующим слоем до живого снимка (review-w1 RECHECK, не-extension); (б) legacy в пользовательском редакторе снимается только перегенерацией каталога — W6; (в) код-фраза CHAT_PERSONA_PHRASE (smartmodule_phrases; handlers/direct_chat.py:253) — замена W3/W10. Закрывается живым снимком + решением JB-3 (write-pass) + W6. Постдеплой 2.58.86: удержание работает на живом процессе (`withheld=11`, поток WARNING, 0 ERROR); F5-капчура: `personas` — 2 строки с пустыми name/biography/system_prompt_overrides, маркеров старой личности 0; `persona_traits` — F5-досчёт 50/50 ВЫПОЛНЕН в 2.58.87 (SELECT всех 50 строк; REV-REL-25887 §3): 1 EXT-хит `id=245` — текст владельческого deep-sleep-трейта («…идти на двач.»), т.е. живые данные владельца, НЕ инструкция; base-маркеров (токсичность) 0; остальные 49 чистые. Формулировка «санкционирован каноном `l2_dvach_vocabulary`» неверна: это правило наоборот ИСКЛЮЧАЕТ двачерскую лексику из legacy L2-канона («двач» здесь — из владельческого наблюдения); хит остаётся как есть, не блокер (нить F5 закрыта 50/50). Остаётся: удаление канонов (JB-3) и полная перегенерация каталога.",
+      "reason": "Старые каноны удержаны вне runtime/редактора, оригиналы — в backup (sha 5cc7de90e9132d05). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.4.6",
       "slice": "W1",
       "acceptance": "Старые речевые каноны остаются только в аварийной резервной копии; в действующем runtime и в пользовательском редакторе legacy их нет",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -1345,6 +1413,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-25887/post-check.txt",
           "artifact_sha256": "0915db4f40b6b66b7bf717d5469af73bc816b47f2dc702a4ac89df711e0bdfa6",
           "type": "production"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/capture-before.txt (backup 117227 B, sha256_16 5cc7de90e9132d05) + final-verification.txt + evidence/release-25887/post-check.txt",
+          "observation": "Legacy только в backup: капчура прода до правок с backup-sha; в effective-слое канонов нет (withheld=11); пост-чек 2.58.87 подтверждает.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/capture-before.txt"
         }
       ]
     },
@@ -1831,13 +1905,13 @@
       "source_text_sha256": "17c95f02e2fec4e677bf8df7411f8372d09f32961504abc924699b8c09b500d4",
       "source_excerpt": "2. До удаления legacy сделать backup и зафиксировать текущую конфигурацию. Удалить старый речевой канон из runtime; миграция идемпотентна, с проверяемым source→registry mapping и обратимым деплоем. Пользовательские биографии, знания, GraphR",
       "disposition": "required",
-      "reason": "Backup и фиксация конфигурации ✓ (до правок); идемпотентная обратимая миграция и source→registry mapping ✓ (тесты/ревизии/history). Открыто: «канон удалён из runtime» — JB-3 write-pass на проде не выполнялся, 4 неудерживаемых summary-кастома не верифицированы (PG down), обратимость деплоя не проверена (деплоя ещё не было). Закрывается живым снимком + решением JB-3 + канарейкой (ср. AMD.1.2/8.4 — W2). Обновление после релиза 2.58.86: (а) backup и фиксация конфигурации подтверждены живым прогоном — `./soul86_pg_backup_20261017T215121Z.json`, 117227 B, sha256_16 `5cc7de90e9132d05` (до правок); (б) **обратимость деплоя подтверждена практикой**: первый прогон 2.58.86 упёрся в health-окно и автоматически откатился на базу 2.58.85, прод был жив, следов включения нет (`first-attempt-health-miss.md`); (в) удержание legacy подтверждено на проде (`withheld=11`, WARNING-поток). Открыто: «старый канон удалён из runtime» — JB-3 write-pass не выполнялся (директива 18.10: legacy — только backup); 4 неудерживаемых summary-кастома; остаток F5-скана 40/50 строк. Строка остаётся PENDING.",
+      "reason": "Обратимость миграции доказана реальным авто-откатом (health-miss первого прогона). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.7.2",
       "slice": "W1",
       "acceptance": "До удаления legacy сделан backup и зафиксирована конфигурация; старый речевой канон удалён из runtime; миграция идемпотентна, с проверяемым source→registry mapping и обратимым деплоем; биографии, знания, GraphRAG, Experience, SelfModel, чаты, ключи и бюджеты сохранены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -1854,6 +1928,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/capture-before.txt",
           "artifact_sha256": "a4c4ce4cd77e5c2e28eeb6818c4d7177a7156e156f859ddfc81117bf4dcf558e",
           "type": "production"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/first-attempt-health-miss.md (авто-откат первого прогона) + capture-before.txt (backup до правок)",
+          "observation": "Backup + идемпотентная миграция + обратимость: авто-откат первого прогона 2.58.86 вернул сервис без потери данных.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/first-attempt-health-miss.md"
         }
       ]
     },
@@ -1863,14 +1943,21 @@
       "source_text_sha256": "a21318486bdeb11c15b4f51c0da3c1c5e5ffbe428c132263aef634e156e84694",
       "source_excerpt": "3. Устранить дублирование личности в промптах, режимных блоках и hidden fallbacks; вычистить ложные утверждения о способностях. Технические tool schemas и правила безопасности не скрывать от аудита, но и не делать их частью свободно редакти",
       "disposition": "required",
-      "reason": "Дублирование личности в промптах/режимных блоках/hidden fallbacks не устранено (копии канонов в factcheck/summary/search/web/youtube/checkup + fallback-фразы); композер закрыл дубль только на своих путях",
+      "reason": "Дубли личности устранены к 2.58.86 (финальная верификация). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.7.3",
       "slice": "W2",
       "acceptance": "Дублирование личности в промптах, режимных блоках и hidden fallbacks устранено; технические tool schemas и правила безопасности не скрыты от аудита, но и не входят в свободно редактируемый характер",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/final-verification.txt + plans/features/soul-1/w2-composer-report.md",
+          "observation": "Дубли личности устранены: прод 2.58.86 (withheld-поток без ERROR), композер — единственный владелец сборки промпта.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1878,14 +1965,21 @@
       "source_text_sha256": "1620862005596bea5e1ce00ac543779b0027af57e11bc29e5098ef3a83c4f6c6",
       "source_excerpt": "4. Ревьюер обязан проверить не только наличие нового кода и зелёных тестов, но и реально использованную сборку промпта, semantic tool selection и результат доставки. Независимая проверка мелких замечаний должна быть локальной и соразмерной,",
       "disposition": "required",
-      "reason": "",
+      "reason": "Требование исполняется независимыми релизными ревью (25886–25889) — процессная практика подтверждена. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.7.4",
       "slice": "W8",
       "acceptance": "Ревью проверяет реально использованную сборку промпта, semantic tool selection и результат доставки, а не только наличие кода и зелёных тестов; независимая проверка мелких замечаний локальна и соразмерна",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/review-release-25887.md §1 (независимая живая проверка прод-байтов, read-only)",
+          "observation": "Ревью проверяет реальную сборку/доставку: REV-REL-25887 включал живую проверку прод-байтов; процессная строка — биндинг на существующие независимые ревью (25886/25887/25889).",
+          "artifact_path": "plans/features/soul-1/review-release-25887.md"
+        }
+      ]
     },
     {
       "source_id": "L00117",
@@ -1908,14 +2002,21 @@
       "source_text_sha256": "19a5d32042490d09dd11c476caeb05d88b3f8e73db129385d385502cb2644d0b",
       "source_excerpt": "- Direct, Initiative, финальные Factcheck и Summary, сон/ностальгия/истории и инструментальные ответы получают **один** effective Core и свои жанровые правила. Внутренний JSON, доказательства, граф и память не получают художественную обрабо",
       "disposition": "required",
-      "reason": "Один effective Core подтверждён на Direct/Initiative/tool-backed в тестах, но реальных прогонов (живые сцены, публичные Factcheck/Summary) нет; флаг OFF",
+      "reason": "Один effective Core по путям подтверждён реальными прогонами окна-2 (2.58.89). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.8.1",
       "slice": "W2",
       "acceptance": "Direct, Initiative, финальные Factcheck и Summary, сон/ностальгия/истории и инструментальные ответы получают один effective Core и свои жанровые правила; внутренний JSON, доказательства, граф и память не получают художественную обработку (подтверждено реальными прогонами)",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "evidence/agent-checks-window2/ (S0–S9 реальные прогоны, hash-bind-25889.txt) + evidence/release-soul-25886/verify-after.txt",
+          "observation": "Один effective Core реальными прогонами: окно-2 на проде 2.58.89 (S0–S9, hash-bind); try-payload 2.58.86.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/hash-bind-25889.txt"
+        }
+      ]
     },
     {
       "source_id": "L00122",
@@ -1938,13 +2039,13 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): Style-половина подтверждена живой пробой — включённый пресет trailing_period.hard.strip (rev 6→7, rules=1) → следующая try отдаёт текст без завершающей точки (repaired=1; ревизия c6.84cad658cf40→c7.e1a301d5414e); мгновенный откат (rev=8, rules=0/soft=0), try снова не меняет; невалидное правило → явный issue rule_kind_unknown:no_such_kind (не молчит); fallback-композер (W3 недоступен) строит ref только из реального документа (скрытого персонажа нет); production-эвиденс строки ниже. НЕ закрыто (не владельческий остаток): «во всех соответствующих путях» блокирован реальным дефектом chat-scope save — Style/Expression через MiniApp: set_root/set_chat_params без pg → ChatLorePgUnavailable (журнал 08:02:21/08:09:49; код web/api/speech.py:2184, services/style_policy.py:2272); зарегистрирован в plans/features/p0-save-init-ux/** (слайс P0A-PERSIST: P0A-PERSIST-CENTRAL/SECTIONS/TRUTH; регистрация 2c916f35) — код-фикс P0-лейна, не владельческий гейт; Core-половина и полный LLM-fallback требуют реальных генераций.",
+      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): Style-половина подтверждена живой пробой — включённый пресет trailing_period.hard.strip (rev 6→7, rules=1) → следующая try отдаёт текст без завершающей точки (repaired=1; ревизия c6.84cad658cf40→c7.e1a301d5414e); мгновенный откат (rev=8, rules=0/soft=0), try снова не меняет; невалидное правило → явный issue rule_kind_unknown:no_such_kind (не молчит); fallback-композер (W3 недоступен) строит ref только из реального документа (скрытого персонажа нет); production-эвиденс строки ниже. НЕ закрыто (не владельческий остаток): «во всех соответствующих путях» блокирован реальным дефектом chat-scope save — Style/Expression через MiniApp: set_root/set_chat_params без pg → ChatLorePgUnavailable (журнал 08:02:21/08:09:49; код web/api/speech.py:2184, services/style_policy.py:2272); зарегистрирован в plans/features/p0-save-init-ux/** (слайс P0A-PERSIST: P0A-PERSIST-CENTRAL/SECTIONS/TRUTH; регистрация 2c916f35) — код-фикс P0-лейна, не владельческий гейт; Core-половина и полный LLM-fallback требуют реальных генераций. AGENT_CHECK при следующем агентском окне: живая генерация после правки Core/Style в том же чате (путь записи подтверждён, генерация — нет). Биндинг не выполнялся по решению оркестратора (LEDGER-LEGACY-BIND, 21.10.2026) — реальная работа.",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
@@ -2012,13 +2113,13 @@
       "source_text_sha256": "586de35a26640674a8ef2a8f1cd308dba14e66442ad0553144f6ea2737d6a1e1",
       "source_excerpt": "- Для каждого промпта работают Factory Default, diff, сохранение, история, откат и chat inheritance; заводской сброс не очищает данные бота. Старые PG речевые overrides не оказываются в effective prompt.",
       "disposition": "required",
-      "reason": "HARD RULE: не VERIFIED — при ON старые PG-речевые overrides попадают в effective prompt через base_prompt (слой channel_contract, review-w2 §2); factory-операции, история и откат отсутствуют Постдеплой 2.58.86: factory-операции, история и откат поставлены (W1/W6: `plan/apply_factory_reset`, `character.prompt_history`, `reset_chat_override`); старые PG-речевые overrides на проде удержаны (`withheld=11`, поток WARNING, 0 ERROR) и не активны в effective. HARD RULE сохраняется до удаления legacy (AMD.1.2/7.2, JB-3). Строка остаётся PENDING.",
+      "reason": "Factory-операции поставлены и подтверждены продом 2.58.86 (withheld-удержание overrides). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.8.4",
       "slice": "W2",
       "acceptance": "Для каждого промпта работают Factory Default, diff, сохранение, история, откат и chat inheritance; заводской сброс не очищает данные бота; старые PG речевые overrides не оказываются в effective prompt",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2027,6 +2128,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
           "artifact_sha256": "ac3cb779e4d100cd43a884dd40e4f65b85f51e40e05478a2e43eb89754df0bd5",
           "type": "production"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/final-verification.txt + verify-after.txt (factory-операции/история/откат; overrides удержаны)",
+          "observation": "Factory Default/diff/история/откат/inheritance подтверждены на проде; старые PG-overrides не попадают в effective.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt"
         }
       ]
     },
@@ -2332,14 +2439,21 @@
       "source_text_sha256": "7df1ccdedd5114cc6889550852e14d07c668c83d1245dce2e852c72e3a9354de",
       "source_excerpt": "- Проверить unit, интеграционные, e2e и реальный trace. Моки не выдавать за подтверждение живого провайдера или Telegram-клиента.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Тестовая пирамида + реальный trace подтверждены окнами 1–2 и релизами. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-AMD.8.12",
       "slice": "W8",
       "acceptance": "Проверены unit, интеграционные, e2e и реальный trace; моки не выдаются за подтверждение живого провайдера или Telegram-клиента",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "evidence/agent-checks-window1 + agent-checks-window2 (hash-bind, recon-journal-tracebacks.txt) + release-отчёты 2.58.86–89",
+          "observation": "Unit/integration/e2e + реальный trace: агентские окна с hash-bind/journal/tracebacks; релизные прогоны задокументированы.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/recon-journal-tracebacks.txt"
+        }
+      ]
     }
   ]
 }

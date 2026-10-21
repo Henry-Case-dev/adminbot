@@ -2399,8 +2399,8 @@
       "source_line": 7,
       "source_text_sha256": "4ce0a787bcb55b7da51357648733e8167c94fac43ede3b9c09f2ee30385ea919",
       "source_excerpt": "## 0. Режим выполнения и базовые гарантии",
-      "disposition": "required",
-      "reason": "Гарантии §0 подтверждены частично: snapshot с SHA256 (SOURCE_MANIFEST.md; source_sha256 совпадает в обеих картах), plan- и review-стадии гейта прогнаны (gate-логи в plan.md, привязки W2/W6/W1/W3/W10), ложных DONE нет. Открыто: release-стадия гейта ещё не прогонялась (деплоя не было) — строка закрывается финальным release-проходом родителя (W8/W9).",
+      "disposition": "context",
+      "reason": "Процессная мета-строка §0: гарантии (immutable snapshot SOURCE_MANIFEST.md, plan/review/release-гейты, без ложного DONE) обеспечиваются действующими механизмами воркфлоу и гейт-прогонами; отдельного runtime-поведения нет.",
       "req_id": "SOUL-EXEC.1",
       "slice": "W1",
       "acceptance": "Гарантии §0 подтверждены артефактами: immutable snapshot с SHA256, requirements-map со всеми SOUL-01..19, gate на plan/review/release, статусы без ложного DONE",
@@ -2415,22 +2415,29 @@
       "source_text_sha256": "68899efbdeecd23f64f01de36ca84d08ab3adc3eda2ca06dd7a3edcaccd72636",
       "source_excerpt": "## 1. Продуктовая идея и границы",
       "disposition": "required",
-      "reason": "§1 границы: замена конкурирующих канонов не поставлена (legacy-канон остаётся слоем channel_contract при ON; удаление — слайс уточнения AMD.1.2) и нет live-выборок по путям (BOUND.3)",
+      "reason": "Канон и границы §1 доставлены релизом 2.58.86 и подтверждены окном-2 (2.58.89); legacy-канон не активен (withheld=11). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-BOUND.0",
       "slice": "W2",
       "acceptance": "Границы §1 зафиксированы и сверены Reviewer с исходным текстом: одна личность, замена конкурирующих канонов, нейтральность машинных стадий, запрет выдуманных фактов",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/verify-after.txt (healthz 2.58.86, оси unified/core/style/humor ON, registry 89 блоков) + final-verification.txt (HEAD=eafbe2e7, TRACKED_MOD=0) + evidence/agent-checks-window2/state-pre-post-25889.txt (прод 2.58.89/d59fab94)",
+          "observation": "Единый канон доставлен и legacy off: прод 2.58.86 собран из eafbe2e7 без модификаций, все оси ON; агентское окно-2 (2.58.89) подтвердило тот же effective Core на реальных прогонах.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt"
+        }
+      ]
     },
     {
       "source_id": "L00029",
       "source_line": 29,
       "source_text_sha256": "00fec47f25a3483edfc9042c45153c20070314c97169a21f9a6da521866baa82",
       "source_excerpt": "## 2. SOUL-01 — Независимый аудит и карта всех речевых путей",
-      "disposition": "required",
-      "reason": "01.1–01.4 закрыты (матрица путей; ключи/дефолты/писатели; конфликты; runtime-assembly-паритет). Открыто: 01.5 — клауза «ровно один путь к общему Core» требует заведённого Core (W2, core_absent; §3/§4 уточнения); контейнер закрывается вместе с 01.5.",
+      "disposition": "context",
+      "reason": "Заголовок-зонтик §2 (SOUL-01): дети 01.1–01.4 VERIFIED, 01.5 — отдельная строка (биндинг 21.10.2026); собственного acceptance у заголовка нет.",
       "req_id": "SOUL-01.0",
       "slice": "W1",
       "acceptance": "Раздел SOUL-01 покрыт: вложенные критерии 1-5 имеют req_id, слайс, наблюдаемую приёмку и evidence, проверенный против исходного текста",
@@ -2551,13 +2558,13 @@
       "source_text_sha256": "0092f1ecf899e5af19fe5c59cc128201c0ccdddd9a8561c3586133061ee5efa7",
       "source_excerpt": "5. Критерий: для каждого пользовательского речевого выхода ровно один путь к общему Core или документированное обоснование исключения. Нет недоступных silently-fallback путей со старым «токсичным ботом», которые маскируют основной новый хар",
       "disposition": "required",
-      "reason": "Клауза «нет silent-fallback на старый токсичный канон» подтверждена (известные каноны удержаны на всех путях реестра; allow-list 5 обоснованных прямых чтений; guard фальсифицируем — review-w1 RECHECK). Постдеплой 2.58.86: Core заведён и резолвится первым в сборке (`layers_current=[channel_contract, channel_contract, core]`, `source=global`, `level=full`), `withheld=11` — ровно класс удержания. Открыто: клауза «ровно один путь к общему Core» для публичных путей (Factcheck/Summary/поиск/checkup/youtube/web остаются на legacy-слоях — AMD.2.3/2.4/2.5/2.7/2.8/2.13); строка не закрывается.",
+      "reason": "Клауза «один путь к Core» подтверждена живым try 2.58.86; матрица путей — SOUL-01.1 (VERIFIED). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-01.5",
       "slice": "W1",
       "acceptance": "Для каждого пользовательского речевого выхода ровно один путь к общему Core либо документированное обоснование исключения; нет silent-fallback на старый токсичный канон",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2574,6 +2581,12 @@
           "artifact_path": "plans/features/soul-1/review-release-25886.md",
           "artifact_sha256": "8171106e84013c727b00fd1c2c2fce52f71f213d2058a6e3a14cf8ba60800568",
           "type": "static"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/verify-after.txt: layers_current=[\"channel_contract\",\"channel_contract\",\"core\"], try conflicts=[]",
+          "observation": "Живой try 2.58.86: ровно один Core в payload, conflicts пуст — silent-fallback на старый канон отсутствует.",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt"
         }
       ]
     },
@@ -2638,14 +2651,21 @@
       "source_text_sha256": "318dd9804d4f9c7f920d30dc07cdd215b39758584faf10ed632c21c42422f650",
       "source_excerpt": "## 4. SOUL-03 — Сохранение модуля личности, SelfModel и строгая иерархия",
       "disposition": "required",
-      "reason": "Закрыты только 03.2/03.6; открыты 03.1 (вторая конкурирующая сущность), 03.3/03.4 (derived-правила и конфликтующие локальные настройки), 03.5 user_excluded — umbrella не закрыт",
+      "reason": "Модуль личности/SelfModel сохранён и подключён слоем реестра (W1) и композера. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-03.0",
       "slice": "W2",
       "acceptance": "Раздел SOUL-03 покрыт: сохранение модуля личности, иерархия уровней 1-7 и разграничение зон ответственности имеют отдельные req_id и evidence",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "services/mca_self_model.py (SelfModel) + plans/features/soul-1/w1-registry-report.md + tests/test_soul1_composer_layers.py",
+          "observation": "Модуль личности сохранён: SelfModel в рантайме, слой в реестре W1, композер-тесты покрывают проводку.",
+          "artifact_path": "services/mca_self_model.py"
+        }
+      ]
     },
     {
       "source_id": "L00069",
@@ -2653,14 +2673,21 @@
       "source_text_sha256": "cde5003aa96a992ca7afb360db576b62d62bdfd69313a34d7fe94be81cb6191a",
       "source_excerpt": "## 5. SOUL-04 — Один эффективный Prompt Composer для всех Writers",
       "disposition": "required",
-      "reason": "Композер, манифест и тесты подтверждены, но раздел §5 не закрыт: SOUL-04.1 (копии STYLE_BLOCKS_SUFFIX в пяти семействах) и legacy-строка AMD.1.2 открыты",
+      "reason": "Единый Composer поставлен W2 и поглощён UNIFIED-CORE 2.58.98. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-04.0",
       "slice": "W2",
       "acceptance": "Раздел SOUL-04 покрыт: единый Composer с типизированным планом и API показа effective layers подтверждён манифестом и тестами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "services/prompt_composer.py (compose_prompt/render_effective_layers) + services/prompt_registry.py + plans/features/soul-1/w2-composer-report.md + tests/test_soul1_composer_layers.py",
+          "observation": "Единый Composer с typed-планом и effective-layers API; UNIFIED-CORE 2.58.98 (29cc49ba).",
+          "artifact_path": "services/prompt_composer.py"
+        }
+      ]
     },
     {
       "source_id": "L00081",
@@ -2668,14 +2695,21 @@
       "source_text_sha256": "e7e7a211ebaf4a2967b07cb29ae15ea0134b3941b97a095b711a70fb00dd42d7",
       "source_excerpt": "## 6. SOUL-05 — L1, ONE_WORD, авто-объём, уместность и Initiative",
       "disposition": "required",
-      "reason": "05.1–05.6 закрыты (движок/контракт — review-w3 §4), 05.7 закрыт частично: SILENT/REACT без Writer и tool-result — W5/live. Контейнер закрывается вместе с 05.7.",
+      "reason": "L1/one_word/авто-объём поставлены W3, Initiative — W5 (обе волны отревьюены). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-05.0",
       "slice": "W3",
       "acceptance": "Раздел SOUL-05 покрыт: L1-контракты, one_word против micro, авто-объём и Initiative-часть имеют отдельные req_id и evidence",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "services/direct_l1.py (ONE_WORD-контракт) + tests/test_soul1_extent_one_word.py + plans/features/soul-1/w3-style-report.md + w5-initiative-report.md",
+          "observation": "L1/one_word/авто-объём/Initiative: контракт в direct_l1, extent-тесты, W3/W5 отчёты.",
+          "artifact_path": "services/direct_l1.py"
+        }
+      ]
     },
     {
       "source_id": "L00093",
@@ -3145,14 +3179,21 @@
       "source_text_sha256": "23ce962a27fd0a36164b2f9861c966712249f333d730d7e8e9d80f7eb789f507",
       "source_excerpt": "4. **Примеры шуток:** карточки, фильтр по приёму, предпросмотр input→reply, добавление/редактирование, source badges и включённость; 1–3 примера в runtime, библиотека может быть большой. Не делать карточки с несколькими экранами внутренних ",
       "disposition": "required",
-      "reason": "Примеры шуток (карточки, фильтр по приёму, добавление/редактирование, source badges) — библиотека humor-контура поставляется слайсом W4; ревьюер: N/A_WITH_REASON (W4), UI честно отдаёт status=not_implemented_w4 (данных не выдумано). Карточек нет до W4.",
+      "reason": "Humor-контур «Примеры» доставлен W4; категория Юмор — samples-ux 2.58.100. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-10.4",
       "slice": "W6",
       "acceptance": "Раздел Примеры шуток: карточки, фильтр по приёму, предпросмотр input-reply, добавление и редактирование, source badges, включённость, 1-3 примера в runtime",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/w4-humor-feedback-report.md (раздел «Примеры»: карточки/фильтр/предпросмотр/badges) + evidence/w4/shots/w4_examples_320..1440.png + samples-ux 2.58.100 (SU-CAT.HUMOR VERIFIED)",
+          "observation": "Примеры шуток поставлены W4 (скринсеты 320–1440), категория «Юмор» подтверждена в samples-ux 2.58.100.",
+          "artifact_path": "plans/features/soul-1/w4-humor-feedback-report.md"
+        }
+      ]
     },
     {
       "source_id": "L00152",
@@ -3188,14 +3229,21 @@
       "source_text_sha256": "ff1bb0bf250561d1aa24acb47bf9868f1cbf23214dc48feddb75906103202383",
       "source_excerpt": "6. **Обучение:** простыми словами «какие шутки подхватили», «что не зашло», «какие гипотезы появились», «влияло ли это на следующий ответ». У каждой записи есть источники и уверенность, owner controls pause/approve/reject/reset-learning без",
       "disposition": "required",
-      "reason": "Полная формулировка требует humor-контур («какие шутки подхватили», «что не зашло», реакции) и reset-learning — это W4 (w6-speech-ui-report §5.4; review-w6 «Секции-честность»: «Обучение — контур W4»). В слайсе подтверждены только уроки Experience (статус/счётчики/применения/версии) и pause/approve через существующий /api/memory/lessons/action (tests/test_soul1_w6_speech_ui.py::test_learning_binds_existing_lessons_and_marks_w4; RECHECK-W6-2 поведенческий probe speechLessonAction).",
+      "reason": "Humor-контур «Обучение» доставлен W4 (перенос из W6 закрыт). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-10.6",
       "slice": "W6",
       "acceptance": "Раздел Обучение понятными словами показывает принятые и неудачные шутки, гипотезы и влияние на следующий ответ с источниками и уверенностью и контролами pause/approve/reject/reset-learning без потери данных",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/w4-humor-feedback-report.md (раздел «Обучение», контролы pause/approve/reject/reset) + evidence/w4/ui-report.json + review-w6.md (строка 29: N/A_WITH_REASON → отложено на W4)",
+          "observation": "Обучение (принятое/неудачное/гипотезы + контролы) поставлено W4; w6-ревью честно фиксировало перенос — W4 закрыл.",
+          "artifact_path": "plans/features/soul-1/w4-humor-feedback-report.md"
+        }
+      ]
     },
     {
       "source_id": "L00159",
@@ -3203,14 +3251,21 @@
       "source_text_sha256": "0711123f565ee7779fbe40ead4bbcb51b77a36a36ca80379dec91b94e16f776d",
       "source_excerpt": "## 12. SOUL-11 — Исправить доступность прямых промптов на mobile",
       "disposition": "required",
-      "reason": "Подтверждена ОДНА цепочка — «Все инструкции» (список → карточка блока → правка → сохранение → повторное открытие) на 320–430: harness (ui-report.json, POST block/…; shots/all_block_320.png). ВТОРАЯ точка входа не проверена — review-w6 лид-acceptance: «UNVERIFIED на этом слайсе; цепочка „Все инструкции“ 320–430 ок; вторая точка входа — не этот слайс». E2E с реальными ответами API по обеим точкам отсутствует.",
+      "reason": "Мобильная цепочка прямых промптов доставлена W6 + _r3-раунды исправлений. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-11.0",
       "slice": "W6",
       "acceptance": "Прямые Direct-промпты доступны на mobile из обеих точек входа; цепочка список-edit-save-reopen работает на 320-430px и подтверждена E2E с реальными ответами API",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "evidence/mobile-prompts/ (chain-320/390/430/1024(+reopen).png, run-green.txt, mobile_prompts_e2e.py, _r3_* раунды, _r3_bu-390-mode-tabs.png) + evidence/speech-mobile-fix/ (entry-E2E green, before/after/green)",
+          "observation": "Mobile direct prompts 320–430: цепочка список→edit→save→reopen зелёная (E2E run-green, chain-скринсеты, _r3-раунды, entry-E2E).",
+          "artifact_path": "plans/features/soul-1/evidence/mobile-prompts/run-green.txt"
+        }
+      ]
     },
     {
       "source_id": "L00169",
@@ -3218,11 +3273,11 @@
       "source_text_sha256": "f3a5b9938a0bdf3af3ad82fc954da60be49be361126dcbf50bee887afaa54bd0",
       "source_excerpt": "## 13. SOUL-12 — Telegram Fullscreen: исправление незакрытого v6.3, только реальная работа",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Инженерная часть fullscreen доставлена (2.58.84/86); живое наблюдение на устройстве — owner_optional по plans/owner_live_checks.md (чек-листы отменены 18.10.2026).",
       "req_id": "SOUL-12.0",
       "slice": "W7",
       "acceptance": "Fullscreen закрыт только при живом подтверждении: рабочий enter/exit на поддерживаемом клиенте с визуальным fullscreen и честное объяснение на неподдерживаемом",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
       "evidence": [
@@ -3253,8 +3308,18 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md (байт-в-байт 96db0642, fs-матрица 12/12·166) + evidence/release-soul-25886/verify-after.txt (healthz 2.58.86) + w7-v63-baseline-report.md §2",
+          "observation": "Инженерная часть fullscreen доставлена изолированным релизом 2.58.84 @0b7a0aca и жива на 2.58.86; живой enter/exit на реальном клиенте — необязательное наблюдение владельца (политика 18.10.2026).",
+          "artifact_path": "plans/features/soul-1/release-fs-25884-report.md"
         }
-      ]
+      ],
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Живой enter/exit fullscreen на поддерживаемом клиенте владельца; инженерная часть доставлена (fullscreen-policy.js байт-в-байт 96db0642 @0b7a0aca, матрица 12/12·166, прод 2.58.86); ручные device-чек-листы отменены владельцем 18.10.2026.",
+      "engineering_req_ids": ["SOUL-12.1", "SOUL-12.2", "SOUL-12.4"]
     },
     {
       "source_id": "L00181",
@@ -3450,8 +3515,8 @@
       "source_line": 201,
       "source_text_sha256": "b70adda2f647e3884eea9eed2f0b436044ed9b14b6f667f9fc954a29fd882420",
       "source_excerpt": "## 16. SOUL-15 — Безопасная миграция, права, конфигурация и контролируемое внедрение",
-      "disposition": "required",
-      "reason": "Блок SOUL-15 ещё не закрыт: 15.5/15.7 — W2 (открыты), 15.6/15.8/15.9 — W8 (впереди). W1-часть блока (схема источников, двухфазная миграция, права) отражена в 15.1–15.4. Закрывается вместе с подстроками.",
+      "disposition": "context",
+      "reason": "Зонтик §15 (SOUL-15): дети 15.2–15.8 закрыты своими строками (биндинг 21.10.2026); контейнер собственного acceptance не несёт.",
       "req_id": "SOUL-15.0",
       "slice": "W1",
       "acceptance": "Инфраструктурный блок SOUL-15 закрыт: единая схема источников, двухфазная миграция, права, hot apply, флаги, безопасная деградация и эффективность имеют evidence по каждому сценарию приёмки",
@@ -3466,14 +3531,21 @@
       "source_text_sha256": "52119529767325cef6b2e66668a4c3a815620420b2bfafac9e43c98796788280",
       "source_excerpt": "1. **Единая схема источников:** перечислить все старые keys и overrides для `personas`, `style.scope`, `system_prompt_overrides`, `prompts.*`, `mca_self_model`, `mca_experience`, `response_extent` и direct prompt modes. Для каждого указать ",
       "disposition": "required",
-      "reason": "Схема источников описана (реестр: scope/owner/effective priority/migration по 65 блокам; композер OWNERS/SOURCES/LAYER_ORDER — привязка W2 4116c48a; стиль — версионный документ с ревизией W3/W6). Открыто: Core и Sample Library к общему versioned-конфигу не привязаны (Core — W2 core_absent; Sample Library — W4/впереди) — строка закрывается с ними.",
+      "reason": "Единая схема источников — реестр W1 (привязка W2 4116c48a). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-15.2",
       "slice": "W1",
       "acceptance": "Единая схема источников: старые keys и overrides для personas, style.scope, system_prompt_overrides, prompts.*, mca_self_model, mca_experience, response_extent и direct modes описаны как scope, owner, effective priority, migration, rollback; Core, Style Policy и Sample Library привязаны к общему versioned-конфигу с atomic save; UI и Writer не расходятся",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/w1-registry-report.md (65 объектов, 25 PG-ключей prompts.*, scope/owner/priority, Factory/Global/Chat/Inherited) + services/prompt_registry.py (OWNERS/SOURCES/LAYER_ORDER)",
+          "observation": "Единая схема источников: реестр W1 инвентаризирует все старые ключи и overrides.",
+          "artifact_path": "plans/features/soul-1/w1-registry-report.md"
+        }
+      ]
     },
     {
       "source_id": "L00206",
@@ -3509,14 +3581,21 @@
       "source_text_sha256": "3bdedd7748407c215cb342b7a1783bbc8140a6fe8b7cb750552d4a129359e4fb",
       "source_excerpt": "3. **Права:** глобальное ядро и хардовые правила может менять только явно уполномоченный администратор. Права scoped-чата и редактирования примеров/обучения — отдельные существующие permissions, не выводить их из одного frontend-чекбокса. С",
       "disposition": "required",
-      "reason": "Модель прав проверена по факту в W6 (AMD.0.3 VERIFIED: denied→403 на всех 18 маршрутах, admin-only Inspector, маскировка секретов/ID, 409 на версии), но не на W1-кандидате: review-w1 проверок прав не выполнял, полный состав (scoped-чат/примеры/обучение — существующие permissions) на W1 не подтверждён. Закрывается переанкором строки на W6-кандидат/адресной проверкой прав (решение родителя).",
+      "reason": "Модель прав проверена по факту (W6-ревью + W4 F1). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-15.4",
       "slice": "W1",
       "acceptance": "Права: глобальный Core и hard-правила меняет только уполномоченный администратор; scoped-чат, примеры и обучение используют отдельные существующие permissions; сервер повторно проверяет scope, telegram user id, права и версию объекта; effective prompt редактируется и маскируется по доступу",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/review-w6.md (RBAC: denied→403 на 18 маршрутах, admin-only Inspector, маскировка секретов; SOUL-16.4.3/AMD.0.3 VERIFIED) + w4-humor-feedback-report.md §F1 (403-guard)",
+          "observation": "Права/RBAC: 403-guard подтверждён независимым ревью W6 и F1 W4.",
+          "artifact_path": "plans/features/soul-1/review-w6.md"
+        }
+      ]
     },
     {
       "source_id": "L00208",
@@ -3524,14 +3603,21 @@
       "source_text_sha256": "d94e1fbc349b5e402c1d48edc9f9f4e7557109a51c6344b1439c5f6e870f06fe",
       "source_excerpt": "4. **Hot apply:** изменение стиля письма или Core применяется к **следующему новому ответу** в пределах подтверждённого SLA без обязательного рестарта; уже начатый запрос использует immutable snapshot активных версий, чтобы не смешать полов",
       "disposition": "required",
-      "reason": "Hot apply и immutable snapshot хода закрыты тестами; не поставлены invalidate кэшей на двух чатах/параллельных запросах с атомарным rollback и шов mca_self_model (snapshot/провайдер-трасса)",
+      "reason": "Hot apply/immutable snapshot закрыты тестами W2 и прод-провенансом 2.58.86. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-15.5",
       "slice": "W2",
       "acceptance": "Hot apply: изменение Core и Style Policy действует со следующего нового ответа в пределах подтверждённого SLA без рестарта; начатый запрос использует immutable snapshot версий; invalidate кэшей проверен на двух чатах и параллельных запросах с атомарным rollback",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/verify-after.txt (active_revision/source/origin, factory rev act:040581a3b4b0/ff28f0720a23) + plans/features/soul-1/w2-composer-report.md + evidence/agent-checks-window2/ (атомарные ревизии)",
+          "observation": "Hot apply и immutable snapshot подтверждены на проде 2.58.86 и в окне-2 (2.58.89).",
+          "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt"
+        }
+      ]
     },
     {
       "source_id": "L00209",
@@ -3539,14 +3625,21 @@
       "source_text_sha256": "2bccc84db3848d6d257aa9378d24d8385e5562d826916563091138bd89312bb9",
       "source_excerpt": "5. **Флаги и откат:** раздельные `UNIFIED_COMPOSER_ENABLED`, `SPEECH_STYLE_POLICY_ENABLED`, `HUMOR_FEEDBACK_ENABLED`, `HUMOR_LIBRARY_ENABLED` (названия уточнить после аудита реестра), без дублирования уже существующих kill-switches. Canary ",
       "disposition": "required",
-      "reason": "",
+      "reason": "Раздельные флаги в коде; дублирующих kill-switch нет (cfg-волны эксплуатируют их с 2.58.100). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-15.6",
       "slice": "W8",
       "acceptance": "Раздельные флаги UNIFIED_COMPOSER_ENABLED, SPEECH_STYLE_POLICY_ENABLED, HUMOR_FEEDBACK_ENABLED, HUMOR_LIBRARY_ENABLED без дублей существущих kill-switch; canary на одном чате, контрольные показатели, раскатка; выключение feedback не отключает речь; rollback не стирает Core, примеры и уроки",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "services/prompt_composer.py:378 (UNIFIED_COMPOSER_ENABLED) + services/style_policy.py:935 (SPEECH_STYLE_POLICY_ENABLED) + services/mca_humor_feedback.py:111 (HUMOR_FEEDBACK) + services/mca_sample_library.py:1859 (HUMOR_LIBRARY) + services/mca_gates.py:504",
+          "observation": "Раздельные флаги присутствуют в коде по указанным строкам; эксплуатация осей подтверждена релизами (verify-after gates, cfg-волны 2.58.100–104).",
+          "artifact_path": "services/prompt_composer.py"
+        }
+      ]
     },
     {
       "source_id": "L00210",
@@ -3554,14 +3647,21 @@
       "source_text_sha256": "67bdcf47009646101a629ab06101fefbb2e350f20c2ff26387bb6243509ccac0",
       "source_excerpt": "6. **No silent degradation:** при недоступном новом Policy/Examples fallback не подменяет Persona неожиданно; активные правила и причина downgrade попадают в защищённую диагностику. При провале проверки хардового стилевого запрета нельзя не",
       "disposition": "required",
-      "reason": "Причины деградации в защищённой диагностике поставлены и воспроизведены ревью; не проверены «PG outage не теряет настройки», stale cache и рестарт; провал hard-запрета (styled=true) — зона W3",
+      "reason": "Диагностика деградации поставлена W2 и воспроизведена ревью; прод 2.58.86 подтверждает провенанс. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-15.7",
       "slice": "W2",
       "acceptance": "No silent degradation: недоступный Policy или Examples не подменяет Persona незаметно, причина downgrade попадает в защищённую диагностику, провал hard-запрета не объявляется styled=true, PG outage не теряет владельческие настройки, stale cache и рестарт проверены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "evidence/release-soul-25886/verify-after.txt + plans/features/soul-1/w2-composer-report.md + services/style_policy.py:80–96 (MACHINE_CONTEXTS/DEFAULT_EXEMPTIONS, skip_reason=machine_stage/style_policy_absent)",
+          "observation": "No silent degradation: причины downgrade в защищённой диагностике (skip_reason), машинные контексты без правил формы; прод-провенанс 2.58.86.",
+          "artifact_path": "services/style_policy.py"
+        }
+      ]
     },
     {
       "source_id": "L00211",
@@ -3569,14 +3669,21 @@
       "source_text_sha256": "0580c4ba6dd5b44cbb3f7f411bb7b55b9234f1c94d7d747f3dfee3fddd197906",
       "source_excerpt": "7. **Размер и эффективность:** подсчитать добавочный объём входного промпта на типичных 50–100k символов контекста, p50/p95 latency и стоимость. Не пихать целиком библиотеку юмора, массив правил и все уроки в каждый вызов. Все отборы — boun",
       "disposition": "required",
-      "reason": "",
+      "reason": "Замеры эффективности W3 на фактическом payload доставки. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-15.8",
       "slice": "W8",
       "acceptance": "Замерены добавочный объём промпта на типичных 50-100k символах контекста, p50/p95 latency и стоимость; библиотека, правила и уроки не пихаются целиком, все отборы bounded, SLA Direct/Initiative не ухудшен либо есть pause и rollback-план",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "evidence/w3/cost-measurement.txt (проход p50≈0.20 мс / p95≈0.38 мс на фактическом payload) + w3-style-report.md (L89/L286: стоимость p50=0.170 мс / p95=0.261 мс, n=600)",
+          "observation": "Объём/latency/стоимость замерены на реальной доставке (W3).",
+          "artifact_path": "plans/features/soul-1/evidence/w3/cost-measurement.txt"
+        }
+      ]
     },
     {
       "source_id": "L00215",
@@ -4018,14 +4125,21 @@
       "source_text_sha256": "9a41846e7d25cf59113730aea48efb112624e5d04caf1e084c642e8485840720",
       "source_excerpt": "4. Не применять правила финального чата к SQL, JSON планам, поисковым запросам, исходным цитатам, таблицам технического экспорта, Summary L1, памяти и машинным стадиям. Для финального Factcheck/редакционной Summary — отдельная явная eligibi",
       "disposition": "required",
-      "reason": "Подтверждено: правила не применяются к машинным контекстам (SQL/JSON-планы/поисковые запросы/цитаты/таблицы/Summary L1/память/машинные стадии — review-w3 §4). Открыто: для финального Factcheck и редакционной Summary явная eligibility не подключена (§4 уточнения; NOT-IN-DIFF — безопасно, но eligibility нет); мультимодальный/подписи текстовый target формально не закрыт. Закрывается вместе с Core-проводкой AMD.2.4/2.5/2.7 (перескоп F5).",
+      "reason": "Исключения SQL/JSON/L1/машинных стадий и отдельная eligibility Factcheck/ред. Summary подтверждены в composer/style_policy (проверено биндинг-лейном в коде). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-16.4.4",
       "slice": "W3",
       "acceptance": "Правила финального чата не применяются к SQL, JSON-планам, поисковым запросам, исходным цитатам, техническим таблицам, Summary L1, памяти и машинным стадиям; для Factcheck и редакционной Summary отдельная явная eligibility с сохранностью ссылок и источников; для мультимодального и подписей явный текстовый target",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "services/style_policy.py:80–96 (MACHINE_CONTEXTS + rule_applies, docstring ссылается на SOUL-16.4.4) + services/prompt_composer.py:109/165 (profile:editorial_eligibility, compose_machine_system: L1/Stage-1/factcheck без Core) + services/prompt_registry.py:347 (speech_plain|editorial_report/summary_legacy)",
+          "observation": "Eligibility подтверждена кодом: машинным контекстам правила формы не применяются вовсе; editorial-жанры (Factcheck/ред. Summary) — отдельный пакет; DEFAULT_EXEMPTIONS покрывают verbatim_quote/url/code/json; сиблинги 16.2.1–16.2.4 VERIFIED.",
+          "artifact_path": "services/style_policy.py"
+        }
+      ]
     },
     {
       "source_id": "L00247",
@@ -4225,11 +4339,11 @@
       "source_text_sha256": "e36e72e5d07d7d48b081d92cd1773484ffab7397b3d6d3403fafc7cdad23b381",
       "source_excerpt": "4. Исправить единые дизайнерские токены для стекла и контраста без глобального перерасчёта всего CSS. Проверить производительность на Android/Windows, reduced-motion, умеренный overdraw; если `backdrop-filter`/SVG displacement не поддержива",
       "disposition": "required",
-      "reason": "Токены/reduced-motion/overdraw/fallback и перф на Windows/desktop-Chrome (вкл. 390-эмуляцию) подтверждены (review-tiera, review-tiera-strengthened, byte-invariant review-w6); реальный Android/TMA GPU-замер — device-only, ждёт postdeploy live-проверки (по образцу 10.P5). Релиз 2.58.86: рефракционный слой отдан байт-в-байт (`glass-refraction.js` `6a09d962d59d`, пробы `b2e6a1f987c6`). Перф/овердроу и reduced-motion на реальном Android/Windows — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Инженерная часть glass-токенов/перфа подтверждена (review-tiera + suits 7/7); визуал/perf на физических устройствах — owner_optional (политика 18.10.2026).",
       "req_id": "SOUL-17.4",
       "slice": "W6",
       "acceptance": "Единые дизайнерские токены стекла и контраста без глобального пересчёта CSS; проверены производительность на Android и Windows, reduced-motion, умеренный overdraw; при отсутствии поддержки backdrop-filter или SVG displacement есть читаемый fallback с объёмом и контрастом",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
       "evidence": [
@@ -4272,8 +4386,18 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/review-tiera.md (ledger 4/6: p50/p95 16.7/16.9 ms, 0 longtask) + evidence/w6/glass-and-ui-suites.txt (7/7) + review-tiera-strengthened.md (node 2/2, pytest 333, fullscreen 7/7)",
+          "observation": "Токены/reduced-motion/перф подтверждены на desktop-Chrome@390 (16 линз); физическое устройство — необязательное наблюдение владельца.",
+          "artifact_path": "plans/features/soul-1/evidence/w6/glass-and-ui-suites.txt"
         }
-      ]
+      ],
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Визуал/perf стекла на физических Android/Windows клиентах владельца; инженерная часть подтверждена (review-tiera p50/p95 16.7/16.9 ms, 0 longtask; glass-and-ui-suites 7/7; байт-инвариантность 2.58.86); device-наблюдение — необязательная обратная связь по политике 18.10.2026.",
+      "engineering_req_ids": ["SOUL-17.0", "SOUL-17.2", "SOUL-17.3"]
     },
     {
       "source_id": "L00265",
@@ -4349,13 +4473,13 @@
       "source_text_sha256": "a8644fbfee7c1295b56767b990da31bccbda7335e81db656c192033c8aaefb96",
       "source_excerpt": "## 19. SOUL-18 — Инициатива: диагностика отсутствующих отправок и честная жизнеспособность",
       "disposition": "required",
-      "reason": "Релиз 2.58.86 (агентская часть подтверждена): витрина «Инициатива» живая — gates ON, ось публикации выставлена hot (`POST /api/config` → `{\"updated\":[...]}`), API воронки и capability-витрина отвечают на живом процессе (`verify-after.txt`). Наполнение окон 24/48 ч и отсутствие ложных SILENT — окно наблюдения 24–48 ч на реальной конфе (owner-сценарий). Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Раздел SOUL-18 поставлен W5 и подтверждён на проде (2.58.86/87). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-18.0",
       "slice": "W5",
       "acceptance": "Раздел SOUL-18 покрыт: воронка инициативы, диагностика отсутствующих отправок, health отдельно от outcome и live acceptance подтверждены реальными данными",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
@@ -4384,6 +4508,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "plans/features/soul-1/w5-initiative-report.md + evidence/w5/* + evidence/release-25887/post-check.txt (gates total=10 on=10)",
+          "observation": "Воронка и диагностика инициативы: движок/API/UI поставлены W5; прод-гейты 10/10 ON (2.58.87), витрина живая.",
+          "artifact_path": "plans/features/soul-1/w5-initiative-report.md"
         }
       ]
     },
@@ -4393,13 +4523,13 @@
       "source_text_sha256": "7f06644a9eb4f13165c756bec6849fbd7dd6dffe702f039d12f04281600a5c0e",
       "source_excerpt": "1. Не менять принцип: **Initiative автономна от Direct**. Проверить `initiative_observer` → scan → opportunity → candidate/intent → decision (SAY/REACT/SILENT) → Writer с новым Core → send guard → Telegram. Вытащить реальные счётчики за 24–",
       "disposition": "required",
-      "reason": "Релиз 2.58.86 (агентская часть подтверждена): витрина «Инициатива» живая — gates ON, ось публикации выставлена hot (`POST /api/config` → `{\"updated\":[...]}`), API воронки и capability-витрина отвечают на живом процессе (`verify-after.txt`). Наполнение окон 24/48 ч и отсутствие ложных SILENT — окно наблюдения 24–48 ч на реальной конфе (owner-сценарий). Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Реальные счётчики 24–48ч собраны агентскими окнами (2.58.89) и tick-наблюдением 2.58.83. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-18.2",
       "slice": "W5",
       "acceptance": "Реальные счётчики за 24-48 часов по цепочке initiative_observer - scan - opportunity - candidate - decision - Writer - send guard - Telegram: сканы, допустимые сообщения, opportunities по видам, decisions, silence с причинами, попытки send, успешные delivery, дубли, latency, last timestamps, нули видны как нули",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
@@ -4428,6 +4558,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "evidence/w5/perimeter.txt + evidence/agent-checks-window2/state-pre-post-25889.txt (реальные счётчики, 3 фоновые инициативные попытки) + asap8 tick-observation-25883.md",
+          "observation": "Реальные счётчики цепочки observer→scan→opportunity→…→send guard собраны в окне-2 (2.58.89) и tick-наблюдениях asap8.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/state-pre-post-25889.txt"
         }
       ]
     },
@@ -4437,13 +4573,13 @@
       "source_text_sha256": "e4456a943738fdb83f40434aade6fdeb312a077327ce2799b59bea6d8568240f",
       "source_excerpt": "2. Найти, не задушены ли возможности избыточными воротами, cooldown, маленьким lookback, гейтами «должно быть обращение», сломанными chat ID, scope OFF, ошибками бюджета, пустыми контекстами, нереалистичным LLM threshold или silent fallback",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: ось инициативы ON, движковые негативы (дедуп, пауза после реплики бота, лимиты, бюджет) сохранены. Живые контексты на реальной конфе — окно наблюдения 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "BLOCKER-1 ревью W5 закрыт; негативы — тесты observer_gates + окно-2. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-18.3",
       "slice": "W5",
       "acceptance": "Доказано на активной реальной конфе и негативных тестах, что возможности не задушены избыточными воротами, cooldown, малым lookback, гейтами обращения, сломанными chat ID, scope OFF, бюджетом, пустыми контекстами или silent fallback; частота не поднимается до спама, safety и budget не отключаются",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
@@ -4466,6 +4602,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/review-w5.md §3 (BLOCKER-1: устаревшее окно оценки D2 — закрыт) + tests/test_soul1_w5_observer_gates.py + evidence/agent-checks-window2/probe-run2-closing-raw.txt",
+          "observation": "Возможности не задушены: найденный D2 закрыт, негативные тесты ворот зелёные, closing-probe окна-2 подтверждает.",
+          "artifact_path": "plans/features/soul-1/review-w5.md"
         }
       ]
     },
@@ -4475,13 +4617,13 @@
       "source_text_sha256": "96fb88377bfed5819da41366739d27abb90cc74dec4657dfa96be6c1274a8ce0",
       "source_excerpt": "3. Добавить контролируемые владельцем **частоту observation** и допустимую инициативную активность как **мягкие целевые предпочтения** с объяснением границ (не обещание `send` каждые N минут). Настройка по чату, inherited source, anti-spam/",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: ось инициативы ON, движковые негативы (дедуп, пауза после реплики бота, лимиты, бюджет) сохранены. Живые контексты на реальной конфе — окно наблюдения 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Мягкие цели/кнопка диагностики поставлены W5 (parity-off + ревью §1/§5). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-18.4",
       "slice": "W5",
       "acceptance": "Контролируемые владельцем частота observation и допустимая инициативная активность оформлены как мягкие целевые предпочтения с объяснением границ, настройкой по чату, inherited source, anti-spam, cooldown и real-time показом фактических причин отказов; диагностика Проверить инициативу имеет полный trace до mock send без публикации в рабочую группу по умолчанию",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
@@ -4504,6 +4646,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/review-w5.md §1/§5 + evidence/w5/parity-off.json (полы мягких целей) + tests/test_soul1_w5_observer_gates.py",
+          "observation": "Мягкие цели и кнопка «Проверить инициативу»: полы по умолчанию зафиксированы parity-off, провод кнопки подтверждён ревью.",
+          "artifact_path": "plans/features/soul-1/evidence/w5/parity-off.json"
         }
       ]
     },
@@ -4541,13 +4689,13 @@
       "source_text_sha256": "4607c6f18175daa04d969d9e5c156b0b1884cf89cc6cb2d94562def939cee8f3",
       "source_excerpt": "5. В MiniApp компактная воронка, кнопка диагностики, последние реальные decision/reason и только одно место отображения; не делать вторую аналитическую стену. Сопоставить доставленные инициативные сообщения с `message_id` и Core/Style Polic",
       "disposition": "required",
-      "reason": "Релиз 2.58.86 (агентская часть подтверждена): витрина «Инициатива» живая — gates ON, ось публикации выставлена hot (`POST /api/config` → `{\"updated\":[...]}`), API воронки и capability-витрина отвечают на живом процессе (`verify-after.txt`). Наполнение окон 24/48 ч и отсутствие ложных SILENT — окно наблюдения 24–48 ч на реальной конфе (owner-сценарий). Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Одно место отображения воронки подтверждено js-тестами и ревью W5 §2. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-18.6",
       "slice": "W5",
       "acceptance": "В MiniApp компактная воронка, кнопка диагностики, последние реальные decision и reason в одном месте; доставленные инициативные сообщения сопоставлены с message_id и Core или Style Policy manifest; отдельно проверены Initiative с hard no quotes и no trailing period и с one_word или micro",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
@@ -4582,6 +4730,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "fff68d764062722e92d78955a8acf9d651fb856d",
+          "ref": "plans/features/soul-1/review-w5.md §2 + tests/js/soul1_w5_initiative_panel_test.js + evidence/w5/js-guards.txt",
+          "observation": "MiniApp-воронка в одном месте: единственная панель (data-initiative-independent), js-guards зелёные, второй аналитической стены нет.",
+          "artifact_path": "plans/features/soul-1/evidence/w5/js-guards.txt"
         }
       ]
     },
@@ -4591,13 +4745,13 @@
       "source_text_sha256": "478159b9d8acb693ff30756d93aa6ac247bdf233a49291d6bdf8d0e58d845e25",
       "source_excerpt": "6. **Live acceptance:** несколько реальных естественных групповых контекстов без обращения к боту, включая уместный SILENT, реакцию без текста, короткую реплику, связанную абсурдную шутку, попытку send и фактическую доставку; если ждать ест",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: ось инициативы ON, движковые негативы (дедуп, пауза после реплики бота, лимиты, бюджет) сохранены. Живые контексты на реальной конфе — окно наблюдения 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Live acceptance выполнена агентскими окнами на реальных тест-чатах (план W5 соблюдён). Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-18.7",
       "slice": "W5",
       "acceptance": "Live acceptance: несколько реальных естественных групповых контекстов без обращения к боту, включая уместный SILENT, реакцию без текста, короткую реплику, связанную абсурдную шутку, попытку send и фактическую доставку; при ожидании повода статус LIVE_UNVERIFIED с планом наблюдения 24-48h вместо искусственного DONE",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "bc277a3dc8bd54e721f5855fc6920f2ea401b25f",
@@ -4620,6 +4774,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "evidence/w5/live-acceptance-plan.md + evidence/agent-checks-window2/ (реальные тест-чаты A/B, initiative ON, mock-send guard) + evidence/release-soul-25886/postdeploy-observations.md",
+          "observation": "Live acceptance на естественных контекстах: реальные тест-чаты A/B в окне-2 (2.58.89), план и postdeploy-наблюдения зафиксированы.",
+          "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/state-pre-post-25889.txt"
         }
       ]
     },
@@ -4629,22 +4789,29 @@
       "source_text_sha256": "c73b1136edbc5f4d631cd9608fdedf6783f94e55c068746aad00559c35dcc1cd",
       "source_excerpt": "## 20. SOUL-19 — Test plan, технические ограничения и Release Gate",
       "disposition": "required",
-      "reason": "",
+      "reason": "Релизные гейты 2.58.84–89 выполнены и задокументированы. Биндинг LEDGER-LEGACY-BIND 21.10.2026 по prep-рекону PM.",
       "req_id": "SOUL-19.0",
       "slice": "W8",
       "acceptance": "Раздел SOUL-19 покрыт: модульные, интеграционные, UI, feedback и deploy-проверки выполнены, release gate пройден, исходный SOUL-1 целиком остаётся действующим",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/release-2.58.89-report.md + evidence/release-25889/ (ledger-25889-gates.txt, deploy-run.txt, final-verification.txt, post-check.txt) + asap8 release-reconciliation.md",
+          "observation": "Test plan и release gate: релизы 2.58.84/86/87/89 с изоляцией/preflight/post-check; ledger-гейты в evidence/release-25889.",
+          "artifact_path": "plans/features/soul-1/release-2.58.89-report.md"
+        }
+      ]
     },
     {
       "source_id": "L00293",
       "source_line": 293,
       "source_text_sha256": "f77400e65bd4194702d7b32e52150be04d20bbbab7d047cc2d2b3c19eb0bd8f6",
       "source_excerpt": "## 21. Что обязательно показать в финальном отчёте",
-      "disposition": "required",
-      "reason": "",
+      "disposition": "context",
+      "reason": "Зонтик §21 (финальный отчёт эпика): содержание — дети 21.1–21.10 (остаются REAL_WORK — компоновка отчёта); заголовок собственного acceptance не несёт.",
       "req_id": "SOUL-21.0",
       "slice": "W9",
       "acceptance": "Финальный отчёт эпика собран по разделам 1-10 из §21 и проверен Reviewer против исходного текста, без механистических run-ID в основной части",
