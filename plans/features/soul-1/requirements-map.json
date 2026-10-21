@@ -2082,8 +2082,17 @@
       "acceptance": "Telemetry содержит метрики: распределение extent включая exact one_word compliance, доля фактических и адресных ошибок, повторяемость, фактическое число injected Core токенов, пропуски слоя с reason, diversity of comic strategies, latency и добавочная стоимость, feedback label counts по уверенности и чату без сырого текста, lessons applied с измеренными outcomes и честное обозначение stale или отсутствия событий; данные не выдумываются, дорогая per-message LLM-оценка по умолчанию не создаётся",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a8d049f3b0b5157b63538fa2fa895b3095e380ae",
+          "ref": "services/style_policy.py::_emit_extent_metric (event speech_extent в существующий mca_events) + tests/test_soul14_telemetry_extent.py (11 CONTRACT, B1-паттерн build_event runtime probe) + plans/features/soul-1/evidence/soul14-telemetry/soul14-telemetry-report.md",
+          "observation": "Распределение extent с exact one_word compliance едет per-message событием speech_extent в существующий контур mca_events (usage_json: extent/status/one_word/one_word_exact/words/reason/context — только счётчики/коды, без текстов; исходы строго из ALL_OUTCOMES; 0 LLM). Контракт-тесты 11/11 зелёные на коде; related extent/style suites 97 passed; локальная эмуляция реального контура: событие доходит до durable-буфера mca_events (колонки event_name/stage/chat_id/usage_json агрегируемы), kill-switch OFF глушит. Остальные семейства метрик строки едут существующими контурами без дублей (feedback/lessons — mca_humor_feedback SOUL-08.2; повторяемость — usage_json style-события; пропуски с reason — stage_event; latency/cost — контрактные колонки; core tokens — detail композера) — см. отчёт §Остальные. Live-часть (preprod) — релизный поезд 2.58.106.",
+          "artifact_path": "plans/features/soul-1/evidence/soul14-telemetry/soul14-telemetry-report.md",
+          "artifact_sha256": "4ad1ea658d577914c8826a89073d54ad0b58d45a0b8b2f5a519549a6094fbcfa",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00197",
