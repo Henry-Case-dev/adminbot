@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-20T19:55:00+12:00",
+  "updated": "2026-10-22T07:30:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -38,14 +38,14 @@
     },
     {
       "id": "win-glass-hotfix",
-      "status": "BUILDING",
+      "status": "VERIFIED",
       "source_path": "plans/features/win-glass-hotfix/source-hotfix-2026-10-18.md",
       "source_sha256": "69B16CE8FC0287D1FF6BD83B0C23CD035207F167B8CC6969AC8EA42DB7843593",
       "maps": [
         "plans/features/win-glass-hotfix/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "чат-директива 18.10 (P0); карта 24 обязательных (WG-WIN 5, WG-ANDROID 6, WG-VERIFY 13), plan-гейт errors=0; live-строки 6 → owner-E2E"
+      "source_note": "чат-директива 18.10 (P0); карта 24 обязательных (WG-WIN 5, WG-ANDROID 6, WG-VERIFY 13), plan-гейт errors=0; live-строки 6 → owner-E2E | 22.10: инженерия закрыта полностью — tails binding (+7, release-гейт rc1 структурный пер-волновой, построчные проверки чисты; review 3 слайса EXIT 0); дубль-якорь WG-P0-03/MAN-WG-16 приведён к VERIFIED; device-наблюдения — owner_optional (WG-OBS-*), вне знаменателя"
     },
     {
       "id": "p0-save-init-ux",
@@ -71,25 +71,25 @@
     },
     {
       "id": "p0-vision-universal",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "source_path": "plans/features/p0-vision-universal/source-p0-vision-2026-10-19.md",
       "source_sha256": "8A841F54200B479873F7C38D89C5462C2764953A51A930D9DBA24505E2230C90",
       "maps": [
         "plans/features/p0-vision-universal/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "чат-директива 19.10 (P0 VISION): универсальная совместимость Vision с любыми провайдерами; карта 32 required + 5 context (PM-VISION-MAP `67e68313`; plan errors=0); слайсы P0V-ARCH/PROBE/PIPE/UI/ACCEPT; 11 live postdeploy"
+      "source_note": "чат-директива 19.10 (P0 VISION): универсальная совместимость Vision с любыми провайдерами; карта 32 required + 5 context (PM-VISION-MAP `67e68313`; plan errors=0); слайсы P0V-ARCH/PROBE/PIPE/UI/ACCEPT; 11 live postdeploy | 22.10: закрыта — tails binding (+4) + P0V-PIPE-CONTEXT VERIFIED (fence-fix: heavy GT 3/3, deploy 2.58.108 postdeploy); map 32 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя"
     },
     {
       "id": "add-tr-2026-10-19",
-      "status": "BUILDING",
+      "status": "VERIFIED",
       "source_path": "plans/current_task.md",
       "source_sha256": "A680645299CFD8AC636E9F682DC88555E272C77D0811AF8002D6ED8B31673EB7",
       "maps": [
         "plans/features/add-tr/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux)"
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен"
     },
     {
       "id": "add-exp-2026-10-19",
@@ -104,14 +104,14 @@
     },
     {
       "id": "samples-ux",
-      "status": "BUILDING",
+      "status": "VERIFIED",
       "source_path": "plans/features/samples-ux/source-add-samples-ux-2026-10-20.md",
       "source_sha256": "E6153CF15854FA47C2FC0BA99A296F4A0BB37F435A7A5706809AD2CA6CA8AD69",
       "maps": [
         "plans/features/samples-ux/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md L1794-1914 (verbatim-снапшот): библиотека примеров — 3 категории (Общие/Юмор/Мат с явным expression_mode), редактируемые заводские наборы (persist override/tombstone против seed/деплоя), строгий UI-контракт MiniApp, few-shot семантика по категориям; дельта к SOUL-07/SOUL-10/ADD-EXP/CFG; живые тесты в чаты ЗАПРЕЩЕНЫ (offline/моки/браузер), недоступное — в owner_live_checks; инвентаризация PM DONE 20.10: 76 строк (64 required), plan-гейт EXIT 0, strict_evidence=true, slice-graph; REUSED большой (CRUD/seed-ручной/отбор 0-LLM/API why), NEW: категории+явный режим, tombstone против re-seed, редактор по §4.2, «Почему не используется?»"
+      "source_note": "current_task.md L1794-1914 (verbatim-снапшот): библиотека примеров — 3 категории (Общие/Юмор/Мат с явным expression_mode), редактируемые заводские наборы (persist override/tombstone против seed/деплоя), строгий UI-контракт MiniApp, few-shot семантика по категориям; дельта к SOUL-07/SOUL-10/ADD-EXP/CFG; живые тесты в чаты ЗАПРЕЩЕНЫ (offline/моки/браузер), недоступное — в owner_live_checks; инвентаризация PM DONE 20.10: 76 строк (64 required), plan-гейт EXIT 0, strict_evidence=true, slice-graph; REUSED большой (CRUD/seed-ручной/отбор 0-LLM/API why), NEW: категории+явный режим, tombstone против re-seed, редактор по §4.2, «Почему не используется?» | 22.10: инженерия закрыта — 64 VERIFIED / 0 инженерных открытых (context 12, owner_optional 1 вне знаменателя); деплой 2.58.100+ без регресса; §7 живые просмотры — добровольные"
     }
   ]
 }
