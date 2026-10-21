@@ -1,0 +1,60 @@
+{
+ "artifact": "b126-side-effects-measure",
+ "date_utc": "2026-10-21T09:30:37Z",
+ "method": "локальный харнес на синтетической SQLite (R17): seed → migrate_chat_memory → пер-табличные дельты/backup/тайминги; services/ не менялись (HEAD рабочего дерева на момент замера фиксируется в отчёте лейна)",
+ "db_path": "tempfile (удален после замера)",
+ "seed": {
+  "messages": 5000,
+  "graph_facts": 600,
+  "episodes": 40,
+  "protected_facts": 25,
+  "running_summary": 1,
+  "seed_seconds": 1.92
+ },
+ "before_counts": {
+  "smart_messages": 5000,
+  "graph_facts": 600,
+  "chat_running_summary": 1,
+  "mca_episodes": 40,
+  "protected_facts": 25
+ },
+ "after_counts": {
+  "smart_messages": 5000,
+  "graph_facts": 600,
+  "chat_running_summary": 1,
+  "mca_episodes": 40,
+  "protected_facts": 25
+ },
+ "totals_unchanged_0_delete": true,
+ "moved_by_table": {
+  "smart_messages": 5000,
+  "graph_facts": 600,
+  "protected_facts": 25,
+  "mca_episodes": 40,
+  "chat_running_summary": 1
+ },
+ "backup_by_table": {
+  "graph_facts": 600,
+  "mca_episodes": 40,
+  "protected_facts": 25,
+  "smart_messages": 5000
+ },
+ "backup_rows_total": 5665,
+ "errors": [],
+ "timing": {
+  "move_seconds": 0.314,
+  "idempotent_rerun_seconds": 0.002,
+  "idempotent_moved": {},
+  "idempotent_backup_rows": 0
+ },
+ "integrity": {
+  "ok": true,
+  "residual_old_rows": {}
+ },
+ "db_size_bytes_after": 9969664,
+ "known_gap_documented": {
+  "table": "chat_running_summary",
+  "detail": "PK=chat_id=алиас rowid; при отрицательных chat_id backup-петля (rowid > -1) строку не видит — перенос без backup-записи; воспроизведён strict-xfail тестом tests/test_asap8_v63_b126_residuals.py::TestMigrationSideEffectsMeasurable::test_backup_covers_running_summary_negative_pk; фикс services/chat_migration.py — отдельный лейн"
+ },
+ "verdict": "side effects миграции измеримы полностью: per-table moved, backup-покрытие, дельты счётчиков, тайминги, integrity, идемпотентность"
+}

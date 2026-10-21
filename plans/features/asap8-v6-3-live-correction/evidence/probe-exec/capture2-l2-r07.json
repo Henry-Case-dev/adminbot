@@ -1,0 +1,194 @@
+{
+ "now_utc": "2026-10-21T09:15:32Z",
+ "capture": 2,
+ "s1_clean_l2_runs_newest8": [
+  {
+   "run_id": "b61e74b53c034f7c83b8d4e891a399a3",
+   "chat_id": -1002661910336,
+   "state": "FAILED",
+   "publication_status": "failed",
+   "pub_ref": null,
+   "created_utc": "2026-10-19T19:00:02Z",
+   "src_count": null,
+   "l2_review": "ok"
+  },
+  {
+   "run_id": "5187dee46d7f462fa76e286d1f1824e7",
+   "chat_id": -1002661910336,
+   "state": "DONE",
+   "publication_status": "published",
+   "pub_ref": "1164062",
+   "created_utc": "2026-10-17T13:00:00Z",
+   "src_count": null,
+   "l2_review": "ok"
+  },
+  {
+   "run_id": "b85fbbcafd01404e984918e6227d5841",
+   "chat_id": -1004482340693,
+   "state": "DONE",
+   "publication_status": "published",
+   "pub_ref": "1496",
+   "created_utc": "2026-10-15T13:00:04Z",
+   "src_count": null,
+   "l2_review": "ok"
+  },
+  {
+   "run_id": "c8a7e0407c9f4a5882afbfe40ea66fae",
+   "chat_id": -1004482340693,
+   "state": "DONE",
+   "publication_status": "published",
+   "pub_ref": "1427",
+   "created_utc": "2026-10-15T07:00:07Z",
+   "src_count": null,
+   "l2_review": "ok"
+  },
+  {
+   "run_id": "53e54bd3f4de42a193d9151abef94264",
+   "chat_id": -1004482340693,
+   "state": "DONE",
+   "publication_status": "published",
+   "pub_ref": "1201",
+   "created_utc": "2026-10-14T13:00:03Z",
+   "src_count": null,
+   "l2_review": "ok"
+  }
+ ],
+ "s1_fallback_l2_runs_newest5": [
+  {
+   "run_id": "b8edd2dbf0d7486389779c5732e80a45",
+   "chat_id": -1002661910336,
+   "state": "DEGRADED",
+   "publication_status": "published",
+   "pub_ref": "1168970",
+   "created_utc": "2026-10-21T07:00:02Z",
+   "src_count": null,
+   "l2_review": "failed:l2_review_rejected"
+  },
+  {
+   "run_id": "9455c0a6270c4f5f91c0262a72507390",
+   "chat_id": -1002661910336,
+   "state": "DEGRADED",
+   "publication_status": "published",
+   "pub_ref": "1168614",
+   "created_utc": "2026-10-21T01:00:02Z",
+   "src_count": null,
+   "l2_review": "failed:l2_review_rejected"
+  },
+  {
+   "run_id": "cff5c18e4e174010837f61a64404a548",
+   "chat_id": -1002661910336,
+   "state": "FAILED",
+   "publication_status": "failed",
+   "pub_ref": null,
+   "created_utc": "2026-10-20T19:00:03Z",
+   "src_count": null,
+   "l2_review": "failed:l2_review_unusable"
+  },
+  {
+   "run_id": "f071bb3816184fb68225663143a555bc",
+   "chat_id": -1002661910336,
+   "state": "DEGRADED",
+   "publication_status": "published",
+   "pub_ref": "1167883",
+   "created_utc": "2026-10-20T13:00:03Z",
+   "src_count": null,
+   "l2_review": "failed:l2_review_rejected"
+  },
+  {
+   "run_id": "631535a64ce2470bbc2dd161576a0e4b",
+   "chat_id": -1002661910336,
+   "state": "DEGRADED",
+   "publication_status": "published",
+   "pub_ref": "1167573",
+   "created_utc": "2026-10-20T07:00:00Z",
+   "src_count": null,
+   "l2_review": "failed:l2_review_rejected"
+  }
+ ],
+ "s1_chat_summary_levels_count": 0,
+ "s1_windows_newest": {
+  "b61e74b53c034f7c83b8d4e891a399a3": {
+   "chat_id": -1002661910336,
+   "src_count": 335,
+   "window_from": 1792415474,
+   "window_to": 1792436472,
+   "ids_n": 335,
+   "id_min": 1166452,
+   "id_max": 1166884,
+   "ids_sha12": "3e497631ab5e"
+  },
+  "5187dee46d7f462fa76e286d1f1824e7": {
+   "chat_id": -1002661910336,
+   "src_count": 489,
+   "window_from": 1792220884,
+   "window_to": 1792242449,
+   "ids_n": 489,
+   "id_min": 1163555,
+   "id_max": 1164053,
+   "ids_sha12": "75bf72ef6136"
+  },
+  "b85fbbcafd01404e984918e6227d5841": {
+   "chat_id": -1004482340693,
+   "src_count": 67,
+   "window_from": 1792047706,
+   "window_to": 1792067293,
+   "ids_n": 67,
+   "id_min": 1426,
+   "id_max": 1493,
+   "ids_sha12": "5560ad314750"
+  },
+  "c8a7e0407c9f4a5882afbfe40ea66fae": {
+   "chat_id": -1004482340693,
+   "src_count": 16,
+   "window_from": 1792044286,
+   "window_to": 1792047595,
+   "ids_n": 16,
+   "id_min": 1410,
+   "id_max": 1425,
+   "ids_sha12": "0b0d096e0765"
+  },
+  "53e54bd3f4de42a193d9151abef94264": {
+   "chat_id": -1004482340693,
+   "src_count": 39,
+   "window_from": 1791961394,
+   "window_to": 1791981474,
+   "ids_n": 39,
+   "id_min": 1160,
+   "id_max": 1200,
+   "ids_sha12": "ae5eaba3d6eb"
+  }
+ },
+ "s1_source_diff_same_chat": {
+  "chat_id": -1002661910336,
+  "run_new": "b61e74b53c034f7c83b8d4e891a399a3",
+  "run_old": "5187dee46d7f462fa76e286d1f1824e7",
+  "new_created_utc": "2026-10-19T19:00:02Z",
+  "old_created_utc": "2026-10-17T13:00:00Z",
+  "only_in_new": 489,
+  "only_in_old": 335,
+  "common": 0,
+  "new_ids_sample": [
+   1163555,
+   1163556,
+   1163557,
+   1163558,
+   1163559,
+   1163560,
+   1163561,
+   1163562
+  ],
+  "overlap_ratio": 0.0
+ },
+ "s5_r07_youtube_provider_pass": {
+  "note": "один публичный ролик, один проход каскада (yt-dlp → transcript-api), без LLM/чатов; секреты не печатаются",
+  "proxy_profile_masked": {
+   "configured": true,
+   "source": null,
+   "proxy_url": "13…46:8000",
+   "endpoint_masked": null,
+   "auth_configured": true
+  },
+  "status": "failed: YouTubeTranscriptUnavailableException: both engines failed after 1 attempt(s) | video_id='dQw4w9WgXcQ' (yt-dlp: yt-dlp: extract_info returned None | video_id='dQw4w9WgXcQ' [status=-, body_bytes=-]; transcript-api: list failed | video_id='dQw4w9WgXcQ' (HTTPSCo"
+ },
+ "done": true
+}

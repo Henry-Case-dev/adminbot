@@ -1,0 +1,70 @@
+$ journalctl -u admin_bot --since '2026-10-17' --no-pager > /tmp/asap8_probe_journal.txt 2>&1; wc -l /tmp/asap8_probe_journal.txt
+221169 /tmp/asap8_probe_journal.txt
+
+$ grep -cE ' ERROR |CRITICAL|Traceback' /tmp/asap8_probe_journal.txt
+98
+
+$ grep -iE 'embed' /tmp/asap8_probe_journal.txt | grep -icE '429|quota|exhaust'
+158
+
+$ grep -iE 'embed' /tmp/asap8_probe_journal.txt | grep -iE '429|quota|exhaust' | tail -3
+Oct 21 07:03:02 racknerd-f4e3456 python[29475]: 2026-10-21 07:03:02,341 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792627500 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 21 07:03:04 racknerd-f4e3456 python[29475]: 2026-10-21 07:03:04,797 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=chat_history | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792627500 | facts_text_only=24 | dedup_vector_skipped=23
+Oct 21 07:03:19 racknerd-f4e3456 python[29475]: 2026-10-21 07:03:19,971 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792627500 | facts_text_only=1 | dedup_vector_skipped=0
+
+$ grep -iE 'embed' /tmp/asap8_probe_journal.txt | tail -3
+Oct 21 09:02:42 racknerd-f4e3456 python[167058]: 2026-10-21 09:02:42,399 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 21 09:02:42 racknerd-f4e3456 python[167058]: 2026-10-21 09:02:42,399 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792573362 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 21 09:02:42 racknerd-f4e3456 python[167058]: 2026-10-21 09:02:42,399 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-21 14:12:41 +05)" executed successfully
+
+$ grep -icE '429' /tmp/asap8_probe_journal.txt
+331
+
+$ grep -iE 'youtube|cobalt|video_download|media_source' /tmp/asap8_probe_journal.txt | tail -4
+Oct 21 08:32:41 racknerd-f4e3456 python[167058]: 2026-10-21 08:32:41,134 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.youtube_video_system_prompt | chars=2248
+Oct 21 08:32:41 racknerd-f4e3456 python[167058]: 2026-10-21 08:32:41,422 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 21 08:32:41 racknerd-f4e3456 python[167058]: 2026-10-21 08:32:41,748 - __main__ - INFO - SmartModule YouTube + Web (Epic 37) initialized
+Oct 21 08:32:42 racknerd-f4e3456 python[167058]: 2026-10-21 08:32:42,098 - __main__ - INFO - VideoDownloader enabled (cobalt=http://localhost:9000)
+
+$ grep -iE 'summary.*l2|L2_' /tmp/asap8_probe_journal.txt | tail -4
+Oct 21 07:09:02 racknerd-f4e3456 python[29475]: 2026-10-21 07:09:02,902 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=b8edd2dbf0d7486389779c5732e80a45 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=540120 | source_count=326 | threads=12 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+Oct 21 08:01:09 racknerd-f4e3456 python[29475]: 2026-10-21 08:01:09,510 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690
+Oct 21 08:01:23 racknerd-f4e3456 python[29475]: 2026-10-21 08:01:23,452 - services.prompt_registry - WARNING - [prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_missing | stored_sha=39a7cce1523e | stored_chars=1690
+Oct 21 08:32:41 racknerd-f4e3456 python[167058]: 2026-10-21 08:32:41,136 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l2_writer_system_prompt
+
+$ rm -f /tmp/asap8_probe_journal.txt; echo CLEANED
+CLEANED
+$ journalctl -u admin_bot --since '2026-10-17' --no-pager > /tmp/asap8_p2.txt 2>&1; wc -l /tmp/asap8_p2.txt
+221306 /tmp/asap8_p2.txt
+
+$ grep 'SUMMARY_COMPLETE' /tmp/asap8_p2.txt | tail -10
+Oct 19 01:10:15 racknerd-f4e3456 python[3548159]: 2026-10-19 01:10:15,578 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=9ded95d09b884cacaccd1294afd86af1 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=612623 | source_count=111 | threads=9 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+Oct 19 07:07:27 racknerd-f4e3456 python[3635488]: 2026-10-19 07:07:27,943 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=fd58315dfd7f4d4a82175e52214a43c6 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=443069 | source_count=162 | threads=10 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+Oct 19 13:07:43 racknerd-f4e3456 python[3657672]: 2026-10-19 13:07:43,869 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=9aea8508552e491aa91511dadff58258 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=460398 | source_count=473 | threads=17 | paragraphs=11 | cover_status=ok | code=- | fallback=none | coverage=0.0 | publication_status=- | health=degraded | package_grade=semantic
+Oct 19 19:13:31 racknerd-f4e3456 python[3739015]: 2026-10-19 19:13:31,513 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=b61e74b53c034f7c83b8d4e891a399a3 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=809525 | source_count=335 | threads=15 | paragraphs=10 | cover_status=- | code=- | fallback=none | coverage=0.0 | publication_status=- | health=ok | package_grade=semantic
+Oct 20 01:14:22 racknerd-f4e3456 python[3791730]: 2026-10-20 01:14:22,606 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=a911221a990844d89edacb580b4b20ee | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=858485 | source_count=123 | threads=0 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=100.0 | publication_status=ok | health=degraded | package_grade=degraded
+Oct 20 07:11:12 racknerd-f4e3456 python[3883387]: 2026-10-20 07:11:12,806 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=631535a64ce2470bbc2dd161576a0e4b | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=672411 | source_count=463 | threads=19 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+Oct 20 13:07:50 racknerd-f4e3456 python[3989095]: 2026-10-20 13:07:50,468 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=f071bb3816184fb68225663143a555bc | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=467270 | source_count=285 | threads=14 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+Oct 20 19:09:33 racknerd-f4e3456 python[666]: 2026-10-20 19:09:33,806 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=cff5c18e4e174010837f61a64404a548 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=570656 | source_count=460 | threads=14 | paragraphs=- | cover_status=- | code=- | fallback=none | coverage=0.0 | publication_status=- | health=degraded | package_grade=semantic
+Oct 21 01:06:37 racknerd-f4e3456 python[29475]: 2026-10-21 01:06:37,342 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=9455c0a6270c4f5f91c0262a72507390 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=394810 | source_count=217 | threads=10 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+Oct 21 07:09:02 racknerd-f4e3456 python[29475]: 2026-10-21 07:09:02,902 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=b8edd2dbf0d7486389779c5732e80a45 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=540120 | source_count=326 | threads=12 | paragraphs=- | cover_status=ok | code=- | fallback=legacy | coverage=0.0 | publication_status=ok | health=degraded | package_grade=semantic
+
+$ grep -E 'SUMMARY_PUBLISH|COVER_RICH_PUBLISH_SUCCEEDED' /tmp/asap8_p2.txt | tail -6
+Oct 21 01:06:37 racknerd-f4e3456 python[29475]: 2026-10-21 01:06:37,311 - services.mca_events - INFO - mca_event=COVER_RICH_PUBLISH_SUCCEEDED | ts=1792544797 | event_name=COVER_RICH_PUBLISH_SUCCEEDED | outcome=success | level=INFO | component=cover | stage=success | pipeline_run_id=9455c0a6270c4f5f91c0262a72507390 | pipeline_type=summary.cover
+Oct 21 01:06:37 racknerd-f4e3456 python[29475]: 2026-10-21 01:06:37,334 - services.mca_events - INFO - mca_event=SUMMARY_PUBLISH | ts=1792544797 | event_name=SUMMARY_PUBLISH | outcome=success | level=INFO | component=publish | status=rich | chat_id=-1002661910336 | stage=publish | duration_ms=238693 | message_id=1168614
+Oct 21 07:04:52 racknerd-f4e3456 python[29475]: 2026-10-21 07:04:52,884 - services.mca_events - INFO - mca_event=SUMMARY_PUBLISH | ts=1792566292 | event_name=SUMMARY_PUBLISH | outcome=start | level=INFO | component=publish | chat_id=-1002661910336 | stage=publish
+Oct 21 07:09:02 racknerd-f4e3456 python[29475]: 2026-10-21 07:09:02,882 - services.cover_style_jobs - INFO - COVER_RICH_PUBLISH_SUCCEEDED | status=success | chat_id=-1002661910336
+Oct 21 07:09:02 racknerd-f4e3456 python[29475]: 2026-10-21 07:09:02,884 - services.mca_events - INFO - mca_event=COVER_RICH_PUBLISH_SUCCEEDED | ts=1792566542 | event_name=COVER_RICH_PUBLISH_SUCCEEDED | outcome=success | level=INFO | component=cover | stage=success | pipeline_run_id=b8edd2dbf0d7486389779c5732e80a45 | pipeline_type=summary.cover
+Oct 21 07:09:02 racknerd-f4e3456 python[29475]: 2026-10-21 07:09:02,896 - services.mca_events - INFO - mca_event=SUMMARY_PUBLISH | ts=1792566542 | event_name=SUMMARY_PUBLISH | outcome=success | level=INFO | component=publish | status=rich | chat_id=-1002661910336 | stage=publish | duration_ms=250014 | message_id=1168970
+
+$ grep -iE 'youtube engine' /tmp/asap8_p2.txt | tail -6
+Oct 20 15:21:57 racknerd-f4e3456 python[4033927]: 2026-10-20 15:21:57,649 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 20 17:01:18 racknerd-f4e3456 python[4053994]: 2026-10-20 17:01:18,091 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 20 18:45:56 racknerd-f4e3456 python[666]: 2026-10-20 18:45:56,822 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 20 19:09:55 racknerd-f4e3456 python[7265]: 2026-10-20 19:09:55,308 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 20 21:00:54 racknerd-f4e3456 python[29475]: 2026-10-20 21:00:54,182 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+Oct 21 08:32:41 racknerd-f4e3456 python[167058]: 2026-10-21 08:32:41,422 - services.youtube_transcript_engine - INFO - [youtube engine] config | proxy=set | cookies=set | resproxy=set
+
+$ rm -f /tmp/asap8_p2.txt; echo CLEANED
+CLEANED
+

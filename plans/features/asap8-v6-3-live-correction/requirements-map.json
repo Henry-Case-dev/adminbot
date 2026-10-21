@@ -1108,19 +1108,31 @@
    "source_text_sha256": "d7f1c8617ca110a4b5ec3bbb0431c406870a51d291360b5f205daea0467c0ade",
    "source_excerpt": "| C01/C02 | Summary L2 абзацы и Test=production inputs | Два реальных Summary, артефакты, diff источников |",
    "disposition": "required",
-   "reason": "Клауза «два реальных Summary L2 на production-inputs + артефакты и diff источников» не выполнена: в пакете нет двух опубликованных Summary и diff'а (механизм GREEN, 39+20 тестов).",
+   "reason": "PROBE-EXEC 21.10 (read-only прод a6246e33): два реальных Summary L2 на production-inputs — 17.10 13:00 run 5187dee4… DONE/published rich message_id=1164062 (l2 ok + l2_review ok) и 19.10 19:00 run b61e74b5… (l2 ok + l2_review ok, SUMMARY_COMPLETE paragraphs=10, fallback=none, health=ok; публикация этого рана не состоялась — publication_status=failed, честная оговорка) + 3 чистых L2 второго чата 14–15.10 (1201/1427/1496). Diff источников L2-ранов одного чата приложен из durable summary_source_windows: 489 vs 335 сообщений, пересечение 0, id-диапазоны и sha12 зафиксированы (capture2-l2-r07.json §s1_source_diff_same_chat). Ограничение: прогон 19.10 с paragraphs=10 не опубликован — published-ран один; 7d-мониторинг частоты остаётся наблюдением, не блокером.",
    "req_id": "B10-R01",
    "slice": "REL-GATE",
    "acceptance": "C01/C02 повторно приняты: два реальных Summary L2 (абзацы) на production-inputs, артефакты и diff источников приложены",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "live",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/capture2-l2-r07.json §s1_clean_l2_runs_newest8 + §s1_source_diff_same_chat",
+     "observation": "два+ чистых L2-рана (l2 ok + l2_review ok) на проде: 5187dee4…(1164062, 17.10), b61e74b5…(paragraphs=10, fallback=none, 19.10, publication failed — оговорка); diff источников 489/335, overlap 0.0"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "live",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/journal-extracts-2026-10-21.txt SUMMARY_COMPLETE 19.10",
+     "observation": "SUMMARY_COMPLETE | run_id=b61e74b5… | mode=hybrid_l2 | paragraphs=10 | fallback=none | health=ok"
     }
    ]
   },
@@ -1282,19 +1294,25 @@
    "source_text_sha256": "7f68d4e35b4ffcdf23b64b7acd7f5af586f6d9531daec5f8e4b556b580a6fecb",
    "source_excerpt": "| C09 | YouTube 407 + proxy health + транскрипт | реальный provider проход, не только health |",
    "disposition": "required",
-   "reason": "«Реальный provider-проход транскрипта (407 + proxy health)»: классификация 41/41 есть, реального прохода транскрипта в пакете нет.",
+   "reason": "PROBE-EXEC 21.10: провайдер на проде сконфигурирован (journal: proxy=set | cookies=set | resproxy=set, cobalt localhost:9000). Выполнен РЕАЛЬНЫЙ provider-проход боевого каскада (fetch_transcript одного публичного ролика, без LLM/чатов): transcript-api получил настоящий 407 Proxy Authentication Required от апстрим-прокси, yt-dlp — transient; движок классифицировал proxy_auth_failed → permanent, no retry, ровно один WARN (контракт F9/Y1). Proxy health: auth_configured=true, endpoint замаскирован. Оговорка: success-путь (текст транскрипта) заблокирован ТЕКУЩИМ состоянием апстрим-прокси (407) — внешнее состояние провайдера; классификация 407 и behavior каскада доказаны на живом конфиге (capture2-l2-r07.json §s5_r07_youtube_provider_pass).",
    "req_id": "B10-R07",
    "slice": "REL-GATE",
    "acceptance": "C09 повторно принят: реальный provider-проход транскрипта (407 + proxy health), не только health-check",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "live",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/capture2-l2-r07.json §s5_r07_youtube_provider_pass",
+     "observation": "реальный проход каскада: 407 от апстрим-прокси классифицирован proxy_auth_failed (permanent, no retry, 1 WARN); proxy configured+auth_configured (masked)"
     }
    ]
   },
@@ -1332,19 +1350,25 @@
    "source_text_sha256": "3bd655d11548211722dce4c105d77f58e8969c84190f58e0ebca465528f8c73d",
    "source_excerpt": "| D01 | dossier/настройки race | concurrent UI edit/refresh/409 |",
    "disposition": "required",
-   "reason": "Поведенческого теста concurrent UI edit/refresh/409 на dossier/настройках не найдено (есть клиентский guard asap8_v6_wa2_dossier_guard_test.js); нужен 1 тест.",
+   "reason": "PROBE-EXEC 21.10: добавлен поведенческий тест 409-гонки tests/test_asap8_v63_b10r09_settings_409_race.py (REGRESSION owner=B10-R09, зелёный): два писателя с одним optimistic-токеном → первый коммитится, второй ChatParamsConflict с АКТУАЛЬНЫМ токеном (→ API 409 {code:'conflict', current_updated_at}), refresh+retry проходит. Реальный optimistic-протокол chat_params (Q4; 409-маппинг API-слоя покрыт существующими API-тестами). Живая мутация настроек владельца на проде пробой не выполнялась (read-only дисциплина) — гонка доказана на реальном протоколе/коде 2.58.105.",
    "req_id": "B10-R09",
    "slice": "REL-GATE",
    "acceptance": "D01 повторно принят: concurrent UI edit/refresh/409 на dossier/настройках (см. также dossierSaving в B11-остатках)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "test",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/probe-exec-2026-10-21.md §B10-R09",
+     "observation": "поведенческий тест 409-гонки settings: конфликт с актуальным токеном, refresh→retry успешен (5 passed в прогоне лейна)"
     }
    ]
   },
@@ -1420,19 +1444,25 @@
    "source_text_sha256": "1231a05b9e0ecf998070a44e62a7ecef0d0599d34b58cdac8eb0d819ae3039de",
    "source_excerpt": "| D06 | весь scoped vector/GraphRAG до top-K | displacement test и prod timing |",
    "disposition": "required",
-   "reason": "Прод-timing не измерен — owner.",
+   "reason": "PROBE-EXEC 21.10: замер на реальной прод-БД (read-only). graph_facts_vec 16005 строк (dim 3072, главный чат 15747); staged chat-scope KNN (реплика SQL _vec_candidates/_staged_knn_scope): want=5 → k=20 own=15 foreign отфильтрованы foreign_leak=0 (2079.7ms холодный), want=10 → k=40 own=28 (836.4ms); малый чат — staged добор до k=512, own=0 → честный partial (чужие не возвращаются). FTS-eligibility на реальных данных: fresh 3080 vs historical 3747 (+667 истёкших видны только исторически; тайминг полного match-count 21–25s, боевой retrieval LIMIT-bounded). Displacement 9/9 — тесты; прод-тайминг стадии vec-кандидатов измерен (полный pipeline-тайминг не инструментирован — оговорка в probe-exec-2026-10-21.md).",
    "req_id": "B10-R13",
    "slice": "REL-GATE",
    "acceptance": "D06 повторно принят на всей поверхности: scoped vector/GraphRAG до top-K, displacement test и прод-тайминг (см. также B03.4 — остаток GraphRAG _vec_candidates)",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "live",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/capture1-db-journal.json §s2_knn_timing + §s2_fts_eligibility",
+     "observation": "реальная БД: vec 16005/dim3072; staged KNN foreign_leak=0, partial-honest на малом чате; тайминги 836–2080ms; historical FTS +667 expired-only строк"
     }
    ]
   },
@@ -1486,19 +1516,25 @@
    "source_text_sha256": "86b4af85f476d9e118735272187560e83d35b026d1f62c117e23bd5d1e1f0b83",
    "source_excerpt": "| D10/D11 | фактическая дата источников Factcheck и полнота реестра | live examples и machine key inventory |",
    "disposition": "required",
-   "reason": "Machine key inventory 16/16 и контракт дат 23/23 доказаны; live-примеров датирования Фактчека в пакете нет — owner.",
+   "reason": "PROBE-EXEC 21.10: live-примеры датирования собраны read-only из mca_factcheck_runs (23 рана, 20 с original_published_at, precision=day): temporal current (tfr-b12dab00…, supported, repost +12 мин), old_but_valid ×3 (tfr-469b239a…/tfr-af523f2a…/tfr-38ab2b7f…), unknown-класс с repost-детекцией (tfr-b900e314…, оригинал и репост в один день); date_source telegram_message и telegram_origin оба представлены; fallback_used=0. Machine key inventory 16/16 — ранее (prep-rfl-binding).",
    "req_id": "B10-R16",
    "slice": "REL-GATE",
    "acceptance": "D10/D11 повторно приняты: фактическая дата источников Factcheck и полнота реестра — live examples + machine key inventory",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "live",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/capture1-db-journal.json §s3_factcheck",
+     "observation": "20/23 ранов с оригинальной датой; живые статусы current/old_but_valid/unknown, date_source оба класса, repost-детекция"
     }
    ]
   },
@@ -6048,19 +6084,31 @@
    "source_text_sha256": "3f7bb87aaeb83024b8fc63ef3ae5ab54a509c8d590912f831aa9a1144adbf642",
    "source_excerpt": "6. Снять snapshot до миграций/массовых пересборок, side effects измеримы. Не удалять SQLite/PostgreSQL или старую память. Уцелевшие ошибки названий/адресатов и GraphRAG hallucinated stats — отрицательные тесты, не «это другое направление».",
    "disposition": "required",
-   "reason": "ЧАСТИЧНО: snapshot 91f754e3 = SNAPSHOT_MANIFEST (снят до миграций); 0 DELETE / infinite-retention / ΔDDL=0 подтверждены (preserve-and-workflow-audit §2); ошибки названий закрыты f7-тестами. Не закрыто (3 пункта): негативный тест на ошибочного адресата; негативный тест GraphRAG hallucinated stats; артефакт измерения side effects. Предложение — малый лейн (3 теста + 1 замер).",
+   "reason": "Три остатка леджера 16.10 закрыты 21.10 лейном ASAP8-EXEC-TAILS: (1) «ошибочный адресат» — негативные тесты резолвера (триггер исключён из исторической ступени → unresolved; sender никогда не автор по умолчанию → ambiguous; ≥2 авторов → ambiguous; контроль single-author resolved); (2) «GraphRAG hallucinated stats» — сквозной негатив: реальный cs.measure() по БД → MetricResult/claims → numeric-гард бракует выдуманные числа (коррекция verified_phrase), честный ответ байт-в-байт; (3) «side effects измеримы» — тест полного измеримого следа (per-table moved, backup 1:1, 0 DELETE, integrity, идемпотентность) + замер b126-side-effects-measure.json (5666 строк: moved {5000/600/40/25/1}, backup 1:1, totals unchanged, move 0.314s, rerun 0 строк/0.002s). ИНЦИДЕНТ-НАХОДКА замера: chat_running_summary (PK=chat_id=алиас rowid, отрицательные id) переносится БЕЗ backup-записи (rowid > -1 в backup-петле) — воспроизведено strict-xfail тестом; контракт «0 DELETE» и сохранность не нарушены, данных нет в проде (миграций не было), НО до реального переноса supergroup нужен фикс services/chat_migration.py (отдельный лейн, вне WRITE_SCOPE этого лейна).",
    "req_id": "B12.6",
    "slice": "REL-GATE",
    "acceptance": "Snapshot снят до миграций/массовых пересборок; side effects измеримы; SQLite/PostgreSQL и старая память не удаляются; ошибки названий/адресатов и GraphRAG hallucinated stats покрыты негативными тестами",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "type": "test",
      "ref": "evidence/v63-close/preserve-and-workflow-audit.md §2/§4 + SNAPSHOT_MANIFEST.md",
-     "observation": "частично: snapshot снят, 0 DELETE, ошибки названий (f7) закрыты; НЕ закрыто: ошибочный адресат, GraphRAG hallucinated stats, измеримость side effects → VERIFIED недопустим"
+     "observation": "частично: snapshot снят, 0 DELETE, ошибки названий (f7) закрыты"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "test",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/probe-exec-2026-10-21.md §B12.6",
+     "observation": "3 остатка закрыты тестами tests/test_asap8_v63_b126_residuals.py (5 passed + 1 xfail-документация backup-gap) и замером b126-side-effects-measure.json"
+    },
+    {
+     "candidate_commit": "bf17a972",
+     "type": "test",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/probe-exec/b126-side-effects-measure.json",
+     "observation": "замер: moved 5666 строк по 5 носителям, backup 1:1 (кроме задокументированного gap), totals unchanged (0 DELETE), integrity ok, идемпотентность 0 строк"
     }
    ]
   },
