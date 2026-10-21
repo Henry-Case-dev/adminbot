@@ -222,8 +222,50 @@
       "acceptance": "CFG-07 — только дельта: запрет backstage/метаданных на выходе, управляемый ON/OFF «Использовать мат» (factory ON), один egress-guard с защищёнными цитатами; Core не пересоздаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md (приёмка UNIFIED-CORE §1–§7 + C14)",
+          "observation": "Один Personality Core/один helper (speech_owner_block) во всех пользовательских маршрутах (+0 LLM), Expression реально в payload (frequent), внутренние процессы нейтральны (analyst/editor/reranker/tool-loop), OFF-паритет и hot-apply без рестарта; C14-вычистка bypass-строк; route-coverage 18 passed.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "test",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md + tests/test_cfg07_egress_dictionary.py (67 CONTRACT)",
+          "observation": "Единый egress-словарь: 4 honesty-класса (107 фраз из 29 живых пулов), FORBIDDEN 14 семей/42 маркера с границами слов, overclaim closed-set (07D.2), admin-контекст 15 маркеров; POSITIVE 12/12 и 202 canned-проб — 0 ложных; фокус 255p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
+          "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json + README.md (2.58.104, deployed 8ea6ed4e)",
+          "observation": "healthz 2.58.104 (loopback + external HTTPS 200), ΔDDL=0, fingerprint 037080375ac8, F8-meta HEAD=d860a529 — волна 07D.5 (04593c8f) в проде.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
+        }
+      ],
+      "note": "Дельта CFG-07 собрана без пересоздания Core (UNIFIED-CORE): запрет backstage/метаданных — словарь + guard на outbound-швах + bounded retry; «Использовать мат» = Expression-режим (factory ON = occasional); один egress-guard с защищёнными цитатами; прод 2.58.103/2.58.104."
     },
     {
       "source_id": "M00010",
@@ -1000,8 +1042,42 @@
       "acceptance": "Не создавать новый Character Core: ровно одно управляемое effective-правило в уже существующей SOUL Speech Style Policy с теми же global/chat/factory/Inspector и общими правилами protected spans.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md (приёмка UNIFIED-CORE §1–§7 + C14)",
+          "observation": "Один Personality Core/один helper (speech_owner_block) во всех пользовательских маршрутах (+0 LLM), Expression реально в payload (frequent), внутренние процессы нейтральны (analyst/editor/reranker/tool-loop), OFF-паритет и hot-apply без рестарта; C14-вычистка bypass-строк; route-coverage 18 passed.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/review-add-exp.md (Approved) §9/§98 + карта add-exp (EXP-UI.MODES/INHERIT/MIGRATION, EXP-DIAG-PROD/PAYLOAD = VERIFIED)",
+          "observation": "Единственный документ character.expression; второго параметра/storage/Inspector нет; UI-режимы, наследование, миграция и диагностика верифицированы независимо.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §1 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 1b23d4c9 (UNIFIED-CORE v2, прод 2.58.98 @29cc49ba), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Поглощение UNIFIED-CORE (G0 REUSED): один Core/один effective-хелпер во всех маршрутах, второго Character Core/параметра нет (review-add-exp §9); MAT_ENABLED/SWEAR_ENABLED = 0."
     },
     {
       "source_id": "M00039",
@@ -1015,8 +1091,42 @@
       "acceptance": "Egress-guard — дополнение к существующим SOUL postprocess/style validators и единой точке outbound; параллельный общий Writer или независимые слои с дублирующими ретраями не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md (07A.F)",
+          "observation": "Матрица SOUL-1/02/04/05/06/16 + CFG-06 W3/W5 переиспользована (второй Composer/Writers-слой не строились); egress-guard — дополнение на существующих outbound-швах, без параллельного Writer.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-reuse-audit.md",
+          "artifact_sha256": "b2f8f0ae4d3ed7d7087f58418be25aac584f397c873445f212a07ff0628ce1ff"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg.md (Approved)",
+          "observation": "Независимое ревью волны словаря: классы/семьи/маркеры пересчитаны, ложных срабатываний нет, W3-фриз цел, reuse-аудит подтверждён; наблюдения 1–3 закрыты в хвосте (f1e31d27).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg.md",
+          "artifact_sha256": "3ee052f017ab8ded7997a000889b1fc97d12bb2bb3a4573d8c0fb0851ec27051"
+        }
+      ],
+      "note": "Guard — дополнение к существующим SOUL postprocess/style validators на единой точке outbound (reuse-аудит 07A.F: второй Composer/Writers-слой не строились); retry переиспользует verbalize_validated в существующем бюджете — параллельных слоёв и дублирующих ретраев нет."
     },
     {
       "source_id": "M00040",
@@ -1030,8 +1140,50 @@
       "acceptance": "Блокирующий критерий CFG-07: персонаж не рассказывает о своей внутренней генерации или обслуживающих системах вместо ответа; «Мат» — отдельная реально работающая настройка стиля с заводским ON; user-facing ответы всех маршрутов проходят один честный anti-leak контракт, не искажая факты и данные ради стиля.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "ce77b2c4f030b3b02e68dc53176d9717a244741a",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-103/README.md + deploy.json (2.58.103, deployed 2a3e4fc9, healthz ok)",
+          "observation": "Поезд 07C-G-TAIL (f1e31d27 + 8cd2ca14) задеплоен 20.10.2026 19:09 UTC; 16/16 bump-гардов EXIT 0, ΔDDL=0, fingerprint 037080375ac8 цел.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-103/deploy.json",
+          "artifact_sha256": "0dc00d16f895f127b3b85e79e31a4735cded9e3e4804a20b6ac6069126e3f0ab"
+        },
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json + README.md (2.58.104, deployed 8ea6ed4e)",
+          "observation": "healthz 2.58.104 (loopback + external HTTPS 200), ΔDDL=0, fingerprint 037080375ac8, F8-meta HEAD=d860a529 — волна 07D.5 (04593c8f) в проде.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
+        },
+        {
+          "candidate_commit": "ce77b2c4f030b3b02e68dc53176d9717a244741a",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-103/README.md (postdeploy-секция; коммит ce77b2c4)",
+          "observation": "CFG-07C.6: wiring guard-швов подтверждён по прод-байтам 2.58.103; телеметрия egress_guard: 0 events — наблюдение продолжается.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-103/README.md",
+          "artifact_sha256": "37efcbbdcab8e292712db85fd505cb3d75e9850022f99fad3b10ab1821947a57"
+        }
+      ],
+      "note": "Блокирующий критерий: backstage-метаречь/утечки/overclaim закрыты словарём+guard на всех user-facing швах (факты не искажаются — срезы word-bounded, honesty байт-в-байт); «мат» — реально работающая настройка (factory ON, live A/B); живая инженерная часть: wiring подтверждён по прод-байтам 2.58.103, телеметрия 0 events — наблюдение продолжается; реальные чаты — только опциональное наблюдение владельца."
     },
     {
       "source_id": "M00041",
@@ -1308,8 +1460,42 @@
       "acceptance": "SOUL-1 сохраняет естественную грубую манеру; CFG-07B добавляет управляемый переключатель default ON без требования мата в каждой фразе; при OFF чужие цитаты не заменяются и не портятся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/evidence/unified-core/trace-direct-l2-writer-per-chat-off.txt",
+          "observation": "GLOBAL=frequent + per-chat=off: в payload этого чата off-директива, frequent отсутствует — изоляция override на реальном композере Direct.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/trace-direct-l2-writer-per-chat-off.txt",
+          "artifact_sha256": "1f6fa9d106349abaf9b904c2af25c395d58afe758d70b1e8b2e752c0f43be78e"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §1 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 1b23d4c9 (прод 2.58.98 @29cc49ba), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Естественная грубая манера сохранена (Core байт-цел + Expression frequent); переключатель = Expression-режим (factory ON = occasional); при OFF чужие цитаты передаются как есть (шапка F3 байт-пиннута) и guard-срезы word-bounded (honesty байт-в-байт)."
     },
     {
       "source_id": "L00034",
@@ -7580,8 +7766,50 @@
       "acceptance": "В «Стиль письма / Speech Style Policy» добавлен переключатель «Использовать мат» (заводское ВКЛ для проекта) с GLOBAL/CHAT override, видимым источником chat/global/factory и сбросом наследования.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/review-add-exp.md (Approved) §9/§98 + карта add-exp (EXP-UI.MODES/INHERIT/MIGRATION, EXP-DIAG-PROD/PAYLOAD = VERIFIED)",
+          "observation": "Единственный документ character.expression; второго параметра/storage/Inspector нет; UI-режимы, наследование, миграция и диагностика верифицированы независимо.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/release-25898/deploy.md (2.58.98 = deployed 29cc49ba)",
+          "observation": "UNIFIED-CORE + Expression UI в проде с 2.58.98; хэши 24/24 sha256_12 == кандидату 1b23d4c9 (байт-равенство).",
+          "artifact_path": "plans/features/cfg/evidence/release-25898/deploy.md",
+          "artifact_sha256": "ec38a7be51701946ced6cb154b634959fb27d58d1eaf6d6037db5d301c18d458"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "live",
+          "ref": "plans/features/add-exp/review-accept-96.md (EXP-ACCEPT.ROUTES follow-up, live 2.58.96)",
+          "observation": "Live-прогоны: A=frequent (мат в авторских репликах присутствует) / B=off (0 мата) одновременно; wire-строки 2/2; override/GLOBAL, reread без рестарта, preview==resolve.",
+          "artifact_path": "plans/features/add-exp/review-accept-96.md",
+          "artifact_sha256": "063a4489d1e915672e61eeacc63a9c0638648a2e450623c8bb0d0b33aa51a89c"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "live",
+          "ref": "release-104/deploy.json + bind-tail.md §1 (алиас live-эвиденса LEDGER-CFG-TAIL)",
+          "observation": "UI «Выражение» жива в проде непрерывно с 2.58.98 (лейны ADD-EXP/UNIFIED-CORE, ревью Approved) по 2.58.104 (healthz 200, deployed 8ea6ed4e, код-линия содержит d860a529); GLOBAL/CHAT override и источник в UI верифицированы (EXP-UI.* VERIFIED); поведенческая F4-матрица на актуальных текстах владельца — EXP-ACCEPT.CRITERION (карта add-exp, READY_FOR_LIVE, чужой слайс — честно вне этой строки); живое наблюдение владельца опционально (owner_live_checks.md §2).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
+        }
+      ],
+      "note": "Управление: «Речь и характер» → «Выражение» (speech.py:1817; размещение закрыто решением владельца F3 20.10), factory ON = occasional, GLOBAL/CHAT override, видимый источник и сброс наследования — EXP-UI.* VERIFIED; UI в проде с 2.58.98; live-глазами владельца — опционально (owner_live_checks.md §2); поведенческая F4-матрица остаётся в EXP-ACCEPT.CRITERION (карта add-exp, чужой слайс)."
     },
     {
       "source_id": "L00355",
@@ -7595,8 +7823,50 @@
       "acceptance": "Отдельное эффективное правило profanity_use в типизированной политике (без дублирования Character Core и без разрозненных MAT_ENABLED/SWEAR_ENABLED); registry/schema/preset/merge/serialization/migrations/UI/Inspector/consumers обновлены согласованно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py (36; владелец значений один)",
+          "observation": "Closed-set off/occasional/frequent одним владельцем, read-alias allowed→occasional без потери данных, owner_exact_texts_are_canon (байт-канон F3), migration_read_alias_keeps_data_and_never_frequent, no_profanity_postprocessor (вставки слов постпроцессором нет).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/design-add-exp.md §1.4 («один параметр, один владелец»)",
+          "observation": "profanity_use CFG-07B — проекция того же effective-правила: ON ⇔ effective ∈ {occasional, frequent}, OFF ⇔ off; второй параметр/второй Core запрещены; интенсивность — 3-уровневый понятный выбор по решению владельца F3 (20.10), требование мата в каждом предложении исключено.",
+          "artifact_path": "plans/features/add-exp/design-add-exp.md",
+          "artifact_sha256": "f098f9e8910afd47f88d6135d39646f6e2582a769f0aac0b2109d413984ea438"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md (приёмка UNIFIED-CORE §1–§7 + C14)",
+          "observation": "Один Personality Core/один helper (speech_owner_block) во всех пользовательских маршрутах (+0 LLM), Expression реально в payload (frequent), внутренние процессы нейтральны (analyst/editor/reranker/tool-loop), OFF-паритет и hot-apply без рестарта; C14-вычистка bypass-строк; route-coverage 18 passed.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §1 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 1b23d4c9 (прод 2.58.98 @29cc49ba), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Одно effective-правило (character.expression, closed-set + read-alias), дублирования Character Core и разрозненных MAT_ENABLED/SWEAR_ENABLED нет (grep 0); registry/schema/merge/serialization/migrations/UI/Inspector/consumers согласованы (EXP-UI.MIGRATION, лестница ADR-1013-3, route-coverage)."
     },
     {
       "source_id": "L00356",
@@ -7610,8 +7880,50 @@
       "acceptance": "При ON инструкция недвусмысленно требует естественный разговорный мат как часть голоса (стерильная речь при перепалке — не выполнение); при OFF мат не появляется в новых авторских фразах, а цитаты/сообщения пользователя/URL/машинные данные сохраняются дословно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py (36; владелец значений один)",
+          "observation": "Closed-set off/occasional/frequent одним владельцем, read-alias allowed→occasional без потери данных, owner_exact_texts_are_canon (байт-канон F3), migration_read_alias_keeps_data_and_never_frequent, no_profanity_postprocessor (вставки слов постпроцессором нет).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/evidence/unified-core/trace-direct-l2-writer-per-chat-off.txt",
+          "observation": "GLOBAL=frequent + per-chat=off: в payload этого чата off-директива, frequent отсутствует — изоляция override на реальном композере Direct.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/trace-direct-l2-writer-per-chat-off.txt",
+          "artifact_sha256": "1f6fa9d106349abaf9b904c2af25c395d58afe758d70b1e8b2e752c0f43be78e"
+        },
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "test",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md + tests/test_cfg07_egress_dictionary.py (67 CONTRACT)",
+          "observation": "Единый egress-словарь: 4 honesty-класса (107 фраз из 29 живых пулов), FORBIDDEN 14 семей/42 маркера с границами слов, overclaim closed-set (07D.2), admin-контекст 15 маркеров; POSITIVE 12/12 и 202 canned-проб — 0 ложных; фокус 255p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
+          "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §1 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 1b23d4c9 (прод 2.58.98 @29cc49ba); тексты инструкций позднее уточнены владельцем повторно (29b91004 samples-ux, pins updated) — та же владельческая цепочка, предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Канон ON — дословные тексты владельца F3 (недвусмысленное требование естественного мата, без «в каждую фразу»); OFF: новых матерных авторских фраз нет (off-трасса + test_off_mode…blocks_profanity + байт-паритет), цитаты/URL/машинные данные — «как есть» (шапка F3) и не режутся word-bounded guard-срезами."
     },
     {
       "source_id": "L00357",
@@ -7625,8 +7937,42 @@
       "acceptance": "Интенсивность без оверинженеринга: первоначально ON/OFF с жёсткой инструкцией; уровень (умеренно/жёстко) — только при необходимости тестов; требование мата в каждом предложении и искусственные вставки исключены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/design-add-exp.md §1.4 («один параметр, один владелец»)",
+          "observation": "profanity_use CFG-07B — проекция того же effective-правила: ON ⇔ effective ∈ {occasional, frequent}, OFF ⇔ off; второй параметр/второй Core запрещены; интенсивность — 3-уровневый понятный выбор по решению владельца F3 (20.10), требование мата в каждом предложении исключено.",
+          "artifact_path": "plans/features/add-exp/design-add-exp.md",
+          "artifact_sha256": "f098f9e8910afd47f88d6135d39646f6e2582a769f0aac0b2109d413984ea438"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py (36; владелец значений один)",
+          "observation": "Closed-set off/occasional/frequent одним владельцем, read-alias allowed→occasional без потери данных, owner_exact_texts_are_canon (байт-канон F3), migration_read_alias_keeps_data_and_never_frequent, no_profanity_postprocessor (вставки слов постпроцессором нет).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §1 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 1b23d4c9 (прод 2.58.98 @29cc49ba), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Без оверинженеринга: заводской ON = occasional; уровень интенсивности реализован понятным 3-уровневым выбором off/occasional/frequent по решению владельца F3 (20.10) — развитие предусмотренной строкой опции «умеренно/жёстко»; требования мата в каждом предложении и постпроцессорных вставок нет (no_profanity_postprocessor)."
     },
     {
       "source_id": "L00358",
@@ -7640,8 +7986,42 @@
       "acceptance": "Приоритеты соблюдены: смысл/факты/цитаты/формат канала/безопасность выше стиля; правило не действует для машинных промптов, JSON, поисковых запросов, цитат, ссылок, системных сообщений; для Direct/Factcheck/Initiative применяется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md (приёмка UNIFIED-CORE §1–§7 + C14)",
+          "observation": "Один Personality Core/один helper (speech_owner_block) во всех пользовательских маршрутах (+0 LLM), Expression реально в payload (frequent), внутренние процессы нейтральны (analyst/editor/reranker/tool-loop), OFF-паритет и hot-apply без рестарта; C14-вычистка bypass-строк; route-coverage 18 passed.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py (18 CONTRACT)",
+          "observation": "Оба фактчек-пути (two-call/single/byte-parity), оба summary (narrator/single), checkup (чат + tool-нейтральность), search/youtube/web, off-mode, hot-apply без рестарта, factory defaults, миграционная лестница, байт-фриз канонов (W3).",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §1 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 1b23d4c9 (прод 2.58.98 @29cc49ba), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §1.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Приоритеты: внутренние процессы нейтральны (analyst/editor/reranker/tool-loop — без слоёв, трассы), машинный JSON/конверты целы на tool-шве (TestToolRouteSeam), байт-паритет конфиг-недоступности; применено к Direct/Initiative/Factcheck/Summary/checkup/search/youtube/web (8 call-sites + 16 трасс)."
     },
     {
       "source_id": "L00359",
@@ -7655,8 +8035,50 @@
       "acceptance": "Глобальный ON + чатовый OFF: только выбранный чат без авторского мата; снятие override возвращает наследование; настройка вступает в силу без рестарта, отражается в effective payload и работает с новой речью и fallback, а не только в PostgreSQL.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/evidence/unified-core/trace-direct-l2-writer-per-chat-off.txt",
+          "observation": "GLOBAL=frequent + per-chat=off: в payload этого чата off-директива, frequent отсутствует — изоляция override на реальном композере Direct.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/trace-direct-l2-writer-per-chat-off.txt",
+          "artifact_sha256": "1f6fa9d106349abaf9b904c2af25c395d58afe758d70b1e8b2e752c0f43be78e"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py (18 CONTRACT)",
+          "observation": "Оба фактчек-пути (two-call/single/byte-parity), оба summary (narrator/single), checkup (чат + tool-нейтральность), search/youtube/web, off-mode, hot-apply без рестарта, factory defaults, миграционная лестница, байт-фриз канонов (W3).",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "live",
+          "ref": "plans/features/add-exp/review-accept-96.md (EXP-ACCEPT.ROUTES follow-up, live 2.58.96)",
+          "observation": "Live-прогоны: A=frequent (мат в авторских репликах присутствует) / B=off (0 мата) одновременно; wire-строки 2/2; override/GLOBAL, reread без рестарта, preview==resolve.",
+          "artifact_path": "plans/features/add-exp/review-accept-96.md",
+          "artifact_sha256": "063a4489d1e915672e61eeacc63a9c0638648a2e450623c8bb0d0b33aa51a89c"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_add_exp_expression.py (36; владелец значений один)",
+          "observation": "Closed-set off/occasional/frequent одним владельцем, read-alias allowed→occasional без потери данных, owner_exact_texts_are_canon (байт-канон F3), migration_read_alias_keeps_data_and_never_frequent, no_profanity_postprocessor (вставки слов постпроцессором нет).",
+          "artifact_path": "tests/test_add_exp_expression.py",
+          "artifact_sha256": "fd5ce9e726de9c2c8d77b37faddf79043fffdd267cb584d93bed3aadb0642c45"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "live",
+          "ref": "release-104/deploy.json + bind-tail.md §1 (алиас live-эвиденса LEDGER-CFG-TAIL)",
+          "observation": "Механика override/hot-apply/fallback закреплена контракт-тестами route-coverage в независимых прогонах 255p (7c3a1350) и 234p (d860a529+); live-прогоны override A/B 2.58.96 (review-accept-96) выполнены на прежних текстах — честно отмечено; прод 2.58.104 (кандидат d860a529 в код-линии) живой (healthz 200); поведенческая F4-матрица — EXP-ACCEPT.CRITERION (чужой слайс).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
+        }
+      ],
+      "note": "GLOBAL ON + chat OFF → только этот чат чист (trace-per-chat-off; live A/B 2.58.96); снятие override → наследование (read-alias тест); hot-apply без рестарта (test_hot_apply_changes_payload_without_restart); работает с новой речью и fallback (route-coverage single-path), не только в PostgreSQL."
     },
     {
       "source_id": "L00360",
@@ -7670,8 +8092,42 @@
       "acceptance": "Семантика честная: ON — сильное генеративное требование плюс измерение соблюдения и ограниченный retry при систематической стерильности (не постпроцессорная вставка слов); OFF — контролируемое отсутствие нового мата с проверкой цитат; математическая гарантия генеративной естественности не обещается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/directives-fix/eval.json (офлайн-eval директив)",
+          "observation": "Поведенческий офлайн-eval инструкций frequent/occasional/off на пробах ответов + бюджет-проверки; механические счётчики стерильности отменены владельцем 20.10 (cfg-07b-reused README §«Что остаётся» п.2 — AGENT_CHECK, не возвращать).",
+          "artifact_path": "plans/features/add-exp/evidence/directives-fix/eval.json",
+          "artifact_sha256": "ad4ea17de53e41fe8bb62545da585230fae6dced5f86f8c0f56f5ab013064344"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "tests/test_cfg07_guard_07d5.py (41 CONTRACT; TestBoundedRetrySemantics)",
+          "observation": "Контракты ограниченного retry, честной деградации и OFF-паритета обоих швов; комбо-прогоны после ремонта: 234p (new+dictionary+tail+route_coverage+anticliche) и 74p EXIT 0.",
+          "artifact_path": "tests/test_cfg07_guard_07d5.py",
+          "artifact_sha256": "913c3c9380f6b9b335693ce81b4301eef15b08b726051ba53961ca4e8dd82a5f"
+        }
+      ],
+      "note": "Честно: ON — генеративное требование (канон F3 байт-пиннут), постпроцессорных вставок слов нет; «измерение соблюдения» = офлайн-eval (механические счётчики отменены владельцем 20.10, cfg-07b-reused §Что остаётся п.2); ограниченный retry доставлен в guard-контуре 07D.5 (verbalize_validated ≤2/≤1, метатекст-триггер, честный fallback) — детектор именно стерильности мата не инструментирован, сознательное решение владельца, не регресс; математическая гарантия не обещается."
     },
     {
       "source_id": "L00361",
@@ -7685,8 +8141,42 @@
       "acceptance": "Inspector показывает фактически подмешанное правило и его срабатывание (applied/exempted/failed), а не только переключатель; журнал без приватных текстов и лишних оскорблений; тексты интерфейса понятны владельцу.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/add-exp/review-add-exp.md (Approved) §9/§98 + карта add-exp (EXP-UI.MODES/INHERIT/MIGRATION, EXP-DIAG-PROD/PAYLOAD = VERIFIED)",
+          "observation": "Единственный документ character.expression; второго параметра/storage/Inspector нет; UI-режимы, наследование, миграция и диагностика верифицированы независимо.",
+          "artifact_path": "plans/features/add-exp/review-add-exp.md",
+          "artifact_sha256": "a369957653b32565407ec38a6134d2f8f7aab15e2bd5ee9f7887601bd9ac403b"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "test",
+          "ref": "8cd2ca14 (B1: egress_guard stage_event flagged→failed ×2) + tests/test_cfg07_guard_tail.py::TestGuardTelemetry",
+          "observation": "Телеметрия guard-швов эмитит валидный outcome на обеих ногах (outbound/tool), build_event runtime-проба; 29p tail, grep 0 flagged; постдеплой-мониторинг 07C.6 по mca_events работоспособен.",
+          "artifact_path": "tests/test_cfg07_guard_tail.py",
+          "artifact_sha256": "3b18dfa3281a3c1b0644776cde84228a0ebc90d45f8351e07f8bea87d7e79bb6"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "live",
+          "ref": "release-104/deploy.json + bind-tail.md §1 (алиас live-эвиденса LEDGER-CFG-TAIL)",
+          "observation": "Диагностика Expression верифицирована на проде (EXP-DIAG-PROD VERIFIED, карта add-exp) и жива в проде непрерывно с 2.58.98 по 2.58.104 (healthz 200); телеметрия guard-швов (8cd2ca14) задеплоена с 2.58.103.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
+        }
+      ],
+      "note": "Inspector показывает фактически подмешанное правило: EXPRESSION_DIAG_CLASSES (6 классов, R17-dedup, без приватных текстов) + emit_expression_diag; эффект-тексты F3 в EXPRESSION_CONTROLS (человеческие формулировки); applied/exempted — payload-присутствие/нейтральность внутренних процессов (трассы+DIAG), флаги guard-шва — WARNING + stage_event (8cd2ca14)."
     },
     {
       "source_id": "L00363",
@@ -7715,8 +8205,34 @@
       "acceptance": "public_speech_guard применяется прямо перед Telegram delivery после Composer/Writer, до финальной сериализации; ограничен по стоимости, не заменяет изоляцию analyst/verbalizer и не меняет факты/ссылки/имена/цитаты/числа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "tests/test_cfg07_guard_07d5.py (41 CONTRACT; TestBoundedRetrySemantics)",
+          "observation": "Контракты ограниченного retry, честной деградации и OFF-паритета обоих швов; комбо-прогоны после ремонта: 234p (new+dictionary+tail+route_coverage+anticliche) и 74p EXIT 0.",
+          "artifact_path": "tests/test_cfg07_guard_07d5.py",
+          "artifact_sha256": "913c3c9380f6b9b335693ce81b4301eef15b08b726051ba53961ca4e8dd82a5f"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "test",
+          "ref": "8cd2ca14 (B1: egress_guard stage_event flagged→failed ×2) + tests/test_cfg07_guard_tail.py::TestGuardTelemetry",
+          "observation": "Телеметрия guard-швов эмитит валидный outcome на обеих ногах (outbound/tool), build_event runtime-проба; 29p tail, grep 0 flagged; постдеплой-мониторинг 07C.6 по mca_events работоспособен.",
+          "artifact_path": "tests/test_cfg07_guard_tail.py",
+          "artifact_sha256": "3b18dfa3281a3c1b0644776cde84228a0ebc90d45f8351e07f8bea87d7e79bb6"
+        }
+      ],
+      "note": "guard_public_text применён на delivery-шве после Composer/Writer (и после кеш-хита) до финальной сериализации; ограничен по стоимости (0 доп. LLM; retry ≤2/≤1 в существующем бюджете), изоляцию analyst/verbalizer не заменяет, факты/ссылки/имена/цитаты/числа не меняет (срез только найденной формулы)."
     },
     {
       "source_id": "L00368",
@@ -7730,8 +8246,34 @@
       "acceptance": "Guard проверяет минимум: JSON/role/tag/reason_code-утечки, метаречь о промптах/инструментах/логах/справках/предписанной шутке, несоответствие owner-настройкам, сырой HTML, незаземлённые ссылки и даты; обычные слова «лог/анализ/проверка» в содержательном контексте не считаются нарушением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "test",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md + tests/test_cfg07_egress_dictionary.py (67 CONTRACT)",
+          "observation": "Единый egress-словарь: 4 honesty-класса (107 фраз из 29 живых пулов), FORBIDDEN 14 семей/42 маркера с границами слов, overclaim closed-set (07D.2), admin-контекст 15 маркеров; POSITIVE 12/12 и 202 canned-проб — 0 ложных; фокус 255p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
+          "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        },
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg.md (Approved)",
+          "observation": "Независимое ревью волны словаря: классы/семьи/маркеры пересчитаны, ложных срабатываний нет, W3-фриз цел, reuse-аудит подтверждён; наблюдения 1–3 закрыты в хвосте (f1e31d27).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg.md",
+          "artifact_sha256": "3ee052f017ab8ded7997a000889b1fc97d12bb2bb3a4573d8c0fb0851ec27051"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §2 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — 7c3a1350 (волна словаря; в проде с 2.58.102/103), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §2.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Проверяемый минимум закрыт словарём: JSON/role/tag/reason_code (MB-10/11/12, FA-01/02), метаречь 14 семей/42 маркера, overclaim 07D.2, сырой HTML/скобки (FA-08), служебные label (SF-16); обычные слова «лог/анализ/проверка» в содержательном контексте не флагаются (word-boundaries + 202 POSITIVE — 0 ложных)."
     },
     {
       "source_id": "L00369",
@@ -7745,8 +8287,34 @@
       "acceptance": "Машинные артефакты — безопасный детерминированный reject/sanitize; смысловая метаречь — таргетированный bounded retry с теми же доказательствами; удаление кусков с логическими разрывами и пустым «успешным» ответом запрещено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "test",
+          "ref": "tests/test_cfg07_guard_07d5.py (41 CONTRACT; TestBoundedRetrySemantics)",
+          "observation": "Контракты ограниченного retry, честной деградации и OFF-паритета обоих швов; комбо-прогоны после ремонта: 234p (new+dictionary+tail+route_coverage+anticliche) и 74p EXIT 0.",
+          "artifact_path": "tests/test_cfg07_guard_07d5.py",
+          "artifact_sha256": "913c3c9380f6b9b335693ce81b4301eef15b08b726051ba53961ca4e8dd82a5f"
+        },
+        {
+          "candidate_commit": "04593c8f3fcf6730b3df94fed7f9a6ce99f7678f",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07d5-r2.md (Approved; все 4 находки review-07d5 закрыты)",
+          "observation": "Повторное независимое ревью: kill-switch-тест патчит класс флага, honest-negation lookbehind, bracket-регрессия FA-08, delivery-шов по факту; валидаторная семья 252p EXIT 0.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07d5-r2.md",
+          "artifact_sha256": "2099a17a4148f344678328344750e9875ba65e3818fc893f09bb0b8d1c04b59e"
+        }
+      ],
+      "note": "Машинные артефакты — детерминированный срез по id корпуса (без изменения фактов, вырожденный остаток → честный класс, не пустой «успех»); смысловая метаречь — таргетированный bounded retry verbalize_validated (тот же контекст/доказательства, ≤1 повтор) с честным fallback; удалений с логическими разрывами нет."
     },
     {
       "source_id": "L00370",
@@ -7760,8 +8328,34 @@
       "acceptance": "При невозможности исправить — честный короткий безопасный текст в стиле персонажа без внутренностей, с сохранением фактического статуса проверки; fail-soft не превращается в фиктивно уверенный вердикт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "test",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md + tests/test_cfg07_egress_dictionary.py (67 CONTRACT)",
+          "observation": "Единый egress-словарь: 4 honesty-класса (107 фраз из 29 живых пулов), FORBIDDEN 14 семей/42 маркера с границами слов, overclaim closed-set (07D.2), admin-контекст 15 маркеров; POSITIVE 12/12 и 202 canned-проб — 0 ложных; фокус 255p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
+          "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §2 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — f1e31d27 (хвост швов; в проде 2.58.103 = 2a3e4fc9), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §2.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Невосполнимое → честный короткий текст: enum-честная деградация (реальный заголовок CheckedVerdict + factual_verdict=None) или честный пул в стиле персонажа (🗿/CLARIFY/сервисные honest-классы), fail-soft двойным контуром; фиктивно уверенных вердиктов нет (confirmed только из реального CheckedVerdict)."
     },
     {
       "source_id": "L00371",
@@ -7775,8 +8369,42 @@
       "acceptance": "Общие ограничения применены ко всем публичным каналам (Direct, Factcheck, Initiative, Summary где релевантно, fallback, ошибки, tool responses) и не применены к машинным JSON/памяти/логам/поисковым запросам; контракт проверяется на точке user-facing outbound.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py (18 CONTRACT)",
+          "observation": "Оба фактчек-пути (two-call/single/byte-parity), оба summary (narrator/single), checkup (чат + tool-нейтральность), search/youtube/web, off-mode, hot-apply без рестарта, factory defaults, миграционная лестница, байт-фриз канонов (W3).",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md (приёмка UNIFIED-CORE §1–§7 + C14)",
+          "observation": "Один Personality Core/один helper (speech_owner_block) во всех пользовательских маршрутах (+0 LLM), Expression реально в payload (frequent), внутренние процессы нейтральны (analyst/editor/reranker/tool-loop), OFF-паритет и hot-apply без рестарта; C14-вычистка bypass-строк; route-coverage 18 passed.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §2 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — f1e31d27 (хвост швов; в проде 2.58.103 = 2a3e4fc9), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §2.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Ограничения на всех публичных швах: factcheck (busy/no_claim/ambiguous/attribution_miss/error + presentation/delivery), tool_route v2, short_reply/fallback-пулы; машинные JSON/память/логи/поисковые запросы исключены (tool-конверт цел, внутренние процессы нейтральны); контракт — на точке user-facing outbound."
     },
     {
       "source_id": "L00372",
@@ -7790,8 +8418,50 @@
       "acceptance": "Правила добавлены в SOUL-1 с учётом реального статуса внедрения; частично незадеплоенные механизмы не выдаются за работающие; сквозная работа в каждом маршруте доказана после SOUL-1.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "ce77b2c4f030b3b02e68dc53176d9717a244741a",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-103/README.md (postdeploy-секция; коммит ce77b2c4)",
+          "observation": "CFG-07C.6: wiring guard-швов подтверждён по прод-байтам 2.58.103; телеметрия egress_guard: 0 events — наблюдение продолжается.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-103/README.md",
+          "artifact_sha256": "37efcbbdcab8e292712db85fd505cb3d75e9850022f99fad3b10ab1821947a57"
+        },
+        {
+          "candidate_commit": "ce77b2c4f030b3b02e68dc53176d9717a244741a",
+          "type": "live",
+          "ref": "plans/features/cfg/evidence/cfg-07a/release/release-103/README.md + deploy.json (2.58.103, deployed 2a3e4fc9, healthz ok)",
+          "observation": "Поезд 07C-G-TAIL (f1e31d27 + 8cd2ca14) задеплоен 20.10.2026 19:09 UTC; 16/16 bump-гардов EXIT 0, ΔDDL=0, fingerprint 037080375ac8 цел.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-103/deploy.json",
+          "artifact_sha256": "0dc00d16f895f127b3b85e79e31a4735cded9e3e4804a20b6ac6069126e3f0ab"
+        },
+        {
+          "candidate_commit": "8cd2ca14664a00dc709689edc0b614d2e65d8c3f",
+          "type": "test",
+          "ref": "8cd2ca14 (B1: egress_guard stage_event flagged→failed ×2) + tests/test_cfg07_guard_tail.py::TestGuardTelemetry",
+          "observation": "Телеметрия guard-швов эмитит валидный outcome на обеих ногах (outbound/tool), build_event runtime-проба; 29p tail, grep 0 flagged; постдеплой-мониторинг 07C.6 по mca_events работоспособен.",
+          "artifact_path": "tests/test_cfg07_guard_tail.py",
+          "artifact_sha256": "3b18dfa3281a3c1b0644776cde84228a0ebc90d45f8351e07f8bea87d7e79bb6"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07/bind-tail.md §2 (алиас-биндинг LEDGER-CFG-TAIL)",
+          "observation": "Алиас на candidate-срез карты d860a529 (в проде в составе 2.58.104 = 8ea6ed4e): первичный кандидат строки — ce77b2c4 (postdeploy-проба 2.58.103, deployed 2a3e4fc9), предок среза (git merge-base проверен); первичные артефакты перечислены выше и не менялись с моментa валидации. Разбор — bind-tail.md §2.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07/bind-tail.md",
+          "artifact_sha256": "260bb2e58a6357185d83822446c990941fe95ff3bace5bc5c7f3fb7b60ca0e6e"
+        }
+      ],
+      "note": "Правила в SOUL-1 с учётом реального статуса: OFF-паритет (spy: 0 вызовов guard при v2=off, байт-паритет payload) — незадеплоенное не выдаётся за работающее; сквозная работа подтверждена на прод-байтах 2.58.103 (wiring VERIFIED); телеметрия 0 events — честное наблюдение продолжается."
     },
     {
       "source_id": "L00374",
@@ -7908,8 +8578,50 @@
       "acceptance": "Глобальный ON: набор разговорных и спорных сценариев показывает устойчивое применение выбранного грубого регистра; OFF: новые авторские реплики без мата; per-chat override, наследование, hot-reload и fallback протестированы независимо.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/directives-fix/eval.json (офлайн-eval директив)",
+          "observation": "Поведенческий офлайн-eval инструкций frequent/occasional/off на пробах ответов + бюджет-проверки; механические счётчики стерильности отменены владельцем 20.10 (cfg-07b-reused README §«Что остаётся» п.2 — AGENT_CHECK, не возвращать).",
+          "artifact_path": "plans/features/add-exp/evidence/directives-fix/eval.json",
+          "artifact_sha256": "ad4ea17de53e41fe8bb62545da585230fae6dced5f86f8c0f56f5ab013064344"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "live",
+          "ref": "plans/features/add-exp/review-accept-96.md (EXP-ACCEPT.ROUTES follow-up, live 2.58.96)",
+          "observation": "Live-прогоны: A=frequent (мат в авторских репликах присутствует) / B=off (0 мата) одновременно; wire-строки 2/2; override/GLOBAL, reread без рестарта, preview==resolve.",
+          "artifact_path": "plans/features/add-exp/review-accept-96.md",
+          "artifact_sha256": "063a4489d1e915672e61eeacc63a9c0638648a2e450623c8bb0d0b33aa51a89c"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py (18 CONTRACT)",
+          "observation": "Оба фактчек-пути (two-call/single/byte-parity), оба summary (narrator/single), checkup (чат + tool-нейтральность), search/youtube/web, off-mode, hot-apply без рестарта, factory defaults, миграционная лестница, байт-фриз канонов (W3).",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "live",
+          "ref": "release-104/deploy.json + bind-tail.md §1 (алиас live-эвиденса LEDGER-CFG-TAIL)",
+          "observation": "Поведенческие прогоны регистра: live A/B 2.58.96 (frequent-мат присутствует / off — 0, прежние тексты — честно отмечено), офлайн-eval директив (directives-fix), few-shot mat-сэмплы samples-ux (29b91004, композит 144p, v37 в проде с 2.58.100); прод 2.58.104 живой (healthz 200); постоянное живое наблюдение владельца — опционально (owner_live_checks.md §2, standing rule).",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/release/release-104/deploy.json",
+          "artifact_sha256": "eb8179f3522dc619428e1e694acd4d5dde7a88a3018870689f4be60c471f26f3"
+        }
+      ],
+      "note": "Инженерная часть: офлайн-eval регистра (directives-fix) + live 2.58.96 (A=frequent: мат присутствует / B=off: 0 мата) + override/наследование/hot/fallback независимо (route-coverage + A96); постоянное живое наблюдение владельца — опционально (owner_live_checks.md §2, standing rule 20.10, не блокер)."
     },
     {
       "source_id": "L00379",
@@ -7923,8 +8635,42 @@
       "acceptance": "Защищённые цитаты с матом, URL, код, JSON, научные термины, финансовые/числовые значения, HTML и ссылки не портятся стилизацией; мат не внедряется в машинные стадии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "7c3a13504d92e5ec863f4140a06d4376d7daa27f",
+          "type": "test",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md + tests/test_cfg07_egress_dictionary.py (67 CONTRACT)",
+          "observation": "Единый egress-словарь: 4 honesty-класса (107 фраз из 29 живых пулов), FORBIDDEN 14 семей/42 маркера с границами слов, overclaim closed-set (07D.2), admin-контекст 15 маркеров; POSITIVE 12/12 и 202 canned-проб — 0 ложных; фокус 255p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md",
+          "artifact_sha256": "bab89d8a6cb75010b4bdc457eab9376d73b9b99cc2adf17cd19457af200b83a4"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07b-reused/README.md (G0-консолидация: REUSED 9 + офлайн 1 + PARTIAL 1, OPEN 0)",
+          "observation": "Поглощение CFG-07B кандидатом UNIFIED-CORE подтверждено построчно (файл:якорь → тест → прогон): 8 call-sites speech_owner_block, тексты владельца F3 байт-в-байт (PROFANITY_INSTRUCTIONS mca_expression.py:72–83; шапка «дословные цитаты и чужой текст передаются как есть» :112–122), factory ON = occasional, MAT_ENABLED/SWEAR_ENABLED = 0 совпадений, 16 payload-трасс; независимый фокус 54p/0f.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07b-reused/README.md",
+          "artifact_sha256": "d22c534edfabc607791a66b78833f826c6bdda2a85aea00837cc8e055378ea6d"
+        }
+      ],
+      "note": "PARTIAL-остаток G0 (консолидированный спан-прогон) закрыт волнами 07C-G/07D.5: защита спанов = стилизация не трогает machine-план и конверты (TestToolRouteSeam), срезы guard word-bounded (факты/числа/ссылки/имена целы, honesty байт-в-байт), bracket-дефект FA-08 исправлен с REGRESSION-тестом; цитаты с матом — «как есть» (шапка F3); мат в машинные стадии не внедряется (202 POSITIVE — 0 ложных)."
     },
     {
       "source_id": "L00380",
@@ -7978,7 +8724,8 @@
       "live_required": true,
       "live_when": "postdeploy",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "НЕ ЗАКРЫТО (честно): скриншот-корпус ДО/ПОСЛЕ с подтверждением deployed SHA/флагов отсутствует в репо — plans/features/cfg/evidence/cfg-07/07c/** не существует (по cfg-07-build-plan.md §5 корпус живёт локально из-за приватных фрагментов, правило 06F.1). Недостающее для закрытия: маскированный дайджест контрольных фрагментов (без приватных текстов) + сверка ДО/ПОСЛЕ, привязанные к deployed SHA (2.58.104 = 8ea6ed4e) и флагу flags.factcheck_pipeline_v2."
     },
     {
       "source_id": "L00382",
@@ -7992,8 +8739,50 @@
       "acceptance": "Переходы и дефолты SOUL-1/W3/W6, Direct/Factcheck/Initiative/tool/fallback и ближайший Summary проверены; 100% покрытие не объявляется при необследованных маршрутах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_unified_core_route_coverage.py (18 CONTRACT)",
+          "observation": "Оба фактчек-пути (two-call/single/byte-parity), оба summary (narrator/single), checkup (чат + tool-нейтральность), search/youtube/web, off-mode, hot-apply без рестарта, factory defaults, миграционная лестница, байт-фриз канонов (W3).",
+          "artifact_path": "tests/test_unified_core_route_coverage.py",
+          "artifact_sha256": "3a44865124666999abcc93f550380c4ec2aae70bacc3ae9a149de8562fec630d"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "tests/test_direct_chat.py:1305 (C6-якорь композера Direct, байт-в-байт)",
+          "observation": "Контракт Writer Direct: «…настройки выражения владельца важнее образца» — шапка Expression и приоритет пользовательских настроек над образцом в основном писательском маршруте.",
+          "artifact_path": "tests/test_direct_chat.py",
+          "artifact_sha256": "e27684f39b3614a47bbd86c486d5ee59592d35e235a470e0071bc014c49f167b"
+        },
+        {
+          "candidate_commit": "1b23d4c9beb1544169f51781c2c8a45e8797f719",
+          "type": "test",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md (приёмка UNIFIED-CORE §1–§7 + C14)",
+          "observation": "Один Personality Core/один helper (speech_owner_block) во всех пользовательских маршрутах (+0 LLM), Expression реально в payload (frequent), внутренние процессы нейтральны (analyst/editor/reranker/tool-loop), OFF-паритет и hot-apply без рестарта; C14-вычистка bypass-строк; route-coverage 18 passed.",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        },
+        {
+          "candidate_commit": "f1e31d27ea1a9d198f58d67a4c0668cf0c038412",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md (независимое ревью хвоста 07C.1–.6)",
+          "observation": "Guard на delivery-шве после Writer/кеш-хита и до render: срез с границами слов (факты/ссылки/имена/числа целы), honesty-фразы байт-в-байт, enum-честная деградация, 6 canned-пулов байт-в-байт, tool_route v2 (машинный конверт цел), short_reply, OFF-паритет (spy: 0 вызовов guard, payload байт-в-байт), fail-soft двойным контуром; B1-телеметрия исправлена 8cd2ca14.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/review-07cg-tail.md",
+          "artifact_sha256": "9c2844b542f3e9db41c99999c5ce94b7dd67b4052efb1139e28643dc7d7257bb"
+        },
+        {
+          "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
+          "type": "static",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md §2 (после ремонта F1–F4; review-07d5-r2 Approved)",
+          "observation": "Машинные артефакты FA-06/07/08, FA-01/02, SF-16, MB-10/11/12 — детерминированный срез по id корпуса (факты/числа/ссылки/имена не меняются, вырожденный остаток → честный класс); смысловая метаречь — bounded retry verbalize_validated ≤2/≤1 с честным fallback (metatext_fallback), строго в контуре pipeline v2 (OFF → контракт None, байт-паритет); 202 POSITIVE — 0 ложных.",
+          "artifact_path": "plans/features/cfg/evidence/cfg-07a/07d5-summary.md",
+          "artifact_sha256": "f8c7baa010f1982e9605adadf63267dd2d6eef7698bb288690b1fcb054fcb98c"
+        }
+      ],
+      "note": "Переходы/дефолты: off/hot-apply/factory defaults/fallback/миграционная лестница (route-coverage 18), OFF-паритет guard (tail) и v2-гейт (07D.5), humor ON/OFF (07D.1); маршруты: Factcheck (оба пути), Summary (оба), tool (search/youtube/web/checkup), Direct (C6-якорь композера :1305), Initiative — общий композер + payload-трасса (trace-initiative-writer.txt, отдельного runtime-CONTRACT-теста нет — фиксирую честно); «100% покрытие» не объявляется, остатки задокументированы (cfg-07b-reused §Остатки, review-07cg-tail наблюдение 2)."
     },
     {
       "source_id": "L00386",
