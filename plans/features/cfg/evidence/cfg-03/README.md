@@ -155,3 +155,55 @@ HEAD на момент сборки:** `61ecd034` (чужие лейны ком�
 * Динамические потребители (13 RELATIONS) подтверждены шаблоном+слагом;
   live-подтверждение — существующие тесты `tests/test_relations_service.py`
   (в бласте, зелёные).
+
+---
+
+## 7. Переэмиссия снапшота 579 → 582 (CFG-03-WAVE-A, 21.10.2026)
+
+Каталог вырос 579 → **582** (коммит `46303ecd`, CFG-06): +3 тумблера
+фактчек-конвейера v2 (`flags.factcheck_wide_context`,
+`flags.factcheck_suitability_gate`, `flags.factcheck_pipeline_v2`,
+группа `flags_module_factcheck`, вкладка `mod_factcheck`). REMOVED = пусто.
+
+**Метод — идентичен исходному** (§2): инвентарь переэмиссирован тем же
+генератором без правок кода/тестов:
+
+```text
+py -3 tools/cfg03_param_inventory.py --out plans/features/cfg/evidence/cfg-03
+```
+
+(один проход по runtime-коду: `bot.py`, `manage.py`, `config/`, `handlers/`,
+`services/`, `web/` + `app.js`/`index.html`/static JS, `filters/`,
+`scripts/`, `SmartModule/`; комментарии вырезаются; источник —
+`services/param_catalog.py` + реестр-TSV + screen-map). Обновлены:
+`inventory.tsv`, `inventory.json`, `audit-summary.json` (в JSON добавлен
+блок `_generation` с HEAD/датой/командой — метод зафиксирован в самом
+артефакте). `inventory-baseline.*`/`audit-baseline.json` (RED 19.10)
+не тронуты; история 579-снапшота — в Git.
+
+**Счётчики на HEAD `e0c11306`** (сверка с F8: `--check` → CHECK OK,
+реестр 582 == REGISTRY; `test_cfg03_param_audit.py` → 16 passed):
+
+| Метрика | 579 (19.10) | 582 (21.10) |
+|---|---|---|
+| REGISTRY / GROUPS / `_TAB_BY_GROUP` / TAB_RULES | 579 / 120 / 118 / 23 | **582** / 120 / 118 / 23 |
+| Consumer: static runtime | 552 | **555** (+3) |
+| Consumer: dynamic (шаблон+слаг) | 13 | 13 (без изм.) |
+| Consumer: отсутствует | 14 | 14 (те же 7 видимых + 7 env-only) |
+| UI_missing | 0 | **0** |
+| with_test_refs | 456 | **459** (+3) |
+| working / runtime_not_consumed | 565 / 14 | **568** / 14 |
+| inconsistencies | 3 | 3 (те же документированные: 1 group_category + 2 type-family) |
+
+**Классификация 3 новых флагов — `working` (runtime, static read-context):**
+
+| Ключ | Потребитель (file:line) | Тест |
+|---|---|---|
+| `flags.factcheck_wide_context` | `services/factcheck_context.py:80` | `tests/test_factcheck_context_cfg06.py` |
+| `flags.factcheck_suitability_gate` | `services/factcheck_suitability.py:106` | `tests/test_factcheck_gate_cfg06.py` |
+| `flags.factcheck_pipeline_v2` | `services/factcheck_planner.py:70`, `services/factcheck_orchestrator.py:194`; маршрут: `handlers/factcheck.py:515` | `tests/test_factcheck_orchestrator_cfg06.py` |
+
+Все три default OFF (рубильники отката v2-конвейера, включение — за
+владельцем после смоука, вне CFG-03). 2 type-family расхождения — внешние
+пины тестов чужих слайсов (F2-исправление НЕ входит в CFG-03, backlog,
+см. failures.md); 5 честных dead-handle описаний — без изменений.

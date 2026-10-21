@@ -1,6 +1,17 @@
 {
+ "_generation": {
+  "tool": "tools/cfg03_param_inventory.py",
+  "command": "py -3 tools/cfg03_param_inventory.py --out plans/features/cfg/evidence/cfg-03",
+  "method": "один проход по runtime-коду (bot.py, manage.py, config/, handlers/, services/, web/ + app.js/index.html/static JS, filters/, scripts/, SmartModule/); комментарии вырезаются; REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES из services/param_catalog.py; плюс артефакты plans/docs/param-registry-round1025.tsv и screen-map-round1025.md",
+  "head": "e0c11306",
+  "head_full": "e0c11306b9c54a4538ed7d6ae0b9737aa9d0686b",
+  "date": "2026-10-21",
+  "reemission": "CFG-03-WAVE-A: 579 (снапшот 19.10.2026 @df078406) -> 582 (+3 флага фактчека, коммит 46303ecd); diff ключей: ADDED=[flags.factcheck_wide_context, flags.factcheck_suitability_gate, flags.factcheck_pipeline_v2], REMOVED=[]",
+  "f8_crosscheck": "py -3 tools/gen_param_registry_round1025.py --check -> CHECK OK: реестр 582 == REGISTRY (21.10.2026)",
+  "contract_test": "py -3 -m pytest tests/test_cfg03_param_audit.py -> 16 passed @e0c11306"
+ },
  "summary": {
-  "registry": 579,
+  "registry": 582,
   "groups": 120,
   "tab_by_group": 118,
   "tab_rules": 23,
@@ -11,18 +22,18 @@
   "dup_settings_fields": 0,
   "dynamic_consumers": 13,
   "diagnostic_only": 0,
-  "with_test_refs": 456,
+  "with_test_refs": 459,
   "consumer_status_counts": {
-   "runtime": 552,
+   "runtime": 555,
    "none": 14,
    "dynamic": 13
   },
   "classification_counts": {
-   "working": 565,
+   "working": 568,
    "runtime_not_consumed": 14
   },
   "ui_visibility_counts": {
-   "visible": 552,
+   "visible": 555,
    "api-only": 25,
    "hidden": 2
   }
@@ -218,7 +229,7 @@
   {
    "env": "YTDLP_POT_PROVIDER",
    "file": "config/settings.py",
-   "line": 3342
+   "line": 3378
   },
   {
    "env": "TELEGRAM_LOCAL",
@@ -273,12 +284,12 @@
   {
    "env": "MCA_TELEMETRY_SPOOL_PATH",
    "file": "services/mca_events.py",
-   "line": 406
+   "line": 410
   },
   {
    "env": "COMPOSER_LAYER_BUDGET_TOKENS",
    "file": "services/mca_gates.py",
-   "line": 2476
+   "line": 2488
   },
   {
    "env": "TMA_AUTH_MAX_AGE",
