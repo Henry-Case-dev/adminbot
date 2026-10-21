@@ -1,0 +1,8 @@
+......................                                                   [100%]
+============================== warnings summary ===============================
+tests/test_factcheck_fc_r1_fix.py::TestRelevanceCascade::test_all_irrelevant_is_honest_failure
+  C:\Code\Python\adminbot\services\search_aggregator.py:280: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+    with DDGS(timeout=int(self._ddg_timeout)) as ddgs:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+22 passed, 1 warning in 5.23s

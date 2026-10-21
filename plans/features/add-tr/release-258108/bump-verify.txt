@@ -1,0 +1,6 @@
+REL-258108 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump; git): 06b7ef4d (full: 06b7ef4d7ed6012ce7ac9106ca45b477e8afbb7a)
+release train: FIX-VISION-FENCE 1cf0f400 (services/mca_vision.py strip markdown-fence in parse_analysis_payload + 2 REGRESSION in tests/test_mca19_block_b_round1043.py) + 06b7ef4d docs bindings (add-tr/p0-vision S9/DOD3/ADTR-POSTGEN-ON/P0V-PIPE-CONTEXT VERIFIED); F8-meta HEAD stamp = 06b7ef4d = HEAD of the release delta = git HEAD pre-bump
+files=31 changed-line-pairs=33 (expected 33)
+non-token deltas: NONE
+CHECK OK

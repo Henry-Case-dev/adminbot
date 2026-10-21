@@ -1,0 +1,20 @@
+  [PASS] settings APP_VERSION == 2.58.108
+  [PASS] settings no stale 2.58.107 pin
+  [PASS] README has v2.58.108
+  [PASS] README no stale v2.58.107
+  [PASS] F8-meta APP_VERSION 2.58.108
+  [PASS] F8-meta HEAD 06b7ef4d
+  [PASS] F8-meta no stale 2.58.107/bbcafef5
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by PKG-108 bump)
+  [PASS] delta set == 31 expected (31)
+  [PASS] bump set == procedure-106/107 set
+  [PASS] bump set disjoint from review-lane/foreign guard (precheck dirty∩bump=0; foreign untouched by pathspec commit) (foreign=181)
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas) (pairs=33)
+  [PASS] delta DDL of bump set == 0 ([])
+  [PASS] release-to-release DDL == 0 (schema stays v37)
+    release-delta perimeter files 3a178c6c..HEAD: NONE
+  [PASS] release delta 3a178c6c..HEAD perimeter clean
+  [PASS] factory fingerprint c19d35a1c093 (runtime == constant; canon-neutral train) (c19d35a1c093 c19d35a1c093)
+  [PASS] import config.settings -> 2.58.108 (2.58.108)
+
+OFFLINE AGGREGATE: 17/17 PASS, EXIT 0

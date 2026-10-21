@@ -1,0 +1,10 @@
+REL-258108 frozen fingerprint
+release-train head (brief PKG-108 / F8-meta stamp): 06b7ef4d7ed6012ce7ac9106ca45b477e8afbb7a
+git HEAD (pre-bump): 06b7ef4d7ed6012ce7ac9106ca45b477e8afbb7a
+release train (brief PKG-108): FIX-VISION-FENCE 1cf0f400 (services/mca_vision.py strip markdown-fence in parse_analysis_payload; 2 REGRESSION tests in tests/test_mca19_block_b_round1043.py) + 06b7ef4d docs bindings. Kanonov v poezde NET - fingerprint dolzhen ostatsya c19d35a1c093 (constant from corrective wave 44a4827a).
+factory fingerprint: c19d35a1c093 (probe live == constant == c19d35a1c093, sm. bump-offline-check.txt)
+post-bump sha256_12:
+  config/settings.py: 4718a76c0543
+  README.md: a7960b16912d
+  plans/docs/param-registry-round1025.meta.md: 0139c381c009
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files + evidence).
