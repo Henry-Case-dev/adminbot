@@ -111,9 +111,26 @@
       "acceptance": "CFG-03 — расширение до ВСЕХ параметров, а не повтор B06/SOUL: подтверждённая трасса переиспользуется; ищутся отсутствующий runtime consumer и UI_missing.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиасы переиспользуются (сторона-владелец VERIFIED, повторный прогон не нужен): B06-часть — ASAP8 v6.3 B06.1–B06.3 (`plans/features/asap8-v6-3-live-correction/requirements-map.json`; Playwright 42/42, REV-W3 Approved); SOUL-часть — SOUL-1 Prompt Registry/Style Policy/Factory Defaults (`plans/features/soul-1/**`; §5 18/18 V). Строка остаётся PENDING: покрытие шире — трасса в манифесте по всем 579 записям (prep-cfg-03 §2, reuse-map)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.json @3022e6e8 (Wave A 582)",
+          "observation": "Трасса по всем 582 записям REGISTRY (582==REGISTRY, F8 CHECK OK 21.10): потребитель/хранилище/API/тесты на каждую; +3 флага CFG-06 v2 классифицированы working с потребителями; REMOVED=∅. Расширение до ВСЕХ параметров, не повтор B06/SOUL.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.json",
+          "artifact_sha256": "c1155ee4e7437fb415ae8b53421f574c66adeba03d121f1c1127388bdf5aa6d8"
+        },
+        {
+          "candidate_commit": "f8bb638d632a50f9001863b995a7a45d5a991346",
+          "ref": "plans/features/cfg/review-cfg-03.md (Approved, f8bb638d)",
+          "observation": "Независимый ревью Approved (билд-волна 579): спот 14 записей, каталог delta=0; алиасы B06/SOUL-1 переиспользованы без прогона; леджер рекомендовал строки CFG-03 к VERIFIED.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-03.md",
+          "artifact_sha256": "d6890f6e47a2ad2f937ff8087c1cd13e1c17126338fade2f6006cb47e69d9101"
+        }
+      ],
+      "note": "Алиасы переиспользованы (сторона-владелец VERIFIED, повторный прогон не нужен): B06-часть — ASAP8 v6.3 B06.1–B06.3 (Playwright 42/42, REV-W3 Approved); SOUL-часть — SOUL-1 §5 18/18 V. Расширение доказано манифестом: 582 записей == REGISTRY (F8 OK 21.10), включая 3 новых флага CFG-06 v2; 0 удалённых. Биндинг 21.10.2026: Wave A @3022e6e8 + review-cfg-03 (Approved, f8bb638d)."
     },
     {
       "source_id": "M00006",
@@ -463,9 +480,34 @@
       "acceptance": "Не ограничиваться визуальным наличием полей, HTTP 200 или значением в PostgreSQL: сквозная инвентаризация настроек и потребителей; расширение покрытия B06/SOUL-1 с переиспользованием подтверждённого evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиас P0-стороны: P0A-PERSIST-TRUTH (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (прод 2.58.90 `3b02366e`: успех = read-after-write A1–A5, честные 409/422 без записи E, конфликт без потери текста A7, дифф `{}`; review-persist-fix §2/§5/§6). Строка остаётся PENDING: покрытие шире — сквозная инвентаризация всех 579 настроек и потребителей + манифест; P0-эвиденс при биндинге переиспользуется, не перепрогоняется (prep-cfg-03 §2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.json @3022e6e8 (Wave A 582)",
+          "observation": "Сквозная цепочка на каждую из 582 записей: ui_place→pg_key/env→storage→read_api/write_api→settings_field→consumer_files→classification→test_refs; UI_missing=0.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.json",
+          "artifact_sha256": "c1155ee4e7437fb415ae8b53421f574c66adeba03d121f1c1127388bdf5aa6d8"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "Сводка аудита: registry=582, ui_missing=0, no_consumer=7, with_test_refs=459; метод — один read-only проход по runtime-коду (_generation.method).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "f8bb638d632a50f9001863b995a7a45d5a991346",
+          "ref": "plans/features/cfg/review-cfg-03.md (Approved, f8bb638d)",
+          "observation": "Спот независимого ревью §1: у 13 runtime-строк потребитель реально найден, у «none» — только определение/комментарий; UI_missing=0 подтверждён synthetic-группой content_media.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-03.md",
+          "artifact_sha256": "d6890f6e47a2ad2f937ff8087c1cd13e1c17126338fade2f6006cb47e69d9101"
+        }
+      ],
+      "note": "Алиас P0-стороны: P0A-PERSIST-TRUTH — VERIFIED (прод 2.58.90: read-after-write A1–A5, честные 409/422; review-persist-fix §2/§5/§6) — переиспользован без прогона. Сквозная инвентаризация всех 582 настроек и потребителей — inventory.json @3022e6e8 (Wave A); UI_missing=0; спот — review-cfg-03 §1 (Approved)."
     },
     {
       "source_id": "M00017",
@@ -479,8 +521,34 @@
       "acceptance": "Обязательная цепочка на каждый параметр: UI-экран/контрол→Registry ID/тип/границы/Factory Default→scope/наследование→API→DB→кэш→effective resolver→runtime consumer→observable behavior→тест/доказательство.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.tsv @3022e6e8 (Wave A 582)",
+          "observation": "19 колонок на все 582 записи (ui_place→registry→scope→API→DB→cache→effective→consumer→classification→test_refs); неприменимые звенья — документированное «—» (README §7).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.tsv",
+          "artifact_sha256": "62d51f3d51f078247f493ebe42942590c51cf6e44244d8ff32d1d0c0931576b4"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/README.md @3022e6e8 (метод/design, переэмиссия 582)",
+          "observation": "Дизайн и метод: семантика колонок, трактовка «—», sandbox-first (§Design); переэмиссия 579→582 задокументирована.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/README.md",
+          "artifact_sha256": "d223eb27b4d4bd62a01980804e97dd1b183c8ecb54b587d37af6b51eb9ac1d24"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.json @3022e6e8 (Wave A 582)",
+          "observation": "Машиночитаемый двойник TSV: 582 entries × 31 поле.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.json",
+          "artifact_sha256": "c1155ee4e7437fb415ae8b53421f574c66adeba03d121f1c1127388bdf5aa6d8"
+        }
+      ],
+      "note": "Обязательная цепочка на каждый параметр реализована 19-колоночным inventory.tsv / 31-полевым inventory.json; 459 записей с test_refs (было 456 на 579); неприменимые звенья — «—» по конвенции README. Wave A @3022e6e8."
     },
     {
       "source_id": "M00018",
@@ -3410,8 +3478,34 @@
       "acceptance": "Каждый параметр во всех разделах MiniApp (включая скрытые, каталоги, модели/ключи, лимиты, промпты, модули, события, настройки чатов/глобальные, SOUL-1) учтён; обратное несоответствие — runtime-параметры без положенного UI — найдено и классифицировано как UI_missing.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "registry=582==REGISTRY (F8 CHECK OK 21.10), ui_missing=0; reemission 579→582: ADDED=[flags.factcheck_pipeline_v2, flags.factcheck_suitability_gate, flags.factcheck_wide_context] (visible, tab mod_factcheck), REMOVED=∅.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.json @3022e6e8 (Wave A 582)",
+          "observation": "582 entries; 3 новых флага — visible/working с потребителями (factcheck_context, factcheck_suitability, factcheck_planner+orchestrator); скрытые/api-only покрыты.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.json",
+          "artifact_sha256": "c1155ee4e7437fb415ae8b53421f574c66adeba03d121f1c1127388bdf5aa6d8"
+        },
+        {
+          "candidate_commit": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+          "ref": "tests/test_cfg03_param_audit.py @46303ecd (пины 582; прогон 21.10.2026: 16 passed на HEAD)",
+          "observation": "Пины охвата: REGISTRY==582, GROUPS==120, _TAB_BY_GROUP==118, TAB_RULES==23, TSV==582, screen-map keys==pg_keys (reverse-check UI-мест); 16 passed на HEAD 21.10.2026.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg03_param_audit.py",
+          "artifact_sha256": "32ea83c3d8482111604aefca5ae33df7154b83d567c394c77b21f67cf42045f6"
+        }
+      ],
+      "note": "Охват: все 582 параметра REGISTRY, включая скрытые/api-only и SOUL-наследие; обратное несоответствие UI_missing=0 (reverse-check screen-map в тесте). Переэмиссия 21.10.2026 @3022e6e8: 579→582, ADDED=3 фактчек-флага (visible на «Фактчеке»), REMOVED=∅. Пины: test_cfg03_param_audit.py 16 passed @HEAD (прогон биндинг-лейна)."
     },
     {
       "source_id": "L00128",
@@ -3425,9 +3519,34 @@
       "acceptance": "Каждый параметр классифицирован по матрице (working/save_only/runtime_not_consumed/wrong_scope/stale_cache/restart_required/invalid_default/UI_missing/UI_present_but_not_discoverable/effective_value_mismatch/inaccessible/duplicate_conflict/unknown); для отклонений — путь, воспроизведение, приоритет, исправление.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиас P0-стороны: P0A-PERSIST-CAUSE (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (первопричины сохранения классифицированы: B4/B5 `assert 9000 == 8000`, unknown kind → 409, `write_error` не диагноз; review-persist-fix §2/§5/§9 + acceptance-edges-25890 E). Строка остаётся PENDING: матрица 13 классов по всем 579 записям + под-отчёт «перекрытий»; P0-эвиденс переиспользуется (prep-cfg-03 §2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "classification_counts: working=568, runtime_not_consumed=14; consumer_status: runtime 555 / dynamic 13 / none 14; inconsistencies=3 задокументированы (1 group_category→F3, 2 type-mismatch→F2 backlog).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "df078406d2e0cc6a22e1902ed6821218dd5b58ff",
+          "ref": "evidence/cfg-03/failures.md @df078406 (реестр F1–F5)",
+          "observation": "Карточки отклонений F1–F5: причина/пути/правка/автотест/evidence/статус (F1 FIXED, F2 DEFERRED, F3/F4 DOCUMENTED, F5 PRE-EXISTING).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/failures.md",
+          "artifact_sha256": "60d831e16e285feaa4ccc685df1cf44cc452f75cf05f51875a5c1c185211b0d2"
+        },
+        {
+          "candidate_commit": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+          "ref": "tests/test_cfg03_param_audit.py @46303ecd (пины 582; прогон 21.10.2026: 16 passed на HEAD)",
+          "observation": "Контракт классификации пинен тестами (consumer coverage, dead knobs exact list, type-family с явными исключениями); 16 passed на HEAD 21.10.2026.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg03_param_audit.py",
+          "artifact_sha256": "32ea83c3d8482111604aefca5ae33df7154b83d567c394c77b21f67cf42045f6"
+        }
+      ],
+      "note": "Алиас P0-стороны: P0A-PERSIST-CAUSE — VERIFIED (первопричины сохранения; review-persist-fix) — переиспользован. Матрица применена ко всем 582: working 568 / runtime_not_consumed 14 (динамические 13 учтены отдельно); карточки отклонений — failures.md F1–F5; +3 флага CFG-06 v2 классифицированы working с потребителями. Переэмиссия @3022e6e8."
     },
     {
       "source_id": "L00129",
@@ -3441,9 +3560,26 @@
       "acceptance": "Read/write/reload после перезапуска, F5, разных пользователей и прав проверены; отмена, optimistic concurrency, сетевые ошибки, 409, повторное сохранение, rollback, наследование, factory reset и снятие override покрыты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиас P0-стороны: P0A-ACCEPT-PERSIST (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (прод 2.58.90: real-DB цикл по каждому типу настроек, 17/17 + recheck `diff={}`; acceptance-25890.json). Строка остаётся PENDING: распространение на остальные параметры/эндпоинты + недостающие края (отмена/сеть/factory reset/снятие override); P0-эвиденс переиспользуется (prep-cfg-03 §2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+          "ref": "tests/test_cfg03_param_audit.py @46303ecd (пины 582; прогон 21.10.2026: 16 passed на HEAD)",
+          "observation": "API/DB roundtrips на фикстурах + классы значений: int -1 vs 10, flag OFF/ON effective, select-консистентность, normalize по типам; 16 passed на HEAD 21.10.2026.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg03_param_audit.py",
+          "artifact_sha256": "32ea83c3d8482111604aefca5ae33df7154b83d567c394c77b21f67cf42045f6"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "contract_test: 16 passed @e0c11306 (Wave A); live-половина 409/optimistic — ACCEPTANCE-95 p5b; real-DB 17/17 по типам — P0A-ACCEPT-PERSIST @2.58.90 (алиас).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        }
+      ],
+      "note": "Алиас P0-стороны: P0A-ACCEPT-PERSIST — VERIFIED (real-DB цикл 17/17 по типам, прод 2.58.90 + recheck diff={}; края 409/422 — acceptance-edges-25890) — переиспользован; optimistic 409 live — ACCEPTANCE-95 p5b (строка .11); наследование/hot — CFG-01 live + test_chat_params. Автотест-контур CFG-03: roundtrips + классы значений — 16 passed @HEAD; рестарт/мультипроцесс — песочница (design, README §Design)."
     },
     {
       "source_id": "L00130",
@@ -3498,8 +3634,34 @@
       "acceptance": "UI-описания соответствуют реальной семантике, формату, валидаторам, диапазонам, единицам, 0/-1/null и per-chat доступности; «сохраняется, но игнорируется» исключено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "Честные описания всех 7 no_consumer прямо в манифесте (маркер «Не влияет: значение сохраняется в конфиге, но рантайм его не читает»); 5 видимых исправлены RED→GREEN (F1).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+          "ref": "tests/test_cfg03_param_audit.py @46303ecd (пины 582; прогон 21.10.2026: 16 passed на HEAD)",
+          "observation": "test_dead_knobs_honest_descriptions + точный список видимых мёртвых ручек; type-family с 2 задокументированными исключениями (300.5 не теряется; retries рантаймом не читается); 16 passed на HEAD 21.10.2026.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg03_param_audit.py",
+          "artifact_sha256": "32ea83c3d8482111604aefca5ae33df7154b83d567c394c77b21f67cf42045f6"
+        },
+        {
+          "candidate_commit": "df078406d2e0cc6a22e1902ed6821218dd5b58ff",
+          "ref": "evidence/cfg-03/failures.md @df078406 (реестр F1–F5)",
+          "observation": "F1 FIXED: 5 ручек с честной витриной; F2 DEFERRED: пользовательской поломки нет (значение не теряется, ключ не читается) — backlog с рецептом.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/failures.md",
+          "artifact_sha256": "60d831e16e285feaa4ccc685df1cf44cc452f75cf05f51875a5c1c185211b0d2"
+        }
+      ],
+      "note": "UI-описания сверены с семантикой: 5 нечестных описаний исправлены RED→GREEN (F1), точный список пинен тестами; type-family — 2 задокументированных исключения (F2 backlog вне слайса, не «сохранилось-но-игнорируется»); carry-in CFG-01 R1/CFG-02A R5 закрыты волной (review-cfg-03 §2); live-витрина честных описаний — строка .6 (ACCEPTANCE-95 p6b)."
     },
     {
       "source_id": "L00132",
@@ -3554,8 +3716,34 @@
       "acceptance": "Runtime-пути фоновых задач, Telegram-обработчиков, Direct/Initiative, Summary/Factcheck/Images, памяти, fallback и воркеров проверены; скрытые env-only потолки диагностируемы администратору без раскрытия секретов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "Runtime-скип (bot/handlers/services/web+JS/SmartModule/filters/scripts): env_only_ceilings — 19 диагностических записей env/file/line без секретов; no_consumer=7 (6 читает docker-compose, media_base — владелец/R4); dynamic_consumers=13 (user_relations.py:61).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.json @3022e6e8 (Wave A 582)",
+          "observation": "consumer_files/test_refs по каждой записи (with_test_refs=459); маршруты Summary/Factcheck/Images/Direct/memory покрыты потребителями.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.json",
+          "artifact_sha256": "c1155ee4e7437fb415ae8b53421f574c66adeba03d121f1c1127388bdf5aa6d8"
+        },
+        {
+          "candidate_commit": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+          "ref": "tests/test_cfg03_param_audit.py @46303ecd (пины 582; прогон 21.10.2026: 16 passed на HEAD)",
+          "observation": "test_docker_env_consumed_by_compose (F4: env-only читается compose) + test_env_only_without_python_reader_documented; 16 passed на HEAD 21.10.2026.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg03_param_audit.py",
+          "artifact_sha256": "32ea83c3d8482111604aefca5ae33df7154b83d567c394c77b21f67cf42045f6"
+        }
+      ],
+      "note": "Runtime-пути фоновых задач/обработчиков/Direct/Summary/Factcheck/Images/памяти/fallback покрыты потребителями в манифесте; 13 динамических через user_relations.py:61; env-only потолки диагностируемы без секретов: 19 записей в audit-summary + 7 реестровых env-only (6 — docker-compose, пин тестом; media_base — решение владельца, R4, не блокирует)."
     },
     {
       "source_id": "L00134",
@@ -3569,8 +3757,34 @@
       "acceptance": "Проверки выполнены в изолированной среде с безопасными фикстурами; боевые ключи/квоты не менялись, массовых платных прогонов нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/README.md @3022e6e8 (метод/design, переэмиссия 582)",
+          "observation": "Метод изоляции зафиксирован (README §Design): sandbox-first, in-memory PG/фикстуры; live — только безопасные окна ACCEPTANCE-95; секреты не раскрываются (R17).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/README.md",
+          "artifact_sha256": "d223eb27b4d4bd62a01980804e97dd1b183c8ecb54b587d37af6b51eb9ac1d24"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "_generation.method: один read-only проход по коду — сам аудит не трогал прод; массовых платных генераций нет.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "f8bb638d632a50f9001863b995a7a45d5a991346",
+          "ref": "plans/features/cfg/review-cfg-03.md (Approved, f8bb638d)",
+          "observation": "§4: бласт-атрибуция 2 pre-existing + 1 order-flake подтверждена на чистом worktree 71c12bfe — регресс не списан на CFG-03.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-03.md",
+          "artifact_sha256": "d6890f6e47a2ad2f937ff8087c1cd13e1c17126338fade2f6006cb47e69d9101"
+        }
+      ],
+      "note": "Метод зафиксирован и соблюдён (README §Design, _generation): read-only проход по коду, sandbox-first, in-memory PG/фикстуры; боевые ключи/квоты не менялись; платные генерации — только малые live-окна ACCEPTANCE-95 (строки .4/.6/.11/.12); бласт-атрибуция — чистый worktree (review-cfg-03 §4); секреты не раскрывались (R17)."
     },
     {
       "source_id": "L00135",
@@ -3584,9 +3798,34 @@
       "acceptance": "Устойчивые автотесты: контракт каталога, API/DB roundtrips, runtime consumer tests, перезапуск, многопроцессность и выбранные E2E на реальной MiniApp; одних моков недостаточно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиас-принцип: P0V-TEST-MOCKS (`plans/features/p0-vision-universal/requirements-map.json`; там PENDING) — принцип «моки не заменяют живые проверки» зафиксирован. Строка остаётся PENDING: собственный набор устойчивых тестов CFG-03 (контракт каталога, API/DB roundtrips, consumer tests, рестарт, многопроцессность, выбранные E2E на реальной MiniApp) с честным разделением mock/live (prep-cfg-03 §2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "46303ecd3ea145811edbfc79fbaba4d3d8f966d6",
+          "ref": "tests/test_cfg03_param_audit.py @46303ecd (пины 582; прогон 21.10.2026: 16 passed на HEAD)",
+          "observation": "16 CONTRACT-тестов: контракт каталога (582/120/118/23 + screen-map), реальные API/DB roundtrips на фикстурах, consumer/negative классы; прогон биндинг-лейна 21.10.2026 на HEAD: 16 passed.",
+          "type": "test",
+          "artifact_path": "tests/test_cfg03_param_audit.py",
+          "artifact_sha256": "32ea83c3d8482111604aefca5ae33df7154b83d567c394c77b21f67cf42045f6"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "f8_crosscheck: gen_param_registry_round1025.py --check → CHECK OK: 582==REGISTRY (21.10.2026); contract_test 16 passed @e0c11306.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "f8bb638d632a50f9001863b995a7a45d5a991346",
+          "ref": "plans/features/cfg/review-cfg-03.md (Approved, f8bb638d)",
+          "observation": "§3–4: фокус 256 passed, JS-sweep 88/0, e2e описаний на реальной MiniApp RESULT: PASS (console_errors=[]); mock/live разделение честное.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-03.md",
+          "artifact_sha256": "d6890f6e47a2ad2f937ff8087c1cd13e1c17126338fade2f6006cb47e69d9101"
+        }
+      ],
+      "note": "Устойчивый контур: 16 CONTRACT (каталог/пины, roundtrips, consumer/негативы) — 16 passed @HEAD 21.10.2026; f8-пара 582==REGISTRY; e2e на реальной MiniApp PASS + JS-sweep 88/0 (review §4); mock/live разделение честное (live-половины — отдельные VERIFIED-строки .4/.6/.11/.12). Алиас-принцип P0V-TEST-MOCKS учтён."
     },
     {
       "source_id": "L00136",
@@ -3600,8 +3839,34 @@
       "acceptance": "После исправлений проведён независимый Reviewer-аудит и регрессионный прогон; 100% не объявляется при непроверенных параметрах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f8bb638d632a50f9001863b995a7a45d5a991346",
+          "ref": "plans/features/cfg/review-cfg-03.md (Approved, f8bb638d)",
+          "observation": "Независимый Reviewer: Approved — собственный спот 14 записей, каталог delta=0, бласт 3652 passed; 2 pre-existing + 1 order-flake атрибутированы на чистом worktree; 100% не объявляется (леджер ревью).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-03.md",
+          "artifact_sha256": "d6890f6e47a2ad2f937ff8087c1cd13e1c17126338fade2f6006cb47e69d9101"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "Честные счётчики после переэмиссии 582: working 568 / runtime_not_consumed 14, no_consumer 7, inconsistencies=3; F2 — backlog с рецептом.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/owner-summary.md @3022e6e8 (Wave A 582)",
+          "observation": "Секция «Что не проверено / осталось»: live-этап релиза, F2 (2 типа), media_base — без объявления 100%.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/owner-summary.md",
+          "artifact_sha256": "d3b6ffe9d5eee022c2a0a21a8c196bc7be47ccc0897976944030a0ba4bd2a94d"
+        }
+      ],
+      "note": "Независимый Reviewer-аудит: review-cfg-03.md = Approved (спот 14 записей, бласт 3652 passed, атрибуция pre-existing на чистом worktree 71c12bfe). 100% не объявляется: 14 runtime_not_consumed честны, F2 — backlog (§6), непроверяемое живьём — manual-checks.md (R4). Переэмиссия 582 (@3022e6e8) выполнена после ревью; счётчики сходятся с F8."
     },
     {
       "source_id": "L00137",
@@ -3688,8 +3953,26 @@
       "acceptance": "Машиночитаемый coverage manifest на каждый параметр со ссылками на источники и тесты создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.json @3022e6e8 (Wave A 582)",
+          "observation": "Машиночитаемый coverage-манифест на каждый параметр: 582 записей × 31 поле (полная цепочка + test_refs); провенанс — _generation (tool/command/head/reemission).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.json",
+          "artifact_sha256": "c1155ee4e7437fb415ae8b53421f574c66adeba03d121f1c1127388bdf5aa6d8"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/inventory.tsv @3022e6e8 (Wave A 582)",
+          "observation": "TSV-двойник: 582 строк × 19 колонок (582==REGISTRY).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/inventory.tsv",
+          "artifact_sha256": "62d51f3d51f078247f493ebe42942590c51cf6e44244d8ff32d1d0c0931576b4"
+        }
+      ],
+      "note": "Манифест на каждый параметр: inventory.json (582 × 31 поле) + TSV-двойник (19 колонок); метод и переэмиссия — _generation. Обновлён Wave A @3022e6e8 до 582 (было 579 @df078406)."
     },
     {
       "source_id": "L00143",
@@ -3703,8 +3986,26 @@
       "acceptance": "Владельцу понятна сводка: сколько проверено/работает/исправлено/не проверено.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/owner-summary.md @3022e6e8 (Wave A 582)",
+          "observation": "Сводка владельцу (переэмиссия 21.10.2026 @e0c11306): всего 582 (+3 фактчек-флага, 0 удалено); с потребителем 568 (555 + 13 динамических); 7 мёртвых честно показаны; UI_missing=0; 459 с автотестами; F8 582==REGISTRY; честный остаток: live-этап, F2 backlog, media_base.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/owner-summary.md",
+          "artifact_sha256": "d3b6ffe9d5eee022c2a0a21a8c196bc7be47ccc0897976944030a0ba4bd2a94d"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "Числа сводки сверяемы с audit-summary.json: registry=582, working=568, none=14, no_consumer=7, with_test_refs=459.",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        }
+      ],
+      "note": "Сводка владельцу обновлена под 582 (Wave A @3022e6e8; ранее оперировала 579): все числа честные и сверяемые с манифестом; упомянуты +3 флага CFG-06 v2 с потребителями; остатки названы (live-этап релиза, F2, media_base)."
     },
     {
       "source_id": "L00144",
@@ -3718,9 +4019,34 @@
       "acceptance": "По каждому сбою: причина, пути, кодовая правка, автотест, live evidence, статус.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "note": "Алиасы P0-стороны: P0A-PERSIST-AUDIT + P0A-PERSIST-CENTRAL (`plans/features/p0-save-init-ux/requirements-map.json`) — VERIFIED (формат «причина/пути/правка/тест/evidence/статус»: persistence-audit.md §3.1–3.5/B4/B5/§8.5–8.6; централизованный фикс pg×10 + ConfigCache PG-first — review-persist-fix §1/§4/§9). Строка остаётся PENDING: применение формата к сбоям самого CFG-03 (реестр failures.md); P0-эвиденс переиспользуется (prep-cfg-03 §2)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "df078406d2e0cc6a22e1902ed6821218dd5b58ff",
+          "ref": "evidence/cfg-03/failures.md @df078406 (реестр F1–F5)",
+          "observation": "Реестр F1–F5 в формате P0A-PERSIST-AUDIT: причина→пути→правка→автотест→evidence→статус (F1 FIXED, F2 DEFERRED с рецептом, F3/F4 DOCUMENTED, F5 PRE-EXISTING).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/failures.md",
+          "artifact_sha256": "60d831e16e285feaa4ccc685df1cf44cc452f75cf05f51875a5c1c185211b0d2"
+        },
+        {
+          "candidate_commit": "3022e6e8543b48b1965edb13198bc3f0a7d14732",
+          "ref": "evidence/cfg-03/audit-summary.json @3022e6e8 (Wave A 582)",
+          "observation": "inconsistencies=3 задокументированы (group_category→F3; 2 type-mismatch→F2); переэмиссия 579→582 новых девиаций не добавила (F6 не потребовался).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/evidence/cfg-03/audit-summary.json",
+          "artifact_sha256": "ff3dc99733746f70383021353e3afd4d164ef5ae706853da5fc8b5ca3f163a82"
+        },
+        {
+          "candidate_commit": "f8bb638d632a50f9001863b995a7a45d5a991346",
+          "ref": "plans/features/cfg/review-cfg-03.md (Approved, f8bb638d)",
+          "observation": "§6: F2 — backlog с готовым рецептом (catalog delta + re-pin; 2 пина чужих тестов test_cfg02b_image_freq_limits.py:266, test_hot_migration.py:225).",
+          "type": "static",
+          "artifact_path": "plans/features/cfg/review-cfg-03.md",
+          "artifact_sha256": "d6890f6e47a2ad2f937ff8087c1cd13e1c17126338fade2f6006cb47e69d9101"
+        }
+      ],
+      "note": "Алиасы P0-стороны: P0A-PERSIST-AUDIT + P0A-PERSIST-CENTRAL — VERIFIED (формат «причина/пути/правка/тест/evidence/статус»; централизованный фикс pg×10) — переиспользованы. Реестр сбоев CFG-03: failures.md F1–F5; переэмиссия 582 новых девиаций не добавила; inconsistencies=3 задокументированы @3022e6e8."
     },
     {
       "source_id": "L00145",
