@@ -957,7 +957,22 @@ def test_write_points_go_through_single_writer():
         # `_migrate_llm_usage_plan_meta_v35` — nullable plan_meta JSONB в
         # llm_usage_events (PG-only DDL, SQLite no-op) + PRAGMA user_version;
         # миграционная машина, раннер до старта писателей.
-        "database.py": 198,
+        # +3 SOUL-1 W4 (v36, коммит c1cb6475, L-MCA14-3):
+        # `_migrate_humor_samples_v36` — CREATE TABLE `humor_samples`
+        # (DDL в модуле-владельце `mca_sample_library`) + индексы +
+        # PRAGMA user_version; раннер до старта писателей; runtime
+        # few-shot/feedback/used идут через `write_transaction` (аудит
+        # FIX-SOUL142-LABEL 21.10.2026: 8 новых прямых commit — все в
+        # миграционных ступенях v36/v37, вне писателей; ни одной точки
+        # мимо single-writer; приписка «telemetry 14.2» из брифа не
+        # подтвердилась — a8d049f3 не трогал database.py).
+        # +5 ADD-SAMPLES-UX (v37, коммит 29b91004, L-MCA14-3):
+        # `_migrate_humor_samples_v37` — fresh-DDL + 6×ALTER TABLE ADD
+        # COLUMN под guard `PRAGMA table_info` + индексы + бэкфил
+        # категорий + PRAGMA user_version; раннер до старта писателей;
+        # runtime owner-override/tombstone/restore идут через
+        # `write_transaction` (`services/mca_sample_library.py`).
+        "database.py": 206,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

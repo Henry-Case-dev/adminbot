@@ -2089,15 +2089,16 @@
       "slice": "W8",
       "acceptance": "Telemetry содержит метрики: распределение extent включая exact one_word compliance, доля фактических и адресных ошибок, повторяемость, фактическое число injected Core токенов, пропуски слоя с reason, diversity of comic strategies, latency и добавочная стоимость, feedback label counts по уверенности и чату без сырого текста, lessons applied с измеренными outcomes и честное обозначение stale или отсутствия событий; данные не выдумываются, дорогая per-message LLM-оценка по умолчанию не создаётся",
       "live_required": true,
-      "live_when": "preprod",
-      "status": "VERIFIED",
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "reason": "Реклассификация VERIFIED→READY_FOR_LIVE (FIX-SOUL142-LABEL, 21.10.2026): живой пробы на проде ещё не было; по конвенции проекта (прецедент 2.58.105) VERIFIED ставится постдеплоем. Доказательная база без изменений: контракт-тесты 11/11 + локальная эмуляция реального контура (артефакт отчёта остаётся); live-проба закрывается на выкате 2.58.106 (postdeploy).",
       "evidence": [
         {
           "candidate_commit": "a8d049f3b0b5157b63538fa2fa895b3095e380ae",
           "ref": "services/style_policy.py::_emit_extent_metric (event speech_extent в существующий mca_events) + tests/test_soul14_telemetry_extent.py (11 CONTRACT, B1-паттерн build_event runtime probe) + plans/features/soul-1/evidence/soul14-telemetry/soul14-telemetry-report.md",
           "observation": "Распределение extent с exact one_word compliance едет per-message событием speech_extent в существующий контур mca_events (usage_json: extent/status/one_word/one_word_exact/words/reason/context — только счётчики/коды, без текстов; исходы строго из ALL_OUTCOMES; 0 LLM). Контракт-тесты 11/11 зелёные на коде; related extent/style suites 97 passed; локальная эмуляция реального контура: событие доходит до durable-буфера mca_events (колонки event_name/stage/chat_id/usage_json агрегируемы), kill-switch OFF глушит. Остальные семейства метрик строки едут существующими контурами без дублей (feedback/lessons — mca_humor_feedback SOUL-08.2; повторяемость — usage_json style-события; пропуски с reason — stage_event; latency/cost — контрактные колонки; core tokens — detail композера) — см. отчёт §Остальные. Live-часть (preprod) — релизный поезд 2.58.106.",
           "artifact_path": "plans/features/soul-1/evidence/soul14-telemetry/soul14-telemetry-report.md",
-          "artifact_sha256": "4ad1ea658d577914c8826a89073d54ad0b58d45a0b8b2f5a519549a6094fbcfa",
+          "artifact_sha256": "5559e634877c0815fa577d6c06b372187245983297054bd9639d0d232559c102",
           "type": "test"
         }
       ]
@@ -2129,8 +2130,28 @@
       "acceptance": "Feature Flag и быстрый rollback к старой композиции работают без отката данных; при регрессе или деградации переключение выполняется легко; автоматической настройки характера ради engagement нет",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "reason": "REUSE-биндинг (лейн SOUL-14.0 A/B, 21.10.2026): флаг и быстрый rollback доставлены и исполнены ранее; автоматической настройки характера нет (по коду и по политике L199 - результаты A/B-оценки не переключают прод-флаги). Дополнительное подтверждение механики переключения - env-ось ON/OFF на одной HEAD-копии в evidence/ab (байт-разные сборки рук, 0 операций с данными).",
+      "evidence": [
+        {
+          "candidate_commit": "ad1d4057d21e574ae42abc81db495b1171e20713",
+          "ref": "plans/features/soul-1/release-2.58.86-report.md:134-135 (исполненный релиз: PG jsonb-флаги flags.unified_composer_enabled/humor_* + .env UNIFIED_COMPOSER_ENABLED/HUMOR_* + graceful restart; композер включён в проде без отката данных)",
+          "observation": "Флаг включён штатным релизом 2.58.86; данные не откатывались; обратное переключение документировано как env-ось OFF + graceful restart независимо от PG.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "b4ea67798d008b61ed0c2baf62f359689e39f29b",
+          "ref": "plans/features/soul-1/soul-release-prep.md:48-51 (таблица осей: включение/откат по каждой оси; OFF = env-ось + graceful restart, PG-ключ отдельно; 'нет' в колонке отката данных; никакой автоматической настройки)",
+          "observation": "Quick rollback к старой композиции без отката данных: одна env-ось мастера (OFF независимо от PG), пер-чат тумблеры каталога; переключение при регрессе - рестарт, не миграция.",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "4116c48a74e08c8be8c4cc1f3ed37bf62ed3e8e4",
+          "ref": "services/prompt_composer.py:529-531 (resolve_gates: env OFF -> немедленный GateState(unified=False), ноль чтений hot/chat_params, OFF-путь бесплатный) + tests W2 OFF-parity 13/13 байт-в-байт (w2-composer-report.md)",
+          "observation": "Механика флага в коде: OFF - байт-в-байт прежняя сборка compose_verbalizer_system; в A/B-харнесе evidence/ab та же env-ось даёт байт-разные system рук на одной сборке (results.json.system_sha12), 0 операций с персистентными конфигами.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00203",
