@@ -1,0 +1,12 @@
+{
+  "results": [
+    {
+      "model": "glm-4-flash",
+      "http": 200,
+      "tool_calls": false,
+      "content_head": "Работает",
+      "usable": "Работает"
+    }
+  ],
+  "winner": "glm-4-flash"
+}

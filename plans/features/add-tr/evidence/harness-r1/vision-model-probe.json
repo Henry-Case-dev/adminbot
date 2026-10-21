@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "model": "qwen3-vl-flash",
+      "http": 403,
+      "ok": false,
+      "content": "None",
+      "error_body": "{'message': 'Model qwen3-vl-flash does not exist, please check the model name for typos (request id: 202610220021588947750672967281)', 'type': 'permission_error"
+    },
+    {
+      "model": "qwen3-vl-8b-instruct",
+      "http": 403,
+      "ok": false,
+      "content": "None",
+      "error_body": "{'message': 'Model qwen3-vl-8b-instruct does not exist, please check the model name for typos (request id: 2026102200215980639018928409851)', 'type': 'permissio"
+    },
+    {
+      "model": "glm-4.5v",
+      "http": 200,
+      "ok": true,
+      "content": ""
+    }
+  ]
+}

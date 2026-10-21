@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "model": "qwen-vl-plus",
+      "error": "VisionError: http_403",
+      "vision_calls": 1
+    },
+    {
+      "model": "gemini-2.5-flash-lite",
+      "status": "ready",
+      "reason": "",
+      "desc_head": "Изображение флага Палау: светло-желтый круг на синем фоне, смещенный слегка влево от центра.",
+      "vision_calls": 1
+    }
+  ]
+}

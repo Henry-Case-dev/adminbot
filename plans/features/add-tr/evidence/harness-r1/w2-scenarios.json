@@ -1,0 +1,213 @@
+{
+  "window": "w2-scenarios",
+  "turns": [
+    {
+      "label": "s3-bare-photo",
+      "status": "ok",
+      "error": "",
+      "unhandled": true,
+      "correlation_id": null,
+      "logs": [],
+      "sends": [],
+      "answer": "",
+      "elapsed_s": 0.42,
+      "llm_calls": [],
+      "embed_calls": [],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "vision_transport_calls": [],
+      "expect": "unhandled, 0 llm, 0 sends"
+    },
+    {
+      "label": "edge-album-bare",
+      "status": "ok",
+      "error": "",
+      "unhandled": true,
+      "correlation_id": null,
+      "logs": [],
+      "sends": [],
+      "answer": "",
+      "elapsed_s": 0.4,
+      "llm_calls": [],
+      "embed_calls": [],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "vision_transport_calls": [],
+      "expect": "unhandled, 0 llm, 0 sends"
+    },
+    {
+      "label": "edge-doc-pdf-bare",
+      "status": "ok",
+      "error": "",
+      "unhandled": true,
+      "correlation_id": null,
+      "logs": [],
+      "sends": [],
+      "answer": "",
+      "elapsed_s": 0.42,
+      "llm_calls": [],
+      "embed_calls": [],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "vision_transport_calls": [],
+      "expect": "unhandled, 0 llm, 0 sends"
+    },
+    {
+      "label": "edge-edited-caption-human",
+      "status": "ok",
+      "unhandled": true,
+      "sends": [],
+      "llm_delta": 0,
+      "expect": "unhandled, no re-answer"
+    },
+    {
+      "label": "s7-how-to-draw",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "718d8431ccf447f39117065584b8448a",
+      "logs": [
+        "[direct] triggered | chat=-100999000001 user=Harness",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=131072 | mandatory_tokens=5406 | output_reserve=13107 | safety_reserve=14682 | effective_input_budget=24000 | policy_mode=cap | model=deepseek-v4-flash | source=registry | ts=1792599311.89",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5406 | output_reserve=13107 | safety_reserve=14682 | effective_input_budget=97877 | policy_mode=unlimited | model=deepseek-v4-flash | source=verified_registry | ts=1792599311.89",
+        "event=CONTEXT_CAPACITY | model=deepseek-v4-flash | window=131072 | window_source=registry | external_tokens=5406 | output_reserve=13107 | available_context=97877 | budget=24000 | policy_mode=cap | estimation_method=tiktoken | ts=1792599311.892",
+        "event=DECISION_START | run_id=718d8431ccf447f39117065584b8448a | chat_id=-100999000001 | message_id=81165 | ts=1792599311.898",
+        "event=DIRECT_TRIGGER | chat_id=-100999000001 | message_id=81165 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792599311.9",
+        "event=DECISION_COMPLETE | run_id=718d8431ccf447f39117065584b8448a | chat_id=-100999000001 | message_id=81165 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792599311.9",
+        "event=L1_PLAN | run_id=718d8431ccf447f39117065584b8448a | chat_id=-100999000001 | message_id=81165 | action=reply | response_act=answer | extent=normal | tone=warm | bucket=high | inherited=True | fallback= | latency_ms=5640 | input_chars=1136 | confidence=0.82 | source=main | ts=1792599317.549"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000001,
+          "action": "typing"
+        },
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000001,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000001,
+          "message_id": 5001,
+          "text_head": "Кот - это по сути три круга, которые притворяются шедевром. Дальше дело техники.  - Начни с построения: овал под тело, круг поменьше под голову, между ними шея не нужна - коты её не признают. - Разметь морду крестом: вертикаль по центру, го",
+          "text_full": "Кот - это по сути три круга, которые притворяются шедевром. Дальше дело техники.\n\n- Начни с построения: овал под тело, круг поменьше под голову, между ними шея не нужна - коты её не признают.\n- Разметь морду крестом: вертикаль по центру, горизонталь по линии глаз. Треугольники ушей сажай по краям круга, а не на макушке, иначе получится не кот, а Микки Маус.\n- Тело - две дуги: спина выгнутая, живот мягкий. Лапы - четыре колбаски, передние короче задних. Хвост рисуй последним и не жалей длины, он всё равно будет жить своей жизнью.\n- Детали: глаза-миндалинки, нос-треугольник вниз, усы тремя линиями в каждую сторону. Зрачки вертикальные - и вот уже зверь смотрит на тебя с претензией.\n- Обведи контур уверенной линией, построения сотри мягким ластиком. Тени клади под животом и на лапах, иначе кот будет плоским, как его самооценка после неудачного прыжка.\n\nГлавное - не гонись за анатомией. Кот прощает кривые лапы, но не прощает скуки в рисунке.",
+          "text_len": 951,
+          "reply_to": 81165
+        }
+      ],
+      "answer": "Кот - это по сути три круга, которые притворяются шедевром. Дальше дело техники.\n\n- Начни с построения: овал под тело, круг поменьше под голову, между ними шея не нужна - коты её не признают.\n- Разметь морду крестом: вертикаль по центру, горизонталь по линии глаз. Треугольники ушей сажай по краям круга, а не на макушке, иначе получится не кот, а Микки Маус.\n- Тело - две дуги: спина выгнутая, живот мягкий. Лапы - четыре колбаски, передние короче задних. Хвост рисуй последним и не жалей длины, он всё равно будет жить своей жизнью.\n- Детали: глаза-миндалинки, нос-треугольник вниз, усы тремя линиями в каждую сторону. Зрачки вертикальные - и вот уже зверь смотрит на тебя с претензией.\n- Обведи контур уверенной линией, построения сотри мягким ластиком. Тени клади под животом и на лапах, иначе кот будет плоским, как его самооценка после неудачного прыжка.\n\nГлавное - не гонись за анатомией. Кот прощает кривые лапы, но не прощает скуки в рисунке.",
+      "elapsed_s": 13.71,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "ts": 1792599311.9107125,
+          "tools": false
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "ts": 1792599317.551044,
+          "tools": false
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "ts": 1792599324.8091807,
+          "tools": false
+        }
+      ],
+      "embed_calls": [],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "vision_transport_calls": [],
+      "expect": "explanation, 0 image generations, 0 generate_image calls",
+      "assert": {
+        "generations_zero": true,
+        "no_generate_image_tool": true,
+        "no_pregate_block": true,
+        "answered": true,
+        "answer_head": "Кот - это по сути три круга, которые притворяются шедевром. Дальше дело техники.\n\n- Начни с построения: овал под тело, круг поменьше под голову, между ними шея не нужна - коты её не признают.\n- Разметь морду крестом: вертикаль по центру, горизонталь по линии глаз. Треугольники ушей сажай по краям круга, а не на макушке, иначе получится не кот, а Микки Маус.\n- Тело - две дуги: спина выгнутая, живот"
+      }
+    },
+    {
+      "label": "edge-doc-pdf-addressed",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "537d5124b56443acbdb50b1a4fc139d2",
+      "logs": [
+        "[direct] triggered | chat=-100999000001 user=Harness",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=131072 | mandatory_tokens=5568 | output_reserve=13107 | safety_reserve=14661 | effective_input_budget=24000 | policy_mode=cap | model=deepseek-v4-flash | source=registry | ts=1792599325.224",
+        "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5568 | output_reserve=13107 | safety_reserve=14661 | effective_input_budget=97736 | policy_mode=unlimited | model=deepseek-v4-flash | source=verified_registry | ts=1792599325.224",
+        "event=CONTEXT_CAPACITY | model=deepseek-v4-flash | window=131072 | window_source=registry | external_tokens=5568 | output_reserve=13107 | available_context=97736 | budget=24000 | policy_mode=cap | estimation_method=tiktoken | ts=1792599325.225",
+        "event=DECISION_START | run_id=537d5124b56443acbdb50b1a4fc139d2 | chat_id=-100999000001 | message_id=81166 | ts=1792599325.225",
+        "event=DIRECT_TRIGGER | chat_id=-100999000001 | message_id=81166 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792599325.225",
+        "event=DECISION_COMPLETE | run_id=537d5124b56443acbdb50b1a4fc139d2 | chat_id=-100999000001 | message_id=81166 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792599325.225",
+        "event=L1_PLAN | run_id=537d5124b56443acbdb50b1a4fc139d2 | chat_id=-100999000001 | message_id=81166 | action=reply | response_act=clarification | extent=micro | tone=neutral | bucket=high | inherited=True | fallback= | latency_ms=4297 | input_chars=1482 | confidence=0.93 | source=main | ts=1792599329.516"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000001,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000001,
+          "message_id": 5002,
+          "text_head": "Какой файл ты имеешь в виду - ничего не приложено.",
+          "text_full": "Какой файл ты имеешь в виду - ничего не приложено.",
+          "text_len": 50,
+          "reply_to": 81166
+        }
+      ],
+      "answer": "Какой файл ты имеешь в виду - ничего не приложено.",
+      "elapsed_s": 9.35,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "ts": 1792599325.2285585,
+          "tools": false
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "ts": 1792599329.5178487,
+          "tools": false
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "ts": 1792599334.1589108,
+          "tools": false
+        }
+      ],
+      "embed_calls": [],
+      "tool_calls": [],
+      "image_blocks": [],
+      "postgen": [],
+      "vision_transport_calls": [],
+      "expect": "honest answer, no image analysis of non-image document, no generations",
+      "assert": {
+        "generations_zero": true,
+        "no_recognize_image": true,
+        "answered": true,
+        "answer_head": "Какой файл ты имеешь в виду - ничего не приложено."
+      }
+    }
+  ],
+  "budget": {
+    "llm_calls_total": 6,
+    "embed_calls_total": 0,
+    "vision_transport_total": 0,
+    "image_gen_total": 0
+  }
+}

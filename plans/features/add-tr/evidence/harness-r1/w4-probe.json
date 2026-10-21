@@ -1,0 +1,20 @@
+{
+  "results": [
+    {
+      "model": "glm-4v",
+      "usable": false,
+      "error": "LLMAuthError: LLM auth failed (403): https://apinet.cloud/v1/chat/completions | body={\"error\":{\"message\":\"Model glm-4v does not exist, please check the model name f"
+    },
+    {
+      "model": "qwen-vl-ocr",
+      "usable": false,
+      "error": "LLMAuthError: LLM auth failed (403): https://apinet.cloud/v1/chat/completions | body={\"error\":{\"message\":\"Model qwen-vl-ocr does not exist, please check the model n"
+    },
+    {
+      "model": "medgemma-4b-it",
+      "usable": false,
+      "error": "LLMServerError: LLM server error 503 after 3 attempts: https://apinet.cloud/v1/chat/completions"
+    }
+  ],
+  "winner": ""
+}

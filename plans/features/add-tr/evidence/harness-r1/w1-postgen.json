@@ -1,0 +1,197 @@
+{
+  "window": "w1-postgen-on",
+  "budget_prod_defaults": {
+    "postgen_timeout_s": 20,
+    "probe_budget_s": 8
+  },
+  "postgen_on_turn": {
+    "label": "postgen-on-turn",
+    "status": "ok",
+    "error": "",
+    "unhandled": false,
+    "correlation_id": "a189cd5df49545b0b010f104cd199d84",
+    "logs": [
+      "[direct] triggered | chat=-100999000001 user=Harness",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.primary | context_window=131072 | mandatory_tokens=5406 | output_reserve=13107 | safety_reserve=14682 | effective_input_budget=24000 | policy_mode=cap | model=deepseek-v4-flash | source=registry | ts=1792601541.73",
+      "event=AUTO_CONTEXT_BUDGET | slot=direct.fallback | context_window=131072 | mandatory_tokens=5406 | output_reserve=13107 | safety_reserve=14682 | effective_input_budget=97877 | policy_mode=unlimited | model=deepseek-v4-flash | source=verified_registry | ts=1792601541.73",
+      "event=CONTEXT_CAPACITY | model=deepseek-v4-flash | window=131072 | window_source=registry | external_tokens=5406 | output_reserve=13107 | available_context=97877 | budget=24000 | policy_mode=cap | estimation_method=tiktoken | ts=1792601541.731",
+      "event=IMAGE_CONTEXT_RESOLVED | run_id=a189cd5df49545b0b010f104cd199d84 | chat_id=-100999000001 | resolution=none | facts=0 | slice=0 | prompt_chars=39 | latency_ms=0 | ts=1792601541.738",
+      "event=IMAGE_GENERATION_START | run_id=a189cd5df49545b0b010f104cd199d84 | chat_id=-100999000001 | source=direct | prompt_chars=39 | ts=1792601541.738",
+      "[worker_budget] PG down — fail-open reserve=True | scope=chat:-100999000001 metric=image_calls",
+      "[image] generated | mode=post | model=gemini-3.1-flash-image | bytes=334064 | latency_ms=11406",
+      "[image] sent | chat=-100999000001 | bytes=334064 | delivery_failed=False",
+      "event=IMAGE_GENERATION_COMPLETE | run_id=a189cd5df49545b0b010f104cd199d84 | chat_id=-100999000001 | source=direct | duration_ms=11406 | ts=1792601553.142",
+      "[capability] cache invalidated | cap=image_generation | chat=-100999000001 | n=1 | reason=outcome",
+      "mca_event=vision_capability_probe | ts=1792601555 | event_name=vision_capability_probe | outcome=success | level=INFO | stage=dedicated | component=vision.media | model=gemini-2.5-flash-lite | error_json={\"capability\": \"ok\", \"detail\": \"\"}",
+      "[vision] adapt | strategy=original | reason=fits | calls=1 | status=failed | bytes=334064 | pixels=1081344 | ms=8187",
+      "mca_event=vision_adapt | ts=1792601563 | event_name=vision_adapt | outcome=failed | level=WARN | component=vision.media | stage=original | chat_id=-100999000001 | error_json={\"strategy\": \"original\", \"reason\": \"fits\", \"calls\": 1, \"error\": \"\"}",
+      "mca_event=image_postgen_vision | ts=1792601563 | event_name=image_postgen_vision | outcome=failed | level=WARN | component=image_generation | reason_code=parse_error | chat_id=-100999000001",
+      "[vision] postgen | chat=-100999000001 | status=failed | reason=parse_error | detail=- | bytes=334064 | ms=10671",
+      "event=DECISION_START | run_id=a189cd5df49545b0b010f104cd199d84 | chat_id=-100999000001 | message_id=403478 | ts=1792601563.82",
+      "event=DIRECT_TRIGGER | chat_id=-100999000001 | message_id=403478 | trigger_type=force_keyword | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792601563.82",
+      "event=DECISION_COMPLETE | run_id=a189cd5df49545b0b010f104cd199d84 | chat_id=-100999000001 | message_id=403478 | action=reply | reason=force_direct | trigger_type=force_keyword | force_reply_required=True | message_class=explicit_request | duration_ms=0 | ts=1792601563.821",
+      "event=L1_PLAN | run_id=a189cd5df49545b0b010f104cd199d84 | chat_id=-100999000001 | message_id=403478 | action=reply | response_act=answer | extent=micro | tone=inherit | bucket=high | inherited=True | fallback= | latency_ms=6359 | input_chars=1318 | confidence=0.9 | source=main | ts=1792601570.186"
+    ],
+    "sends": [
+      {
+        "kind": "photo",
+        "chat_id": -100999000001,
+        "message_id": 5001,
+        "bytes": 334064,
+        "sha12": "6e0b5b43fe23",
+        "caption_head": "",
+        "reply_to": 403478
+      },
+      {
+        "kind": "chat_action",
+        "chat_id": -100999000001,
+        "action": "typing"
+      },
+      {
+        "kind": "chat_action",
+        "chat_id": -100999000001,
+        "action": "typing"
+      },
+      {
+        "kind": "message",
+        "chat_id": -100999000001,
+        "message_id": 5002,
+        "text_head": "Отправил - иди смотри в чат, там твой красный квадратик.",
+        "text_full": "Отправил - иди смотри в чат, там твой красный квадратик.",
+        "text_len": 56,
+        "reply_to": 403478
+      }
+    ],
+    "answer": "Отправил - иди смотри в чат, там твой красный квадратик.",
+    "elapsed_s": 35.08,
+    "llm_calls": [
+      {
+        "path": "/chat/completions",
+        "model": "deepseek-v4-flash",
+        "ts": 1792601563.8349605,
+        "tools": false
+      },
+      {
+        "path": "/chat/completions",
+        "model": "deepseek-v4-flash",
+        "ts": 1792601570.1880784,
+        "tools": false
+      },
+      {
+        "path": "/chat/completions",
+        "model": "deepseek-v4-flash",
+        "ts": 1792601576.0133405,
+        "tools": false
+      }
+    ],
+    "embed_calls": [],
+    "tool_calls": [],
+    "image_blocks": [
+      {
+        "query": "бот, нарисуй маленький красный квадрат на белом фоне",
+        "block": "<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n<image_analysis status=\"failed\" reason=\"parse_error\"/>\nСодержимое этой картинки распознаванием не подтверждено: не утверждай, что получилось, достаточно короткого подтверждения отправки.\n</image_result>"
+      }
+    ],
+    "postgen": [
+      {
+        "status": "failed",
+        "reason": "parse_error",
+        "detail": "",
+        "visible_reason": "",
+        "has_content": false,
+        "description_len": 0,
+        "description_head": "",
+        "ocr_blocks": 0,
+        "cache_hit": false,
+        "bytes_in": 334064
+      }
+    ],
+    "vision_transport_calls": [
+      {
+        "ts": 1792601553.1507342,
+        "model": "gemini-2.5-flash-lite",
+        "data_url_chars": 4518
+      },
+      {
+        "ts": 1792601555.6245148,
+        "model": "gemini-2.5-flash-lite",
+        "data_url_chars": 445443
+      }
+    ],
+    "assert": {
+      "photo_sent": true,
+      "photo_bytes": 334064,
+      "postgen_count": 1,
+      "postgen_statuses": [
+        "failed"
+      ],
+      "postgen_desc_len": [
+        0
+      ],
+      "postgen_desc_head": "",
+      "block_has_ready_analysis": false,
+      "vision_transport": 2,
+      "answered": true,
+      "answer_head": "Отправил - иди смотри в чат, там твой красный квадратик."
+    }
+  },
+  "dedup_analyze_replay": {
+    "label": "postgen-dedup-analyze-replay",
+    "status": "failed",
+    "cache_hit": true,
+    "description_len": 0,
+    "new_vision_calls": 0
+  },
+  "dedup_cache_state": {
+    "cache_entries": 1,
+    "keys": [
+      "-100999000001:6e0b5b43fe23"
+    ]
+  },
+  "dedup_query_replay": {
+    "label": "postgen-dedup-query-replay",
+    "block_head": "<image_result status=\"ok\" delivery=\"sent\">\nИзображение уже сгенерировано и отправлено в чат. Повторно инструмент generate_image не вызывай.\n\n<image_analysis status=\"failed\" reason=\"parse_error\"/>\nСодержимое этой картинки распознаванием не подтверждено: не утверждай, что получилось, достаточно короткого подтверждения отправки.\n</image_result>",
+    "is_already": false,
+    "new_generations": 1,
+    "new_vision_calls": 1,
+    "new_sends": 1
+  },
+  "heavy_fixture": {
+    "file": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\adtr-harness-r1\\fixture_heavy.png",
+    "width": 960,
+    "height": 2600,
+    "bytes": 1114350,
+    "sha256": "e9fbb33b116b6c41311156e3899d79e0c668669501526343da00eef7442ca33e",
+    "sha12": "e9fbb33b116b",
+    "gt_tokens": [
+      "ZEBRA77",
+      "QUARTZ88",
+      "LOTUS99"
+    ],
+    "title": "HARNESS-R1 HEAVY FRAME P0V",
+    "over_700k": true,
+    "payload_chars_est": 1486056
+  },
+  "heavy_frame": {
+    "label": "p0v-heavy-frame",
+    "normalized": {
+      "bytes": 1114350,
+      "mime": "image/png",
+      "width": 960,
+      "height": 2600
+    },
+    "status": "failed",
+    "reason": "parse_error",
+    "description_len": 0,
+    "description_head": "",
+    "ocr_texts": "",
+    "gt_hits": [],
+    "vision_calls": 1
+  },
+  "budget": {
+    "llm_calls_total": 3,
+    "embed_calls_total": 0,
+    "vision_transport_total": 4,
+    "image_gen_total": 2
+  }
+}

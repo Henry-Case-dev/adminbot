@@ -1,0 +1,28 @@
+{
+ "lane": "ADTR-HARNESS-R1",
+ "date": "2026-10-22",
+ "scenario": "M-ADTR-VERIFY-S4: «бот, что на картинке?» без вложения, целей в чате нет",
+ "provenance": "Офлайн-harness (окно diag_s4, scratch-лог diag_s4d.log), значения переписаны дословно; процесс-local конфиг, реальные provider-вызовы, FakeBot без Telegram",
+ "observed": {
+  "status": "ok",
+  "unhandled": false,
+  "llm_calls": 3,
+  "vision_transport_calls": 0,
+  "tool_calls_image": 0,
+  "sends": 1,
+  "elapsed_s": 9.48,
+  "stages": [
+   "[direct] triggered | chat=-100999000001 user=Harness",
+   "event=DECISION_START | run_id=379a255cd2fc4ca696ee696d03de9c98",
+   "event=DIRECT_TRIGGER | trigger_type=force_keyword | force_reply_required=True | addressed=True",
+   "event=DECISION_COMPLETE | action=reply | reason=force_direct",
+   "event=L1_PLAN | action=reply | response_act=clarification | extent=micro"
+  ],
+  "answer": "Картинки я не вижу - какую именно имеешь в виду?"
+ },
+ "expectation_check": {
+  "clarification_not_fake_recognition": true,
+  "no_recognize_image_call": true,
+  "no_vision_provider_call": true
+ }
+}

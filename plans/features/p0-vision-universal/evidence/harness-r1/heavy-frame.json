@@ -1,0 +1,57 @@
+{
+ "lane": "ADTR-HARNESS-R1",
+ "date": "2026-10-22",
+ "case": "P0V-PIPE-CONTEXT residual: тяжёлый кадр (PNG 960x2600, ~1.11 MB, 3 GT-токена) через штатный inbound-контур validate_or_normalize + analyze_adaptive",
+ "runs": [
+  {
+   "vision_model": "glm-4.5v",
+   "status": "failed",
+   "reason": "parse_error",
+   "vision_calls": 1
+  },
+  {
+   "vision_model": "gemini-2.5-flash-lite",
+   "status": "failed",
+   "reason": "parse_error",
+   "vision_calls": 1,
+   "runs": 2
+  }
+ ],
+ "fixture": {
+  "width": 960,
+  "height": 2600,
+  "bytes": 1114350,
+  "gt_hits": 0
+ },
+ "root_cause_evidence": {
+  "finding": "Модель отвечает КОРРЕКТНЫМ JSON, обёрнутым в markdown-забор `json — строгий parse_analysis_payload (services/mca_vision.py:1437 json.loads) даёт честный parse_error. Не «модель не умеет JSON».",
+  "raw_heads": [
+   {
+    "model": "gemini-2.5-flash",
+    "http": 200,
+    "head": "```json\n{\n  \"ocr_blocks\": [],\n  \"visual_description\": \"Маленький красный квадрат расположен в центре белого фона.\",\n  \"uncertainty\": [],\n  \"self_reported_confidence\": 1.0\n}\n```",
+    "len": 176
+   },
+   {
+    "model": "gemini-flash-latest-nothinking",
+    "http": 403,
+    "head": "",
+    "len": 0
+   },
+   {
+    "model": "gemini-2.5-flash-nothinking",
+    "http": 200,
+    "head": "```json\n{\n  \"ocr_blocks\": [],\n  \"visual_description\": \"A small solid red square centered on a plain white textured background.\",\n  \"uncertainty\": [],\n  \"self_reported_confidence\": 1.0\n}\n```",
+    "len": 189
+   },
+   {
+    "model": "gemini-flash-lite-latest-nothinking",
+    "http": 403,
+    "head": "",
+    "len": 0
+   }
+  ],
+  "note": "Тот же класс отказа, что в ACCEPTANCE-95 §(c) (не-JSON heavy). Фикс на низшем уровне: strip markdown-fence в parse_analysis_payload (3 строки) — вне WRITE_SCOPE лейна ADTR-HARNESS-R1, передан Orchestrator."
+ },
+ "honest_outcome": "ready+GT на тяжёлом кадре офлайн НЕ достигнут; контур ведёт себя честно (терминальный failed, GT 0, без выдумок)"
+}
