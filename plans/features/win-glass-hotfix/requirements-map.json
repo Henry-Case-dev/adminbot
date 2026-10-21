@@ -99,16 +99,16 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "AGENTS.md — §«Режим PET_PROJECT» пп.1,5",
-          "observation": "Стоячее правило проекта: после ревью и техпроверок функции включаются штатным релизом без ожидания разрешений; ручные проверки не блокируют очередь — отдельного гейта владельца на возобновление current_task нет.",
+          "observation": "Стоячее правило проекта: после ревью и техпроверок функции включаются штатным релизом без ожидания разрешений; ручные проверки не блокируют очередь — отдельного гейта владельца на возобновление current_task нет. (хэш артефакта обновлён 22.10: AGENTS.md дополнялся стоячими правилами PET_PROJECT 18.10 — суть пп.1/5 неизменна.)",
           "artifact_path": "AGENTS.md",
-          "artifact_sha256": "d7d8a4451c8d93605eaaa424e3040596658c8beca924593b2c84c3ccc1c635e1"
+          "artifact_sha256": "62d638cc611cfb5d7b75fbda87e43e70531ce3924af42e483c560e4e870d897d"
         },
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "review-wg.md §6 «что дальше»",
-          "observation": "Маршрут после ревью — привязка карты и штатный релиз тем же потоком (пп.1–4), без запроса разрешения у владельца.",
+          "observation": "Маршрут после ревью — привязка карты и штатный релиз тем же потоком (пп.1–4), без запроса разрешения у владельца. (хэш артефакта обновлён 22.10: review-wg.md дополнялся append-only раундами R2–R4 — строгий биндинг-ревью R2 Approved; §6 сохранён.)",
           "artifact_path": "plans/features/win-glass-hotfix/review-wg.md",
-          "artifact_sha256": "94cdfc03325ec49c0c7618d08380fd714ec54ca12e178dce600db7cdb22b6e15"
+          "artifact_sha256": "e1f5cbe32f762f864314d184f6f9320cbad7dc6f260750bfdc3dc2f2ae56ffef"
         }
       ]
     },
@@ -188,7 +188,13 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Нативное окно Telegram Desktop существует только на машине владельца — агенты проверяют лишь headless-браузер; device-наблюдение добровольно по правилу 20.10.2026 и не блокирует приёмку.",
-      "engineering_req_ids": ["WG-VER-01", "WG-WIN-02", "WG-WIN-03", "WG-WIN-05", "WG-P0-05"],
+      "engineering_req_ids": [
+        "WG-VER-01",
+        "WG-WIN-02",
+        "WG-WIN-03",
+        "WG-WIN-05",
+        "WG-P0-05"
+      ],
       "evidence": []
     },
     {
@@ -207,7 +213,11 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Реальный Android WebView с Telegram доступен только владельцу на его устройстве; субъективная оценка видимости рефракции добровольна и не блокирует инженерную приёмку.",
-      "engineering_req_ids": ["WG-VER-02", "WG-ANDROID-02", "WG-ANDROID-03"],
+      "engineering_req_ids": [
+        "WG-VER-02",
+        "WG-ANDROID-02",
+        "WG-ANDROID-03"
+      ],
       "evidence": []
     },
     {
@@ -216,13 +226,13 @@
       "source_text_sha256": "22b0d08a6036c2fb543265c84107c99f5392b9827fd3c946272387c4def3220c",
       "source_excerpt": "Для Windows обязательна проверка геометрии реального Telegram Desktop и доступности панели задач. Дл",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная live-половина на задеплоенных байтах 2.58.85: прод отдаёт 2.58.85 (healthz 200 извне и по loopback; /web/ 15×«2.58.85» / 0×«2.58.84»); сценарий владельца задан (owner-steps §B: версия клиента, симптом и обход §A.1, ⛶-управление, мультимонитор/DPI). Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
       "req_id": "WG-VER-01",
       "slice": "WG-VERIFY",
       "acceptance": "Проверка на реальном Telegram Desktop (Windows) выполнена либо назначена: геометрия окна и доступность панели задач; до результата — PENDING_OWNER_E2E, полный успех не объявляется.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -241,7 +251,7 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Прод-верификация» (извне); evidence/release/postdeploy_http.txt",
-          "observation": "Прод отдаёт 2.58.85: healthz 200 извне и по loopback, /web/ 15×«2.58.85» / 0×«2.58.84». Ждёт owner-наблюдений по owner-steps.md §B: геометрия реального Telegram Desktop (Windows) и доступность панели задач.",
+          "observation": "Прод отдаёт 2.58.85: healthz 200 извне и по loopback, /web/ 15×«2.58.85» / 0×«2.58.84». Ждёт owner-наблюдений по owner-steps.md §B: геометрия реального Telegram Desktop (Windows) и доступность панели задач. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/postdeploy_http.txt",
           "artifact_sha256": "4b4aa7764255c8a620480a3b931aa2d61cfc43df403d3571bf25c9d2e5199d37",
           "type": "production"
@@ -254,13 +264,13 @@
       "source_text_sha256": "22b0d08a6036c2fb543265c84107c99f5392b9827fd3c946272387c4def3220c",
       "source_excerpt": "Для Windows обязательна проверка геометрии реального Telegram Desktop и доступности панели задач. Дл",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная live-половина на задеплоенных байтах 2.58.85: headless Chromium 390×844 на проде — 200, 0 ошибок консоли/страницы, __GlassRefraction/__GlassProbe = object (агентская эмуляция, честно оговорена — не реальный Android WebView). Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
       "req_id": "WG-VER-02",
       "slice": "WG-VERIFY",
       "acceptance": "Визуальное сравнение рефракции выполнено либо назначено на реальном Android WebView (не только Chrome/Playwright); до результата — PENDING_OWNER_E2E.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -279,7 +289,7 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Прод-верификация» (headless 390×844); evidence/release/postdeploy_probe.json",
-          "observation": "Пост-деплой headless Chromium 390×844: 200, 0 ошибок консоли/страницы, __GlassRefraction/__GlassProbe = object (эмуляция, не реальный WebView). Ждёт owner-наблюдений по owner-steps.md §C: визуальное сравнение рефракции на реальном Android WebView.",
+          "observation": "Пост-деплой headless Chromium 390×844: 200, 0 ошибок консоли/страницы, __GlassRefraction/__GlassProbe = object (эмуляция, не реальный WebView). Ждёт owner-наблюдений по owner-steps.md §C: визуальное сравнение рефракции на реальном Android WebView. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/postdeploy_probe.json",
           "artifact_sha256": "57ea388cfbf8988e7959b1c5c71f384cefc3c29b1fa3ca005d5b97fc982dfe95",
           "type": "production"
@@ -389,13 +399,13 @@
       "source_text_sha256": "6ba63d3b7a44fb19cbc6b4ceb28691a6412c7bc66785290d7cf3dee4fe96aef4",
       "source_excerpt": "Использовать существующий workflow, Reviewer и штатный деплой. Не затрагивать SOUL-1, Summary и оста",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто: штатные этапы фактически проведены — независимое ревью Approved (кандидат 0ca661fe, вердикт 8e326403; строгий биндинг-ревью R2 Approved) и штатный деплой 2.58.85 (checkout 95526863, TRACKED_MOD=0, 7/7 хэшей артефактов, healthz 200 версии 2.58.85, 10/10 проб, журнал 0 ERROR, NRestarts=0, rollback-цель 0b7a0aca жива); deployed_commit карты = 95526863 (деплой выполнялся семантическим портом кандидата d637cfe9 на релиз-линию). Release-стадия гейта прогнана 22.10: построчные проверки VERIFIED; честный структурный residual — deployed (95526863) ≠ кандидат-коммит (0ca661fe) по конструкции гейта; стек линзы (glass-refraction.js/fullscreen-policy.js/glass-probe.js) байт-неизменен от 2.58.85 до текущего прода 2.58.107 (проверено diff деревьев 95526863..3a178c6c).",
       "req_id": "WG-P0-05",
       "slice": "WG-VERIFY",
       "acceptance": "Проведены штатные этапы: независимое ревью Reviewer и штатный деплой; артефакты ревью и релиза приложены в evidence.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -414,7 +424,7 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Deploy binding»/§«Прод-верификация»; evidence/release/deploy-run.txt (A–K)",
-          "observation": "Штатный деплой выполнен: релиз-tip 9552686391dfe69dd7cb08ba7cd800a8a6c5106e (ветка release/win-glass-2.58.85), checkout на сервере 95526863 (TRACKED_MOD=0), 7/7 хэшей отданных артефактов == расчётным, healthz 200 версии 2.58.85, 10/10 проб 200, журнал 0 ERROR/CRITICAL/Traceback, NRestarts=0; rollback-цель 0b7a0aca (2.58.84) жива.",
+          "observation": "Штатный деплой выполнен: релиз-tip 9552686391dfe69dd7cb08ba7cd800a8a6c5106e (ветка release/win-glass-2.58.85), checkout на сервере 95526863 (TRACKED_MOD=0), 7/7 хэшей отданных артефактов == расчётным, healthz 200 версии 2.58.85, 10/10 проб 200, журнал 0 ERROR/CRITICAL/Traceback, NRestarts=0; rollback-цель 0b7a0aca (2.58.84) жива. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/deploy-run.txt",
           "artifact_sha256": "ba5c421ee043b709cd8fb728d3c9ce2dab33f218e7ac5f158f9b1c3896231792",
           "type": "production"
@@ -556,13 +566,13 @@
       "source_text_sha256": "d2adba2b5cb688d399ba9b64c6cd186fac2716820f357565dd23eed5efe3eaf0",
       "source_excerpt": "- Добиться запуска на всю доступную рабочую область текущего монитора за исключением панели задач Windows. Поддержать разные разрешения, DPI, масштабирование и несколько мониторов.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная live-половина: ограничение клиента и обход §A.1 задокументированы; e2e 37/37 на релиз-байтах (D_no_window_geometry_hacks: веб-код окно не управляет, window.moveTo/resizeTo отсутствуют); «рабочая область минус панель задач» на реальном Desktop — добровольное наблюдение. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
       "req_id": "WG-WIN-02",
       "slice": "WG-WIN",
       "acceptance": "Окно занимает рабочую область текущего монитора минус панель задач (в т.ч. разные разрешения, DPI, масштабирование, несколько мониторов) — либо доказанное ограничение с рабочим обходом; живое подтверждение владельца — READY_FOR_LIVE/PENDING_OWNER_E2E, полный успех не заявляется.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -581,9 +591,10 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Прод-верификация»; evidence/release/e2e-run.txt; hashes.txt",
-          "observation": "На задеплоенных байтах e2e 37/37 (D_no_window_geometry_hacks: окно веб-кодом не управляется, window.moveTo/resizeTo отсутствуют); хэши отданных файлов == релиз-блобам. Ждёт owner-наблюдений по owner-steps.md §A.1/§B: панель занимает рабочую область монитора минус панель задач.",
+          "observation": "На задеплоенных байтах e2e 37/37 (D_no_window_geometry_hacks: окно веб-кодом не управляется, window.moveTo/resizeTo отсутствуют); хэши отданных файлов == релиз-блобам. Ждёт owner-наблюдений по owner-steps.md §A.1/§B: панель занимает рабочую область монитора минус панель задач. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/e2e-run.txt",
-          "artifact_sha256": "b097fdd423efcf818dc018f7107c56d1eb7ef42f0f1c538cf60f5a80533957c3"
+          "artifact_sha256": "b097fdd423efcf818dc018f7107c56d1eb7ef42f0f1c538cf60f5a80533957c3",
+          "type": "production"
         }
       ]
     },
@@ -593,13 +604,13 @@
       "source_text_sha256": "6018fbc4848051ef89c6fb115ba3ecbc1ee92a3ca03af8d9933c2942e6ec2e25",
       "source_excerpt": "- Сохранить переключение fullscreen/windowed, возможность выхода, закрытия и управления окном.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная live-половина: переключение/выход/закрытие/управление окном — FS-аудит 12 сценариев 166/166 PASS + fullscreen-policy.js байт-в-байт (96db06425079) на релиз-байтах. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
       "req_id": "WG-WIN-03",
       "slice": "WG-WIN",
       "acceptance": "Переключение fullscreen/windowed, выход, закрытие и управление окном работают без регрессий: e2e-наборы зелёные; подтверждение на реальном клиенте — PENDING_OWNER_E2E до проверки владельца.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -618,9 +629,10 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Семантический порт»/§«Прод-верификация»; evidence/release/hashes.txt (fullscreen-policy.js [SAME])",
-          "observation": "fullscreen-policy.js задеплоен байт-в-байт (96db06425079), e2e B_desktop/D на релиз-байтах OK. Ждёт owner-наблюдений по owner-steps.md §B п.4: ⛶ вход/выход, закрытие, перемещение/размер в оконном режиме.",
+          "observation": "fullscreen-policy.js задеплоен байт-в-байт (96db06425079), e2e B_desktop/D на релиз-байтах OK. Ждёт owner-наблюдений по owner-steps.md §B п.4: ⛶ вход/выход, закрытие, перемещение/размер в оконном режиме. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/hashes.txt",
-          "artifact_sha256": "32d752b8d3ef622cc6a975654cf5e1a1f2d6d25a5bf4d3da196d7191f222839c"
+          "artifact_sha256": "32d752b8d3ef622cc6a975654cf5e1a1f2d6d25a5bf4d3da196d7191f222839c",
+          "type": "production"
         }
       ]
     },
@@ -660,13 +672,13 @@
       "source_text_sha256": "bf1862f962bf3c4d666b27e91549d98ced5da8983b07be375894eaa58ba48de6",
       "source_excerpt": "- Если Telegram Desktop технически не позволяет управлять размерами своего окна через MiniApp API, подтвердить ограничение на реальном клиенте и предложить конкретный рабочий обходной вариант. Не заявлять CSS-исправление решением проблемы н",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная половина: ограничение подтверждено источниками и кодом (tdesktop#30963; в Mini Apps API нет функций геометрии окна), конкретный воспроизводимый обход задан (§A.1), заглушек «режим недоступен» нет; подтверждение ограничения на реальном клиенте — добровольное наблюдение. Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
       "req_id": "WG-WIN-05",
       "slice": "WG-WIN",
       "acceptance": "При невозможности управления окном через MiniApp API: ограничение подтверждено на реальном клиенте и дан конкретный воспроизводимый обход (owner-steps.md); запрещены «CSS-исправление» как решение и заглушка «режим недоступен»; живая часть — PENDING_OWNER_E2E.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -685,9 +697,10 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Семантический порт»; evidence/release/e2e-run.txt; deploy-run.txt §F_markers",
-          "observation": "На релиз-линии ограничение SDK не подменено веб-кодом: e2e D 37/37 (window-хак'ов нет), маркеры рефракции на месте (REFRACT_APPJS=6, CSS=4, INDEX=1). Ждёт owner-наблюдений по owner-steps.md: обход §A.1 + чек-лист §B (ограничение на реальном клиенте).",
+          "observation": "На релиз-линии ограничение SDK не подменено веб-кодом: e2e D 37/37 (window-хак'ов нет), маркеры рефракции на месте (REFRACT_APPJS=6, CSS=4, INDEX=1). Ждёт owner-наблюдений по owner-steps.md: обход §A.1 + чек-лист §B (ограничение на реальном клиенте). Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/e2e-run.txt",
-          "artifact_sha256": "b097fdd423efcf818dc018f7107c56d1eb7ef42f0f1c538cf60f5a80533957c3"
+          "artifact_sha256": "b097fdd423efcf818dc018f7107c56d1eb7ef42f0f1c538cf60f5a80533957c3",
+          "type": "production"
         }
       ]
     },
@@ -742,13 +755,13 @@
       "source_text_sha256": "5c6ce04c3828e8a568107348e2ef21953308813c7a0493747cf5b2f82bb4c967",
       "source_excerpt": "- Добиться настоящего видимого преломления фонового полигонального рисунка у края стеклянных поверхностей, аналогично Desktop.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыта инженерная live-половина на релиз-байтах: видимое смещение фоновых пикселей −26/+32 device px (corr 0.92/0.971), центр 0 px, шум-контроль 0 px (эвиденс волны 2.58.85). Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
       "req_id": "WG-ANDROID-02",
       "slice": "WG-ANDROID",
       "acceptance": "Видимое смещение фоновых пикселей полигонального фона у кромки стекла на подтверждённом Tier A (метрика и скриншоты стенда); живое сравнение на реальном WebView — PENDING_OWNER_E2E, без объявления полного успеха.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
@@ -767,9 +780,10 @@
         {
           "candidate_commit": "0ca661fe8109fcecf752ad3e863355a4ec96e4ae",
           "ref": "release-2.58.85-report.md §«Семантический порт» (glass-refraction.js byte-equal)/§«Прод-верификация»; evidence/release/e2e/_results.json",
-          "observation": "Релиз-байты несут тот же слой (glass-refraction.js byte-equal 6a09d962d59d); e2e на релиз-линии 37/37: смещение −26/+32 device px (corr 0.92/0.971), центр 0 px (corr 1.0). Ждёт owner-наблюдений на реальном Android WebView (owner-steps.md §C: видимое смещение у краёв карточек).",
+          "observation": "Релиз-байты несут тот же слой (glass-refraction.js byte-equal 6a09d962d59d); e2e на релиз-линии 37/37: смещение −26/+32 device px (corr 0.92/0.971), центр 0 px (corr 1.0). Ждёт owner-наблюдений на реальном Android WebView (owner-steps.md §C: видимое смещение у краёв карточек). Наблюдение владельца на реальном клиенте — добровольное личное наблюдение (owner_optional-строка), инженерную приёмку не блокирует (правило 18.10.2026/PET_PROJECT §5); полный успех на нативном клиенте не заявляется.",
           "artifact_path": "plans/features/win-glass-hotfix/evidence/release/e2e/_results.json",
-          "artifact_sha256": "d1baba4544c66cd677735d0b7c1da6a6c14f38b1341be3aaff1e11f0a2cd5639"
+          "artifact_sha256": "d1baba4544c66cd677735d0b7c1da6a6c14f38b1341be3aaff1e11f0a2cd5639",
+          "type": "production"
         }
       ]
     },
