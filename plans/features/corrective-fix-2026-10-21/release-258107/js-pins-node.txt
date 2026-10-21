@@ -1,0 +1,9 @@
+REL-258107 js pin-regressions via node (5/5 OK, EXIT=0)
+
+ROUND1025_HOTFIX7-SHELL-GLASS-HEARTBEAT-OK  (tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js)
+ROUND1025_HOTFIX8-SHELL-AURORA-OK          (tests/js/round1025_hotfix8_shell_aurora_test.js)
+ROUND1025_HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK (tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js)
+ROUND1025_HOTFIX10-GLASS-GEOMETRY-BG-OK   (tests/js/round1025_hotfix10_glass_geometry_bg_test.js)
+MINI-LENS-BINDING-OK                      (tests/js/asap8_u084d_mini_lens_binding_test.js, also covered by pytest js-unit)
+
+REL-258107 JS-syntax sweep (node --check over web/ + tests/js/): files=107 bad=0, EXIT 0 (106 baseline was 107; no new .js in the 107 train)

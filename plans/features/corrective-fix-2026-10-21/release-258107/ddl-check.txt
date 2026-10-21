@@ -1,0 +1,18 @@
+REL-258107 delta-DDL-check (brief PKG-107: delta DDL = 0; no migrations in the train)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.106 -> 2.58.107) - expected NONE:
+   PKG-107 train: factcheck FC-R1 (services/factcheck_*.py + temporal_factcheck +
+   search_* + prompts canons + tests) + corrective (direct_l1/direct_chat_service,
+   mca_expression, nostalgia_*, prompt_registry FACTORY_SET c19d35a1c093,
+   prompt_migrations canon ladder) + docs/tests. SQLite schema stays v37.
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in working-tree delta
+   release-delta perimeter files 83012fcf..HEAD: services/prompt_migrations.py
+   [ PASS ] prompt_migrations.py cumulative diff adds no DDL tokens (scanned: CREATE TABLE, ALTER TABLE, user_version, DDL_STATEMENTS, ADD COLUMN; hits: none) - canon-ladder logic only
+   [ PASS ] database.py / chat_migration.py / config_migrations.py untouched in 83012fcf..HEAD
+   => no DevOps migration notice required for this release.

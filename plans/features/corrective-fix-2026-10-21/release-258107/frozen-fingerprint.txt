@@ -1,0 +1,10 @@
+REL-258107 frozen fingerprint
+release-train head (brief PKG-107 / F8-meta stamp): bbcafef53c6e9cbe88a2831f98d725f1aa7278ec
+git HEAD (pre-bump): bbcafef53c6e9cbe88a2831f98d725f1aa7278ec
+release train (brief PKG-107): factcheck FC-R1 97818475+50c825ab (unified retrieval for envelope + semantic queries + evidence-quality + per-claim verdicts + renderer binding; cfg-map rows) + corrective 47522e7b (direct-l1 react/silent criteria + prev-bot context) + 44a4827a (expression isolation of mat, Core/canons clean) + d8bade8d (nostalgia right-of-refusal + semantic scoring) + 4d9fd4be/bbcafef5 (docs); F8-meta HEAD stamp = bbcafef5 = HEAD of the release delta
+factory fingerprint: c19d35a1c093 (NEW constant, corrective wave; brief PKG-107: guard compares against the NEW value)
+post-bump sha256_12:
+  config/settings.py: 2492605ec42e
+  README.md: 5b2a4b48c1a9
+  plans/docs/param-registry-round1025.meta.md: 8a508df1e3f5
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files + evidence).

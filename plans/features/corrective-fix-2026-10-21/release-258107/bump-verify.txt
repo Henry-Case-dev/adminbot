@@ -1,0 +1,5 @@
+REL-258107 bump verify: every changed line differs only by version/HEAD tokens
+HEAD (pre-bump; git): bbcafef53c6e9cbe88a2831f98d725f1aa7278ec
+release train: factcheck FC-R1 97818475+50c825ab (unified retrieval for envelope + semantic queries + evidence-quality + per-claim verdicts + renderer binding; cfg-map rows) + corrective 47522e7b (direct-l1 react/silent criteria + prev-bot context) + 44a4827a (expression isolation of mat, Core/canons clean) + d8bade8d (nostalgia right-of-refusal + semantic scoring) + 4d9fd4be/bbcafef5 (docs); F8-meta HEAD stamp = bbcafef5 = HEAD of the release delta
+files=31 changed-line-pairs=33 (expected 33)
+CHECK OK
