@@ -63,5 +63,7 @@ R17/privacy: в логах только chat_id/message_id; содержимое
 
 - Файлы: `services/direct_chat_service.py` (+122/−2),
   `tests/test_asap8_initreply_binding.py` (новый, 5 тестов).
-- Коммит: см. fix-коммит в истории лейна (хэш в diagnostics-append и
-  workflow_state лейна); НЕ запушен — поезд 2.58.109 после ревью.
+- Коммит: `77985666` — fix(initiative): reply_to_message_id binding for
+  addressed initiative replies; НЕ запушен — поезд 2.58.109 после ревью.
+- Docs-биндинг: append «ФИКС ПРИМЕНЁН @77985666» в
+  `plans/owner-obs-diagnostics-2026-10-21.md` §4.

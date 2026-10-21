@@ -82,6 +82,8 @@
 
 **Вероятная причина отсутствия реализации:** фича адресата доведена до генерации (Writer знает, к кому обращаться), но транспортный хвост (reply-привязка) не был в срезе.
 
+**ФИКС ПРИМЕНЁН @`77985666` (22.10.2026, лейн FIX-INITREPLY, PENDING DEPLOY — поезд 2.58.109 после ревью):** резолвер «адресат → сообщение» (`source_refs` msg:<smart_messages.id> → `smart_messages.tg_message_id`, фолбэк — последний tg_message_id адресата в чате; fail-open, без миграций) + `reply_to_message_id` ТОЛЬКО на первом чанке + защиты (цель старше 24ч → без reply; 400 «message to be replied not found» → ровно один повтор без reply, `_is_reply_target_gone`). Ностальгия/heartbeat без адресата — путь прежний. Тесты `tests/test_asap8_initreply_binding.py` (5 CONTRACT/REGRESSION, моки, 0 provider-вызовов); related сьюты 129p + 58p; гейт asap8 plan EXIT 0. Evidence: `plans/features/asap8-v6-3-live-correction/evidence/initreply-fix/initreply-fix.md`.
+
 ---
 
 ## 5. INITIATIVE TWO CHATS: сравнение за одинаковые последние 48ч
