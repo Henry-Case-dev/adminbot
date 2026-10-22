@@ -1,0 +1,27 @@
+REL-258112 guards — консолидированный журнал (22.10/23.10.2026)
+Интерпретатор: C:\Code\Python\adminbot\.venv\Scripts\python.exe (Python 3.12.0, aiogram 3.31.0).
+Worktree: C:\Code\Python\adminbot-wt258112 (base 924b3b51), версия 2.58.112.
+
+[PASS] offline aggregate ........................ 18/18 PASS, EXIT 0   (bump-offline-check.txt)
+[PASS] bump-verify .............................. files=31 pairs=33 (+33/-33), non-token NONE, CHECK OK (bump-verify.txt)
+[PASS] SET EQUAL vs procedure 111 ............... ref 31 == 31, only-in: none (delta-vs-111.txt)
+[PASS] F8 generator --check ..................... CHECK OK: 582 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны
+[PASS] F8 pins .................................. 29 passed (focused-f8-pins.txt)
+[PASS] pins24 ................................... 868 passed / 0 failed (pins24-full.txt)
+[PASS] help-sync ................................ 24 passed (focused-help-sync.txt)
+[PASS] JS-unit .................................. 39 passed (focused-js-unit.txt)
+[PASS] node pins + mini-lens .................... 5/5 rc=0 (js-pins-node.txt)
+[PASS] JS syntax sweep .......................... 107 files / 0 bad (js-pins-node.txt)
+[PASS] py_compile changed py .................... 25 files / 0 bad (py-compile.txt)
+[PASS] frozen canon pins ........................ 66 passed (frozen-pins.txt)
+[PASS] frozen UI assets ......................... FROZEN-ASSETS-OK (frozen-assets.txt)
+[PASS] write_points single-writer ............... 1 passed, 32 deselected (focused-write-points.txt)
+[PASS] ASAP-2 target set ........................ 155 passed (focused-asap2.txt)
+[PASS] canon adjacent set ....................... 48 passed (focused-canon-adjacent.txt)
+[PASS] Summary target set ....................... 179 passed (focused-summary.txt)
+[PASS] Embed target set ......................... 74 passed (focused-embed.txt)
+[PASS] B11 target set ........................... 24 passed (focused-b11.txt)
+
+Суммарно по прогонам: 1507 passed / 0 failed (наборы пересекаются намеренно).
+Не выполнено в этом лейне (не входит в brief): deploy/restart, push прод-сервера,
+полный repository-wide sweep (blast radius ограничен поездом и целевыми наборами).

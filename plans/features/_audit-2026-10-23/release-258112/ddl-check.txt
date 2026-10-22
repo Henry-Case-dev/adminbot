@@ -1,0 +1,24 @@
+REL-258112 delta-DDL-check (brief: delta DDL = 0)
+
+A) Bump-set DDL perimeter (services/database.py, scripts/, services/chat_migration.py,
+   services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files).
+   Verdict A: delta DDL of the bump package = 0.
+
+B) Release-to-release (2.58.111 -> 2.58.112; origin/master..HEAD = 21 коммит):
+   Добавленные строки py в дельте: 4843.
+   Строки SQLite-DDL среди них (CREATE/ALTER/DROP TABLE|INDEX|UNIQUE|VIEW,
+   ADD COLUMN, user_version=): 0.
+   [PASS] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37).
+   [PASS] services/database.py delta = d3ba845b: SELECT существующего поколения +
+          переиспользование существующего INSERT (идемпотентность fingerprint в
+          scope namespace/index); ни одной DDL-строки, схема не меняется.
+   [PASS] services/chat_prompts.py + services/prompt_migrations.py +
+          services/prompt_registry.py в дельте — это лестница промпт-канонов
+          ASAP-2 (PREV_*_W1 -> asap2, FACTORY_SET 24ae494ac422), НЕ SQLite DDL;
+          user_version не трогается.
+   [PASS] services/chat_migration.py, services/config_migrations.py, scripts/ —
+          в дельте отсутствуют.
+
+Вывод: ΔDDL = 0. Плановый рестарт при деплое нужен для применения промпт-канонов
+(не для DDL).

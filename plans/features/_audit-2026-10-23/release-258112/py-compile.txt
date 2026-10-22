@@ -1,0 +1,2 @@
+py_compile: 25 changed py files / 0 bad
+EXIT=0

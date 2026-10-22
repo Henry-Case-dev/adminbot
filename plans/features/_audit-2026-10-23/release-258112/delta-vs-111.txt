@@ -1,0 +1,6 @@
+SET EQUAL check (ref = release-258111 bump set, git show fbf9013d):
+ref(111) files = 31 (README, settings, F8-meta, 24 py pins, 4 js pins; plans/features/ evidence excluded)
+bump(112) files = 31
+ONLY IN 111: none
+ONLY IN 112: none
+Verdict: bump set SET EQUAL proc-106..111 (31 файл, 33 пары строк).

@@ -1,0 +1,25 @@
+REL-258112 frozen fingerprint / canonical pins
+
+git HEAD (pre-bump, база поезда): 924b3b51d5a5b28cc4e0c65279b8a7acad54982a
+release train (brief): 21 коммит ec359bb3..924b3b51 (ASAP-2 Direct Chat, Summary
+factview/B-1/L2-revision, Embed fallback/rebuild, B11 diagnoses, SOUL-1 fixture).
+origin/master до push: ec359bb3265b46c40081dd60e0654bb8482131e1 (2.58.111 deploy docs).
+Прод/точка отката: fbf9013d89b03e38473ce6824a460fdbb736fff8 (2.58.111).
+
+FACTORY_SET:
+  constant FACTORY_SET_SHA256_12 = 24ae494ac422
+  runtime factory_set_fingerprint() = 24ae494ac422
+  verdict: runtime == constant (PASS).
+  guard: tests/test_expression_isolation_followup.py:135-136 явно пинует 24ae494ac422.
+  history: 258111 froze fd4e88754749 (W1). В этом поезде 5ad73933 (ASAP-2)
+           заменил W1-набор на asap2 -> 24ae494ac422. Bump 112 каноны не меняет;
+           fd4e88754749 остаётся только ссылкой PREV-лестницы на прод-байты 2.58.111.
+
+post-bump sha256_12:
+  config/settings.py: 01537a1a562a
+  README.md: 6c4f36b48fa7
+  plans/docs/param-registry-round1025.meta.md: c086d90b7718
+
+Deploy note: канонная эволюция ASAP-2 уже в поезде; плановый рестарт обязателен -
+он идемпотентно переводит активную конфигурацию с W1-байтов 2.58.111 на asap2
+(лестницы PREV_*_W1 + ROLLBACK_MIGRATIONS, один шаг назад).
