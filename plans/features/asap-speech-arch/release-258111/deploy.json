@@ -1,0 +1,86 @@
+{
+  "schema": "openworkflow-deploy-evidence-v1",
+  "feature": "asap-speech-arch",
+  "train": "REL-258111 (2.58.110 -> 2.58.111, канонная эволюция ASAP-W1)",
+  "release": {
+    "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+    "deployed_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+    "prev_prod_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+    "deploy_source": "git master, prod `git pull --ff-only`",
+    "review": "REV-REL-258111 Approved for controlled deployment (plans/features/asap-speech-arch/release-258111/review-rel.md)",
+    "delta_ddl": 0,
+    "schema_version": 37,
+    "branch_rollback": "release/fix-2.58.110 = a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd (pushed to origin)"
+  },
+  "t0_utc": "2026-10-22T13:01:25Z",
+  "restart": {
+    "planned": true,
+    "at_utc": "2026-10-22T13:14:31Z",
+    "pid": 516119,
+    "nrestarts": 0,
+    "note": "W2-записи (§5.5) выполнены до рестарта; лестница на старте 13:14:52 отработала поверх (идемпотентно для W2-ключей); активный слой+провенанс загружены этим же рестартом"
+  },
+  "health": {
+    "healthz": "{\"status\":\"ok\",\"version\":\"2.58.111\"}",
+    "healthz_http": 200,
+    "journal_crit_traceback_new_process": 0,
+    "journal_db_locked": 0,
+    "note": "1 Traceback при ОСТАНОВКЕ старого процесса 13:14:20 (прерванный APScheduler summary-job, pre-existing) - вне нового процесса"
+  },
+  "canon_ladder_w2": {
+    "factory_set": {"old": "553a281fe2fd", "new": "fd4e88754749", "runtime_fingerprint": "fd4e88754749", "constant": "fd4e88754749"},
+    "ladder_log_131452": {
+      "updated": ["prompts.direct_l1_planner_system_prompt (ace6246bd360 -> f8ab20121c02)"],
+      "already_new": ["prompts.direct_chat_system_prompt", "prompts.direct_chat_verbalizer_system_prompt", "prompts.summary_narrator_system_prompt", "prompts.compress_system_prompt", "prompts.factcheck_analyst_system_prompt", "prompts.summary_l1_clusterizer_system_prompt"],
+      "custom_skipped": ["prompts.summary_system_prompt 3558c", "prompts.checkup_system_prompt 2312c", "prompts.factcheck_system_prompt 4666c", "prompts.search_system_prompt 2622c", "prompts.youtube_system_prompt 2252c", "prompts.youtube_video_system_prompt 2248c", "prompts.webpage_system_prompt 2071c", "prompts.summary_editor_system_prompt 2023c", "prompts.factcheck_verbalizer_system_prompt 1712c", "prompts.summary_l2_writer_system_prompt 8388c"]
+    },
+    "rows": [
+      {"block_id": "core.personality", "factory_old_sha12": "d98e72ec7926", "factory_new_sha12": "2ab417d11404", "active_old_sha12": "f59ba0f42a48", "active_new_sha12": "3de4884f29ce", "active_old_chars": 2327, "active_new_chars": 1995, "scope": "global", "provenance": "owner_edit persisted via write_speech_value + history", "runtime_payload_sha12": "3de4884f29ce", "result": "owner_preserve_core_full_patch: удалена ровно 1 служебная ремарка «**Важно:**…см. SOUL-16» (фабричные байты); owner_bytes_preserved=true (независимая реконструкция)"},
+      {"block_id": "core.personality.compact", "factory_old_sha12": "e0529832ba7c", "factory_new_sha12": "9e6a4ec8b1ea", "active_old_sha12": "(пусто)", "active_new_sha12": "(пусто)", "scope": "global", "provenance": "-", "runtime_payload_sha12": "9e6a4ec8b1ea", "result": "поле пустое -> действует фабрика §3.3"},
+      {"block_id": "direct.base.l2_writer", "factory_old_sha12": "d0ef0d376fc3", "factory_new_sha12": "be03964322aa", "active_old_sha12": "091115cadc28", "active_new_sha12": "be03964322aa", "active_old_chars": 1676, "active_new_chars": 1982, "scope": "global", "provenance": "owner_edit persisted via write_speech_value + history", "runtime_payload_sha12": "be03964322aa", "result": "W2 §5.5: unprovenanced-кастом погашен на фабрику §3.1, прежние байты -> history"},
+      {"block_id": "direct.base.tool_phase", "factory_old_sha12": "0fe9680ba280", "factory_new_sha12": "f30c6d73da82", "active_old_sha12": "cf404931f84c", "active_new_sha12": "f30c6d73da82", "active_old_chars": 5294, "active_new_chars": 4999, "scope": "global", "provenance": "owner_edit persisted via write_speech_value + history", "runtime_payload_sha12": "f30c6d73da82", "result": "W2 §5.5: кастом погашен на фабрику §3.6"},
+      {"block_id": "summary.base.narrator", "factory_old_sha12": "f02b6ca755a4", "factory_new_sha12": "5086ba935081", "active_old_sha12": "43160d5f9c2c", "active_new_sha12": "5086ba935081", "active_old_chars": 1850, "active_new_chars": 1788, "scope": "global", "provenance": "owner_edit persisted via write_speech_value + history", "runtime_payload_sha12": "5086ba935081", "result": "W2 §5.5: кастом погашен на LEGFIX-канон"},
+      {"block_id": "direct.base.l1_planner", "factory_old_sha12": "ace6246bd360", "factory_new_sha12": "f8ab20121c02", "active_old_sha12": "ace6246bd360", "active_new_sha12": "f8ab20121c02", "active_old_chars": 4264, "active_new_chars": 4641, "scope": "global", "provenance": "prompts-лестница (known canon)", "runtime_payload_sha12": "f8ab20121c02", "result": "ступень на старте 13:14:52 «канон обновлён»"},
+      {"block_id": "factcheck.base.verbalizer", "factory_old_sha12": "c9b0f431e849", "factory_new_sha12": "c090b6956c70", "active_old_sha12": "5fbf61cea310", "active_new_sha12": "5fbf61cea310", "active_old_chars": 1712, "active_new_chars": 1712, "scope": "global", "provenance": "нет (кастом владельца)", "runtime_payload_sha12": "83b4fb75500f", "result": "лестница честно skip; ВНЕ скоупа W2 §5.5 (W3-freeze класс); LLM играет cleaned-фабрику (withheld); см. находки"}
+    ]
+  },
+  "verification": {
+    "final_select": "FINAL_VERIFY_OK 14/14 (11 ключей + core full/compact + fingerprint)",
+    "runtime_layer": "l2_writer/tool_phase/narrator attested (payload==value, withheld=False); l1_planner known canon",
+    "owner_customs_intact": "CFG07A 6/6 байт-в-байт (summary d697b0745b29, checkup 1e8a3c69cf7b, search ba43fb679db6, youtube e0a1ffaf18a1, youtube_video c8bba06ec6a8, webpage 7801085b6ef5); 7-й (tool_phase) погашен W2 по §5.5",
+    "per_chat_overrides": "-1002661910336: 26 override == снимок; -1004482340693: 3 == снимок (expression frequent/sharp/wit, summary-кастом, mode-блоки не тронуты)",
+    "blob_sha256_vs_candidate": {
+      "services/chat_prompts.py": "4baf5e8366884de85e3184ea9d910910335075f39e4608a4c26df6c953ea6506",
+      "services/factcheck_prompts.py": "55de1c5d36eedc0d0fbf15cc88ef1745be2a813db30359b7f4905215bb045e5f",
+      "services/mca_expression.py": "84961aa87e61bdb4f4f687ec57c21dd50ea5025137d953648264527702c37cb5",
+      "services/param_catalog.py": "7e9c254430b0a95f896bf340bf8e1a865501631650ac1c8ec5c0d0eba0607887",
+      "services/prompt_migrations.py": "fa8213b187d7fe617407e84c1d5ce5d98afc5c06cf69aeb69ff6967e7cb6d3fe",
+      "services/prompt_registry.py": "bd812a79a4fd00b4297ace55bec57cda698a93a4bb1f889a8a856c1cb79547c0",
+      "services/summary_prompts.py": "512b16d93ffd6f997de79e40e686a45a87c624b1a2a888d19f37734e7254946b",
+      "web/app.py": "b5f1421fc70ad5a4567738bfc38ed08b719507a7e48da7c96229166e1e6cdfe8",
+      "web/static/app.css": "4d26a612b64b139c1be30f297ff3f9a94ba2419d7d22b608d4449e405bb61b30",
+      "verdict": "9/9 == candidate fbf9013d"
+    },
+    "p0a_live": "verbalizer PG == фабрика §3.1 be03964322aa attested; кастом 091115cadc28 -> history",
+    "p0b_live": "core rev6 f59ba0f42a48 -> 3de4884f29ce (только SOUL-16-ремарка снята, owner_bytes_preserved=true), провенанс owner_edit + history"
+  },
+  "bindings": {
+    "asap-speech-arch": {"deployed_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8", "postdeploy_evidence_added": ["REQ-P0A", "REQ-P0B"]},
+    "asap8-v6-3-live-correction": {"deployed_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd -> fbf9013d89b03e38473ce6824a460fdbb736fff8"}
+  },
+  "release_gate": {
+    "command": "py -3 %USERPROFILE%\\.config\\opencode\\tools\\requirements_gate.py check --map plans/features/asap-speech-arch/requirements-map.json --stage release --candidate fbf9013d --deployed-commit fbf9013d",
+    "exit_code": 1,
+    "inventory": {"total": 120, "verified": 16, "pending": 104, "errors": 145},
+    "interpretation": "EXIT!=0 корректен: эпик открыт. Классы ошибок: (1) 104 PENDING-строки эпика (INSPECTOR/UI/MIGR/TESTS/INIT-LIVE) - обязательные волны W2/W3, не поломка поезда; review-rel явно разрешил controlled deploy при открытом эпике; (2) evidence W1-слайсов P0-C..G привязан к кандидату W1-лейна 0f3ed53a, а гейт требует биндинг на релизного кандидата fbf9013d - перебиндинг выполняется при закрытии W2-волны Reviewer. Паблик-поведение поезда верифицировано постдеплой-пробами (deploy.md).",
+    "pending_live_required": ["REQ-PROOF-EFFECT (INIT-LIVE, postdeploy): применение эффективных model-facing инструкций на фактических ответах реального чата - W3, требует живых проб; ноль сообщений в реальные чаты без отдельной авторизации владельца"],
+    "full_output": "OPENCODE_WORKFLOW_SCRATCH/rel-258111/gate_release_out.txt"
+  },
+  "findings": [
+    {"id": "FIND-1-factcheck-verbalizer", "severity": "medium", "area": "speech/factcheck", "text": "Активное значение prompts.factcheck_verbalizer_system_prompt = 5fbf61cea310/1712c - подлинный кастом без провенанса, НЕ равен ожидаемому прежнему канону c9b0f431e849/1725c (допущение review-rel расходится с фактом PG). Лестница честно skip; LLM играет cleaned-фабрику. Решение владельца в W2-волне: гасить на c090b6956c70 с провенансом или осознанно оставить."},
+    {"id": "FIND-2-summary-degraded", "severity": "medium", "area": "summary", "text": "Прогон 18:00+05 чата -1002661910336 (13:00-13:14 UTC, ещё 2.58.110): SUMMARY_COMPLETE status=ok но health=degraded, coverage=0.0, source_considered=0; фолбэк-тик бросил Traceback при остановке процесса. Pre-existing, домен summary - маршрутизировать в summary-лейн."}
+  ],
+  "ssh": {"logins": 5, "pattern": "recon 15s -> пауза 95с -> основной прогон -> recovery -> diag -> final; одиночный nik, без поллеров; fail2ban не спровоцирован"},
+  "rollback": {"branch": "release/fix-2.58.110 (origin)", "canons": "ROLLBACK_MIGRATIONS байт-в-байт на прод-каноны 2.58.110, стек ступеней цел; W2-значения в history (character.prompt_history)", "core_owner_edit": "3de4884f29ce -> history хранит f59ba0f42a48"},
+  "result": "DEPLOYED+W2 VERIFIED; эпик asap-speech-arch остаётся открытым (W2-волна закрытия строк Reviewer'ом + W3 живые пробы)"
+}
