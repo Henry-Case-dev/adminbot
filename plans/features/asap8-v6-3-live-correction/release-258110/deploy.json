@@ -1,0 +1,168 @@
+{
+  "schema": "adminbot-deploy-evidence-v1",
+  "train": "2.58.110",
+  "lane": "DEVOPS-DEPLOY-258110",
+  "release_review": "REV-REL-258110 Approved (release-258110/review-rel.md)",
+  "candidate_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+  "deployed_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+  "deploy_source": "origin/master @ a8d2a45a (pushed before deploy); server: git fetch + git checkout -B master origin/master",
+  "server_head_confirmed": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+  "server_tracked_modifications": 0,
+  "rollback_branch": {
+    "name": "release/fix-2.58.109",
+    "sha": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+    "pushed": true,
+    "server_rb_ref_confirmed": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+    "procedure": "git -C /var/www/admin_bot checkout -f a1d8bd6297d11ef37e4445f370916f3ffb768f98 && sudo systemctl restart admin_bot",
+    "ddl_revert_needed": false,
+    "canon_note": "код-откат оставит PG L1-канон на новых байтах (ace6246bd360...) — старый код сочтёт кастомом (НЕ трогаем), деградация functional-only (delivery-поля игнорируются старым нормализатором); полный канон-откат = вручную вернуть PREV_1022 байты (см. review-rel.md, неблокирующее замечание 1)"
+  },
+  "predeploy": {
+    "recon_utc": "2026-10-22T07:24:05Z",
+    "old_head": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+    "old_version": "2.58.109",
+    "old_pid": 434185,
+    "old_nrestarts": 0,
+    "disk_free": "7.2G / 24G (68% used)"
+  },
+  "t0_epoch": 1792653980,
+  "t0_utc": "2026-10-22T07:26:20Z",
+  "restarts": 1,
+  "postdeploy": {
+    "main_pid": 447331,
+    "nrestarts": 0,
+    "active_state": "active",
+    "sub_state": "running",
+    "exec_main_start": "Thu 2026-10-22 07:26:29 UTC",
+    "exec_main_status": 0,
+    "healthz_loopback": "200 {\"status\":\"ok\",\"version\":\"2.58.110\"}",
+    "healthz_external_443": "200 {\"status\":\"ok\",\"version\":\"2.58.110\"} (https://admin-bot.duckdns.org)",
+    "final_check_utc": "2026-10-22T07:32:16Z"
+  },
+  "delta": {
+    "total_files": 108,
+    "runtime_set": [
+      "config/settings.py",
+      "services/chat_prompts.py",
+      "services/direct_chat_service.py",
+      "services/direct_l1.py",
+      "services/initiative_observer.py",
+      "services/prompt_migrations.py",
+      "services/prompt_registry.py"
+    ],
+    "delta_ddl": 0,
+    "delta_other_nonstd": 0,
+    "migrations": "prompt_migration 16 lines, 0 errors: 1x 'канон обновлён' (prompts.direct_l1_planner_system_prompt) + 12x 'кастом юзера — НЕ трогаем' + 3x 'уже новый канон'; schema v37 unchanged"
+  },
+  "byte_checks": {
+    "raw_sha256_12": {
+      "config/settings.py": "7595eed634c5",
+      "services/chat_prompts.py": "f19c6e9c731b",
+      "services/direct_chat_service.py": "c992071e0aa8",
+      "services/direct_l1.py": "5617571078a2",
+      "services/initiative_observer.py": "cd85479553a9",
+      "services/prompt_migrations.py": "4ba3e6ad08ac",
+      "services/prompt_registry.py": "0deee316c723",
+      "README.md": "138dddf5106f",
+      "services/database.py": "b7fdd7615a52 (control, unchanged -> dDDL=0)"
+    },
+    "git_blob_sha1_12": {
+      "config/settings.py": "7f244979107e",
+      "services/chat_prompts.py": "44c0a4be3174",
+      "services/direct_chat_service.py": "09adae4b8db3",
+      "services/direct_l1.py": "3b1fa6d7064a",
+      "services/initiative_observer.py": "aaec164d9ec9",
+      "services/prompt_migrations.py": "97ff08fc8255",
+      "services/prompt_registry.py": "02a505f77325"
+    },
+    "final_recheck_separate_session": {
+      "utc": "2026-10-22T07:32:16Z",
+      "sha_7runtime": "все 7 == кандидату",
+      "blob_6services": "все 6 == кандидату",
+      "l1d_react_exec_markers": 3,
+      "routes": "/healthz 200, /web/ 200; served index v=2.58.110 x15"
+    }
+  },
+  "markers": {
+    "app_version_258110": 1,
+    "f8_meta_head_7a358c2c": 1,
+    "factory_set_sha256_12_3507bd6f92eb_in_prompt_registry": 2,
+    "prev_direct_l1_planner_1022_chat_prompts": 2,
+    "prev_direct_l1_planner_1022_prompt_migrations": 3,
+    "execute_initiative_react": 3
+  },
+  "canon_ladder_L1D": {
+    "expected_fingerprint": "3507bd6f92eb",
+    "journal_boot_line": "07:26:44 UTC [prompt_migration] канон обновлён | key=prompts.direct_l1_planner_system_prompt",
+    "custom_keep_lines": "12 (все 7 целевых CFG07A-ключей среди них; ещё 5 — кастомы прежних раундов)",
+    "fingerprint_probe": {
+      "constant": "3507bd6f92eb",
+      "computed": "3507bd6f92eb",
+      "match": true,
+      "utc": "2026-10-22T07:32:16Z"
+    },
+    "prev_1022_frozen_bytes": "sha256_16 5fdc90b3f1143abe / 3022 chars (intact)",
+    "new_canon_code": "sha256_16 ace6246bd3603fd0 / 4264 chars; markers delivery/target_* + правила 2-3 (react/silent) целы",
+    "pg_value_after_boot": {
+      "probe": "SELECT bot_settings value, read-only",
+      "sha256_16": "ace6246bd3603fd0",
+      "len": 4264,
+      "pg_eq_new_canon": true,
+      "len_moved_3022_to_new": true,
+      "markers_delivery": true,
+      "rules23_intact": true
+    },
+    "custom_keys_owner": {
+      "baseline": "замер 2.58.101 (cfg-07a F1), подтверждён live 2.58.107",
+      "result": "7/7 EQ_BASELINE (sha256_12+len совпали) — байты владельца не тронуты"
+    }
+  },
+  "journal": {
+    "source": "journalctl -u admin_bot --since @1792653980",
+    "raw": "OPENCODE_WORKFLOW_SCRATCH/deploy-258110/journal110-since-T0.raw (main window, 215 lines, 0 CRIT/0 TB/0 ERR) + journal110-tb.txt (traceback block)",
+    "critical": 0,
+    "error": 0,
+    "traceback": 1,
+    "traceback_classification": "handled Telegram API rejection в живом L1D-реакт-потоке 07:28:12 UTC: TelegramBadRequest REACTION_INVALID на set_message_reaction(💀); fail-soft WARNING 'SmartModule: moai reaction failed | code=unavailable reason=l1_react' + REACTION_SENT outcome=unavailable; процесс не падал (NRestarts=0, последующие job'ы успешно). Не дефект деплоя: цепочка L1D отработала штатно, отклонено Telegram-стороне (эмодзи недопустим в этом чате).",
+    "runtime_warn": 0,
+    "prompt_migration": "16 lines, 0 errors (см. canon_ladder_L1D)",
+    "boot": "graceful: stop PID 434185 -> start 07:26:29 UTC PID 447331; healthz 2.58.110 на 7-м poll (~07:26:49); initiative observer job registered/works (_tick_initiative_observer в журнале)"
+  },
+  "postdeploy_feature_status": {
+    "feature": "INITREPLY-L1D (форма участия решается L1-планером, транспорт исполняет решение)",
+    "live_observation": "ПЕРВОЕ живое решение в окне деплоя: 07:28:11 UTC реальное сообщение владельца (chat -100...693, msg 3472, trigger reply_to_bot) -> L1_PLAN {action=react, response_act=banter, extent=one_word, tone=playful, confidence=0.7} -> DIRECT_REACT 💀 source=l1_planner -> [decision] action=react reason=l1_react -> исполнение; Telegram отклонил эмодзи (REACTION_INVALID) -> outcome=unavailable зафиксирован. Цепочка решение->транспорт работает live; нюанс валидности эмодзи — наблюдение (см. incidents).",
+    "not_yet_observed": "живой случай delivery=reply (ответ в цепочку) в окно деплоя не поступал — 48ч телеметрия L1_PLAN (распределение форм), НЕ гейт",
+    "no_messages_sent_by_deploy": true
+  },
+  "ssh_connections": {
+    "count": 5,
+    "discipline": "single login nik, spacing >=100s (recon 07:24:05Z -> main 07:26:13Z -> final 07:29:30Z -> final-fix 07:32:16Z -> journal 07:34:2xZ), no pollers/retries; HTTP/443 probes from local machine, unlimited by policy. final (07:29:30) — байтовые сверки OK, но SFTP-пробы не запустились (порядок rm в скрипте); исправлено в отдельном read-only коннекте 07:32:16.",
+    "log": [
+      "recon (read-only) 07:24:05Z",
+      "main deploy 07:26:13Z - fetch, gates, checkout, T0, restart, health poll, served probes, journal",
+      "final (read-only) 07:29:30Z - bytes/service OK, probes upload misordered",
+      "final-fix (read-only) 07:32:16Z - probes fingerprint/L1-PG/custom-keys OK",
+      "journal traceback fetch (read-only) 07:34:2xZ"
+    ]
+  },
+  "incidents": [
+    {
+      "id": "INC-258110-REACTION-INVALID",
+      "severity": "low",
+      "area": "L1D react path / smartmodule_utils.react_moai",
+      "evidence": "journal 07:28:11-07:28:12 UTC (journal110-tb.txt): L1_PLAN action=react reaction=💀 -> TelegramBadRequest REACTION_INVALID -> fail-soft outcome=unavailable",
+      "immediate_risk": "нет (fail-soft, процесс жив); продуктовый нюанс: планер может выбрать эмодзи, недопустимый в конкретном чате — кандидат в 48ч телеметрию L1_PLAN/форм; не блокирует релиз",
+      "action": "зафиксировано в deploy evidence; маршрут @Orchestrator как наблюдение телеметрии"
+    }
+  ],
+  "gate": {
+    "command": "requirements_gate.py check --map plans/features/asap8-v6-3-live-correction/requirements-map.json --stage release --candidate a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd --deployed-commit a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+    "exit_code": 1,
+    "output": "release-258110/release-gate.txt",
+    "note": "legacy openworkflow-coverage-v1 map; известный класс (release-25883/258105/258109): строки привязаны к историческим кандидатам волн, re-биндинг запрещён review-tailbind; map candidate_commit остаётся d87284c1 (ревью-биндинг INITREPLY-L1D slice, gate EXIT 0 в REV-REL-258110) -> ожидаемый mismatch на train-кандидате задокументирован честно; deployed_commit карты обновлён на a8d2a45a"
+  },
+  "map_binding": {
+    "deployed_commit_updated": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd"
+  },
+  "result": "VERIFIED"
+}

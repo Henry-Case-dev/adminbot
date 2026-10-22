@@ -3,7 +3,7 @@
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\source-lines-37423-EOF.md",
  "source_sha256": "d0b4f611ac5eff7d228a1d2a2d1e283f04b26625f2dac89ab5ad1145f10e686d",
  "candidate_commit": "d87284c1dba663aab8b3191a3d0db19ae78fd6c8",
- "deployed_commit": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+ "deployed_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
  "additional_requirements": [
   {
    "source_id": "M-L00014-OWNEROBS",
