@@ -94,6 +94,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
+    PREV_SUMMARY_NARRATOR_LEGFIX,
     PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
     PREV_SUMMARY_SYSTEM_PROMPT,
     PREV_SUMMARY_SYSTEM_R1028,
@@ -281,9 +282,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_SUMMARY_L2_WRITER_R1029_ASAP41, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
     # 10.28 (ASAP-2.1, контракт (g)/§25): ступени Рассказчика — шиза выбирает
     # модель (строка опциональна); прежние каноны R1023/R1028 ведут на новый.
+    # LEGFIX (22.10.2026, закрытие backlog «narrator-канон identity-фраза»,
+    # bindings.cfg-final §6): прод-канон ДО снятия identity-фразы (класс
+    # SF-07) ведёт на новый канон.
     "prompts.summary_narrator_system_prompt": [
         (PREV_SUMMARY_NARRATOR_R1023, SUMMARY_NARRATOR_SYSTEM_PROMPT),
-        (PREV_SUMMARY_NARRATOR_R1028, SUMMARY_NARRATOR_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_NARRATOR_R1028, SUMMARY_NARRATOR_SYSTEM_PROMPT),
+        (PREV_SUMMARY_NARRATOR_LEGFIX, SUMMARY_NARRATOR_SYSTEM_PROMPT)],
 }
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
@@ -371,8 +376,11 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
         (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1029_ASAP41),
     # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
     # §25); ключ в PG не удаляется.
+    # LEGFIX (22.10.2026): откат снимает ТОЛЬКО ступень LEGFIX — на
+    # непосредственный прежний канон (слепок PREV_SUMMARY_NARRATOR_LEGFIX);
+    # стек ступеней цел (ADR-1013-3).
     "prompts.summary_narrator_system_prompt":
-        (SUMMARY_NARRATOR_SYSTEM_PROMPT, PREV_SUMMARY_NARRATOR_R1028),
+        (SUMMARY_NARRATOR_SYSTEM_PROMPT, PREV_SUMMARY_NARRATOR_LEGFIX),
 }
 
 

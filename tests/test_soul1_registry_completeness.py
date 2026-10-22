@@ -106,11 +106,15 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
     CFG-07A-2 (20.10.2026, ADR-1013-3): фабрики 6 канонов НЕ-фактчек
     маршрутов вычищены (маркеров нет, подавление на них no-op) — прежние
     байты живут в ступенях PREV_*_CFG07A; фактчек (фриз W3), Direct
-    (identity вне скоупа), Рассказчик и deep_research маркеры сохраняют."""
+    (identity вне скоупа) и deep_research маркеры сохраняют.
+    LEGFIX (22.10.2026, backlog «narrator-канон identity-фраза»,
+    bindings.cfg-final §6): фабрика Рассказчика вычищена тем же классом
+    (SF-07) — прежние байты в ступени PREV_SUMMARY_NARRATOR_LEGFIX."""
     legacy = {b.block_id: b for b in pr.legacy_persona_blocks()}
     cleaned_factories = {
         "summary.base.single", "search.base.system", "checkup.base.system",
         "youtube.base.system", "youtube.base.video", "web.base.system",
+        "summary.base.narrator",
     }
     for block_id in (
             "direct.base.tool_phase", "direct.base.l2_writer",

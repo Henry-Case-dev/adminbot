@@ -134,7 +134,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # (safety-bypass/identity/hostility; ADR-1013-3) — метки бампнуты.
     "summary.base.single": "summary-cfg07a",
     "summary.base.editor": "summary-editor-r1025-hotfix4",
-    "summary.base.narrator": "summary-narrator-r1028",
+    "summary.base.narrator": "summary-narrator-legfix",
     "summary.base.l1_clusterizer": "summary-l1-clusterizer-asap41",
     "summary.base.l2_writer": "summary-l2-writer-asap41",
     "summary.cover.style": "cover-style-default",
@@ -1573,7 +1573,18 @@ def factory_set_fingerprint() -> str:
 #: Сверка карт фабричных текстов: changed = 1 (direct.base.l1_planner).
 #: Было ``c19d35a1c093``, стало ``3507bd6f92eb``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "3507bd6f92eb"
+#: LEGFIX-бамп (22.10.2026, закрытие backlog «narrator-канон
+#: identity-фраза», bindings.cfg-final §6): канон Рассказчика
+#: (``summary.base.narrator``) лишился identity-предложения «Ты —
+#: токсичный … бот-абьюзер … завсегдатай двача» (класс SF-07 корпуса 07A-2;
+#: голос задаёт Core — UNIFIED-CORE P0). Жанровые правила канона (сарказм,
+#: plain-text, {max_symbols}) не менялись. Прежние байты —
+#: PREV_SUMMARY_NARRATOR_LEGFIX (ступень лестницы prompt_migrations,
+#: откат → непосредственный прежний канон). Метка ревизии блока бампнута
+#: (summary-narrator-legfix). Сверка карт фабричных текстов: changed = 1
+#: (summary.base.narrator). Было ``3507bd6f92eb``, стало ``553a281fe2fd``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "553a281fe2fd"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

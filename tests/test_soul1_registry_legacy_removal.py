@@ -66,6 +66,10 @@ _PERSISTED_BYTES: dict[str, str] = {
     "direct.base.tool_phase": chat_prompts.PREV_CHAT_CFG07A_SYSTEM_PROMPT,
     "checkup.base.system": checkup_prompts.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     "summary.base.single": summary_prompts.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
+    # LEGFIX (22.10.2026, backlog «narrator-канон identity-фраза»): фабрика
+    # Рассказчика вычищена (класс SF-07) — контракт подавления проверяется
+    # на прежних прод-байтах (ступень PREV_SUMMARY_NARRATOR_LEGFIX).
+    "summary.base.narrator": summary_prompts.PREV_SUMMARY_NARRATOR_LEGFIX,
     "search.base.system": search_prompts.PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     "web.base.system": web_prompts.PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     "youtube.base.system": youtube_prompts.PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,

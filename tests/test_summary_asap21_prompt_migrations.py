@@ -43,6 +43,8 @@ _CANON_CASES = [
      lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT),
     (_NARR, "narr_r1023", lambda: sp.PREV_SUMMARY_NARRATOR_R1023,
      lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT),
+    (_NARR, "narr_legfix", lambda: sp.PREV_SUMMARY_NARRATOR_LEGFIX,
+     lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT),
     (_SYS, "sys_r1028", lambda: sp.PREV_SUMMARY_SYSTEM_R1028,
      lambda: sp.SYSTEM_PROMPT),
     (_SYS, "sys_r1021", lambda: sp.PREV_R1021_SUMMARY_SYSTEM_PROMPT,
@@ -58,7 +60,9 @@ _ROLLBACK_CASES = [
     (_L2, "l2", lambda: sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT,
      lambda: sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41),
     (_NARR, "narr", lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT,
-     lambda: sp.PREV_SUMMARY_NARRATOR_R1028),
+     # LEGFIX (22.10.2026): откат — на непосредственный прежний канон
+     # (слепок ДО снятия identity-фразы; снимается только ступень LEGFIX).
+     lambda: sp.PREV_SUMMARY_NARRATOR_LEGFIX),
     (_SYS, "sys", lambda: sp.SYSTEM_PROMPT,
      # CFG-07A-2 (ADR-1013-3): откат — на НЕПОСРЕДСТВЕННО прежний
      # прод-канон 2.58.100 (снимается только ступень CFG-07A).
@@ -187,6 +191,28 @@ def test_new_narrator_canon_model_choice():
     assert "твоё творческое решение" in canon
     # Прежнее «приписку добавит код» снято — код больше не дописывает.
     assert "добавит код" not in canon
+
+
+def test_narrator_canon_has_no_identity_legacy():
+    """LEGFIX (REGRESSION, 22.10.2026, backlog «narrator-канон identity-фраза»,
+    bindings.cfg-final §6): активный канон Рассказчика не несёт
+    identity-фразы старой личности (класс SF-07 корпуса 07A-2); жанровые
+    контракты сохранены. TEST-LIFECYCLE: REGRESSION owner=FIX-SMALL-DEFECTS/narrator
+    """
+    canon = sp.SUMMARY_NARRATOR_SYSTEM_PROMPT
+    for marker in ("бот-абьюзер", "двач", "токсичн"):
+        assert marker not in canon.lower(), marker
+    # Маркер-гейт реестра (persona.identity_sentence-семейство) молчит.
+    from services.prompt_registry import legacy_persona_present
+    assert legacy_persona_present(canon) is False
+    # Жанровые контракты не потеряны при чистке.
+    assert "допускай сарказм" in canon
+    assert "{max_symbols}" in canon
+    assert "Ты получаешь ТОЛЬКО готовую выжимку" in canon
+    # Слепок ДО правки честный: несёт снятую фразу (ступень LEGFIX узнаёт
+    # именно прод-байты) и отличается от нового канона.
+    assert "бот-абьюзер" in sp.PREV_SUMMARY_NARRATOR_LEGFIX
+    assert sp.PREV_SUMMARY_NARRATOR_LEGFIX != canon
 
 
 def test_new_single_canon_model_choice_optional():

@@ -87,6 +87,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
+    PREV_SUMMARY_NARRATOR_LEGFIX,
     PREV_SUMMARY_SYSTEM_R1028,
     PREV_SUMMARY_SYSTEM_PROMPT,
     SUMMARY_EDITOR_SYSTEM_PROMPT,
@@ -284,7 +285,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     "prompts.summary_l2_writer_system_prompt":
         PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
     # ASAP-2.1 (round1028): откат Рассказчика → прежний канон R1028.
-    "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_R1028,
+    # LEGFIX (22.10.2026): откат снимает ТОЛЬКО ступень LEGFIX →
+    # непосредственный прежний канон (слепок PREV_*_LEGFIX).
+    "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_LEGFIX,
 }
 
 
