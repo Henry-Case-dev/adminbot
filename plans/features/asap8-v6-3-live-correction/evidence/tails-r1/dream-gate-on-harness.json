@@ -1,0 +1,51 @@
+{
+ "generated_utc": "2026-10-22T05:57:18Z",
+ "provider_calls": 0,
+ "steps": [
+  {
+   "step": "dream_gate_on_produces_actual_changes",
+   "ok": true,
+   "run_once": {
+    "distilled": 2,
+    "deferred": 1
+   },
+   "llm_calls": 2,
+   "actual_changes": {
+    "distilled": 2,
+    "deferred": 1,
+    "watermark_fact_id": 0,
+    "log_rows": 4,
+    "log_sample": [
+     {
+      "run_at": 1792648638,
+      "status": "cluster_deferred",
+      "kind": "skipped"
+     },
+     {
+      "run_at": 1792648638,
+      "status": "ok",
+      "kind": "distilled"
+     },
+     {
+      "run_at": 1792648638,
+      "status": "ok",
+      "kind": "distilled"
+     }
+    ]
+   }
+  },
+  {
+   "step": "deep_sleep_gate_on_stages_truth_written",
+   "ok": true,
+   "run_status": "ok",
+   "stages": {
+    "bridge": "succeeded",
+    "validate": "succeeded",
+    "write": "succeeded"
+   },
+   "written": 1,
+   "report_created_at": "1792648638",
+   "llm_calls": 1
+  }
+ ]
+}

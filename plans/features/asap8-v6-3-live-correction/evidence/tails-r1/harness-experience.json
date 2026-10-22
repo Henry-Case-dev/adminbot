@@ -1,0 +1,141 @@
+{
+ "generated_utc": "2026-10-22T05:19:56Z",
+ "window1_experience": {
+  "provider_calls": 6,
+  "detector_detected": 0,
+  "scenarios": [
+   {
+    "id": "multi_msg_pref",
+    "expected_kind": "style_request",
+    "captured": true,
+    "rows": [
+     {
+      "source_kind": "participant_correction",
+      "class": "preference",
+      "kind": "preference",
+      "preference": "message.length_short",
+      "semantic": true
+     }
+    ]
+   },
+   {
+    "id": "fact_correction",
+    "expected_kind": "fact_user",
+    "captured": true,
+    "rows": [
+     {
+      "source_kind": "participant_correction",
+      "class": "correction",
+      "kind": "correction",
+      "semantic": true
+     }
+    ]
+   },
+   {
+    "id": "indirect_style",
+    "expected_kind": "preference",
+    "captured": false,
+    "rows": []
+   },
+   {
+    "id": "dont_repeat",
+    "expected_kind": "dont_repeat",
+    "captured": true,
+    "rows": [
+     {
+      "source_kind": "participant_correction",
+      "class": "preference",
+      "kind": "preference",
+      "preference": "format.lists_no",
+      "semantic": true
+     },
+     {
+      "source_kind": "participant_correction",
+      "class": "preference",
+      "kind": "dont_repeat",
+      "preference": "topic.currency_no",
+      "semantic": true
+     }
+    ]
+   }
+  ],
+  "rejected": {
+   "semantic_parse_error": 1
+  },
+  "applied": {
+   "recorded": 3,
+   "lesson_applicability": "user:42 pref:topic.currency_no",
+   "lesson_recommendation": "При выборе формы ответа учитывать явно высказанное предпочтение участника в его области действия.",
+   "lesson_counters_success": 1,
+   "lesson_status": "active"
+  },
+  "lessons": [
+   {
+    "type": "social_preference",
+    "status": "active",
+    "applicability": "user:42 pref:topic.currency_no"
+   },
+   {
+    "type": "social_preference",
+    "status": "active",
+    "applicability": "user:42 pref:format.lists_no"
+   },
+   {
+    "type": "social_preference",
+    "status": "active",
+    "applicability": "user:42 pref:message.length_short"
+   },
+   {
+    "type": "failure_pattern",
+    "status": "active",
+    "applicability": ""
+   }
+  ],
+  "counters": {
+   "semantic_scanned": 5,
+   "semantic_selected": 5,
+   "semantic_extracted": 4,
+   "semantic_candidates": 2,
+   "semantic_rejected": 0,
+   "semantic_duplicates": 2,
+   "semantic_llm_unavailable": 0,
+   "semantic_reject_reasons": {}
+  },
+  "lessons_active": 4,
+  "retrieved_lessons": 3
+ },
+ "window2_memory": {
+  "provider_calls": 0,
+  "checks": [
+   {
+    "check": "fresh_rag_excludes_expired",
+    "ok": true,
+    "rows": 0
+   },
+   {
+    "check": "historical_query_finds_expired",
+    "ok": true,
+    "expires_at_is_past": true
+   },
+   {
+    "check": "archived_fact_in_relevant_context_with_date",
+    "ok": true,
+    "chars": 128
+   },
+   {
+    "check": "refute_changes_status_without_delete",
+    "ok": true,
+    "rows_before": 2,
+    "rows_after": 2
+   },
+   {
+    "check": "refuted_fresh_excluded_historical_found",
+    "ok": true,
+    "fresh_ids": [],
+    "historical_ids": [
+     2
+    ]
+   }
+  ]
+ }
+}

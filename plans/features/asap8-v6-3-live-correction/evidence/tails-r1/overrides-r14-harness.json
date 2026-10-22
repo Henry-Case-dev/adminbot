@@ -1,0 +1,53 @@
+{
+ "generated_utc": "2026-10-22T06:00:43Z",
+ "provider_calls": 0,
+ "steps": [
+  {
+   "check": "ui_write_chat_a_two_keys",
+   "ok": true,
+   "http": [
+    200,
+    200
+   ]
+  },
+  {
+   "check": "read_back_a_chat_b_global",
+   "ok": true,
+   "a": [
+    12345,
+    "chat"
+   ],
+   "b": [
+    8000,
+    ""
+   ]
+  },
+  {
+   "check": "random_toggle_written_and_read",
+   "ok": true,
+   "memory_random_enabled": [
+    true,
+    "chat"
+   ]
+  },
+  {
+   "check": "overrides_map_lists_a_not_b",
+   "ok": true,
+   "a_keys": [
+    "limits.search_max_symbols",
+    "memory.random_enabled"
+   ],
+   "b_rows": 0
+  },
+  {
+   "check": "restart_fresh_read_preserves_overrides",
+   "ok": true,
+   "a": {
+    "limits.search_max_symbols": 12345,
+    "memory.random_enabled": true
+   },
+   "b": {}
+  }
+ ],
+ "store_snapshot_sha_note": "{\"-1002001\": {\"limits.search_max_symbols\": 12345, \"memory.random_enabled\": true}"
+}

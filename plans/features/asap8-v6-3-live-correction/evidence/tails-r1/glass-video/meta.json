@@ -1,0 +1,21 @@
+{
+ "generated_utc": "2026-10-22T06:08:23Z",
+ "url": "http://127.0.0.1:8971/tests/glass-teststand/glass-teststand.html?bg=wave",
+ "frames": [
+  "glass-video/bend-frame-0.png",
+  "glass-video/bend-frame-1.png",
+  "glass-video/bend-frame-2.png",
+  "glass-video/bend-frame-3.png",
+  "glass-video/bend-frame-4.png",
+  "glass-video/bend-frame-5.png"
+ ],
+ "console_errors": [
+  "Failed to load resource: the server responded with a status of 404 (File not found)"
+ ],
+ "probe": {
+  "tier": "true",
+  "reason": "probe-chromium"
+ },
+ "wave_svg_found": true,
+ "video": "glass-video/glass-line-bend.webm"
+}
