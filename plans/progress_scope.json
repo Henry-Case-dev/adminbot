@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-22T19:45:00+12:00",
+  "updated": "2026-10-23T03:35:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -121,7 +121,7 @@
       "maps": [
         "plans/features/asap-speech-arch/requirements-map.json"
       ],
-      "coverage_complete": false,
+      "coverage_complete": true,
       "source_note": "Постановка владельца 22.10 (verbatim-снапшот, 378 строк): P0 речевая архитектура - фабричные тексты (L2 verbalizer/Core full+compact/Expression header/Direct tool phase/L1 участие), активная конфигурация PG + миграции + Inspector, инициатива I-01..I-09, UI U-01..U-09; приоритеты P0/P1/P2; W0-W5. Дедупликация против corrective 2.58.107/110 при инициализации карты"
     },
     {
@@ -132,7 +132,7 @@
       "maps": [
         "plans/features/asap2-direct-chat/requirements-map.json"
       ],
-      "coverage_complete": false,
+      "coverage_complete": true,
       "source_note": "Постановка владельца 22.10 (verbatim 324 строки): P0 Direct Chat - навязчивые уточнения/бесконечные цепочки; L1 = единственный интерпретатор намерения; строгий boolean needs_clarification; убрать Speech-understanding императив clarify=ask; каноны L1/L2 точечно (4.1/4.2/4.3); миграция factory+active PG; тест-матрица 6.1-6.4; запрещены новые подсистемы/хардкоды/словесные детекторы"
     }
   ]
