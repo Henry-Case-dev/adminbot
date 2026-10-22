@@ -370,6 +370,35 @@ def _package_content_empty(package_result) -> bool:
     return fragments == 0 and chronology == 0
 
 
+def _apply_package_coverage(ctx, package, source_total: int, *,
+                            writer_source: bool, run_id=None,
+                            chat_id=None) -> None:
+    """Волна C (T-4425, §50.37/§57): package-coverage → run state (единый
+    расчёт с Legacy-путём; числа, R17). Fail-open.
+
+    FIND-2 (diag summary-degraded §3/§6, маршрут 2): пакет БЕЗ материала
+    (0 considered при непустом окне) НЕ перезаписывает честный
+    writer_source-coverage 100% (T-4608 «никогда не 0/839») нулём —
+    Writer работает от полного окна, пустой derived view coverage не
+    меняет."""
+    try:
+        from services.summary_legacy_fullwindow import (
+            compute_package_coverage,
+        )
+        cov = compute_package_coverage(package, source_total)
+        if writer_source and not cov["source_messages_considered"]:
+            logger.info(
+                "L2_PACKAGE_COVERAGE_SKIP_EMPTY | run_id=%s | chat_id=%s — "
+                "пакет без материала: сохранён coverage Writer-окна",
+                run_id or "none", chat_id)
+            return
+        ctx.source_total = cov["source_messages_total"]
+        ctx.source_considered = cov["source_messages_considered"]
+        ctx.source_coverage = cov["coverage_percent"]
+    except Exception:      # fail-open
+        pass
+
+
 _MD_TABLE_SEP_RE = re.compile(
     r"^\s*\|?(?:\s*:?-{2,}:?\s*\|)+(?:\s*:?-{2,}:?\s*)?\|?\s*$")
 _MD_HEADING_RE = re.compile(r"^\s{0,3}#{1,6}\s+", re.MULTILINE)
@@ -936,6 +965,24 @@ class SummaryGenerator:
             await self._run_legacy_pipeline(
                 chat_id, rows, focus, trigger_message_id,
                 correlation_id, ctx)
+        except asyncio.CancelledError:
+            # FIND-2 (related, diag summary-degraded §1/§6.3): прогон,
+            # прерванный рестартом/отменой, — честный failed-терминал
+            # (SUMMARY_FAILED), а не SUMMARY_COMPLETE status=ok при
+            # публикации «-». Причину уже-failed контекста НЕ затираем:
+            # штатный shutdown-дренаж (INC-SUMMARY-01 `abort_in_flight`)
+            # метит раньше причиной shutdown — она остаётся честным
+            # reason_code'ом терминала. Отмена пробрасывается дальше
+            # (семантика CancelledError сохранена).
+            if ctx.status != STATUS_FAILED:
+                ctx.fail(stage="run", reason="interrupted",
+                         error_type="CancelledError",
+                         code=CODE_SUMMARY_GENERATION_FAILED)
+                logger.warning(
+                    "SUMMARY_INTERRUPTED | run_id=%s | chat_id=%s — "
+                    "прогон отменён (рестарт/шатдаун), терминал failed",
+                    correlation_id, chat_id)
+            raise
         except LLMError as exc:
             ctx.fail_from_exc(stage="run", exc=exc,
                               code=CODE_SUMMARY_GENERATION_FAILED)
@@ -2383,9 +2430,14 @@ class SummaryGenerator:
                     # потолки MAX_FACTS_* через repair_capacity_overflow).
                     from services.summary_fact_view import \
                         build_fact_view_from_map
+                    # FIND-2 (diag summary-degraded §3): v2-карта
+                    # (anchor_mode) материализуется через AnchorSpace
+                    # прогона (тот же резолв, что ExecutionInput/L1).
                     view = build_fact_view_from_map(
                         map_payload, payload_items,
-                        chat_id=chat_id, correlation_id=correlation_id)
+                        chat_id=chat_id, correlation_id=correlation_id,
+                        anchor_map=(getattr(exec_input, "anchor_map", None)
+                                    if exec_input is not None else None))
                     if view.deliverable:
                         package_result = view
                     else:
@@ -2459,17 +2511,13 @@ class SummaryGenerator:
                 ctx.source_coverage = 100.0
             if ctx is not None and package_result is not None \
                     and getattr(package_result, "package", None):
-                try:
-                    from services.summary_legacy_fullwindow import (
-                        compute_package_coverage,
-                    )
-                    cov = compute_package_coverage(
-                        package_result.package, len(rows))
-                    ctx.source_total = cov["source_messages_total"]
-                    ctx.source_considered = cov["source_messages_considered"]
-                    ctx.source_coverage = cov["coverage_percent"]
-                except Exception:      # fail-open
-                    pass
+                # Волна C (T-4425) + FIND-2 (маршрут 2): перезапись
+                # writer_source-100 только пакетом с материалом —
+                # пустой derived view coverage не трогает.
+                _apply_package_coverage(
+                    ctx, package_result.package, len(rows),
+                    writer_source=writer_source, run_id=correlation_id,
+                    chat_id=chat_id)
                 # Волна D (T-4433, §50.30): grade пакета — degraded_package
                 # (L1_FALLBACK_PACKAGE) виден в run state/логе честно.
                 try:

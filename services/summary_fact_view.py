@@ -1,7 +1,8 @@
 """ASAP 4.1 волна 3 (эпик `asap-4-1-durable-whole-window-summary`) —
 FactPackage = DERIVED VIEW (T-4609, spec §2 B.3; ADR-1028-8 D4/AM-5).
 
-Детерминированный синтез: SourceWindow (§92-items) + semantic map v1 →
+Детерминированный синтез: SourceWindow (§92-items) + semantic map
+(v1 message_ids / v2 AnchorSpace — FIND-2 fix) →
 FactPackage (fragments materialize; chronology; roster) — 0 LLM-вызовов.
 Пакет понижен до derived view (analytics/debugging/Reviewer/memory/
 fallback/compat; id-space валидации Writer-эвиденции): Writer НЕ зависит
@@ -28,12 +29,30 @@ import logging
 import time
 
 from services.summary_l1_capacity import repair_capacity_overflow
-from services.summary_l1_semantic_map import MAP_SCHEMA_VERSION
+from services.summary_l1_semantic_map import (
+    MAP_SCHEMA_VERSION,
+    MAP_SCHEMA_VERSION_V2,
+)
 
 logger = logging.getLogger(__name__)
 
 FALLBACK_THREAD_ID = "thread_001"
 FALLBACK_TOPIC_NAME = "Общий ход обсуждения"
+
+
+def _map_is_v2(map_payload) -> bool:
+    """ASAP 4.2 D1 (AnchorSpace): карта в v2-форме?
+
+    Канонизатор ``validate_semantic_map_v2`` всегда ставит
+    ``schema_version=2``; ``source_anchors`` в темах — защитная эвристика
+    для входов без версии. FIND-2 (diag summary-degraded §3): v2-карта,
+    прочитанная как v1 (message_ids), давала «ok» с пустым пакетом."""
+    if not isinstance(map_payload, dict):
+        return False
+    if map_payload.get("schema_version") == MAP_SCHEMA_VERSION_V2:
+        return True
+    return any(isinstance(t, dict) and "source_anchors" in t
+               for t in map_payload.get("topics") or [])
 
 
 # ── Доступ к полям строки §92 (тот же паттерн, что fact_package) ───────────
@@ -112,7 +131,8 @@ class FactViewResult:
 # ── Синтез FactPackage из SourceWindow + map (T-4609) ──────────────────────
 
 def build_fact_view_from_map(map_payload, payload_items, *, chat_id=None,
-                             correlation_id=None) -> FactViewResult:
+                             correlation_id=None,
+                             anchor_map=None) -> FactViewResult:
     """SourceWindow + semantic map → FactPackage (derived view; 0 LLM).
 
     Материализация (детерминированно):
@@ -120,15 +140,21 @@ def build_fact_view_from_map(map_payload, payload_items, *, chat_id=None,
         description = short_hint; chronology = message_ids ASC
         (timestamp из SourceWindow); fragments = §92-сообщения темы
         (author_id/display_name/reply/forward — без вымысла); facts = []
-        (map v1 не несёт текстов фактов);
+        (map не несёт текстов фактов);
       * unassigned — как в карте;
+      * карта v2 (AnchorSpace; FIND-2, diag summary-degraded §3/§6):
+        ``source_anchors``/``unassigned_anchors`` резолвятся в real
+        message_id через ``anchor_map.to_real_ids`` (checksum-валидный
+        биекция-маппинг прогона);
       * потолки MAX_FACTS_PER_THREAD/MAX_FACTS_TOTAL — через существующий
         `repair_capacity_overflow` (для map-синтеза фактов нет → no-op,
         контракт применения потолков сохранён);
       * roster — build_participant_roster (вызывается при входе Writer).
 
     ``None``/пустая карта или пустое окно → fail-closed not_built
-    (Writer продолжит от окна без fact_view; никогда не invalid-run)."""
+    (Writer продолжит от окна без fact_view; никогда не invalid-run).
+    v2-карта без ``anchor_map`` ИЛИ 0 материализованных id из непустой
+    карты → fail-closed ``not_built`` (никогда «ok» с пустым пакетом)."""
     started = time.perf_counter()
     if not isinstance(map_payload, dict) \
             or not isinstance(map_payload.get("topics"), list):
@@ -140,14 +166,28 @@ def build_fact_view_from_map(map_payload, payload_items, *, chat_id=None,
         return FactViewResult(
             status="not_built", package=None, reason="source_empty",
             metrics={"reason": "source_empty"}, budget={})
+    v2 = _map_is_v2(map_payload)
+    if v2 and (anchor_map is None
+               or not hasattr(anchor_map, "to_real_ids")):
+        # FIND-2 (diag summary-degraded §6, маршрут 1): v2-понимание
+        # требует AnchorSpace прогона; без него — fail-closed, НЕ «ok»
+        # с пустым пакетом.
+        return FactViewResult(
+            status="not_built", package=None,
+            reason="anchor_map_unavailable",
+            metrics={"reason": "anchor_map_unavailable"}, budget={})
     try:
         threads: list = []
         covered: set = set()
         for topic in map_payload.get("topics") or []:
             if not isinstance(topic, dict):
                 continue
-            ids = sorted({mid for mid in
-                          (topic.get("message_ids") or [])
+            if v2:
+                raw_ids = anchor_map.to_real_ids(
+                    topic.get("source_anchors") or [])
+            else:
+                raw_ids = topic.get("message_ids") or []
+            ids = sorted({mid for mid in raw_ids
                           if isinstance(mid, int)
                           and not isinstance(mid, bool)
                           and mid in items},
@@ -170,10 +210,35 @@ def build_fact_view_from_map(map_payload, payload_items, *, chat_id=None,
                 "fragments": fragments,
             })
             covered.update(ids)
+        if v2:
+            raw_unassigned = anchor_map.to_real_ids(
+                map_payload.get("unassigned_anchors") or [])
+        else:
+            raw_unassigned = map_payload.get("unassigned_message_ids") or []
         unassigned = sorted(
-            {mid for mid in (map_payload.get("unassigned_message_ids") or [])
+            {mid for mid in raw_unassigned
              if isinstance(mid, int) and not isinstance(mid, bool)
              and mid in items and mid not in covered})
+        if not threads and not unassigned:
+            # FIND-2 (diag summary-degraded §6, маршрут 1): 0
+            # материализованных id из непустой карты → fail-closed
+            # not_built (НЕ «ok» с пустым пакетом; генератор уйдёт в
+            # fallback-view, Writer продолжит от полного окна).
+            duration_ms = (time.perf_counter() - started) * 1000.0
+            logger.info(
+                "FACT_VIEW_EMPTY | run_id=%s | chat_id=%s | "
+                "reason=no_materialized_ids | map_mode=%s",
+                correlation_id or "none",
+                chat_id if chat_id is not None else "-",
+                "v2_anchors" if v2 else "v1_message_ids")
+            return FactViewResult(
+                status="not_built", package=None,
+                reason="no_materialized_ids",
+                metrics={"reason": "no_materialized_ids",
+                         "map_mode": "v2_anchors" if v2
+                         else "v1_message_ids",
+                         "duration_ms": duration_ms},
+                budget={})
         # Потолки MAX_FACTS_* — через существующий repair (§0.4): для
         # map-синтеза фактов НЕТ (facts=[]) → repair no-op; вызов идёт по
         # §95-проекции (repair копирует смежные поля ей известные), поэтому
