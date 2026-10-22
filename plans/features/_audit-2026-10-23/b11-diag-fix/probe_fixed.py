@@ -110,7 +110,50 @@ async def main() -> int:
                      if m["key"] == "graph_memory")
         out["backlog_with_vec"] = graph["write_result"]
         out["backlog_with_vec_diagnosis"] = graph["diagnosis"]
-        print(json.dumps(out, ensure_ascii=False, indent=1))
+    # Сценарий 5 (ревью N1): job-ветка. Текущий job cancelled/paused/… при
+    # более ранней УСПЕШНОЙ попытке не должен давать ok.
+    with tempfile.TemporaryDirectory() as tmp:
+        path = str(Path(tmp) / "b11-jobs.db")
+        db = DatabaseService(path)
+        await db.initialize()
+        await db.db.execute(
+            "INSERT INTO graph_facts (chat_id, fact, origin, created_at) "
+            "VALUES (?, 'факт', 'chat_history', ?)", (CHAT, NOW - 3600))
+        await db.db.execute(
+            "INSERT INTO mca_events (ts, level, event_name, outcome, chat_id, "
+            "component, stage) VALUES (?, 'INFO', 'graphrag_rebuild', "
+            "'success', ?, 'graphrag', 'run')", (NOW - 7200, CHAT))
+        await db.db.commit()
+        jobs = {}
+        for job_status in ("cancelled", "validation_failed", "finished",
+                           "paused_rate_limit", "failed", "completed"):
+            await db.db.execute("DELETE FROM task_jobs")
+            await db.db.execute(
+                "INSERT INTO task_jobs (job_id, owner, kind, coalesce_key, "
+                "payload, status, reason_code, error_code, attempt, "
+                "max_attempts, deadline_at, heartbeat_at, generation, "
+                "fencing_token, created_at, updated_at, finished_at) VALUES "
+                "(?, 'memory', 'graphrag_rebuild', NULL, NULL, ?, "
+                "'test_reason', NULL, 1, 3, NULL, ?, 0, 0, ?, ?, ?)",
+                (f"job-{job_status}", job_status, NOW - 60, NOW - 60,
+                 NOW - 60, NOW - 60))
+            await db.db.commit()
+            report = await collect_report(path, chat_id=CHAT, now=NOW)
+            graph = next(m for m in report["mechanisms"]
+                         if m["key"] == "graph_memory")
+            jobs[job_status] = {
+                "code": graph["diagnosis"]["code"],
+                "detail": graph["diagnosis"]["detail"],
+                "old_success_attempt_present":
+                    graph["last_attempt"] is not None,
+            }
+        out["job_branch"] = jobs
+        await db.close()
+        payload = json.dumps(out, ensure_ascii=False, indent=1)
+        # Пишем сразу UTF-8 (консольный redirect на Windows портит кириллицу).
+        Path(__file__).with_name("probe-fixed-output.json").write_text(
+            payload + "\n", encoding="utf-8")
+        print(payload)
     return 0
 
 

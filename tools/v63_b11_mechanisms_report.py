@@ -88,6 +88,25 @@ _OK_ATTEMPT_STATUSES = frozenset({
 # поэтому словарная проверка к ней не применяется.
 _STATUS_SEMANTICS_OUTCOME = "outcome"
 
+# ── статусы durable-job (`task_jobs.status`, TEXT без CHECK) ────────────────
+# Писатели: services/task_supervisor.py (JOB_QUEUED/RUNNING/COMPLETED/FAILED/
+# CANCELLED/INTERRUPTED), services/graphrag_rebuild.py (ST_BUILDING/RUNNING/
+# CHECKPOINT/VALIDATING/VALIDATED/ACTIVATED/PAUSED/PAUSED_RATE_LIMIT/
+# PAUSED_PROVIDER/VALIDATION_FAILED/FAILED/CANCELLED),
+# services/embedding_control_plane.py:1665 (`finished` — stale-takeover lease,
+# НЕ успешный терминал). Прод-значения: raw/main.txt:176,187,190,201.
+_JOB_ACTIVE_STATUSES = frozenset({
+    "queued", "running", "building", "checkpoint", "validating",
+})
+_JOB_OK_TERMINAL_STATUSES = frozenset({
+    "completed", "validated", "activated", "active",
+})
+_JOB_CRASHED_STATUSES = frozenset({"failed", "interrupted"})
+_JOB_ATTENTION_STATUSES = frozenset({
+    "validation_failed", "cancelled", "canceled", "finished", "error",
+})
+_JOB_PAUSED_PREFIX = "paused"        # paused / paused_rate_limit / provider
+
 DEFAULT_STALE_SECONDS = 30 * 60      # heartbeat старше → worker crashed
 _WINDOW_24H = 24 * 3600
 _WINDOW_7D = 7 * 86400
@@ -681,16 +700,21 @@ def diagnose(*, gate_effective: bool | None, gate_source: str,
       1. источники недоступны → unavailable (не зелёное);
       2. gate OFF (любой слой) → producer_off;
       3. входа нет → no_input;
-      4. job queued/running с протухшим heartbeat → worker_crashed;
-      5. job failed → worker_crashed;
-      6. backlog растёт, а job давно завершён без прогресса → cursor_stalled;
-      7. попыток не было → never_run («включено, но не запускалось»);
-      8. последняя попытка ошибочна (failed/error/cancelled/interrupted —
+      4. job активен (queued/running/building/checkpoint/validating) с
+         протухшим heartbeat → worker_crashed, иначе ok;
+      5. job failed/interrupted → worker_crashed;
+      6. job cancelled/validation_failed/finished/error → attention
+         (`finished` — stale-takeover lease, не успешный терминал);
+      7. job paused/paused_* (quota/provider/оператор) → degraded;
+      8. backlog растёт, а job давно завершён без прогресса → cursor_stalled;
+      9. статус job не из известного словаря → unknown (не зелёное);
+     10. попыток не было → never_run («включено, но не запускалось»);
+     11. последняя попытка ошибочна (failed/error/cancelled/interrupted —
          без учёта регистра) или публикация failed → attention;
-      9. попытка деградировала (DEGRADED/partial) → degraded (не зелёное);
-     10. статус попытки не из известного словаря → unknown (не зелёное);
-     11. TTL пр_interval просрочен → ttl_due;
-     12. иначе → ok."""
+     12. попытка деградировала (DEGRADED/partial) → degraded (не зелёное);
+     13. статус попытки не из известного словаря → unknown (не зелёное);
+     14. TTL пр_interval просрочен → ttl_due;
+     15. иначе → ok."""
     if sources_unavailable:
         return {"code": DIAG_UNAVAILABLE,
                 "detail": "источники секции недоступны (fail-soft)"}
@@ -700,8 +724,9 @@ def diagnose(*, gate_effective: bool | None, gate_source: str,
     if input_available is False:
         return {"code": DIAG_NO_INPUT, "detail": "нет входных данных"}
     if last_job is not None:
-        status = str(last_job.get("status") or "")
-        if status in ("queued", "running"):
+        job_status_raw = str(last_job.get("status") or "").strip()
+        job_status = job_status_raw.casefold()
+        if job_status in _JOB_ACTIVE_STATUSES:
             hb = last_job.get("heartbeat_at") or last_job.get("updated_at") \
                 or 0
             try:
@@ -710,28 +735,42 @@ def diagnose(*, gate_effective: bool | None, gate_source: str,
                 hb = 0
             if hb and (int(now) - hb) > int(stale_seconds):
                 return {"code": DIAG_WORKER_CRASHED,
-                        "detail": (f"job {status}, heartbeat "
+                        "detail": (f"job {job_status_raw}, heartbeat "
                                    f"{int(now) - hb}s назад > "
                                    f"{int(stale_seconds)}s")}
             return {"code": DIAG_OK,
-                    "detail": f"job {status} жив (heartbeat свежий)"}
-        if status in ("failed", "interrupted"):
+                    "detail": f"job {job_status_raw} жив (heartbeat свежий)"}
+        if job_status in _JOB_CRASHED_STATUSES:
             return {"code": DIAG_WORKER_CRASHED,
-                    "detail": (f"последний job {status} "
+                    "detail": (f"последний job {job_status_raw} "
                                f"(reason={last_job.get('reason_code')}, "
                                f"error={last_job.get('error_code')})")}
-        if backlog is not None and int(backlog) > 0 and status == \
-                "completed":
-            finished = last_job.get("finished_at") or \
-                last_job.get("updated_at") or 0
-            try:
-                age = int(now) - int(finished or 0)
-            except (TypeError, ValueError):
-                age = 0
-            if age > int(stale_seconds):
-                return {"code": DIAG_CURSOR_STALLED,
-                        "detail": (f"backlog={backlog}, job completed "
-                                   f"{age}s назад без прогресса")}
+        if job_status in _JOB_ATTENTION_STATUSES:
+            return {"code": DIAG_ATTENTION,
+                    "detail": (f"job {job_status_raw} — не успешный терминал "
+                               f"(reason={last_job.get('reason_code')}, "
+                               f"error={last_job.get('error_code')})")}
+        if job_status.startswith(_JOB_PAUSED_PREFIX):
+            # Пауза (quota/provider/операторская) — авто-resume, но успеха нет.
+            return {"code": DIAG_DEGRADED,
+                    "detail": (f"job {job_status_raw} — пауза "
+                               f"(reason={last_job.get('reason_code')})")}
+        if job_status in _JOB_OK_TERMINAL_STATUSES:
+            if backlog is not None and int(backlog) > 0:
+                finished = last_job.get("finished_at") or \
+                    last_job.get("updated_at") or 0
+                try:
+                    age = int(now) - int(finished or 0)
+                except (TypeError, ValueError):
+                    age = 0
+                if age > int(stale_seconds):
+                    return {"code": DIAG_CURSOR_STALLED,
+                            "detail": (f"backlog={backlog}, job completed "
+                                       f"{age}s назад без прогресса")}
+        else:
+            return {"code": DIAG_UNKNOWN,
+                    "detail": (f"статус job {job_status_raw!r} не распознан "
+                               "(не зелёное; REQ-B11-E2E)")}
     if last_attempt is None:
         return {"code": DIAG_NEVER_RUN,
                 "detail": "включено, но попыток не было (не зелёное)"}

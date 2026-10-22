@@ -1,0 +1,82 @@
+.\.venv\Scripts\python.exe : 
+строка:1 знак:50
++ ... ONPATH="."; .\.venv\Scripts\python.exe -m pytest tests/test_asap8_v63 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 1 leaked aiosqlite connection(s)
+.....................FF.                                                 [100%]
+================================== FAILURES ===================================
+_ TestFailSoftAndDiagnoseMatrix.test_diagnose_job_status_case_and_vocabulary __
+
+self = <tests.test_asap8_v63_b11_report.TestFailSoftAndDiagnoseMatrix object at 0x000002AB289E1A00>
+
+    def test_diagnose_job_status_case_and_vocabulary(self):
+        """TEST-LIFECYCLE: REGRESSION owner=REQ-B11-E2E.
+    
+        job-╨▓╨╡╤В╨║╨░ `diagnose` ╨╛╨▒╤П╨╖╨░╨╜╨░ ╨▒╤Л╤В╤М ╤А╨╡╨│╨╕╤Б╤В╤А╨╛╨╜╨╡╨╖╨░╨▓╨╕╤Б╨╕╨╝╨╛╨╣ ╨╕ ╨╖╨╜╨░╤В╤М ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡
+        `task_jobs.status`: `services/task_supervisor.py` (queued/running/
+        completed/failed/cancelled/interrupted), `services/graphrag_rebuild.py`
+        (building/checkpoint/validating/validated/activated/paused*/
+        validation_failed/cancelled), `services/embedding_control_plane.py`
+        (`finished` = stale-takeover, ╨Э╨Х ╤Г╤Б╨┐╨╡╤И╨╜╤Л╨╣ ╤В╨╡╤А╨╝╨╕╨╜╨░╨╗)."""
+        now = NOW
+        base_job = {"heartbeat_at": now - 60, "updated_at": now - 60,
+                    "reason_code": None, "error_code": None,
+                    "finished_at": None}
+        fresh_attempt = {"ts": now - 60, "status": "ok", "detail": ""}
+    
+        def code_job(status: str, **extra) -> str:
+            job = {**base_job, "status": status, **extra}
+            return diagnose(gate_effective=True, gate_source="env",
+                            input_available=True, last_attempt=fresh_attempt,
+                            last_job=job, now=now)["code"]
+    
+        # ╨┐╤А╨╡╨╢╨╜╤П╤П ╤Б╨╡╨╝╨░╨╜╤В╨╕╨║╨░ ╨╜╨╡ ╤Б╨╗╨╛╨╝╨░╨╜╨░
+        assert code_job("failed") == DIAG_WORKER_CRASHED
+        assert code_job("interrupted") == DIAG_WORKER_CRASHED
+        assert code_job("running") == DIAG_OK
+        assert code_job("completed") == DIAG_OK
+        # ╤А╨╡╨│╨╕╤Б╤В╤А
+        assert code_job("COMPLETED") == DIAG_OK
+>       assert code_job("FAILED") == DIAG_WORKER_CRASHED
+E       AssertionError: assert 'ok' == 'worker_crashed'
+E         
+E         - worker_crashed
+E         + ok
+
+tests\test_asap8_v63_b11_report.py:561: AssertionError
+_ TestFailSoftAndDiagnoseMatrix.test_cancelled_job_with_old_success_not_green _
+
+self = <tests.test_asap8_v63_b11_report.TestFailSoftAndDiagnoseMatrix object at 0x000002AB289E1F10>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2570/test_cancelled_job_with_old_su0')
+
+    @pytest.mark.asyncio
+    async def test_cancelled_job_with_old_success_not_green(self, tmp_path):
+        """job-╨▓╨╡╤В╨║╨░: ╤В╨╡╨║╤Г╤Й╨╕╨╣ job `cancelled` ╨┐╤А╨╕ ╨▒╨╛╨╗╨╡╨╡ ╤А╨░╨╜╨╜╨╡╨╣ ╤Г╤Б╨┐╨╡╤И╨╜╨╛╨╣
+        ╨┐╨╛╨┐╤Л╤В╨║╨╡ ╨╜╨╡ ╨┤╨╛╨╗╨╢╨╡╨╜ ╨┤╨░╨▓╨░╤В╤М `ok` (╨┐╤А╨╛╨┤: `cancelled`/`validation_failed`/
+        `paused_rate_limit`/`finished` ╨▓ `task_jobs.status`,
+        `prod-checks/raw/main.txt:176,187,190,201`)."""
+        db = await _db(tmp_path)
+        await _seed_graph_fact(db, created_at=NOW - 3600)
+        await _seed_event(db, ts=NOW - 7200, event_name="graphrag_rebuild",
+                          outcome="success", component="graphrag")
+        await _seed_job(db, kind="graphrag_rebuild", status="cancelled",
+                        now=NOW, finished_at=NOW - 60)
+        report = await collect_report(str(tmp_path / "b11.db"), now=NOW)
+        graph = next(m for m in report["mechanisms"]
+                     if m["key"] == "graph_memory")
+        assert graph["last_job"]["status"] == "cancelled"
+        assert graph["last_attempt"] is not None
+>       assert graph["diagnosis"]["code"] == DIAG_ATTENTION
+E       AssertionError: assert 'ok' == 'attention'
+E         
+E         - attention
+E         + ok
+
+tests\test_asap8_v63_b11_report.py:596: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_asap8_v63_b11_report.py::TestFailSoftAndDiagnoseMatrix::test_diagnose_job_status_case_and_vocabulary
+FAILED tests/test_asap8_v63_b11_report.py::TestFailSoftAndDiagnoseMatrix::test_cancelled_job_with_old_success_not_green
+2 failed, 22 passed in 8.14s

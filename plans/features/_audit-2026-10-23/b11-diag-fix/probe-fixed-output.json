@@ -1,15 +1,15 @@
 {
  "prod_FAILED": {
   "code": "attention",
-  "detail": "╨┐╨╛╤Б╨╗╨╡╨┤╨╜╤П╤П ╨┐╨╛╨┐╤Л╤В╨║╨░ FAILED (run=run-prod_FAILED, publication=failed, health=degraded)"
+  "detail": "последняя попытка FAILED (run=run-prod_FAILED, publication=failed, health=degraded)"
  },
  "prod_DEGRADED": {
   "code": "degraded",
-  "detail": "╨┐╨╛╤Б╨╗╨╡╨┤╨╜╤П╤П ╨┐╨╛╨┐╤Л╤В╨║╨░ DEGRADED тАФ ╤А╨╡╨╖╨╡╤А╨▓╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤Г╤А (run=run-prod_DEGRADED, publication=published, health=degraded)"
+  "detail": "последняя попытка DEGRADED — резервный контур (run=run-prod_DEGRADED, publication=published, health=degraded)"
  },
  "prod_DONE": {
   "code": "ok",
-  "detail": "gate on, ╨▓╤Е╨╛╨┤ ╨╡╤Б╤В╤М, ╨┐╨╛╨┐╤Л╤В╨║╨╕ ╤Б╨▓╨╡╨╢╨╕╨╡"
+  "detail": "gate on, вход есть, попытки свежие"
  },
  "backlog": {
   "recent_generations": [],
@@ -25,7 +25,7 @@
    "never_run": 3,
    "ok": 1
   },
-  "not_green_rule": "never_run/producer_off/no_input/unknown/degraded/attention ╨╜╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╖╨╡╨╗╤С╨╜╤Л╨╝╨╕ (REQ-B11-E2E)"
+  "not_green_rule": "never_run/producer_off/no_input/unknown/degraded/attention никогда не считаются зелёными (REQ-B11-E2E)"
  },
  "backlog_with_vec": {
   "recent_generations": [],
@@ -36,6 +36,38 @@
  },
  "backlog_with_vec_diagnosis": {
   "code": "never_run",
-  "detail": "╨▓╨║╨╗╤О╤З╨╡╨╜╨╛, ╨╜╨╛ ╨┐╨╛╨┐╤Л╤В╨╛╨║ ╨╜╨╡ ╨▒╤Л╨╗╨╛ (╨╜╨╡ ╨╖╨╡╨╗╤С╨╜╨╛╨╡)"
+  "detail": "включено, но попыток не было (не зелёное)"
+ },
+ "job_branch": {
+  "cancelled": {
+   "code": "attention",
+   "detail": "job cancelled — не успешный терминал (reason=test_reason, error=None)",
+   "old_success_attempt_present": true
+  },
+  "validation_failed": {
+   "code": "attention",
+   "detail": "job validation_failed — не успешный терминал (reason=test_reason, error=None)",
+   "old_success_attempt_present": true
+  },
+  "finished": {
+   "code": "attention",
+   "detail": "job finished — не успешный терминал (reason=test_reason, error=None)",
+   "old_success_attempt_present": true
+  },
+  "paused_rate_limit": {
+   "code": "degraded",
+   "detail": "job paused_rate_limit — пауза (reason=test_reason)",
+   "old_success_attempt_present": true
+  },
+  "failed": {
+   "code": "worker_crashed",
+   "detail": "последний job failed (reason=test_reason, error=None)",
+   "old_success_attempt_present": true
+  },
+  "completed": {
+   "code": "ok",
+   "detail": "gate on, вход есть, попытки свежие",
+   "old_success_attempt_present": true
+  }
  }
 }

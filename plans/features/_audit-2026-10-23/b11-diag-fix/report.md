@@ -71,6 +71,10 @@ COUNT(graph_facts_vec)`, а `graph_facts_vec` — **vec0-таблица**
    `backlog_reason` = текст реальной ошибки. В человекочитаемый вывод
    добавлена строка `backlog (без эмбеддинга): ... — причина`.
 5. Обновлены `not_green_rule` и `_DIAG_RU` (новые коды объяснены словами).
+6. **Job-ветка** (догоняющий патч по ревью N1, см. §10): регистронезависимая
+   классификация `task_jobs.status` с явными кодами для
+   `cancelled/validation_failed/finished` → `attention`, `paused*` →
+   `degraded`, незнакомый → `unknown`.
 
 ## 3. Наблюдаемое поведение после фикса
 
@@ -88,15 +92,22 @@ COUNT(graph_facts_vec)`, а `graph_facts_vec` — **vec0-таблица**
 
 ## 4. RED → GREEN
 
-RED (исходный код инструмента, те же тесты): `pytest-red-origcode.txt` —
-**5 failed / 17 passed**, в т.ч.
-`assert 'ok' == 'attention'`, `KeyError: 'backlog_status'`.
+**Честная формулировка RED (уточнение по ревью).** На чистом родителе новый
+тест-файл вообще не импортируется: `ImportError: cannot import name
+'DIAG_DEGRADED'` — новых констант там нет. Поэтому «5 failed / 17 passed на
+исходном коде» буквально неверно. Корректно: **RED при откате только логики
+(константы `DIAG_DEGRADED`/`DIAG_UNKNOWN` на месте)** —
+**5 failed / 17 passed** (`pytest-red-origcode.txt`), падают именно новые
+регрессионные тесты (`assert 'ok' == 'attention'`,
+`KeyError: 'backlog_status'`). Сам дефект подтверждён отдельно: старый
+`diagnose` на `state='FAILED', publication='failed'` возвращает `ok`.
 
-GREEN: `pytest-green.txt` — **22 passed** (`tests/test_asap8_v63_b11_report.py`).
+GREEN: `pytest-green.txt` — **24 passed** (`tests/test_asap8_v63_b11_report.py`;
+22 после первого патча + 2 на job-ветку, см. §10).
 Смежные наборы: `pytest-adjacent.txt` — **103 passed**
 (`test_asap8_v63_w3_analytics_viz`, `test_pipeline_analytics_asap4`,
 `test_webapp_analytics_api`, `test_memory_health`,
-`test_memory_health_round1019`). Итого 125 passed.
+`test_memory_health_round1019`). Итого 127 passed.
 
 Broad-срез `-k "asap8_v63 or analytics or health or pipeline"`
 (`pytest-affected.txt`): 466 passed, 1 skipped, **4 failed — не мои**:
@@ -123,9 +134,14 @@ inherit from BaseException`), потому что сам тест подменя
   not_instrumented`, `services/mca_process_registry.py:32-35`) сверяются
   точно.
 * `services/pipeline_analytics.py` — сравнивает `stage_status`/
-  `publication_status`/`outcome` (`:569, :1137, :1272-1274, :1518`), все
-  пишутся в нижнем регистре (`summary_run_stages.status`, `publication_status`).
-  `summary_runs.state` (верхний регистр) там не читается вообще.
+  `publication_status`/`outcome` (`:569, :1137, :1272-1274, :1518`).
+  `publication_status`/`outcome` действительно пишутся в нижнем регистре
+  (`published/failed`, `success/failed`). Уточнение по ревью (N2):
+  `summary_run_stages.status` **не** чисто нижний — в проде есть
+  `LEGACY_FALLBACK` (верхний) и `degraded_map_fallback`; на equality-проверки
+  `pipeline_analytics` (`== "failed"`) это не влияет, и B11-инструмент эту
+  таблицу не читает вообще.
+  `summary_runs.state` (верхний регистр) там не читается.
 * `services/summary_run_store.py:436` — `status == "failed"` для статуса
   генератора (`ok/failed`, нижний) — консистентно.
 * `web/api/routes.py` и `web/api/analytics_viz.py` из брифа — не связаны
@@ -163,23 +179,25 @@ INTERRUPTED` больше не `ok`; `DEGRADED` больше не `ok`; незн
 2. `ensure_vec()` грузит расширение только при ошибке запроса — если на проде
    `sqlite_vec` нет в venv инструмента, будет честный `unknown` с причиной
    (не `null`), но без числа.
-3. Related-nonblocking (не менял, вне дефекта): job со статусом
-   `cancelled` (`services/graphrag_rebuild.py:82`) в job-ветке `diagnose()`
-   не попадает в `failed/interrupted`, а уходит в проверку `last_attempt` —
-   при отсутствии события секция скажет `never_run` вместо «отменено». Код
-   не зелёный, но формулировка неточная.
+3. ~~Related-nonblocking: job `cancelled` → `never_run`.~~ **Исправлено
+   догоняющим патчем §10** (ревью N1): job-ветка больше не регистрозависима и
+   знает реальные статусы.
 4. Related-nonblocking: `web/api/analytics_viz.py:_effective_status()`
    неизвестный `outcome` трактует как `working` — не регистровый баг и не
    дефект брифа; не трогал, чтобы не задеть лейн W4-UI.
 5. 4 падения `tests/test_summary_generator.py` — pre-existing harness-баг
    (см. §4), не связан с лейном.
+6. `local-db-human.txt` — прогон по локальной заглушке БД (12 КБ, без
+   `graph_facts`), поэтому прод-форму он не доказывает (ревью N4). Доказательство
+   поведения — `probe_fixed.py` с настоящей `vec0` и тесты; реальные 4162 на
+   проде остаются за post-deploy прогоном (п.1).
 
 ## 8. Артефакты
 
 `probe_fixed.py` (воспроизведение), `probe-fixed-output.json`,
 `local-db-human.txt` (реальный прогон инструмента на локальной БД),
-`pytest-red-origcode.txt`, `pytest-green.txt`, `pytest-adjacent.txt`,
-`pytest-affected.txt`.
+`pytest-red-origcode.txt`, `pytest-red-jobbranch.txt`, `pytest-green.txt`,
+`pytest-adjacent.txt`, `pytest-affected.txt`.
 
 ## 9. Коммит
 
@@ -187,3 +205,41 @@ INTERRUPTED` больше не `ok`; `DEGRADED` больше не `ok`; незн
 `tests/test_asap8_v63_b11_report.py`, эта папка evidence): ищется как
 `git log -1 --grep "fix(b11): honest diagnoses"`. Точный SHA передан в
 handoff лейна (внутрь файла его вписывать нельзя — amend меняет SHA).
+
+## 10. Догоняющий патч: job-ветка `diagnose` (ревью N1)
+
+Тот же класс ложной зелени, отдельная ветка. Было
+(`tools/v63_b11_mechanisms_report.py:702-734` в коммите `3334141a`): статус job
+сравнивался регистрозависимо и знал только
+`queued/running/failed/interrupted/completed`; всё остальное проваливалось в
+проверку `last_attempt`, и при старой успешной попытке отчёт показывал `ok`.
+
+Реальные статусы `task_jobs.status` в проде
+(`prod-checks/raw/main.txt:176,187,190,201`): `paused_rate_limit`,
+`cancelled`, `finished`, `validation_failed`, `completed`, `failed`,
+`interrupted`. Семантика `finished` проверена по коду:
+`services/embedding_control_plane.py:1665` — это **stale-takeover** lease
+(`reason_code='stale_takeover'`), то есть НЕ успешный терминал.
+
+Стало (`:726-773`): статус нормализуется `casefold()`, ветки явные —
+
+| job status | Было (со старой успешной попыткой) | Стало |
+|---|---|---|
+| `cancelled` / `CANCELLED` | `ok` | **`attention`** — «job CANCELLED — не успешный терминал» |
+| `validation_failed` | `ok` | **`attention`** — «не прошло валидацию» (`reason=knn_source_empty`) |
+| `finished` | `ok` | **`attention`** — stale-takeover lease, не успех |
+| `paused_rate_limit` / `paused_provider` / `paused` | `ok` | **`degraded`** — пауза (авто-resume), не успех |
+| `failed` / `interrupted` | `worker_crashed` | без изменений (обратная совместимость) |
+| `queued/running/building/checkpoint/validating` | `ok` (только queued/running) | `ok` при свежем heartbeat, `worker_crashed` при протухшем |
+| `completed/validated/activated/active` | `ok` | `ok` + прежний `cursor_stalled` |
+| незнакомый | `ok` (при наличии попытки) | **`unknown`** (не зелёное) |
+
+RED: `pytest-red-jobbranch.txt` — **2 failed / 22 passed**
+(`assert 'ok' == 'attention'` на интеграционном кейсе
+«job `cancelled` + старая успешная попытка», и `assert 'ok' ==
+'worker_crashed'` для `FAILED` в unit-матрице).
+GREEN: `pytest-green.txt` — **24 passed**.
+
+Скоуп: только `tools/v63_b11_mechanisms_report.py`,
+`tests/test_asap8_v63_b11_report.py`, этот отчёт; `services/**` и `web/**`
+не тронуты (`git show --name-only`).

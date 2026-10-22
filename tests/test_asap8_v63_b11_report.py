@@ -530,6 +530,73 @@ class TestFailSoftAndDiagnoseMatrix:
         # статус-классификация (не исход) не превращает секцию в unknown
         assert code("self", status_semantics="classification") == DIAG_OK
 
+    def test_diagnose_job_status_case_and_vocabulary(self):
+        """TEST-LIFECYCLE: REGRESSION owner=REQ-B11-E2E.
+
+        job-ветка `diagnose` обязана быть регистронезависимой и знать реальные
+        `task_jobs.status`: `services/task_supervisor.py` (queued/running/
+        completed/failed/cancelled/interrupted), `services/graphrag_rebuild.py`
+        (building/checkpoint/validating/validated/activated/paused*/
+        validation_failed/cancelled), `services/embedding_control_plane.py`
+        (`finished` = stale-takeover, НЕ успешный терминал)."""
+        now = NOW
+        base_job = {"heartbeat_at": now - 60, "updated_at": now - 60,
+                    "reason_code": None, "error_code": None,
+                    "finished_at": None}
+        fresh_attempt = {"ts": now - 60, "status": "ok", "detail": ""}
+
+        def code_job(status: str, **extra) -> str:
+            job = {**base_job, "status": status, **extra}
+            return diagnose(gate_effective=True, gate_source="env",
+                            input_available=True, last_attempt=fresh_attempt,
+                            last_job=job, now=now)["code"]
+
+        # прежняя семантика не сломана
+        assert code_job("failed") == DIAG_WORKER_CRASHED
+        assert code_job("interrupted") == DIAG_WORKER_CRASHED
+        assert code_job("running") == DIAG_OK
+        assert code_job("completed") == DIAG_OK
+        # регистр
+        assert code_job("COMPLETED") == DIAG_OK
+        assert code_job("FAILED") == DIAG_WORKER_CRASHED
+        assert code_job("CANCELLED") == DIAG_ATTENTION
+        # реальные не-зелёные статусы
+        assert code_job("cancelled") == DIAG_ATTENTION
+        assert code_job("validation_failed") == DIAG_ATTENTION
+        assert code_job("VALIDATION_FAILED") == DIAG_ATTENTION
+        assert code_job("finished") == DIAG_ATTENTION   # stale takeover
+        assert code_job("paused_rate_limit") == DIAG_DEGRADED
+        assert code_job("paused_provider") == DIAG_DEGRADED
+        assert code_job("paused") == DIAG_DEGRADED
+        # реальные успешные/активные терминалы
+        assert code_job("activated") == DIAG_OK
+        assert code_job("validated") == DIAG_OK
+        assert code_job("building") == DIAG_OK
+        assert code_job("CHECKPOINT") == DIAG_OK
+        # незнакомый статус job — не зелёное
+        assert code_job("state_xyz") == DIAG_UNKNOWN
+
+    @pytest.mark.asyncio
+    async def test_cancelled_job_with_old_success_not_green(self, tmp_path):
+        """job-ветка: текущий job `cancelled` при более ранней успешной
+        попытке не должен давать `ok` (прод: `cancelled`/`validation_failed`/
+        `paused_rate_limit`/`finished` в `task_jobs.status`,
+        `prod-checks/raw/main.txt:176,187,190,201`)."""
+        db = await _db(tmp_path)
+        await _seed_graph_fact(db, created_at=NOW - 3600)
+        await _seed_event(db, ts=NOW - 7200, event_name="graphrag_rebuild",
+                          outcome="success", component="graphrag")
+        await _seed_job(db, kind="graphrag_rebuild", status="cancelled",
+                        now=NOW, finished_at=NOW - 60)
+        report = await collect_report(str(tmp_path / "b11.db"), now=NOW)
+        graph = next(m for m in report["mechanisms"]
+                     if m["key"] == "graph_memory")
+        assert graph["last_job"]["status"] == "cancelled"
+        assert graph["last_attempt"] is not None
+        assert graph["diagnosis"]["code"] == DIAG_ATTENTION
+        assert graph["diagnosis"]["code"] != DIAG_OK
+        await db.close()
+
     @pytest.mark.asyncio
     async def test_chat_scope_isolation(self, tmp_path, monkeypatch):
         """chat_id фильтрует счётчики: события чужого чата не попадают."""
