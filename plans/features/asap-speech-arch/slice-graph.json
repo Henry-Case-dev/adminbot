@@ -1,0 +1,192 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "asap-speech-arch. Три фактические линии: (1) промпт-ядро W1→миграция→live, (2) Expression header независимо, (3) инспектор→UI-цепочка. Слайсы с общими файлами сериализованы зависимостями (совпадающие write_scope).",
+  "slices": [
+    {
+      "id": "P0-A",
+      "depends_on": [],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "services/prompt_registry.py",
+        "services/prompt_migrations.py",
+        "tests/test_direct_chat_prompts.py",
+        "plans/features/asap-speech-arch/adr-l2-kept.md"
+      ],
+      "acceptance": "DIRECT_VERBALIZER_SYSTEM_PROMPT = §3.1 байт-в-байт; новая Factory Revision (direct.base.l2_writer) зарегистрирована; ступень миграции и ADR «Почему L2 промпт Direct остаётся» есть; ключ/API прежние; схема всех L2-вызовов проверена (P0A-RISK); характер сохранён в маршрутах после очистки (ADD-IDENTITY-L2)."
+    },
+    {
+      "id": "P0-B",
+      "depends_on": ["P0-A"],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "services/prompt_registry.py",
+        "services/prompt_migrations.py",
+        "tests/test_soul1_factory_defaults.py"
+      ],
+      "acceptance": "PERSONALITY_CORE_FULL_TEXT = §3.2 байт-в-байт; diff владельческой редакции зафиксирован, owner-preserving patch активной редакции с показом diff; каждый смысловой блок сохранён/перенесён с обоснованием (ADD2-BLOCK-MAP); токсичность/цинизм/юмор сохранены как свойства личности; SOUL-16 ушёл из model-facing."
+    },
+    {
+      "id": "P0-C",
+      "depends_on": ["P0-B"],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "services/prompt_registry.py",
+        "services/prompt_migrations.py"
+      ],
+      "acceptance": "PERSONALITY_CORE_COMPACT_TEXT = §3.3 байт-в-байт; компактная редакция — сокращение Full без иных дозволений/запретов; свойства личности сохранены, примитивизация запрещена."
+    },
+    {
+      "id": "P0-D",
+      "depends_on": [],
+      "write_scope": [
+        "services/mca_expression.py",
+        "tests/test_expression_isolation_followup.py"
+      ],
+      "acceptance": "EXPRESSION_HEADER = §3.4 байт-в-байт (дельта к 2.58.107); режимы off/occasional/frequent побуквенно прежние; рендерится ровно эффективный режим; Expression регулирует интенсивность резкости/частоту мата и не подменяет характер; restore тестовых overrides доказан."
+    },
+    {
+      "id": "P0-E",
+      "depends_on": ["P0-C"],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "services/prompt_style_blocks.py",
+        "services/style_policy.py",
+        "services/prompt_registry.py",
+        "services/prompt_migrations.py"
+      ],
+      "acceptance": "Конфликт «никаких кавычек» vs «только \"\"» устранён по эффективному scope; Style_Policy_Hint — рендер typed speech_style_policy; альтернативные типографические правила из Direct L2 убраны; цитаты/URL/код не изменены."
+    },
+    {
+      "id": "P0-F",
+      "depends_on": ["P0-E"],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "services/prompt_registry.py",
+        "services/prompt_migrations.py",
+        "services/summary_prompts.py",
+        "services/search_prompts.py",
+        "services/web_prompts.py",
+        "services/youtube_prompts.py",
+        "services/factcheck_prompts.py",
+        "services/checkup_prompts.py"
+      ],
+      "acceptance": "Ролевой блок prompts.direct_chat_system_prompt заменён на §3.6; identity/мат/пунктуация/anti-bot из фабрики убраны; tool/context контракты (UserResolutionMap, Protected_Facts, chat_lore, capability policy) не сломаны; матрица до/после по всем заводским prompts.* с exact substring + owner; smoke каждого пути."
+    },
+    {
+      "id": "P0-G",
+      "depends_on": ["P0-F"],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "services/direct_l1.py",
+        "tests/test_asap8_v6_f6_initiative.py"
+      ],
+      "acceptance": "В L1 добавлена/заменена только секция «ВЫБОР УЧАСТИЯ» §3.7; JSON schema и обязательные поля не сломаны; только модель выбирает action/delivery, валидатор лишь запрещает невозможное; reply — выбор, не константа (контрпример-тест)."
+    },
+    {
+      "id": "MIGR",
+      "depends_on": ["P0-A", "P0-B", "P0-C", "P0-D", "P0-E", "P0-F", "P0-G"],
+      "write_scope": [
+        "services/prompt_factory.py",
+        "services/prompt_migrations.py",
+        "services/prompt_registry.py",
+        "services/config_cache.py",
+        "services/hot_config.py",
+        "tests/test_soul1_factory_defaults.py"
+      ],
+      "acceptance": "Идемпотентная миграция реальной prod-конфигурации по протоколу §5 (1-10): inventory/trace/backup до изменений, активная запись обновлена, reset-to-factory даёт новую фабрику, кеши инвалидированы с контролем revision, scope A/B изолирован, SELECT+инспектор+payload-hash совпадают, rollback без потери редакции владельца; итоговая таблица SHA."
+    },
+    {
+      "id": "INSPECTOR",
+      "depends_on": ["P0-A", "P0-B", "P0-C", "P0-D", "P0-E", "P0-F", "P0-G"],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "services/prompt_composer.py",
+        "web/templates/**",
+        "web/static/**",
+        "tests/test_prompt_inspector.py"
+      ],
+      "acceptance": "На каждый реальный LLM-вызов доступны correlation_id/ревизии слоёв/effective scope/санитизированный exact assembled system/после-retry checksum; «полный итоговый промпт» байт-в-байт = provider вызов; человекочитаемые skip reasons; иерархия слоёв с кликом; подсветка конфликтов; без секретов и приватного контекста вне owner-сессии."
+    },
+    {
+      "id": "INIT-LIVE",
+      "depends_on": ["MIGR"],
+      "write_scope": [
+        "tests/test_initiative_scenarios.py",
+        "tests/test_speech_evals.py",
+        "plans/features/asap-speech-arch/evidence/**"
+      ],
+      "acceptance": "I-01…I-09 прогнаны (chat/reply/react/silent на подходящих входах, fail-closed доставки); property/regression против hardcode; evals 3 режима × 3 жанра × 10 стимулов с фиксированным sampling и сравнением до/после сериализации; 48-часовая прод-наблюдение без квоты — NOT_YET_OBSERVED не считается доказательством."
+    },
+    {
+      "id": "TESTS",
+      "depends_on": ["P0-A", "P0-B", "P0-C", "P0-D", "P0-E", "P0-F", "P0-G", "MIGR"],
+      "write_scope": [
+        "tests/test_soul1_speech_layers.py"
+      ],
+      "acceptance": "Чек-лист 9.1 закрыт новым durable-набором: чистота Core/L2/tool-фазы, ровно одна эффективная ветка Expression, стилевой конфликт устранён, метки SOUL-*/owner_setting вне payload, factory vs active SHA раздельно, сохранность кастомов, Preview=build, ON/OFF parity, чистота planner JSON, one-owner-per-rule, антипаттерны §4, ревью сохранности личности."
+    },
+    {
+      "id": "REPORT",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/asap-speech-arch/reporting/**",
+        "plans/workflow_state.md"
+      ],
+      "acceptance": "Отчётность §0: русский язык, точное локальное время с зоной, прогресс IMPLEMENTED/TESTED/DEPLOYED/LIVE_VERIFIED/PENDING без раздувания старым реестром, коммиты/хеши/кейсы, без секретов; PENDING_LIVE-семантика для незакрывшихся живых событий; DoD-сверка составная."
+    },
+    {
+      "id": "UI-U01",
+      "depends_on": ["INSPECTOR"],
+      "write_scope": ["web/static/app.css", "web/static/polygon-background.js"],
+      "acceptance": "Карточки «Библиотека промптов» и «Модели и подключения» цельные (без швов наложенного блока); полигональный фон не изменён, кроме устранения проверенного просвечивания canvas поверх текста."
+    },
+    {
+      "id": "UI-U02",
+      "depends_on": ["UI-U01"],
+      "write_scope": ["web/static/app.css", "web/templates/speech.html"],
+      "acceptance": "Разрыв/overlay в «Речь и характер» устранён; все 7 рядов интерактивны или честно read-only с объяснением; без обманных стрелок и невидимых hitbox."
+    },
+    {
+      "id": "UI-U03",
+      "depends_on": ["UI-U02"],
+      "write_scope": ["web/templates/prompts.html", "web/static/app.css"],
+      "acceptance": "Единая адаптивная grid-система каталога; карточка вербализатора переименована в «Direct: финальный ответ (Writer)» с новым описанием; ключи и ID прежние; этапы показываются только если есть в модуле."
+    },
+    {
+      "id": "UI-U04",
+      "depends_on": ["UI-U03"],
+      "write_scope": ["web/static/app.css", "web/templates/inspector.html"],
+      "acceptance": "Кодовые области на 320/360/390/430 читаемы (pre-wrap/anywhere, скролл только для diff); textarea не режет текст, caret/клавиатура Android целы; нет второй горизонтальной прокрутки страницы."
+    },
+    {
+      "id": "UI-U05",
+      "depends_on": ["UI-U04"],
+      "write_scope": ["web/static/app.css", "web/templates/core-editor.html"],
+      "acceptance": "Переключатель Full/Compact адаптивен; поле Core с внутренним scroll и «Развернуть» в крупный редактируемый экран; сохранение на выбранный scope и редакцию без тихих переключений."
+    },
+    {
+      "id": "UI-U06",
+      "depends_on": ["UI-U05"],
+      "write_scope": ["web/templates/base.html", "web/static/app.css"],
+      "acceptance": "Заголовок/breadcrumb/один scope-selector/статус сохранения согласованы; header не перекрывает контент; навигация на мобильном открывает все разделы; fullscreen-кнопка сохранена возле нативных элементов Telegram."
+    },
+    {
+      "id": "UI-U07",
+      "depends_on": ["UI-U06"],
+      "write_scope": ["web/static/app.js"],
+      "acceptance": "Единый стейт pristine/dirty/saving/saved/error/conflict; нет двойного Save, ложного «сохранено», гонок и залипания sticky-панели; один главный CTA на узком экране."
+    },
+    {
+      "id": "UI-U09",
+      "depends_on": ["UI-U07"],
+      "write_scope": ["web/static/app.js", "web/templates/**"],
+      "acceptance": "Маршрут Статус → ИИ → Речь и характер → Core → Expression → Библиотека → Direct Writer → Назад работает для GLOBAL и CHAT: контекст сохраняется, раздел подсвечен, Back/размер окна корректны."
+    },
+    {
+      "id": "UI-P2",
+      "depends_on": ["UI-U09"],
+      "write_scope": ["web/static/app.css", "web/static/glass-refraction.js"],
+      "acceptance": "Liquid Glass на существующей архитектуре без нового overlay; контраст устойчив на движущемся фоне; reduced-motion fallback; без лагов Android WebView/GPU-сбоев Windows; полигональный рисунок и цвета не изменены."
+    }
+  ]
+}
