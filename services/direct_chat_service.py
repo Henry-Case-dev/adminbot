@@ -8654,10 +8654,14 @@ class DirectChatService:
                                        correlation_id: str | None = None
                                        ) -> "_l1.L1Plan | None":
         """F6 (§13.2): инициативное решение СУЩЕСТВУЮЩЕЙ L1-моделью
-        (REPLY/REACT/SILENT). Compact context: задача намерения + свежее
-        окно чата + кадр личности (тот же сборщик `_l1.build_l1_context`).
-        Один вызов L1 (без repair-лестницы — инициатива вторична: outage/
-        невалидный JSON → None → SILENT, не повтор). Никогда не бросает."""
+        (REPLY/REACT/SILENT + форма доставки, L1D 22.10.2026). L1 видит:
+        окно переписки С id/reply-связями, недавние ответы бота, allowed-
+        реакции, повод наблюдателя КАК ПРЕДЛОЖЕНИЕ (может отклонить). Форму
+        участия (написать в чат / Telegram-reply на конкретное сообщение /
+        реакция / молчание) выбирает ТОЛЬКО L1 — транспорта-резолвера больше
+        нет. Один вызов L1 (без repair-лестницы — инициатива вторична:
+        outage/невалидный JSON → None → SILENT, не повтор). Никогда не
+        бросает."""
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -8667,19 +8671,56 @@ class DirectChatService:
         except Exception:
             pass
         persona_block = await self._initiative_persona_block(chat_id)
+        bot_replies = await self._recent_bot_replies(chat_id)
         row = intent_row or {}
         goal = str(row.get("goal") or "").strip()
         kind = str(row.get("kind") or "")
         origin = str(row.get("origin") or "")
+        # L1D: смысловой адресат от наблюдателя — КОНТЕКСТ для решения, не
+        # команда: имя в окне + id, чтобы L1 могла выбрать форму обращения
+        # (обычное сообщение с обращением ИЛИ reply на его сообщение).
+        addressee_label = "чат"
+        addressee_id = row.get("addressee_user_id")
+        if addressee_id is not None:
+            try:
+                addressee_id = int(addressee_id)
+            except (TypeError, ValueError):
+                addressee_id = None
+        if addressee_id is not None:
+            name = ""
+            for wr in window:
+                try:
+                    if int(wr.get("user_id") or 0) == addressee_id \
+                            and str(wr.get("author_name") or "").strip():
+                        name = str(wr["author_name"]).strip()
+                        break
+                except (TypeError, ValueError):
+                    continue
+            addressee_label = (f"участник {name} [user:{addressee_id}]"
+                               if name else f"участник [user:{addressee_id}]")
         task = (
             "Никто бота не звал: решается уместность ИНИЦИАТИВЫ. "
-            f"Намерение (kind={kind or 'unknown'}, "
+            f"Предложение наблюдателя (можешь отклонить; kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}. "
-            "Оцени свежий контекст чата: reply - повод ещё жив и вклад "
-            "уместен; silent - повод устарел, отвечен или мешать нечего.")
+            "Оцени свежий контекст чата и выбери форму участия: написать "
+            "в чат, ответить как reply на конкретное сообщение, поставить "
+            "реакцию или промолчать. Умерший повод, ответ на него в "
+            "контексте или нечего добавить - silent; бессмыслица и шум "
+            "участников не обязаны становиться репликой.")
+        # L1D: УСЛОВИЯ — равноправие форм + существующий allowed-набор
+        # реакций (той же строкой, что прямой L1; прецедент P3 rootcause).
+        _init_conditions = [_l1.INITIATIVE_LINE]
+        if reaction_mechanics_enabled():
+            _init_conditions.append(
+                "разрешённые реакции: "
+                + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
         context_text = _l1.build_l1_context(
-            query=task, window=window, speaker="", addressee="чат",
-            capabilities=(), force_line="", persona_frame=persona_block)
+            query=task, window=window, speaker="",
+            addressee=addressee_label,
+            capabilities=(),
+            force_line="; ".join(_init_conditions),
+            persona_frame=persona_block, bot_replies=bot_replies,
+            with_ids=True)
         messages = [
             {"role": "system",
              "content": resolve_prompt(
@@ -8737,11 +8778,13 @@ class DirectChatService:
             "Ты проявляешь инициативу сам (никто бота не звал). Держись "
             "в рамках ожидаемой полноты и естественно, как участник чата; "
             "не устраивай доклад.\n"
-            f"Повод (kind={kind or 'unknown'}, origin={origin or 'unknown'}):"
-            f" {goal or 'цель не указана'}\n"
+            f"Предложение наблюдателя (kind={kind or 'unknown'}, "
+            f"origin={origin or 'unknown'}): {goal or 'цель не указана'}\n"
             "Не переспрашивай то, на что в свежем контексте уже ответили.\n"
             "</Initiative_Context>")
-        window_block = _l1.render_window_lines(window, 12)
+        # L1D: окно Writer с теми же [msg:N]/[user:UID] id, что видел L1, —
+        # форма доставки из плана ссылается на конкретное сообщение.
+        window_block = _l1.render_window_lines(window, 12, with_ids=True)
         user_blocks = [context_block]
         if window_block:
             user_blocks.append("<Fresh_Chat_Window>\n" +
@@ -8751,7 +8794,10 @@ class DirectChatService:
             plan = l1_plan or _l1.L1Plan()
             response_plan = plan.to_response_plan() \
                 if hasattr(plan, "to_response_plan") else None
-            plan_block = _l1.build_l2_plan_block(plan) \
+            plan_block = _l1.build_l2_plan_block(
+                plan,
+                rejected=(),
+                include_delivery=True) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             result = await self._l2_write_answer(
@@ -9091,103 +9137,169 @@ def _ephemeral_intent_row(opportunity_row: dict | None, chat_id: int
     return row
 
 
-# ── INIT-REPLY-FIX (owner-obs diagnostics 21.10.2026 §4): транспортный хвост
-# адресата инициативы. addressee_user_id + source_refs доезжают до Writer/L1,
-# но send_text вызывался БЕЗ reply_to_message_id — все инициативные отправки
-# уходили standalone (журнал 18–21.10: 24/24). Механика — по прецеденту
-# smartmodule_utils (§4.2): reply ТОЛЬКО у первого чанка; 400 «message to be
-# replied not found» → ровно один повтор без reply (_is_reply_target_gone).
+# ── L1D (owner-corrective-initreply 22.10.2026 §2/§4/§6): транспорт НЕ
+# выбирает цель. Детерминированный резолвер 2.58.109 (_initiative_reply_target:
+# source_refs → первое сообщение → reply, фолбэк «последнее сообщение
+# адресата») УДАЛЁН — он подменял решение LLM эвристикой. Форму участия
+# выбирает L1 в плане (delivery/target_message_id/target_user_id); транспорт
+# только ИСПОЛНЯЕТ решение и проверяет выбранную цель технически (§6):
+# принадлежность чату, существование, соответствие адресату, свежесть.
 # R17: в логах только id/коды, содержимое не логируется.
 
-_INITIATIVE_REPLY_MAX_AGE_S = 24 * 3600   # §4.3: протухшая цель → без reply
 
-
-def _initiative_ref_ids(intent_row) -> tuple[int, ...]:
-    """smart_messages.id из ``source_refs`` (``msg:<id>[,...]``) —
-    ephemeral-строка (build_opportunity_row) или durable
-    ``source_refs_json`` (JSON-список). Порядок сохранён, ≤4; мусор
-    отбрасывается. НЕ бросает."""
-    refs = None
-    if isinstance(intent_row, dict):
-        refs = intent_row.get("source_refs")
-        if not refs:
-            raw = intent_row.get("source_refs_json")
-            if isinstance(raw, str) and raw.strip():
-                try:
-                    parsed = json.loads(raw)
-                    refs = parsed if isinstance(parsed, (list, tuple)) else ()
-                except Exception:
-                    refs = ()
-    if isinstance(refs, str):
-        refs = refs.split(",")
-    ids: list[int] = []
-    for ref in list(refs or ())[:16]:
-        token = str(ref or "").strip()
-        if not token.startswith("msg:"):
-            continue
-        try:
-            value = int(token[4:])
-        except ValueError:
-            continue
-        if value > 0:
-            ids.append(value)
-        if len(ids) >= 4:
-            break
-    return tuple(ids)
-
-
-async def _initiative_reply_target(db, chat_id: int, intent_row) -> int | None:
-    """Резолвер «адресат → сообщение» (§4.1, best-effort, fail-open → None):
-
-    1) ``source_refs`` (msg:<smart_messages.id>) → колонка
-       ``smart_messages.tg_message_id`` этого же чата;
-    2) фолбэк — последний ``tg_message_id`` пользователя
-       ``addressee_user_id`` в чате.
-
-    Протухшая цель (старше ``_INITIATIVE_REPLY_MAX_AGE_S``) → None (§4.3) —
-    отправка уйдёт без reply. Ностальгия/heartbeat (строка без адресата и
-    msg-ссылок) детерминированно дают None. НИКОГДА не бросает."""
+def _initiative_context_window_seconds() -> int:
+    """§6 «не устарело относительно текущего контекста»: граница свежести
+    цели = то же окно, из которого L1 выбирала (limits.summary_window_hours,
+    тот же источник, что у get_window_messages). Хардкод 24ч из 2.58.109
+    снят по §6 («без обоснования»): граница следует за реальным окном
+    контекста, а не за фиксированным числом. Флор 1ч защищает от вырожденной
+    конфигурации (0ч не должен отключать reply целиком). Никогда не бросает."""
     try:
-        if db is None or not isinstance(intent_row, dict):
-            return None
-        since = int(time.time()) - _INITIATIVE_REPLY_MAX_AGE_S
+        from services import hot_config as hot
+        hours = float(hot.get(
+            "limits.summary_window_hours",
+            settings.SUMMARY_WINDOW_HOURS) or 0)
+    except Exception:      # pragma: no cover - защитная ветка
+        hours = float(getattr(settings, "SUMMARY_WINDOW_HOURS", 6.0) or 6.0)
+    return max(3600, int(hours * 3600))
 
-        async def _tg_of(sql: str, args: tuple) -> int | None:
-            cursor = await db.db.execute(sql, args)
-            row = await cursor.fetchone()
-            if row is None:
-                return None
-            value = row_get(row, "tg_message_id")
-            try:
-                return int(value) if value not in (None, "", 0) else None
-            except (TypeError, ValueError):
-                return None
 
-        for msg_id in _initiative_ref_ids(intent_row):
-            tg_id = await _tg_of(
-                "SELECT tg_message_id FROM smart_messages "
-                "WHERE id = ? AND chat_id = ? AND tg_message_id IS NOT NULL "
-                "AND timestamp >= ?",
-                (msg_id, int(chat_id), since))
-            if tg_id is not None:
-                return tg_id
-        addressee = intent_row.get("addressee_user_id")
+def _plan_target_message_id(plan) -> int | None:
+    """id цели из плана L1 (мусор/bool/≤0 → None). Не бросает."""
+    value = getattr(plan, "target_message_id", None)
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _plan_semantic_addressee(plan) -> int | None:
+    """Смысловой адресат из плана L1 (target_user_id; мусор → None).
+
+    Семантика (§6 директивы): заполненный адресат означает «текст — прямой
+    ответ этому человеку» → при недоступной цели отправка без привязки
+    потеряла бы смысл (SendRecheck-исход); пустой — текст осмыслен
+    standalone (fail-soft обычная отправка)."""
+    value = getattr(plan, "target_user_id", None)
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+async def _validate_plan_target(db, chat_id: int, plan, *,
+                                mode: str) -> tuple[int | None, str]:
+    """Техническая проверка цели, ВЫБРАННОЙ L1 (§6 директивы 22.10).
+
+    Никакого выбора: цель приходит ТОЛЬКО из плана. Проверки: сообщение
+    существует и принадлежит этому чату, имеет Telegram-id, не устарело
+    относительно окна контекста, соответствует смысловому адресату (если
+    L1 его указала). При неудаче цель НЕ заменяется другой (§6: «не выбирать
+    другую произвольную цель»). Возврат ``(tg_message_id | None, код)``:
+    код "" — привязка не запрашивалась планом; непустой код — план просил
+    цель, проверка её не прошла. Никогда не бросает."""
+    try:
+        if plan is None:
+            return None, ""
+        action = str(getattr(plan, "action", "") or "")
+        if mode == "reply":
+            if not _l1.reply_binding_requested(plan):
+                return None, ""
+        elif mode == "react":
+            if action != "react":
+                return None, ""
+        else:      # pragma: no cover - защитная ветка контракта
+            return None, ""
+        target = _plan_target_message_id(plan)
+        if target is None:
+            return None, "target_invalid"
+        cursor = await db.db.execute(
+            "SELECT tg_message_id, user_id, timestamp FROM smart_messages "
+            "WHERE id = ? AND chat_id = ?", (int(target), int(chat_id)))
+        row = await cursor.fetchone()
+        if row is None:
+            return None, "target_missing"
+        tg_raw = row_get(row, "tg_message_id")
         try:
-            addressee = (int(addressee)
-                         if addressee not in (None, "", 0) else None)
+            tg_id = int(tg_raw) if tg_raw not in (None, "", 0) else None
         except (TypeError, ValueError):
-            addressee = None
+            tg_id = None
+        if tg_id is None:
+            return None, "target_no_tg_id"
+        try:
+            ts = int(row_get(row, "timestamp") or 0)
+        except (TypeError, ValueError):
+            ts = 0
+        if ts > 0 and int(time.time()) - ts > \
+                _initiative_context_window_seconds():
+            return None, "target_stale"
+        addressee = _plan_semantic_addressee(plan)
         if addressee is not None:
-            return await _tg_of(
-                "SELECT tg_message_id FROM smart_messages "
-                "WHERE chat_id = ? AND user_id = ? "
-                "AND tg_message_id IS NOT NULL AND timestamp >= ? "
-                "ORDER BY id DESC LIMIT 1",
-                (int(chat_id), addressee, since))
+            row_user = row_get(row, "user_id")
+            try:
+                row_user = int(row_user) if row_user is not None else None
+            except (TypeError, ValueError):
+                row_user = None
+            if row_user != addressee:
+                return None, "target_addressee_mismatch"
+        return tg_id, ""
     except Exception:
-        logger.warning("[mca09] initiative reply target resolve failed | "
+        logger.warning("[mca09] initiative plan target validate failed | "
                        "chat=%s", chat_id, exc_info=True)
-    return None
+        return None, "target_unavailable"
+
+
+async def _execute_initiative_react(bot, db, chat_id: int, decision,
+                                    l1_plan, delivery_kind: str, *,
+                                    writer_service=None) -> dict:
+    """L1D (директива 22.10 §5-D/§7): исполнение реакции, выбранной L1.
+
+    Реакция — ТОЛЬКО существующий механизм ``react_moai``; цель — только
+    ``target_message_id`` из плана, прошедшая техническую проверку (§6).
+    Валидной реакции/цели нет → честное молчание БЕЗ произвольной
+    перепривязки цели и БЕЗ превращения реакции в текст. Никогда не
+    бросает (возвращает R17-safe статус)."""
+    reaction = getattr(l1_plan, "reaction", None)
+    if reaction not in _llm_react.ALLOWED_LLM_REACTIONS:
+        reaction = None
+    target_tg, code = await _validate_plan_target(
+        db, chat_id, l1_plan, mode="react")
+    if reaction is not None and target_tg is not None:
+        mech = reaction_mechanics_enabled()
+        outcome_code = await react_moai(
+            bot, chat_id, target_tg,
+            reaction=reaction if mech else None,
+            reason_code="l1_react")
+        if writer_service is not None:
+            await _f6_plan_next_check(db, decision)
+        _mca_intents.note_decision(decision, chat_id=chat_id,
+                                   outcome="ok", reason_code="l1_react")
+        if decision.intent_id and db is not None:
+            try:
+                await _mca_intents.get_service(db).mark_attempt(
+                    decision.intent_id)
+            except Exception:
+                logger.warning("[mca09] initiative attempt mark failed",
+                               exc_info=True)
+        return {"status": "reacted", "delivery_kind": delivery_kind,
+                "reason_code": "l1_react", "reaction_outcome": outcome_code,
+                "reaction_target": target_tg, "decision": decision}
+    # Честный исход: реакция не состоялась (нет валидного эмодзи/цели) —
+    # НИКАКОЙ автоподмены цели или превращения в сообщение (§6).
+    logger.warning("[mca09] initiative react not executable | chat=%s | "
+                   "reason=%s", chat_id, code or "invalid_reaction")
+    if writer_service is not None:
+        await _f6_plan_next_check(db, decision)
+    _mca_intents.note_decision(decision, chat_id=chat_id,
+                               outcome="silent", reason_code="l1_react")
+    return {"status": "silent", "delivery_kind": delivery_kind,
+            "reason_code": "l1_react", "decision": decision}
 
 
 async def handle_initiative(*, bot, chat_id: int, situation, candidates,
@@ -9377,18 +9489,31 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     return {"status": "cancelled",
                             "reason_code": "direct_pending",
                             "delivery_kind": kind, "decision": decision}
-            # инициативное решение СУЩЕСТВУЮЩЕЙ L1-моделью (§13.2)
+            # инициативное решение СУЩЕСТВУЮЩЕЙ L1-моделью (§13.2 + L1D
+            # 22.10.2026: L1 выбирает и ФОРМУ участия — reply/react/silent
+            # и доставку; транспорт не подменяет).
             l1_plan = await writer_service.plan_initiative_decision(
                 chat_id, intent_row or {}, correlation_id=correlation_id)
-            if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
-                _code = ("l1_unavailable" if l1_plan is None
-                         else f"l1_{getattr(l1_plan, 'action', 'silent')}")
+            if l1_plan is None:
                 await _f6_plan_next_check(db, decision)
                 _mca_intents.note_decision(decision, chat_id=chat_id,
                                            outcome="silent",
-                                           reason_code=_code)
+                                           reason_code="l1_unavailable")
                 return {"status": "silent", "delivery_kind": kind,
-                        "reason_code": _code, "decision": decision}
+                        "reason_code": "l1_unavailable",
+                        "decision": decision}
+            if getattr(l1_plan, "action", "") == "react":
+                # L1D §5-D: поддерживаемая реакция исполняется без текста.
+                return await _execute_initiative_react(
+                    bot, db, chat_id, decision, l1_plan, kind,
+                    writer_service=writer_service)
+            if getattr(l1_plan, "action", "") != "reply":
+                await _f6_plan_next_check(db, decision)
+                _mca_intents.note_decision(decision, chat_id=chat_id,
+                                           outcome="silent",
+                                           reason_code="l1_silent")
+                return {"status": "silent", "delivery_kind": kind,
+                        "reason_code": "l1_silent", "decision": decision}
             prepared_text = await writer_service.generate_initiative_reply(
                 chat_id, intent_row or {}, l1_plan=l1_plan,
                 correlation_id=correlation_id)
@@ -9458,6 +9583,13 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     pass
             l1_plan = await writer_service.plan_initiative_decision(
                 chat_id, intent_row or {}, correlation_id=correlation_id)
+            if l1_plan is not None and \
+                    getattr(l1_plan, "action", "") == "react":
+                # L1D: переоценка на свежем контексте выбрала реакцию —
+                # исполняется, а не демотируется молча.
+                return await _execute_initiative_react(
+                    bot, db, chat_id, decision, l1_plan, kind,
+                    writer_service=writer_service)
             if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
                 _mca_intents.note_decision(decision, chat_id=chat_id,
@@ -9509,12 +9641,42 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                                              intent_id=decision.intent_id)
         sent_id = None
         sent = 0
-        # INIT-REPLY-FIX (§4): при адресате reply на его сообщение — ТОЛЬКО
-        # у первого чанка (прецедент smartmodule_utils.send_chunked_reply).
-        # Без адресата/ссылок (ностальгия/heartbeat) — без reply, путь
-        # байт-в-байт прежний.
-        reply_target_id = await _initiative_reply_target(db, chat_id,
-                                                         intent_row)
+        # ── L1D (директива 22.10 §2/§4/§6): привязка reply — ТОЛЬКО из
+        # решения L1 (delivery=reply + target_message_id). Никакого
+        # детерминированного выбора по source_refs/адресату (резолвер
+        # 2.58.109 удалён). Техническая проверка цели; при неудаче:
+        #  - текст осмыслен standalone (нет смыслового адресата в плане)
+        #    → fail-soft обычная отправка;
+        #  - текст — прямой ответ человеку (адресат указан) → отправка без
+        #    привязки потеряла бы смысл → SendRecheck-семантика: отмена без
+        #    отправки, переоценка позже (bounded defer).
+        reply_target_id = None
+        binding_code = ""
+        semantic_addressee = None
+        if l1_plan is not None:
+            semantic_addressee = _plan_semantic_addressee(l1_plan)
+            if _l1.reply_binding_requested(l1_plan):
+                reply_target_id, binding_code = await _validate_plan_target(
+                    db, chat_id, l1_plan, mode="reply")
+                if reply_target_id is None:
+                    logger.info("[mca09] initiative reply binding "
+                                "unavailable | chat=%s code=%s addr=%s",
+                                chat_id, binding_code,
+                                bool(semantic_addressee))
+                    if semantic_addressee is not None:
+                        # §6: нельзя снять привязку прямого ответа человеку
+                        # и отправить «тот же текст в общий чат».
+                        if writer_service is not None:
+                            await _f6_plan_next_check(db, decision)
+                        _mca_intents.note_decision(
+                            decision, chat_id=chat_id, outcome="cancelled",
+                            reason_code=binding_code)
+                        return {"status": "cancelled",
+                                "reason_code": binding_code,
+                                "delivery_kind": kind,
+                                "decision": decision}
+                    # fail-soft: текст самостоятелен → отправка без reply.
+                    reply_target_id = None
         for index, chunk in enumerate(plan.chunks):
             reply_id = reply_target_id if index == 0 else None
             try:
@@ -9522,11 +9684,23 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     bot, chat_id, chunk,
                     **({"reply_to_message_id": reply_id} if reply_id else {}))
             except TelegramBadRequest as exc:
-                # §4.3: цель исчезла к моменту отправки → РОВНО ОДИН повтор
-                # без reply (паттерн smartmodule_utils._send_once); прочие
-                # ошибки — наверх без изменений (ERROR остаётся наверху).
+                # Цель исчезла к моменту отправки: та же семантика решения —
+                # fail-soft (один повтор без reply) для самостоятельного
+                # текста; отмена БЕЗ отправки для прямого ответа человеку.
                 if reply_id is None or not _is_reply_target_gone(exc):
                     raise
+                if semantic_addressee is not None:
+                    logger.warning("[mca09] initiative reply target gone — "
+                                   "cancel (semantic addressee) | chat=%s "
+                                   "msg=%s", chat_id, reply_id)
+                    if writer_service is not None:
+                        await _f6_plan_next_check(db, decision)
+                    _mca_intents.note_decision(
+                        decision, chat_id=chat_id, outcome="cancelled",
+                        reason_code="target_gone")
+                    return {"status": "cancelled",
+                            "reason_code": "target_gone",
+                            "delivery_kind": kind, "decision": decision}
                 logger.warning("[mca09] initiative reply target gone — "
                                "retry without reply | chat=%s msg=%s",
                                chat_id, reply_id, exc_info=True)

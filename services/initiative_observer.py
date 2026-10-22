@@ -237,6 +237,15 @@ REASON_LABELS: dict[str, str] = {
     "l1_unavailable": "L1-планировщик недоступен",
     "l1_silent": "L1 решил промолчать",
     "l1_react": "L1 выбрал реакцию без текста",
+    # L1D (22.10.2026): технические исходы цели, выбранной L1 (§6 директивы).
+    "target_invalid": "в плане нет корректного id цели",
+    "target_missing": "выбранная L1 цель не найдена в чате",
+    "target_no_tg_id": "у выбранной цели нет Telegram-идентификатора",
+    "target_stale": "выбранная L1 цель устарела относительно окна контекста",
+    "target_addressee_mismatch": ("выбранная цель не соответствует "
+                                  "смысловому адресату плана"),
+    "target_unavailable": "проверка выбранной цели не удалась (хранилище)",
+    "target_gone": "цель ответа исчезла на момент отправки",
     "recheck_demoted": "перед отправкой контекст изменился — решено молчать",
     "delivery_not_text": "у решения нет текстовой доставки",
     "already_answered": "на это уже ответили",
@@ -1643,6 +1652,18 @@ class InitiativeObserverRunner:
         status = str((result or {}).get("status") or "error")
         if status == "sent":
             counters["sent"] = int(counters.get("sent") or 0) + 1
+            self._emit("initiative_sent", outcome="success",
+                       stage=f"observer:{kind}", chat_id=chat_id,
+                       entity_id=str(correlation_id))
+        elif status == "reacted":
+            # L1D (22.10.2026): реакция — полноценная форма участия; тот же
+            # анти-спам учёт (окно/тема), свой счётчик и честное событие.
+            counters["react_decisions"] = int(
+                counters.get("react_decisions") or 0) + 1
+            self._emit("initiative_reacted", outcome="success",
+                       stage=f"observer:{kind}", chat_id=chat_id,
+                       entity_id=str(correlation_id))
+        if status in ("sent", "reacted"):
             stamps = [int(ts) for ts in (entry.get("sent_stamps") or [])]
             stamps.append(now)
             entry["sent_stamps"] = stamps[-32:]
@@ -1655,9 +1676,6 @@ class InitiativeObserverRunner:
                                       (topics[k] or {}).get("ts") or 0))[
                         :len(topics) - TOPIC_KEYS_MAX]:
                     topics.pop(key, None)
-            self._emit("initiative_sent", outcome="success",
-                       stage=f"observer:{kind}", chat_id=chat_id,
-                       entity_id=str(correlation_id))
         elif status == "silent":
             reason = str((result or {}).get("reason_code") or "silent")
             decision = (result or {}).get("decision")
