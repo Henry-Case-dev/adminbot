@@ -1,0 +1,76 @@
+SOUL1-CLOSE-R1: grep эффективных Writer-канонов на legacy-идентичность
+SOUL1-CLOSE-R1: grep эффективных Writer-канонов на legacy-идентичность «ты токсичный/циничный».
+Дата: 22.10.2026. Режим: офлайн-проверка (import + regex), 0 LLM-вызовов, 0 сообщений в Telegram.
+HEAD: 804f4963a06005256b7c883601ba9723857b6027
+
+== 1. АКТИВНЫЕ каноны (ACTIVE_CANONS из tests/test_cfg07_backstage_contract.py, CFG-07A) ==
+  search         identity-инструкция: нет; вхождений «токсичн/циничн»: 1
+  youtube        identity-инструкция: нет; вхождений «токсичн/циничн»: 0
+  youtube_video  identity-инструкция: нет; вхождений «токсичн/циничн»: 0
+  web            identity-инструкция: нет; вхождений «токсичн/циничн»: 0
+  checkup        identity-инструкция: нет; вхождений «токсичн/циничн»: 0
+  summary        identity-инструкция: нет; вхождений «токсичн/циничн»: 0
+  direct         identity-инструкция: НАЙДЕНА (!!!); вхождений «токсичн/циничн»: 2
+  Контракт: tests/test_cfg07_backstage_contract.py::test_active_canon_has_no_source_fix_markers
+  (TEST-LIFECYCLE: CONTRACT owner=CFG-07A). NB: константа direct (CHAT_SYSTEM_PROMPT) сознательно
+  несёт legacy-байты (known-canon recognition); identity-фраза снимается на resolve suppress-правилом
+  1 (демо в §5; комментарий в тесте: «в Direct снимается suppress-правилом»); эффективный payload чист,
+  прод: withheld=11 / 0 ERROR (2.58.86+).
+
+== 2. Direct verbalizer (L2-writer Direct) и Personality Core (активные константы) ==
+  DIRECT_VERBALIZER_SYSTEM_PROMPT identity: НАЙДЕНА (!!!)
+  PERSONALITY_CORE_FULL_TEXT identity: нет
+  PERSONALITY_CORE_COMPACT_TEXT identity: нет
+  Слово «циничным» в авторском Core — контекст (семантическое описание характера владельца,
+  НЕ инструкция-идентичность; авторские данные сохранены директивой 44a4827a):
+    «Резким, злым, циничным и неприличным быть можно, но не превращай каждое общение в бессмысленную ссору.»
+
+== 3. factcheck-базы (registry factcheck.base.single / .verbalizer) ==
+  factcheck single (fp.FACTCHECK_SYSTEM_PROMPT / _FACTCHECK_R1021_BASE)
+    identity-инструкция: НАЙДЕНА (!!!)
+    фрагмент: «Ты — токсичный, ироничный фактчекер, третейский судья в интернет-срачах и завсегдатай двача.»
+  factcheck verbalizer (_FACTCHECK_VERBALIZER_R1023_BASE)
+    identity-инструкция: НАЙДЕНА (!!!)
+    фрагмент: «Ты — токсичный, ироничный фактчекер, третейский судья в интернет-срачах и завсегдатай двача.»
+  registry prompts.factcheck_system_prompt: legacy_persona=True, composition_point=speech_plain/factcheck_single (channel_contract)
+  registry prompts.factcheck_verbalizer_system_prompt: legacy_persona=True, composition_point=speech_plain/factcheck_publication
+
+== 4. LEGACY_/PREV_/FROZEN константы (замороженные копии для распознавания/отката) ==
+  chat_prompts.LEGACY_CHAT_SYSTEM_PROMPT           identity: да (ожидаемо, заморожено)
+  chat_prompts.PREV_CHAT_SYSTEM_PROMPT             identity: да (ожидаемо, заморожено)
+  chat_prompts._CHAT_R1021_BASE_FROZEN             identity: да (ожидаемо, заморожено)
+  search_prompts.PREV_SEARCH_SYSTEM_PROMPT         identity: да (ожидаемо, заморожено)
+  checkup_prompts.PREV_CHECKUP_SYSTEM_PROMPT       identity: да (ожидаемо, заморожено)
+  factcheck_prompts.PREV_FACTCHECK_SYSTEM_PROMPT   identity: да (ожидаемо, заморожено)
+  Это байт-замороженные копии (PREV_*_CFG07A / FROZEN) для миграционной лестницы и отката;
+  в runtime как активные каноны не используются (tests: PREV byte-identical к задеплоенной семье).
+
+== 5. Детерминированная демонстрация suppress_legacy_speech (правила 1–14) ==
+  suppress-правил: 14: persona.identity_sentence, persona.safety_circumvention, persona.tone_label, persona.mode_deep_research, persona.bot_knowledge_hostility, persona.search_sneer, persona.checkup_humiliation, persona.checkup_language, persona.direct_style_label, summary.l2_legacy_voice_reference, summary.l2_dvach_vocabulary, direct.honest_concession_invented_causes, summary.archive_data_label, direct.mat_permission_rule
+  Direct base (CHAT_SYSTEM_PROMPT несёт legacy-байты; активный канон 'direct' — см. §1) после suppress:
+    identity осталась? нет (снята правилом)
+    suppress-info: LegacySuppression(known_canon=True, legacy_present=True, applied=True, removed=4, labels=('persona.identity_sentence', 'persona.direct_style_label', 'direct.honest_concession_invented_causes', 'direct.mat_permission_rule'))
+  factcheck single после suppress: identity осталась? нет (снята правилом)
+    suppress-info: LegacySuppression(known_canon=True, legacy_present=True, applied=True, removed=2, labels=('persona.identity_sentence', 'persona.bot_knowledge_hostility'))
+  factcheck verbalizer после suppress: identity осталась? ДА — РЕЗИДУЮ (!!!)
+    suppress-info: LegacySuppression(known_canon=False, legacy_present=True, applied=False, removed=0, labels=())
+
+== 6. Подтверждение в реальном payload (трейс UNIFIED-CORE, 21.10) ==
+  plans/features/add-exp/evidence/unified-core/trace-factcheck-single-path.txt:
+  «СИСТЕМНАЯ РОЛЬ: Ты — токсичный, ироничный фактчекер, третейский судья…» (core=True в том же payload).
+  trace-factcheck-stage2-verbalizer.txt — та же идентичность на публикации.
+
+== ВЫВОД ==
+  • Прямые активные каноны youtube/youtube_video/web/checkup/summary: идентичности НЕТ (чисто).
+  • direct: активная константа несёт legacy-байты по дизайну (known-canon recognition);
+    identity-фраза детерминированно снимается на resolve (§5, applied=True, removed=4);
+    эффективный payload чист — CONTRACT-тесты CFG-07A + прод (withheld=11, 0 ERROR).
+  • Direct verbalizer/Personality Core (активные): идентичности нет; «циничным» в Core —
+    авторское описание тона владельца (не инструкция).
+  • РЕЗИДУЮ (закрывает VERIFIED по SOUL-04.3): factcheck-вербализатор публикации
+    (factcheck.base.verbalizer, registry legacy_persona=True) открывается идентичностью
+    «Ты — токсичный, ироничный фактчекер… циничным арбитром», и НИ одно из 14 suppress-правил
+    это предложение не матчит (после suppress остаётся — §5). factcheck.single константа чистится
+    suppress'ом, но в реальном payload 21.10 (трейс UNIFIED-CORE) идентичность присутствовала —
+    эффективность suppress на фактическом пути композиции фактчека трейсами не подтверждена.
+    => SOUL-04.3 честно остаётся PENDING (остаток кодового характера, не owner-наблюдение).

@@ -1,0 +1,37 @@
+﻿SOUL1-CLOSE-R1: байт-стабильность glass-стека 2.58.85 -> HEAD (офлайн, git blob-факты).
+Дата: 22.10.2026. HEAD: 804f4963a06005256b7c883601ba9723857b6027
+
+== 1. Git blob-хэши: релиз 2.58.85 (95526863, win-glass) vs HEAD ==
+файл                          | blob @95526863                             | blob @HEAD
+web/static/glass-refraction.js| 0c57cc25265e0a58cb195a28937ff752834ff375   | 0c57cc25265e0a58cb195a28937ff752834ff375  СОВПАДАЕТ
+web/static/glass-probe.js     | 4eab69ac4aa0fcd2f4a3afee073b7114436e2e3a   | 4eab69ac4aa0fcd2f4a3afee073b7114436e2e3a  СОВПАДАЕТ
+web/static/polygon-background.js| c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3 | c2ad97d446f5e7c7b72fb46d9bb560ae3777d6c3  СОВПАДАЕТ
+
+Команда: git rev-parse 95526863:<path> и HEAD:<path> — три пары идентичны => байт-в-байт.
+git merge-base --is-ancestor 95526863 HEAD -> exit 1 (релизная линия win-glass отдельная),
+поэтому сравнение сделано по blob-хэшам и git diff:
+
+== 2. git diff --stat 95526863 HEAD -- <3 glass-файла> ==
+(пусто — деревья байт-идентичны по этим файлам)
+
+== 3. Полная история файлов по всем рефам (git log --all --oneline --) ==
+d637cfe9 fix(win-glass): semantic port WIN-GLASS-P0 onto prod line (base 0b7a0aca)
+0ca661fe feat(win-glass): P0 hotfix — Windows launch-fullscreen diagnosis + Android optical refraction layer
+c0535280 feat(asap8-v6.3-W2): U08 optical glass (glass-probe render-probe, backdrop url(#lg-lens), UI_LENS_MAX_NODES 6->3, polygon не тронут)
+1f8a0f3a fix(round1028): ASAP-3.1 Auto Budgets (2.58.37)
+306778a9 / 76fc5e15 fix(round1026): полигональный фон (polygon-background.js введён)
+после d637cfe9/0ca661fe (эра 2.58.85, 18.10) НИ ОДИН коммит не менял эти 3 файла.
+
+== 4. Подтверждения стабильности на релизных байтах (существующие evidence) ==
+- 2.58.85 (95526863): FS-аудит 12 сценариев 166/166 PASS, fullscreen-policy.js byte-equal 96db06425079 — plans/features/win-glass-hotfix/report.md + prep-tails-binding.md (WG-WIN-03, WG-OBS-*).
+- 2.58.86 (6094a2cf): /static/fullscreen-policy.js байт-в-байт 96db06425079, прод-пробы — evidence/release-soul-25886/deploy-run.txt.
+- 2.58.84 fs-hotfix (0b7a0aca): policy 96db0642 байт-в-байт в проде (443 POLICY_SHA) — release-fs-25884-report.md.
+- 2.58.110 (a8d2a45a): glass-video — реальный Chrome + webm + sha в meta.json; REV-TAILS-2 Approved — evidence/tails-r1/review-tails2.md.
+- glass-tiera TIERA-STRONG: evidence/glass-tiera/_strong_evidence.md (профиль линзы A(s), 77/78 verify, visibility-дельты; 391 артефакт).
+
+ВЫВОД: glass-стек (refraction/probe/polygon-background) байт-стабилен от релиза 2.58.85
+до HEAD (2.58.110-линия): blob-хэши совпадают, история после win-glass пуста.
+Инженерная визуальная половина SOUL-10.P5 / SOUL-12.x / SOUL-19.3 опирается на стабильные байты.
+Живая визуальная проверка в реальных клиентах (Telegram WebView/TMA/Desktop) — добровольная
+owner-наблюдаемость: plans/owner_live_checks.md (чек-листы отменены 18.10.2026),
+прецедент WG-OBS-WIN-DESKTOP / WG-OBS-ANDROID-WEBVIEW (win-glass-hotfix/prep-tails-binding.md).

@@ -1,0 +1,29 @@
+﻿SOUL1-CLOSE-R1: сверка мобильного E2E-контура (SOUL-11.4) — «настоящие ответы API, не static HTML».
+Дата: 22.10.2026. Офлайн-сверка существующих артефактов; 0 LLM-вызовов.
+
+== 1. Чем собираются данные E2E ==
+- scripts: evidence/mobile-prompts/_r3_mobile_prompts_e2e.py (перехват **/api/** и /api/me в контексте браузера)
+  питается payload'ом, собранным из РЕАЛЬНОГО реестра services.param_catalog.REGISTRY:
+  журнал прогона: «[matrix] config stub: items=570 groups=120; chat-вариант config: override items=114» (_r3_run.txt:1-2, run-green.txt:1-2).
+- Отдельная real-API проба: evidence/mobile-prompts/_r3_config_assembly_probe.py — реальный
+  web.app.create_app + services.config_cache.ConfigCache + настоящий web/api/routes.py::get_config
+  (TestClient, по образцу tests/test_webapp_api.py::client); asserts: status 200, метаданные ключей
+  (group/stage/progressive_level, value>100) — строки 133, 158-161. Назначение зафиксировано в
+  plans/features/soul-1/mobile-prompts-fix-2026-10-16.md.
+Вывод: данные и сериализация — настоящие (тот же REGISTRY и тот же обработчик /api/config, что в проде);
+статический HTML не используется (страница — живые web/index.html + web/app.js).
+
+== 2. Зелёный прогон и покрытие acceptance ==
+- _r3_run.txt: «MOBILE PROMPTS E2E (_r3_): OK»; run-green.txt: «MOBILE PROMPTS E2E: OK».
+- Вьюпорты 320/390/430/1024 (desktop): keys=24 missing=[] на каждом (_r3_run.txt).
+- Мобильный touch + форма сохранения/восстановления после закрытия: на каждом вьюпорте
+  round-trip «typing -> saved=True posted=[...] -> reopened_item/reopened_ta» для L1-ключа и режимов
+  (POST /api/config -> reload -> reopen) — _r3_run.txt (блоки l1:/mode:), плюс fallback-селектор.
+- Библиотека промптов (прямые промпты, 2 точки входа): routes #/ai/prompts/direct[/synthesizer|/verbalizer]
+  на всех вьюпортах; empty-states (no_prompt_items/search_no_match) — _r3_run.txt, PNG _f1_*/_r3_*.
+- Browser Use раунды реального рендера: _r3_bu-390-*.png (вкладки режимов/L1-карточка/поиск).
+
+== 3. Честный остаток ==
+Подтверждение в реальном Telegram-клиенте (TMA Android/Desktop, нативный WebView) — устройствная
+проверка класса добровольной owner-наблюдаемости: plans/owner_live_checks.md (чек-листы отменены
+18.10.2026, PET_PROJECT), агентами невоспроизводима. Инженерная часть acceptance закрыта.

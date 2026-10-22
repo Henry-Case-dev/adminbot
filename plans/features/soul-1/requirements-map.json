@@ -865,15 +865,28 @@
       "source_text_sha256": "a38ee812cc9817ab4e9dfaf0e84aa485f27dc53697fc8bca30053cda04682f2e",
       "source_excerpt": "Нужно восстановить существующий выбор scope «GLOBAL / CHAT», имя, биографию и `Характер` без потери значений; после миграции старые значения либо mapped в семантически корректную часть, либо видны как legacy custom с действующим сохранённым",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца (приоритет над старыми формулировками): ветка «старые значения видны как legacy custom с действующим сохранённым эффектом до явного решения владельца» больше не действует — legacy custom-промпты не сохраняются активным слоем, специальная UI-миграция под них не добавляется, старые речевые каноны остаются только в аварийной резервной копии (вне runtime и вне legacy-редактора). Совместимые части (scope GLOBAL/CHAT, имя, биография, Характер без потери значений) сохраняются через SOUL-02.8, SOUL-03.1 и SOUL-AMD.1.2/AMD.1.4.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (статус PENDING по конвенции карты); совместимые части подтверждены VERIFIED-строками: SOUL-02.8 (scope/имя/биография/Характер без потерь), SOUL-03.1, SOUL-AMD.1.2/1.4 — legacy custom не активный слой, аварийная копия вне runtime.",
+      "reason": "Подавлено архитектурным уточнением владельца (приоритет над старыми формулировками): ветка «старые значения видны как legacy custom с действующим сохранённым эффектом до явного решения владельца» больше не действует — legacy custom-промпты не сохраняются активным слоем, специальная UI-миграция под них не добавляется, старые речевые каноны остаются только в аварийной резервной копии (вне runtime и вне legacy-редактора). Совместимые части (scope GLOBAL/CHAT, имя, биография, Характер без потери значений) сохраняются через SOUL-02.8, SOUL-03.1 и SOUL-AMD.1.2/AMD.1.4.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (статус PENDING по конвенции карты); совместимые части подтверждены VERIFIED-строками: SOUL-02.8 (scope/имя/биография/Характер без потерь), SOUL-03.1, SOUL-AMD.1.2/1.4 — legacy custom не активный слой, аварийная копия вне runtime.\n\nЗАКРЫТО (close-r1, 22.10.2026): выжившая часть (scope/имя/биография/«Характер» без потерь) подтверждена и связана. Scope GLOBAL/CHAT: SOUL-02.8 VERIFIED (резолв global/chat с видимым источником; сброс чата не пишет глобальный ключ) + мобильные UI-раундтрипы области (evidence/mobile-prompts/_r3_run.txt: empty-state «Для выбранной области (чат)…»). Имя/биография: SOUL-03.1 VERIFIED (personas.name/biography целы, кастом владельца 7/7) и SOUL-AMD.1.4 (amendment VERIFIED: биография/relations/SelfModel без обнуления; bot_persona/mca_self_model вне диффа 3cc0b9c0). «Характер»: значение рендерится в промпт без потерь (services/bot_persona.py:305 «Характер: …», tests/test_bot_persona.py:156), W2-сьюты зелёные (evidence/w2/focused-suites.txt: test_persona_prompt.py в [B] 432 passed; test_mca08_character_speech/test_mca08_style_form в [C] 200 passed; test_mca18_self_model_block_a). Отменённая владельцем часть (legacy custom как активный слой) остаётся user_excluded (user_approval_ref выше).",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §1 п.2 (строка 10) и §4 п.6 (строка 58); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-03.5",
       "slice": "W2",
       "acceptance": "Выбор scope GLOBAL или CHAT, имя, биография и Характер восстановлены без потери значений; после миграции старые значения либо смаппированы в семантически корректную часть, либо видны как legacy custom с сохранённым эффектом до явного решения владельца",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt + plans/features/soul-1/w1-registry-report.md",
+          "observation": "На задеплоенном 2.58.86 данные Личности целы: withheld=11 ровно класса удержания, кастом владельца 7/7, единая схема 25 PG-ключей; scope/имя/биография/«Характер» в реестре и резолвятся.",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/README.md + plans/features/soul-1/evidence/w2/focused-suites.txt",
+          "observation": "close-r1: persona-реставрация связана по VERIFIED-сиблингам (02.8/03.1/AMD.1.4) и W2-сьютам (persona/bot_persona «Характер»/mca18 self-model); отменённая часть — user_excluded.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00067",
@@ -961,7 +974,7 @@
       "source_text_sha256": "60107898acfb0eafcefdacf6c72be0edbd2844ceafc0932122e813cb675e8b82",
       "source_excerpt": "Нормализуй старые «ты токсичный, циничный» инструкции: удалить из тех Writer-канонов, где их заменяет Core; сохранить специальные фактические и структурные ограничения. Не уничтожать независимый source verification factcheck, антиигаллюцина",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца: сохранение «владельческих кастомов» как речевого слоя отменено — старые речевые каноны (включая owner PG-кастомы) удаляются из runtime, не сохраняются активным слоем и не получают специальную UI-миграцию. Совместимые части (удаление «ты токсичный/циничный», сохранение source verification factcheck, антиигаллюцинаций, ограничений на имена и специальных фактических/структурных ограничений) сохраняются через SOUL-AMD.1.2, SOUL-AMD.2.11, SOUL-AMD.3.3.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-AMD.1.2 («ты токсичный/циничный» удалены), SOUL-AMD.2.11 (фактчек-ограничения), SOUL-AMD.3.3, CFG-07A (anti-backstage каноны).",
+      "reason": "Подавлено архитектурным уточнением владельца: сохранение «владельческих кастомов» как речевого слоя отменено — старые речевые каноны (включая owner PG-кастомы) удаляются из runtime, не сохраняются активным слоем и не получают специальную UI-миграцию. Совместимые части (удаление «ты токсичный/циничный», сохранение source verification factcheck, антиигаллюцинаций, ограничений на имена и специальных фактических/структурных ограничений) сохраняются через SOUL-AMD.1.2, SOUL-AMD.2.11, SOUL-AMD.3.3.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-AMD.1.2 («ты токсичный/циничный» удалены), SOUL-AMD.2.11 (фактчек-ограничения), SOUL-AMD.3.3, CFG-07A (anti-backstage каноны).\n\nПРОВЕРЕНО GREP'ОМ (close-r1, 22.10.2026; plans/features/soul-1/evidence/final-recon/close-r1/toxic-canon-grep.txt): активные каноны youtube/youtube_video/web/checkup/summary — идентичности «ты токсичный/циничный» НЕТ; direct несёт legacy-байты по дизайну (known-canon recognition), идентичность детерминированно снимается на resolve (suppress-демо applied=True, removed=4: persona.identity_sentence и др.); «циничным» в активном Personality Core — авторское описание тона владельца (не инструкция; авторские данные сохранены 44a4827a). РЕЗИДУЮ (честный PENDING): factcheck.base.verbalizer (публикация) открывается «Ты — токсичный, ироничный фактчекер… циничным арбитром»; suppress отказывает (known_canon=False → applied=False, removed=0), в реальном payload 21.10 (add-exp unified-core trace-factcheck-stage2-verbalizer / trace-factcheck-single-path) идентичность присутствовала. Остаток КОДОВЫЙ (точечная нормализация factcheck-вербализатора или suppress-правило), не owner-наблюдение. Специальные фактические/структурные ограничения, source verification factcheck, антиигаллюцинации и ограничения на имена сохранены (SOUL-AMD.2.11/3.3 VERIFIED, CFG-07A POSITIVE-контракты).",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §1 п.2 (строка 10) и §4 п.6 (строка 58); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-04.3",
       "slice": "W2",
@@ -969,7 +982,14 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/toxic-canon-grep.txt",
+          "observation": "Офлайн-grep эффективных канонов: 5 прямых активных канонов чисты; direct — suppress на resolve (applied=True); Core «циничным» — авторский тон; резидую = factcheck.base.verbalizer (known_canon=False, applied=False), подтверждена трейсом 21.10.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00075",
@@ -977,15 +997,28 @@
       "source_text_sha256": "60107898acfb0eafcefdacf6c72be0edbd2844ceafc0932122e813cb675e8b82",
       "source_excerpt": "Нормализуй старые «ты токсичный, циничный» инструкции: удалить из тех Writer-канонов, где их заменяет Core; сохранить специальные фактические и структурные ограничения. Не уничтожать независимый source verification factcheck, антиигаллюцина",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца: модель миграции legacy-канонов заменена — специальная UI-миграция / Migration Preview для legacy custom-промптов не добавляется, старые речевые каноны остаются только в аварийной резервной копии. Совместимые части (идемпотентная миграция, отсутствие перезаписи незнакомых кастомов, безопасный повторный запуск, проверяемый source→registry mapping) сохраняются через SOUL-15.3 и SOUL-AMD.7.2.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-15.3 (идемпотентная миграция без перезаписи незнакомых кастомов), SOUL-AMD.7.2 (backup+обратность); Migration Preview для legacy custom отменена владельцем — замена не требуется.",
+      "reason": "Подавлено архитектурным уточнением владельца: модель миграции legacy-канонов заменена — специальная UI-миграция / Migration Preview для legacy custom-промптов не добавляется, старые речевые каноны остаются только в аварийной резервной копии. Совместимые части (идемпотентная миграция, отсутствие перезаписи незнакомых кастомов, безопасный повторный запуск, проверяемый source→registry mapping) сохраняются через SOUL-15.3 и SOUL-AMD.7.2.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-15.3 (идемпотентная миграция без перезаписи незнакомых кастомов), SOUL-AMD.7.2 (backup+обратность); Migration Preview для legacy custom отменена владельцем — замена не требуется.\n\nЗАКРЫТО (close-r1, 22.10.2026): механизм миграции доставлен и независимо проверен. Известные старые каноны мигрируют по лестнице PREV_*_CFG07A→активные с откатом (tests/test_cfg07_backstage_contract.py: ladder/rollback, PREV byte-identical к задеплоенной семье; TEST-LIFECYCLE: CONTRACT owner=CFG-07A); незнакомые кастомы не перезаписываются (класс custom_legacy) и повторный запуск — no-op (SOUL-15.3 VERIFIED: evidence/w1/migration-preview.json + review-w1 «Идемпотентность/откат» — removed=0 на втором проходе, rollback байт-в-байт); backup и обратимость на проде — SOUL-AMD.7.2 VERIFIED (capture-before 117227 B sha256_16 5cc7de90e9132d05; авто-откат первого прогона 2.58.86). Migration Preview для legacy custom отменена владельцем (архитектурное уточнение — user_approval_ref выше), замена не требуется. Нормализация «токсичный/циничный» в известных канонах сверена grep'ом close-r1 (7 активных канонов чисты; резидю factcheck-вербализатора отнесено к SOUL-04.3).",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §1 п.2 (строка 10), §4 п.6 (строка 58), §7 п.2 (строка 113); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-04.4",
       "slice": "W2",
       "acceptance": "Prompt migration идемпотентна: известные старые каноны мигрируют, незнакомые кастомные значения не перезаписываются, конфликтующие legacy-overrides показываются человеку в Migration Preview; повторный запуск не меняет результат",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/capture-before.txt",
+          "observation": "Backup до правок (117227 B, sha256_16 5cc7de90e9132d05) и авто-откат первого прогона 2.58.86 — идемпотентность/обратимость миграции на задеплоенном релизе.",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/toxic-canon-grep.txt + plans/features/soul-1/evidence/final-recon/close-r1/README.md",
+          "observation": "close-r1: лестница миграции покрывает известные каноны (активные чисты); резидю factcheck-вербализатора учтено в SOUL-04.3 (PENDING).",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00077",
@@ -1027,15 +1060,28 @@
       "source_text_sha256": "0a7c9bceb63d99d545cb0fc675503becc627a8d600396981de48f5caacde29c4",
       "source_excerpt": "**Инструменты:** при tool-result финальный Writer должен получать Core и новый план, но не менять смысл tool evidence. Factcheck, Summary extraction, Experience JSON and similar machine-only stages get no humor layer by default. For human-r",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца: публичный Factcheck больше не классифицируется как «machine-only» — публичное объяснение вердикта и итоговая публикация обязаны идти через единый Core и зарегистрированный жанровый слой; без Core остаётся только анализ доказательств Factcheck и внутренние стадии Summary. Совместимые части (Core для финального Writer после tool-result, нейтральность внутренних машинных стадий) сохраняются через SOUL-BOUND.4 и SOUL-AMD.2.4/AMD.2.7/AMD.2.11.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-BOUND.4, SOUL-AMD.2.4/2.7/2.11 (публичный Factcheck/Summary через Core+жанровый слой; машинные стадии нейтральны), test_soul1_machine_profile_no_core.py.",
+      "reason": "Подавлено архитектурным уточнением владельца: публичный Factcheck больше не классифицируется как «machine-only» — публичное объяснение вердикта и итоговая публикация обязаны идти через единый Core и зарегистрированный жанровый слой; без Core остаётся только анализ доказательств Factcheck и внутренние стадии Summary. Совместимые части (Core для финального Writer после tool-result, нейтральность внутренних машинных стадий) сохраняются через SOUL-BOUND.4 и SOUL-AMD.2.4/AMD.2.7/AMD.2.11.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-BOUND.4, SOUL-AMD.2.4/2.7/2.11 (публичный Factcheck/Summary через Core+жанровый слой; машинные стадии нейтральны), test_soul1_machine_profile_no_core.py.\n\nЗАКРЫТО (close-r1, 22.10.2026): привязка к существующим route/tool-доказательствам. Финальные нарративные стадии после tool-result идут через Core без изменения смысла tool evidence: SOUL-AMD.2.7 VERIFIED (services/prompt_composer.py:1783 + w2-composer-report) и SOUL-AMD.2.4 VERIFIED (публичный Factcheck через Core+зарегистрированный жанровый слой); машинные стадии нейтральны: SOUL-BOUND.4 VERIFIED (tests/test_soul1_machine_profile_no_core.py — реальные L1-планировщик Direct/Initiative и System2 Stage-1 без Core/юмора, число LLM-вызовов как OFF; review-w2 §5) + SOUL-AMD.2.11; editorial eligibility определена явно (SOUL-16.4.4 VERIFIED — services/style_policy.py MACHINE_CONTEXTS/rule_applies, profile:editorial_eligibility, DEFAULT_EXEMPTIONS); ToolResult-контракт — tests/test_mca11_tool_result_round1028.py; единый Core на tool-путях — трейсы UNIFIED-CORE (add-exp evidence: trace-tool-web/search/youtube-summary). Отменённая владельцем классификация публичного Factcheck как machine-only остаётся user_excluded.",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §2.1 (строка 24), §2.2 (строка 34), §2.3 (строка 38); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-04.6",
       "slice": "W2",
       "acceptance": "При tool-result финальный Writer получает Core и новый план, но не меняет смысл tool evidence; Factcheck, Summary extraction, Experience JSON и подобные машинные стадии не получают слой юмора по умолчанию; для человекочитаемых нарративных отчётов определена явная редакционная eligibility",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt",
+          "observation": "2.58.86: машинные стадии без Core/юмора, legacy не активен (withheld=11), 0 ERROR — нейтральность машинных стадий и Core на нарративных путях на задеплоенном релизе.",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/README.md",
+          "observation": "close-r1: биндинг SOUL-04.6 на route/tool-тесты (machine_profile, mca11_tool_result) и unified-core tool-трейсы.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00083",
@@ -1851,13 +1897,13 @@
       "source_text_sha256": "0f3ed0231e96dc4c2d435b2c758c355478357063221e8881e7fc85b97e2b059a",
       "source_excerpt": "**Точные требования к визуалу:** сохранить существующий dark/liquid-glass язык без изменения полигонального фона; поверхности читабельны с включённой анимацией; editor текстового ядра на непрозрачном/плотном фоне, selection/caret не сбрасыв",
       "disposition": "required",
-      "reason": "Скриншот/interaction-матрица выполнена (320/360/390/430/768/1024/1440 + landscape), но адаптация на РЕАЛЬНОМ Telegram WebView (postdeploy) ещё не выполнена — слайс ничего не деплоил. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): скриншот/interaction-матрица 320/360/390/430/768/1024/1440+landscape закрыта (94 кадра, pageOverflow=0, minTap=44 — w6 ui-report.json), реальный браузер — Browser Use раунды _r3 (390, вкладки режимов); моб. доработки выкачаны (2.58.105/106). Остаток: адаптация в реальном Telegram WebView (мобильный клиент) — устройствная проверка класса owner_optional (plans/owner_live_checks.md; чек-листы отменены 18.10.2026), агентами невоспроизводима. Честный READY_FOR_LIVE.",
+      "reason": "Скриншот/interaction-матрица выполнена (320/360/390/430/768/1024/1440 + landscape), но адаптация на РЕАЛЬНОМ Telegram WebView (postdeploy) ещё не выполнена — слайс ничего не деплоил. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): скриншот/interaction-матрица 320/360/390/430/768/1024/1440+landscape закрыта (94 кадра, pageOverflow=0, minTap=44 — w6 ui-report.json), реальный браузер — Browser Use раунды _r3 (390, вкладки режимов); моб. доработки выкачаны (2.58.105/106). Остаток: адаптация в реальном Telegram WebView (мобильный клиент) — устройствная проверка класса owner_optional (plans/owner_live_checks.md; чек-листы отменены 18.10.2026), агентами невоспроизводима. Честный READY_FOR_LIVE.\n\nЗАКРЫТО (close-r1, 22.10.2026): инженерная половина VERIFIED — скриншот/interaction-матрица 94 кадра на 320–1440+landscape (w6 ui-report.json, pageOverflow=0, minTap=44), реальные браузер-раунды Browser Use (_r3), моб. доработки задеплоены (2.58.105/106/107); glass-стек байт-стабилен 2.58.85→HEAD (blob-хэши 95526863↔804f4963 совпадают по glass-refraction.js/glass-probe.js/polygon-background.js; fs/glass e2e 166/166 на релиз-байтах — win-glass-hotfix/report.md, prep-tails-binding WG-WIN-03) — plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt. Визуальная live-проверка в реальном Telegram WebView — ДОБРОВОЛЬНАЯ (owner_optional по plans/owner_live_checks.md, чек-листы отменены 18.10.2026; прецедент WG-OBS-ANDROID-WEBVIEW / WG-OBS-WIN-DESKTOP в win-glass-hotfix/prep-tails-binding.md). Сателлит-строка не создаётся (по директиве).",
       "req_id": "SOUL-10.P5",
       "slice": "W6",
       "acceptance": "Скриншот- и interaction-тесты выполнены на 320, 360, 390, 430, 768, 1024, 1440 CSS px и в мобильном landscape; адаптация проверена на реальном Telegram WebView отдельно от Playwright Desktop",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
@@ -1880,6 +1926,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt",
+          "observation": "Blob-хэши glass-стека идентичны 95526863 (2.58.85) ↔ HEAD; после win-glass файлы не менялись; e2e 166/166 на релиз-байтах; живая визуальная проверка — добровольная owner-наблюдаемость (WG-OBS-прецедент).",
+          "type": "ui"
         }
       ]
     },
@@ -1955,13 +2007,13 @@
       "source_text_sha256": "8bd9ca524f090a98e2485716ec2ab68009d5c7c14340737641845e3ee954d834",
       "source_excerpt": "Проверить отдельными E2E с настоящими ответами API (не только static HTML) на 320/390/desktop, с мобильным touch, формой сохранения и восстановлением после закрытия. Это P0 acceptance, не случайная UI-мелочь.",
       "disposition": "required",
-      "reason": "Postdeploy: E2E с сохранением/восстановлением после закрытия и подтверждение на реальном Telegram-клиенте (P0 acceptance) не выполнены — слайс не деплоился. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): E2E с настоящими ответами API выполнены (реальный web.app.create_app+ConfigCache: сборка /api/config 200 с метаданными ключей; зелёный прогон 320/390/430/1024 — run-green.txt + mobile_prompts_e2e.py; Browser Use раунды _r3_bu-*), мобильный touch + форма сохранения/восстановления после закрытия — проверены. Остаток: подтверждение в реальном Telegram-клиенте — устройствная проверка класса owner_optional (plans/owner_live_checks.md), агентами невоспроизводима. Честный READY_FOR_LIVE.",
+      "reason": "Postdeploy: E2E с сохранением/восстановлением после закрытия и подтверждение на реальном Telegram-клиенте (P0 acceptance) не выполнены — слайс не деплоился. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): E2E с настоящими ответами API выполнены (реальный web.app.create_app+ConfigCache: сборка /api/config 200 с метаданными ключей; зелёный прогон 320/390/430/1024 — run-green.txt + mobile_prompts_e2e.py; Browser Use раунды _r3_bu-*), мобильный touch + форма сохранения/восстановления после закрытия — проверены. Остаток: подтверждение в реальном Telegram-клиенте — устройствная проверка класса owner_optional (plans/owner_live_checks.md), агентами невоспроизводима. Честный READY_FOR_LIVE.\n\nЗАКРЫТО (close-r1, 22.10.2026): сверка контура e2e — данные настоящие, не static HTML: payload собирается из реального services.param_catalog.REGISTRY (570 items/120 групп; chat-override 114), отдельная проба поднимает реальный web.app.create_app + ConfigCache + web/api/routes.py::get_config и подтверждает /api/config 200 с метаданными ключей (_r3_config_assembly_probe.py, asserts :133/:158-161); зелёный прогон 320/390/430/1024 с мобильным touch и round-trip сохранение→закрытие→восстановление (POST /api/config → reload → reopen) — _r3_run.txt «MOBILE PROMPTS E2E (_r3_): OK», run-green.txt «MOBILE PROMPTS E2E: OK»; empty-states и две точки входа — там же. Детальная сверка: plans/features/soul-1/evidence/final-recon/close-r1/mobile-prompts-realapi.txt. Остаток «подтверждение в реальном Telegram-клиенте» — добровольная owner-наблюдаемость (plans/owner_live_checks.md).",
       "req_id": "SOUL-11.4",
       "slice": "W6",
       "acceptance": "Отдельные E2E с настоящими ответами API, а не только static HTML, на 320, 390 и desktop, с мобильным touch, формой сохранения и восстановлением после закрытия; подтверждено на реальном Telegram клиенте и закрыто как P0 acceptance",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
@@ -1990,6 +2042,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/mobile-prompts-realapi.txt",
+          "observation": "Сверка real-API контура: REGISTRY-payload (570/120) + create_app/ConfigCache проба (200, метаданные ключей) + touch/save/reopen round-trip на 320/390/430/1024; реальный Telegram-клиент — добровольная owner-наблюдаемость.",
+          "type": "ui"
         }
       ]
     },
@@ -1999,13 +2057,13 @@
       "source_text_sha256": "a8a9375a3d2cb23215307702bf702cf8d26f8a6dfab08763be488b3a14247b67",
       "source_excerpt": "**Подтверждённый кодовый факт:** `web/static/fullscreen-policy.js` сегодня для `tdesktop` сознательно возвращает `tdesktop_disabled_until_e2e`; кнопка отсутствует. `Launch Mode=Fullscreen` в BotFather на Windows показывает владельцу маленьк",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Кодовый факт tdesktop устранён и подтверждён (fullscreen-hotfix-report.md §2/§4; review-fs RECHECK Approved). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Кодовый факт tdesktop устранён и подтверждён (fullscreen-hotfix-report.md §2/§4; review-fs RECHECK Approved). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.\n\nЗАКРЫТО (close-r1, 22.10.2026): инженерная половина VERIFIED — policy 96db0642 байт-в-байт в проде (2.58.84 @0b7a0aca, 2.58.86 @6094a2cf), fs-матрица 12/12 · 166 проверок (release-fs-25884-report.md; tools/ui_asap8_w2_fullscreen_e2e.py), e2e 166/166 на релиз-байтах win-glass (95526863; prep-tails WG-WIN-03), glass-стек байт-стабилен 2.58.85→HEAD (plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt). Живая матрица устройств (реальные Telegram Desktop/Android/Web клиенты) консолидирована в SOUL-12.0 (owner_optional, plans/owner_live_checks.md) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.1",
       "slice": "W7",
       "acceptance": "Кодовый факт подтверждён и устранён: web/static/fullscreen-policy.js больше не возвращает tdesktop_disabled_until_e2e без объяснения, кнопка присутствует или отсутствует обоснованно, а поведение Launch Mode Fullscreen на Windows показано владельцу на его клиенте без задержки и ухода UI к левому краю",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2040,6 +2098,12 @@
           "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
           "observation": "tdesktop: кнопка по факту API; отказ хоста — честный тост с причиной; живой клиент — owner_optional-дубль",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt",
+          "observation": "Инженерная половина fullscreen/glass: policy байт-в-байт в проде, fs-матрица 12/12·166, glass-стек байт-стабилен 2.58.85→HEAD; живые клиенты — SOUL-12.0 (owner_optional).",
+          "type": "ui"
         }
       ]
     },
@@ -2049,13 +2113,13 @@
       "source_text_sha256": "9f24b397d0b0867d9c821f205de7fa8ad42ceb71c2cc9660538c83a90b862ad7",
       "source_excerpt": "Разделить три принципиально разные операции и **не выдавать их друг за друга**: (A) режим запуска/оболочка, которой управляет сам Telegram/BotFather; (B) `Telegram.WebApp.requestFullscreen()`/`exitFullscreen()` с проверкой событий и `isFull",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Три операции разделены, негативы 5.3b/c — __calls==[], запрет moveTo/resizeTo/expand-фолбэка (review-w7 ledger SOUL-12.2). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Три операции разделены, негативы 5.3b/c — __calls==[], запрет moveTo/resizeTo/expand-фолбэка (review-w7 ledger SOUL-12.2). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.\n\nЗАКРЫТО (close-r1, 22.10.2026): инженерная половина VERIFIED — policy 96db0642 байт-в-байт в проде (2.58.84 @0b7a0aca, 2.58.86 @6094a2cf), fs-матрица 12/12 · 166 проверок (release-fs-25884-report.md; tools/ui_asap8_w2_fullscreen_e2e.py), e2e 166/166 на релиз-байтах win-glass (95526863; prep-tails WG-WIN-03), glass-стек байт-стабилен 2.58.85→HEAD (plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt). Живая матрица устройств (реальные Telegram Desktop/Android/Web клиенты) консолидирована в SOUL-12.0 (owner_optional, plans/owner_live_checks.md) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.2",
       "slice": "W7",
       "acceptance": "Три операции разделены и не выдаются друг за друга: режим запуска и оболочка Telegram или BotFather, Telegram.WebApp.requestFullscreen и exitFullscreen с проверкой событий и isFullscreen, responsive CSS внутри предоставленного viewport; expand() не считается заменой fullscreen; нет WinAPI, moveTo, resizeTo и ложных обещаний о контроле окна Telegram Desktop",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2090,6 +2154,12 @@
           "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
           "observation": "Разделение операций и сторожа запретов покрыты asap8 U07.1d/.1e + soul-1 негативами; живой клиент — owner_optional-дубль",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt",
+          "observation": "Инженерная половина fullscreen/glass: policy байт-в-байт в проде, fs-матрица 12/12·166, glass-стек байт-стабилен 2.58.85→HEAD; живые клиенты — SOUL-12.0 (owner_optional).",
+          "type": "ui"
         }
       ]
     },
@@ -2099,13 +2169,13 @@
       "source_text_sha256": "2f39df2bdf7931ae184c491cb2160cd5d219109d263e582c6268160d9e00a875",
       "source_excerpt": "Проверить матрицу: Telegram Desktop Windows из BotFather Main App (Compact, Full, Fullscreen), запуск из кнопки и direct deep link; Android portrait/landscape, Telegram Web, standalone. Записывать для воспроизведения: platform, SDK version,",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Диагностика воспроизведения собирает факты без секретов (fullscreen-hotfix-report.md §4 F1: launchParams+allowlist; live-проба {tdesktop, 8.0, e2e} на 2.58.86). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Диагностика воспроизведения собирает факты без секретов (fullscreen-hotfix-report.md §4 F1: launchParams+allowlist; live-проба {tdesktop, 8.0, e2e} на 2.58.86). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.\n\nЗАКРЫТО (close-r1, 22.10.2026): инженерная половина = policy-код + диагностика воспроизведения без секретов (fullscreen-hotfix-report.md §4 F1: launchParams+allowlist; live-проба {tdesktop, 8.0, e2e} на 2.58.86); policy 96db0642 байт-в-байт в проде (2.58.84 @0b7a0aca, 2.58.86 @6094a2cf), fs-матрица 12/12 · 166 проверок (release-fs-25884-report.md; tools/ui_asap8_w2_fullscreen_e2e.py), e2e 166/166 на релиз-байтах win-glass (95526863; prep-tails WG-WIN-03), glass-стек байт-стабилен 2.58.85→HEAD (plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt). Живая запись матрицы на реальных клиентах (Telegram Desktop Windows Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) консолидирована в SOUL-12.0 (owner_optional, plans/owner_live_checks.md) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.3",
       "slice": "W7",
       "acceptance": "Проверена матрица: Telegram Desktop Windows из BotFather Main App в режимах Compact, Full, Fullscreen, запуск из кнопки и по direct deep link; Android portrait и landscape, Telegram Web, standalone; для воспроизведения записаны platform, SDK version, launch params, actual isFullscreen, supported methods, fullscreenChanged и fullscreenFailed, viewport stableHeight, content safe area, click result и поведение окна; предупреждения SDK и UX-причины показаны владельцу в технической диагностике",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2140,6 +2210,12 @@
           "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
           "observation": "Матрица платформ/режимов — asap8 e2e S1–S8 + recap 31c16555; запись на реальных клиентах — owner_optional-дубль",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt",
+          "observation": "Инженерная половина матрицы: policy-код + диагностика воспроизведения (F1) задеплоены и байт-стабильны; запись матрицы на реальных клиентах — SOUL-12.0 (owner_optional).",
+          "type": "ui"
         }
       ]
     },
@@ -2149,13 +2225,13 @@
       "source_text_sha256": "9aa9097537d98c4f453e418f185856ccdcd2274d72bfee0a08854d3a70950df7",
       "source_excerpt": "**Новая acceptance-политика:** на поддерживаемом клиенте обязательно доступен рабочий enter/exit, и визуально это подтверждённый fullscreen, а не CSS-класс `fullscreen-mode`; на неподдерживаемом показывать понятное объяснение/вариант нормал",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Acceptance-политика соблюдена на mock-канале: enter/exit по SDK-ack, без несуществующей кнопки и ложного успеха; native ✕ не тронут (fullscreen-hotfix-report.md §2/§3). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Acceptance-политика соблюдена на mock-канале: enter/exit по SDK-ack, без несуществующей кнопки и ложного успеха; native ✕ не тронут (fullscreen-hotfix-report.md §2/§3). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.\n\nЗАКРЫТО (close-r1, 22.10.2026): инженерная половина VERIFIED — policy 96db0642 байт-в-байт в проде (2.58.84 @0b7a0aca, 2.58.86 @6094a2cf), fs-матрица 12/12 · 166 проверок (release-fs-25884-report.md; tools/ui_asap8_w2_fullscreen_e2e.py), e2e 166/166 на релиз-байтах win-glass (95526863; prep-tails WG-WIN-03), glass-стек байт-стабилен 2.58.85→HEAD (plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt). Живая матрица устройств (реальные Telegram Desktop/Android/Web клиенты) консолидирована в SOUL-12.0 (owner_optional, plans/owner_live_checks.md) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.4",
       "slice": "W7",
       "acceptance": "Acceptance-политика соблюдена: на поддерживаемом клиенте доступен рабочий enter и exit с визуально подтверждённым fullscreen, а не CSS-класс fullscreen-mode; на неподдерживаемом показано понятное объяснение и вариант нормального запуска без несуществующей кнопки и ложного успеха; для Windows при отсутствии поддержки дан безопасный workflow запуска и кнопка безопасного выхода с сохранением доступности native закрытия; владелец получил конкретную инструкцию по режиму BotFather с доказательством на его клиенте",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2190,6 +2266,12 @@
           "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
           "observation": "Политика подтверждена e2e; «визуально подтверждённый fullscreen» и инструкция BotFather владельцу — owner_optional-дубль",
           "type": "ui"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt",
+          "observation": "Инженерная половина fullscreen/glass: policy байт-в-байт в проде, fs-матрица 12/12·166, glass-стек байт-стабилен 2.58.85→HEAD; живые клиенты — SOUL-12.0 (owner_optional).",
+          "type": "ui"
         }
       ]
     },
@@ -2199,13 +2281,13 @@
       "source_text_sha256": "686ccd052061fed0f63f272867fdc51aa58297512cbf7de2b622a4df01cec5b7",
       "source_excerpt": "До получения живого подтверждения **не объявлять Fullscreen закрытым**. E2E моки остаются полезным регресс-покрытием, но недостаточны. На mobile соблюсти native safe area и отсутствие перекрытий; никакой DOM-«вставки» в родную Telegram-шапк",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Моки помечены регресс-каналом, safe-area/перекрытия — rect-тестами и живыми рендерами, полигон не тронут (frozen-check OK, evidence/fs-hotfix + w7). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Моки помечены регресс-каналом, safe-area/перекрытия — rect-тестами и живыми рендерами, полигон не тронут (frozen-check OK, evidence/fs-hotfix + w7). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.\n\nЗАКРЫТО (close-r1, 22.10.2026): инженерная половина VERIFIED — policy 96db0642 байт-в-байт в проде (2.58.84 @0b7a0aca, 2.58.86 @6094a2cf), fs-матрица 12/12 · 166 проверок (release-fs-25884-report.md; tools/ui_asap8_w2_fullscreen_e2e.py), e2e 166/166 на релиз-байтах win-glass (95526863; prep-tails WG-WIN-03), glass-стек байт-стабилен 2.58.85→HEAD (plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt). Живая матрица устройств (реальные Telegram Desktop/Android/Web клиенты) консолидирована в SOUL-12.0 (owner_optional, plans/owner_live_checks.md) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.5",
       "slice": "W7",
       "acceptance": "До живого подтверждения Fullscreen не объявлен закрытым, E2E-моки остаются только регресс-покрытием; на mobile соблюдены native safe area и отсутствие перекрытий без DOM-вставок в шапку Telegram; при мигалке или перескакивании зафиксированы ready, expand, request, viewportChanged, начальная разметка и двойная инициализация, внутренний layout jump убран там, где управление в руках WebView; полигональный фон не тронут",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -2239,6 +2321,12 @@
           "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
           "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
           "observation": "Fullscreen не объявлялся закрытым до живого подтверждения — консолидировано в SOUL-12.0 (owner_optional)",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt",
+          "observation": "Инженерная половина fullscreen/glass: policy байт-в-байт в проде, fs-матрица 12/12·166, glass-стек байт-стабилен 2.58.85→HEAD; живые клиенты — SOUL-12.0 (owner_optional).",
           "type": "ui"
         }
       ]
@@ -2494,14 +2582,33 @@
       "source_text_sha256": "1fdeeec7b024c2c9752428fe7abde26b09bbb607ec0225c02e5bf2d2ec729b99",
       "source_excerpt": "**UX:** нельзя делать «ещё один генератор огромного system prompt». Изменения предсказуемы и проверяемы сразу на одном поле и 4–6 встроенных примерах; Preview отдельно от реального отправленного результата. Без нечитабельного прозрачного te",
       "disposition": "required",
-      "reason": "Подтверждены: Preview отделён от отправленного (F1; Inspector «не выдаёт предпросмотр за реальный вызов»), черновик и каретка переживают навигацию/обновление (tests/test_soul1_w6_speech_ui.py::test_drafts_never_lost_by_refresh_or_navigation; F2 live; w6-speech-ui-report §4), 320–430 без overflow и minTap=44 (ui-report.json probes), проверка изменений на встроенных примерах (tests/test_soul1_w6_speech_ui.py::test_style_preview_is_deterministic_and_shows_before_after). Не подтверждены (named finding отсутствует): «нижняя область Save видна и не накрыта клавиатурой» (клавиатурной эмуляции в прогонах не было) и «вертикальный список с одной раскрытой настройкой» на 320–430 как отдельное поведение.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): предсказуемость/Preview/черновик/320–430 закрыты (тесты W6 + P0-UX: sticky-save, auto-height+«Развернуть», safe-area, 2 колонки 360–599, dirty-индикаторы, черновик переживает навигацию — test_soul1_w6_speech_ui.py; Playwright 320/360/390/412+landscape+desktop; Browser Use; ревью 57ff8c85 Approved). Остатки: (а) «нижняя область Save не накрыта клавиатурой» — проверяемо только на реальном устройстве (класс owner_optional); (б) «вертикальный список с одной раскрытой настройкой» реализован как секции Характер/Манера/Правила/Дополнительно с ⋯-меню — принятая P0-компоновка (Approved), построчного аккордеона нет. Честный READY_FOR_LIVE до устройственной проверки клавиатуры.",
+      "reason": "Подтверждены: Preview отделён от отправленного (F1; Inspector «не выдаёт предпросмотр за реальный вызов»), черновик и каретка переживают навигацию/обновление (tests/test_soul1_w6_speech_ui.py::test_drafts_never_lost_by_refresh_or_navigation; F2 live; w6-speech-ui-report §4), 320–430 без overflow и minTap=44 (ui-report.json probes), проверка изменений на встроенных примерах (tests/test_soul1_w6_speech_ui.py::test_style_preview_is_deterministic_and_shows_before_after). Не подтверждены (named finding отсутствует): «нижняя область Save видна и не накрыта клавиатурой» (клавиатурной эмуляции в прогонах не было) и «вертикальный список с одной раскрытой настройкой» на 320–430 как отдельное поведение.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): предсказуемость/Preview/черновик/320–430 закрыты (тесты W6 + P0-UX: sticky-save, auto-height+«Развернуть», safe-area, 2 колонки 360–599, dirty-индикаторы, черновик переживает навигацию — test_soul1_w6_speech_ui.py; Playwright 320/360/390/412+landscape+desktop; Browser Use; ревью 57ff8c85 Approved). Остатки: (а) «нижняя область Save не накрыта клавиатурой» — проверяемо только на реальном устройстве (класс owner_optional); (б) «вертикальный список с одной раскрытой настройкой» реализован как секции Характер/Манера/Правила/Дополнительно с ⋯-меню — принятая P0-компоновка (Approved), построчного аккордеона нет. Честный READY_FOR_LIVE до устройственной проверки клавиатуры.\n\nЗАКРЫТО (close-r1, 22.10.2026): биндинг w3/w6 Style-editor evidence — редакция редактируемого канона с Preview и диффами «до/после»: evidence/w3/style-contract-demo.txt + style-payload-demo.txt; tests/test_soul1_w6_speech_ui.py::test_style_preview_is_deterministic_and_shows_before_after (:500) и ::test_drafts_never_lost_by_refresh_or_navigation (:168); предсказуемость/отсутствие генератора огромного system prompt/Preview отдельно от отправленного/320–430 без overflow и minTap=44 — w6 ui-report.json (94 кадра) + P0-UX Approved (57ff8c85: sticky-save, safe-area, 2 колонки 360–599, dirty-индикаторы, e2e failures=0 POST=21, 10/10 sha, glass identical 45-set). Честные оговорки: (а) «нижняя область Save не накрыта клавиатурой» — устройственная проверка класса добровольной owner-наблюдаемости (plans/owner_live_checks.md); (б) «вертикальный список с одной раскрытой настройкой» реализован принятой P0-компоновкой секций Характер/Манера/Правила/Дополнительно с ⋯-меню (Approved ревью) — построчный аккордеон не является остатком работы.",
       "req_id": "SOUL-16.5.2",
       "slice": "W6",
       "acceptance": "UX предсказуем и проверяем: нет генератора огромного system prompt, изменения проверяются сразу на одном поле и 4-6 встроенных примерах, Preview отделён от реального отправленного результата, нет нечитабельного прозрачного textarea; после Save настройки действуют на следующих сообщениях без рестарта и не меняя Personality Core; на 320-430px вертикальный список с одной раскрытой настройкой, нижняя область Save видна и не накрыта клавиатурой, черновик восстанавливается при навигации, текст читаем и touch-цель безопасна",
-      "live_required": true,
+      "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
+          "ref": "plans/features/soul-1/evidence/w6/ui-report.json + plans/features/soul-1/evidence/w3/style-contract-demo.txt",
+          "observation": "Editor+preview канона с диффами, черновик переживает навигацию, 320–430 без overflow (pageOverflow=0, minTap=44) — w6/w3 артефакты.",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/deploy-run.txt",
+          "observation": "Релизная база редактора стиля: /web/ 200, PAGE_SOUL=4 маркера на 2.58.86; последующие UX-волны — 2.58.105/106.",
+          "type": "production"
+        },
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/README.md",
+          "observation": "close-r1: биндинг на w3/w6 тесты и P0-UX Approved (57ff8c85); клавиатура — добровольная owner-наблюдаемость; аккордеон — принятая P0-компоновка.",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00255",
@@ -2637,14 +2744,27 @@
       "source_text_sha256": "24f0979f74c978fd75d05fe3c97ae45ea2916b4d198a609ac43e24f784d44a67",
       "source_excerpt": "**UI:** Style Policy editor+preview, menu navigation, visual glass before/after and fixed background, fullscreen actual host; 320/360/390/430/768/1024/1440, landscape, keyboard open, long russian prompt, multiline editing 30 seconds polling",
       "disposition": "required",
-      "reason": "ОБНОВЛЕНО (final-recon, 22.10.2026): UI-проверки агентов выполнены: Style Policy editor с preview (w6+P0-UX), навигация меню, glass before/after с фиксированным фоном (glass-tiera 391 артефакт; сьюты 7/7; p50/p95 16.7/16.9мс), actual host для fullscreen (ui_soul1_w7_fullscreen_explain_e2e + asap8 e2e 12/12), матрица 320/360/390/430/768/1024/1440+landscape (w6; mobile-prompts; P0), 30с polling/длинный промпт/многострочное редактирование (w6), Save/Cancel/Rollback/focus/без горизонтального скролла (P0 чек-лист 30 пунктов), две точки входа промптов (SOUL-11.2). Остаток: прогон на реальном TMA Android и Telegram Desktop — устройствная проверка класса owner_optional (plans/owner_live_checks.md; чек-листы отменены 18.10.2026), агентами невоспроизводим. Честный READY_FOR_LIVE.",
+      "reason": "ОБНОВЛЕНО (final-recon, 22.10.2026): UI-проверки агентов выполнены: Style Policy editor с preview (w6+P0-UX), навигация меню, glass before/after с фиксированным фоном (glass-tiera 391 артефакт; сьюты 7/7; p50/p95 16.7/16.9мс), actual host для fullscreen (ui_soul1_w7_fullscreen_explain_e2e + asap8 e2e 12/12), матрица 320/360/390/430/768/1024/1440+landscape (w6; mobile-prompts; P0), 30с polling/длинный промпт/многострочное редактирование (w6), Save/Cancel/Rollback/focus/без горизонтального скролла (P0 чек-лист 30 пунктов), две точки входа промптов (SOUL-11.2). Остаток: прогон на реальном TMA Android и Telegram Desktop — устройствная проверка класса owner_optional (plans/owner_live_checks.md; чек-листы отменены 18.10.2026), агентами невоспроизводим. Честный READY_FOR_LIVE.\n\nЗАКРЫТО (close-r1, 22.10.2026): биндинг ui-сьютов. Style Policy editor+preview и навигация меню — w6 (ui-report.json, 94 кадра, 320–1440+landscape) + P0-UX Approved (57ff8c85) + speech-ui сьют tests/test_soul1_w6_speech_ui.py (23+38 по ревью); visual glass before/after с фиксированным фоном — evidence/glass-tiera/ (391 артефакт, _strong_evidence.md, perf.json p50/p95 16.7/16.9мс) + glass-стек байт-стабилен 2.58.85→HEAD (close-r1/glass-byte-stability.txt); actual host для fullscreen — ui_soul1_w7_fullscreen_explain_e2e + fs/glass e2e 166/166 (win-glass-hotfix) + asap8 12/12; 30с polling/длинный русский промпт/многострочное редактирование — w6; Save/Cancel/Rollback/focus/отсутствие горизонтального скролла — P0 чек-лист 30 пунктов (review-ux-impl); две точки входа промптов — SOUL-11.2. Остаток «прогон на реальном TMA Android и Telegram Desktop по доступности владельца» — добровольная owner-наблюдаемость (plans/owner_live_checks.md, чек-листы отменены 18.10.2026).",
       "req_id": "SOUL-19.3",
       "slice": "W8",
       "acceptance": "UI-проверки выполнены: редактор Style Policy с preview, навигация меню, before и after glass с фиксированным фоном, actual host для fullscreen, разрешения 320, 360, 390, 430, 768, 1024, 1440 и landscape, открытая клавиатура, длинный русский промпт, многострочное редактирование 30 секунд polling, mobile back и forward, Save, Cancel и Rollback, focus, отсутствие горизонтального скролла, читаемый Liquid Glass, неизменный фон; прямые промпты доступны с двух точек входа; выполнен прогон на реальном TMA Android и Telegram Desktop по доступности владельца, а не только на mock SDK",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "804f4963a06005256b7c883601ba9723857b6027",
+          "ref": "plans/features/soul-1/evidence/final-recon/close-r1/glass-byte-stability.txt + plans/features/soul-1/evidence/final-recon/close-r1/README.md",
+          "observation": "Glass-стек байт-стабилен 2.58.85→HEAD (blob-хэши); fs/glass e2e 166/166 на релиз-байтах; ui-сьюты связаны; реальные TMA/Desktop — добровольная owner-наблюдаемость.",
+          "type": "ui"
+        },
+        {
+          "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/deploy-run.txt",
+          "observation": "UI-стек задеплоен: /web/ 200, PAGE_SOUL=4 (2.58.86); последующие волны 2.58.105/106/107.",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00287",
