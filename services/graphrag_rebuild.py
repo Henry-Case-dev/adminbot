@@ -84,10 +84,21 @@ ST_CANCELLED = "cancelled"
 # Статусы, из которых джоба считается активной сборкой (lease/конкуренция).
 BUILDING_STATUSES = frozenset({ST_BUILDING, ST_RUNNING, ST_CHECKPOINT,
                                ST_VALIDATING, ST_QUEUED})
-# Статусы РЕЕСТРА поколений, под которые можно строить/активировать
-# (`_activate` принимает ровно `building`/`validated`). Всё остальное —
-# bookkeeping-состояние, из которого строка не станет активной.
-TARGET_GENERATION_STATUSES = frozenset({"building", "validated"})
+# Статусы РЕЕСТРА поколений, под которые можно СТРОИТЬ (создать shadow и
+# активировать). `validated` сюда намеренно НЕ входит (review B-nb1): такой
+# строке не соответствует ни одна планируемая джоба, поэтому
+# `ensure_current_generation` зарегистрирует новое `building`-поколение, а
+# `_activate` по-прежнему принимает и `validated` (критерии §6 не менялись).
+TARGET_GENERATION_STATUSES = frozenset({"building"})
+# Статусы реестра, означающие «сборка ещё идёт / готовится к активации»
+# (включая машину миграций ASAP-6) — для честной классификации состояния.
+IN_PROGRESS_GENERATION_STATUSES = frozenset({
+    "building", "validated", "building_target", "catching_up", "ready"})
+# Статусы durable-джобы, означающие ТЕРМИНАЛЬНЫЙ провал сборки (B2):
+# реестр при этом остаётся `building` (терминальные ветки пишут только
+# task_jobs), поэтому статус обязан учитывать джобу.
+FAILED_BUILD_JOB_STATUSES = frozenset({ST_FAILED, ST_VALIDATION_FAILED,
+                                       ST_CANCELLED})
 # Паузы по quota/provider — авто-resume (AM-1); операторская `paused` — нет.
 AUTO_RESUME_STATUSES = frozenset({ST_PAUSED_RATE_LIMIT, ST_PAUSED_PROVIDER})
 # Статусы, из которых failure-классификатор (_handle_build_failure) имеет
@@ -601,6 +612,100 @@ async def _job_cas(db, job_id: str, *, expect: str, set_status: str,
 
 def _coalesce_key(index_name: str, fp: str) -> str:
     return f"{_KIND}:{index_name}:{fp}"
+
+
+def _payload_generation(job: dict | None) -> int:
+    """`generation` из payload джобы (0 — нет/битый payload: легаси-строка)."""
+    try:
+        payload = json.loads(str((job or {}).get("payload") or "{}"))
+        return int(payload.get("generation") or 0)
+    except (ValueError, TypeError):
+        return 0
+
+
+async def _repoint_job_to_generation(db, job_id: str, index_name: str, fp: str,
+                                     generation: int, *, expect: str) -> bool:
+    """B1 (review 23.10.2026): переиспользовать durable-джобу под НОВОЕ
+    поколение того же fingerprint (сценарий A→B→A).
+
+    Coalesce-ключ джобы — `(index, fp)`, поэтому после возврата identity к
+    прежнему fp `_find_active_job` находит УЖЕ ЗАВЕРШЁННУЮ джобу старого
+    поколения (`activated`/`cancelled`/`failed`), и `_ensure_job` не создавал
+    новую → новая `building`-строка реестра висела без сборки (тихий FTS-only,
+    рестарт не помогал). Здесь джоба ОДНОЙ транзакцией переводится в `queued`
+    с актуальным payload (`generation`/`fingerprint`), сброшенным checkpoint
+    (иначе resume старого shadow) и очищенным retry-состоянием (`result_ref`,
+    `finished_at` — иначе старый `pause_started_at` мгновенно исчерпал бы
+    горизонт §25, а `finished_at` позволил бы prune удалить живую джобу).
+
+    Никаких новых таблиц/полей: REUSE `task_jobs`. CAS по `expect` — двойной
+    запуск/чужой процесс не переоткрывает джобу дважды. Возвращает bool."""
+    now = int(time.time())
+    target_gen = int(generation or 0)
+    if target_gen <= 0:
+        return False
+
+    async def _body(conn):
+        cursor = await conn.execute(
+            "SELECT payload FROM task_jobs WHERE job_id = ?", (str(job_id),))
+        row = await cursor.fetchone()
+        payload: dict = {}
+        if row is not None and row["payload"]:
+            try:
+                parsed = json.loads(row["payload"])
+                if isinstance(parsed, dict):
+                    payload = parsed
+            except ValueError:
+                payload = {}
+        payload.update({"index": index_name, "fingerprint": str(fp),
+                        "generation": target_gen,
+                        "cursor": json.dumps({"last_id": 0, "processed": 0}),
+                        "processed": 0})
+        cursor = await conn.execute(
+            "UPDATE task_jobs SET payload = ?, status = ?, reason_code = ?, "
+            "result_ref = NULL, checkpoint_ref = ?, progress_at = NULL, "
+            "finished_at = NULL, updated_at = ? "
+            "WHERE job_id = ? AND status = ?",
+            (json.dumps(payload, ensure_ascii=False), ST_QUEUED,
+             "new_generation", f"cp:{index_name}:{target_gen}", now,
+             str(job_id), str(expect)))
+        return int(cursor.rowcount or 0)
+
+    try:
+        changed = bool(await db.write_transaction(
+            _body, op_name="graphrag_repoint_generation"))
+    except Exception:
+        logger.warning("graphrag rebuild: repoint failed | job=%s | gen=%d",
+                       job_id, target_gen, exc_info=True)
+        return False
+    if changed:
+        logger.info(
+            "EMBEDDING_GENERATION_REOPEN | index=%s | gen=%d | job=%s | "
+            "prev_status=%s — новая сборка под текущий fp", index_name,
+            target_gen, str(job_id)[:16], expect)
+    return changed
+
+
+async def latest_rebuild_job(db, index_name: str, fp: str) -> dict | None:
+    """R17-safe выжимка последней durable-джобы rebuild'а для (index, fp).
+
+    B2 (review 23.10.2026): `task_jobs` — durable-источник истины о ходе
+    сборки; терминальные ветки (`_handle_build_failure`, validation-failed)
+    пишут ТОЛЬКО туда, реестр остаётся `building`. Поэтому честный статус
+    обязан смотреть на джобу, иначе после реального провала он вечно врёт
+    «build_in_progress». Fail-open → None."""
+    try:
+        job = await _find_active_job(db, index_name, fp)
+        if job is None:
+            return None
+        return {
+            "status": str(job.get("status") or ""),
+            "reason_code": str(job.get("reason_code") or "") or None,
+            "generation": _payload_generation(job),
+            "updated_at": int(job.get("updated_at") or 0),
+        }
+    except Exception:
+        return None
 
 
 async def _find_active_job(db, index_name: str, fp: str) -> dict | None:
@@ -1606,10 +1711,11 @@ async def ensure_current_generation(memory, index_name: str, *,
     состояния. Здесь единственная точка «догнать identity» (REUSE реестра,
     без ΔDDL и без новой подсистемы):
 
-    * строка текущего fp `building`/`validated` → она и есть цель сборки;
+    * строка текущего fp `building` → она и есть цель сборки;
     * строка текущего fp `active` → перестройка не нужна (None);
-    * строки нет / она терминальна (`superseded`/`failed`) → регистрируется
-      НОВОЕ `building`-поколение (`db.register_embedding_target_generation`).
+    * строки нет / она терминальна (`superseded`/`failed`/`validated`) →
+      регистрируется НОВОЕ `building`-поколение
+      (`db.register_embedding_target_generation`).
       ACTIVE другого identity НЕ трогается (оно описывает модель, построившую
       текущие векторы), старые строки/векторы/shadow НЕ удаляются.
 
@@ -1683,6 +1789,16 @@ async def generation_status(db, *, current_fp: str | None = None,
     не выглядела как «всё нормально» (прод-факт 23.10.2026: индекс 24 дня
     жил в тихом FTS-only со старым `building`-поколением).
 
+    B2 (review 23.10.2026): реестр НЕ получает терминальный статус при провале
+    сборки — `_handle_build_failure`/validation-failed пишут только `task_jobs`.
+    Поэтому состояние `building`-строки различается по последней durable-джобе:
+    * job `failed`/`validation_failed`/`cancelled` → **`build_failed`** (+reason);
+    * job нет либо он относится к СТАРОМУ поколению → **`build_pending`**
+      (перестройка требуется, но сборка не идёт — не врём «in progress»);
+    * иначе (queued/running/checkpoint/paused_*) → `build_in_progress`.
+    Пустой источник (`smart_archive_facts=0`) не требует reindex:
+    `reindex_required=False` + `source_empty=True`.
+
     Никогда не бросает (ошибка БД → пустой снимок)."""
     out: dict = {"current_fp": "", "current_dims": current_dims,
                  "indexes": []}
@@ -1707,23 +1823,32 @@ async def generation_status(db, *, current_fp: str | None = None,
                 state, reason = "active", ""
             elif latest is not None and latest_fp == fp:
                 status = str(latest.get("status") or "")
-                if status in TARGET_GENERATION_STATUSES:
-                    state, reason = "build_in_progress", "build_in_progress"
+                if status in IN_PROGRESS_GENERATION_STATUSES:
+                    state, reason = await _build_state_from_job(
+                        db, index_name, fp, int(latest.get("generation") or 0))
                 else:
-                    state, reason = "build_failed", "build_failed"
+                    state, reason = "build_failed", (status or "build_failed")
             elif latest is not None or active is not None:
                 state, reason = "identity_changed", "identity_changed"
             latest_dims = int((latest or active or {}).get("dims") or 0)
             dim_mismatch = bool(dims and latest_dims and latest_dims != dims)
             if dim_mismatch and state == "identity_changed":
                 reason = "dimension_changed"
+            source_empty = await _source_empty(db, index_name)
             out["indexes"].append({
                 "index": index_name,
                 "state": state,
                 "reason_code": reason,
-                "reindex_required": state != "active",
+                # Пустой источник (прод: `smart_archive_facts=0`) не требует
+                # перестройки — иначе панель вечно предлагала бы reindex пустого
+                # индекса (nonblocking review B-nb2).
+                "reindex_required": (
+                    state != "active"
+                    and not (source_empty
+                             and state in ("no_generation", "build_pending"))),
                 "current_fp": _fp12(fp),
                 "dim_mismatch": dim_mismatch,
+                "source_empty": source_empty,
                 "latest": _generation_brief(latest),
                 "active": _generation_brief(active),
             })
@@ -1731,6 +1856,25 @@ async def generation_status(db, *, current_fp: str | None = None,
         logger.warning("graphrag rebuild: generation status failed",
                        exc_info=True)
     return out
+
+
+async def _build_state_from_job(db, index_name: str, fp: str,
+                                generation: int) -> tuple[str, str]:
+    """B2: состояние «сборка идёт» уточняется последней durable-джобой.
+
+    Возвращает `(state, reason_code)` из набора
+    `build_in_progress | build_pending | build_failed`."""
+    job = await latest_rebuild_job(db, index_name, fp)
+    if job is None:
+        return "build_pending", "job_missing"
+    status = str(job.get("status") or "")
+    job_gen = int(job.get("generation") or 0)
+    if status in FAILED_BUILD_JOB_STATUSES:
+        return "build_failed", (str(job.get("reason_code") or "") or status)
+    if generation > 0 and job_gen > 0 and job_gen < generation:
+        # джоба описывает СТАРОЕ поколение того же fp (A→B→A до/без B1-фикса)
+        return "build_pending", "job_stale_generation"
+    return "build_in_progress", "build_in_progress"
 
 
 def _generation_brief(row: dict | None) -> dict | None:
@@ -1930,6 +2074,23 @@ async def _ensure_job(db, index_name: str, fp: str, generation: int
     if job is not None:
         status = str(job.get("status") or "")
         jid = str(job["job_id"])
+        # B1 (review 23.10.2026): coalesce-ключ джобы — (index, fp), поэтому
+        # после A→B→A находится джоба ПРЕЖНЕГО поколения (activated/cancelled/
+        # failed/paused_*). Если целевое поколение новее — переиспользуем
+        # строку джобы (payload+checkpoint reset) вместо возврата None, иначе
+        # индекс навсегда остаётся FTS-only. RUNNING/BUILDING не трогаем
+        # (single-writer, stale-takeover ниже), операторскую `paused` уважаем.
+        target_gen = int(generation or 0)
+        job_gen = _payload_generation(job)
+        stale_generation = bool(target_gen) and status not in (
+            ST_RUNNING, ST_BUILDING, ST_PAUSED) and (
+            (job_gen > 0 and job_gen < target_gen)
+            or (job_gen <= 0 and status in (ST_ACTIVATED, ST_CANCELLED)))
+        if stale_generation:
+            if await _repoint_job_to_generation(db, jid, index_name, fp,
+                                                target_gen, expect=status):
+                return jid
+            return None
         if status in (ST_RUNNING, ST_BUILDING):
             heartbeat = int(job.get("heartbeat_at") or 0)
             if int(time.time()) - heartbeat < _STALE_RUNNING_SECONDS:

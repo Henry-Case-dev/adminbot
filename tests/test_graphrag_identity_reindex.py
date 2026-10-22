@@ -78,6 +78,24 @@ def _memory(db) -> sm.MemoryManager:
     return mm
 
 
+@pytest.fixture(autouse=True)
+def _isolate_aimd_controller():
+    """AIMD-контроллер — процесс-глобальный (`embedding_control_plane.
+    CONTROLLER`): успешные батчи этих тестов не должны менять `batch_size`
+    соседних файлов, иначе их `GRAPHRAG_REBUILD_BATCH` перестаёт действовать
+    (реальный порядко-зависимый провал `test_asap5_graphrag_recovery`,
+    поймано 20-файловым прогоном: `_batch` остаётся 50 → 4 факта одним
+    батчем → ожидаемый 429 не наступает). `reset()` — штатный API тестов."""
+    try:
+        from services import embedding_control_plane as ecp
+    except Exception:      # pragma: no cover — контрол-плейн есть всегда
+        yield
+        return
+    ecp.CONTROLLER.reset()
+    yield
+    ecp.CONTROLLER.reset()
+
+
 def _no_background(monkeypatch) -> None:
     """Планировщик НЕ запускает run_job в фоне: тест детерминированно
     вызывает `run_job` сам (иначе две гонки на одну джобу)."""
@@ -117,6 +135,20 @@ async def _seed_old_build(db, mm, index: str = "graph_facts_vec",
         (json.dumps([0.1] * 8),))
     await db.db.commit()
     return row, shadow
+
+
+async def _register_building(db, index: str, fp: str) -> dict:
+    """`building`-поколение под ЛЮБОЙ fp с identity-полями ТЕКУЩЕГО конфига
+    (иначе validation §6.3/§6.4 не пройдёт)."""
+    await db.ensure_embedding_generation(
+        index, fp, provider=sm._embedding_provider(),
+        model=sm.hot.get("models.embedding_model_name",
+                         sm.settings.EMBEDDING_MODEL_NAME),
+        dims=8, preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
+        endpoint_fingerprint=sm._endpoint_fingerprint(), activate=False)
+    row = await db.get_generation_by_fingerprint(index, fp)
+    assert row is not None and row["status"] == "building"
+    return row
 
 
 # ── 1. RED-сценарий: смена fp → поколение + джоба (без ручных действий) ─────
@@ -323,25 +355,39 @@ async def test_generation_status_reports_identity_changed(vec_db, monkeypatch):
     assert graph["active"] is None
     assert graph["latest"]["fingerprint"] == OLD_FP[:12]
     assert graph["dim_mismatch"] is False
-    # второй индекс без строк реестра — честно «нет поколения».
+    # второй индекс без строк реестра — честно «нет поколения»; источник пуст
+    # (smart_archive_facts=0) → reindex НЕ требуется (B2/nonblocking review).
     assert by_index["smart_archive"]["state"] == "no_generation"
-    assert by_index["smart_archive"]["reindex_required"] is True
+    assert by_index["smart_archive"]["source_empty"] is True
+    assert by_index["smart_archive"]["reindex_required"] is False
 
 
 @pytest.mark.asyncio
 async def test_generation_status_active_and_build_in_progress(vec_db,
                                                               monkeypatch):
     mm = _memory(vec_db)
+    await _seed_graph_facts(vec_db, 2)      # источник непустой → reindex нужен
     await vec_db.ensure_embedding_generation("graph_facts_vec", NEW_FP,
                                              dims=8, activate=True)
     st = await gr.generation_status(vec_db, current_fp=NEW_FP, current_dims=8)
     graph = {i["index"]: i for i in st["indexes"]}["graph_facts_vec"]
     assert graph["state"] == "active" and graph["reindex_required"] is False
 
-    # новое поколение под другой fp → build_in_progress (идёт перестройка)
+    # новое поколение под другой fp БЕЗ джобы → B2: «build_pending», не
+    # «build_in_progress» (сборка фактически не идёт).
     other = NEW_FP[:-1] + "c"
     await vec_db.register_embedding_target_generation("graph_facts_vec", other,
                                                       dims=8)
+    st = await gr.generation_status(vec_db, current_fp=other, current_dims=8)
+    graph = {i["index"]: i for i in st["indexes"]}["graph_facts_vec"]
+    assert graph["state"] == "build_pending"
+    assert graph["reason_code"] == "job_missing"
+    assert graph["reindex_required"] is True
+
+    # появилась durable-джоба → честный «build_in_progress».
+    row = await vec_db.get_generation_by_fingerprint("graph_facts_vec", other)
+    assert await gr._ensure_job(vec_db, "graph_facts_vec", other,
+                                int(row["generation"]))
     st = await gr.generation_status(vec_db, current_fp=other, current_dims=8)
     graph = {i["index"]: i for i in st["indexes"]}["graph_facts_vec"]
     assert graph["state"] == "build_in_progress"
@@ -396,3 +442,153 @@ async def test_registryless_db_is_fail_open():
     st = await gr.generation_status(bare_db, current_fp=NEW_FP)
     assert st["indexes"] == []
     assert st["current_fp"] == NEW_FP[:12]
+
+
+# ── 10. B1 (review): A→B→A — повторная перестройка прежнего fingerprint ──────
+
+@pytest.mark.asyncio
+async def test_identity_flipback_a_b_a_rebuilds_again(vec_db, monkeypatch):
+    """B1: после A(active) → B(active) → снова A планировщик обязан ПЕРЕОТКРЫТЬ
+    завершённую durable-джобу A под новое поколение (payload+checkpoint reset)
+    и довести её до `active`. До фикса: `_ensure_job` видел `activated`-джобу
+    того же fp и возвращал None → индекс навсегда в тихом FTS-only."""
+    _no_background(monkeypatch)
+    mm = _memory(vec_db)
+    await _seed_graph_facts(vec_db, 3)
+    await vec_db.db.execute(mm._graph_vec_table_sql(8))
+    await vec_db.db.commit()
+    monkeypatch.setattr(mm, "_embed", _Embed())
+    monkeypatch.setattr(gr, "_adaptive_batch_size", lambda: 2)
+    fp_a = mm._identity_fingerprint()
+    fp_b = "b" * 64
+
+    # ── A: первичная сборка и активация (реальный путь планировщика)
+    gen_a1 = await _register_building(vec_db, "graph_facts_vec", fp_a)
+    assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
+    job_a = await gr._find_active_job(vec_db, "graph_facts_vec", fp_a)
+    await gr.run_job(mm, "graph_facts_vec", str(job_a["job_id"]))
+    assert (await gr._get_job(vec_db, job_a["job_id"]))["status"] == \
+        gr.ST_ACTIVATED
+    active = await vec_db.get_active_embedding_generation("graph_facts_vec")
+    assert active["fingerprint"] == fp_a
+    assert int(active["generation"]) == int(gen_a1["generation"])
+
+    # ── B: identity сменилась → новое поколение → снова active
+    monkeypatch.setattr(mm, "_identity_fingerprint", lambda **kw: fp_b)
+    assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
+    job_b = await gr._find_active_job(vec_db, "graph_facts_vec", fp_b)
+    await gr.run_job(mm, "graph_facts_vec", str(job_b["job_id"]))
+    gen_b = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp_b)
+    assert gen_b["status"] == "active"
+    old_a = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp_a)
+    assert old_a["status"] == "superseded"
+    # действующая identity B обслуживается — запись векторов разрешена
+    assert await mm._vec_write_allowed("graph_facts_vec") is True
+
+    # ── A снова (A→B→A): поколение A пересоздаётся, джоба A переоткрывается
+    monkeypatch.setattr(mm, "_identity_fingerprint", lambda **kw: fp_a)
+    assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
+    new_a = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp_a)
+    assert new_a["status"] == "building"
+    assert int(new_a["generation"]) > int(gen_b["generation"])
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", fp_a)
+    assert str(job["job_id"]) == str(job_a["job_id"])   # та же durable-строка
+    assert job["status"] == gr.ST_QUEUED
+    payload = json.loads(job["payload"])
+    assert int(payload["generation"]) == int(new_a["generation"])
+    assert payload["fingerprint"] == fp_a
+    assert json.loads(payload["cursor"])["processed"] == 0   # checkpoint сброшен
+
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+    assert (await gr._get_job(vec_db, job["job_id"]))["status"] == \
+        gr.ST_ACTIVATED
+    active = await vec_db.get_active_embedding_generation("graph_facts_vec")
+    assert active["fingerprint"] == fp_a
+    assert int(active["generation"]) == int(new_a["generation"])
+    assert await mm._index_generation_ok("graph_facts_vec") is True
+    assert await mm._vec_write_allowed("graph_facts_vec") is True
+    # данные/источник целы
+    cur = await vec_db.db.execute("SELECT COUNT(*) AS c FROM graph_facts_vec")
+    assert int((await cur.fetchone())["c"]) == 3
+    cur = await vec_db.db.execute("SELECT COUNT(*) AS c FROM graph_facts")
+    assert int((await cur.fetchone())["c"]) == 3
+
+
+# ── 11. B2 (review): провал сборки → honest build_failed, не «in progress» ──
+
+@pytest.mark.asyncio
+async def test_generation_status_build_failed(vec_db, monkeypatch, caplog):
+    """B2: терминальные ветки пишут только `task_jobs` (реестр остаётся
+    `building`) → статус обязан учитывать джобу: `build_failed` + reason, и лог
+    gate'а не должен врать «build in progress»."""
+    import logging
+
+    _no_background(monkeypatch)
+    mm = _memory(vec_db)
+    await _seed_graph_facts(vec_db, 2)
+    await vec_db.db.execute(mm._graph_vec_table_sql(8))
+    await vec_db.db.commit()
+    fp = mm._identity_fingerprint()
+    await _register_building(vec_db, "graph_facts_vec", fp)
+    assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
+
+    async def _boom(texts):
+        raise ValueError("schema")
+
+    monkeypatch.setattr(mm, "_embed", _boom)
+    job = await gr._find_active_job(vec_db, "graph_facts_vec", fp)
+    await gr.run_job(mm, "graph_facts_vec", str(job["job_id"]))
+    job = await gr._get_job(vec_db, job["job_id"])
+    assert job["status"] == gr.ST_FAILED
+    assert job["reason_code"] == "ValueError"
+    # реестр не менялся (нет новых producer'ов/DDL) — источник истины это джоба
+    reg = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp)
+    assert reg["status"] == "building"
+
+    st = await gr.generation_status(vec_db, current_fp=fp, current_dims=8)
+    graph = {i["index"]: i for i in st["indexes"]}["graph_facts_vec"]
+    assert graph["state"] == "build_failed"
+    assert graph["reason_code"] == "ValueError"
+    assert graph["reindex_required"] is True
+
+    sm._GEN_LOG_STATE.clear()
+    with caplog.at_level(logging.WARNING, logger="services.summary_memory"):
+        assert await mm._index_generation_ok("graph_facts_vec") is False
+    assert "build failed" in caplog.text
+    assert "build in progress" not in caplog.text
+
+    # тик не устраивает retry-storm: новых поколений/джоб нет
+    assert await gr.maybe_schedule_rebuilds(mm, include_failed=False) == []
+    cur = await vec_db.db.execute(
+        "SELECT COUNT(*) AS c FROM mca_embedding_index_generations "
+        "WHERE index_name = 'graph_facts_vec'")
+    assert int((await cur.fetchone())["c"]) == 1
+    cur = await vec_db.db.execute(
+        "SELECT COUNT(*) AS c FROM task_jobs WHERE kind = 'graphrag_rebuild' "
+        "AND coalesce_key = ?", (gr._coalesce_key("graph_facts_vec", fp),))
+    assert int((await cur.fetchone())["c"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_generation_status_build_pending_stale_job(vec_db, monkeypatch):
+    """B2: `building`-строка без актуальной джобы (джоба старого поколения) —
+    не «build_in_progress», а `build_pending`."""
+    mm = _memory(vec_db)
+    await _seed_graph_facts(vec_db, 1)
+    fp = mm._identity_fingerprint()
+    # чужой fp → gen 1, текущий fp → gen 2 (чтобы «старая джоба» была доказуемо
+    # меньшего поколения)
+    await _register_building(vec_db, "graph_facts_vec", "a" * 64)
+    row = await _register_building(vec_db, "graph_facts_vec", fp)
+    assert int(row["generation"]) == 2
+
+    async def _stale_job(db, index_name, fp_arg):
+        return {"status": "activated", "reason_code": None,
+                "generation": 1, "updated_at": 0}
+
+    monkeypatch.setattr(gr, "latest_rebuild_job", _stale_job)
+    st = await gr.generation_status(vec_db, current_fp=fp, current_dims=8)
+    graph = {i["index"]: i for i in st["indexes"]}["graph_facts_vec"]
+    assert graph["state"] == "build_pending"
+    assert graph["reason_code"] == "job_stale_generation"
+    assert graph["reindex_required"] is True

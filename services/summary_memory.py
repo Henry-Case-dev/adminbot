@@ -1913,12 +1913,10 @@ class MemoryManager:
         # ASAP-3.2 (§8/§67): BUILDING — ожидаемое состояние идущего rebuild,
         # НЕ «новая авария» на каждый вызов: первый WARNING → далее DEBUG
         # (коалесинг); повторный WARNING — при смене состояния или cooldown.
-        # EMBED-REBUILD-MECHANISM (23.10.2026): «сборка идёт» и «identity
-        # сменилась, нужен rebuild» — РАЗНЫЕ состояния; смешивать их в одном
-        # generic-сообщении значит снова прятать тихий FTS-only.
+        # EMBED-REBUILD-MECHANISM (23.10.2026): «сборка идёт», «identity
+        # сменилась» и «сборка провалилась» — РАЗНЫЕ состояния; одно
+        # generic-сообщение снова прятало бы реальное состояние (B2 review).
         identity_changed = str(latest.get("fingerprint") or "") != current
-        hint = (" | identity changed — rebuild required"
-                if identity_changed else " | build in progress")
         state = (str(latest.get("status") or ""),
                  str(latest.get("fingerprint") or "")[:12])
         now_mono = time.monotonic()
@@ -1926,13 +1924,18 @@ class MemoryManager:
         cooldown = _gen_log_cooldown()
         if prev is not None and prev[0] == state and \
                 (now_mono - prev[1]) < cooldown:
+            # Коалесинг: hint берём из кэша — запрос к task_jobs НЕ повторяем
+            # (gate вызывается на каждой записи, hot-path не утяжеляем).
+            hint = prev[2] if len(prev) > 2 else ""
             logger.debug(
                 "SmartModule: embedding generation not serviceable "
                 "(coalesced) | index=%s | status=%s | gen_fp=%s new_fp=%s "
                 "— FTS-only (A06)%s", index_name, latest.get("status"),
                 str(latest.get("fingerprint"))[:12], current[:12], hint)
             return False
-        _GEN_LOG_STATE[index_name] = (state, now_mono)
+        hint = await self._generation_hint(index_name, latest,
+                                           identity_changed=identity_changed)
+        _GEN_LOG_STATE[index_name] = (state, now_mono, hint)
         logger.warning(
             "SmartModule: embedding generation not serviceable | index=%s | "
             "status=%s | gen_fp=%s new_fp=%s — FTS-only (A06)%s", index_name,
@@ -1943,6 +1946,37 @@ class MemoryManager:
             reason_code="embedding_generation_changed",
             model=str(latest.get("model") or "")[:120])
         return False
+
+    async def _generation_hint(self, index_name: str, latest: dict, *,
+                               identity_changed: bool) -> str:
+        """B2 (review 23.10.2026): честный хвост лога `not serviceable`.
+
+        Реестр не получает терминальный статус при провале сборки
+        (`_handle_build_failure`/validation-failed пишут только `task_jobs`),
+        поэтому «сборка идёт» и «сборка провалилась» различаются по последней
+        durable-джобе. Запрос — только при эмиссии WARNING (раз в cooldown,
+        результат кэшируется в `_GEN_LOG_STATE`), не на каждой записи.
+        Никогда не бросает."""
+        if identity_changed:
+            return " | identity changed — rebuild required"
+        try:
+            from services.graphrag_rebuild import (FAILED_BUILD_JOB_STATUSES,
+                                                   latest_rebuild_job)
+            job = await latest_rebuild_job(
+                self.db, index_name, str(latest.get("fingerprint") or ""))
+        except Exception:      # pragma: no cover — контракт не рвёт gate
+            return " | build in progress"
+        if job is None:
+            return " | build pending — durable job missing"
+        job_status = str(job.get("status") or "")
+        if job_status in FAILED_BUILD_JOB_STATUSES:
+            reason = str(job.get("reason_code") or "") or job_status
+            return f" | build failed — rebuild required ({reason})"
+        job_gen = int(job.get("generation") or 0)
+        row_gen = int(latest.get("generation") or 0)
+        if job_gen and row_gen and job_gen < row_gen:
+            return " | build pending — job for older generation"
+        return " | build in progress"
 
     async def _vec_write_allowed(self, index_name: str) -> bool:
         """§8.2/§8.6 (ASAP 6): можно ли ПИСАТЬ новые векторы в live ACTIVE
