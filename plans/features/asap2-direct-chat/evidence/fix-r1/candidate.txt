@@ -1,0 +1,1 @@
+﻿note: log files under this dir were captured pre-commit on identical file bytes (see hashes above)
