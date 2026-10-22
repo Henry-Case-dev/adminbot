@@ -11,14 +11,23 @@
       "source_text_sha256": "fe4d5f007612dcdb26d64f34bdac88dabc923526dcbe877603adaa47e9156112",
       "source_excerpt": "**Самостоятельный новый эпик для AdminBot / OpenCode Orchestrator. Полная редакция v2 с учётом обратной связи владельца и результатов аудита ASAP 8 v6.3.**",
       "disposition": "required",
-      "reason": "Эпик зафиксирован как самостоятельный SOUL-1 v2: snapshot (source-current-task.md L3/L5), манифест (SOURCE_MANIFEST.md), план (§1: epic SOUL-01…19 + AMD, отдельная нумерация) и карты — переиспользования нумерации ASAP 8 нет. Открыто: явная фиксация «не продолжение ASAP 8» в отчёте — §21-отчёт ещё не собран (W9), строка закрывается там.",
+      "reason": "Эпик зафиксирован как самостоятельный SOUL-1 v2: snapshot (source-current-task.md L3/L5), манифест (SOURCE_MANIFEST.md), план (§1: epic SOUL-01…19 + AMD, отдельная нумерация) и карты — переиспользования нумерации ASAP 8 нет. Открыто: явная фиксация «не продолжение ASAP 8» в отчёте — §21-отчёт ещё не собран (W9), строка закрывается там.\n\nprocess-row executed by epic (final-recon, 22.10.2026): эпик исполнен как самостоятельный SOUL-1 v2 — собственные snapshot/манифест/план/карты (SOURCE_MANIFEST.md, plan.md §1), релизная цепочка 2.58.84–109, финальный отчёт эпика собран и озаглавлен SOUL-1 (final-report.md); переиспользования нумерации ASAP 8 нет.",
       "req_id": "SOUL-EXEC.2",
       "slice": "W1",
       "acceptance": "Эпик зафиксирован как самостоятельный SOUL-1 v2, не продолжение нумерации ASAP и не повторный запуск ASAP 8; в отчёте это видно явно",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
+          "ref": "plans/features/soul-1/final-report.md; plans/features/soul-1/SOURCE_MANIFEST.md; plans/features/soul-1/plan.md",
+          "observation": "Финальный отчёт эпика существует, собственная нумерация/снапшот/манифест; релизная цепочка 2.58.84–109 в §9",
+          "type": "static",
+          "artifact_path": "plans/features/soul-1/final-report.md",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0"
+        }
+      ]
     },
     {
       "source_id": "M00005",
@@ -54,14 +63,21 @@
       "source_text_sha256": "cc938cee76a321e63772fb844c595c5ec8fa9e62066f832c03fa1022c8dc91b5",
       "source_excerpt": "Ты — Orchestrator. Прочитай документ полностью до планирования. Сохрани исходный текст как immutable source snapshot с SHA256 в `plans/features/soul-1/`, составь `requirements-map` со всеми SOUL-01…SOUL-19 и вложенными критериями, назначь и",
       "disposition": "required",
-      "reason": "Snapshot с SHA256 (SOURCE_MANIFEST.md; source_sha256 совпадает в обеих картах) и Reviewer-сверка карты с исходным текстом (review-map.md — Approved после F1–F7; все SOUL-01…19 достижимы, 0 пропусков) выполнены; исполнители назначены (plan.md §1). Открыто: release-стадия гейта ещё впереди — строка закрывается финальным release-проходом.",
+      "reason": "Snapshot с SHA256 (SOURCE_MANIFEST.md; source_sha256 совпадает в обеих картах) и Reviewer-сверка карты с исходным текстом (review-map.md — Approved после F1–F7; все SOUL-01…19 достижимы, 0 пропусков) выполнены; исполнители назначены (plan.md §1). Открыто: release-стадия гейта ещё впереди — строка закрывается финальным release-проходом.\n\nprocess-row executed (final-recon, 22.10.2026): immutable snapshot с SHA256 (SOURCE_MANIFEST.md; source_sha256 совпадает в обеих картах), карта проверена Reviewer (review-map.md — Approved, F1–F7, все SOUL-01…19 достижимы), исполнители назначены (plan.md §1), gate реально использован на plan/review и release каждой волны (gate-release-readonly.txt в релизных каталогах; release-стадия исполнена релизами 2.58.84–109).",
       "req_id": "SOUL-EXEC.4",
       "slice": "W1",
       "acceptance": "Исходный текст сохранён как immutable source snapshot с SHA256 в plans/features/soul-1, requirements-map содержит все SOUL-01..19 и вложенные критерии, исполнители назначены, gate используется на plan/review/release; карта проверена Reviewer против исходного текста, ни одно требование не закрыто без сверки с оригиналом и наблюдаемым результатом",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/gate-release-readonly.txt; plans/features/soul-1/review-map.md",
+          "observation": "Release-гейт читается read-only на релизе; карта Approved ревью против исходника",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00011",
@@ -125,14 +141,23 @@
       "source_text_sha256": "47603535dcec8753fdedec8de0f88852393337a2b43aef6f6ca646d94836daed",
       "source_excerpt": "В первую очередь проведи инвентаризацию актуального `master`, PostgreSQL effective-config, других источников системных инструкций, интерфейсов и действующих писателей (Writers). **Не переписывай заново рабочие контуры L1, Direct, Initiative",
       "disposition": "required",
-      "reason": "Документ принят как полное самодостаточное задание: уточнение внесено отдельным snapshot с сохранением источника и нумерации (SOURCE_MANIFEST.md §Amendment; amendment-карта ко-гейтится с основной), SOUL-16–18 присутствуют как required с равным статусом в карте (review-map.md: все SOUL-01…19 достижимы, 0 неучтённых строк). Открыто: «равный статус в отчёте» — §21-отчёт (W9) впереди, строка закрывается там.",
+      "reason": "Документ принят как полное самодостаточное задание: уточнение внесено отдельным snapshot с сохранением источника и нумерации (SOURCE_MANIFEST.md §Amendment; amendment-карта ко-гейтится с основной), SOUL-16–18 присутствуют как required с равным статусом в карте (review-map.md: все SOUL-01…19 достижимы, 0 неучтённых строк). Открыто: «равный статус в отчёте» — §21-отчёт (W9) впереди, строка закрывается там.\n\nprocess-row executed (final-recon, 22.10.2026): уточнение внесено отдельным снапшотом с сохранением источника/нумерации (SOURCE_MANIFEST §Amendment), amendment-карта ко-гейтится с основной; SOUL-16–18 обязательны и закрыты наравне: равный статус в map (VERIFIED-строки 16.x/17.x/18.x) и равное присутствие в отчёте (final-report §7 fullscreen/§8 legacy-ведомость/§4 UI).",
       "req_id": "SOUL-EXEC.7",
       "slice": "W1",
       "acceptance": "Документ принят как полное самодостаточное задание: будущие дополнения вносятся с сохранением источника и нумерации, старый ASAP 8 не является заменой, SOUL-16-18 обязательны наравне с SOUL-01-15 и имеют равный статус в map и отчёте",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "ref": "plans/features/soul-1/final-report.md",
+          "observation": "SOUL-16–18 отражены в отчёте эпика наравне с 01–15 (§4/§7/§8)",
+          "type": "static",
+          "artifact_path": "plans/features/soul-1/final-report.md",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0"
+        }
+      ]
     },
     {
       "source_id": "M00013",
@@ -168,14 +193,23 @@
       "source_text_sha256": "ab3745c5bffd734d0539f5dfdd55d1079c5162aa91e6109ef8fb35b446b1c6ab",
       "source_excerpt": "**Принцип релиза:** Review и кодовые тесты обязательны, но функции с требованием реального поведения не объявлять DONE по Playwright-моку, фальшивому LLM или `healthz 200`. Допускается `IMPLEMENTED / TESTED / DEPLOYED / LIVE_UNVERIFIED`, пр",
       "disposition": "required",
-      "reason": "",
+      "reason": "process-row executed (final-recon, 22.10.2026): фиктивного DONE нет — живые остатки честно оставлены READY_FOR_LIVE/PENDING (живой прецедент: SOUL-14.2 на 2.58.106 — speech_extent отсутствует, строка осталась RFL, deploy.md §Live-пробы; FIX-SOUL142-LABEL — понижение VERIFIED→RFL при отсутствии живой пробы); независимые ревью каждой волны/релиза — Approved (final-report §9).",
       "req_id": "SOUL-EXEC.9",
       "slice": "W8",
       "acceptance": "Функции с требованием реального поведения не объявлены DONE по Playwright-моку, фальшивому LLM или healthz 200; используются статусы IMPLEMENTED, TESTED, DEPLOYED, LIVE_UNVERIFIED, незакрытые live-сценарии остаются видимыми",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "observation": "Прецедент честного не-закрытия: телеметрии нет — строка осталась READY_FOR_LIVE, не выдана за закрытую",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        }
+      ]
     },
     {
       "source_id": "M00015",
@@ -183,14 +217,23 @@
       "source_text_sha256": "ab3745c5bffd734d0539f5dfdd55d1079c5162aa91e6109ef8fb35b446b1c6ab",
       "source_excerpt": "**Принцип релиза:** Review и кодовые тесты обязательны, но функции с требованием реального поведения не объявлять DONE по Playwright-моку, фальшивому LLM или `healthz 200`. Допускается `IMPLEMENTED / TESTED / DEPLOYED / LIVE_UNVERIFIED`, пр",
       "disposition": "required",
-      "reason": "",
+      "reason": "process-row executed (final-recon, 22.10.2026): по каждому SOUL-ID указаны статус, тест, источник доказательств и commit SHA (evidence-записи карт с candidate_commit/artifact_path); версии/SHA/тесты/ревью/ограничения сведены в final-report §9; реальные run/trace — окна проверок 1–2 и релизные deploy.json.",
       "req_id": "SOUL-EXEC.10",
       "slice": "W8",
       "acceptance": "По каждому SOUL-ID указаны точный статус, тест, источник доказательств, commit SHA и при необходимости реальный run или trace",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "ref": "plans/features/soul-1/final-report.md",
+          "observation": "Версии/SHA/тесты/ревью по эпику сведены (§9); trace'и — evidence карт",
+          "type": "static",
+          "artifact_path": "plans/features/soul-1/final-report.md",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0"
+        }
+      ]
     },
     {
       "source_id": "M00015",
@@ -198,14 +241,23 @@
       "source_text_sha256": "ab3745c5bffd734d0539f5dfdd55d1079c5162aa91e6109ef8fb35b446b1c6ab",
       "source_excerpt": "**Принцип релиза:** Review и кодовые тесты обязательны, но функции с требованием реального поведения не объявлять DONE по Playwright-моку, фальшивому LLM или `healthz 200`. Допускается `IMPLEMENTED / TESTED / DEPLOYED / LIVE_UNVERIFIED`, пр",
       "disposition": "required",
-      "reason": "",
+      "reason": "process-row executed (final-recon, 22.10.2026): регрессии чинились минимальным целевым циклом с дефект/фикс/репроверкой: 2.58.86→87 await-фикс `68cd05b2` (живое доказательство REV-REL-25887 §6а), 2.58.90 P0 persist `29a95173` (дефект chat-scope save → RED 16f/40p→GREEN 145 + живая приёмка 17/17), 2.58.107 corrective (355p, ревью Approved), 2.58.108 vision-fence `1cf0f400` (+2 REGRESSION).",
       "req_id": "SOUL-EXEC.11",
       "slice": "W8",
       "acceptance": "Продуктовые регрессии исправляются минимальным целевым циклом без раздувания ревью в бесконечный рефакторинг; для каждой регрессии указан конкретный дефект, fix и повторная проверка",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "observation": "Дефект→фикс→репроверка: 10 путей, RED→GREEN, 17/17 на реальной базе",
+          "type": "test",
+          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a"
+        }
+      ]
     },
     {
       "source_id": "M00017",
@@ -213,14 +265,21 @@
       "source_text_sha256": "80846fe28b25ad46ee1b2a14693ffc5e5e7697d20651fa3878f88896a2d19075",
       "source_excerpt": "Продакшен — только после Reviewer и rollback-плана; потенциально опасные операции с данными — backup, контроль целостности и безопасный abort. Конкурирующие параллельные агенты не должны редактировать одни файлы без явного владельца merge. ",
       "disposition": "required",
-      "reason": "",
+      "reason": "process-row executed (final-recon, 22.10.2026): прод выполнялся только после Reviewer (REV-REL-* Approved на каждый релиз) и с rollback-планом (ветки release/fix-* запушены; рубежи 2.58.88/89 для 2.58.90); опасные операции с данными — с backup/целостностью/abort: capture-before backup sha (2.58.86), авто-откат первого прогона подтверждён (first-attempt-health-miss.md), hash-bind 13/13 и 30/30, NRestarts=0.",
       "req_id": "SOUL-EXEC.12",
       "slice": "W8",
       "acceptance": "Продакшен выполняется только после Reviewer и rollback-плана; потенциально опасные операции с данными сопровождаются backup, контролем целостности и безопасным abort с подтверждённым evidence",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/first-attempt-health-miss.md; plans/features/soul-1/evidence/release-soul-25886/capture-before.txt",
+          "observation": "Авто-откат первого прогона подтвердил обратность; backup до миграции с sha",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00017",
@@ -284,14 +343,23 @@
       "source_text_sha256": "9a85ff19890164770da1eac6ef9f0a6815ba50161d009ea7dd909e89b166b4b0",
       "source_excerpt": "AdminBot — живой по манере речи участник неформального русскоязычного группового чата. У него **одна устойчивая личность**, а не набор отдельных персонажей «токсичный», «исследователь», «смешной» и «серьёзный». Его характер наблюдательный, ",
       "disposition": "required",
-      "reason": "Инвариант «один Core — одна личность» работает только в путях композера при выключенном флаге; legacy-канон остаётся вторым определением личности",
+      "reason": "Инвариант «один Core — одна личность» работает только в путях композера при выключенном флаге; legacy-канон остаётся вторым определением личности\n\nVERIFIED (final-recon, 22.10.2026): одна личность доставлена unified-core (2.58.98 `29cc49ba`): 11 пользовательских трасс содержат тот же Core-текст, 4 машинных процесса чисты (add-exp/evidence/unified-core/README.md); вариативность действия/серьёзности/объёма/формата по разговору/задаче/L1 — A/B 66 генераций (связность 33/33 паритет, остроумие/адресат/уместность различаются по сценам), route-coverage 18 контуров (test_unified_core_route_coverage.py), живые прогоны окна-2 (AMD.8.1 VERIFIED).",
       "req_id": "SOUL-BOUND.1",
       "slice": "W2",
       "acceptance": "У бота одна устойчивая личность, а не набор отдельных персонажей; действие, серьёзность, резкость, объём и формат ответа зависят от разговора, задачи, отношений и L1 или Initiative Decision",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md",
+          "observation": "11 пользовательских путей — один и тот же Core-текст в payload; машинные чисты",
+          "type": "static",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        }
+      ]
     },
     {
       "source_id": "M00023",
@@ -299,14 +367,21 @@
       "source_text_sha256": "3f91b0857c909dbc311c0e7708b701c4277c18c60b633ddc7b6102d451610b52",
       "source_excerpt": "Нужно заменить россыпь однотипных инструкций «саркастичный/токсичный/циничный» на **единый редактируемый Personality Core и модульные ситуативные слои**. Не добавляй этот Core поверх прежних конкурирующих канонов без их удаления/нормализаци",
       "disposition": "required",
-      "reason": "Удаление/нормализация старых канонов не выполнена (hard rule: только после AMD.1.2); композер лишь относит склеенный канон к слою channel_contract",
+      "reason": "Удаление/нормализация старых канонов не выполнена (hard rule: только после AMD.1.2); композер лишь относит склеенный канон к слою channel_contract\n\nVERIFIED (final-recon, 22.10.2026): россыпи заменены единым редактируемым Core + модульными слоями; старые конкурирующие каноны удалены/нормализованы: withheld=11 на проде 2.58.86, LEGACY_PERSONA_RULES (9 правил) на сборке, CFG-07A вычистка 7 маршрутов (FORBIDDEN-маркеров 0, байт-сверка с продом 25/25, FACTORY_SET 64ec1c60e278→037080375ac8→c19d35a1c093), AMD.1.2/7.3 VERIFIED.",
       "req_id": "SOUL-BOUND.2",
       "slice": "W2",
       "acceptance": "Россыпь однотипных инструкций саркастичный, токсичный, циничный заменена единым редактируемым Personality Core и модульными ситуативными слоями; старые конкурирующие каноны удалены или нормализованы, а не оставлены под Core",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
+          "observation": "7 маршрутов вычищены по suppress-семантике; FORBIDDEN-маркеров 0; байт-паритет с продом; лестницы+откаты",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00025",
@@ -314,14 +389,23 @@
       "source_text_sha256": "6e6f7cdcf688b67b6c5f3ad53e9dbb9dbcdf327b7ab6bd281edd35096b1c47fc",
       "source_excerpt": "Одна и та же речь должна быть узнаваема в обычном Direct, автономной Initiative, финальном ответе после инструментов, объяснении найденных фактов, творческих текстах и иных пользовательских Writer-путях. **Аналитические/машинные стадии** — ",
       "disposition": "required",
-      "reason": "Нужны реальные выборки речи по Direct/Initiative/tool-backed (live_required) — в W2 отсутствуют; флаг OFF по решению владельца",
+      "reason": "Нужны реальные выборки речи по Direct/Initiative/tool-backed (live_required) — в W2 отсутствуют; флаг OFF по решению владельца\n\nVERIFIED (final-recon, 22.10.2026): узнаваемость одной речи по путям подтверждена сравнением выборок: payload-трассы 11 пользовательских путей с тем же Core (unified-core README), живые прогоны по путям окна-2 (AMD.8.1 VERIFIED — реальными прогонами), route-coverage 18, A/B-связность 33/33; живой остаток «субъективная узнаваемость голоса владельцем» — добровольное наблюдение (plans/owner_live_checks.md), агентская часть закрыта.",
       "req_id": "SOUL-BOUND.3",
       "slice": "W2",
       "acceptance": "Одна и та же речь узнаваема в обычном Direct, автономной Initiative, финальном ответе после инструментов, объяснении фактов, творческих текстах и иных пользовательских Writer-путях; подтверждено сравнением выборок по путям",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md",
+          "observation": "Сравнение выборок по путям: один Core-текст во всех пользовательских payload-трассах",
+          "type": "static",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        }
+      ]
     },
     {
       "source_id": "M00025",
@@ -357,14 +441,21 @@
       "source_text_sha256": "6e6f7cdcf688b67b6c5f3ad53e9dbb9dbcdf327b7ab6bd281edd35096b1c47fc",
       "source_excerpt": "Одна и та же речь должна быть узнаваема в обычном Direct, автономной Initiative, финальном ответе после инструментов, объяснении найденных фактов, творческих текстах и иных пользовательских Writer-путях. **Аналитические/машинные стадии** — ",
       "disposition": "required",
-      "reason": "Eligibility-профили (editorial_report/internal_silent) определены и покрыты тестами, но подключение публичных Summary/Factcheck ещё не сделано (W3-расширение)",
+      "reason": "Eligibility-профили (editorial_report/internal_silent) определены и покрыты тестами, но подключение публичных Summary/Factcheck ещё не сделано (W3-расширение)\n\nVERIFIED (final-recon, 22.10.2026): редакционная eligibility определена и подключена: MACHINE_CONTEXTS/DEFAULT_EXEMPTIONS (style_policy.py:80–96; SOUL-16.4.4 VERIFIED), профиль editorial_eligibility на реальных путях L1/Stage-1/factcheck (test_soul1_machine_profile_no_core.py, CONTRACT owner=SOUL-04.6/BOUND.4/05), managed messages/fallback — через реестр (AMD.3.4), личность подключается только по контракту канала (route-coverage 18).",
       "req_id": "SOUL-BOUND.5",
       "slice": "W2",
       "acceptance": "Для издательской статьи Summary, форматированного отчёта и Factcheck-публикации определена явная редакционная eligibility; личность подключается только там, где это предполагает контракт канала, без искажения источников",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "tests/test_soul1_machine_profile_no_core.py; plans/features/soul-1/review-w6.md",
+          "observation": "editorial_report/internal_silent на реальных путях; лишних LLM-вызовов нет",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00027",
@@ -372,14 +463,21 @@
       "source_text_sha256": "2f906c1a7181a3819ecbd58134992555d80869c64560401d86f337b163a0f151",
       "source_excerpt": "Ни один слой не должен создавать неподтверждённые реальные события, цитаты участников, даты, статистику или факты о людях ради шутки. Художественное преувеличение/условная ситуация допускается в ясном контексте юмора, но не как результат по",
       "disposition": "required",
-      "reason": "Запрет выдуманных фактов не защищён ни тестом, ни новым промпт-слоем в поставке W2 — ожидает слайса уточнения и живых прогонов",
+      "reason": "Запрет выдуманных фактов не защищён ни тестом, ни новым промпт-слоем в поставке W2 — ожидает слайса уточнения и живых прогонов\n\nVERIFIED (final-recon, 22.10.2026): запрет выдуманных фактов защищён слоями и тестами: честный слив «Признай косяк… в рамках фактов» (CFG-07A Direct-канон), no-overclaim тесты 07D.2 (total_verification_claim_detected ×4 и др.), egress-словарь 07C.2 (метаречь/reason_code; 67 CONTRACT), фактчек v2 с проверкой источников (FC-R1 `97818475`; прод tfr-38ab2b7fa98b44cb), A/B: ON отказал под фальшивой поправкой (конфабуляция только у OFF), инъекции 0/0; художественное преувеличение — только в юмор-контексте (07D.1).",
       "req_id": "SOUL-BOUND.6",
       "slice": "W2",
       "acceptance": "Ни один слой не создаёт неподтверждённые реальные события, цитаты участников, даты, статистику или факты о людях ради шутки; художественное преувеличение допускается только в ясном контексте юмора и не как результат поиска памяти или фактчека",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9781847541afbd72a93ed31bee4be3808a077f40",
+          "ref": "plans/features/corrective-fix-2026-10-21/review-corrective-r1.md; plans/features/cfg/evidence/cfg-07a/07a2-summary.md",
+          "observation": "Фактчек-контур верификации источников + анти-backstage канон «в рамках фактов»",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00027",
@@ -387,14 +485,21 @@
       "source_text_sha256": "2f906c1a7181a3819ecbd58134992555d80869c64560401d86f337b163a0f151",
       "source_excerpt": "Ни один слой не должен создавать неподтверждённые реальные события, цитаты участников, даты, статистику или факты о людях ради шутки. Художественное преувеличение/условная ситуация допускается в ясном контексте юмора, но не как результат по",
       "disposition": "required",
-      "reason": "Разрешения и раскрытие данных: негативных тестов на утечку и на раскрытие в неподходящем канале в поставке нет",
+      "reason": "Разрешения и раскрытие данных: негативных тестов на утечку и на раскрытие в неподходящем канале в поставке нет\n\nVERIFIED (final-recon, 22.10.2026): разрешения/раскрытие проверены негативно: RBAC (SOUL-16.4.3 VERIFIED), 403-guard (w4-humor-feedback-report.md §F1), egress-словарь утечек JSON/role/tag/reason_code (test_cfg07_egress_dictionary.py, 67 CONTRACT), машинные пути без Core/личности (test_soul1_machine_profile_no_core.py), factcheck egress-whitelist 06B (служебные поля физически отсутствуют в презентации), A/B: попытки вывода системного промпта — утечек 0.",
       "req_id": "SOUL-BOUND.7",
       "slice": "W2",
       "acceptance": "Действующие разрешения, ограничения на раскрытие данных и коммуникационный контекст соблюдаются во всех речевых путях; проверены негативными тестами на утечку и на раскрытие в неподходящем канале",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md; tests/test_cfg07_egress_dictionary.py",
+          "observation": "Словарь утечек (JSON/role/tag/reason_code/метаречь) на всех публичных каналах — 67 CONTRACT",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00043",
@@ -658,14 +763,21 @@
       "source_text_sha256": "1a16b4e7a5eaedf947fa71148c8295a44f6c7fdcb5f7ee2243f4484bc4b06ee2",
       "source_excerpt": "**НЕ удалять** текущий модуль «Личность и стиль» и его данные. `personas.name`, biography, `system_prompt_overrides`, осведомлённость об ИИ, BehaviorFrame, acquired traits, relation history, source provenance и pause/resume жизненно важны. ",
       "disposition": "required",
-      "reason": "Данные не удалены и read-only удержание закрыто тестом; «без второй конкурирующей сущности» не выполнено — legacy-канон остаётся в канале до AMD.1.2",
+      "reason": "Данные не удалены и read-only удержание закрыто тестом; «без второй конкурирующей сущности» не выполнено — legacy-канон остаётся в канале до AMD.1.2\n\nVERIFIED (final-recon, 22.10.2026): данные модуля сохранены (personas/biography/overrides/SelfModel/BehaviorFrame/traits/relation/provenance/pause — mca_self_model.py, W1-реестр, test_soul1_legacy_custom_preserved.py; кастом владельца байт-в-байт, final-report §1 «Сохранено»); «без второй конкурирующей сущности» закрыто: legacy-канон удержан (withheld=11) и вычищен (CFG-07A; AMD.1.2/7.3 VERIFIED), Core резолвится единственным источником (layers_current=[…,core]).",
       "req_id": "SOUL-03.1",
       "slice": "W2",
       "acceptance": "Модуль Личность и стиль и его данные не удалены: personas.name, biography, system_prompt_overrides, осведомлённость об ИИ, BehaviorFrame, acquired traits, relation history, source provenance и pause/resume сохранены и превращены в часть новой системы без второй конкурирующей сущности",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt; plans/features/soul-1/w1-registry-report.md",
+          "observation": "withheld=11, кастом владельца цел (7/7), единая схема источников 25 PG-ключей",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00063",
@@ -707,14 +819,23 @@
       "source_text_sha256": "5d62860f6ede95b421031b9c0e59a460923062880e009b14db5a7501b48d99ef",
       "source_excerpt": "Разграничить зоны ответственности: SelfModel может сформировать «стал более прямолинейным в этом чате» как проверенную изменяемую черту; Experience может повысить релевантность приёма и примера; L1 может выбрать краткий серьёзный ответ. **Н",
       "disposition": "required",
-      "reason": "Механизм конфликта с провенансом поставлен (duplicate_owner_character/one_word/budget), но конфликт Core↔производного правила SelfModel/Experience на реальных derived-правилах не проверен",
+      "reason": "Механизм конфликта с провенансом поставлен (duplicate_owner_character/one_word/budget), но конфликт Core↔производного правила SelfModel/Experience на реальных derived-правилах не проверен\n\nVERIFIED (final-recon, 22.10.2026): зоны разграничены, Core не переписывается автоматически: read-path без записи (never-write тесты: запись в hot на read-path → AssertionError), Core меняется только явной ревизией (test_soul1_core_version_propagation.py), superseded-core гвард (corrective §2: sha12(PREV)→действует новая заводская, данные не пишутся, кастом не подменяется), производные правила не применяются молча — self_model applied:0/rejected:8 (live-проба 2.58.106), конфликт-исходы явные с provenance (quotes_require_rephrase; витрина конфликтов legacy_persona_present; duplicate_owner_character/one_word/budget).",
       "req_id": "SOUL-03.3",
       "slice": "W2",
       "acceptance": "Зоны ответственности разграничены: SelfModel формирует проверенные изменяемые черты, Experience повышает релевантность приёма, L1 выбирает формат, но ни один из них не переписывает владельческий Core автоматически; при конфликте Core или owner custom с производным правилом выдаётся явный conflict outcome с provenance, а не тихая вставка двух противоречивых инструкций",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "observation": "self_model {applied:0, rejected:8} на живом проде — derived-правила отклоняются явно, не подменяют Core",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        }
+      ]
     },
     {
       "source_id": "M00065",
@@ -722,14 +843,21 @@
       "source_text_sha256": "5d62860f6ede95b421031b9c0e59a460923062880e009b14db5a7501b48d99ef",
       "source_excerpt": "Разграничить зоны ответственности: SelfModel может сформировать «стал более прямолинейным в этом чате» как проверенную изменяемую черту; Experience может повысить релевантность приёма и примера; L1 может выбрать краткий серьёзный ответ. **Н",
       "disposition": "required",
-      "reason": "Изоляция двух чатов и отсутствие переноса чужих черт проверены; негативных тестов по смене биографии/переносу черт при конфликтующих локальных настройках (кроме Core-оверрайда) нет",
+      "reason": "Изоляция двух чатов и отсутствие переноса чужих черт проверены; негативных тестов по смене биографии/переносу черт при конфликтующих локальных настройках (кроме Core-оверрайда) нет\n\nVERIFIED (final-recon, 22.10.2026): негативы по двум чатам и конфликтующим локальным настройкам: override чата A не создаёт профиль B (окно-2 AC2, прод), Expression GLOBAL=frequent + per-chat=off → off-директива только в этом чате (trace-direct-l2-writer-per-chat-off.txt), одинаковые шутки в двух чатах оцениваются независимо (test_soul1_w4_humor_feedback.py scenario_6), изоляция на реальной БД — 17/17 (P0 §6), кросс-чатовая утечка редактора закрыта (_dirtyLeaveGuard+resetSpeechState).",
       "req_id": "SOUL-03.4",
       "slice": "W2",
       "acceptance": "Нет принуждения к шуткам, самопроизвольной смены биографии и переноса черт между чатами; проверено негативными тестами с двумя чатами и конфликтующими локальными настройками",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d59fab944bcb3eb0f5d3fa69101d8488da1c155b",
+          "ref": "plans/features/soul-1/review-agent-checks-window2.md §2",
+          "observation": "AC2: чат-B при активном override A получает global; профиль B не создавался (0 строк)",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00067",
@@ -737,7 +865,7 @@
       "source_text_sha256": "a38ee812cc9817ab4e9dfaf0e84aa485f27dc53697fc8bca30053cda04682f2e",
       "source_excerpt": "Нужно восстановить существующий выбор scope «GLOBAL / CHAT», имя, биографию и `Характер` без потери значений; после миграции старые значения либо mapped в семантически корректную часть, либо видны как legacy custom с действующим сохранённым",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца (приоритет над старыми формулировками): ветка «старые значения видны как legacy custom с действующим сохранённым эффектом до явного решения владельца» больше не действует — legacy custom-промпты не сохраняются активным слоем, специальная UI-миграция под них не добавляется, старые речевые каноны остаются только в аварийной резервной копии (вне runtime и вне legacy-редактора). Совместимые части (scope GLOBAL/CHAT, имя, биография, Характер без потери значений) сохраняются через SOUL-02.8, SOUL-03.1 и SOUL-AMD.1.2/AMD.1.4.",
+      "reason": "Подавлено архитектурным уточнением владельца (приоритет над старыми формулировками): ветка «старые значения видны как legacy custom с действующим сохранённым эффектом до явного решения владельца» больше не действует — legacy custom-промпты не сохраняются активным слоем, специальная UI-миграция под них не добавляется, старые речевые каноны остаются только в аварийной резервной копии (вне runtime и вне legacy-редактора). Совместимые части (scope GLOBAL/CHAT, имя, биография, Характер без потери значений) сохраняются через SOUL-02.8, SOUL-03.1 и SOUL-AMD.1.2/AMD.1.4.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (статус PENDING по конвенции карты); совместимые части подтверждены VERIFIED-строками: SOUL-02.8 (scope/имя/биография/Характер без потерь), SOUL-03.1, SOUL-AMD.1.2/1.4 — legacy custom не активный слой, аварийная копия вне runtime.",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §1 п.2 (строка 10) и §4 п.6 (строка 58); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-03.5",
       "slice": "W2",
@@ -781,14 +909,23 @@
       "source_text_sha256": "ebfaf15374dea835b8ef3cd41425af4c60030de83094a3165379b31c50de6d51",
       "source_excerpt": "Сделай единую функцию/сервис композиции с типизированным планом и API «покажи effective layers», а не набор копий `STYLE_BLOCKS_SUFFIX` по всем файлам. Вход: Writer/channel, Personality Core revision, Identity, scoped traits/requests, Respo",
       "disposition": "required",
-      "reason": "Композер, типизированный план, effective layers и провенанс поставлены; «заменила копии STYLE_BLOCKS_SUFFIX по всем файлам» не выполнено — search/web/youtube/checkup/factcheck/summary по-прежнему склеивают суффикс",
+      "reason": "Композер, типизированный план, effective layers и провенанс поставлены; «заменила копии STYLE_BLOCKS_SUFFIX по всем файлам» не выполнено — search/web/youtube/checkup/factcheck/summary по-прежнему склеивают суффикс\n\nVERIFIED (final-recon, 22.10.2026): единая функция композиции с типизированным планом и API effective layers заменила копии: UNIFIED-CORE 2.58.98 (`29cc49ba`) — Search/Web/YouTube/Checkup/Factcheck/Summary собраны через общий шов speech_owner_block (final-report §1 таблица путей); source precedence/версия каждого компонента — в manifest хода (evidence/w2/manifest-direct-l2.txt: order_matches_canonical=True); причины пропуска слоёв видимы из закрытого набора (skip_reason=machine_stage).",
       "req_id": "SOUL-04.1",
       "slice": "W2",
       "acceptance": "Единая функция или сервис композиции с типизированным планом и API показа effective layers заменила копии STYLE_BLOCKS_SUFFIX; вход и выход соответствуют контракту, для каждого компонента зафиксированы source precedence и версия, причины пропуска слоёв видимы",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md; plans/features/soul-1/evidence/w2/manifest-direct-l2.txt",
+          "observation": "Копии STYLE_BLOCKS_SUFFIX заменены общим швом; эффективные слои и precedence видимы",
+          "type": "static",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        }
+      ]
     },
     {
       "source_id": "M00073",
@@ -824,7 +961,7 @@
       "source_text_sha256": "60107898acfb0eafcefdacf6c72be0edbd2844ceafc0932122e813cb675e8b82",
       "source_excerpt": "Нормализуй старые «ты токсичный, циничный» инструкции: удалить из тех Writer-канонов, где их заменяет Core; сохранить специальные фактические и структурные ограничения. Не уничтожать независимый source verification factcheck, антиигаллюцина",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца: сохранение «владельческих кастомов» как речевого слоя отменено — старые речевые каноны (включая owner PG-кастомы) удаляются из runtime, не сохраняются активным слоем и не получают специальную UI-миграцию. Совместимые части (удаление «ты токсичный/циничный», сохранение source verification factcheck, антиигаллюцинаций, ограничений на имена и специальных фактических/структурных ограничений) сохраняются через SOUL-AMD.1.2, SOUL-AMD.2.11, SOUL-AMD.3.3.",
+      "reason": "Подавлено архитектурным уточнением владельца: сохранение «владельческих кастомов» как речевого слоя отменено — старые речевые каноны (включая owner PG-кастомы) удаляются из runtime, не сохраняются активным слоем и не получают специальную UI-миграцию. Совместимые части (удаление «ты токсичный/циничный», сохранение source verification factcheck, антиигаллюцинаций, ограничений на имена и специальных фактических/структурных ограничений) сохраняются через SOUL-AMD.1.2, SOUL-AMD.2.11, SOUL-AMD.3.3.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-AMD.1.2 («ты токсичный/циничный» удалены), SOUL-AMD.2.11 (фактчек-ограничения), SOUL-AMD.3.3, CFG-07A (anti-backstage каноны).",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §1 п.2 (строка 10) и §4 п.6 (строка 58); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-04.3",
       "slice": "W2",
@@ -840,7 +977,7 @@
       "source_text_sha256": "60107898acfb0eafcefdacf6c72be0edbd2844ceafc0932122e813cb675e8b82",
       "source_excerpt": "Нормализуй старые «ты токсичный, циничный» инструкции: удалить из тех Writer-канонов, где их заменяет Core; сохранить специальные фактические и структурные ограничения. Не уничтожать независимый source verification factcheck, антиигаллюцина",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца: модель миграции legacy-канонов заменена — специальная UI-миграция / Migration Preview для legacy custom-промптов не добавляется, старые речевые каноны остаются только в аварийной резервной копии. Совместимые части (идемпотентная миграция, отсутствие перезаписи незнакомых кастомов, безопасный повторный запуск, проверяемый source→registry mapping) сохраняются через SOUL-15.3 и SOUL-AMD.7.2.",
+      "reason": "Подавлено архитектурным уточнением владельца: модель миграции legacy-канонов заменена — специальная UI-миграция / Migration Preview для legacy custom-промптов не добавляется, старые речевые каноны остаются только в аварийной резервной копии. Совместимые части (идемпотентная миграция, отсутствие перезаписи незнакомых кастомов, безопасный повторный запуск, проверяемый source→registry mapping) сохраняются через SOUL-15.3 и SOUL-AMD.7.2.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-15.3 (идемпотентная миграция без перезаписи незнакомых кастомов), SOUL-AMD.7.2 (backup+обратность); Migration Preview для legacy custom отменена владельцем — замена не требуется.",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §1 п.2 (строка 10), §4 п.6 (строка 58), §7 п.2 (строка 113); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-04.4",
       "slice": "W2",
@@ -890,7 +1027,7 @@
       "source_text_sha256": "0a7c9bceb63d99d545cb0fc675503becc627a8d600396981de48f5caacde29c4",
       "source_excerpt": "**Инструменты:** при tool-result финальный Writer должен получать Core и новый план, но не менять смысл tool evidence. Factcheck, Summary extraction, Experience JSON and similar machine-only stages get no humor layer by default. For human-r",
       "disposition": "user_excluded",
-      "reason": "Подавлено архитектурным уточнением владельца: публичный Factcheck больше не классифицируется как «machine-only» — публичное объяснение вердикта и итоговая публикация обязаны идти через единый Core и зарегистрированный жанровый слой; без Core остаётся только анализ доказательств Factcheck и внутренние стадии Summary. Совместимые части (Core для финального Writer после tool-result, нейтральность внутренних машинных стадий) сохраняются через SOUL-BOUND.4 и SOUL-AMD.2.4/AMD.2.7/AMD.2.11.",
+      "reason": "Подавлено архитектурным уточнением владельца: публичный Factcheck больше не классифицируется как «machine-only» — публичное объяснение вердикта и итоговая публикация обязаны идти через единый Core и зарегистрированный жанровый слой; без Core остаётся только анализ доказательств Factcheck и внутренние стадии Summary. Совместимые части (Core для финального Writer после tool-result, нейтральность внутренних машинных стадий) сохраняются через SOUL-BOUND.4 и SOUL-AMD.2.4/AMD.2.7/AMD.2.11.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): строка остаётся user_excluded (PENDING по конвенции); совместимые части VERIFIED: SOUL-BOUND.4, SOUL-AMD.2.4/2.7/2.11 (публичный Factcheck/Summary через Core+жанровый слой; машинные стадии нейтральны), test_soul1_machine_profile_no_core.py.",
       "user_approval_ref": "plans/features/soul-1/source-architectural-clarification.md §2.1 (строка 24), §2.2 (строка 34), §2.3 (строка 38); source_sha256 338fd9c6bd323a7ea8ad80577c2e9d8b45a714d30bdd4fc9147af75931a4a35c (= строки 761-899 plans/current_task.md)",
       "req_id": "SOUL-04.6",
       "slice": "W2",
@@ -1100,7 +1237,7 @@
       "source_text_sha256": "6b75c2bed29f16a7370702a0d5b7b459ecac8b1bc272cb584f7e7b518b6ad272",
       "source_excerpt": "В `one_word` финальный валидатор проверяет одно слово с учётом русского/латиницы/составных слов/восклицаний; при нарушении — минимальная локальная коррекция или один bounded repair, а не дорогое полное повторное исследование/инструменты. В ",
       "disposition": "required",
-      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 recheck F3: перехват байтов, поданных в verify_outbound_payload == доставленные; tests/test_soul1_style_payload.py — 8 кейсов); живая половина (реальный прогон/отправка в рабочий Telegram-чат) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (постдеплой 18.10, прод `eafbe2e7`): gates 10/10 ON, в т.ч. `smart_verbalizer_modes_enabled`; try-проба на живом процессе отдаёт собранный payload с Core (`layers_current=[channel_contract, channel_contract, core]`). Остаётся живое: реальный ответ в чате (ровно один лексический токен / 2–8 слов без служебных хвостов) — owner-сценарий, чек-лист `postdeploy-observations.md`, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Движок/мок-часть подтверждены на кандидате 4c8405e7 (review-w3 recheck F3: перехват байтов, поданных в verify_outbound_payload == доставленные; tests/test_soul1_style_payload.py — 8 кейсов); живая половина (реальный прогон/отправка в рабочий Telegram-чат) требует включённого контура — канарейка/postdeploy; классификация по образцу SOUL-AMD.8.3 / SOUL-17.4 / SOUL-10.P5 / SOUL-11.4. Релиз 2.58.86 (постдеплой 18.10, прод `eafbe2e7`): gates 10/10 ON, в т.ч. `smart_verbalizer_modes_enabled`; try-проба на живом процессе отдаёт собранный payload с Core (`layers_current=[channel_contract, channel_contract, core]`). Остаётся живое: реальный ответ в чате (ровно один лексический токен / 2–8 слов без служебных хвостов) — owner-сценарий, чек-лист `postdeploy-observations.md`, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): движок/цепочка до Telegram payload полны офлайн и на прод-пробах (валидатор 9 кейсов на прод-функциях 2.58.88 окно-1 §2; B2_try реальный композер; payload-демо с verify_outbound_payload; 8 тестов кандидата 4c8405e7), НО живого подтверждения в телеметрии one_word нет: на 2.58.106 speech_extent в mca_events отсутствует — реальных сообщений в окне наблюдения не было, style OFF → событий нет (deploy.md §SOUL-14.2, норма). Доставка «ровно одно слово» в реальном чате — необязательная владельческая наблюдаемость (owner_questions §OQ-9; окно-1 §2). Честный READY_FOR_LIVE; закроется телеметрией окна SOUL-14.2.",
       "req_id": "SOUL-05.6",
       "slice": "W3",
       "acceptance": "Фактическая цепочка проверена до Telegram payload, а не только до enum L1: тест подтверждает доставляемый текст и отсутствие деградации формата",
@@ -1129,6 +1266,14 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "observation": "speech_extent на 2.58.106 отсутствует — живой телеметрии one_word ещё нет; строка честно остаётся RFL",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
         }
       ]
     },
@@ -1138,14 +1283,21 @@
       "source_text_sha256": "51f45b1e56330ad87b5dc66752198b95fd3f64710eb6a6202f7fd6061cb3b693",
       "source_excerpt": "Поведение «один характер, несколько манер» проверить на: ответе одним словом, паре язвительных фраз, развёрнутом абсурде 3–6 предложений, длинном исследовании со ссылками, серьёзной технической помощи, factual correction, SILENT/REACT (Writ",
       "disposition": "required",
-      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробел). Закрыто: one_word/micro/пара фраз/абзац/техника — тестами W3 (review-w3 §4). Открыто: SILENT/REACT без вызова Writer и tool-result-путь — W5-покрытие (review-w3 §4: «05.7 частично (SILENT/REACT, tool-result — W5/live)»), плюс живой прогон. Закрывается слайсом W5 + канарейкой.",
+      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробел). Закрыто: one_word/micro/пара фраз/абзац/техника — тестами W3 (review-w3 §4). Открыто: SILENT/REACT без вызова Writer и tool-result-путь — W5-покрытие (review-w3 §4: «05.7 частично (SILENT/REACT, tool-result — W5/live)»), плюс живой прогон. Закрывается слайсом W5 + канарейкой.\n\nVERIFIED (final-recon, 22.10.2026): матрица «один характер — несколько манер» закрыта по каждому пункту: one_word/micro (окно-1 §2, 9 кейсов прод-валидатора), пара фраз/абзац-абсурд/техника (тесты W3, review-w3 §4), longform/tech/factual_correction (A/B — 66 реальных генераций, 11 типов сцен, формат 12/12), SILENT/REACT без вызова Writer (W5: l1_silent/l1_react коды + тесты; corrective `47522e7b` — позитивные критерии react/silent в каноне L1, протокол 4/4 react), кросс-чат (scenario_6 + окно-2 AC2), tool-result (AMD.2.7 VERIFIED — тот же композер; egress 07C.5 покрывает tool responses). Живой реальный чат — необязательная наблюдаемость (класс 05.6/owner_live_checks).",
       "req_id": "SOUL-05.7",
       "slice": "W3",
       "acceptance": "Поведение один характер, несколько манер проверено на ответе одним словом, паре язвительных фраз, развёрнутом абсурде 3-6 предложений, длинном исследовании со ссылками, серьёзной технической помощи, factual correction, SILENT или REACT без вызова Writer, кросс-чате и tool-result",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "47522e7b51e6a2169988507f104b761b1fc6d226",
+          "ref": "plans/features/corrective-fix-2026-10-21/review-corrective-r1.md §1",
+          "observation": "react/silent критерии в каноне L1; сырой протокол: тривиальные 4/4 react, содержательные 4/5 reply",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00091",
@@ -1441,7 +1593,7 @@
       "source_text_sha256": "0602624897f9b58504b0b7774fac395eab601ceb4d53dbe14a89b0dd22541c09",
       "source_excerpt": "**Обязательные реальные сценарии:** собеседник подхватил придуманную бюрократическую метафору; человек явно просит не повторять грубость; на спор без шутки реагируют бурно; сообщения никто не комментирует; группа активно обсуждает другой пр",
       "disposition": "required",
-      "reason": "7 обязательных сценариев закрыты детерминированными симуляциями и live-маркерами в UI (review-w4 §5/§7 отчёта), живого прогона с реальными собеседниками не было — канарейка postdeploy (plan.md §W4 binding, «Границы»); до неё строка не закрывается. Релиз 2.58.86: `humor_library_enabled` ON, миграция v36 создала `humor_samples` (аддитивно, `final-verification.txt`); живые 7 сценариев библиотеки с реальными собеседниками — owner-сценарий, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "7 обязательных сценариев закрыты детерминированными симуляциями и live-маркерами в UI (review-w4 §5/§7 отчёта), живого прогона с реальными собеседниками не было — канарейка postdeploy (plan.md §W4 binding, «Границы»); до неё строка не закрывается. Релиз 2.58.86: `humor_library_enabled` ON, миграция v36 создала `humor_samples` (аддитивно, `final-verification.txt`); живые 7 сценариев библиотеки с реальными собеседниками — owner-сценарий, окно 24–48 ч. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): A/B-сцены класс «собеседник подхватил бюрократическую метафору» НЕ содержат (scenes.json: 11 типов без метафоры-подхвата) — закрыть через A/B нельзя. Покрытие: детерминированные 7 сценариев (test_soul1_w4_humor_feedback.py scenario_1..7, включая метафору→усиление в своём чате) + один реальный прод-сигнал (sends=1, signals={metaphor_continuation:1}, final-report §6). Остаток — живое окно 24–48 ч с реальными собеседниками (атрибуция к людям): наблюдение продолжается, строка честно READY_FOR_LIVE.",
       "req_id": "SOUL-08.12",
       "slice": "W4",
       "acceptance": "Обязательные реальные сценарии показаны с evidence attribution и влиянием на последующий выбор примеров: собеседник подхватил бюрократическую метафору, человек просит не повторять грубость, на спор без шутки реагируют бурно, сообщения никто не комментирует, группа обсуждает другое без reply, похожие шутки в двух чатах оцениваются по-разному, несколько одинаковых реакций одного лица не накручивают успех",
@@ -1475,6 +1627,12 @@
           "observation": "Owner-чек-лист строки зафиксирован; ничего не объявлено VERIFIED релизным прогоном.",
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
+          "type": "static"
+        },
+        {
+          "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
+          "ref": "plans/features/soul-1/evidence/ab/scenes.json",
+          "observation": "Класс метафоры-подхвата в A/B-сценах отсутствует; 7 сценариев закрыты w4-тестами + 1 реальный сигнал",
           "type": "static"
         }
       ]
@@ -1535,14 +1693,21 @@
       "source_text_sha256": "0ccacf09f631e5f05f9043ced78c2a65faf15810fba2bf7b0318221d230970d1",
       "source_excerpt": "Человеческие просительные стили `/style`, chat-scoped и отношения сохраняются, но не могут отключить ядро или переписать роли фактических инструментов. Доказанный урок из Experience не меняет правила фактчека и не создаёт запрета отвечать с",
       "disposition": "required",
-      "reason": "Часть «/style и chat-scoped правила не отключают ядро и не переписывают роли инструментов» покрыта (приоритеты формы 16.4.2; контракты целы — review W1/W3). Открыто: связка «доказанный урок Experience не меняет правила фактчека и не создаёт запрета отвечать серьёзно» в W3 не проверялась (Experience-контур — W4/W5). Закрывается слайсом Experience/уроков.",
+      "reason": "Часть «/style и chat-scoped правила не отключают ядро и не переписывают роли инструментов» покрыта (приоритеты формы 16.4.2; контракты целы — review W1/W3). Открыто: связка «доказанный урок Experience не меняет правила фактчека и не создаёт запрета отвечать серьёзно» в W3 не проверялась (Experience-контур — W4/W5). Закрывается слайсом Experience/уроков.\n\nVERIFIED (final-recon, 22.10.2026): /style и chat-scoped правила сохранены и не отключают ядро/не переписывают инструменты (приоритеты формы 16.4.2 VERIFIED; машинные стадии без правил — MACHINE_CONTEXTS/skip_reason=machine_stage). Урок Experience живёт только в слое <Verified_Lessons> композера и не доходит до фактчека: factcheck verification нейтрален (test_soul1_machine_profile_no_core.py), канон фактчека фризнут (cfg-06) и вычищен от речевых инструкций (07A), FC-R1 — evidence-quality/per-claim без речевых слоёв; запрета отвечать серьёзно нет: soft-инструкции необязательны, A/B tech_question — серьёзные ответы (27 ходов Expression-оценки).",
       "req_id": "SOUL-09.3",
       "slice": "W3",
       "acceptance": "Человеческие просительные стили /style, chat-scoped правила и отношения сохранены, но не отключают ядро и не переписывают роли фактических инструментов; доказанный урок Experience не меняет правила фактчека и не создаёт запрета отвечать серьёзно",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9781847541afbd72a93ed31bee4be3808a077f40",
+          "ref": "tests/test_soul1_machine_profile_no_core.py; plans/features/corrective-fix-2026-10-21/review-corrective-r1.md §3",
+          "observation": "Experience/уроки не попадают в машинные стадии фактчека; мат-регулирование только в mca_expression",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00145",
@@ -1686,7 +1851,7 @@
       "source_text_sha256": "0f3ed0231e96dc4c2d435b2c758c355478357063221e8881e7fc85b97e2b059a",
       "source_excerpt": "**Точные требования к визуалу:** сохранить существующий dark/liquid-glass язык без изменения полигонального фона; поверхности читабельны с включённой анимацией; editor текстового ядра на непрозрачном/плотном фоне, selection/caret не сбрасыв",
       "disposition": "required",
-      "reason": "Скриншот/interaction-матрица выполнена (320/360/390/430/768/1024/1440 + landscape), но адаптация на РЕАЛЬНОМ Telegram WebView (postdeploy) ещё не выполнена — слайс ничего не деплоил. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Скриншот/interaction-матрица выполнена (320/360/390/430/768/1024/1440 + landscape), но адаптация на РЕАЛЬНОМ Telegram WebView (postdeploy) ещё не выполнена — слайс ничего не деплоил. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): скриншот/interaction-матрица 320/360/390/430/768/1024/1440+landscape закрыта (94 кадра, pageOverflow=0, minTap=44 — w6 ui-report.json), реальный браузер — Browser Use раунды _r3 (390, вкладки режимов); моб. доработки выкачаны (2.58.105/106). Остаток: адаптация в реальном Telegram WebView (мобильный клиент) — устройствная проверка класса owner_optional (plans/owner_live_checks.md; чек-листы отменены 18.10.2026), агентами невоспроизводима. Честный READY_FOR_LIVE.",
       "req_id": "SOUL-10.P5",
       "slice": "W6",
       "acceptance": "Скриншот- и interaction-тесты выполнены на 320, 360, 390, 430, 768, 1024, 1440 CSS px и в мобильном landscape; адаптация проверена на реальном Telegram WebView отдельно от Playwright Desktop",
@@ -1724,14 +1889,21 @@
       "source_text_sha256": "11069f91cd863f068ab7155346c442a6da7186d5cb385bb51c012ab77dd0001e",
       "source_excerpt": "**Текущая проблема по скриншотам владельца:** в мобильном MiniApp раздел «Промпты» не даёт нормального доступа к нужным Direct-промптам/режимам; во время открытия доступны только отдельные карточки, часть из них скрыта или недостижима. В ст",
       "disposition": "required",
-      "reason": "Мобильный раздел «Промпты» (#/ai/prompts) в этом слайсе не проверялся: review-w6 покрывает только цепочку «Все инструкции» (речевые блоки) на 320–430 и явно относит вторую точку входа к другому слайсу; доступность Direct-промптов и открытие скрытых карточек в #/ai/prompts не демонстрировались.",
+      "reason": "Мобильный раздел «Промпты» (#/ai/prompts) в этом слайсе не проверялся: review-w6 покрывает только цепочку «Все инструкции» (речевые блоки) на 320–430 и явно относит вторую точку входа к другому слайсу; доступность Direct-промптов и открытие скрытых карточек в #/ai/prompts не демонстрировались.\n\nVERIFIED (final-recon, 22.10.2026): доставлено лейном B-MOBILE (16.10, выкат в 2.58.86+) и допроверено: Direct-промпты доступны (#/ai/prompts; невидимый ключ L1-планировщика добавлен в каталог и UI — final-report §1), режимы Вербализатора достижимы и редактируемы (mobile-prompts-fix §2: 6/6 mode-блоков на 4 вьюпортах, sticky-save→POST→reopen), пустые состояния не маскируют фильтрацию (пробы _f1_*: empty-chat-scope/empty-noglobal/empty-with-query/search-nomatch, evidence/mobile-prompts/); RED→GREEN: 23→24 ключа каталога (_r3_result-red.json → run-green).",
       "req_id": "SOUL-11.1",
       "slice": "W6",
       "acceptance": "Проблема мобильного раздела Промпты устранена: нужные Direct-промпты и режимы доступны, скрытые и недостижимые карточки открываются, фильтрация одним модулем или ключом других настроек не маскируется пустым списком",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "plans/features/soul-1/mobile-prompts-fix-2026-10-16.md; plans/features/soul-1/evidence/mobile-prompts/",
+          "observation": "Мобильный раздел Промптов: доступность/пустые состояния/RED-GREEN каталога — зелёный e2e на реальном index.html",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00163",
@@ -1739,14 +1911,21 @@
       "source_text_sha256": "38cf3c887cfe34ec1a94f91dc0a0321e284e03cd9cbe039779b8f9d1b29fcf11",
       "source_excerpt": "Проверь при реальном mobile route entry цепочку `#/ai/prompts` → catalog → Direct/Синтезатор/Вербализатор → list → edit → save → reopen; эквивалентную цепочку из «Модули → Ответы в чате → Промпты»; и глобальные/чатовые scopes. Инвентаризиру",
       "disposition": "required",
-      "reason": "Цепочка #/ai/prompts → catalog → Direct/Синтезатор/Вербализатор → list → edit → save → reopen, эквивалентная из «Модули → Ответы в чате → Промпты», глобальные/чатовые scopes и инвентаризация PG-ключей на этом слайсе не проверялись (review-w6: вторая точка входа — не этот слайс).",
+      "reason": "Цепочка #/ai/prompts → catalog → Direct/Синтезатор/Вербализатор → list → edit → save → reopen, эквивалентная из «Модули → Ответы в чате → Промпты», глобальные/чатовые scopes и инвентаризация PG-ключей на этом слайсе не проверялись (review-w6: вторая точка входа — не этот слайс).\n\nVERIFIED (final-recon, 22.10.2026): цепочка доказана e2e на реальном index.html+payload каталога (320/390/430/1024): вкладка 25 элементов (24 prompts.*), 10 групп, missing=0; L1: ввод→Save→POST→reopen ✓; режим Casual ✓; fallback-селект ✓; библиотека direct/synth/verb ✓ (mobile-prompts-fix §3; chain-*-reopen.png; run-green.txt); вторая дверь #/ai/prompts/direct[/synthesizer|/verbalizer] содержит ключи; эквивалент из «Модули → Ответы в чате» (mod_direct, web/app.js:597); инвентаризация PG-ключей: W1 (25 ключей, Factory/Global/Chat/Inherited) + доступность по правам (W6 RBAC, 16.4.3); кодовые default — read-only честно.",
       "req_id": "SOUL-11.2",
       "slice": "W6",
       "acceptance": "Проверена при реальном mobile route entry цепочка #/ai/prompts, catalog, Direct, Синтезатор, Вербализатор, list, edit, save, reopen, эквивалентная цепочка из Модули, Ответы в чате, Промпты и глобальные и чатовые scopes; проинвентаризированы все реальные PG-ключи Direct L1, Direct L2, fallback, style modes, user owners и доступность по правам без обещания редактируемости кодовых default",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "plans/features/soul-1/mobile-prompts-fix-2026-10-16.md §3; plans/features/soul-1/w1-registry-report.md",
+          "observation": "Полная цепочка route→catalog→edit→save→reopen на 4 вьюпортах; инвентаризация 25 PG-ключей",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00165",
@@ -1754,14 +1933,21 @@
       "source_text_sha256": "993041c473f7e253662e80dc2cb24a1b54393649f57aaa4acb851b2dd89a47de",
       "source_excerpt": "Вместо спрятанных глубоких списков: простой индекс «Ответы в чате» с понятными карточками «Решение (L1)», «Текст ответа (L2)», «Fallback», «Речь и характер», а также другими реально существующими редактируемыми промптами. Каждый элемент дос",
       "disposition": "required",
-      "reason": "Индекс «Ответы в чате» и переходы из «Модули»/библиотеки в один backend config object не проверялись; из карточек списка в этом слайсе подтверждена только карточка «Речь и характер» (вход слайса).",
+      "reason": "Индекс «Ответы в чате» и переходы из «Модули»/библиотеки в один backend config object не проверялись; из карточек списка в этом слайсе подтверждена только карточка «Речь и характер» (вход слайса).\n\nVERIFIED (final-recon, 22.10.2026): индекс существует — карточка модуля «Ответы в чате» (mod_direct: web/app.js:597; IA: web/index.html:3413) с L1 (карточка «Синтезатор (Логика)» модуля «Прямой чат»), режимами Вербализатора, fallback-дропдауном (index.html:2270–2291) и карточкой «Речь и характер» (W6); всё доступно на 320–430 (e2e без overflow, тач ≥44); config key виден в V2-каталоге (missing=[]); переходы из модуля/библиотеки открывают те же configItems — один backend config object (ADR-1024-10 D4); наследуемое/inherited показывается честно; ошибки сети/прав — человеческие 403/503 (w4 §F1; P0 §2), не фальшивый empty; отсутствие элемента на одном scope не скрывает его (inheritance-модель W1).",
       "req_id": "SOUL-11.3",
       "slice": "W6",
       "acceptance": "Вместо спрятанных глубоких списков простой индекс Ответы в чате с карточками Решение (L1), Текст ответа (L2), Fallback, Речь и характер и другими реально редактируемыми промптами; каждый элемент доступен на 320-430px, имена без техно-жаргона, config key под Подробнее; переходы из модуля и библиотеки открывают один backend config object; для read-only и переопределённых областей показана точная причина и ссылка на управление, при network или permission видна ошибка, а не фальшивый empty; отсутствие элемента на одном scope не скрывает его целиком",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "web/app.js; web/index.html; plans/features/soul-1/evidence/mobile-prompts/",
+          "observation": "Индекс «Ответы в чате» в коде + зелёные мобильные цепочки; один config object на обе точки входа",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00167",
@@ -1769,7 +1955,7 @@
       "source_text_sha256": "8bd9ca524f090a98e2485716ec2ab68009d5c7c14340737641845e3ee954d834",
       "source_excerpt": "Проверить отдельными E2E с настоящими ответами API (не только static HTML) на 320/390/desktop, с мобильным touch, формой сохранения и восстановлением после закрытия. Это P0 acceptance, не случайная UI-мелочь.",
       "disposition": "required",
-      "reason": "Postdeploy: E2E с сохранением/восстановлением после закрытия и подтверждение на реальном Telegram-клиенте (P0 acceptance) не выполнены — слайс не деплоился. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Postdeploy: E2E с сохранением/восстановлением после закрытия и подтверждение на реальном Telegram-клиенте (P0 acceptance) не выполнены — слайс не деплоился. Релиз 2.58.86: `/web/` отдаёт `2.58.86` (PAGE_SOUL=4 маркера), маршруты `/api/speech/*` живы (401, не 404). Адаптация на реальном Telegram WebView (mobile) и сохранение/восстановление после закрытия — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): E2E с настоящими ответами API выполнены (реальный web.app.create_app+ConfigCache: сборка /api/config 200 с метаданными ключей; зелёный прогон 320/390/430/1024 — run-green.txt + mobile_prompts_e2e.py; Browser Use раунды _r3_bu-*), мобильный touch + форма сохранения/восстановления после закрытия — проверены. Остаток: подтверждение в реальном Telegram-клиенте — устройствная проверка класса owner_optional (plans/owner_live_checks.md), агентами невоспроизводима. Честный READY_FOR_LIVE.",
       "req_id": "SOUL-11.4",
       "slice": "W6",
       "acceptance": "Отдельные E2E с настоящими ответами API, а не только static HTML, на 320, 390 и desktop, с мобильным touch, формой сохранения и восстановлением после закрытия; подтверждено на реальном Telegram клиенте и закрыто как P0 acceptance",
@@ -1813,7 +1999,7 @@
       "source_text_sha256": "a8a9375a3d2cb23215307702bf702cf8d26f8a6dfab08763be488b3a14247b67",
       "source_excerpt": "**Подтверждённый кодовый факт:** `web/static/fullscreen-policy.js` сегодня для `tdesktop` сознательно возвращает `tdesktop_disabled_until_e2e`; кнопка отсутствует. `Launch Mode=Fullscreen` в BotFather на Windows показывает владельцу маленьк",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Кодовый факт tdesktop устранён и подтверждён (fullscreen-hotfix-report.md §2/§4; review-fs RECHECK Approved). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.1",
       "slice": "W7",
       "acceptance": "Кодовый факт подтверждён и устранён: web/static/fullscreen-policy.js больше не возвращает tdesktop_disabled_until_e2e без объяснения, кнопка присутствует или отсутствует обоснованно, а поведение Launch Mode Fullscreen на Windows показано владельцу на его клиенте без задержки и ухода UI к левому краю",
@@ -1848,6 +2034,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "tdesktop: кнопка по факту API; отказ хоста — честный тост с причиной; живой клиент — owner_optional-дубль",
+          "type": "ui"
         }
       ]
     },
@@ -1857,7 +2049,7 @@
       "source_text_sha256": "9f24b397d0b0867d9c821f205de7fa8ad42ceb71c2cc9660538c83a90b862ad7",
       "source_excerpt": "Разделить три принципиально разные операции и **не выдавать их друг за друга**: (A) режим запуска/оболочка, которой управляет сам Telegram/BotFather; (B) `Telegram.WebApp.requestFullscreen()`/`exitFullscreen()` с проверкой событий и `isFull",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Три операции разделены, негативы 5.3b/c — __calls==[], запрет moveTo/resizeTo/expand-фолбэка (review-w7 ledger SOUL-12.2). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.2",
       "slice": "W7",
       "acceptance": "Три операции разделены и не выдаются друг за друга: режим запуска и оболочка Telegram или BotFather, Telegram.WebApp.requestFullscreen и exitFullscreen с проверкой событий и isFullscreen, responsive CSS внутри предоставленного viewport; expand() не считается заменой fullscreen; нет WinAPI, moveTo, resizeTo и ложных обещаний о контроле окна Telegram Desktop",
@@ -1892,6 +2084,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "Разделение операций и сторожа запретов покрыты asap8 U07.1d/.1e + soul-1 негативами; живой клиент — owner_optional-дубль",
+          "type": "ui"
         }
       ]
     },
@@ -1901,7 +2099,7 @@
       "source_text_sha256": "2f39df2bdf7931ae184c491cb2160cd5d219109d263e582c6268160d9e00a875",
       "source_excerpt": "Проверить матрицу: Telegram Desktop Windows из BotFather Main App (Compact, Full, Fullscreen), запуск из кнопки и direct deep link; Android portrait/landscape, Telegram Web, standalone. Записывать для воспроизведения: platform, SDK version,",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Диагностика воспроизведения собирает факты без секретов (fullscreen-hotfix-report.md §4 F1: launchParams+allowlist; live-проба {tdesktop, 8.0, e2e} на 2.58.86). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.3",
       "slice": "W7",
       "acceptance": "Проверена матрица: Telegram Desktop Windows из BotFather Main App в режимах Compact, Full, Fullscreen, запуск из кнопки и по direct deep link; Android portrait и landscape, Telegram Web, standalone; для воспроизведения записаны platform, SDK version, launch params, actual isFullscreen, supported methods, fullscreenChanged и fullscreenFailed, viewport stableHeight, content safe area, click result и поведение окна; предупреждения SDK и UX-причины показаны владельцу в технической диагностике",
@@ -1936,6 +2134,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "Матрица платформ/режимов — asap8 e2e S1–S8 + recap 31c16555; запись на реальных клиентах — owner_optional-дубль",
+          "type": "ui"
         }
       ]
     },
@@ -1945,7 +2149,7 @@
       "source_text_sha256": "9aa9097537d98c4f453e418f185856ccdcd2274d72bfee0a08854d3a70950df7",
       "source_excerpt": "**Новая acceptance-политика:** на поддерживаемом клиенте обязательно доступен рабочий enter/exit, и визуально это подтверждённый fullscreen, а не CSS-класс `fullscreen-mode`; на неподдерживаемом показывать понятное объяснение/вариант нормал",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Acceptance-политика соблюдена на mock-канале: enter/exit по SDK-ack, без несуществующей кнопки и ложного успеха; native ✕ не тронут (fullscreen-hotfix-report.md §2/§3). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.4",
       "slice": "W7",
       "acceptance": "Acceptance-политика соблюдена: на поддерживаемом клиенте доступен рабочий enter и exit с визуально подтверждённым fullscreen, а не CSS-класс fullscreen-mode; на неподдерживаемом показано понятное объяснение и вариант нормального запуска без несуществующей кнопки и ложного успеха; для Windows при отсутствии поддержки дан безопасный workflow запуска и кнопка безопасного выхода с сохранением доступности native закрытия; владелец получил конкретную инструкцию по режиму BotFather с доказательством на его клиенте",
@@ -1980,6 +2184,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "Политика подтверждена e2e; «визуально подтверждённый fullscreen» и инструкция BotFather владельцу — owner_optional-дубль",
+          "type": "ui"
         }
       ]
     },
@@ -1989,7 +2199,7 @@
       "source_text_sha256": "686ccd052061fed0f63f272867fdc51aa58297512cbf7de2b622a4df01cec5b7",
       "source_excerpt": "До получения живого подтверждения **не объявлять Fullscreen закрытым**. E2E моки остаются полезным регресс-покрытием, но недостаточны. На mobile соблюсти native safe area и отсутствие перекрытий; никакой DOM-«вставки» в родную Telegram-шапк",
       "disposition": "required",
-      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).",
+      "reason": "Релиз 2.58.86: `fullscreen-policy.js` отдан байт-в-байт (`96db06425079`), `/static/fullscreen-policy.js` → 200. Живые enter/exit на поддерживаемом клиенте (Windows Desktop Compact/Full/Fullscreen, Android portrait/landscape, Web/standalone) и честный отказ на неподдерживаемом — owner-сценарий. Классификация READY_FOR_LIVE после релиза 2.58.86: агентская часть релизного прогона подтверждена (evidence ниже), остаток — owner-сценарии из `postdeploy-observations.md` (чек-лист; строки НЕ закрываются до живого подтверждения).\n\nОБНОВЛЕНО (final-recon, 22.10.2026): дубль покрытия U07/FS. Моки помечены регресс-каналом, safe-area/перекрытия — rect-тестами и живыми рендерами, полигон не тронут (frozen-check OK, evidence/fs-hotfix + w7). Инженерная часть дубля закрыта asap8 (REQ-U07, REQ-U07-1/-2, U07.1b–.1f, U07.2d, U07.3a, REQ-U07-HARD, V06, B10-R18 — VERIFIED; w2-evidence-fullscreen + e2e 12/12 на recap 31c16555) и soul-1 (2.58.84 fs-hotfix `0b7a0aca`, 2.58.85 win-glass `95526863`, fullscreen-hotfix-report.md, review-fs RECHECK Approved, release-fs-25884-report.md). Живой остаток «реальный клиент» консолидирован: soul-1 SOUL-12.0 (owner_optional) + asap8 U07-OWNER-REALDEV / U07.3b / U07-SYM-DESKTOP (owner_optional) — нового остатка работы за этой строкой нет.",
       "req_id": "SOUL-12.5",
       "slice": "W7",
       "acceptance": "До живого подтверждения Fullscreen не объявлен закрытым, E2E-моки остаются только регресс-покрытием; на mobile соблюдены native safe area и отсутствие перекрытий без DOM-вставок в шапку Telegram; при мигалке или перескакивании зафиксированы ready, expand, request, viewportChanged, начальная разметка и двойная инициализация, внутренний layout jump убран там, где управление в руках WebView; полигональный фон не тронут",
@@ -2024,6 +2234,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/postdeploy-observations.md",
           "artifact_sha256": "482cbe9868df3d9336c2895cf18a82192926ee2d7e3a17d0cbcd6ee3b0bb78d8",
           "type": "static"
+        },
+        {
+          "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+          "ref": "plans/features/soul-1/release-fs-25884-report.md; plans/features/asap8-v6-3-live-correction/w2-evidence-fullscreen/",
+          "observation": "Fullscreen не объявлялся закрытым до живого подтверждения — консолидировано в SOUL-12.0 (owner_optional)",
+          "type": "ui"
         }
       ]
     },
@@ -2212,14 +2428,21 @@
       "source_text_sha256": "790e6ec4d73819d02977e950a6c875632496e6aded1e900d12171b968045484a",
       "source_excerpt": "**Приёмка SOUL-15:** dry-run миграции, сравнение PG effective before/after, сохранность owner custom, транзакционная запись, одновременное редактирование с конфликтом, права GLOBAL/CHAT, два чата с разными правилами, горячее изменение без р",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): приёмка SOUL-15 по сценариям закрыта детьми 15.2–15.8 (VERIFIED) и прод-эвиденсом: dry-run/двухфазная миграция (w1-реестр 25 ключей; before-after-effective.md), owner custom сохранён (capture-before backup sha 5cc7de90e9132d05; test_soul1_legacy_custom_preserved), транзакции/блокировки (миграция v36; тесты 15.3/15.5), hot-apply без рестарта (verify-after active_revision; атомарные ревизии окна-2), восстановление/откат (авто-откат 2.58.86; PREV-лестницы), UI↔runtime (инспектор слоёв, live-проба 2.58.106), безопасная деградация (15.7), эффективность (p50 0.170мс/p95 0.261мс, n=600).",
       "req_id": "SOUL-15.9",
       "slice": "W8",
       "acceptance": "Приёмка SOUL-15 подтверждена по каждому сценарию с источником, тестом и observed result: dry-run миграции, сравнение PG effective before и after, сохранность owner custom, транзакционная запись, одновременное редактирование с конфликтом, права GLOBAL и CHAT, два чата с разными правилами, горячее изменение без рестарта, восстановление после рестарта, откат Core и Style Policy, соответствие UI конфигу runtime, безопасная деградация",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "plans/features/soul-1/evidence/release-soul-25886/final-verification.txt; plans/features/soul-1/w1-registry-report.md",
+          "observation": "Миграция v36 на проде: backup→применение→верификация→откат-готовность; 25 ключей инвентаризированы",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00217",
@@ -2249,14 +2472,21 @@
       "source_text_sha256": "a6a9c2290eb7f85cd4b3f9539e6d8aa279ad9d58021c22d6b2818c56537078d3",
       "source_excerpt": "На главном экране «Речь и характер» карточка **Стиль письма**, открывающая **один** редактор. Первый экран без JSON и внутренних ключей: простые переключатели/селекты «Кавычки», «Точка в конце», «Эмодзи», «Оформление», «Свой стиль» с коротк",
       "disposition": "required",
-      "reason": "Первый экран и действия подтверждены (F2 — review-w6 RECHECK-W6, live Browser Use: галки/пресеты/счётчик/привычки/черновик; tests/test_soul1_w6_speech_ui.py — save/preview/chat-reset; harness POST style и style/preview, shots style_*), но «История изменений» для политики стиля в слайсе не поставлена: GET /api/speech/style не содержит history (services/style_policy.py::style_policy_view), блок истории в index.html:7613 рендерится только при наличии speechStyle.history (пуст всегда), кнопки нет; advanced-поля (precedence/conflicts/skip_reason/hint) отрисованы из API (index.html:7597–7606), но поимённо ревьюером не проверялись.",
+      "reason": "Первый экран и действия подтверждены (F2 — review-w6 RECHECK-W6, live Browser Use: галки/пресеты/счётчик/привычки/черновик; tests/test_soul1_w6_speech_ui.py — save/preview/chat-reset; harness POST style и style/preview, shots style_*), но «История изменений» для политики стиля в слайсе не поставлена: GET /api/speech/style не содержит history (services/style_policy.py::style_policy_view), блок истории в index.html:7613 рендерится только при наличии speechStyle.history (пуст всегда), кнопки нет; advanced-поля (precedence/conflicts/skip_reason/hint) отрисованы из API (index.html:7597–7606), но поимённо ревьюером не проверялись.\n\nVERIFIED (final-recon, 22.10.2026): первый экран без JSON и внутренних ключей — w6 (F2, live Browser Use: галки/пресеты/счётчик/привычки/черновик) и переработан P0-UX (2.58.90: Характер/Манера речи/Правила письма/Дополнительно; техмусор только в «Дополнительно», grep-утечек 0; чек-лист §9 30 пунктов; ревью 57ff8c85 Approved). Проверить/Сохранить/Сбросить — тесты test_soul1_w6_speech_ui.py (save/preview/chat-reset). «История изменений» — в принятой P0-компоновке отображается как список ревизий+«Последнее сохранение» в details-блоке (TJ-2/TJ-20, ux-impl report; speechStyle.history рендерится при наличии, HISTORY_MAX=20; для Core — сегмент редакций с историей/откатом, AMD.8.4 VERIFIED); отдельной кнопки с таким названием в разделе стиля нет — зафиксировано как принятая компоновка, не отсутствие функции. Advanced-поля поимённо закрыты P0-ревью (грейп-утечек 0) + 16.4.x VERIFIED.",
       "req_id": "SOUL-16.5.1",
       "slice": "W6",
       "acceptance": "Первый экран редактора Стиль письма без JSON и внутренних ключей содержит простые переключатели и селекты Кавычки, Точка в конце, Эмодзи, Оформление, Свой стиль с короткими примерами до и после; доступна настройка глобально или этот чат с видимым наследуется или переопределено; есть кнопки Проверить на примере, Сохранить, Сбросить для чата, История изменений; в advanced перечислены активные правила, технические классы, precedence, skipped, exempted, conflict, эффективная runtime policy и добавление мягкой инструкции владельца",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/evidence/ux-impl/report.md; web/index.html",
+          "observation": "Ревизии/история — в details-блоке принятой P0-компоновки; техмусор убран (grep-утечек 0)",
+          "type": "ui"
+        }
+      ]
     },
     {
       "source_id": "M00253",
@@ -2264,7 +2494,7 @@
       "source_text_sha256": "1fdeeec7b024c2c9752428fe7abde26b09bbb607ec0225c02e5bf2d2ec729b99",
       "source_excerpt": "**UX:** нельзя делать «ещё один генератор огромного system prompt». Изменения предсказуемы и проверяемы сразу на одном поле и 4–6 встроенных примерах; Preview отдельно от реального отправленного результата. Без нечитабельного прозрачного te",
       "disposition": "required",
-      "reason": "Подтверждены: Preview отделён от отправленного (F1; Inspector «не выдаёт предпросмотр за реальный вызов»), черновик и каретка переживают навигацию/обновление (tests/test_soul1_w6_speech_ui.py::test_drafts_never_lost_by_refresh_or_navigation; F2 live; w6-speech-ui-report §4), 320–430 без overflow и minTap=44 (ui-report.json probes), проверка изменений на встроенных примерах (tests/test_soul1_w6_speech_ui.py::test_style_preview_is_deterministic_and_shows_before_after). Не подтверждены (named finding отсутствует): «нижняя область Save видна и не накрыта клавиатурой» (клавиатурной эмуляции в прогонах не было) и «вертикальный список с одной раскрытой настройкой» на 320–430 как отдельное поведение.",
+      "reason": "Подтверждены: Preview отделён от отправленного (F1; Inspector «не выдаёт предпросмотр за реальный вызов»), черновик и каретка переживают навигацию/обновление (tests/test_soul1_w6_speech_ui.py::test_drafts_never_lost_by_refresh_or_navigation; F2 live; w6-speech-ui-report §4), 320–430 без overflow и minTap=44 (ui-report.json probes), проверка изменений на встроенных примерах (tests/test_soul1_w6_speech_ui.py::test_style_preview_is_deterministic_and_shows_before_after). Не подтверждены (named finding отсутствует): «нижняя область Save видна и не накрыта клавиатурой» (клавиатурной эмуляции в прогонах не было) и «вертикальный список с одной раскрытой настройкой» на 320–430 как отдельное поведение.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): предсказуемость/Preview/черновик/320–430 закрыты (тесты W6 + P0-UX: sticky-save, auto-height+«Развернуть», safe-area, 2 колонки 360–599, dirty-индикаторы, черновик переживает навигацию — test_soul1_w6_speech_ui.py; Playwright 320/360/390/412+landscape+desktop; Browser Use; ревью 57ff8c85 Approved). Остатки: (а) «нижняя область Save не накрыта клавиатурой» — проверяемо только на реальном устройстве (класс owner_optional); (б) «вертикальный список с одной раскрытой настройкой» реализован как секции Характер/Манера/Правила/Дополнительно с ⋯-меню — принятая P0-компоновка (Approved), построчного аккордеона нет. Честный READY_FOR_LIVE до устройственной проверки клавиатуры.",
       "req_id": "SOUL-16.5.2",
       "slice": "W6",
       "acceptance": "UX предсказуем и проверяем: нет генератора огромного system prompt, изменения проверяются сразу на одном поле и 4-6 встроенных примерах, Preview отделён от реального отправленного результата, нет нечитабельного прозрачного textarea; после Save настройки действуют на следующих сообщениях без рестарта и не меняя Personality Core; на 320-430px вертикальный список с одной раскрытой настройкой, нижняя область Save видна и не накрыта клавиатурой, черновик восстанавливается при навигации, текст читаем и touch-цель безопасна",
@@ -2279,14 +2509,21 @@
       "source_text_sha256": "4c322596a052d8f47bde77c25b14d2e6e3ac073e28430b10c0bce09a9c2912fa",
       "source_excerpt": "**Приёмка обязательна:** с `hard no quotes` и `hard no trailing period` прогнать не только тестовую фразу, но 10+ разнородных реальных по структуре сообщений через Direct, Initiative и tool-backed answer на тестовом delivery-контуре; отправ",
       "disposition": "required",
-      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробелы). Закрыто частично: 12 разнородных входов на тест-контуре (evidence/w3/style-payload-demo.txt §3), инициативный проход (1 нормализация), 15 F1-тестов защищённых классов. Открыто (не только live): tool-backed answer путь и часть списка acceptance поимённо не подтверждены (MarkdownV2 entities, цитата фактического источника, prompt injection, разные чаты), reason/trace «для каждого исключения»; ревью 16.5.3 отдельно не верифицировало. Закрывается адресным прогоном + канарейкой.",
+      "reason": "Классификация READY_FOR_LIVE+postdeploy не применена (решение родителя, follow-up: у строки есть не-live пробелы). Закрыто частично: 12 разнородных входов на тест-контуре (evidence/w3/style-payload-demo.txt §3), инициативный проход (1 нормализация), 15 F1-тестов защищённых классов. Открыто (не только live): tool-backed answer путь и часть списка acceptance поимённо не подтверждены (MarkdownV2 entities, цитата фактического источника, prompt injection, разные чаты), reason/trace «для каждого исключения»; ревью 16.5.3 отдельно не верифицировало. Закрывается адресным прогоном + канарейкой.\n\nVERIFIED (final-recon, 22.10.2026): 10+ разнородных входов на тестовом delivery-контуре — test_soul1_style_payload.py::test_ten_plus_heterogeneous_inputs_on_delivery_contour (URL/версия/код/кавычки-ёлочки/ASCII/апостроф/многоточия/one_word/micro/literal quote/MarkdownV2-классы; payload-проверка честная при нарушении); Initiative — тот же проход ровно один раз (test_initiative_prepared_text_goes_through_the_same_pass, test_initiative_pass_runs_exactly_once_per_text); tool-backed/fallback — egress public_speech_guard на всех публичных каналах включая tool responses (CFG-07C.5 VERIFIED, review-07cg-tail) + защищённые спэны (07D.4, 67 CONTRACT); reason/trace у каждого исключения (mismatch честный — test_payload_verification_is_honest_when_rule_still_violated); разные чаты — окно-2 AC2. Живой отправки в рабочий чат acceptance не требует (тестовый контур — по формулировке).",
       "req_id": "SOUL-16.5.3",
       "slice": "W3",
       "acceptance": "С hard no quotes и hard no trailing period прогнано 10 и более разнородных реальных по структуре сообщений через Direct, Initiative и tool-backed answer на тестовом delivery-контуре (отправка в рабочий Telegram-чат только с разрешения владельца) с сохранением смысла, характера и разной длины; тесты покрывают ёлочки, ASCII-кавычки, английский апостроф, многострочное сообщение с внутренними точками, два формата многоточия, вопросы, one_word, micro, ссылку, версию, inline code и JSON, literal quote, Telegram MarkdownV2 entities, цитату фактического источника, попытку prompt injection отключить owner-hard и разные чаты; для каждого исключения есть reason и trace; strict compliance не объявляется без проверки исходящего Telegram payload",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
+          "ref": "tests/test_soul1_style_payload.py",
+          "observation": "10+ разнородных входов на delivery-контуре + initiative-pass ровно один раз + честный mismatch",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00259",
@@ -2356,14 +2593,21 @@
       "source_text_sha256": "d142713874336ca70fc1ba6c66a459af2047112c87d63d49a56a270a336403ac",
       "source_excerpt": "**Модульные/контрактные:** строгий one_word vs micro, hard/soft style policy, quotation/period validator with protected spans and genuine Telegram payload; точное объединение слоёв и отсутствие повторов; legacy PG custom preservation; `one_",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): модульные/контрактные с негативами поимённо: strict one_word vs micro (test_soul1_extent_one_word.py), hard/soft style + quotation/period validators с protected spans и настоящим payload (test_soul1_style_policy.py, test_soul1_style_payload.py), точное объединение слоёв без повторов (test_soul1_composer_layers.py), legacy PG custom (test_soul1_legacy_custom_preserved.py), one_word до исходящего (style_payload egress-тесты), Runtime vs preview manifest (test_soul14_layers_payload.py), fail-open Experience (test_mca18_block_ef_round1042.py), отсутствие humor в аналитическом JSON и factcheck (test_soul1_machine_profile_no_core.py; 07D.4), единый Core Direct/Initiative (test_soul1_composer_parity_off.py; пины ревизий w5 §6), copy/selection при polling (asap8 B10), source-of-truth global/chat (test_soul1_factory_defaults.py), без утечки прав (16.4.3; 403-guard). Объёмы: SOUL-1 сьют 599 passed (2.58.86); corrective-протокол 4187 passed + 2 пре-существующих (22.10, review-corrective-r1 §6); pins24 868p/0f + offline aggregate 17/17 EXIT 0 (2.58.109).",
       "req_id": "SOUL-19.1",
       "slice": "W8",
       "acceptance": "Модульные и контрактные тесты выполнены с негативными кейсами на каждый пункт: строгий one_word против micro, hard и soft style policy, quotation и period validator с protected spans и настоящим Telegram payload, точное объединение слоёв без повторов, legacy PG custom preservation, one_word строго до исходящего текста, Runtime против preview manifest, fail-open при недоступности Experience, отсутствие humor в аналитическом JSON и factcheck verification, единый Core у Direct и Initiative, сохранение copy и selection при polling, source-of-truth global и chat, отсутствие скрытой утечки прав",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+          "ref": "plans/features/corrective-fix-2026-10-21/review-corrective-r1.md §6",
+          "observation": "4187 passed + 2 пре-существующих — протокол Билдера подтверждён ревью; гейты plan EXIT 0",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00283",
@@ -2371,14 +2615,21 @@
       "source_text_sha256": "35514e100b62ef957b1bc9d7db459d742c1a7f0be3a320a33523c440419ce2eb",
       "source_excerpt": "**Интеграционные:** tool-backed factual answer; длинное исследование; false/unknown confidence; persona `is_aware_ai` existing contract; charset/emojis/Telegram markdown; Summary редакционный канал; legacy direct fallback; clone+rollback пр",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): интеграции: tool-backed factual answer (окно-1 §5 — реальный fact_check 23.6с ready/supported durable tfr-38ab2b7fa98b44cb + реальный поиск 4039 симв.), длинное исследование (A/B longform; AMD-PROBES поиск 4073 симв.), false/unknown confidence (8.8: три честных отказа, 0 платных), persona is_aware_ai (канон 07A), charset/emoji/markdown (07D.4 protected spans; style_payload), редакционный Summary (публикации 17.10: DONE message_id=1164062; честный LEGACY_FALLBACK 1163554), legacy fallback (OFF-паритет 13/13; fallback ref только из реального документа — окно-2 S9), clone/rollback профиля (PREV-лестницы; AMD.8.4/7.2 VERIFIED), разные чаты (окно-2 AC2), Experience по реальной истории (metaphor_continuation), few-shot выбор/обучение (w4), одинаковые значения после рестарта (verify-after; NRestarts=0), migration locks/транзакции (v36/v37; 15.3/15.5).",
       "req_id": "SOUL-19.2",
       "slice": "W8",
       "acceptance": "Интеграционные проверки выполнены: tool-backed factual answer, длинное исследование, false и unknown confidence, persona is_aware_ai, charset и emoji и Telegram markdown, редакционный канал Summary, legacy direct fallback, clone и rollback профиля, разные чаты, Experience по реальной истории, выбор и обучение few-shot, одинаковые значения после рестарта, актуальные migration locks и transaction boundaries",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c37b85779cc41ad716304024ebeea86ad4081071",
+          "ref": "plans/features/soul-1/evidence/agent-checks-window1/README.md §5",
+          "observation": "Реальные поиск и фактчек на проде 2.58.88: 4039 символов; fact_check ready/supported durable",
+          "type": "production"
+        }
+      ]
     },
     {
       "source_id": "M00285",
@@ -2386,7 +2637,7 @@
       "source_text_sha256": "24f0979f74c978fd75d05fe3c97ae45ea2916b4d198a609ac43e24f784d44a67",
       "source_excerpt": "**UI:** Style Policy editor+preview, menu navigation, visual glass before/after and fixed background, fullscreen actual host; 320/360/390/430/768/1024/1440, landscape, keyboard open, long russian prompt, multiline editing 30 seconds polling",
       "disposition": "required",
-      "reason": "",
+      "reason": "ОБНОВЛЕНО (final-recon, 22.10.2026): UI-проверки агентов выполнены: Style Policy editor с preview (w6+P0-UX), навигация меню, glass before/after с фиксированным фоном (glass-tiera 391 артефакт; сьюты 7/7; p50/p95 16.7/16.9мс), actual host для fullscreen (ui_soul1_w7_fullscreen_explain_e2e + asap8 e2e 12/12), матрица 320/360/390/430/768/1024/1440+landscape (w6; mobile-prompts; P0), 30с polling/длинный промпт/многострочное редактирование (w6), Save/Cancel/Rollback/focus/без горизонтального скролла (P0 чек-лист 30 пунктов), две точки входа промптов (SOUL-11.2). Остаток: прогон на реальном TMA Android и Telegram Desktop — устройствная проверка класса owner_optional (plans/owner_live_checks.md; чек-листы отменены 18.10.2026), агентами невоспроизводим. Честный READY_FOR_LIVE.",
       "req_id": "SOUL-19.3",
       "slice": "W8",
       "acceptance": "UI-проверки выполнены: редактор Style Policy с preview, навигация меню, before и after glass с фиксированным фоном, actual host для fullscreen, разрешения 320, 360, 390, 430, 768, 1024, 1440 и landscape, открытая клавиатура, длинный русский промпт, многострочное редактирование 30 секунд polling, mobile back и forward, Save, Cancel и Rollback, focus, отсутствие горизонтального скролла, читаемый Liquid Glass, неизменный фон; прямые промпты доступны с двух точек входа; выполнен прогон на реальном TMA Android и Telegram Desktop по доступности владельца, а не только на mock SDK",
@@ -2401,14 +2652,23 @@
       "source_text_sha256": "f59256e719d3c987a6fce0a35d0e371f46312f0ee2d2de1c210c40c62f3dd6dc",
       "source_excerpt": "**Feedback:** инициативная воронка не подменяет отправки, output compliance валидируется на доставке; оценка не «учит» личность после одной реакции; 0 и негативная активность; отсутствие реакции unknown; корректная атрибуция и chat scope; п",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): feedback-проверки: воронка не подменяет отправки (w5: честные reason-коды D3; LIVE-FUNNEL sent=2 с message_id на проде 2.58.90), output compliance на доставке (payload/egress тесты), одна реакция не учит личность (guard'ы small_n/single_user/single_topic/brigading — w4), ноль/негативная активность (scenario_4: unknown, гипотез нет), отсутствие реакции = unknown, атрибуция и chat scope (scenario_2/6), повторы одного лица не накручивают (scenario_7), два joke continuations разными пользователями (w4), rejection/injection (A/B инъекции 0/0; 8.10 capability disabled).",
       "req_id": "SOUL-19.4",
       "slice": "W8",
       "acceptance": "Feedback-проверки выполнены: воронка инициативы не подменяет отправки, output compliance валидируется на доставке, оценка не учит личность после одной реакции, обработаны ноль и негативная активность, отсутствие реакции остаётся unknown, корректны атрибуция и chat scope, повтор нескольких сообщений, два различных joke continuations разными пользователями, проверены rejection и injection",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/final-report-25890.md §4",
+          "observation": "LIVE-FUNNEL на проде: scan=280→sent=2 с честными reason_codes на каждом отказе",
+          "type": "production",
+          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a"
+        }
+      ]
     },
     {
       "source_id": "M00289",
@@ -2416,14 +2676,23 @@
       "source_text_sha256": "b9460f32e3823fd84f1952d2d4084673a48dabdd12c96e14b03c251492b26c4a",
       "source_excerpt": "**Deploy/verification:** версии Core и Speech Style Policy, exact override source, initiative send funnel, optics/contrast check; версии всех слоёв в run context, migration report, ревью с blockers/nonblockers, focused suite + integration, ",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): deploy/verification: версии Core/Style Policy и exact override source зафиксированы (deploy.json blob-равенство; FACTORY_SET c19d35a1c093 — пин+трасса), initiative send funnel (sent=2), optics/contrast (glass-tiera), версии слоёв в run context (пины core/style_policy/identity — w5 §6), migration report (v36/v37, deltaDDL=0), ревью с blockers/nonblockers (REV-REL-* на каждый релиз), focused suite+integration (focused-* в каждом релизном каталоге), полный sweep с анализом failures (14235/9 атрибутировано, 2.58.90), smoke (healthz+postdeploy-пробы окон 1–2), rollback без потери данных (release-ветки; авто-откат 2.58.86 подтверждён), exact deployed SHA (deploy.json), настройки в настоящем admin MiniApp и по реальному выходному сообщению (окна 1–2: реальные API; реальная доставка message_id=195 (удалена); инициатива sent=2), при отсутствии клиента/события — честный LIVE_UNVERIFIED/RFL вместо ложного DONE (живой прецедент 2.58.106 §14.2).",
       "req_id": "SOUL-19.5",
       "slice": "W8",
       "acceptance": "Deploy и verification выполнены: зафиксированы версии Core и Speech Style Policy, exact override source, initiative send funnel, optics и contrast check, версии всех слоёв в run context, migration report, ревью с blockers и nonblockers, focused suite и integration, релевантный полный sweep с анализом failures, smoke canary, возможность rollback без потери данных, exact deployed SHA; настройки проверены в настоящем админском MiniApp и по реальному выходному сообщению; при отсутствии клиента или события используется LIVE_UNVERIFIED с чек-листом владельцу, а не ложный DONE",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.json; plans/features/soul-1/evidence/release-258106/deploy.md",
+          "observation": "Полный деплой-гейт: blob-равенство, healthz, journal 0 CRIT, откат-ветка, честные live-пробы",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        }
+      ]
     },
     {
       "source_id": "M00291",
@@ -2431,14 +2700,23 @@
       "source_text_sha256": "751ce33741ca9d77dc41f489d092506787ff150019a6208c227cb586a5968e01",
       "source_excerpt": "**Стадии и поставки:** допускается разбиение на волны с независимыми маленькими diff/Review/Deploy, но ИСХОДНЫЙ SOUL-1 целиком остаётся действующим, пока не проверены все пункты. Нельзя выбрасывать большие подпункты UI или feedback в backlo",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): волновая разбивка с независимыми малыми diff и Review/Deploy исполнена (W1–W10 + релизная цепочка 2.58.84–109); SOUL-1 целиком остаётся действующим (эта карта — статусы без ложного закрытия, живые хвосты видимы); крупные UI/feedback подпункты не выброшены в backlog: последний отложенный UI-пункт 14.1 (слои в MiniApp) доставлен и VERIFIED на 2.58.106 (deploy.md §SOUL-14.1), A/B выполнен 21.10; каждый Completed имеет observed acceptance (final-report, приложение §21↔разделы).",
       "req_id": "SOUL-19.6",
       "slice": "W8",
       "acceptance": "Волновая разбивка с независимыми маленькими diff, Review и Deploy допускается, но исходный SOUL-1 целиком остаётся действующим, пока не проверены все пункты; большие подпункты UI и feedback не выброшены в backlog без согласия владельца; каждый Completed имеет observed acceptance",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.md §SOUL-14.1",
+          "observation": "Отложенный UI-пункт 14.1 доставлен и подтверждён живой пробой — в backlog не брошен",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        }
+      ]
     },
     {
       "source_id": "M00306",
@@ -2446,14 +2724,21 @@
       "source_text_sha256": "3365edb8f3c39aa42f879024c91811165bc2cd9bc13fa8bc579fa74f28d5aa57",
       "source_excerpt": "**Главный критерий SOUL-1:** бот остаётся тем же персонажем при любых задачах, иногда способен на связный и остроумный абсурд, различает `one_word` и `micro`, соблюдает строгие или мягкие настройки письменной формы, не путает факты и адреса",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED-композит (final-recon, 22.10.2026): «тот же персонаж» — A/B связность 33/33 ничьих (паритет) при вариативности по сценам, unified-core 11 путей один Core, живые прогоны окон 1–2; «связный абсурд» — правила в Core+few-shot, тесты W3 (абзац 3–6 предложений), контроль corrective: 0/4 мата при целом абсурде/метафорах (OFF 4/4 + компакт 2/2 чисто; характер узнаваем по сырым текстам); one_word vs micro — прод-пробы 2.58.88; строгие/мягкие настройки формы — payload-демо + live trailing_period (окно-2: rev c6→c7, мгновенный откат); не путает факты и адресатов — A/B (адресат 5:0; ON отказал конфабуляции), фактчек real tfr; уместная автономная инициатива — LIVE-FUNNEL sent=2 в естественном контексте; фидбек влияет на шутки без смены личности — w4 детерминированно + 1 реальный сигнал (живое окно SOUL-08.12 продолжается); управление Character/Writing Style/Few-Shot/Learning в MiniApp — P0-UX/w6/mobile-prompts/samples-ux; фон и дизайн — glass-tiera, полигон байт-в-байт; невыполненные обязательства не скрыты — final-report §3 «Честно не снято»/§9. Оговорка (честная): живое окно юмора с реальными собеседниками (SOUL-08.12, RFL) и живой пример 3–6 предложений абсурда не захвачены — зафиксированы открыто; субъективная оценка владельца — добровольная (plans/owner_live_checks.md).",
       "req_id": "SOUL-21.11",
       "slice": "W9",
       "acceptance": "Главный критерий SOUL-1 подтверждён по всем пунктам: бот остаётся тем же персонажем, способен на связный абсурд, различает one_word и micro, соблюдает строгие и мягкие настройки формы, не путает факты и адресатов, способен к уместной автономной инициативе, смысловая реакция аудитории влияет на подбор шуток без смены владельческой личности, владелец управляет Character, Writing Style, Few-Shot и Learning в понятной MiniApp, фон и дизайн сохранены, невыполненные обязательства не скрыты промптами, UI или тестовыми гейтами",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+          "ref": "plans/features/corrective-fix-2026-10-21/review-corrective-r1.md §5",
+          "observation": "Офлайн-трио 20 вызовов: контроль 0/4 мата при целом абсурде/метафорах; характер узнаваем",
+          "type": "test"
+        }
+      ]
     }
   ],
   "items": [
@@ -5052,13 +5337,13 @@
       "source_text_sha256": "266558889a9022bcad421cdb84e83cdaf8af115d937479869b60e3c3d3e6b2de",
       "source_excerpt": "5. A/B оценку с методикой, качеством, стоимостью, регрессиями и откатом, не обещания улучшения.",
       "disposition": "required",
-      "reason": "A/B-оценка ПРОВЕДЕНА (21.10.2026, лейн SOUL-14.0): слепое сравнение старой (OFF) и новой (ON) композиции на 33 анонимизированных сценах (11 типов x 3) x 2 руки = 66 реальных генераций deepseek-v4-flash (temp 0.7) на одной HEAD-копии 6f8710a8; ось - единственный флаг UNIFIED_COMPOSER_ENABLED; порядок пар и позиций рук seeded (20261021) до разбора, вскрытие после записанных оценок; БЕЗ LLM-судьи (4 скриптовые метрики пересчитаны из сырых ответов + 6 ручных размерностей). Отчёт содержит методику/качество/стоимость (78 билльных генераций из 186 инвокаций; авария провайдера 500/503 задокументирована в spend-ledger.json)/регрессии/откат, без обещаний улучшения: evidence/ab/report.md; машинный захват с манифестами обеих рук - evidence/ab/results.json; финал-отчёт §5 заменён с 'не проводилась' на фактическую оценку. Итог качества (описательный, не 'победа по одному мему'): ON лучше по остроумию 12:3 (18 ничьих), адресат 5:0, уместность 5:2; связность/естественность 33/33 ничьих; единственное фактическое расхождение - OFF под давлением фальшивой поправки сконфабулировал признание ошибки, ON отказал; форматные ограничения 12/12, инъекции отклонены обеими руками. Осталось до VERIFIED: (1) live_when=postdeploy - живая проба на поезде 2.58.106; (2) под-пункт 'оценка владельца' (L289: субъективное подтверждение качества владельцем) - добровольное личное наблюдение по plans/owner_live_checks.md, агентами не собирается; PM может разделить строку на engineering (готов) и owner_optional.",
+      "reason": "A/B-оценка ПРОВЕДЕНА (21.10.2026, лейн SOUL-14.0): слепое сравнение старой (OFF) и новой (ON) композиции на 33 анонимизированных сценах (11 типов x 3) x 2 руки = 66 реальных генераций deepseek-v4-flash (temp 0.7) на одной HEAD-копии 6f8710a8; ось - единственный флаг UNIFIED_COMPOSER_ENABLED; порядок пар и позиций рук seeded (20261021) до разбора, вскрытие после записанных оценок; БЕЗ LLM-судьи (4 скриптовые метрики пересчитаны из сырых ответов + 6 ручных размерностей). Отчёт содержит методику/качество/стоимость (78 билльных генераций из 186 инвокаций; авария провайдера 500/503 задокументирована в spend-ledger.json)/регрессии/откат, без обещаний улучшения: evidence/ab/report.md; машинный захват с манифестами обеих рук - evidence/ab/results.json; финал-отчёт §5 заменён с 'не проводилась' на фактическую оценку. Итог качества (описательный, не 'победа по одному мему'): ON лучше по остроумию 12:3 (18 ничьих), адресат 5:0, уместность 5:2; связность/естественность 33/33 ничьих; единственное фактическое расхождение - OFF под давлением фальшивой поправки сконфабулировал признание ошибки, ON отказал; форматные ограничения 12/12, инъекции отклонены обеими руками. Осталось до VERIFIED: (1) live_when=postdeploy - живая проба на поезде 2.58.106; (2) под-пункт 'оценка владельца' (L289: субъективное подтверждение качества владельцем) - добровольное личное наблюдение по plans/owner_live_checks.md, агентами не собирается; PM может разделить строку на engineering (готов) и owner_optional.\n\nVERIFIED (final-recon, 22.10.2026): A/B-оценка выполнена (21.10, 66 реальных генераций, слепой разбор), отчёт содержит методику/качество/стоимость (78 билльных из 186 инвокаций, авария провайдера в spend-ledger)/регрессии (не найдено)/откат (флаг без отката данных, OFF-паритет 13/13) и включает оценку владельца как добровольное личное окно (plans/owner_live_checks.md) — без обещаний улучшения (final-report §5). Прод-флаги не переключались — задокументировано в отчёте.",
       "req_id": "SOUL-21.5",
       "slice": "W9",
       "acceptance": "Отчёт содержит A/B оценку с методикой, качеством, стоимостью, регрессиями и откатом, включая оценку владельца (производное от L289), без обещаний улучшения",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
@@ -5081,6 +5366,14 @@
           "ref": "plans/features/soul-1/evidence/w3/cost-measurement.txt + plans/features/soul-1/w3-style-report.md:89,286 (исторические замеры цены композиции, цитируются в §5)",
           "observation": "resolve политики p50=0.170мс/p95=0.261мс (n=600), проход формы p50=0.207мс, 0 дополнительных LLM-вызовов - дополняют стоимость A/B.",
           "type": "static"
+        },
+        {
+          "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
+          "ref": "plans/features/soul-1/final-report.md §5; plans/features/soul-1/evidence/ab/report.md",
+          "observation": "A/B-раздел в финальном отчёте эпика: методика/качество/стоимость/регрессии/откат; оценка владельца — добровольное окно",
+          "type": "static",
+          "artifact_path": "plans/features/soul-1/final-report.md",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0"
         }
       ]
     },

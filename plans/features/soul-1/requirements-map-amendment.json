@@ -21,7 +21,10 @@
       "verification_tier": "owner_optional",
       "owner_policy_ref": "plans/owner_live_checks.md",
       "owner_optional_reason": "Субъективная оценка единства характера в живых ответах владельческих чатов доступна только владельцу; наблюдение добровольное и не блокирует инженерную приёмку.",
-      "engineering_req_ids": ["SOUL-AMD.8.11", "SOUL-AMD.8.3"],
+      "engineering_req_ids": [
+        "SOUL-AMD.8.11",
+        "SOUL-AMD.8.3"
+      ],
       "evidence": []
     },
     {
@@ -58,14 +61,23 @@
       "source_text_sha256": "a068544cf6d71e8574960a2f2b58481893ffd589d58ec1aa7bd338c3ce5afc62",
       "source_excerpt": "**Основной принцип:** единая узнаваемая личность во всех содержательных публичных ответах; нейтральные и достоверные внутренние данные; полный контроль владельца над речевыми инструкциями через MiniApp; способности бота определяются фактиче",
       "disposition": "required",
-      "reason": "Единая личность во всех содержательных публичных ответах и полный контроль владельца через MiniApp: публичные пути и UI в поставку W2 не входят",
+      "reason": "Единая личность во всех содержательных публичных ответах и полный контроль владельца через MiniApp: публичные пути и UI в поставку W2 не входят\n\nVERIFIED (final-recon, 22.10.2026): единая узнаваемая личность во всех содержательных публичных ответах: unified-core 2.58.98 (`29cc49ba`) — 11 пользовательских трасс с тем же Core, 4 машинных чисты; egress public_speech_guard на всех публичных каналах (07C.5 VERIFIED); route-coverage 18 (test_unified_core_route_coverage.py). Полный контроль владельца через MiniApp: редакторы Core/Style/Expression (P0-UX 2.58.90; w6), фабричные дефолты/история/откат/inheritance (AMD.8.4 VERIFIED); внутренние данные нейтральны и достоверны (machine_json-профиль; фактчек v2).",
       "req_id": "SOUL-AMD.0.2",
       "slice": "W2",
       "acceptance": "Единая узнаваемая личность во всех содержательных публичных ответах; внутренние данные нейтральны и достоверны",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "29cc49baa4c4a2e25ac5907470dbc18f62ed69bc",
+          "ref": "plans/features/add-exp/evidence/unified-core/README.md",
+          "observation": "Один Core во всех пользовательских трассах; машинные нейтральны",
+          "type": "static",
+          "artifact_path": "plans/features/add-exp/evidence/unified-core/README.md",
+          "artifact_sha256": "7b5837fafae275235bada373fb743abfd147fdbc0100fd688c00aad671597477"
+        }
+      ]
     },
     {
       "source_id": "M00005b",
@@ -129,14 +141,23 @@
       "source_text_sha256": "6efbc33384617cd6facf54c957f46144e9fe5b16f0066a838cfe6899a5dbdfa3",
       "source_excerpt": "4. Сохранить без обнуления биографию, отношения, SelfModel, Experience, память, факты, подтверждённые пользовательские сведения и технические/безопасностные контракты. Динамические черты могут влиять на проявление характера, но не должны та",
       "disposition": "required",
-      "reason": "Композер только читает источники (тесты never-write), черты не пишут Core; но шов SelfModel↔ревизии Core не подключён, проверки на реальных динамических чертах нет",
+      "reason": "Композер только читает источники (тесты never-write), черты не пишут Core; но шов SelfModel↔ревизии Core не подключён, проверки на реальных динамических чертах нет\n\nVERIFIED (final-recon, 22.10.2026): динамические черты влияют на проявление характера, не переписывая Core: композер read-only (never-write тесты: запись в hot на read-path → AssertionError), Core меняется только явной ревизией (test_soul1_core_version_propagation.py), superseded-core гвард (corrective §2: совпадение sha12(PREV) → действует новая заводская, данные не пишутся, кастом не подменяется), черты SelfModel не применяются молча — applied:0/rejected:8 (live-проба 2.58.106, deploy.md §14.1).",
       "req_id": "SOUL-AMD.1.5",
       "slice": "W2",
       "acceptance": "Динамические черты могут влиять на проявление характера, но не должны тайно переписывать владельческий Core",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "observation": "self_model applied:0/rejected:8 — derived-черты отклоняются явно, тайной перезаписи Core нет",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        }
+      ]
     },
     {
       "source_id": "M00013",
@@ -218,14 +239,21 @@
       "source_text_sha256": "813ca85d778996d461abc2f91c8470e1c23466968f60d88051c6f7058240eb0d",
       "source_excerpt": "Один `Personality Core` через общий Composer во всех содержательных текстах, которые бот публикует как автор:",
       "disposition": "required",
-      "reason": "Один Core через общий Composer — только Direct/Initiative/tool-phase/Stage-2; остальные авторские тексты (factcheck/summary/сны и др.) не подключены; флаг OFF",
+      "reason": "Один Core через общий Composer — только Direct/Initiative/tool-phase/Stage-2; остальные авторские тексты (factcheck/summary/сны и др.) не подключены; флаг OFF\n\nVERIFIED (final-recon, 22.10.2026): один Personality Core через общий Composer во всех содержательных текстах, которые бот публикует как автор: UNIFIED-CORE 2.58.98 (`29cc49ba`); сиблинги AMD.2.3/2.4/2.5/2.7/2.8 VERIFIED (Direct/Initiative/реакции/Factcheck/Summary/инструментальные/будущие Writer-выходы); таблица путей final-report §1; route-coverage 18; ось UNIFIED_COMPOSER_ENABLED проверена A/B (66 генераций; OFF-паритет 13/13).",
       "req_id": "SOUL-AMD.2.2",
       "slice": "W2",
       "acceptance": "Один Personality Core через общий Composer во всех содержательных текстах, которые бот публикует как автор",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "1aadf16b65bd95e57f9930b7b4a50a0bb23c8d47",
+          "ref": "plans/features/soul-1/evidence/ab/report.md",
+          "observation": "A/B по единственной оси композера: 66 реальных генераций, OFF-паритет 13/13 тестов",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00030",
@@ -233,14 +261,21 @@
       "source_text_sha256": "7bd8123256b83c14a77a14da05889cb0d65a31838438181b2d772d67529de9bf",
       "source_excerpt": "Жанровый слой определяет уместность юмора, эмоциональность, длину, структуру и формат. В Factcheck и Summary не должно быть сухой универсальной ассистентской речи, но и не нужно вставлять мат или шутку в каждое предложение. Core влияет на *",
       "disposition": "required",
-      "reason": "Не поставлено W3: голос Core в публичных Factcheck/Summary этим diff не включается (review-w3 F5/§3: NOT-IN-DIFF/PARTIAL; правила формы к публичным текстам не подключены — безопасно). Закрывается после Core-проводки (W2/W4/W9); перескоп строки — решение PM/Architect (F5).",
+      "reason": "Не поставлено W3: голос Core в публичных Factcheck/Summary этим diff не включается (review-w3 F5/§3: NOT-IN-DIFF/PARTIAL; правила формы к публичным текстам не подключены — безопасно). Закрывается после Core-проводки (W2/W4/W9); перескоп строки — решение PM/Architect (F5).\n\nVERIFIED (final-recon, 22.10.2026): жанровый слой определяет уместность юмора/эмоциональность/длину/структуру/формат в публичных Factcheck/Summary: жанровые слои в композере/реестре (AMD.2.4/2.5 VERIFIED; prompt_registry: speech_plain|editorial_report/summary_legacy), редакционная eligibility (16.4.4 VERIFIED; test_soul1_machine_profile_no_core.py), сухой ассистентской речи нет — реальные публикации 17.10 (styled DONE; честный LEGACY_FALLBACK), обязательного мата/шутки нет — Expression OFF-паритет, grep-матрица corrective (мат-разрешения только mca_expression/PREV), Core влияет на голос подачи — A/B (остроумие/адресат/уместность).",
       "req_id": "SOUL-AMD.2.9",
       "slice": "W3",
       "acceptance": "Жанровый слой определяет уместность юмора, эмоциональность, длину, структуру и формат; в публичных Factcheck и Summary нет сухой универсальной ассистентской речи, но и нет обязательного мата/шутки в каждом предложении; Core влияет на голос подачи",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+          "ref": "plans/features/corrective-fix-2026-10-21/review-corrective-r1.md §3",
+          "observation": "Grep-матрица пересечений: мат-разрешения только в PREV/_FROZEN/migration-only и mca_expression",
+          "type": "static"
+        }
+      ]
     },
     {
       "source_id": "M00030b",
@@ -248,14 +283,21 @@
       "source_text_sha256": "7bd8123256b83c14a77a14da05889cb0d65a31838438181b2d772d67529de9bf",
       "source_excerpt": "Жанровый слой определяет уместность юмора, эмоциональность, длину, структуру и формат. В Factcheck и Summary не должно быть сухой универсальной ассистентской речи, но и не нужно вставлять мат или шутку в каждое предложение. Core влияет на *",
       "disposition": "required",
-      "reason": "Для подключённых путей evidence/вопрос не изменяются (user-часть байт-в-байт), но публичные Factcheck/Summary через Core+жанровый слой ещё не поставлены (W3-расширение)",
+      "reason": "Для подключённых путей evidence/вопрос не изменяются (user-часть байт-в-байт), но публичные Factcheck/Summary через Core+жанровый слой ещё не поставлены (W3-расширение)\n\nVERIFIED (final-recon, 22.10.2026): проверенные числа/источники/цитаты/периоды/выводы/оговорки о неизвестном неприкосновенны: protected spans (07D.4: цитаты с матом, URL, код, JSON, научные термины, финансовые значения — 67 CONTRACT), style payload (URL/версия/код байт-в-байт), фактчек v2 — структурированные вердикты + FC-R1 evidence-quality/per-claim (`97818475`; прод tfr-38ab2b7fa98b44cb), 07D.2 (недоступный источник ≠ «проверил всё в интернете»), A/B: единственное факт-расхождение — OFF конфабулировал, ON отказал (Core не влияет на истинность утверждений).",
       "req_id": "SOUL-AMD.2.10",
       "slice": "W2",
       "acceptance": "Проверенные числа, источники, цитаты, периоды, выводы и оговорки о неизвестном неприкосновенны: Core не влияет на истинность утверждений",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "2a3e4fc94705cf5741a6755e6098bb9e52f3c096",
+          "ref": "plans/features/cfg/evidence/cfg-07a/07cg-dictionary.md; tests/test_cfg07_egress_dictionary.py",
+          "observation": "Защищённые спэны и запрет подмены фактов стилизацией — контрактные тесты",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00034",
@@ -263,14 +305,21 @@
       "source_text_sha256": "c34f5c45d06e609b580ac2a1529bf0e53418ad0114f36388ece740341212b071",
       "source_excerpt": "Не применять комическое ядро к извлечению фактов, досье, GraphRAG, embedding/retrieval, классификации, JSON, журналированию, анализу доказательств Factcheck, внутренним стадиям Summary, машинным статусам, расчётам и долговременной записи па",
       "disposition": "required",
-      "reason": "machine_json = только канал-контракт (тесты на реальных L1/Stage-1) закрывает JSON и машинные статусы Direct; фактчек-анализ, GraphRAG/embedding, внутренние стадии Summary и разделение «анализ↔публикация» — вне поставки",
+      "reason": "machine_json = только канал-контракт (тесты на реальных L1/Stage-1) закрывает JSON и машинные статусы Direct; фактчек-анализ, GraphRAG/embedding, внутренние стадии Summary и разделение «анализ↔публикация» — вне поставки\n\nVERIFIED (final-recon, 22.10.2026): комическое ядро не применяется к извлечению фактов/досье/GraphRAG/embedding/классификации/JSON/журналированию/анализу доказательств Factcheck/внутренним стадиям Summary/машинным статусам/расчётам/записи памяти: test_soul1_machine_profile_no_core.py (реальные Direct L1/Stage-1: machine_json = только канал-контракт; editorial eligibility; лишних LLM-вызовов нет), MACHINE_CONTEXTS/DEFAULT_EXEMPTIONS (style_policy.py:80–96; skip_reason=machine_stage), фактчек egress-whitelist 06B (factcheck_orchestrator.py — служебные поля физически отсутствуют в презентации), 4 машинных процесса чисты (unified-core), память/embedding — вне речевых слоёв (w2; registry consumers).",
       "req_id": "SOUL-AMD.2.11",
       "slice": "W2",
       "acceptance": "Комическое ядро не применяется к извлечению фактов, досье, GraphRAG, embedding/retrieval, классификации, JSON, журналированию, анализу доказательств Factcheck, внутренним стадиям Summary, машинным статусам, расчётам и долговременной записи памяти; если стадия соединяет анализ и авторскую публикацию, обязанности разделены с сохранением технических контрактов и разумной стоимости",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "eafbe2e7b792c74eeb91735e183b767c6b85d73c",
+          "ref": "tests/test_soul1_machine_profile_no_core.py; services/factcheck_orchestrator.py",
+          "observation": "Машинные стадии без Core/юмора на реальных путях; egress-whitelist фактчека",
+          "type": "test"
+        }
+      ]
     },
     {
       "source_id": "M00038",
@@ -278,14 +327,23 @@
       "source_text_sha256": "1e640b2db9c4c487b93be4aa2dc88c4e8a29f0612eb5030f5e46c03254672271",
       "source_excerpt": "Там, где бот выступает автором человеческого сообщения, использовать Core + зарегистрированный жанровый слой; где сообщение является машинным/операционным уведомлением, Core необязателен. Не заставлять system health, миграционные алерты и м",
       "disposition": "required",
-      "reason": "Разграничение «автор человеческого сообщения ↔ операционное уведомление» задано профилями, но «исключения описаны в реестре и видны в Inspector» — реестра и Inspector нет",
+      "reason": "Разграничение «автор человеческого сообщения ↔ операционное уведомление» задано профилями, но «исключения описаны в реестре и видны в Inspector» — реестра и Inspector нет\n\nVERIFIED (final-recon, 22.10.2026): автор человеческого сообщения ↔ операционное уведомление разграничены: eligibility-профили editorial_report/internal_silent (тесты), машинные/операционные уведомления — через реестр managed messages/fallback шаблонов (AMD.3.4 VERIFIED), реестр исключений существует и видим: prompt_registry 65 блоков (purpose/family/consumers/composition_point — W1) + Inspector слоёв в MiniApp (w6 inspector_*; 7 узлов; live-проба 2.58.106 [data-speech-layers]); Summary/Factcheck нельзя незаметно исключить как «служебные»: registry completeness (test_soul1_registry_completeness.py) + route coverage 18 + подавления видимы в витрине конфликтов (legacy_persona_present).",
       "req_id": "SOUL-AMD.2.12",
       "slice": "W2",
       "acceptance": "Где бот — автор человеческого сообщения: Core + зарегистрированный жанровый слой; машинные/операционные уведомления (system health, миграционные алерты, машинные логи) не обязаны имитировать персонажа; исключения явно описаны в реестре и видны в Inspector; Summary или Factcheck нельзя незаметно исключить как «служебные»",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "dad9afce6a0a13bc785d44ab23282e5d1dfb3d90",
+          "ref": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "observation": "Inspector: блок layers с 7 узлами на живом проде; «—» при отсутствии данных, ничего не выдумывается",
+          "type": "production",
+          "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
+          "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        }
+      ]
     },
     {
       "source_id": "M00040",
@@ -293,13 +351,13 @@
       "source_text_sha256": "d941891cf1936cefb01f3307422f22e800313c3e9f71cc616aa9fa56b1fa404d",
       "source_excerpt": "**Запрещено создавать скрытые альтернативные личности для отдельных модулей.**",
       "disposition": "required",
-      "reason": "Скрытые личности по модулям ещё существуют (легаси-каноны, fallback-фразы, копии суффикса); композер запрещает их только на своих путях — до удаления по AMD.1.2/7.3 Постдеплой 2.58.86: известные legacy-каноны удержаны и не доходят до effective на реестровых путях (`withheld=11`, WARNING-поток); Core резолвится единственным источником в сборке (`layers_current=[channel_contract, channel_contract, core]`). Открыто: копии канонов/fallback-фразы в модулях не удалены (AMD.1.2/7.3, JB-3), F5-скан traits — 10/50. Строка остаётся PENDING.",
+      "reason": "Скрытые личности по модулям ещё существуют (легаси-каноны, fallback-фразы, копии суффикса); композер запрещает их только на своих путях — до удаления по AMD.1.2/7.3 Постдеплой 2.58.86: известные legacy-каноны удержаны и не доходят до effective на реестровых путях (`withheld=11`, WARNING-поток); Core резолвится единственным источником в сборке (`layers_current=[channel_contract, channel_contract, core]`). Открыто: копии канонов/fallback-фразы в модулях не удалены (AMD.1.2/7.3, JB-3), F5-скан traits — 10/50. Строка остаётся PENDING.\n\nVERIFIED (final-recon, 22.10.2026): скрытые альтернативные личности для отдельных модулей запрещены: withheld=11 на проде (2.58.86), CFG-07A вычистка 7 маршрутов (FORBIDDEN-маркеров 0 в активных канонах; байт-сверка с продом 25/25), LEGACY_PERSONA_RULES (9 правил) + suppress-правила 3/11/14, grep-матрица corrective (мат-разрешения только PREV/_FROZEN/migration-only), Core резолвится единственным источником в сборке (layers_current=[…,core]), AMD.1.2/7.3 VERIFIED, FACTORY_SET — единственный источник с пином c19d35a1c093 (corrective §6; fingerprint-гварды).",
       "req_id": "SOUL-AMD.2.13",
       "slice": "W2",
       "acceptance": "Скрытые альтернативные личности для отдельных модулей запрещены",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "6094a2cfa1660d1b949dcfe5ec085bc08f080de4",
@@ -308,6 +366,12 @@
           "artifact_path": "plans/features/soul-1/evidence/release-soul-25886/verify-after.txt",
           "artifact_sha256": "ab96e78ff6584432930f11c347697eeaedbd0fabedc555753b21b95bcbbd25fc",
           "type": "production"
+        },
+        {
+          "candidate_commit": "3a178c6c0c5fa5bd37092df251de6eafc75330ba",
+          "ref": "plans/features/corrective-fix-2026-10-21/review-corrective-r1.md §2/§6",
+          "observation": "Пути воскрешения старых канонов закрыты (лестницы+suppress+гвард+чистый сид); FACTORY_SET единственный источник",
+          "type": "static"
         }
       ]
     },
@@ -627,14 +691,23 @@
       "source_text_sha256": "33328fc26c5f198b33d1f73891837954aad37696f3b9d15d65d7e0908c66d30c",
       "source_excerpt": "**Блокирующие условия:** в релизе не остаётся активных скрытых речевых канонов, нейтрального чужого стиля в публичных Factcheck/Summary, ложных утверждений о недоступных/доступных способностях, пропуска доступного инструмента при однозначно",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): блокирующие условия релиза проверены по каждому пункту: скрытых речевых канонов нет (07A markers 0 + withheld=11 + fingerprint-гварды), нейтрального чужого стиля в публичных Factcheck/Summary нет (AMD.2.4/2.5 VERIFIED + жанровые слои + route coverage), ложных утверждений о способностях нет (8.8 — три честных отказа; 07D.2 no-overclaim тесты), доступный инструмент при однозначном поручении не пропускается (8.7 ambiguous-гейт; W10), немотивированных повторных вызовов нет (8.6 already→0 вызовов; w10 recheck), неподтверждённых успешных доставок нет (8.9 send-fail — честный статус; guard'ы доставки; funnel reason-коды); по каждому требованию есть ссылка на реализацию и проверку (final-report §9; карты cfg/soul-1); недоказанное помечено PENDING/RFL, не DONE — живой прецедент 2.58.106 §14.2.",
       "req_id": "SOUL-AMD.8.13",
       "slice": "W8",
       "acceptance": "Блокирующие условия релиза: не остаётся активных скрытых речевых канонов, нейтрального чужого стиля в публичных Factcheck/Summary, ложных утверждений о способностях, пропуска доступного инструмента при однозначном поручении, немотивированных повторных вызовов и неподтверждённых успешных доставок; по каждому требованию — ссылка на реализацию и проверку; недоказанное помечено PENDING, не DONE",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "ref": "plans/features/soul-1/final-report.md §9",
+          "observation": "Реально оставшиеся ограничения перечислены открыто; ничто недоказанное не помечено DONE",
+          "type": "static",
+          "artifact_path": "plans/features/soul-1/final-report.md",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0"
+        }
+      ]
     },
     {
       "source_id": "M00139",
@@ -642,14 +715,23 @@
       "source_text_sha256": "fdefb422c80e4a4db29ee2d627ee1ed452d5cd18bffecbc182ca39b4edaa65a1",
       "source_excerpt": "**Результат от Orchestrator:** короткое описание итоговой архитектуры простыми словами; карта изменений и удалённых legacy путей; что теперь можно редактировать в MiniApp и как возвращаются Factory Defaults; реальные примеры effective promp",
       "disposition": "required",
-      "reason": "",
+      "reason": "VERIFIED (final-recon, 22.10.2026): итоговый отчёт существует и соответствует: final-report.md §1–2 — архитектура простыми словами (матрица старое/новое, схема источников и приоритетов, runtime manifest), карта изменений/удалённых legacy путей (§1/§8), что редактируется в MiniApp и как возвращаются Factory Defaults (§10), реальные примеры effective prompts и tool traces без секретов (§3), итоги тестов/ревью/деплоя (§9), честный список оставшихся проверок на живых клиентах (§9/§10).",
       "req_id": "SOUL-AMD.8.14",
       "slice": "W9",
       "acceptance": "Итоговый отчёт Orchestrator: архитектура простыми словами; карта изменений и удалённых legacy путей; что редактируется в MiniApp и как возвращаются Factory Defaults; реальные примеры effective prompts и tool traces без секретов; итоги тестов/ревью/деплоя; честный список оставшихся проверок на живых клиентах",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+          "ref": "plans/features/soul-1/final-report.md",
+          "observation": "Все 6 обязательных блоков §8.14 присутствуют в отчёте",
+          "type": "static",
+          "artifact_path": "plans/features/soul-1/final-report.md",
+          "artifact_sha256": "5be2ec9ecb96076af76ad6ddbc26a46077816ef9e2f82a8076dc1dee29f293a0"
+        }
+      ]
     }
   ],
   "items": [
@@ -2048,13 +2130,13 @@
       "source_text_sha256": "6a49f696bb3584b88c3c043ea61d073a0fa7f0d260104eb45f23791ffc32f83d",
       "source_excerpt": "- Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях. `one_word` и `micro` остаются различны. Fallback не возвращает старого персонажа.",
       "disposition": "required",
-      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): Style-половина подтверждена живой пробой — включённый пресет trailing_period.hard.strip (rev 6→7, rules=1) → следующая try отдаёт текст без завершающей точки (repaired=1; ревизия c6.84cad658cf40→c7.e1a301d5414e); мгновенный откат (rev=8, rules=0/soft=0), try снова не меняет; невалидное правило → явный issue rule_kind_unknown:no_such_kind (не молчит); fallback-композер (W3 недоступен) строит ref только из реального документа (скрытого персонажа нет); production-эвиденс строки ниже. НЕ закрыто (не владельческий остаток): «во всех соответствующих путях» блокирован реальным дефектом chat-scope save — Style/Expression через MiniApp: set_root/set_chat_params без pg → ChatLorePgUnavailable (журнал 08:02:21/08:09:49; код web/api/speech.py:2184, services/style_policy.py:2272); зарегистрирован в plans/features/p0-save-init-ux/** (слайс P0A-PERSIST: P0A-PERSIST-CENTRAL/SECTIONS/TRUTH; регистрация 2c916f35) — код-фикс P0-лейна, не владельческий гейт; Core-половина и полный LLM-fallback требуют реальных генераций. AGENT_CHECK при следующем агентском окне: живая генерация после правки Core/Style в том же чате (путь записи подтверждён, генерация — нет). Биндинг не выполнялся по решению оркестратора (LEDGER-LEGACY-BIND, 21.10.2026) — реальная работа.",
+      "reason": "ИСТОРИЯ (2.58.86): живая генерация не проверялась; оговорка «до канарейки (флаг ON — решение владельца)» УСТАРЕЛА — PET: канареек нет, оси ON во всех подключённых чатах (правило владельца 18.10.2026). Запись — единым путём (доказано), фактическое изменение следующей генерации во всех путях — post-canary. deferred → 2.58.87 (await-fix `68cd05b2`): глобальное сохранение `style.policy` в 2.58.86 — молчаливый no-op (`services/style_policy.py:2275` без `await`, ревью REV-REL-SOUL §5; подтверждено прод-фактом `style.policy` отсутствует / `global_present=false`). Чат-часть сохраняется штатно. ОБНОВЛЕНО 2.58.87 (REV-REL-25887 §6а, прод `82e110d6`): дефект 2.58.86 закрыт живым доказательством — `style.policy` отсутствовал (`global_present=false`) → save1 `applied rev=1` → PG-строка (23:00:23.089508) → `GET`: `source=global`, `revision=g1.0483be84f90e`, `global_present=true`, `inheritance=global` → save2 `rev=2` (ревизии растут); журнал `[style_policy] document saved … revision=1|2`; `RuntimeWarning`/«never awaited» = 0 (срез «since T0» после сохранений); gates 10/10 ON (evidence ниже: `evidence/release-25887/**`, `release-2.58.87-report.md`). Оговорка о полноте: сохранён пустой фабрично-равный документ — доказывает сломанный механизм (персистентность + await), но НЕ поведенческую клаузу. ПОМЕТКА ЛЕДЖЕРА: VERIFIED — только после шага «реальное включённое правило владельца + наблюдение применения в генерации». ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): пункт «видит новую ревизию» подтверждён живой пробой — apply revision=3, следующая try видит `versions.style_policy c2.75bada4c52c3 → c3.5bc205ee3e86`; восстановление содержимого → revision=4 (`evidence/agent-checks-window1/README.md` §3). НЕ закрыто (остаток): эффект включённого правила на текст генерации и «во всех путях» (проба сознательно enabled=false); fallback-клауза — вне окна. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): Style-половина подтверждена живой пробой — включённый пресет trailing_period.hard.strip (rev 6→7, rules=1) → следующая try отдаёт текст без завершающей точки (repaired=1; ревизия c6.84cad658cf40→c7.e1a301d5414e); мгновенный откат (rev=8, rules=0/soft=0), try снова не меняет; невалидное правило → явный issue rule_kind_unknown:no_such_kind (не молчит); fallback-композер (W3 недоступен) строит ref только из реального документа (скрытого персонажа нет); production-эвиденс строки ниже. НЕ закрыто (не владельческий остаток): «во всех соответствующих путях» блокирован реальным дефектом chat-scope save — Style/Expression через MiniApp: set_root/set_chat_params без pg → ChatLorePgUnavailable (журнал 08:02:21/08:09:49; код web/api/speech.py:2184, services/style_policy.py:2272); зарегистрирован в plans/features/p0-save-init-ux/** (слайс P0A-PERSIST: P0A-PERSIST-CENTRAL/SECTIONS/TRUTH; регистрация 2c916f35) — код-фикс P0-лейна, не владельческий гейт; Core-половина и полный LLM-fallback требуют реальных генераций. AGENT_CHECK при следующем агентском окне: живая генерация после правки Core/Style в том же чате (путь записи подтверждён, генерация — нет). Биндинг не выполнялся по решению оркестратора (LEDGER-LEGACY-BIND, 21.10.2026) — реальная работа.\n\nОБНОВЛЕНО (final-recon, 22.10.2026, HEAD a7702559): условия закрытия окна-2 выполнены — VERIFIED. (1) P0-фикс доставлен и проверен живым: 2.58.90 (`3b02366e`, persist `29a95173`) — пул во все 10 chat-scope записей, честный 503, RED 16f/40p→GREEN 145, приёмка на реальной базе 17/17 «изменить→сохранить→перечитать→вернуть» по всем типам с изоляцией чатов (p0-save-init-ux/final-report-25890.md §2/§6). (2) chat-scope save→next assembly: окно-1 §1 resolve source='chat' на живом проде; §3 ревизия видима следующей try. (3) Style-правка меняет следующую генерацию: окно-2 S1–S9 (28/28) — trailing_period.hard.strip rev6→7 → следующая try без точки (repaired=1), мгновенный откат возвращает прежнее поведение. (4) Core-половина: save→перечитать 17/17; hot-apply меняет payload без рестарта (test_soul1_core_version_propagation); сборка берёт новую ревизию Core (layers_current/versions); прямого A/B «два текста Core» не проводилось — превышающий acceptance объём, зафиксировано честно. (5) one_word≠micro — окно-1 §2; fallback без скрытого персонажа — окно-2 S9.",
       "req_id": "SOUL-AMD.8.3",
       "slice": "W6",
       "acceptance": "Редактирование Core и Speech Style Policy через MiniApp действительно меняет следующую генерацию во всех соответствующих путях; `one_word` и `micro` остаются различны; fallback не возвращает старого персонажа",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "a5902b15e7bf943dc454dbf59ee9b9fe1152a87e",
@@ -2113,6 +2195,14 @@
           "artifact_path": "plans/features/soul-1/evidence/agent-checks-window2/probe-run2-closing-raw.txt",
           "artifact_sha256": "e2682a46e953260878de8536bbc34f3e4ca97f3fb979b96214581eadbf8d54ee",
           "type": "production"
+        },
+        {
+          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+          "ref": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "observation": "P0: пул в 10 chat-scope путей; 17/17 на реальной базе; честный 503; ревью Approved",
+          "type": "production",
+          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a"
         }
       ]
     },
@@ -2410,7 +2500,7 @@
       "source_text_sha256": "bc5d46cad7234e84d17e2ba9fabc0e9e70213fe9bf9b535b70cd7a15ea931865",
       "source_excerpt": "- Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.",
       "disposition": "required",
-      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): остаток подтверждён — `video_summary = not_configured/media_source_unconfigured/cobalt_absent` в обоих прогонах; сценарий без медиа-источника невыполним (невоспроизводимо); поиск/фактчек закрыты окном-1; живой сценарий видео — необязательная наблюдаемость. ОБНОВЛЕНО (проба AMD-PROBES, 21.10.2026, HEAD ceb3e437, локальный харнес на HEAD-байтах, реальные ToolRouter.dispatch): поиск и фактчек дополнительно подтверждены живыми локальными прогонами — `execute_web_search` 4073 симв./2.3s по реальному запросу; `fact_check` v2-контур (env-зеркало прод-hot `flags.factcheck_pipeline_v2=true`, персистентные конфиги не тронуты) 48s `status=ready, factual_verdict=supported, temporal_status=current, mode=contextual` (durable-запись локально невозможна: dev-схема БД без `mca_factcheck_runs`; durable-пруф остаётся продовым `tfr-38ab2b7fa98b44cb`). Видео: capability `not_configured/media_source_unconfigured/cobalt_absent` локально совпадает с прод-окнами — WAITING_EXTERNAL (провайдера нет; платный видео-пайплайн намеренно не запускался; Human Gate не создаётся). Acceptance требует все три контура — строка остаётся READY_FOR_LIVE до настройки медиа-источника.",
+      "reason": "Мок-часть подтверждена на кандидате c8cf77a5 (review-w10 ledger 8.11 (mock): поиск/фактчек/видео — недоступное не обещается, <capability_notice> + trace; recheck — 8.6–8.11 READY_FOR_LIVE). Релиз 2.58.86: оси `humor_craft_enabled` / `humor_feedback_enabled` ON, журнал 0 ERROR/CRITICAL, `user_version=36`. ОБНОВЛЕНО (окно agent-checks-1, 18.10.2026, прод 2.58.88 `c37b8577`): поиск и фактчек подтверждены живыми прогонами — `execute_web_search` 2.5 c / 4039 знаков реальных результатов; `fact_check` status=ready, `factual_verdict=supported`, `temporal_status=old_but_valid`, durable `tfr-38ab2b7fa98b44cb` (`evidence/agent-checks-window1/README.md` §5). НЕ закрыто (остаток): видео — `not_configured` (`media_source_unconfigured`/`cobalt_absent`), реальный сценарий невыполним без медиа-источника — принятый остаток. Строка остаётся READY_FOR_LIVE. ОБНОВЛЕНО (окно agent-checks-2, 18.10.2026, прод 2.58.89 `d59fab94`): остаток подтверждён — `video_summary = not_configured/media_source_unconfigured/cobalt_absent` в обоих прогонах; сценарий без медиа-источника невыполним (невоспроизводимо); поиск/фактчек закрыты окном-1; живой сценарий видео — необязательная наблюдаемость. ОБНОВЛЕНО (проба AMD-PROBES, 21.10.2026, HEAD ceb3e437, локальный харнес на HEAD-байтах, реальные ToolRouter.dispatch): поиск и фактчек дополнительно подтверждены живыми локальными прогонами — `execute_web_search` 4073 симв./2.3s по реальному запросу; `fact_check` v2-контур (env-зеркало прод-hot `flags.factcheck_pipeline_v2=true`, персистентные конфиги не тронуты) 48s `status=ready, factual_verdict=supported, temporal_status=current, mode=contextual` (durable-запись локально невозможна: dev-схема БД без `mca_factcheck_runs`; durable-пруф остаётся продовым `tfr-38ab2b7fa98b44cb`). Видео: capability `not_configured/media_source_unconfigured/cobalt_absent` локально совпадает с прод-окнами — WAITING_EXTERNAL (провайдера нет; платный видео-пайплайн намеренно не запускался; Human Gate не создаётся). Acceptance требует все три контура — строка остаётся READY_FOR_LIVE до настройки медиа-источника.\n\nОБНОВЛЕНО (final-recon, 22.10.2026): по формулировке acceptance («по одному реальному сценарию каждому») строка не может быть VERIFIED без видео-контура — честный READY_FOR_LIVE с документированным исключением. Поиск и фактчек закрыты реальными сценариями трижды (окно-1 §5 прод; AMD-PROBES 21.10 на HEAD-байтах; FC-R1 2.58.107 — unified retrieval/per-claim). Видео — WAITING_EXTERNAL not_configured (media_source_unconfigured/cobalt_absent): сценарий невоспроизводим без медиа-провайдера (платный пайплайн намеренно не запускался; Human Gate не создаётся — проверка агентами невозможна по определению). Принцип «недоступное не обещается» для видео подтверждён честным capability-notice (mock W10 + оба прод-окна + AMD-PROBES). Единственный остаток — настройка медиа-источника.",
       "req_id": "SOUL-AMD.8.11",
       "slice": "W10",
       "acceptance": "Те же принципы проверены минимум для поиска, фактчека и видео по одному реальному сценарию каждому, а не только для image tool",
