@@ -2,7 +2,7 @@
  "schema": "openworkflow-coverage-v1",
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap8-v6-3-live-correction\\source-lines-37423-EOF.md",
  "source_sha256": "d0b4f611ac5eff7d228a1d2a2d1e283f04b26625f2dac89ab5ad1145f10e686d",
- "candidate_commit": "0b7a0aca416a418e099e157eca77d0a3137b3405",
+ "candidate_commit": "d87284c1dba663aab8b3191a3d0db19ae78fd6c8",
  "deployed_commit": "a1d8bd6297d11ef37e4445f370916f3ffb768f98",
  "additional_requirements": [
   {
@@ -2017,7 +2017,7 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "d87284c1",
+     "candidate_commit": "d87284c1dba663aab8b3191a3d0db19ae78fd6c8",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
      "observation": "Контракт в direct_l1.py (L1Plan.delivery/target_*, reply_binding_requested, L1_DELIVERY_MODES); канон chat_prompts (схема + ФОРМА УЧАСТИЯ без приоритетов, правила 1-7 байт-в-байт); слепок PREV_1022 = прод-байты 2.58.109 sha16 5fdc90b3f114/3022 симв; ступень prompt_migrations; FACTORY_SET 3507bd6f92eb; тесты tests/test_direct_l1_l1d_contract.py 17 CONTRACT (кандидат e67a58e7+d87284c1); related-селект 806p/0f venv."
     }
@@ -2035,7 +2035,7 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "d87284c1",
+     "candidate_commit": "d87284c1dba663aab8b3191a3d0db19ae78fd6c8",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
      "observation": "direct_chat_service: _initiative_reply_target/_initiative_ref_ids/_INITIATIVE_REPLY_MAX_AGE_S удалены; _validate_plan_target (раздел 6); семантика провала fail-soft-vs-cancel; хардкод 24ч заменён limits.summary_window_hours; тесты tests/test_asap8_initreply_binding.py 12 CONTRACT/REGRESSION на моках (кейсы 1-8 + 400-gone + ностальгия) - все зелёные (кандидат d87284c1)."
     }
@@ -2053,7 +2053,7 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "d87284c1",
+     "candidate_commit": "d87284c1dba663aab8b3191a3d0db19ae78fd6c8",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
      "observation": "_execute_initiative_react (react_moai, механика kill-switch учтена); планер получает строку разрешённых реакций (ALLOWED_LLM_REACTIONS); runner считает статус reacted (initiative_reacted + анти-спам учёт); тесты case6/case6b/case5 зелёные (кандидат d87284c1)."
     }
@@ -2071,7 +2071,7 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "d87284c1",
+     "candidate_commit": "d87284c1dba663aab8b3191a3d0db19ae78fd6c8",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
      "observation": "harness OPENCODE_WORKFLOW_SCRATCH/initreply-l1d/verify_l1d.py, канон ace6246bd360, модель deepseek-v4.1-flash (та же прод-семья, шлюз OpenRouter, reasoning-артефакт задокументирован): chat 1 / reply 2 / react 2 / silent 3; кейс общего спора (7 сообщ., 3 участника) -> delivery=chat без цели (анти-дефект 2.58.109); 11 успешных вызовов, 0 Telegram; result_l1d_run3.json + result_l1d_retry.json."
     }
