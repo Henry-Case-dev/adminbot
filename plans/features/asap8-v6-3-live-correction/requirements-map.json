@@ -2004,6 +2004,78 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": []
+  },
+  {
+   "source_id": "MANUAL-L1D-1",
+   "disposition": "required",
+   "reason": "Источник: plans/features/owner-corrective-initreply-2026-10-22.md разделы 1 и 3 (корректирующее требование владельца после релиза 2.58.109: выбор формы участия принадлежит L1 Decision, не транспорту; совместимость с L1Plan и маршрутами; без дополнительного LLM-вызова ради доставки).",
+   "req_id": "INITREPLY-L1D-CONTRACT",
+   "slice": "INITREPLY-L1D",
+   "acceptance": "L1Plan несёт delivery=chat|reply + target_message_id (сообщение из окна [msg:N], выбранное LLM) + target_user_id (смысловой адресат, сам по себе reply не включает); отсутствие/мусор полей = обычное сообщение; reply включается только action=reply+delivery=reply+target_message_id; канон планера описывает формы без приоритетов; прод-канон 2.58.109 заморожен (PREV_DIRECT_L1_PLANNER_1022, 5fdc90b3f114) и ведётся лестницей миграций.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "d87284c1",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
+     "observation": "Контракт в direct_l1.py (L1Plan.delivery/target_*, reply_binding_requested, L1_DELIVERY_MODES); канон chat_prompts (схема + ФОРМА УЧАСТИЯ без приоритетов, правила 1-7 байт-в-байт); слепок PREV_1022 = прод-байты 2.58.109 sha16 5fdc90b3f114/3022 симв; ступень prompt_migrations; FACTORY_SET 3507bd6f92eb; тесты tests/test_direct_l1_l1d_contract.py 17 CONTRACT (кандидат e67a58e7+d87284c1); related-селект 806p/0f venv."
+    }
+   ]
+  },
+  {
+   "source_id": "MANUAL-L1D-2",
+   "disposition": "required",
+   "reason": "Источник: plans/features/owner-corrective-initreply-2026-10-22.md разделы 2, 4 и 6 (убрать хардкод выбора способа участия; транспорт = исключительно доставка; детерминированная логика только для технической корректности; без произвольной перепривязки; SendRecheck при потере смысла).",
+   "req_id": "INITREPLY-L1D-TRANSPORT",
+   "slice": "INITREPLY-L1D",
+   "acceptance": "Резолвер 2.58.109 удалён (source_refs/первое сообщение/последнее сообщение адресата больше не порождают reply); reply ставится только из плана (delivery=reply+target_message_id) после технических проверок: существует/в этом чате/есть tg_message_id/не устарела относительно окна контекста/соответствует target_user_id; при провале: текст самостоятелен - обычная отправка (fail-soft), текст - прямой ответ человеку - отмена с переоценкой (SendRecheck-семантика, включая 400 gone); 8 кейсов раздела 8 зелёные.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "d87284c1",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
+     "observation": "direct_chat_service: _initiative_reply_target/_initiative_ref_ids/_INITIATIVE_REPLY_MAX_AGE_S удалены; _validate_plan_target (раздел 6); семантика провала fail-soft-vs-cancel; хардкод 24ч заменён limits.summary_window_hours; тесты tests/test_asap8_initreply_binding.py 12 CONTRACT/REGRESSION на моках (кейсы 1-8 + 400-gone + ностальгия) - все зелёные (кандидат d87284c1)."
+    }
+   ]
+  },
+  {
+   "source_id": "MANUAL-L1D-3",
+   "disposition": "required",
+   "reason": "Источник: plans/features/owner-corrective-initreply-2026-10-22.md разделы 5 (сценарии C/D) и 7 (существующая инфраструктура реакций; недоступное не заявляется; молчание - полноценный исход).",
+   "req_id": "INITREPLY-L1D-REACT",
+   "slice": "INITREPLY-L1D",
+   "acceptance": "Поддерживаемая реакция из плана L1 исполняется существующим react_moai на проверенную цель без текстового сообщения; невалидная реакция/цель - честное молчание без подмены; allowed-реакции доезжают до планера; SILENT не отправляет ничего.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "d87284c1",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
+     "observation": "_execute_initiative_react (react_moai, механика kill-switch учтена); планер получает строку разрешённых реакций (ALLOWED_LLM_REACTIONS); runner считает статус reacted (initiative_reacted + анти-спам учёт); тесты case6/case6b/case5 зелёные (кандидат d87284c1)."
+    }
+   ]
+  },
+  {
+   "source_id": "MANUAL-L1D-4",
+   "disposition": "required",
+   "reason": "Источник: plans/features/owner-corrective-initreply-2026-10-22.md раздел 8 (офлайн-проверка самостоятельного выбора L1 на разнообразных переписках: общие разговоры, персональные споры, юмор, бессмыслица, длинные обсуждения, ситуации без повода; без подгонки промпта).",
+   "req_id": "INITREPLY-L1D-OFFLINE",
+   "slice": "INITREPLY-L1D",
+   "acceptance": "Офлайн-пробы L1 (реальная сборка контекста + разбор плана, без Telegram) на 8 разнородных переписках показывают достижимое разнообразие форм без приоритетов/пропорций и без превращения инициативы в reply при наличии id/участников в окне.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "d87284c1",
+     "ref": "plans/features/asap8-v6-3-live-correction/evidence/initreply-l1d/initreply-l1d.md",
+     "observation": "harness OPENCODE_WORKFLOW_SCRATCH/initreply-l1d/verify_l1d.py, канон ace6246bd360, модель deepseek-v4.1-flash (та же прод-семья, шлюз OpenRouter, reasoning-артефакт задокументирован): chat 1 / reply 2 / react 2 / silent 3; кейс общего спора (7 сообщ., 3 участника) -> delivery=chat без цели (анти-дефект 2.58.109); 11 успешных вызовов, 0 Telegram; result_l1d_run3.json + result_l1d_retry.json."
+    }
+   ]
   }
  ],
  "items": [
