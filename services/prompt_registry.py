@@ -117,10 +117,14 @@ ACTIVE_PREFIX = "act:"
 #: канона). Шаг JB-3/W2-factory обязан бампать метку при правке текста.
 FACTORY_REVISION_LABELS: dict[str, str] = {
     # Direct / System2
-    "direct.base.tool_phase": "chat-canon-cfg07a",
-    "direct.base.l2_writer": "verbalizer-canon-mca23",
+    # ASAP W1 (22.10.2026, §3.1-3.7 source-2026-10-22.md): фабрики Direct
+    # (tool phase/L2 writer) и L1 (секция «ВЫБОР УЧАСТИЯ») переписаны текстами
+    # владельца байт-в-байт; прежние байты — PREV_*_W1 слепки + ступени
+    # prompt_migrations (ADR-1013-3).
+    "direct.base.tool_phase": "direct-toolphase-w1",
+    "direct.base.l2_writer": "l2-writer-w1",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-l1d",
+    "direct.base.l1_planner": "l1-planner-w1",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -129,7 +133,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # Factcheck / Summary / поиск
     "factcheck.base.single": "factcheck-r1022",
     "factcheck.base.analyst": "factcheck-analyst-r1023-f3",
-    "factcheck.base.verbalizer": "factcheck-verbalizer",
+    # ASAP W1 (P0-F «точечно», SOUL1-CLOSE-R1 04.3): identity-фраза снята
+    # с активного вербализатора фактчека; жанровые правила сохранены.
+    "factcheck.base.verbalizer": "factcheck-verbalizer-w1",
     # CFG-07A-2 (20.10.2026): каноны НЕ-фактчек маршрутов вычищены
     # (safety-bypass/identity/hostility; ADR-1013-3) — метки бампнуты.
     "summary.base.single": "summary-cfg07a",
@@ -192,13 +198,15 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "message.clarify_media_target": "clarify-media-mca23",
     "message.smartmodule.phrases": "smartmodule-phrases-r1021",
     "message.smartmodule.chat_persona": "chat-persona-core-voice",
-    # Personality Core (CORE-DOC): первоисточник SOUL-02 и ручное сжатие.
-    # v2 = FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §1 владельца): тема мата
-    # удалена из Core (регулирование мата — только Expression); прежние
-    # байты — PREV_PERSONALITY_CORE_* (chat_prompts), гвард
-    # superseded-core в core_selection не даёт им действовать из PG.
-    "core.personality": "soul02-author-full-v2",
-    "core.personality.compact": "soul02-compact-v2",
+    # Personality Core (CORE-DOC): первоисточник характера.
+    # v3 = ASAP W1 (22.10.2026, §3.2/§3.3 source-2026-10-22.md): фабрика =
+    # готовый текст владельца байт-в-байт (без регулирования мата, без
+    # SOUL-16-ремарки; токсичность/цинизм/абсурд сохранены как личность).
+    # v2 (FIX-CORRECTIVE-FOLLOWUP, мат снят) — PREV_PERSONALITY_CORE_*_V2_TEXT;
+    # v1 (авторский SOUL-02) — PREV_PERSONALITY_CORE_*; оба слепка в гварде
+    # superseded-core (core_selection) не действуют из PG.
+    "core.personality": "asap-core-full-v3",
+    "core.personality.compact": "asap-core-compact-v3",
     # SOUL-1 (W4): приёмы Humor Craft, рамка few-shot и классификатор окна
     "humor.craft.common": "humor-craft-guard-h11",
     "humor.technique.absurd_escalation": "humor-technique-w4",
@@ -261,9 +269,9 @@ class PromptBlockSpec:
 _PG_BLOCK_META: dict[str, dict] = {
     "prompts.direct_chat_system_prompt": dict(
         block_id="direct.base.tool_phase", family="direct",
-        purpose="База канала Direct (tool-phase): чтение контекста, "
-                "приоритеты, отношения, инструменты, анти-галлюцинации, "
-                "правило полноты.",
+        purpose="База канала Direct (tool-phase, §3.6): чтение контекста, "
+                "достоверность, граница этапа; отношения, инструменты, "
+                "анти-галлюцинации, правило полноты. Личность не задаёт.",
         consumers=("direct_chat_service.py:2360", "direct_chat_service.py:4593",
                    "prompt_composer(channel_contract)"),
         composition_point="speech_plain/tool_phase (слой channel_contract)",
@@ -271,8 +279,9 @@ _PG_BLOCK_META: dict[str, dict] = {
         ui="catalog"),
     "prompts.direct_chat_verbalizer_system_prompt": dict(
         block_id="direct.base.l2_writer", family="direct",
-        purpose="База L2 Writer/Вербализатора Direct: вход только JSON-справка, "
-                "запрет выдумывать цифры, типографика, полнота по плану.",
+        purpose="Канон L2 Writer/Вербализатора Direct (§3.1): контекст и план "
+                "→ готовый ответ; личность/типографика — отдельные слои "
+                "(Core/Expression/Style), JSON пользователю не отправляется.",
         consumers=("direct_chat_service.py:4082", "direct_chat_service.py:4311",
                    "direct_chat_service.py:7774"),
         composition_point="speech_plain/l2_writer+system2_stage2 (channel_contract)",
@@ -1058,15 +1067,17 @@ CORE_DETAIL_REASONS = frozenset({
     "compact_text_missing",  # компактной редакции нет → полная
 })
 
-#: Провенанс первоисточника полной редакции (SOUL-AMD.1.1): откуда именно
-#: взят авторский текст и какие требования SOUL-1 он закрывает. Equality с
-#: файлом и со строками-хешами карты проверяет
-#: ``tests/test_soul1_core_doc_text.py`` (не копия текста в тесте).
-#: CORRECTIVE-FOLLOWUP (21.10.2026, §1 владельца): заводская редакция =
-#: первоисточник МИНУС документированная правка «тема мата удалена из Core»
-#: (регулирование мата — только Expression). Прежние байты —
-#: PREV_PERSONALITY_CORE_* (chat_prompts); источник не правился.
-CORE_SOURCE: dict = {
+#: Провенанс первоисточника полной редакции. ИСТОРИЯ:
+#:   * v1 — авторский SOUL-02 «Речь, юмор и мышление»
+#:     (plans/features/soul-1/source-current-task.md, строки 43–53; провенанс
+#:     в CORE_SOURCE_V1);
+#:   * v2 — FIX-CORRECTIVE-FOLLOWUP (21.10.2026): мат-тема снята
+#:     (PREV_PERSONALITY_CORE_FULL_V2_TEXT, прод-байты 2.58.110
+#:     d98e72ec7926);
+#:   * v3 (ТЕКУЩАЯ) — ASAP W1 (22.10.2026, §3.2 source-2026-10-22.md):
+#:     готовый текст владельца байт-в-байт; сверка байтов —
+#:     tests/test_asap_w1_semantics.py (fence §3.2 == константа).
+CORE_SOURCE_V1: dict = {
     "path": "plans/features/soul-1/source-current-task.md",
     "chapter": "§3 SOUL-02 — Единый Personality Core как собственность владельца",
     "heading": "### Речь, юмор и мышление",
@@ -1076,7 +1087,18 @@ CORE_SOURCE: dict = {
                 "SOUL-02.5", "SOUL-02.6"),
     "map": "plans/features/soul-1/requirements-map.json",
     "amendment": "SOUL-AMD.1.1 + FIX-CORRECTIVE-FOLLOWUP 21.10.2026 §1",
+    "note": "исторический провенанс v1/v2; фабрика v3 — CORE_SOURCE",
+}
+
+CORE_SOURCE: dict = {
+    "path": "plans/features/asap-speech-arch/source-2026-10-22.md",
+    "chapter": "§3.2 P0-B — Core Full / core.personality (готовый текст владельца)",
+    "heading": "### 3.2. P0-B",
     "factory_rev_label": FACTORY_REVISION_LABELS[CORE_FULL_BLOCK_ID],
+    "compact_factory_rev_label": FACTORY_REVISION_LABELS[
+        CORE_COMPACT_BLOCK_ID],
+    "history": (CORE_SOURCE_V1, "v2=PREV_PERSONALITY_CORE_*_V2_TEXT "
+                "(FIX-CORRECTIVE-FOLLOWUP, прод 2.58.110)"),
 }
 
 
@@ -1098,22 +1120,31 @@ def doc_field_text(doc, field: str) -> str:
     return value if isinstance(value, str) else ""
 
 
-#: Ленивый кэш sha12 прежних заводских Core-редакций (гвард superseded-core,
+#: Ленивый кэш sha12 ПРЕЖНИХ заводских Core-редакций (гвард superseded-core,
 #: см. core_selection; импорт chat_prompts ленивый — без цикла).
-_SUPERSEDED_CORE_SHA_CACHE: dict[str, str] = {}
+#: ASAP W1: прежних редакций ДВЕ — v1 (авторский SOUL-02 с мат-темой) и
+#: v2 (FIX-CORRECTIVE-FOLLOWUP, прод-байты 2.58.110); обе не действуют из PG,
+#: кастом владельца (в т.ч. его ручная правка 22.10) не подменяется.
+_SUPERSEDED_CORE_SHA_CACHE: dict[str, frozenset] = {}
 
 
-def _superseded_core_shas() -> tuple[str, str]:
-    """(sha12 прежней полной, sha12 прежней компактной) Core-редакций."""
+def _superseded_core_shas() -> tuple[frozenset, frozenset]:
+    """(множество sha12 прежних полных, множество прежних компактных)."""
     if not _SUPERSEDED_CORE_SHA_CACHE:
         from services.chat_prompts import (
             PREV_PERSONALITY_CORE_COMPACT_TEXT,
+            PREV_PERSONALITY_CORE_COMPACT_V2_TEXT,
             PREV_PERSONALITY_CORE_FULL_TEXT,
+            PREV_PERSONALITY_CORE_FULL_V2_TEXT,
         )
-        _SUPERSEDED_CORE_SHA_CACHE["full"] = \
-            sha12(PREV_PERSONALITY_CORE_FULL_TEXT)
-        _SUPERSEDED_CORE_SHA_CACHE["compact"] = \
-            sha12(PREV_PERSONALITY_CORE_COMPACT_TEXT)
+        _SUPERSEDED_CORE_SHA_CACHE["full"] = frozenset({
+            sha12(PREV_PERSONALITY_CORE_FULL_TEXT),
+            sha12(PREV_PERSONALITY_CORE_FULL_V2_TEXT),
+        })
+        _SUPERSEDED_CORE_SHA_CACHE["compact"] = frozenset({
+            sha12(PREV_PERSONALITY_CORE_COMPACT_TEXT),
+            sha12(PREV_PERSONALITY_CORE_COMPACT_V2_TEXT),
+        })
     return (_SUPERSEDED_CORE_SHA_CACHE["full"],
             _SUPERSEDED_CORE_SHA_CACHE["compact"])
 
@@ -1149,18 +1180,18 @@ def core_selection(doc=None, *, source: str = "default",
         full_text = doc_field_text(document, "full_text") or factory_full
         compact_text = doc_field_text(document, "compact_text") or \
             factory_compact
-        # CORRECTIVE-FOLLOWUP (21.10.2026, §1 владельца): гвард
-        # superseded-core. Поле документа, байт-в-байт равное ПРЕЖНЕЙ
-        # заводской редакции Core (с темой мата), не действует: состоянием
-        # остаётся документ (данные не трогаются), а действующим слоем —
-        # НОВАЯ заводская редакция (прецедент withheld_factory_governs
-        # prompt_factory.restore_backup и suppress_legacy_speech). Кастом
-        # владельца (байты не равны известному слепку) не подменяется никогда.
-        _sup_full_sha, _sup_compact_sha = _superseded_core_shas()
-        if full_text and sha12(full_text) == _sup_full_sha:
+        # CORRECTIVE-FOLLOWUP (21.10.2026, §1) + ASAP W1 (22.10.2026, §3.2):
+        # гвард superseded-core. Поле документа, байт-в-байт равное ЛЮБОЙ
+        # ПРЕЖНЕЙ заводской редакции Core (v1 с мат-темой / v2 прод-байты
+        # 2.58.110), не действует: состоянием остаётся документ (данные не
+        # трогаются), а действующим слоем — НОВАЯ заводская редакция v3
+        # (прецедент withheld_factory_governs). Кастом владельца (байты не
+        # равны известным слепкам) не подменяется никогда.
+        _sup_full_shas, _sup_compact_shas = _superseded_core_shas()
+        if full_text and sha12(full_text) in _sup_full_shas:
             full_text = factory_full
             superseded_fields.append("full_text")
-        if compact_text and sha12(compact_text) == _sup_compact_sha:
+        if compact_text and sha12(compact_text) in _sup_compact_shas:
             compact_text = factory_compact
             superseded_fields.append("compact_text")
         origin = str(document.get("origin") or "owner_edit")
@@ -1584,7 +1615,29 @@ def factory_set_fingerprint() -> str:
 #: (summary-narrator-legfix). Сверка карт фабричных текстов: changed = 1
 #: (summary.base.narrator). Было ``3507bd6f92eb``, стало ``553a281fe2fd``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "553a281fe2fd"
+#: Бамп ASAP W1 (22.10.2026, §3.1–3.7 source-2026-10-22.md, слайсы
+#: P0-A/B/C/D/E/F/G; ADR-1013-3): фабрики переписаны ГОТОВЫМИ ТЕКСТАМИ
+#: ВЛАДЕЛЬЦА байт-в-байт — core.personality/compact = §3.2/§3.3 (v3:
+#: ``asap-core-full-v3``/``asap-core-compact-v3``; без регулирования мата и
+#: SOUL-16-ремарки; прежние байты v1/v2 — PREV_PERSONALITY_CORE_* +
+#: *_V2_TEXT, обе в гварде superseded-core); direct.base.l2_writer = §3.1
+#: (``l2-writer-w1``; без личности/типографики, data-reader для JSON-пакета
+#: Stage-2 по P0A-RISK); direct.base.tool_phase = §3.6 (``direct-toolphase-
+#: w1``; ролевой блок НАЗНАЧЕНИЕ/ДОСТОВЕРНОСТЬ/ГРАНИЦА ЭТАПА вместо
+#: СИСТЕМНОЙ РОЛИ/ПРИОРИТЕТОВ/ПРАВИЛ ОФОРМЛЕНИЯ и блоков A/B); direct.base.
+#: l1_planner — секция «ВЫБОР УЧАСТИЯ» §3.7 вместо «ФОРМА УЧАСТИЯ»
+#: (``l1-planner-w1``; схема/правила прежние); factcheck.base.verbalizer —
+#: identity-фраза снята (``factcheck-verbalizer-w1``, SOUL1-CLOSE-R1 04.3).
+#: EXPRESSION_HEADER = §3.4 (вне реестра, слой mca_expression).
+#: Слепки прежних прод-байтов 2.58.110 — PREV_*_W1, ступени лестницы
+#: prompt_migrations + ROLLBACK (байт-сверка с продом — W0-инвентаризация,
+#: plans/features/asap-speech-arch/evidence/w0-inventory.md).
+#: Сверка карт фабричных текстов: changed = 6 (core.personality,
+#: core.personality.compact, direct.base.tool_phase, direct.base.l2_writer,
+#: direct.base.l1_planner, factcheck.base.verbalizer).
+#: Было ``553a281fe2fd``, стало ``fd4e88754749``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "fd4e88754749"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

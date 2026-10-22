@@ -25,6 +25,7 @@ prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT — ETL-экст
 `PREV_SUMMARY_L1_CLUSTERIZER_R1026` — база канона S3 без ступени маркировки).
 """
 import logging
+import re
 
 from services.chat_prompts import (
     CHAT_SYSTEM_PROMPT,
@@ -39,9 +40,14 @@ from services.chat_prompts import (
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_MCA23,
     PREV_CHAT_VERBALIZER_R1023,
+    PREV_CHAT_VERBALIZER_W1,
+    PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
     PREV_DIRECT_L1_PLANNER_1022,
+    PREV_DIRECT_L1_PLANNER_L1D,
+    PREV_PERSONALITY_CORE_FULL_TEXT,
+    PREV_PERSONALITY_CORE_FULL_V2_TEXT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -56,6 +62,7 @@ from services.checkup_prompts import (
 from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
+    FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
@@ -65,6 +72,7 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_UNIFIED_CORE_AB_SYSTEM_PROMPT,
     PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+    PREV_FACTCHECK_VERBALIZER_W1,
     PREV_R1022_FACTCHECK_SYSTEM_PROMPT,
 )
 from services.search_prompts import (
@@ -143,13 +151,27 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # CFG-07A-2 (SF-09/13, 20.10.2026, ADR-1013-3): прод-канон 2.58.100
         # (MCA-23-композиция с выдуманной тех-причиной слива) ведёт на
         # чистый канон (честный слив + контракт служебных пометок).
-        (PREV_CHAT_CFG07A_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_CHAT_CFG07A_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        # ASAP W1 (P0-F, §3.6, 22.10.2026): прод-канон 2.58.110
+        # (0fe9680ba280: ролевой блок «токсичный … бот-абьюзер» +
+        # ПРИОРИТЕТЫ + ПРАВИЛА ОФОРМЛЕНИЯ + блоки A/B) ведёт на канон §3.6
+        # (НАЗНАЧЕНИЕ КАНАЛА DIRECT/ДОСТОВЕРНОСТЬ/ГРАНИЦА ЭТАПА). Ступень
+        # обслуживает ТОЛЬКО байты прежнего канона; подлинные кастомы
+        # владельца (W0: cf404931f84c, withheld) лестницей не трогаются —
+        # их гасит W2 (write_speech_value с провенансом, §5.5).
+        (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): первые ступени ключа Вербализатора direct —
     # прод-значения 10.23 (база без типографики и полный канон) ведут на
     # новый канон без unconditional cap-правила.
+    # ASAP W1 (P0-A, §3.1): прод-канон 2.58.110 (d0ef0d376fc3: «Ты —
+    # токсичный … бот-абьюзер …» + ТИПОГРАФИКА) ведёт на канон владельца
+    # (контекст+план → готовый ответ, без личности/форматных правил).
+    # W0-факт: активное значение прода — unprovenanced-кастом 091115cadc28
+    # (withheld) — ступенью НЕ обслуживается, гасится W2 с провенансом.
     "prompts.direct_chat_verbalizer_system_prompt": [
         (PREV_CHAT_VERBALIZER_R1023, DIRECT_VERBALIZER_SYSTEM_PROMPT),
-        (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+        (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
     # Planner Direct. Ступень — база канона без правил (слепок
     # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
@@ -161,10 +183,16 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # L1D (22.10.2026, директива владельца owner-corrective-initreply):
     # ступень прод-канона 2.58.109 (слепок PREV_DIRECT_L1_PLANNER_1022)
     # ведёт на канон с полями формы участия delivery/target_*.
+    # ASAP W1 (P0-G, §3.7): ступень прод-канона 2.58.110 (ace6246bd360,
+    # блок «ФОРМА УЧАСТИЯ») ведёт на канон с секцией «ВЫБОР УЧАСТИЯ»
+    # (схема/правила прежние). W0-факт: активное значение прода УЖЕ
+    # ace6246bd360 (deploy-миграция 07:26) — на рестарте уедет на новый
+    # канон этой ступенью.
     "prompts.direct_l1_planner_system_prompt": [
         (PREV_DIRECT_L1_PLANNER_BASE, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_1021, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
-        (PREV_DIRECT_L1_PLANNER_1022, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
+        (PREV_DIRECT_L1_PLANNER_1022, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        (PREV_DIRECT_L1_PLANNER_L1D, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -242,6 +270,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # на канон без поля (схема JSON без изменения контракта).
         (PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT,
          FACTCHECK_ANALYST_SYSTEM_PROMPT)],
+    # ASAP W1 (P0-F «точечно», SOUL1-CLOSE-R1 04.3, ADR-1013-3): первая
+    # ступень ключа Вербализатора фактчека — прод-канон 2.58.110 (identity
+    # «Ты — токсичный, ироничный фактчекер … двача» + ТИПОГРАФИКА) ведёт на
+    # канон без identity-фразы (жанровые правила/контракты прежние).
+    "prompts.factcheck_verbalizer_system_prompt": [
+        (PREV_FACTCHECK_VERBALIZER_W1, FACTCHECK_VERBALIZER_SYSTEM_PROMPT)],
     # 10.26 (S3, ADR-1026-5 D4; ADR-1013-3): новый PG-ключ L1-Кластеризатора.
     # Ступень — правило маркировки целевого сообщения (TARGET_INSTRUCTION_BLOCK);
     # идемпотентна: до сида — skip (сид ConfigCache поставит канон), текущий
@@ -304,12 +338,22 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # CFG-07A-2 (20.10.2026): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
     # прод-канон 2.58.100 (MCA-23-композиция; снимается только ступень
     # CFG-07A, стек ступеней цел — ADR-1013-3).
+    # ASAP W1 (22.10.2026): откат снимает только ступень W1 — на прод-канон
+    # 2.58.110 (PREV_*_W1); стек ступеней цел.
     "prompts.direct_chat_system_prompt":
-        (CHAT_SYSTEM_PROMPT, PREV_CHAT_CFG07A_SYSTEM_PROMPT),
+        (CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT),
     # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
     # 10.23 (с cap-правилом); ключ в PG не удаляется.
+    # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3).
     "prompts.direct_chat_verbalizer_system_prompt":
-        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_MCA23),
+        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1),
+    # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,
+    # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
+    "prompts.direct_l1_planner_system_prompt":
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_L1D),
+    # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
+    "prompts.factcheck_verbalizer_system_prompt":
+        (FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1),
     "prompts.summary_system_prompt":
         # CFG-07A-2: откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон
         # 2.58.100 (снимается только ступень CFG-07A; стек ступеней цел).
@@ -382,6 +426,76 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     "prompts.summary_narrator_system_prompt":
         (SUMMARY_NARRATOR_SYSTEM_PROMPT, PREV_SUMMARY_NARRATOR_LEGFIX),
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ASAP W1 (P0-B, §3.2 «Особая осторожность») — owner-preserving патч Core
+# ═══════════════════════════════════════════════════════════════════════════
+# W0-факт (plans/features/asap-speech-arch/evidence/w0-inventory.md §3):
+# активный ``character.core.full_text`` = владельческая правка 22.10
+# (act:f59ba0f42a48, owner_edit, doc rev 6, 2327c) — мат-абзац владелец уже
+# удалил сам; служебная ремарка «**Важно:** … см. SOUL-16 …» ОСТАЛАСЬ
+# (унаследована от фабрики v2). Патч удаляет из активного текста владельца
+# ТОЛЬКО служебную ремарку (и точечные ссылки «см. SOUL-NN»), всё остальное
+# сохраняя байт-в-байт (ДОП-2: авторские изменения не перезаписываются,
+# показывается diff). Чистая функция для W2 (запись через write_speech_value
+# с провенансом owner_edit + history); БД сама по себе не трогается.
+
+#: Точная служебная ремарка фабрики v2 (удалена в v3, §3.2): абзац целиком,
+#: с предшествующей пустой строкой. Байты = PREV хвост «**Важно:** …».
+_CORE_SERVICE_REMARK_V2 = (
+    "\n\n**Важно:** это *семантическое описание характера*, а не форматный "
+    "контракт. Запреты на кавычки, точки, оформление ссылок, эмодзи и т.п. "
+    "живут в отдельном редактируемом слое «Стиль письма», см. SOUL-16; они "
+    "не должны загрязнять Core. Сохранить исходную формулировку ядра по "
+    "смыслу и владельческую возможность менять любой фрагмент.")
+
+#: Узкое точечное упоминание «см. SOUL-NN» (если владелец переформулировал
+#: абзац, но метка осталась). Только связка «см. SOUL-<цифры>», остальной
+#: текст владельца не трогается.
+_CORE_SOUL_REF_RE = re.compile(r"\s*см\.\s*SOUL-\d+")
+
+#: Известные прежние заводские байты (v1/v2) — гасятся гвардом superseded-core
+#: (prompt_registry.core_selection), owner-preserving патч для них не нужен.
+_CORE_SUPERSEDED_NOTE = "см. prompt_registry.core_selection superseded-core"
+
+
+def owner_preserve_core_full_patch(text: str) -> tuple[str, list[str]]:
+    """Минимальный owner-preserving патч активного Full Core (W2-ступень).
+
+    Удаляет ТОЛЬКО: (а) точную служебную ремарку v2 (абзац «**Важно:** …»)
+    и (б) точечные остатки «см. SOUL-NN». Всё остальное — байт-в-байт
+    владельческий текст. Возврат ``(patched, removed)``: ``removed`` — список
+    удалённых фрагментов (пуст = править нечего, идемпотентно). Никогда не
+    бросает; на пустом/нестроковом входе — ``(вход, [])``.
+
+    НЕ применяется к байтам, равным прежним заводским редакциям (v1/v2) —
+    их ведёт на фабрику гвард superseded-core (``_CORE_SUPERSEDED_NOTE``).
+    """
+    try:
+        source = str(text or "")
+        if not source:
+            return source, []
+        if source in (PREV_PERSONALITY_CORE_FULL_TEXT,
+                      PREV_PERSONALITY_CORE_FULL_V2_TEXT):
+            return source, [_CORE_SUPERSEDED_NOTE]
+        removed: list[str] = []
+        patched = source
+        if _CORE_SERVICE_REMARK_V2 in patched:
+            patched = patched.replace(_CORE_SERVICE_REMARK_V2, "")
+            removed.append(_CORE_SERVICE_REMARK_V2.lstrip("\n"))
+        if "SOUL-" in patched:
+            refs = _CORE_SOUL_REF_RE.findall(patched)
+            patched = _CORE_SOUL_REF_RE.sub("", patched)
+            for ref in refs:
+                stripped = ref.strip()
+                if stripped not in removed:
+                    removed.append(stripped)
+        if removed:
+            patched = patched.rstrip()
+        return patched, removed
+    except Exception:      # pragma: no cover — патч не роняет миграцию
+        return str(text or ""), []
 
 
 async def migrate_prompt_canons(cache) -> dict[str, str]:
