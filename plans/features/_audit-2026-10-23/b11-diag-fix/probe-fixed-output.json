@@ -1,0 +1,41 @@
+{
+ "prod_FAILED": {
+  "code": "attention",
+  "detail": "╨┐╨╛╤Б╨╗╨╡╨┤╨╜╤П╤П ╨┐╨╛╨┐╤Л╤В╨║╨░ FAILED (run=run-prod_FAILED, publication=failed, health=degraded)"
+ },
+ "prod_DEGRADED": {
+  "code": "degraded",
+  "detail": "╨┐╨╛╤Б╨╗╨╡╨┤╨╜╤П╤П ╨┐╨╛╨┐╤Л╤В╨║╨░ DEGRADED тАФ ╤А╨╡╨╖╨╡╤А╨▓╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤Г╤А (run=run-prod_DEGRADED, publication=published, health=degraded)"
+ },
+ "prod_DONE": {
+  "code": "ok",
+  "detail": "gate on, ╨▓╤Е╨╛╨┤ ╨╡╤Б╤В╤М, ╨┐╨╛╨┐╤Л╤В╨║╨╕ ╤Б╨▓╨╡╨╢╨╕╨╡"
+ },
+ "backlog": {
+  "recent_generations": [],
+  "quota_state": [],
+  "backlog_missing_embedding": null,
+  "backlog_status": "unknown",
+  "backlog_reason": "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such table: graph_facts_vec"
+ },
+ "summary_block": {
+  "diagnoses": {
+   "producer_off": 3,
+   "no_input": 3,
+   "never_run": 3,
+   "ok": 1
+  },
+  "not_green_rule": "never_run/producer_off/no_input/unknown/degraded/attention ╨╜╨╕╨║╨╛╨│╨┤╨░ ╨╜╨╡ ╤Б╤З╨╕╤В╨░╤О╤В╤Б╤П ╨╖╨╡╨╗╤С╨╜╤Л╨╝╨╕ (REQ-B11-E2E)"
+ },
+ "backlog_with_vec": {
+  "recent_generations": [],
+  "quota_state": [],
+  "backlog_missing_embedding": 1,
+  "backlog_status": "ok",
+  "backlog_reason": null
+ },
+ "backlog_with_vec_diagnosis": {
+  "code": "never_run",
+  "detail": "╨▓╨║╨╗╤О╤З╨╡╨╜╨╛, ╨╜╨╛ ╨┐╨╛╨┐╤Л╤В╨╛╨║ ╨╜╨╡ ╨▒╤Л╨╗╨╛ (╨╜╨╡ ╨╖╨╡╨╗╤С╨╜╨╛╨╡)"
+ }
+}

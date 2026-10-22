@@ -1,0 +1,125 @@
+B11 — механизмы (2026-10-23 06:20:43)
+DB: local_database.db | chat_id: — | PG: нет (pg_dsn_not_provided)
+Ошибки чтения (fail-soft, до 20): 20
+
+== Сон (dream) — источники недоступны (fail-soft)
+  gate: effective=False (default:DREAM_ENABLED=off); env={'DREAM_ENABLED': False}; pg_catalog=—
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"state": "no_watermark"}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True graph_facts(kind='belief')
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Глубокий сон (deep sleep) — источники недоступны (fail-soft)
+  gate: effective=False (default:DEEP_SLEEP_ENABLED=off); env={'DEEP_SLEEP_ENABLED': False}; pg_catalog=—
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"paradigms_total": null, "bootstrap_pending": false}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=False парадигмы входят в retrieval graph_facts; прямой трейс нет
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Пересмотр убеждений (belief revision) — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'MCA_DREAM_REVISION_QUEUE_ENABLED': True}; pg_catalog=—
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"reviews_total": null}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=False пересмотренные убеждения живут в graph_facts; трейс в ответе нет
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Парадигмы (paradigms) — источники недоступны (fail-soft)
+  gate: effective=False (default:DEEP_SLEEP_ENABLED=off); env={'DEEP_SLEEP_ENABLED': False, 'DEEP_SLEEP_MAX_PARADIGMS': True}; pg_catalog=—
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"paradigms_total": null, "bootstrap_pending": false}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=False парадигмы входят в retrieval graph_facts; прямой трейс нет
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Self-model / traits (характер) — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'MCA_SELF_MODEL_ENABLED': True}; pg_catalog=—
+  producer: registered=True processes=['self.model', 'persona.traits']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"self_identity": null, "behavior_rules_total": null}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True persona (bot_persona) читает traits; events component=self_model
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Graph memory (GraphRAG) — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'GRAPHRAG_SHADOW_REBUILD_ENABLED': True}; pg_catalog=—
+  producer: registered=True processes=['embeddings.index']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"recent_generations": null, "quota_state": null, "backlog_missing_embedding": null, "backlog_status": "unknown", "backlog_reason": "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no su
+  backlog (без эмбеддинга): unknown — SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such table: graph_facts
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True GraphRAG retrieval читает graph_facts/nodes/edges
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Инкрементальный embedding/backfill — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'EMBED_CONTROL_PLANE_ENABLED': True, 'EMBED_ASYNC_BATCH_ENABLED': False}; pg_catalog=—
+  producer: registered=True processes=['embeddings.index']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"recent_generations": null, "quota_state": null, "backlog_missing_embedding": null, "backlog_status": "unknown", "backlog_reason": "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no su
+  backlog (без эмбеддинга): unknown — SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such table: graph_facts
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True GraphRAG retrieval читает graph_facts/nodes/edges
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Experience (семантическое обучение) — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'MCA_EXPERIENCE_LESSONS_ENABLED': True, 'MCA_EXPERIENCE_REVIEW_ENABLED': True}; pg_catalog=—
+  producer: registered=True processes=['self_learning.run']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"lessons_total": null, "lesson_applications_total": null}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True mca_lesson_applications (инъекция-гард Direct)
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Initiative (проактивный наблюдатель) — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'INITIATIVE_OBSERVER_ENABLED': True, 'INITIATIVE_ENABLED': True}; pg_catalog=—
+  producer: registered=True processes=['intent.initiative']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"intents_total": null, "intents_active": null}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True  Initiative funnel mca_events component=initiative/intents
+  диагноз: unavailable — источники секции недоступны (fail-soft)
+
+== Summary scheduler (планировщик пересказа) — источники недоступны (fail-soft)
+  gate: effective=True (default_on); env={'SUMMARY_ENABLED': True, 'SYSTEM2_SUMMARY_ENABLED': True}; pg_catalog=—
+  producer: registered=True processes=['summary.window', 'summary.publish']
+  последняя попытка: НЕТ (never_run)
+  вход: available=False total=None fresh_24h=None
+  job: —
+  запись: {"runs_total": null}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True summary публикуется в чат; summary_runs.publication_status
+  диагноз: unavailable — источники секции недоступны (fail-soft)

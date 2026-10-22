@@ -63,7 +63,30 @@ DIAG_WORKER_CRASHED = "worker_crashed"
 DIAG_TTL_DUE = "ttl_due"
 DIAG_NEVER_RUN = "never_run"
 DIAG_ATTENTION = "attention"
+DIAG_DEGRADED = "degraded"
+DIAG_UNKNOWN = "unknown"
 DIAG_UNAVAILABLE = "unavailable"
+
+# ── словари статусов попыток (реальные писатели, не догадки) ────────────────
+# Сравнение — casefold: `summary_runs.state` пишется в ВЕРХНЕМ регистре
+# (`services.summary_run_store.TERMINAL_STATES` = DONE/DEGRADED/FAILED), а
+# `mca_events.outcome`/`task_jobs.status` — в нижнем (services/mca_events.py:
+# success/failed/skipped/cancelled/interrupted/...;
+# services/task_supervisor.py: queued/running/completed/failed/cancelled/
+# interrupted).
+_FAILED_ATTEMPT_STATUSES = frozenset({
+    "failed", "failure", "error", "cancelled", "canceled", "interrupted",
+    "crashed", "timeout", "timed_out",
+})
+_DEGRADED_ATTEMPT_STATUSES = frozenset({"degraded", "partial"})
+_OK_ATTEMPT_STATUSES = frozenset({
+    "done", "ok", "success", "succeeded", "completed", "published",
+    "kept", "narrowed", "split", "disputed", "replaced", "pass", "applied",
+})
+# `status_semantics="classification"` — статус-колонка описывает не исход
+# (например `mca_trait_observations.subject_status`: self/other/ambiguous),
+# поэтому словарная проверка к ней не применяется.
+_STATUS_SEMANTICS_OUTCOME = "outcome"
 
 DEFAULT_STALE_SECONDS = 30 * 60      # heartbeat старше → worker crashed
 _WINDOW_24H = 24 * 3600
@@ -263,6 +286,7 @@ class ReadOnlyDB:
         self.path = str(path)
         self.errors: list[str] = []
         self._missing: set[str] = set()
+        self._vec_loaded: tuple[bool, str | None] | None = None
         try:
             self.conn = sqlite3.connect(
                 f"file:{self.path}?mode=ro", uri=True, timeout=10.0)
@@ -305,6 +329,55 @@ class ReadOnlyDB:
             return int(rows[0].get("c", 0) or 0)
         except (KeyError, IndexError, TypeError, ValueError):
             return 0
+
+    def scalar_with_error(self, sql: str, params: tuple = ()) \
+            -> tuple[int | None, str | None]:
+        """scalar + причина: (значение, None) либо (None, текст ошибки).
+
+        Нужен там, где `None` нельзя отдавать без объяснения (backlog:
+        `graph_facts_vec` — vec0-таблица, без загруженного расширения запрос
+        падает и раньше давал молчаливый `null`)."""
+        before = len(self.errors)
+        rows = self.q(sql, params)
+        if rows is None:
+            reason = (self.errors[-1] if len(self.errors) > before
+                      else "unknown read error")
+            return None, reason
+        try:
+            return int(rows[0].get("c", 0) or 0), None
+        except (KeyError, IndexError, TypeError, ValueError) as exc:
+            return None, f"unexpected result: {type(exc).__name__}"
+
+    def ensure_vec(self) -> tuple[bool, str | None]:
+        """Догрузить sqlite-vec в read-only коннект (idempotent, fail-soft).
+
+        Нужно для чтения vec0-таблиц (`graph_facts_vec`, `smart_archive`).
+        Загрузка расширения НЕ пишет в БД. Нет пакета/расширения →
+        (False, причина) — вызывающий обязан отдать честный `unknown`."""
+        if not self.ok():
+            return False, "sqlite недоступна"
+        if self._vec_loaded is not None:
+            return self._vec_loaded
+        try:
+            import sqlite_vec
+        except Exception as exc:       # noqa: BLE001 - fail-soft
+            self._vec_loaded = (False, f"sqlite_vec не установлен: "
+                                       f"{type(exc).__name__}")
+            return self._vec_loaded
+        try:
+            self.conn.enable_load_extension(True)
+            self.conn.load_extension(sqlite_vec.loadable_path())
+        except Exception as exc:       # noqa: BLE001 - fail-soft
+            self._vec_loaded = (False, f"sqlite_vec не загрузился: "
+                                       f"{type(exc).__name__}: {exc}")
+            return self._vec_loaded
+        finally:
+            try:
+                self.conn.enable_load_extension(False)
+            except sqlite3.Error:
+                pass
+        self._vec_loaded = (True, None)
+        return self._vec_loaded
 
     def close(self) -> None:
         if self.conn is not None:
@@ -612,9 +685,12 @@ def diagnose(*, gate_effective: bool | None, gate_source: str,
       5. job failed → worker_crashed;
       6. backlog растёт, а job давно завершён без прогресса → cursor_stalled;
       7. попыток не было → never_run («включено, но не запускалось»);
-      8. последняя попытка ошибочна → attention;
-      9. TTL пр_interval просрочен → ttl_due;
-     10. иначе → ok."""
+      8. последняя попытка ошибочна (failed/error/cancelled/interrupted —
+         без учёта регистра) или публикация failed → attention;
+      9. попытка деградировала (DEGRADED/partial) → degraded (не зелёное);
+     10. статус попытки не из известного словаря → unknown (не зелёное);
+     11. TTL пр_interval просрочен → ttl_due;
+     12. иначе → ok."""
     if sources_unavailable:
         return {"code": DIAG_UNAVAILABLE,
                 "detail": "источники секции недоступны (fail-soft)"}
@@ -659,11 +735,31 @@ def diagnose(*, gate_effective: bool | None, gate_source: str,
     if last_attempt is None:
         return {"code": DIAG_NEVER_RUN,
                 "detail": "включено, но попыток не было (не зелёное)"}
-    status = str(last_attempt.get("status") or "")
-    if status in ("error", "failed"):
-        return {"code": DIAG_ATTENTION,
-                "detail": f"последняя попытка {status} "
-                          f"({last_attempt.get('detail')})"}
+    status_raw = str(last_attempt.get("status") or "").strip()
+    if str(last_attempt.get("status_semantics")
+           or _STATUS_SEMANTICS_OUTCOME) == _STATUS_SEMANTICS_OUTCOME:
+        status = status_raw.casefold()
+        if status in _FAILED_ATTEMPT_STATUSES:
+            return {"code": DIAG_ATTENTION,
+                    "detail": f"последняя попытка {status_raw} "
+                              f"({last_attempt.get('detail')})"}
+        # Публикация провалена при формально успешном state — тоже не зелёное
+        # (summary_runs.publication_status пишется 'published'/'failed').
+        publication = str(last_attempt.get("publication_status")
+                          or "").strip().casefold()
+        if publication == "failed":
+            return {"code": DIAG_ATTENTION,
+                    "detail": f"публикация failed "
+                              f"(state={status_raw or '—'}, "
+                              f"{last_attempt.get('detail')})"}
+        if status in _DEGRADED_ATTEMPT_STATUSES:
+            return {"code": DIAG_DEGRADED,
+                    "detail": f"последняя попытка {status_raw} — резервный "
+                              f"контур ({last_attempt.get('detail')})"}
+        if status not in _OK_ATTEMPT_STATUSES:
+            return {"code": DIAG_UNKNOWN,
+                    "detail": (f"статус попытки {status_raw!r} не "
+                               "распознан (не зелёное; REQ-B11-E2E)")}
     if ttl_seconds is not None:
         ts = int(last_attempt.get("ts") or 0)
         if ts and (int(now) - ts) > int(ttl_seconds):
@@ -919,6 +1015,11 @@ def _self_model_section(db, spec, now, chat_id, stale_seconds) -> dict:
         db, "mca_trait_observations", [], chat_id=chat_id,
         ts_col="observed_at", kind_col=None, status_col="subject_status",
         detail_cols=("dimension",))
+    if last is not None:
+        # `subject_status` — классификация субъекта (self/other/ambiguous,
+        # services/mca_self_model.SUBJECT_STATUSES), НЕ исход попытки:
+        # словарная проверка статусов к ней не применяется.
+        last["status_semantics"] = "classification"
     input_total = db.scalar(spec["input_sql"])
     fresh = db.scalar(spec["fresh_input_sql"], (now - _WINDOW_24H,))
     identity = None
@@ -970,6 +1071,40 @@ def _input_block(db, spec, total, fresh, now) -> dict:
             str(spec.get("tables", [])[:1] or ["источникам"])}
 
 
+def _backlog_block(db, spec) -> dict:
+    """Backlog «фактов без эмбеддинга» + честный статус.
+
+    `graph_facts_vec` — vec0-таблица: без загруженного `sqlite_vec` запрос
+    падает, и прежний `scalar()` молча отдавал `null` (на проде 22.10.2026
+    так и было: backlog всегда null, при фактических 4162). Теперь: пробуем
+    запрос, при ошибке догружаем расширение (read-only, без записи) и
+    повторяем; если и это не удалось — `backlog_status=unknown` + причина."""
+    sql = spec.get("backlog_sql")
+    if not sql:
+        return {"backlog_missing_embedding": None,
+                "backlog_status": "not_instrumented",
+                "backlog_reason": "механизм не пишет эмбеддинги"}
+    before = len(db.errors)
+    value, err = db.scalar_with_error(sql)
+    loaded, why = False, None
+    if value is None:
+        del db.errors[before:]          # ошибка ниже уйдёт в backlog_reason
+        loaded, why = db.ensure_vec()
+        if loaded:
+            before = len(db.errors)
+            value, err = db.scalar_with_error(sql)
+            if value is None:
+                del db.errors[before:]
+    if value is not None:
+        return {"backlog_missing_embedding": value,
+                "backlog_status": "ok", "backlog_reason": None}
+    reason = err or "неизвестная ошибка чтения"
+    if not loaded and why:
+        reason = f"{reason}; {why}"
+    return {"backlog_missing_embedding": None,
+            "backlog_status": "unknown", "backlog_reason": reason}
+
+
 def _graph_or_embed_section(db, spec, now, chat_id, stale_seconds) -> dict:
     last = _last_event(db, event_names=spec["event_names"],
                        components=spec["event_components"], chat_id=chat_id)
@@ -982,9 +1117,8 @@ def _graph_or_embed_section(db, spec, now, chat_id, stale_seconds) -> dict:
                         "detail": (f"reason={last.get('reason_code')}, "
                                    f"stage={last.get('stage')}")}
     job = _last_job(db, kinds=spec["job_kinds"], coalesce_keys=[])
-    backlog = None
-    if spec.get("backlog_sql"):
-        backlog = db.scalar(spec["backlog_sql"])
+    backlog_block = _backlog_block(db, spec)
+    backlog = backlog_block["backlog_missing_embedding"]
     input_total = db.scalar(spec["input_sql"])
     fresh = db.scalar(spec["fresh_input_sql"], (now - _WINDOW_24H,))
     generations = None
@@ -1001,7 +1135,7 @@ def _graph_or_embed_section(db, spec, now, chat_id, stale_seconds) -> dict:
         "real_input": _input_block(db, spec, input_total, fresh, now),
         "write_result": {"recent_generations": generations,
                          "quota_state": quota,
-                         "backlog_missing_embedding": backlog},
+                         **backlog_block},
         "used_in_response": {"tracked": True,
                              "source": ("GraphRAG retrieval читает "
                                         "graph_facts/nodes/edges")},
@@ -1164,6 +1298,10 @@ def _summary_section(db, spec, now, chat_id, stale_seconds) -> dict:
                 "status": str(row.get("state") or ""),
                 "kind": "summary_run",
                 "source_table": "summary_runs",
+                # publication_status — часть исхода: провал публикации при
+                # успешном state тоже не зелёное (diagnose → attention).
+                "publication_status": str(
+                    row.get("publication_status") or ""),
                 "detail": (f"run={row.get('run_id')}, "
                            f"publication={row.get('publication_status')}, "
                            f"health={row.get('pipeline_health')}")}
@@ -1307,8 +1445,9 @@ def _summary_block(sections: list[dict]) -> dict:
         code = (section.get("diagnosis") or {}).get("code") or "unknown"
         counters[code] = counters.get(code, 0) + 1
     return {"diagnoses": counters,
-            "not_green_rule": ("never_run/producer_off/no_input никогда не "
-                               "считаются зелёными (REQ-B11-E2E)")}
+            "not_green_rule": ("never_run/producer_off/no_input/unknown/"
+                               "degraded/attention никогда не считаются "
+                               "зелёными (REQ-B11-E2E)")}
 
 
 # ── человекочитаемый вывод ───────────────────────────────────────────────────
@@ -1321,7 +1460,9 @@ _DIAG_RU = {
     DIAG_WORKER_CRASHED: "worker crashed (stale heartbeat/failed)",
     DIAG_TTL_DUE: "просрочен интервал запуска (TTL)",
     DIAG_NEVER_RUN: "включено, но ни одной попытки",
-    DIAG_ATTENTION: "последняя попытка с ошибкой",
+    DIAG_ATTENTION: "последняя попытка не завершилась успешно",
+    DIAG_DEGRADED: "последняя попытка деградирована (резервный контур)",
+    DIAG_UNKNOWN: "статус попытки не распознан (не зелёное)",
     DIAG_UNAVAILABLE: "источники недоступны (fail-soft)",
 }
 
@@ -1381,6 +1522,18 @@ def format_human(report: dict) -> str:
             lines.append("  job: —")
         wr = m.get("write_result") or {}
         lines.append(f"  запись: {json.dumps(wr, ensure_ascii=False)[:200]}")
+        if isinstance(wr, dict) and "backlog_status" in wr:
+            bl = wr.get("backlog_missing_embedding")
+            status = str(wr.get("backlog_status") or "")
+            if bl is not None:
+                text = f"  backlog (без эмбеддинга): {bl}"
+            elif status == "not_instrumented":
+                text = "  backlog (без эмбеддинга): не инструментирован"
+            else:
+                text = "  backlog (без эмбеддинга): unknown"
+            if wr.get("backlog_reason"):
+                text += f" — {wr.get('backlog_reason')}"
+            lines.append(text)
         counters = m.get("counters_24h")
         if counters is None:
             counters = m.get("events_24h")

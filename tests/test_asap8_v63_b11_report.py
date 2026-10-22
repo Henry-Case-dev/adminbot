@@ -23,12 +23,14 @@ from services.database import DatabaseService
 from tools.v63_b11_mechanisms_report import (
     DIAG_ATTENTION,
     DIAG_CURSOR_STALLED,
+    DIAG_DEGRADED,
     DIAG_NEVER_RUN,
     DIAG_NO_INPUT,
     DIAG_OK,
     DIAG_PRODUCER_OFF,
     DIAG_TTL_DUE,
     DIAG_UNAVAILABLE,
+    DIAG_UNKNOWN,
     DIAG_WORKER_CRASHED,
     ReadOnlyDB,
     collect_report,
@@ -281,7 +283,7 @@ class TestKnownStatesDiagnosed:
         await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
                         "manual, created_at, updated_at, "
                         "publication_status, pipeline_health) VALUES "
-                        "('run1', ?, 'COMPLETED', 0, ?, ?, 'published', "
+                        "('run1', ?, 'DONE', 0, ?, ?, 'published', "
                         "'healthy')", (CHAT, NOW - 500, NOW - 400))
         report = await collect_report(str(tmp_path / "b11.db"),
                                       chat_id=CHAT, now=NOW)
@@ -304,6 +306,86 @@ class TestKnownStatesDiagnosed:
         deep = next(m for m in report["mechanisms"]
                     if m["key"] == "deep_sleep")
         assert deep["diagnosis"]["code"] == DIAG_ATTENTION
+        await db.close()
+
+    # TEST-LIFECYCLE: REGRESSION owner=REQ-B11-E2E (ложный `ok` у FAILED/
+    # DEGRADED рана; backlog без причины на проде).
+    @pytest.mark.asyncio
+    async def test_failed_summary_run_not_green(self, tmp_path):
+        """REQ-B11-E2E: summary_runs.state пишется в ВЕРХНЕМ регистре
+        (`services.summary_run_store.TERMINAL_STATES` = DONE/DEGRADED/
+        FAILED). Провалившийся последний run не может быть `ok` (прод
+        22.10.2026: state=FAILED, publication=failed → инструмент показывал
+        ok из-за регистрозависимого сравнения)."""
+        db = await _db(tmp_path)
+        await _seed_message(db, NOW - 600)
+        await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
+                        "manual, created_at, updated_at, "
+                        "publication_status, pipeline_health) VALUES "
+                        "('run-failed', ?, 'FAILED', 0, ?, ?, 'failed', "
+                        "'degraded')", (CHAT, NOW - 500, NOW - 400))
+        report = await collect_report(str(tmp_path / "b11.db"), chat_id=CHAT,
+                                      now=NOW)
+        summary = next(m for m in report["mechanisms"]
+                       if m["key"] == "summary_scheduler")
+        assert summary["last_attempt"]["status"] == "FAILED"
+        assert summary["diagnosis"]["code"] == DIAG_ATTENTION
+        assert summary["diagnosis"]["code"] != DIAG_OK
+        assert "FAILED" in summary["diagnosis"]["detail"]
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_degraded_summary_run_not_green(self, tmp_path):
+        """DEGRADED (терминальное состояние генератора) — не `ok`: ран
+        опубликован резервным контуром, зелёный статус завышал бы картину."""
+        db = await _db(tmp_path)
+        await _seed_message(db, NOW - 600)
+        await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
+                        "manual, created_at, updated_at, "
+                        "publication_status, pipeline_health) VALUES "
+                        "('run-degraded', ?, 'DEGRADED', 0, ?, ?, "
+                        "'published', 'degraded')",
+                    (CHAT, NOW - 500, NOW - 400))
+        report = await collect_report(str(tmp_path / "b11.db"), chat_id=CHAT,
+                                      now=NOW)
+        summary = next(m for m in report["mechanisms"]
+                       if m["key"] == "summary_scheduler")
+        assert summary["diagnosis"]["code"] == DIAG_DEGRADED
+        assert summary["diagnosis"]["code"] != DIAG_OK
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_foreign_summary_state_honest_unknown(self, tmp_path):
+        """Незнакомое/пустое состояние не перекрашивается в зелёное."""
+        db = await _db(tmp_path)
+        await _seed_message(db, NOW - 600)
+        await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
+                        "manual, created_at, updated_at, "
+                        "publication_status, pipeline_health) VALUES "
+                        "('run-legacy', ?, 'ARCHIVED_LEGACY', 0, ?, ?, "
+                        "'published', 'ok')", (CHAT, NOW - 500, NOW - 400))
+        report = await collect_report(str(tmp_path / "b11.db"), chat_id=CHAT,
+                                      now=NOW)
+        summary = next(m for m in report["mechanisms"]
+                       if m["key"] == "summary_scheduler")
+        assert summary["diagnosis"]["code"] == DIAG_UNKNOWN
+        assert summary["diagnosis"]["code"] != DIAG_OK
+        await db.close()
+
+    @pytest.mark.asyncio
+    async def test_backlog_unknown_has_reason(self, tmp_path):
+        """Без vec-таблицы backlog не `null` без объяснения: честный
+        `unknown` + причина (прод: `sqlite_vec` не загружен → всегда null)."""
+        db = await _db(tmp_path)
+        await _seed_graph_fact(db, created_at=NOW - 3600)
+        report = await collect_report(str(tmp_path / "b11.db"), now=NOW)
+        graph = next(m for m in report["mechanisms"]
+                     if m["key"] == "graph_memory")
+        wr = graph["write_result"]
+        assert wr["backlog_missing_embedding"] is None
+        assert wr["backlog_status"] == "unknown"
+        assert wr["backlog_reason"]
+        assert "graph_facts_vec" in wr["backlog_reason"]
         await db.close()
 
     @pytest.mark.asyncio
@@ -418,6 +500,35 @@ class TestFailSoftAndDiagnoseMatrix:
         assert diagnose(gate_effective=True, gate_source="env",
                         input_available=True, last_attempt=None,
                         last_job=base_job, now=now)["code"] == DIAG_OK
+
+    def test_diagnose_status_case_and_vocabulary(self):
+        """TEST-LIFECYCLE: REGRESSION owner=REQ-B11-E2E.
+
+        Статусы попыток сравниваются без учёта регистра и покрывают
+        реальные словари писателей: summary_runs.state DONE/DEGRADED/FAILED
+        (`services.summary_run_store.py`), mca_events outcome failed/error,
+        task_jobs cancelled/interrupted. Незнакомый/пустой статус — `unknown`
+        (не зелёное, REQ-B11-E2E)."""
+        now = NOW
+
+        def code(status: str, **extra) -> str:
+            attempt = {"ts": now - 60, "status": status, "detail": "", **extra}
+            return diagnose(gate_effective=True, gate_source="env",
+                            input_available=True, last_attempt=attempt,
+                            last_job=None, now=now)["code"]
+
+        assert code("FAILED") == DIAG_ATTENTION
+        assert code("failed") == DIAG_ATTENTION
+        assert code("CANCELLED") == DIAG_ATTENTION
+        assert code("cancelled") == DIAG_ATTENTION
+        assert code("interrupted") == DIAG_ATTENTION
+        assert code("OK") == DIAG_OK
+        assert code("DONE") == DIAG_OK
+        assert code("DEGRADED") == DIAG_DEGRADED
+        assert code("") == DIAG_UNKNOWN
+        assert code("ARCHIVED_LEGACY") == DIAG_UNKNOWN
+        # статус-классификация (не исход) не превращает секцию в unknown
+        assert code("self", status_semantics="classification") == DIAG_OK
 
     @pytest.mark.asyncio
     async def test_chat_scope_isolation(self, tmp_path, monkeypatch):

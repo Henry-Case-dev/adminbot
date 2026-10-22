@@ -1,0 +1,148 @@
+.\.venv\Scripts\python.exe : 
+строка:1 знак:50
++ ... ONPATH="."; .\.venv\Scripts\python.exe -m pytest tests/test_asap8_v63 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 4 leaked aiosqlite connection(s)
+............FFFF....F.                                                   [100%]
+================================== FAILURES ===================================
+_________ TestKnownStatesDiagnosed.test_failed_summary_run_not_green __________
+
+self = <tests.test_asap8_v63_b11_report.TestKnownStatesDiagnosed object at 0x0000025A51D7A570>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2524/test_failed_summary_run_not_gr0')
+
+    @pytest.mark.asyncio
+    async def test_failed_summary_run_not_green(self, tmp_path):
+        """REQ-B11-E2E: summary_runs.state ╨┐╨╕╤И╨╡╤В╤Б╤П ╨▓ ╨Т╨Х╨а╨е╨Э╨Х╨Ь ╤А╨╡╨│╨╕╤Б╤В╤А╨╡
+        (`services.summary_run_store.TERMINAL_STATES` = DONE/DEGRADED/
+        FAILED). ╨Я╤А╨╛╨▓╨░╨╗╨╕╨▓╤И╨╕╨╣╤Б╤П ╨┐╨╛╤Б╨╗╨╡╨┤╨╜╨╕╨╣ run ╨╜╨╡ ╨╝╨╛╨╢╨╡╤В ╨▒╤Л╤В╤М `ok` (╨┐╤А╨╛╨┤
+        22.10.2026: state=FAILED, publication=failed тЖТ ╨╕╨╜╤Б╤В╤А╤Г╨╝╨╡╨╜╤В ╨┐╨╛╨║╨░╨╖╤Л╨▓╨░╨╗
+        ok ╨╕╨╖-╨╖╨░ ╤А╨╡╨│╨╕╤Б╤В╤А╨╛╨╖╨░╨▓╨╕╤Б╨╕╨╝╨╛╨│╨╛ ╤Б╤А╨░╨▓╨╜╨╡╨╜╨╕╤П)."""
+        db = await _db(tmp_path)
+        await _seed_message(db, NOW - 600)
+        await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
+                        "manual, created_at, updated_at, "
+                        "publication_status, pipeline_health) VALUES "
+                        "('run-failed', ?, 'FAILED', 0, ?, ?, 'failed', "
+                        "'degraded')", (CHAT, NOW - 500, NOW - 400))
+        report = await collect_report(str(tmp_path / "b11.db"), chat_id=CHAT,
+                                      now=NOW)
+        summary = next(m for m in report["mechanisms"]
+                       if m["key"] == "summary_scheduler")
+        assert summary["last_attempt"]["status"] == "FAILED"
+>       assert summary["diagnosis"]["code"] == DIAG_ATTENTION
+E       AssertionError: assert 'ok' == 'attention'
+E         
+E         - attention
+E         + ok
+
+tests\test_asap8_v63_b11_report.py:330: AssertionError
+________ TestKnownStatesDiagnosed.test_degraded_summary_run_not_green _________
+
+self = <tests.test_asap8_v63_b11_report.TestKnownStatesDiagnosed object at 0x0000025A51DD5040>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2524/test_degraded_summary_run_not_0')
+
+    @pytest.mark.asyncio
+    async def test_degraded_summary_run_not_green(self, tmp_path):
+        """DEGRADED (╤В╨╡╤А╨╝╨╕╨╜╨░╨╗╤М╨╜╨╛╨╡ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡ ╨│╨╡╨╜╨╡╤А╨░╤В╨╛╤А╨░) тАФ ╨╜╨╡ `ok`: ╤А╨░╨╜
+        ╨╛╨┐╤Г╨▒╨╗╨╕╨║╨╛╨▓╨░╨╜ ╤А╨╡╨╖╨╡╤А╨▓╨╜╤Л╨╝ ╨║╨╛╨╜╤В╤Г╤А╨╛╨╝, ╨╖╨╡╨╗╤С╨╜╤Л╨╣ ╤Б╤В╨░╤В╤Г╤Б ╨╖╨░╨▓╤Л╤И╨░╨╗ ╨▒╤Л ╨║╨░╤А╤В╨╕╨╜╤Г."""
+        db = await _db(tmp_path)
+        await _seed_message(db, NOW - 600)
+        await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
+                        "manual, created_at, updated_at, "
+                        "publication_status, pipeline_health) VALUES "
+                        "('run-degraded', ?, 'DEGRADED', 0, ?, ?, "
+                        "'published', 'degraded')",
+                    (CHAT, NOW - 500, NOW - 400))
+        report = await collect_report(str(tmp_path / "b11.db"), chat_id=CHAT,
+                                      now=NOW)
+        summary = next(m for m in report["mechanisms"]
+                       if m["key"] == "summary_scheduler")
+>       assert summary["diagnosis"]["code"] == DIAG_DEGRADED
+E       AssertionError: assert 'ok' == 'degraded'
+E         
+E         - degraded
+E         + ok
+
+tests\test_asap8_v63_b11_report.py:351: AssertionError
+_____ TestKnownStatesDiagnosed.test_foreign_summary_state_honest_unknown ______
+
+self = <tests.test_asap8_v63_b11_report.TestKnownStatesDiagnosed object at 0x0000025A51DD4110>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2524/test_foreign_summary_state_hon0')
+
+    @pytest.mark.asyncio
+    async def test_foreign_summary_state_honest_unknown(self, tmp_path):
+        """╨Э╨╡╨╖╨╜╨░╨║╨╛╨╝╨╛╨╡/╨┐╤Г╤Б╤В╨╛╨╡ ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╨╡ ╨╜╨╡ ╨┐╨╡╤А╨╡╨║╤А╨░╤И╨╕╨▓╨░╨╡╤В╤Б╤П ╨▓ ╨╖╨╡╨╗╤С╨╜╨╛╨╡."""
+        db = await _db(tmp_path)
+        await _seed_message(db, NOW - 600)
+        await _exec(db, "INSERT INTO summary_runs (run_id, chat_id, state, "
+                        "manual, created_at, updated_at, "
+                        "publication_status, pipeline_health) VALUES "
+                        "('run-legacy', ?, 'ARCHIVED_LEGACY', 0, ?, ?, "
+                        "'published', 'ok')", (CHAT, NOW - 500, NOW - 400))
+        report = await collect_report(str(tmp_path / "b11.db"), chat_id=CHAT,
+                                      now=NOW)
+        summary = next(m for m in report["mechanisms"]
+                       if m["key"] == "summary_scheduler")
+>       assert summary["diagnosis"]["code"] == DIAG_UNKNOWN
+E       AssertionError: assert 'ok' == 'unknown'
+E         
+E         - unknown
+E         + ok
+
+tests\test_asap8_v63_b11_report.py:369: AssertionError
+__________ TestKnownStatesDiagnosed.test_backlog_unknown_has_reason ___________
+
+self = <tests.test_asap8_v63_b11_report.TestKnownStatesDiagnosed object at 0x0000025A51DD5A90>
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2524/test_backlog_unknown_has_reaso0')
+
+    @pytest.mark.asyncio
+    async def test_backlog_unknown_has_reason(self, tmp_path):
+        """╨С╨╡╨╖ vec-╤В╨░╨▒╨╗╨╕╤Ж╤Л backlog ╨╜╨╡ `null` ╨▒╨╡╨╖ ╨╛╨▒╤К╤П╤Б╨╜╨╡╨╜╨╕╤П: ╤З╨╡╤Б╤В╨╜╤Л╨╣
+        `unknown` + ╨┐╤А╨╕╤З╨╕╨╜╨░ (╨┐╤А╨╛╨┤: `sqlite_vec` ╨╜╨╡ ╨╖╨░╨│╤А╤Г╨╢╨╡╨╜ тЖТ ╨▓╤Б╨╡╨│╨┤╨░ null)."""
+        db = await _db(tmp_path)
+        await _seed_graph_fact(db, created_at=NOW - 3600)
+        report = await collect_report(str(tmp_path / "b11.db"), now=NOW)
+        graph = next(m for m in report["mechanisms"]
+                     if m["key"] == "graph_memory")
+        wr = graph["write_result"]
+        assert wr["backlog_missing_embedding"] is None
+>       assert wr["backlog_status"] == "unknown"
+               ^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'backlog_status'
+
+tests\test_asap8_v63_b11_report.py:384: KeyError
+___ TestFailSoftAndDiagnoseMatrix.test_diagnose_status_case_and_vocabulary ____
+
+self = <tests.test_asap8_v63_b11_report.TestFailSoftAndDiagnoseMatrix object at 0x0000025A51DD7650>
+
+    def test_diagnose_status_case_and_vocabulary(self):
+        """╨б╤В╨░╤В╤Г╤Б╤Л ╨┐╨╛╨┐╤Л╤В╨╛╨║ ╤Б╤А╨░╨▓╨╜╨╕╨▓╨░╤О╤В╤Б╤П ╨▒╨╡╨╖ ╤Г╤З╤С╤В╨░ ╤А╨╡╨│╨╕╤Б╤В╤А╨░ ╨╕ ╨┐╨╛╨║╤А╤Л╨▓╨░╤О╤В
+        ╤А╨╡╨░╨╗╤М╨╜╤Л╨╡ ╤Б╨╗╨╛╨▓╨░╤А╨╕ ╨┐╨╕╤Б╨░╤В╨╡╨╗╨╡╨╣: summary_runs.state DONE/DEGRADED/FAILED
+        (`services.summary_run_store.py`), mca_events outcome failed/error,
+        task_jobs cancelled/interrupted. ╨Э╨╡╨╖╨╜╨░╨║╨╛╨╝╤Л╨╣/╨┐╤Г╤Б╤В╨╛╨╣ ╤Б╤В╨░╤В╤Г╤Б тАФ `unknown`
+        (╨╜╨╡ ╨╖╨╡╨╗╤С╨╜╨╛╨╡, REQ-B11-E2E)."""
+        now = NOW
+    
+        def code(status: str, **extra) -> str:
+            attempt = {"ts": now - 60, "status": status, "detail": "", **extra}
+            return diagnose(gate_effective=True, gate_source="env",
+                            input_available=True, last_attempt=attempt,
+                            last_job=None, now=now)["code"]
+    
+>       assert code("FAILED") == DIAG_ATTENTION
+E       AssertionError: assert 'ok' == 'attention'
+E         
+E         - attention
+E         + ok
+
+tests\test_asap8_v63_b11_report.py:516: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_asap8_v63_b11_report.py::TestKnownStatesDiagnosed::test_failed_summary_run_not_green
+FAILED tests/test_asap8_v63_b11_report.py::TestKnownStatesDiagnosed::test_degraded_summary_run_not_green
+FAILED tests/test_asap8_v63_b11_report.py::TestKnownStatesDiagnosed::test_foreign_summary_state_honest_unknown
+FAILED tests/test_asap8_v63_b11_report.py::TestKnownStatesDiagnosed::test_backlog_unknown_has_reason
+FAILED tests/test_asap8_v63_b11_report.py::TestFailSoftAndDiagnoseMatrix::test_diagnose_status_case_and_vocabulary
+5 failed, 17 passed in 6.63s
