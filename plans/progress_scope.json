@@ -1,29 +1,29 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-22T22:20:00+12:00",
+  "updated": "2026-10-22T19:45:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
+      "source_sha256": "2D5A93B09276C6E1D54507BB69700F91FEFFE81D4AE3780D8D7235EE1500521D",
       "maps": [
         "plans/features/soul-1/requirements-map.json",
         "plans/features/soul-1/requirements-map-amendment.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
     },
     {
       "id": "asap8-v6.3",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
+      "source_sha256": "2D5A93B09276C6E1D54507BB69700F91FEFFE81D4AE3780D8D7235EE1500521D",
       "maps": [
         "plans/features/asap8-v6-3-live-correction/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
     },
     {
       "id": "cfg-01-07",
@@ -84,23 +84,23 @@
       "id": "add-tr-2026-10-19",
       "status": "VERIFIED",
       "source_path": "plans/current_task.md",
-      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
+      "source_sha256": "2D5A93B09276C6E1D54507BB69700F91FEFFE81D4AE3780D8D7235EE1500521D",
       "maps": [
         "plans/features/add-tr/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
     },
     {
       "id": "add-exp-2026-10-19",
       "status": "READY_FOR_LIVE",
       "source_path": "plans/current_task.md",
-      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
+      "source_sha256": "2D5A93B09276C6E1D54507BB69700F91FEFFE81D4AE3780D8D7235EE1500521D",
       "maps": [
         "plans/features/add-exp/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
+      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
     },
     {
       "id": "samples-ux",

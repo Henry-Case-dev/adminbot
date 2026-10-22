@@ -1,43 +1,46 @@
 # Workflow State
 
 Task: Полная очередь `plans/current_task.md` — SOUL-1 + ASAP8 v6.3 + инцидент + fullscreen + CFG-01…07 + P0×3 + ADD-TR + ADD-EXP + SAMPLES-UX (реестр `plans/progress_scope.json`: 10 задач; 1 VERIFIED)
-Task source: current_task.md (+ VERBATIM-снапшоты `plans/features/*/source-*.md`)
-Status: in_progress
-Primary phase: delivery (2.58.104 deployed VERIFIED) → select_next: хвосты CFG (биндинг 07B/07C/06-RFL) → CFG-03 → CFG-FINAL
-Active features: cfg (07A/07D.5/07C-G/06 закрыты; 07B-строки/07C-строки/CFG-03/CFG-FINAL — хвосты) · add-exp/soul (2.58.98 RFL-хвост = владелец, не блокер) · p0-vision RFL-хвосты
-Progress sources: карты soul-main/amend, cfg, win-glass, p0 A+B, p0-vision, add-tr, add-exp, samples-ux; реестр plans/progress_scope.json (10 задач; 1 VERIFIED)
+Task source: current_task.md (+ снапшоты `plans/features/*/source-*.md`; КОРРЕКТИВЫ владельца 21.10: `plans/features/owner-corrective-2026-10-21.md` + `owner-corrective-followup-2026-10-21.md` — исполнены, прод 2.58.107)
+Status: in_progress — КВОТА ПРОВАЙДЕРА: субагенты (Builder/Reviewer/DevOps) недоступны до 2026-10-26 14:05 (недельный лимит); механические хвосты доделаны оркестратором-fallback, независимое ревью/поезда/пробы — в очереди на восстановление
+Primary phase: select_next → (квота) PKG-112 (FactView fix 138330c0+10f3a2a0, review-условие B-1 выполнено) → REV-REL-112 → deploy → REV ASAP2 (5ad73933) → поезд 2.58.113 → W4 UI (asap-speech-arch) 
+Active features: asap2-direct-chat (код+tests готовы 5ad73933; семантика PENDING quota) · asap-speech-arch (W3 done e5774789; остались W4 UI U-01..U-09, full-matrix/48h PENDING_LIVE) · summary found-fix (готов к поезду 2.58.112)
+Progress sources: карты soul-main/amend, cfg, win-glass, p0 A+B, p0-vision, add-tr, add-exp, samples-ux, asap-speech-arch, asap2-direct-chat; реестр plans/progress_scope.json (12 задач)
 
-Продакшн: **2.58.104 @ `8ea6ed4e`** (T0 2026-10-20T21:00:23Z; PID 29475; healthz 200 `"version":"2.58.104"`; delta runtime 5; ΔDDL=0; ERR=0; кастомы 7/7 целы + effective чистый; telemetry 0 events — наблюдение продолжается; откат lossless). Рубеж отката: **`release/fix-2.58.103`=`2a3e4fc9`** (запушен). Deploy evidence `plans/features/cfg/evidence/cfg-07a/release/` (коммит `a9917abb`). master = origin/master = `a9917abb`.
+Продакшн: **2.58.110 @ `a8d2a45a`** (T0 07:26:20Z UTC; PID 447331 NRestarts=0; healthz 200; journal 0 CRIT/0 ERR; ΔDDL=0; канонная лестница L1-планера прошла — PG-канон == новому байт-в-байт, 7 кастомов EQ_BASELINE, fingerprint runtime==3507bd6f92eb). Рубеж отката: **`release/fix-2.58.109`=`a1d8bd62`** (запушен). master=origin/master=`553400bc` (docs-хвост; прод на a8d2a45a). Живое: первый L1D-реакт (💀 → Telegram REACTION_INVALID → fail-soft unavailable, INC-258110 low — в наблюдение/бэклог).
 
-Хвост CFG-эпика (единственные реальные незакрытые строки карты cfg):
-- **CFG-07B: 12 PENDING** — слайс поглощён UNIFIED-CORE (REUSED 10/PARTIAL 1/OPEN 0, evidence `29cc49ba`); строки ждут биндинга к существующим доказательствам (переключатель мата = Expression-режим ADD-EXP, деплой 2.58.98+; PARTIAL 07D.4 span-run закрыт 07C-G).
-- **CFG-07C: 11 PENDING** — код доставлен (`7c3a1350` словарь+guards, `f1e31d27` швы, `8cd2ca14` B1-telemetry, `04593c8f` 07D.5 runtime, прод 2.58.103/104); строки 07C.1–.5/07D.6/.7 ждут биндинга (07C.6 уже VERIFIED на проде).
-- **CFG-03: 14 PENDING** (5 VERIFIED) — аудит всех параметров MiniApp: R1-манифест покрытия, R2-сводка, runtime-пути фоновых задач; реальная инженерная работа, нужна реконсиляция «что уже покрыто UNIFIED-CORE/F8-582».
-- **CFG-FINAL: 17 PENDING** — композитная приёмка ADD-2 №1–8 + процесс-контроль ADD-0; барьер G3 = все слайсы 06+07 VERIFIED.
-- RFL-хвосты: CFG-06 ×4 (канарейки 4/4 PASS @ deployed `7142ffcf` — биндинг), CFG-02A ×4 (live), CFG-04 ×1, CFG-07A ×1 (07D.1.OBS owner_optional).
+CORRECTIVE-ЦИКЛ (21–22.10, закрыт): три первопричины → три минимальных фикса → офлайн-верификация → ревью 3/3 Approved → прод 2.58.107.
+- DIRECT-L1: правила 2–3 без позитивных критериев молчания + L1 не видел ответов бота (bot_replies) → правила переписаны (смысловые критерии, без списков слов), секция «ОТВЕТЫ БОТА» + allowed-реакции в существующем контексте. Офлайн: тривиальные 4/4 react, содержательные reply.
+- EXPRESSION: шапка-«настройки» нейтрализовала директиву + разбавление огромным system; модель НЕ виновата (минимал 4/4) → Core очищен от мат-темы полностью (full+compact+гвард superseded-core против воскрешения из PG), Expression = единственный регулятор, директивы OFF/EPISODIC/FREQUENT дословно владельца; мат-разрешения вычищены из 9 активных канонов. Офлайн: OFF 4/4 чисто, EPISODIC 3/4, FREQUENT 3/4, контроль 0/4.
+- NOSTALGIA: дата вместо ценности + императивы промпта → право отказа в обоих канонах (отказ — норма), сняты императивы, полный пул в лог, target_user; БЕЗ фильтра длины (запрещён владельцем). Офлайн-реплей: слабый класс 4/4 → UNCHANGED.
+- FACTCHECK (вейпинг-кейс): временная ветка не использовала смысловой планировщик (дословный слайс 200 символов) + all-or-nothing вердикт + snippet-only → envelope подключён к единому VERIFIED retrieval, запросы из claim-parts, overlap-релевантность + SafeFetcher, per-claim mixed-вердикт, рендерер привязывает ссылки. Replay: «Недостаточно данных» → «Подтверждается частично» с CDC-первоисточником. 22 CONTRACT, 502 регресс green.
+- NOSTALGIA-no-candidates-efficiency: закрыт как проверенная (пустые проходы дешёвые, доказано аудитом).
+Живое подтверждение: 48ч наблюдение L1_PLAN/expression_diag/factcheck по существующей телеметрии (не гейт); 14.2 — первое реальное сообщение.
 
 Active lanes:
-- (пусто — восстановление состояния; новые лейны запускаются оркестратором)
+- SOUL1-FINAL-RECON | Builder | writer(биндинг) | soul-1 | bg:ses_e9e29dce9ffeCQd2LK531uftWn | построчная реконсиляция 48+12 инженерных строк (EXEC/BOUND/03/04/05/08/09/10/11/12/15/16/19/21/AMD); REAL_WORK фиксировать, не реализовывать
+- TAILS-ASAP8-CFG-P0B | Builder | writer+harness | asap8/cfg/p0b | bg:ses_e9e29dce8ffe4NvKe8DiVOc1MY | 27+4+2 строк: bind/context + harness (V02/V03/B02/B03/R12/R14/R15/R19, CFG-02A квоты, P0B сценарии); ≤18 платных вызовов
+- FIX-INITIATIVE-L1D | Builder | writer(код) | asap8/initiative | bg:ses_e9e2377d9ffea8z519sT2V1Kdd | CORRECTIVE 22.10: выбор формы участия (say/react/silent × chat/reply) переносится в L1 Decision; хардкод-резолвер 2.58.109 устраняется; транспорт — только исполнение + техпроверки; 8 тест-кейсов §8 + офлайн-пробы L1
 
 Join barriers:
-- G3: CFG-FINAL стартует только после VERIFIED всех строк 06+07 (биндинг 07B/07C + CFG-03).
-- EXP-ACCEPT.CRITERION / живые пункты владельца: `plans/owner_live_checks.md` §2,7,8 — добровольно, не блокер (standing rule 20.10).
+- 48ч наблюдение 2.58.107–109 (L1_PLAN/expression_diag/factcheck/strip-fence/init-reply) — read-only сверка при следующем заходе; не гейт.
+- Живые проверки боевого потока (asap8 13 RFL, CFG-02A 4 RFL, P0B SCEN-B, 14.2 first real message) — owner_optional/WAITING_EXTERNAL.
 
 Last verified (≤5):
-- Прод 2.58.104 @ `8ea6ed4e`, deploy VERIFIED, кастомы 7/7 целы, откат lossless (`a9917abb`).
-- Леджер CFG-07A: все 11 инженерных строк VERIFIED @ `d860a529`; гейт CFG-07A EXIT 0 errors=0 (`dd6acf83`).
-- REV-07D5-r2 Approved (bounded retry + FA/MB-детекторы; F1–F4 ремонт; 0 ложных на 202 POSITIVE) — `review-07d5-r2.md`.
-- REV-REL-258103/258104 Approved (бамп 31 файл, F8 582==REGISTRY, fingerprint 037080375ac8 цел).
-- CFG-07C.6 VERIFIED на проде 2.58.103 (wiring по реальным байтам; telemetry 0 events — наблюдение) — `ce77b2c4`.
+- DEVOPS-DEPLOY-258109 VERIFIED: 2.58.109 @ a1d8bd62 (reply-биндинг инициатив активен с выката; journal 0 CRIT/0 ERR; blob == кандидату; откат release/fix-2.58.108; хвост `0e55d830` запушен).
+- REV-REL-258109 + REV-INITREPLY Approved (последний подтверждённый инженерный дефект закрыт).
+- DEVOPS-DEPLOY-258108 VERIFIED (12/12 postdeploy-позитивов; strip-fence ready, heavy GT 3/3; ADD-TR/Vision закрыты).
+- Реестр обновлён 22.10: 5/10 задач VERIFIED (add-tr, p0-vision, win-glass, samples-ux присоединились к p0-save-init-ux); `a7702559` запушен.
+- NOSTALGIA-no-candidates-efficiency закрыт как проверенная (пустые проходы дешёвые — nostalgia-audit).
 
 Next unlocks (≤3):
-1. Биндинг строк CFG-07B (UNIFIED-CORE evidence) + CFG-07C (коммиты волн) + CFG-06 канарейки → plan/review-гейты.
-2. CFG-03 реконсиляция: что реально покрыто (UNIFIED-CORE param_catalog 582/F8), что доделать (манифест R1, сводка R2, фоновые runtime-пути).
-3. CFG-FINAL (композит ADD-2.1–2.8) после G3; release-гейт эпика перегнать на deployed `8ea6ed4e`.
+1. Следующий заход: read-only сверка 48ч телеметрии 2.58.107–109 (L1_PLAN react/silent доля, expression_diag, factcheck traces, init-reply) — по факту реального использования.
+2. Backlog-селекция с владельцем: мелкие улучшения (F2-типы, narrator-фраза, app.css, «Характер»→«Личности», anti-flood, C7, C15, ADD-EXP N1–N4/P7) — не мандатные, по приоритету владельца.
+3. WAITING_EXTERNAL: VIDEO not_configured; P0B SCEN-B (затишье); живые просмотры — добровольно.
 
-Review: approved (все волны 06/07A/07C-G/07D.5 Approved; хвостовые строки — биндинг без нового кода)
-Deployment: verified (2.58.104 @ `8ea6ed4e`; ΔDDL=0; телеметрия наблюдается)
-Human gate: none (0 блокирующих; OQ-15 + owner_live_checks §2/7/8 — добровольные, `plans/owner_questions.md`)
-Backlog (сжато): nano-gpt баланс (owner); housekeeping asap8/mca-17c; CFG-02B live-хвост; P0B SCEN-B; soul-main 17 RFL; CFG-02A 4 RFL; set_many/провенанс; «Характер»→«Личности»; anti-flood; A/B-helper; fixture-дрейф; VIDEO not_configured; T-1764; l1_unavailable; L1 cold-start; win-glass 7 пинов; vision: retry-альфа, non-JSON тяжёлые кадры; постген-бюджет 20с; ADD-EXP N1–N4, P7, L1-план/few-shot; C7 humor (позже); C15-хвост (ADR-1013-3); app.css HEAD content-length; SSH-паузы ≥90с; git: без reset/amend поверх чужих.
-Progress scope: plans/progress_scope.json | fresh (после биндинга хвостов перегнать workflow_progress)
-Updated: 2026-10-21 (local, UTC+12)
+Review: approved (corrective, factcheck, harness/fence, initreply, поезда 105–109)
+Deployment: verified (**2.58.109 @ `a1d8bd62`**, ΔDDL=0, откат `release/fix-2.58.108`)
+Human gate: none (0 блокирующих; owner_live_checks §2/7/8/9 + OQ-15 — добровольные)
+Backlog (сжато): DIRECT-L1/EXPRESSION/NOSTALGIA-SEMANTICS/FACTCHECK-UNIFY — ИСПРАВЛЕНЫ (2.58.107); ADD-TR/Vision хвосты + non-JSON heavy frames — ИСПРАВЛЕНЫ (2.58.108); INITIATIVE-REPLY — фикс идёт (2.58.109); NOSTALGIA-no-candidates-efficiency — закрыт проверенной; asap8 PROBE-остатки (13 RFL, боевой поток); F2-типы CFG-03; «Характер»→«Личности»; anti-flood; fixture-дрейф; VIDEO not_configured (WAITING_EXTERNAL); T-1764; l1_unavailable; L1 cold-start; постген-бюджет 20с; ADD-EXP N1–N4, P7; C7 humor; C15-хвост; narrator-канон identity-фраза; app.css content-length; nano-gpt баланс (owner); SSH-паузы ≥90с; git: без reset/amend поверх чужих.
+Progress scope: plans/progress_scope.json | fresh (91% — 896/975; поручения 5/10 @08:05 22.10)
+Updated: 2026-10-22 08:10 local (UTC+12)
