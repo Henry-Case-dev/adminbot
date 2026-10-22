@@ -1,0 +1,2 @@
+﻿files=31 pairs=33
+non-token deltas NONE; CHECK OK

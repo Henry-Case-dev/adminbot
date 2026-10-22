@@ -1,0 +1,23 @@
+REL-258110 delta-DDL-check (brief PKG-110: delta DDL = 0; плановый рестарт при деплое обязателен - канонная эволюция FACTORY_SET)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.109 -> 2.58.110) - SQLite-DDL expected NONE:
+   PKG-110 train: e67a58e7 L1D contract (canon+schema-of-prompt+ladder: services/chat_prompts.py
+   canon + PREV_DIRECT_L1_PLANNER_1022 ladder step in services/prompt_migrations.py +
+   FACTORY_SET re-fingerprint c19d35a1c093 -> 3507bd6f92eb in services/prompt_registry.py),
+   d87284c1 transport executes L1 decision (services/direct_chat_service.py +
+   services/initiative_observer.py + rewritten tests/test_asap8_initreply_binding.py),
+   6196464d/db2b7044 docs evidence, 81419cfd/c39c776e/20bc0dc3/deb8b31e/7a358c2c docs.
+   PROMPT-MIGRATIONS NOTE: services/prompt_migrations.py touched INTENTIONALLY - canon
+   ladder step PREV_DIRECT_L1_PLANNER_1022 -> DIRECT_L1_PLANNER_SYSTEM_PROMPT (prod-canon
+   2.58.109 snapshot leads to L1D canon). This is prompt-canon migration, NOT SQLite DDL;
+   user_version is NOT touched. Deploy REQUIRES the planned restart (per brief) so the new
+   factory fingerprint 3507bd6f92eb takes effect.
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in release delta a1d8bd62..HEAD
+   release-delta SQLite-DDL perimeter files a1d8bd62..HEAD: NONE
+   (canon-ladder files: services/prompt_migrations.py only)

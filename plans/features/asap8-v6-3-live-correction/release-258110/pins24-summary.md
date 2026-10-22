@@ -1,0 +1,15 @@
+# pins24 REL-258110 — 24 py пин-файла (venv)
+
+- Интерпретатор: `.venv/Scripts/python.exe` (Python 3.12.0, aiogram 3.31.0 — требование requirements.txt).
+- Результат: **868 passed / 0 failed, EXIT 0** — паритет процедур 101–109.
+- Полный лог: `pins24-full.txt`.
+- Состав: tests/test_decision_making_round1026.py, test_image_context_memory_round1026.py,
+  test_mca17c_invariants_round1047.py, test_round1025_f8_registry.py, test_scope_selector_round1025.py,
+  test_summary_deploy_round1026.py, test_summary_fact_package.py, test_summary_logging_runid.py,
+  test_summary_publish_integration_round1026.py, test_summary_test_run.py,
+  test_telegram_reactions_round1026.py, test_tool_coordinator_round1026.py,
+  test_unified_image_request_round1026.py, test_webapp_design_tokens_round1025.py,
+  test_webapp_f11_round1025.py, test_webapp_f6_round1025.py, test_webapp_f7_round1025.py,
+  test_webapp_f9_round1025.py, test_webapp_hotfix10_round1025.py, test_webapp_hotfix6_round1025.py,
+  test_webapp_hotfix7_round1025.py, test_webapp_hotfix8_round1025.py, test_webapp_hotfix9_round1025.py,
+  test_webapp_round1026_polygon.py.

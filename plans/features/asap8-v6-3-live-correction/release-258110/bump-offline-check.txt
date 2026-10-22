@@ -1,0 +1,20 @@
+﻿  [PASS] settings APP_VERSION == 2.58.110
+  [PASS] settings no stale 2.58.109 pin
+  [PASS] README has v2.58.110
+  [PASS] README no stale v2.58.109
+  [PASS] F8-meta APP_VERSION 2.58.110
+  [PASS] F8-meta HEAD 7a358c2c
+  [PASS] F8-meta no stale 2.58.109/1e3e5949
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by PKG-110 bump) (582/120)
+  [PASS] delta set == 31 expected (31)
+  [PASS] bump set == procedure-106..109 set (ref 109 = 31) (ref=31 only-in-109=[] only-in-110=[])
+  [PASS] bump set disjoint from review-lane/foreign guard (precheck dirtyтИйbump=0; foreign untouched by pathspec commit) (foreign=285)
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas) (pairs=33 bad=[])
+  [PASS] delta DDL of bump set == 0 ([])
+  [PASS] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+  [PASS] services/database.py NOT in release delta a1d8bd62..HEAD
+  [PASS] release delta SQLite-DDL perimeter clean (prompt_migrations = canon ladder step PREV_DIRECT_L1_PLANNER_1022, not SQLite DDL) (canon-ladder-files=['services/prompt_migrations.py'])
+  [PASS] factory fingerprint 3507bd6f92eb (runtime == constant; canon train L1D: c19d35a1c093 -> 3507bd6f92eb) (3507bd6f92eb 3507bd6f92eb)
+  [PASS] import config.settings -> 2.58.110 (2.58.110)
+
+OFFLINE AGGREGATE: 18/18 PASS, EXIT 0

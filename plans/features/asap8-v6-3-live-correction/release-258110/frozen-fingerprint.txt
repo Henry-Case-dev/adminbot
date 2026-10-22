@@ -1,0 +1,12 @@
+REL-258110 frozen fingerprint
+release-train head (brief PKG-110 / F8-meta stamp): 7a358c2c
+git HEAD (pre-bump): 7a358c2c
+release train (brief PKG-110): INITIATIVE-L1D (e67a58e7 L1D contract canon+schema+ladder + FACTORY_SET re-fingerprint, d87284c1 transport executes L1 decision, 6196464d evidence; Approved REV-INITIATIVE-L1D after fixing-blocker db2b7044) + tails bindings (81419cfd/c39c776e/20bc0dc3, Approved REV-TAILS-2) + review corrections (deb8b31e/7a358c2c).
+CANON TRAIN: FACTORY_SET c19d35a1c093 -> 3507bd6f92eb (prompt_migrations step PREV_DIRECT_L1_PLANNER_1022). Guard expects the NEW value.
+factory fingerprint: 3507bd6f92eb (probe live == constant == 3507bd6f92eb, sm. bump-offline-check.txt; constant FACTORY_SET_SHA256_12 set in e67a58e7, comment "Было c19d35a1c093, стало 3507bd6f92eb" at services/prompt_registry.py:1574-1576)
+post-bump sha256_12:
+  config/settings.py: 7595eed634c5
+  README.md: 138dddf5106f
+  plans/docs/param-registry-round1025.meta.md: c5cc9c8030f0
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files + evidence).
+Deploy note: плановый рестарт обязателен (canon evolution), restart picks up fingerprint 3507bd6f92eb.
