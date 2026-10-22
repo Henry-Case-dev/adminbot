@@ -125,6 +125,12 @@ GREEN (`evidence/fix-r1/green-b1.txt`): `1 passed`. Расширен сущес�
 | Широкий related (14 файлов direct/L1/L2/speech) | — | **432 passed** |
 
 Точные логи: `evidence/fix-r1/tests-final.txt`, `evidence/fix-r1/tests-broad.txt`.
+Примечание к «215 passed» из ревью: в брифе перечислены 7 путей (glob
+`tests/test_asap2_*` = один файл, `tests/test_l1d_contract*.py` =
+`tests/test_direct_l1_l1d_contract.py`); на них база = 199 (18 в
+`test_asap2_clar_contract.py` + 181 в остальных пяти). Два дополнительных
+файла из ревью не идентифицированы; ни один файл из брифа не потерял тесты
+(18 → 24 в `test_asap2_clar_contract.py`, остальные 181 без изменений).
 Один ранний прогон целевого набора дал одиночный transient fail
 `test_asap8_initreply_binding::test_case4_transport_never_picks_addressee` с
 DB-шумом `connection marked unrecoverable`; не воспроизвёлся ни standalone
