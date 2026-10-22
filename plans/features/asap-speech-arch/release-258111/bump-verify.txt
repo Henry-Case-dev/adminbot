@@ -1,0 +1,2 @@
+﻿files=31 pairs=33 (+33/-33: settings 1, README 1, F8-meta 2 (APP_VERSION+HEAD 804f4963->beb3f272), 24 py pins=25 (polygon 2), 4 js pins=4)
+non-token deltas NONE (regex-escaped js tokens 2\.58\.110->2\.58\.111 counted as tokens); CHECK OK

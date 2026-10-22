@@ -1,0 +1,12 @@
+﻿REL-258111 frozen fingerprint
+release-train head (brief PKG-111 / F8-meta stamp): beb3f272
+git HEAD (pre-bump): beb3f272
+release train (brief PKG-111): ASAP-W1 канонная эволюция (700f762c фабричные каноны владельца §3.1/3.2/3.3/3.6/§3.7 байт-в-байт, 809a4fac P0-D Expression header §3.4, d0b84d84 процедура канонов: FACTORY_SET 553a281fe2fd -> fd4e88754749, лестницы PREV_*_W1 + НОВАЯ prompts.factcheck_verbalizer_system_prompt, ROLLBACK, superseded-core v1+v2, owner_preserve_core_full_patch), a1db2991 narrator LEGFIX (ступень verbalizer/tool_phase/narrator LEGFIX), 0f3ed53a W1 §9.1 чек-лист 21 тест, beb3f272 W1 evidence; микродефекты d3c385fe (F2 type-пины) + 53cd023b (app.css HEAD content-length); tails bindings docs; Review: review-w1.md Approved (P0-C/D/E/F/G VERIFIED; P0-A/B PENDING-W2 — активная конфигурация мигрируется при деплое).
+CANON TRAIN: FACTORY_SET c19d35a1c093 -> 3507bd6f92eb (2.58.110, L1D) -> 553a281fe2fd -> fd4e88754749 (W1). Guard expects the NEW value.
+factory fingerprint: fd4e88754749 (probe live == constant == fd4e88754749, см. bump-offline-check.txt; константа FACTORY_SET_SHA256_12 = "fd4e88754749" в services/prompt_registry.py:1640 с d0b84d84)
+post-bump sha256_12:
+  config/settings.py: f22d3f9ea0a3
+  README.md: ff223dc498cb
+  plans/docs/param-registry-round1025.meta.md: 17efd9cba0eb
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files + evidence).
+Deploy note: канонная эволюция W1 (canon evolution), плановый рестарт обязателен — рестарт поднимет fingerprint fd4e88754749 и применит owner_preserve_core_full_patch к активной конфигурации.

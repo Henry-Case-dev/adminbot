@@ -1,0 +1,138 @@
+﻿ M README.md
+ M config/settings.py
+ M plans/docs/param-registry-round1025.meta.md
+ M plans/features/cfg/evidence/cfg-06/w7-dispute-metrics.json
+ M plans/owner_live_checks.md
+ M plans/workflow_state.md
+ M tests/js/round1025_hotfix10_glass_geometry_bg_test.js
+ M tests/js/round1025_hotfix7_shell_glass_heartbeat_test.js
+ M tests/js/round1025_hotfix8_shell_aurora_test.js
+ M tests/js/round1025_hotfix9_shell_flex_glass_aurora_test.js
+ M tests/test_decision_making_round1026.py
+ M tests/test_image_context_memory_round1026.py
+ M tests/test_mca17c_invariants_round1047.py
+ M tests/test_round1025_f8_registry.py
+ M tests/test_scope_selector_round1025.py
+ M tests/test_summary_deploy_round1026.py
+ M tests/test_summary_fact_package.py
+ M tests/test_summary_logging_runid.py
+ M tests/test_summary_publish_integration_round1026.py
+ M tests/test_summary_test_run.py
+ M tests/test_telegram_reactions_round1026.py
+ M tests/test_tool_coordinator_round1026.py
+ M tests/test_unified_image_request_round1026.py
+ M tests/test_webapp_design_tokens_round1025.py
+ M tests/test_webapp_f11_round1025.py
+ M tests/test_webapp_f6_round1025.py
+ M tests/test_webapp_f7_round1025.py
+ M tests/test_webapp_f9_round1025.py
+ M tests/test_webapp_hotfix10_round1025.py
+ M tests/test_webapp_hotfix6_round1025.py
+ M tests/test_webapp_hotfix7_round1025.py
+ M tests/test_webapp_hotfix8_round1025.py
+ M tests/test_webapp_hotfix9_round1025.py
+ M tests/test_webapp_round1026_polygon.py
+?? .playwright-mcp/
+?? OPENCODE_WORKFLOW_SCRATCH/
+?? _upd.py
+?? node_modules/
+?? package-lock.json
+?? package.json
+?? plans/features/add-tr/evidence/review-harness-fence.md
+?? plans/features/add-tr/evidence/review-tails-bind.md
+?? plans/features/add-tr/release-258108/review-rel.md
+?? plans/features/asap-speech-arch/evidence/w1/review-w1.md
+?? plans/features/asap-speech-arch/release-258111/
+?? plans/features/asap8-v6-3-live-correction/release-258110/review-rel.md
+?? plans/features/cfg/cfg-final-plan.md
+?? plans/features/cfg/evidence/cfg-07/review-tailbind.md
+?? plans/features/cfg/evidence/cfg-final/review-cfg-final.md
+?? plans/features/factcheck-fix-2026-10-21/review-fc-r1.md
+?? plans/features/factcheck-run-diag-2026-10-21.md
+?? plans/features/owner-corrective-initreply-2026-10-22.md
+?? plans/features/samples-ux/evidence/release/README.md
+?? plans/features/samples-ux/evidence/release/bump-offline-check.txt
+?? plans/features/samples-ux/evidence/release/ddl-check.txt
+?? plans/features/samples-ux/evidence/release/delta-vs-99.txt
+?? plans/features/samples-ux/evidence/release/final-diff-names.txt
+?? plans/features/samples-ux/evidence/release/focused-f8-pins.txt
+?? plans/features/samples-ux/evidence/release/focused-help-sync.txt
+?? plans/features/samples-ux/evidence/release/focused-js-unit.txt
+?? plans/features/samples-ux/evidence/release/focused-samples-migration.txt
+?? plans/features/samples-ux/evidence/release/frozen-fingerprint.txt
+?? plans/features/samples-ux/evidence/release/gen-param-check.txt
+?? plans/features/samples-ux/evidence/release/js-pins-node.txt
+?? plans/features/samples-ux/evidence/release/pins24-summary.md
+?? plans/features/samples-ux/evidence/release/review-rel.md
+?? plans/verification_cache.json
+?? requirements_gate.py
+?? tools/_asap6_anu_live.py
+?? tools/_asap6_canon_log.py
+?? tools/_asap6_canon_verify.py
+?? tools/_asap6_deploy.py
+?? tools/_asap6_final_restart.py
+?? tools/_asap6_help_deploy.py
+?? tools/_asap6_quantum_proof.py
+?? tools/_asap6_verify.py
+?? tools/_asap7_f3_reissue_f8.py
+?? tools/_asap7_f4_reissue_f8.py
+?? tools/_asap7_f7_routes_pin.py
+?? tools/_asap7_w1_bump_version.py
+?? tools/_asap7_w2_bump_version.py
+?? tools/_asap7_w3_bump_version.py
+?? tools/_d2_disk_clean.py
+?? tools/_d2_mca20_deploy.py
+?? tools/_d2_mca20_drift.py
+?? tools/_d2_mca20_postmortem.py
+?? tools/_d2_mca20_preflight.py
+?? tools/_d2_mca20_retry_deploy.py
+?? tools/_d2_mca20_stabilize.py
+?? tools/_d2_t5174_deploy.py
+?? tools/_d2_t5198_deploy.py
+?? tools/_d2_t5216_deploy.py
+?? tools/_mca17c_dump_registry.py
+?? tools/_mca17c_handler_map.py
+?? tools/_mca18_reissue_f8.py
+?? tools/_mca18_repin_routes.py
+?? tools/_mca19_wave2_bump_pins.py
+?? tools/_mca19_wave2_bump_pins2.py
+?? tools/_mca19_wave2_bump_pins3.py
+?? tools/_mca19_wave2_rebump_crlf.py
+?? tools/_p2b_golden_e2e.json
+?? tools/_p2b_golden_e2e.py
+?? tools/_p2b_visual_server.py
+?? tools/_t5126_commit_plan.py
+?? tools/_t5126_preflight_manifest.py
+?? tools/_t5126_prod_dbcheck.py
+?? tools/_t5126_recipe_variants.py
+?? tools/_t5126b_battery.py
+?? tools/_t5126b_cmd_recon.sh
+?? tools/_t5126b_deploy.py
+?? tools/_t5126b_inspect.py
+?? tools/_t5126b_ssh.py
+?? tools/_t5126b_verify.py
+?? tools/_ui_asap43_cover_styles_geometry.json
+?? tools/_ui_asap43_desktop_1280x800_editor.png
+?? tools/_ui_asap43_desktop_1280x800_management.png
+?? tools/_ui_asap43_landscape_844x390_editor.png
+?? tools/_ui_asap43_landscape_844x390_management.png
+?? tools/_ui_asap43_portrait_390x844_editor.png
+?? tools/_ui_asap43_portrait_390x844_management.png
+?? tools/_ui_asap6_embedding_profiles.json
+?? tools/_ui_asap6_wave2_ux.json
+?? tools/_ui_asap7_f3_desktop_1280x800_hub.png
+?? tools/_ui_asap7_f3_desktop_1280x800_overview.png
+?? tools/_ui_asap7_f3_desktop_1280x800_settings.png
+?? tools/_ui_asap7_f3_emergency_off.png
+?? tools/_ui_asap7_f3_mobile_390x844_hub.png
+?? tools/_ui_asap7_f3_mobile_390x844_overview.png
+?? tools/_ui_fix_logs_anchor_server.py
+?? tools/_ui_fix_logs_anchor_shots.py
+?? tools/_ui_mca12_memory_desktop.png
+?? tools/_ui_mca12_status_desktop.png
+?? tools/_ui_mca12_status_mobile.png
+?? tools/_ui_wave2_init.py
+?? tools/_ui_wave2_visual_server.py
+?? tools/ui_asap6_embedding_profiles_e2e.py
+?? tools/ui_asap6_wave2_ux_e2e.py
+?? tools/ui_asap8_v6_p1_d09_d11_e2e.py

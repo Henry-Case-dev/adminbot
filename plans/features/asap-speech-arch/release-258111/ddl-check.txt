@@ -1,0 +1,28 @@
+﻿REL-258111 delta-DDL-check (brief PKG-111: delta DDL = 0; канонная эволюция W1 в поезде — это промпт-канон/лестница, НЕ SQLite-DDL)
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (expected 0; != 0 => STOP per brief).
+
+B) Release-to-release DDL (2.58.110 -> 2.58.111) - SQLite-DDL expected NONE:
+   PKG-111 train: W1 канонная эволюция (700f762c фабричные каноны §3.1/3.2/3.3/3.6/§3.7
+   байт-в-байт текстов владельца; 809a4fac P0-D Expression header §3.4; d0b84d84 процедура
+   канонов FACTORY_SET 553a281fe2fd -> fd4e88754749, лестницы PREV_*_W1: direct_chat 11-я,
+   verbalizer 3-я, l1 4-я ступень + НОВАЯ лестница prompts.factcheck_verbalizer_system_prompt,
+   ROLLBACK, superseded-core v1+v2, owner_preserve_core_full_patch), a1db2991 narrator LEGFIX
+   (identity-фраза снята, лестница PREV_SUMMARY_NARRATOR_LEGFIX), 0f3ed53a W1 §9.1 чек-лист
+   (test_asap_w1_semantics.py, 21 тест), beb3f272 W1 evidence; микродефекты: d3c385fe F2
+   type-пины каталога (cooldown int->float и time_daily), 53cd023b app.css HEAD content-length;
+   docs: 804f4963/53b35abf/2127b5c3/bfb85beb/f4ac75be/3b60887c/553400bc.
+   PROMPT-MIGRATIONS NOTE: services/prompt_migrations.py + services/chat_prompts.py +
+   services/prompt_registry.py touched INTENTIONALLY - canon ladder steps PREV_*_W1 +
+   FACTORY_SET fd4e88754749. This is prompt-canon migration, NOT SQLite DDL; user_version
+   is NOT touched. Deploy REQUIRES the planned restart (per brief) so the new factory
+   fingerprint fd4e88754749 takes effect and owner_preserve_core_full_patch migrates the
+   active configuration at deploy (review-w1.md: P0-A/B PENDING-W2 -> миграция активной
+   конфигурации при деплое; P0-C/D/E/F/G VERIFIED).
+   [ PASS ] schema constant still 37 (_SCHEMA_VERSION_HUMOR_SAMPLES = 37)
+   [ PASS ] services/database.py NOT in release delta a8d2a45a..HEAD
+   release-delta SQLite-DDL perimeter files a8d2a45a..HEAD: NONE
+   (canon-ladder files: services/chat_prompts.py, services/prompt_migrations.py, services/prompt_registry.py)
