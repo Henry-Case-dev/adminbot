@@ -1,0 +1,34 @@
+{
+ "generated_utc": "2026-10-22T05:48:02Z",
+ "provider_calls": 0,
+ "steps": [
+  {
+   "step": "V1_100k_anchor_tail_no_sequential_eval",
+   "ok": true,
+   "rows": 100000,
+   "seed_seconds": 0.44,
+   "observe_tick_seconds": 2.855,
+   "llm_calls_first_tick": 1,
+   "tick_status": "completed",
+   "note": "1 LLM-вызов = оценка свежего хвоста, объём не просматривается последовательно"
+  },
+  {
+   "step": "V2_10k_gap_single_digest_plus_eval",
+   "ok": true,
+   "gap_rows": 10000,
+   "llm_streams": 2,
+   "digest_block_present": true,
+   "observe_tick_seconds": 0.08,
+   "evals_total": 2
+  },
+  {
+   "step": "V3_new_chat_8_messages_reaches_opportunity",
+   "ok": true,
+   "llm_calls": 1,
+   "evals": 1,
+   "observed": 8,
+   "tick_status": "completed",
+   "observe_tick_seconds": 0.002
+  }
+ ]
+}

@@ -1,1114 +1,1157 @@
 {
-  "schema": "openworkflow-coverage-v1",
-  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\p0-save-init-ux\\source-p0-followup-2026-10-18.md",
-  "source_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
-  "candidate_commit": "",
-  "deployed_commit": "",
-  "strict_evidence": false,
-  "slice_graph_path": "",
-  "additional_requirements": [
+ "schema": "openworkflow-coverage-v1",
+ "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\p0-save-init-ux\\source-p0-followup-2026-10-18.md",
+ "source_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+ "candidate_commit": "",
+ "deployed_commit": "",
+ "strict_evidence": false,
+ "slice_graph_path": "",
+ "additional_requirements": [
+  {
+   "source_id": "M-B-03",
+   "source_line": 3,
+   "source_text_sha256": "9eae56d586bf2b66c461e03da0ff12421b5de08dfd9aa2fafe20ef81ff496324",
+   "source_excerpt": "> Обязательное дополнение к P0 HOTFIX (инициатива + сохранение SOUL-1 + UX). Встраивается в очередь `current_task.md` с ",
+   "disposition": "required",
+   "reason": "Закрыто: дополнение встроено в конец очереди `current_task.md` (шапка source: вставка «целиком в самый конец»; строка ~1236) с высоким приоритетом; выполняемые задачи не прерваны/не отменены — фазовые лейны/леджеры завершались атомарно (хронология коммитов/«CLOSED-этапов» workflow_state). VERIFIED.",
+   "req_id": "P0B-WF-ADDON",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Дополнение встроено в очередь current_task с высоким приоритетом; выполняемые задачи не прерваны/не отменены/не заменены (подтверждается журналом очереди).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
     {
-      "source_id": "M-B-03",
-      "source_line": 3,
-      "source_text_sha256": "9eae56d586bf2b66c461e03da0ff12421b5de08dfd9aa2fafe20ef81ff496324",
-      "source_excerpt": "> Обязательное дополнение к P0 HOTFIX (инициатива + сохранение SOUL-1 + UX). Встраивается в очередь `current_task.md` с ",
-      "disposition": "required",
-      "reason": "Закрыто: дополнение встроено в конец очереди `current_task.md` (шапка source: вставка «целиком в самый конец»; строка ~1236) с высоким приоритетом; выполняемые задачи не прерваны/не отменены — фазовые лейны/леджеры завершались атомарно (хронология коммитов/«CLOSED-этапов» workflow_state). VERIFIED.",
-      "req_id": "P0B-WF-ADDON",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Дополнение встроено в очередь current_task с высоким приоритетом; выполняемые задачи не прерваны/не отменены/не заменены (подтверждается журналом очереди).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 (п.1–3) + plans/current_task.md (P0 FOLLOW-UP, стр. ~1236) + plans/workflow_state.md (журнал лейнов)",
-          "observation": "Дополнение встроено в конец очереди current_task; выполняемые задачи не прерваны/не отменены — фазовые лейны и леджеры завершались атомарно, P0 шёл поверх текущей работы.",
-          "artifact_path": "plans/current_task.md",
-          "artifact_sha256": "111c23532ccedb172a09a20c8d48d782f970dbd44aa10ab9b354f9e45654d76e",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.1"
-      ],
-      "note": "Сводная формулировка; детали — P0B-WF-NORESTART/PRESERVE/SEMANTICS."
-    },
-    {
-      "source_id": "M-B-16",
-      "source_line": 16,
-      "source_text_sha256": "49ce91c6578f739cc035f902f88204cbd39dbb2c6a59b246eb3a6a1833ebb17f",
-      "source_excerpt": "**P0 = высокий приоритет выбора следующей работы, а не принудительное прерывание текущей.**",
-      "disposition": "required",
-      "reason": "Закрыто: семантика P0 соблюдена — «высокий приоритет выбора следующей работы, а не принудительное прерывание текущей» (source §0.16); хронология без принудительных прерываний. VERIFIED.",
-      "req_id": "P0B-WF-SEMANTICS",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Семантика P0 соблюдена: высокий приоритет выбора следующей работы; принудительного прерывания текущей работы нет.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 п.3/п.16 + plans/workflow_state.md",
-          "observation": "Принудительных прерываний не было: смена фаз происходила по завершении этапов (окна/леджеры/фиксы), P0 выбирался как следующая работа.",
-          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
-          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "M-B-19",
-      "source_line": 19,
-      "source_text_sha256": "2bd1966e66c09a4fb19cbf1234b194723c358a80e0c477c3a2fe89898d20a673",
-      "source_excerpt": "**Запрещено использовать последовательный обход всей исторической базы как основной способ обнаружения возможностей.**",
-      "disposition": "required",
-      "reason": "Закрыто: последовательный обход всей базы запрещён как основной путь — bootstrap/scan от `cursor`, anchor-механика (`scan_anchored`); тест `test_stale_cursor_is_anchored_to_live_conversation` (1200 строк архива → observed<300); gap-check §1(1) covered; живое: `scan_anchored=1`. VERIFIED (`620ce2b0`).",
-      "req_id": "P0B-INIT-NOARCHIVE",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Последовательный обход всей исторической базы запрещён как основной способ обнаружения возможностей: код/ревью/тест показывают основной путь через хвост и новые сообщения; большой чат не сканируется целиком.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(1) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
-          "observation": "Основной путь — хвост и новые сообщения: большой чат не сканируется целиком (anchor от живого конца; durable `scan_anchored`).",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
-          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "soul-1:SOUL-18.2"
-      ],
-      "note": "Initiative автономна от Direct (SOUL-18.2); здесь — запрет основного способа «сканировать архив»."
-    },
-    {
-      "source_id": "M-B-29A",
-      "source_line": 29,
-      "source_text_sha256": "06d5daee828b42d1937f423f32826b535829bbcafd3127d3af859490e7e23506",
-      "source_excerpt": "Семантика: о чём разговор; кто с кем; развитие темы; реальный повод; кому отвечать (reply/общий чат); не устарел ли пово",
-      "disposition": "required",
-      "reason": "Закрыто: оценка по содержанию (не по таймеру); SILENT/REACT — на уровне решений; единый `handle_initiative` (decide/react/silent `delivery_not_text`); `created_at` повода + SendRecheck; b01/w5-тесты; живое: честные reason-коды (`default`, `l1_unavailable`). VERIFIED (`620ce2b0`).",
-      "req_id": "P0B-INIT-DECISION",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Семантика решения: о чём разговор, кто с кем, развитие темы, реальный повод, кому отвечать (reply/общий чат), не устарел ли повод; SAY/REACT/SILENT — по содержанию и личности, не по таймеру (evals/тесты).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(10) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
-          "observation": "SAY/REACT/SILENT по содержанию и личности: о чём разговор/кому отвечать/не устарел ли повод — evals/тесты + живые решения.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
-          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "M-B-29B",
-      "source_line": 29,
-      "source_text_sha256": "06d5daee828b42d1937f423f32826b535829bbcafd3127d3af859490e7e23506",
-      "source_excerpt": "Семантика: о чём разговор; кто с кем; развитие темы; реальный повод; кому отвечать (reply/общий чат); не устарел ли пово",
-      "disposition": "required",
-      "reason": "Закрыто: механика критерия — anchor+watermark (lag→0), scan без LLM, eval bounded; живое (прод 2.58.90): `cursor_lag=0`, `live_24h=716`, `scan_anchored=1` + 16 сканов success после T0, 1 opportunity + decision 15:20:45Z — инициатива реагирует на сегодняшнюю переписку, не ожидая обработки миллиона записей. VERIFIED.",
-      "req_id": "P0B-INIT-CRITERION",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Чат с миллионом сообщений: инициатива реагирует на сегодняшнюю переписку, не ожидая обработки миллиона записей — подтверждено реальной воронкой после деплоя.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(11) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
-          "observation": "Критерий покрыт механикой: старт от живого хвоста, watermark догоняет, большой чат не сканируется целиком.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
-          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
-          "type": "static"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1)",
-          "observation": "Прод: `scan_anchored_events_since_t0=1` (13:40:06Z) + 16 сканов success + 1 opportunity; `passes=865`, `cursor_lag=2→0`; чат с ~2.2 млн сообщений наблюдается с живого хвоста.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
-          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
-          "type": "production"
-        }
-      ],
-      "alias_of": [
-        "soul-1:SOUL-18.7"
-      ],
-      "note": "Главный live-критерий инициативы; проверяется реальной воронкой."
-    },
-    {
-      "source_id": "M-B-32",
-      "source_line": 32,
-      "source_text_sha256": "3e56664391617fbabd8e65991f508da160a8fd45d5ab6ec198b3efef040f2e53",
-      "source_excerpt": "Проверить/восстановить реально работающую ностальгию. Подозреваемые блокеры `services/nostalgia_worker.py`: проверка `me",
-      "disposition": "required",
-      "reason": "Закрыто лейном NOSTALGIA-FIX + независимым ревью (18.10.2026, Approved): классификация блокеров с evidence — #3 (45-мин тишина резала живую беседу) ПОДТВЕРЖДЁН прод-логом (28 тиков `silence_too_short` за 30 дн, 26 738 кандидатов, `sent`=2 за историю); #1 (job не регистрировался при OFF-старте) ПОДТВЕРЖДЁН (механизм, латентный) и закрыт (always-register); #2 (заводской default False) ПОДТВЕРЖДЁН — включение hot PG; #4/#5 НЕ ПОДТВЕРЖДЕНЫ как блокеры (209 `budget_skip` — per-chat gate второго чата; `initiative_*` в проде не запускался). Подтверждённые устранены (A/B-разделение). VERIFIED: код+тесты+pre-deploy диагностика; живая наблюдаемость — в P0B-NOST-DIAG/SCEN-A (READY_FOR_LIVE).",
-      "req_id": "P0B-NOST-RESTORE",
-      "slice": "P0B-NOST",
-      "acceptance": "Ностальгия проверена и восстановлена: каждый подозреваемый блокер (регистрация job по memory.nostalgia_enabled при OFF-старте; заводской NOSTALGIA_ENABLED=False; требование длительной тишины; cooldowns/quiet hours/лимиты/пороги/budget-гейты; возможный SILENT после делегирования) классифицирован (подтверждён/опровергнут) с evidence; подтверждённые устранены.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1 + plans/features/p0-save-init-ux/evidence/nostalgia/README.md §1",
-          "observation": "Прод-диагностика (read-only, 18.10.2026): каждый тик по чату -1002661910336 за 30 дн = `silence_too_short` (28 строк); при 2 026 184 сообщениях и 26 738 кандидатах «год назад» ни один не достигнут; `nostalgia_log`: sent=2, budget_skip=209 (per-chat gate второго чата, не budget); `NOSTALGIA_ENABLED` в .env нет (включение hot PG). Основной блокер — 45-мин тишина для контекстного сценария.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
-          "artifact_sha256": "f72f051c6d090a599c18e2381a7d71d743e7c978d0071c1158ecdbc4141cb547",
-          "type": "production"
-        },
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md §1/§5 + plans/features/p0-save-init-ux/evidence/nostalgia/red-baseline-2c916f35.txt + green-lane-only-2c916f35.txt",
-          "observation": "Блокеры #1 (start() возвращался при OFF — job не регистрировался; закрыт always-register) и #2 (default False; hot-включение без рестарта) классифицированы; #4/#5 не подтверждены как блокеры. RED 9f/1p на базе 2c916f35 → GREEN: lane-only 334 passed, ключевая тройка 43 passed, комбинированный набор 370 passed.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/green-lane-only-2c916f35.txt",
-          "artifact_sha256": "d72c0b548af95774430893fbb73ad56e9c82b8162f990b9ae031851d6edd1e4c",
-          "type": "test"
-        }
-      ],
-      "alias_of": [
-        "soul-1-amd:SOUL-AMD.2.6"
-      ],
-      "note": "«Ностальгия» уже проведена через общий контур (AMD.2.6/W4); восстанавливать существующий worker, не создавать второй."
-    },
-    {
-      "source_id": "M-B-33",
-      "source_line": 33,
-      "source_text_sha256": "c763add4bf1f5fc0b32402492ab0d69929e7abc3119070cf7b7dd6a72ca55593",
-      "source_excerpt": "Снять production-диагностику: effective gates, наличие/исполнение job, тики, причины отказов, найденные воспоминания, ре",
-      "disposition": "required",
-      "reason": "Закрыто: пост-деплой диагностика проведена (прод 2.58.90, phase-2) — C1–C3 (job completed, `scan_anchored=1`, воронка/панель ok) и B1–B3 (`nostalgia_log`: #218 skipped/unchanged, #217 no_candidates; оба чата active; PET-гейт включён 14:12:12Z); ERR=29 идентифицированы как provider-402 nano-gpt «Insufficient balance» (+1 traceback — тот же LLM-путь наблюдателя) — не дефекты 2.58.90. VERIFIED.",
-      "req_id": "P0B-NOST-DIAG",
-      "slice": "P0B-NOST",
-      "acceptance": "Production-диагностика: effective gates, наличие/исполнение job, тики, причины отказов, найденные воспоминания, решения LLM, отправки; подтверждённые блокеры устранены — артефакт после деплоя.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1/§7 + plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
-          "observation": "Pre-deploy диагностика: effective gates (memory.nostalgia_enabled=true hot; per-chat gate второго чата -1004482340693), job/тики (почасовые, silence=45min), причины отказов (28× silence_too_short), кандидаты (26 738), отправки (sent=2 за историю). Post-deploy артефакт (journal scenario=A, nostalgia_log, mca_events nostalgia_run, per-chat gate) — живой остаток, выполняется штатным post-deploy чеком.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
-          "artifact_sha256": "f72f051c6d090a599c18e2381a7d71d743e7c978d0071c1158ecdbc4141cb547",
-          "type": "production"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json/.txt (phase-2) + acceptance/README.md §C",
-          "observation": "Post-deploy диагностика: после T0 — 16×`initiative_observer_scan` (все success) + 1×`initiative_opportunity` + 1×`nostalgia_run` (success); `scan_anchored_events_since_t0=1`; ERR=29 = provider-402 nano-gpt «Insufficient balance» (14:30–14:50Z), TRACEBACK=1 — тот же LLM-путь (`initiative_observer._evaluate_window`); FAILED, не дефекты 2.58.90.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
-          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
-          "type": "production"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (phase-2: C1–C3, B1–B3)",
-          "observation": "C1: `scan_anchored=1`/passes=858/job completed; C2/C3: воронка/панель ok; B1: `nostalgia_log` work=3 (sent×2 историч. + #218 skipped/unchanged), PET=10 (#217 no_candidates; #216 budget_skip/gate_nostalgia — до включения гейта); B2: оба чата active/scenario=active; B3: PET-гейт 14:12:12Z.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
-          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
-          "type": "production"
-        }
-      ],
-      "live_note": "закрыто phase-2 (прод 2.58.90): post-deploy диагностика C1–C3/B1–B3; ERR=29 — provider-402 (не дефекты релиза).",
-      "alias_of": [
-        "soul-1-amd:SOUL-AMD.2.6"
-      ]
-    },
-    {
-      "source_id": "M-B-34",
-      "source_line": 34,
-      "source_text_sha256": "051647c34fca24e4d9058477527bcf4b3480a662579dff50378cdbe7abab10be",
-      "source_excerpt": "**Сценарий A — контекстное воспоминание в активной беседе** (без требования 45 минут тишины).",
-      "disposition": "required",
-      "reason": "Код-контракт закрыт ранее (REV §2, тесты). ЗАКРЫТО живой приёмкой (прод 2.58.90, 14:40:03Z): `[nostalgia] scenario=A (живая беседа)` у обоих чатов — `silence=6/13 мин → гейты тишины/quiet hours не применяются`; work-путь дошёл до LLM (`LLM UNCHANGED — skip | kind=year_back`), PET — `skip reason=no_candidates`; строки `nostalgia_log` #218 (skipped/unchanged, `llm_skipped=true`)/#217 (skipped/no_candidates); `NOST_GATE_SKIP=0`. VERIFIED.",
-      "req_id": "P0B-NOST-SCEN-A",
-      "slice": "P0B-NOST",
-      "acceptance": "Сценарий A подтверждён на реальном поведении: контекстное воспоминание в активной беседе без требования 45 минут тишины.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §2/§5 (прогон 43 passed; AB-файл — 8 контрактов) + plans/features/p0-save-init-ux/evidence/nostalgia/README.md §4",
-          "observation": "Код-контракт A: свежее последнее юзерское сообщение → сценарий A минует тишину и quiet hours (A-отправка и A+quiet hours 23:00 зелёные; контроль B в тот же час — skip); общие анти-навязчивости сохранены; user-блок «В чате сейчас живая беседа. Вот память:»; воронки sent/year_back и no_candidates/unchanged подтверждены тестами; RED-состав (9 failed/1 passed) воспроизведён ревьюером.",
-          "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
-          "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
-          "type": "test"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.txt (NOSTALGIA JOURNAL LINES, phase-2) + journal-25890.json",
-          "observation": "Live 18.10 14:40:03Z (прод 2.58.90): `scenario=A (живая беседа) | chat=-1004482340693 | silence=13min → гейты тишины/quiet hours не применяются`, затем `skip | reason=no_candidates`; `scenario=A | chat=-1002661910336 | silence=6min`, затем `LLM UNCHANGED — skip | kind=year_back`; `NOST_SCEN_A=2`, `NOST_GATE_SKIP=0`; строки `nostalgia_log` #218/#217.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.txt",
-          "artifact_sha256": "d0fc9ee8c6d5e994d934265c8967993aeabdabee4540c50dfe98bda21469fd2b",
-          "type": "production"
-        }
-      ],
-      "live_note": "закрыто phase-2 (прод 2.58.90): живые `scenario=A`-строки, гейты не применяются, честные skip-причины + строки лога.",
-      "alias_of": [
-        "soul-1-amd:SOUL-AMD.2.6"
-      ]
-    },
-    {
-      "source_id": "M-B-35-OWNEROBS",
-      "source_line": 35,
-      "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",
-      "source_excerpt": "**Сценарий B — автономное воспоминание после затишья** (паузы/защита от навязчивости — здесь уместны).",
-      "disposition": "required",
-      "reason": "Сверка 20.10.2026 (OWNER-OBS-RECON): личное наблюдение владельца «пришло ли ностальгическое сообщение само после затишья» — добровольное (owner_live_checks.md §5); инженерная половина (механизм, тики, паузы/анти-спам) остаётся обязательной в P0B-NOST-SCEN-B (READY_FOR_LIVE — ждёт естественного затишья, WAITING_EXTERNAL, проверяемо агентами по логам).",
-      "req_id": "P0B-NOST-SCEN-B.OWNEROBS",
-      "slice": "P0B-NOST",
-      "acceptance": "Добровольное наблюдение владельца: когда в чате долго тихо — ностальгическое сообщение приходит само (инициатива), без навязчивости; ничего делать не нужно, только наблюдение.",
-      "live_required": false,
-      "live_when": "postdeploy",
-      "status": "PENDING",
-      "verification_tier": "owner_optional",
-      "owner_policy_ref": "plans/owner_live_checks.md",
-      "owner_optional_reason": "Триггер — естественное затишье в реальных чатах владельца, а субъективное восприятие инициативы доступно только ему; наблюдение добровольное и не блокирует приёмку.",
-      "engineering_req_ids": ["P0B-NOST-SCEN-B"],
-      "evidence": []
-    },
-    {
-      "source_id": "M-B-35",
-      "source_line": 35,
-      "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",
-      "source_excerpt": "**Сценарий B — автономное воспоминание после затишья** (паузы/защита от навязчивости — здесь уместны).",
-      "disposition": "required",
-      "reason": "Код-контракт закрыт (ревью 18.10.2026): для B (последнее юзерское сообщение старше окна тишины) сохранены прежние гейты — тишина, quiet hours, cooldown 12 ч, лимит 3/сутки, Q14, порог 0.45, budget; контрольный тест `test_scenario_b_quiet_hours_still_skip` зелёный уже на RED (единственный pass) и на кандидате; OFF-паритет байт-в-байт. Живая часть: фактическое срабатывание B (или честная причина) в пост-деплой воронке — READY_FOR_LIVE.",
-      "req_id": "P0B-NOST-SCEN-B",
-      "slice": "P0B-NOST",
-      "acceptance": "Сценарий B подтверждён на реальном поведении: автономное воспоминание после затишья с паузами/защитой от навязчивости.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
-      "evidence": [
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1/§2/§3 + tests/test_p0_followup_nostalgia_ab.py (контроль B)",
-          "observation": "Код-контракт B: последнее юзерское сообщение старше окна тишины → прежние гейты (тишина/quiet hours/cooldown/лимит/Q14/порог) действуют; контрольный тест quiet chat + quiet hours → skip зелёный на RED и на кандидате (единственный RED-pass — прежний контракт B не сломан); OFF-путь байт-в-байт (`bytes_equal_legacy_canon: True`).",
-          "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
-          "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
-          "type": "test"
-        }
-      ],
-      "live_note": "ждёт естественного затишья (механизм подтверждён кодом+тестами+A-строки живые); не блокирует 92C (19.10): в ночном окне затишья не было (все тики scenario=A) — остаётся ждать естественного затишья.",
-      "alias_of": [
-        "soul-1-amd:SOUL-AMD.2.6"
-      ]
-    },
-    {
-      "source_id": "M-B-36",
-      "source_line": 36,
-      "source_text_sha256": "57d0840744a65b701b0a7c77c560d610ee1c8950658711fc9b0e83875108dd04",
-      "source_excerpt": "Оба — общие механизмы памяти/уместности/Core/дедупа/отправки. Никакого второго контура генерации/личности. Устранить leg",
-      "disposition": "required",
-      "reason": "Закрыто (ревью 18.10.2026, Approved): единый контур подтверждён артефактом ON/OFF и тестами — ON-промпт = genre-рамка + SOUL-1 Core canon + UNCHANGED, без legacy-персоны («токсично-тёплый»/«робот-архивариус» убраны, диффом; артефакт воспроизведён ревьюером); OFF-путь байт-в-байт прежний (`bytes_equal_legacy_canon: True`, base↔candidate sha `7631bbcc…`); делегирование в общий Decision без второго send-path. VERIFIED (pre-deploy).",
-      "req_id": "P0B-NOST-ONE-CONTOUR",
-      "slice": "P0B-NOST",
-      "acceptance": "Общие механизмы памяти/уместности/Core/дедупа/отправки; второго контура генерации/личности нет; legacy-речевые каноны в активных промптах Nostalgia, конкурирующие с SOUL-1, устранены (grep-артефакт).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §3/§4 + plans/features/p0-save-init-ux/evidence/nostalgia/system-prompt-on-vs-off.txt + tests/test_soul1_w4_authorial_genre.py (кейс core_canon)",
-          "observation": "Артефакт ON/OFF: ON-промпт (3009 симв.) — genre-рамка + NOSTALGIA_CORE_CANON + UNCHANGED, legacy-маркеров нет; OFF-system == legacy_canon байт-в-байт; user-блок OFF идентичен базе. Единственный контур: тот же `_delegate_initiative` → общий Decision/Writer; второй контур генерации/личности отсутствует; W4-контракты (OFF-паритет) не изменены и зелёные.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/system-prompt-on-vs-off.txt",
-          "artifact_sha256": "ae88951ef39ae9b987c3f506733119a82eec499a8fce46f81f209cbe9980c932",
-          "type": "test"
-        }
-      ],
-      "alias_of": [
-        "soul-1-amd:SOUL-AMD.2.13",
-        "soul-1-amd:SOUL-AMD.8.1",
-        "soul-1-amd:SOUL-AMD.4.6"
-      ],
-      "note": "Скрытые альтернативные личности запрещены (AMD.2.13); единый Core (AMD.8.1); legacy-каноны — только в резервной копии (AMD.4.6)."
-    },
-    {
-      "source_id": "M-B-39",
-      "source_line": 39,
-      "source_text_sha256": "1daae847da44e6f63573e28b8e8d105d597a9f51a24316f4b6c4c2184bb0f3b7",
-      "source_excerpt": "Initiative: актуальный разговор/новые поводы/ответы. Nostalgia: осмысленное возвращение к прошлому. Различимые источники",
-      "disposition": "required",
-      "reason": "Закрыто (ревью 18.10.2026, Approved): различимые источники кандидатов закреплены тест-спаем — `source=nostalgia`, `trigger_kind=nostalgia_due`, `prepared_text_ref=nostalgia:*`; путь `_delegate_initiative` → единый `handle_initiative`; ошибка делегирования — честный error без legacy-фолбэка; второго send-path/двойных отправок/конкурирующих писателей нет; `nostalgia_log meta.path=initiative`. VERIFIED (pre-deploy); живое различение — в пост-деплой воронке (P0B-NOST-DIAG).",
-      "req_id": "P0B-SEPARATION",
-      "slice": "P0B-NOST",
-      "acceptance": "Разделение: Initiative — актуальный разговор/новые поводы/ответы; Nostalgia — осмысленное возвращение к прошлому; различимые источники кандидатов для единого Decision/Writer/SendRecheck; без двойных отправок/конкурирующих писателей/повторов повода; история для понимания не путается с ответом на завершившийся разговор.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
-          "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §4/§7 + tests/test_p0_followup_nostalgia_ab.py (тест-спай делегирования)",
-          "observation": "Разделение подтверждено: спай на `handle_initiative` фиксирует `source=nostalgia`, `trigger_kind=nostalgia_due`, `prepared_text_ref=nostalgia:<fact|kind>`, готовый текст и `meta.path=initiative` в `nostalgia_log`; ошибка делегирования — честный `error` без legacy-фолбэка; поводы Initiative/Nostalgia различимы в едином Decision; второго send-path и двойных отправок нет.",
-          "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
-          "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
-          "type": "test"
-        }
-      ]
-    },
-    {
-      "source_id": "M-B-43",
-      "source_line": 43,
-      "source_text_sha256": "661ed6444d2465b1b8f8d3e47571cb98e9b849aa7e0e72a6d3fd892e0850255d",
-      "source_excerpt": "Показать реальные воронки: наблюдение → кандидат → оценка → решение → генерация → recheck → отправка/причина отказа. Не ",
-      "disposition": "required",
-      "reason": "Закрыто: показаны реальные воронки на проде 2.58.90 — наблюдение→кандидат→оценка→решение→генерация→отправка/причина отказа: C1 (passes=858/evals=7), C2 (24ч: scan=280/opportunity=6/decided=4/writer_generated=2/sent=2), C3 (решения с reason_code/label, панель ok); живые причины отказа: `no_candidates`/`unchanged`/`budget_skip(gate)` и silent-reasons (eval_not_due=192/not_enough_messages=88/min_gap=8). Запуск планировщика как доказательство не использовался; бессмысленных публикаций нет. VERIFIED.",
-      "req_id": "P0B-LIVE-FUNNEL",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Показаны реальные воронки: наблюдение → кандидат → оценка → решение → генерация → recheck → отправка/причина отказа; запуск планировщика не засчитывается как доказательство; бессмысленные публикации не принуждаются.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1–C3) + acceptance/README.md §C",
-          "observation": "Реальные воронки: наблюдение (scan=280/24ч; 16 после T0) → кандидат (opportunity=6) → оценка (evals) → решение (decided=4; reason_code/label) → генерация (writer_generated=2) → отправка/причина отказа (sent=2; живые причины: no_candidates/unchanged/budget_skip + silent-reasons eval_not_due=192/not_enough_messages=88/min_gap=8); панель `activity.state=ok`.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
-          "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
-          "type": "production"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json (phase-2)",
-          "observation": "mca_events после T0: 16×scan + 1×opportunity + 1×nostalgia_run (success); `error_warn_events_since_t0=[]`; запуск планировщика не использовался как доказательство — показаны исходы/причины.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
-          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
-          "type": "production"
-        }
-      ],
-      "alias_of": [
-        "soul-1:SOUL-18.6"
-      ],
-      "note": "Воронка уже заявлена в SOUL-18.6; здесь — реальные данные, не факт запуска планировщика."
-    },
-    {
-      "source_id": "M-B-47",
-      "source_line": 47,
-      "source_text_sha256": "3482d9bb830473a2bb03682c9310b1ec62bf9160724a234c43ff5f8130ed8a03",
-      "source_excerpt": "Нельзя оставлять workflow в ожидании из-за технической завершённости или ожидания живого наблюдения.",
-      "disposition": "required",
-      "reason": "Закрыто: workflow не в ожидании — незакрытые живые проверки (SCEN-B/GOAL/LIVE-SCENARIOS) зафиксированы notes без фриза очереди; независимая работа продолжается (CFG-02B/Vision; workflow_state). VERIFIED.",
-      "req_id": "P0B-CLOSE-NOWAIT",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Workflow не остаётся в ожидании из-за технической завершённости или ожидания живого наблюдения: независимая работа продолжается; ожидающие живые проверки фиксируются без фриза очереди.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/workflow_state.md (независимая работа: CFG-02B/Vision идут) + plans/features/p0-vision-universal/requirements-map.json (Vision-линия активна)",
-          "observation": "Техническая завершённость/ожидание живого наблюдения не фризит workflow: независимая работа (CFG-02B/Vision) продолжается, живые остатки зафиксированы явно.",
-          "artifact_path": "plans/features/p0-vision-universal/requirements-map.json",
-          "artifact_sha256": "c691aabc7ebc5412e4a6f361ce28e2b3ccf473576708b74e28a89b5410d92166",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-2.Q"
-      ],
-      "note": "Ср. ADD-2.Q: после дополнения продолжать очередь, не ждать."
-    },
-    {
-      "source_id": "M-B-48",
-      "source_line": 48,
-      "source_text_sha256": "304256b238253c3f7ac6e3d307e0d66dcb3786c62405efbbed5a55997fbbb302",
-      "source_excerpt": "**Главный критерий:** бот способен самостоятельно участвовать в актуальной жизни чата и осмысленно вспоминать прошлое, а",
-      "disposition": "required",
-      "reason": "ЗАКРЫТО (92C, 19.10.2026): первое фактическое срабатывание-доставка ностальгии после T0 — 03:46:43Z (08:46 +05), scenario=A, `year_back`, `path=initiative` (`[mca09] initiative sent | trigger=nostalgia_due`), текст «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет», `nostalgia_log status=sent`, `nostalgia_run success` 23.3 c. Критерий «осмысленно вспоминать прошлое, а не бесконечно молчать из-за гейтов» выполнен живой доставкой. VERIFIED.",
-      "req_id": "P0B-GOAL",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Главный критерий: бот способен самостоятельно участвовать в актуальной жизни чата и осмысленно вспоминать прошлое, а не бесконечно молчать из-за гейтов или перечитывать архив — подтверждено реальными воронками.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
-          "ref": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md (92C, «SCEN-B/ностальгия») + plans/features/p0-vision-universal/evidence/release-25892/acceptance/journal-since-t0-c.txt",
-          "observation": "Первая доставка после T0: scenario=A/year_back/path=initiative, `nostalgia_log sent`, `nostalgia_run success` 23.3 c; тихого сценария не было (все тики scenario=A).",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/journal-since-t0-c.txt",
-          "artifact_sha256": "5e3f3bd6f499ab9c3163c324ebe11dbf4115cbd00ef3fa4bae0e11dfe0f2a8fa",
-          "type": "production"
-        },
-        {
-          "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
-          "ref": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md §92C + final-register-c.json",
-          "observation": "Сводный регистр 92C фиксирует доставку и residual=0 (уборка).",
-          "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md",
-          "artifact_sha256": "c0e269154897ebfb39c07e4dde926431f13432d6398707da72b7aebd592a347c",
-          "type": "static"
-        }
-      ],
-      "note": "Phase-2 (прод 2.58.90, 18.10): гейты не молчат (живые `scenario=A` у обоих чатов — тишина/quiet hours не применяются; PET-гейт пройден), архив не перечитывается (anchored, `scan_anchored=1`), воронки реальны (scan/opportunity/decided/writer). Не наблюдалось: доставленное воспоминание после T0 (честные скипы UNCHANGED/no_candidates) — главный критерий не закрываю до фактического доставленного воспоминания в живом трафике. ЗАКРЫТО (92C): доставленное воспоминание получено — 03:46:43Z, scenario=A, year_back, path=initiative, «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет», nostalgia_log sent, nostalgia_run success 23.3 c."
-    },
-    {
-      "source_id": "M-B-49",
-      "source_line": 49,
-      "source_text_sha256": "88e6d5cf44accd64af0a2e8d7f721b37726cb9f3d18fba9dba97d936a2053dce",
-      "source_excerpt": "**Итоговое правило:** оба P0-хотфикса обязательны и выполняются с высоким приоритетом в ближайших безопасных окнах; они ",
-      "disposition": "required",
-      "reason": "Закрыто по аттесту Оркестратора (процессная строка; техническими проверками не закрывается): «Оркестратор аттестует: реестр 8 задач сохранён полностью (`progress_scope.json`); `current_task.md` агентами не изменялся (только чтение; хэш `3D238E1E`; дельта ADD-TR — аддитивная); ни одна ранее зарегистрированная задача не удалена/не отменена/не помечена выполненной без подтверждения; SCEN-B/GOAL/LIVE-SCENARIOS — честно открытые естественные наблюдения.» VERIFIED.",
-      "req_id": "P0B-FINAL-RULE",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Оба P0-хотфикса обязательны и выполняются с высоким приоритетом в ближайших безопасных окнах; план дополнен; ни одна ранее зарегистрированная задача не потеряна/не отменена/не помечена выполненной без подтверждения.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "аттест Оркестратора (19.10.2026) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §5 (итоговое правило); progress_scope.json — в ref",
-          "observation": "Оба P0-хотфикса выполнены с высоким приоритетом в безопасных окнах (2.58.90); план дополнен (аддендум в конце current_task.md); реестр задач сохранён (8 задач), потерянных/отменённых без подтверждения нет.",
-          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
-          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-2.Q"
-      ]
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 (п.1–3) + plans/current_task.md (P0 FOLLOW-UP, стр. ~1236) + plans/workflow_state.md (журнал лейнов)",
+     "observation": "Дополнение встроено в конец очереди current_task; выполняемые задачи не прерваны/не отменены — фазовые лейны и леджеры завершались атомарно, P0 шёл поверх текущей работы.",
+     "artifact_path": "plans/current_task.md",
+     "artifact_sha256": "111c23532ccedb172a09a20c8d48d782f970dbd44aa10ab9b354f9e45654d76e",
+     "type": "static"
     }
-  ],
-  "items": [
+   ],
+   "alias_of": [
+    "cfg:ADD-0.1"
+   ],
+   "note": "Сводная формулировка; детали — P0B-WF-NORESTART/PRESERVE/SEMANTICS."
+  },
+  {
+   "source_id": "M-B-16",
+   "source_line": 16,
+   "source_text_sha256": "49ce91c6578f739cc035f902f88204cbd39dbb2c6a59b246eb3a6a1833ebb17f",
+   "source_excerpt": "**P0 = высокий приоритет выбора следующей работы, а не принудительное прерывание текущей.**",
+   "disposition": "required",
+   "reason": "Закрыто: семантика P0 соблюдена — «высокий приоритет выбора следующей работы, а не принудительное прерывание текущей» (source §0.16); хронология без принудительных прерываний. VERIFIED.",
+   "req_id": "P0B-WF-SEMANTICS",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Семантика P0 соблюдена: высокий приоритет выбора следующей работы; принудительного прерывания текущей работы нет.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
     {
-      "source_id": "L00005",
-      "source_line": 5,
-      "source_text_sha256": "b07d991c7f086dc6598dbb0eae33aaea5aac1e0f49185c9420b2fcfdf816e117",
-      "source_excerpt": "## 0. Интеграция в workflow и очередь",
-      "disposition": "context",
-      "reason": "Заголовок раздела; обязательства раскрыты пунктами 1–10 (L00006–L00015), строкой 16 и manual-строкой 3.",
-      "req_id": "",
-      "slice": "",
-      "acceptance": "",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
-    },
-    {
-      "source_id": "L00006",
-      "source_line": 6,
-      "source_text_sha256": "67e2f83239366f8ef343c5c547ea9a0b2380d888e27c0a9b6d7a3b463e0b870c",
-      "source_excerpt": "1. Оба хотфикса регистрируются в requirements-map и workflow-state как обязательные P0.",
-      "disposition": "required",
-      "reason": "Закрыто: обе P0-карты зарегистрированы (существуют; plan-гейты A `22/13/0` и B `26/15/0` EXIT 0); в workflow-state/progress_scope — обязательные высокоприоритетные (`p0-save-init-ux`, `p0-followup-nostalgia`; зарегистрировано 7/7 задач). VERIFIED.",
-      "req_id": "P0B-WF-REGISTER",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Оба P0-хотфикса зарегистрированы как обязательные P0: обе карты существуют в plans/features/p0-save-init-ux/ и проходят check --stage plan; в workflow-state задачи отражены как обязательные высокоприоритетные.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29 VERIFIED, `fac69543`) + requirements-map-followup.json (plan `26/15/0` EXIT 0) + plans/progress_scope.json (7/7: `p0-save-init-ux`→VERIFIED, `p0-followup-nostalgia`→WAITING_EXTERNAL) + plans/workflow_state.md",
-          "observation": "Обе карты существуют в plans/features/p0-save-init-ux/ и проходят check --stage plan; в workflow-state и progress_scope отражены как обязательные высокоприоритетные.",
-          "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
-          "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.3"
-      ],
-      "note": "Регистрация карт выполнена этой задачей; workflow-state — штатное обновление Orchestrator."
-    },
-    {
-      "source_id": "L00007",
-      "source_line": 7,
-      "source_text_sha256": "eb860c6e5c79384a90c0a38dc32bb64368ba2231be172aeddfffb320f6307396",
-      "source_excerpt": "2. Не останавливать/не перезапускать работающих агентов; дать атомарным этапам завершиться безопасно.",
-      "disposition": "required",
-      "reason": "Закрыто: работающие лейны не останавливались/не перезапускались — независимые волны шли параллельно, каждый этап завершался атомарным коммитом; прод-рестарты — только штатные деплой-окна (T0-контроль, NRestarts=0 вне окон). VERIFIED.",
-      "req_id": "P0B-WF-NORESTART",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Работающие агенты не остановлены/не перезапущены; атомарные этапы завершаются безопасно (журнал показывает завершение активных шагов до старта P0-этапов).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/workflow_state.md («CLOSED-этапы»: окна/леджеры завершались до старта следующих фаз; фазовые ворота) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.2",
-          "observation": "Активные шаги доводились до безопасного завершения до старта P0-этапов: хронология коммитов/леджеров показывает последовательность «завершён → следующая фаза»; перезапусков работающих агентов не было.",
-          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
-          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.1"
-      ],
-      "note": "Ср. ADD-0.1: не прерывать/не переигрывать current_task."
-    },
-    {
-      "source_id": "L00008",
-      "source_line": 8,
-      "source_text_sha256": "6186e6098d2eacd2574a33d0d549db820484b275d4ae9b294d7f3dba858c0e01",
-      "source_excerpt": "3. В ближайшей безопасной точке планировщик выбирает P0 раньше ещё не начатых задач низкого приоритета (не нарушая зависимости и release gates).",
-      "disposition": "required",
-      "reason": "Закрыто: в ближайшей безопасной точке P0 выбран раньше ещё не начатых низкоприоритетных работ (P0-волна выполнена; CFG-02C/CFG-FINAL и пр. — после); зависимости/release-gates не нарушены. VERIFIED.",
-      "req_id": "P0B-WF-PRIORITY",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "В ближайшей безопасной точке планировщик выбирает P0 раньше ещё не начатых задач низкого приоритета, не нарушая зависимости и release gates.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 п.3 + plans/workflow_state.md (возврат к очереди: CFG-02B→CFG-FINAL, Vision — после P0)",
-          "observation": "P0 шёл как высокий приоритет выбора следующей работы: сперва P0-волна (persist/init/UX/nostalgia), затем возврат к очереди; release-gates соблюдены (деплой в safe-window).",
-          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
-          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.1"
-      ],
-      "note": "Ср. паттерн приоритетов очереди ADD-0.1."
-    },
-    {
-      "source_id": "L00009",
-      "source_line": 9,
-      "source_text_sha256": "696bc88eccb6b89a183f7e2b9a3c1f6eacb6b535e65859d398d70c48cbbafc9e",
-      "source_excerpt": "4. Не удалять/сокращать/перезаписывать другие требования current_task; статусы сохраняются.",
-      "disposition": "required",
-      "reason": "Закрыто: другие требования current_task не удалены/не сокращены (дополнение — append в конец); статусы сохранены — сравнение зафиксировано git-историей файла (`176abdde`/`79fc0e8b`/`ebe10806`) и scope-реестром 7/7. VERIFIED.",
-      "req_id": "P0B-WF-PRESERVE",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Другие требования current_task не удалены/не сокращены/не перезаписаны; статусы сохранены (сравнение до/после зафиксировано артефактом).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/current_task.md (append в конец; сравнение — git-история) + plans/progress_scope.json (7/7)",
-          "observation": "Прежние пункты current_task не правились/не удалялись: дополнение вставлено в конец; статусы сохранены; реестр прогресса подтверждает отсутствие потерянных задач (7/7).",
-          "artifact_path": "plans/current_task.md",
-          "artifact_sha256": "111c23532ccedb172a09a20c8d48d782f970dbd44aa10ab9b354f9e45654d76e",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.1",
-        "cfg:ADD-0.5"
-      ],
-      "note": "Статусы и очередь не теряются; раздельные этапы/статусы — ADD-0.5."
-    },
-    {
-      "source_id": "L00010",
-      "source_line": 10,
-      "source_text_sha256": "8e27ae2f2f003e9fe3d8b962fedb5f1408d4db22cfe477372196aa93d91e4493",
-      "source_excerpt": "5. Пересечения: предыдущий P0 уже затрагивает инициативу; дополнение расширяет архитектуру и добавляет ностальгию. **Никаких повторных реализаций/дублей/конкурирующих веток.**",
-      "disposition": "required",
-      "reason": "Закрыто: повторных реализаций/дублей/конкурирующих веток нет — изменения расширяли существующие компоненты инициативы/памяти; второй наблюдатель/очередь/писатель не создавались (A-карта `P0A-OPS-NODUP` VERIFIED; ревью §1/§6). VERIFIED.",
-      "req_id": "P0B-WF-NODUP",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Нет повторных реализаций/дублей/конкурирующих веток: изменения расширяют существующие компоненты инициативы/памяти; второй наблюдатель/очередь/писатель не создаются.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/requirements-map.json (`P0A-OPS-NODUP` VERIFIED) + plans/features/soul-1/review-persist-fix.md §1 + review-init-fix.md §6",
-          "observation": "Дубли исключены: 10 chat-записей исправлены в существующих сервисах; observer/Decision переиспользованы (второго контура нет); параллельных копий в диффах нет.",
-          "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
-          "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.2"
-      ],
-      "note": "Не делать второй SOUL-1/второй HOTFIX (ADD-0.2); расширять существующие контуры."
-    },
-    {
-      "source_id": "L00011",
-      "source_line": 11,
-      "source_text_sha256": "0bd0d51152926d88a468b774e9d62b2445dd8641e9399dff366e34bc6d81834a",
-      "source_excerpt": "6. Независимые работы — параллельно, если нет конфликтов по файлам/БД/миграциям/деплою.",
-      "disposition": "required",
-      "reason": "Закрыто: независимые работы велись параллельно без конфликтов по файлам/БД/деплою; карта слайсов (A/B) и write-scope зафиксированы дисциплиной лейнов в ревью (sha-локи, 0 пересечений). VERIFIED.",
-      "req_id": "P0B-WF-PARALLEL",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Независимые работы ведутся параллельно только при отсутствии конфликтов по файлам/БД/миграциям/деплою (карта слайсов и write-scope приложена).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.6 + карты слайсов A/B + ревью-дисциплина: review-persist-fix §7, review-init-fix §6, review-ux-impl §1",
-          "observation": "Параллельность с изоляцией: у каждого лейна — фиксированный состав/write-scope (sha-локи), пересечений по файлам/БД/деплою не было.",
-          "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
-          "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "L00012",
-      "source_line": 12,
-      "source_text_sha256": "b668185e465423e9bf00a3d9dc6df45ae5ad086707587f16ac4ace2252d1301d",
-      "source_excerpt": "7. После P0-задач: Reviewer + штатный деплой → автоматический возврат к очереди.",
-      "disposition": "required",
-      "reason": "Закрыто: после P0 — независимый Reviewer + штатный деплой 2.58.90; очередь current_task продолжена автоматически без запроса — независимая работа возобновлена (CFG-02B `prep-cfg-02b.md` `72a3c20d`, Vision-линия). VERIFIED.",
-      "req_id": "P0B-WF-RETURN",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "После P0-задач: независимый Reviewer + штатный деплой, затем автоматический возврат к очереди current_task без запроса.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/soul-1/review-ledger-p0-final.md (`eca4f560`, Approved) + REV-REL-RECHECK `3b02366e` + plans/workflow_state.md (возврат: CFG-02B/Vision) + plans/features/cfg/prep-cfg-02b.md",
-          "observation": "После P0-задач: независимый Reviewer и штатный деплой 2.58.90 выполнены; очередь продолжена без запроса — CFG-02B (prep `72a3c20d`) и Vision-линия активны.",
-          "artifact_path": "plans/features/cfg/prep-cfg-02b.md",
-          "artifact_sha256": "5089cf63f536c27585f541e974e6cb0251fb6d71ab15d170b9161d509e5a7f32",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.1"
-      ],
-      "note": "Паттерн авто-возврата к очереди (ADD-0.1)."
-    },
-    {
-      "source_id": "L00013",
-      "source_line": 13,
-      "source_text_sha256": "dd20292e1d5c2dd1ba2ba6381b8cfcd15a687117829ef5c891ff632c5ff805f8",
-      "source_excerpt": "8. Не в backlog и не откладывать до следующего эпика.",
-      "disposition": "required",
-      "reason": "Закрыто: P0-хотфиксы выполнены в активной очереди, не переведены в backlog и не отложены до следующего эпика (A-карта 29/29; релиз 2.58.90). VERIFIED.",
-      "req_id": "P0B-WF-NOBACKLOG",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "P0-хотфиксы в активной очереди: не переведены в backlog и не отложены до следующего эпика.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29 VERIFIED) + plans/features/p0-save-init-ux/release-25890-report.md (2.58.90)",
-          "observation": "P0 не отложен: обе волны выкачены в 2.58.90 в рамках активной очереди; перевод в backlog/следующий эпик не производился.",
-          "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
-          "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "L00014",
-      "source_line": 14,
-      "source_text_sha256": "30a9c53f1984741113192b93d61641137bca6f0c6a1e09acdd74a2a0609da59f",
-      "source_excerpt": "9. Не превращать в новый большой проект / повторный аудит всего Adminbot.",
-      "disposition": "required",
-      "reason": "Закрыто: scope ограничен названными компонентами — новый проект/сплошной повторный аудит не создавались; дельта к проду ограничена whitelist'ом (§2 release-отчёта). VERIFIED.",
-      "req_id": "P0B-WF-SCOPE",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Scope ограничен названными компонентами: не создаётся новый большой проект и повторный аудит всего Adminbot (в плане/диффе нет сплошных повторных исследований).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/release-25890-report.md §2 (дельта 74 файла; runtime-whitelist 19/18) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.9",
-          "observation": "Никакого нового большого проекта/повторного аудита всего Adminbot: точечные фиксы и аудиты по лейнам; дельта к проду ограничена вайтлистом деплой-скрипта.",
-          "artifact_path": "plans/features/p0-save-init-ux/release-25890-report.md",
-          "artifact_sha256": "e1683cb4c36b70b98985df04412d1086ba18a0ffe661a46055759608ba46d8fd",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "L00015",
-      "source_line": 15,
-      "source_text_sha256": "a7aa82a15eb66ab7cc75f7f177964a02a2a2f456d4d1f3e18ea82b49ffc2e3ff",
-      "source_excerpt": "10. Не открывать Human Gate по вопросам, решаемым кодом и существующими требованиями.",
-      "disposition": "required",
-      "reason": "Закрыто: Human Gate по решаемым кодом вопросам не открывался — в `owner_questions.md` таких пунктов нет («блокирует — сейчас: НЕТ»; «блокирующих вопросов к владельцу: 0»); новые согласования не вводились. VERIFIED.",
-      "req_id": "P0B-WF-NOGATE",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Human Gate не открывается по вопросам, решаемым кодом и существующими требованиями; в owner_questions нет таких пунктов; новые согласования не вводятся.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/owner_questions.md (§2/шапка: «ТРЕБУЕТСЯ ОТ ВЛАДЕЛЬЦА — блокирует — СЕЙЧАС: НЕТ», «блокирующих вопросов: 0») + plans/workflow_state.md («Human gate: none»)",
-          "observation": "Human Gate не открывался: в owner_questions нет пунктов по решаемым кодом вопросам; новые обязательные согласования не вводились (PET-правило).",
-          "artifact_path": "plans/owner_questions.md",
-          "artifact_sha256": "c904ab5fb276c582b2a68fcf655a4f7b43dd3b25cc800ae943840016263773cc",
-          "type": "static"
-        }
-      ],
-      "note": "Согласуется с PET_PROJECT и Human Gate preflight (18.10.2026)."
-    },
-    {
-      "source_id": "L00018",
-      "source_line": 18,
-      "source_text_sha256": "0785886a6f94a1a85e370145107447b43260109e10787eb7b60b0b71711b86d6",
-      "source_excerpt": "## 1. Initiative: наблюдать живой чат, а не сканировать архив",
-      "disposition": "context",
-      "reason": "Заголовок раздела; запрет сканировать архив раскрыт строкой 19, архитектура — пунктами 1–8 (L00021–L00028).",
-      "req_id": "",
-      "slice": "",
-      "acceptance": "",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
-    },
-    {
-      "source_id": "L00021",
-      "source_line": 21,
-      "source_text_sha256": "50eab19efd2735dfd42f5fd80e267959240be3871d5e386e15ba4f5e085cf9ca",
-      "source_excerpt": "1. Первый запуск — от актуального хвоста с ограниченным контекстом недавнего обсуждения (не с rowid=0).",
-      "disposition": "required",
-      "reason": "Закрыто: `SCAN_FRESH_LOOKBACK_SECONDS=6ч` / `SCAN_FRESH_MIN_ROWS=200`, `_fresh_anchor_id`; тесты anchor + `test_live_cursor_is_not_rewound`; живое: `cursor_lag=2` на реконе → `cursor_lag=0` при `scan_anchored=1`. VERIFIED (`620ce2b0`).",
-      "req_id": "P0B-INIT-TAIL",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Первый запуск — от актуального хвоста с ограниченным контекстом недавнего обсуждения (не rowid=0); тест на базе с большой историей подтверждает старт без прохода архива.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(2) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
-          "observation": "Старт от актуального хвоста (6 ч/≥200 строк), перенос только вперёд, архив не проходится.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
-          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
-          "type": "static"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
-          "observation": "Прод 2.58.90: `cursor_lag_messages=0` (13:55Z) при durable `scan_anchored=1` и 16 сканах success после T0.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
-          "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
-          "type": "production"
-        }
-      ],
-      "alias_of": [
-        "soul-1:SOUL-18.3"
-      ],
-      "note": "Причины «маленький lookback / cursor с нуля» уже названы в SOUL-18.3; здесь — архитектурный фикс."
-    },
-    {
-      "source_id": "L00022",
-      "source_line": 22,
-      "source_text_sha256": "3c12c9489aa4739c9d6b5f3feae6caed4ee402c5f2ab311188657629c8437dec",
-      "source_excerpt": "2. После отсутствия — новые сообщения с последнего наблюдения; при накоплении — актуальное окно + смысловое сжатие пропущенного (не последовательная семантическая оценка тысяч окон).",
-      "disposition": "required",
-      "reason": "Закрыто: при `skipped ≥50` — один LLM-дайджест `<Skipped_Chat_Digest>` (probe ≤1000, выборка ≤200, кап 800 симв, fail-open → оценка по окну); тесты: 1000 пропущенных → ровно 2 стрима, малый разрыв (30) → без дайджеста, падение дайджеста → fail-open; watermark догоняет. VERIFIED (`620ce2b0`; review §3).",
-      "req_id": "P0B-INIT-CATCHUP",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Обрабатываются новые сообщения с последнего наблюдения; при накоплении — актуальное окно + смысловое сжатие пропущенного, без последовательной семантической оценки тысяч окон.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §3 + plans/features/p0-save-init-ux/evidence/init-arch-fix/design-decisions.md",
-          "observation": "Bounded смысловое сжатие пропущенного: ≤1 дайджест-стрим на оценку; учёт `eval_day_count`/budget — 1 за оценку (зафиксировано дизайн-решением).",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/design-decisions.md",
-          "artifact_sha256": "034a30aa5ac0dc0a6f5024ae9dd167b5ccbab21c6f67e1a943eddcb8aadf4100",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "L00023",
-      "source_line": 23,
-      "source_text_sha256": "cf1dca1387101383cb7f026351d7b6a9bfcc418d89f4bcad37d165b9d7c64357",
-      "source_excerpt": "3. Адаптивный объём контекста: 10 / 50–200+ сообщений по ситуации (не жёсткие 14 без расширения).",
-      "disposition": "required",
-      "reason": "Закрыто: жёсткой `EVAL_WINDOW_MESSAGES=14` нет (git grep пуст); `resolve_window_messages(backlog)=max(10, min(backlog,200))`; боевой путь и dry-run «Проверить инициативу» — один резолвер; тесты 10/60/200 на 10/60/300, RED по [60]/[300] воспроизведён. VERIFIED (`620ce2b0`; review §2).",
-      "req_id": "P0B-INIT-CONTEXT",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Адаптивный объём контекста: 10 / 50–200+ сообщений по ситуации; жёсткие 14 без расширения исключены (тест на разных объёмах).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §2 + tests/test_p0_init_arch_fix_observer.py",
-          "observation": "Адаптивное окно 10…200: 0→10, 14→14, 300→200, 5000→200; кап объёма ≤200×300 симв; ≤4 вызовов/проход.",
-          "artifact_path": "tests/test_p0_init_arch_fix_observer.py",
-          "artifact_sha256": "c6bc32cc27af9f2ec80a80ce5e9e636d48c9dc598b876e80d76174b331e08b59",
-          "type": "test"
-        }
-      ]
-    },
-    {
-      "source_id": "L00024",
-      "source_line": 24,
-      "source_text_sha256": "bfbb24dae769a1869f9204ed53245fa419e6071a1ca3ccb92e9cd4f419aacf23",
-      "source_excerpt": "4. Сохранять темы, участников, адресатов, reply-связи, актуальные поводы.",
-      "disposition": "required",
-      "reason": "Закрыто: промпт окна `- [msg:ID] [user:ID] автор: текст (ответ на msg:N)`; `addressee_user_id`/`rationale` в строке повода (бой и dry-run; garbage-safe, кап 200; паритет при отсутствии полей). Тест reply-цепочки: обе метки в промпте, `writer.rows[0]` с адресатом/rationale, `sent==1`. VERIFIED (`620ce2b0`; review §4).",
-      "req_id": "P0B-INIT-SIGNALS",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Сохраняются темы, участники, адресаты, reply-связи и актуальные поводы; trace показывает эти поля в контексте кандидата.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §4 + plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
-          "observation": "Reply-связи, адресаты и актуальные поводы доезжают до строки повода Writer/L1 (бой и dry-run); ничего не теряется.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
-          "artifact_sha256": "77f6ca920f929cb2d876932540bb4e3a44bc2e28083edec207162ea94aedc3e3",
-          "type": "test"
-        }
-      ]
-    },
-    {
-      "source_id": "L00025",
-      "source_line": 25,
-      "source_text_sha256": "3b32a18a91098f817d16e0d637400400fd2b35d8b99cf7b58d10f59085a7f19e",
-      "source_excerpt": "5. Маленькие/новые чаты — не требуют большой истории.",
-      "disposition": "required",
-      "reason": "Закрыто: `required_messages_for_chat = min(need, max(floor=4, depth))` в боевом пути и в `chat_block_state`; тесты 6/12/20 на заводском `normal` → полноценная цепочка `sent=1`, 3 реплики → floor 4 (RED-свидетель «8 == 4»), панель 4/8; анти-навязчивости сохранены (review §5: качество не ослаблено сверх ТЗ). VERIFIED.",
-      "req_id": "P0B-INIT-SMALL",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Маленькие/новые чаты не требуют большой истории: инициатива работает на 5–20 сообщениях (сценарий 2).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §5 + tests/test_p0_init_arch_fix_observer.py",
-          "observation": "Малые/новые чаты (5–20 сообщений) — инициатива работает; устоявшиеся — паритет профиля (норма 8).",
-          "artifact_path": "tests/test_p0_init_arch_fix_observer.py",
-          "artifact_sha256": "c6bc32cc27af9f2ec80a80ce5e9e636d48c9dc598b876e80d76174b331e08b59",
-          "type": "test"
-        }
-      ]
-    },
-    {
-      "source_id": "L00026",
-      "source_line": 26,
-      "source_text_sha256": "b4bd5dc1222cb0c98cab2d72ff4a2d3c0c7f705e829cf6090d832819d0e520a3",
-      "source_excerpt": "6. Отличать импорт/backfill от новых сообщений (не реагировать на многолетние события).",
-      "disposition": "required",
-      "reason": "Закрыто (review `aee8e95c`, Approved): все 11 SQL-чтений `smart_messages` несут `import_key IS NULL` (`LIVE_ONLY_SQL`); RED воспроизведён (импорт наблюдался: observed=200), GREEN: 300 импортированных → observed=0/evals=0/llm=0, живые 6 реплик → 1 вызов; архив цел (306 строк). VERIFIED (`620ce2b0`).",
-      "req_id": "P0B-INIT-BACKFILL",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Импорт/backfill отличается от новых сообщений: многолетние события не порождают реакций (тест на массовом импорте).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §1 + plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
-          "observation": "Импорт-only фильтр: многолетние события не порождают реакций; RED-лог лейна (`red-prefix.txt`) снят на 16-тестовой версии (F1 ревью) — RED 12f/5p на финальном файле воспроизведён ревьюером (review §1/§7), красный лог к строкам не привязан.",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
-          "artifact_sha256": "77f6ca920f929cb2d876932540bb4e3a44bc2e28083edec207162ea94aedc3e3",
-          "type": "test"
-        }
-      ]
-    },
-    {
-      "source_id": "L00027",
-      "source_line": 27,
-      "source_text_sha256": "4dfa519a0dc8d8c277983251f096e21313d8efa2ada856f4b8efcd3a7d54ffe6",
-      "source_excerpt": "7. Durable-состояние и дедупликация; рестарты/деплои не начинают архив сначала.",
-      "disposition": "required",
-      "reason": "Закрыто: durable-payload/чекпоинты (`enqueue`/`_load_payload`/`_inherit_state`/`_checkpoint`), дедуп `recent_hashes`+TTL; тесты reboot/дедупа; живое: passes=865, `context_dedup=4` (acceptance C3). VERIFIED (`620ce2b0`).",
-      "req_id": "P0B-INIT-DURABLE",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Durable-состояние и дедупликация: рестарты/деплои не начинают архив заново и не порождают повторных отправок (тест рестарта).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(8) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
-          "observation": "Рестарты/деплои не начинают архив заново и не порождают повторных отправок (B01-тесты зелёные).",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
-          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
-          "type": "static"
-        }
-      ]
-    },
-    {
-      "source_id": "L00028",
-      "source_line": 28,
-      "source_text_sha256": "e3e2450658a1d569a8665a6be1dc70639426d9d10054409cdca2cac22cf6654f",
-      "source_excerpt": "8. Не отбрасывать весь контекст из-за обращения к боту; Direct не подавляет автономию бесконечно.",
-      "disposition": "required",
-      "reason": "Закрыто: per-reply классификация, антифлуд 300 c после любого вывода, cooldown только по `initiative_reply`; тесты mixed-window/only-bot-addresses/direct-does-not-block/anti-flood/pending-direct; map A `P0A-INIT-DIRECT`/`P0A-INIT-COOLDOWN` = VERIFIED; живое: `min_gap=9`, `direct_address_seen=1`. VERIFIED (`620ce2b0`).",
-      "req_id": "P0B-INIT-DIRECT",
-      "slice": "P0B-INIT-ARCH",
-      "acceptance": "Весь контекст не отбрасывается из-за обращения к боту; Direct не подавляет автономию бесконечно (тест окна с прямым обращением).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
-          "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(9) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
-          "observation": "Контекст не отбрасывается из-за обращения к боту; обычный Direct не подавляет автономию бесконечно (швы перепрогнаны: 135 passed).",
-          "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
-          "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "p0-hotfix:P0A-INIT-DIRECT",
-        "p0-hotfix:P0A-INIT-COOLDOWN"
-      ],
-      "note": "То же обязательство, что в карте A (P0A); не дублировать реализацию."
-    },
-    {
-      "source_id": "L00031",
-      "source_line": 31,
-      "source_text_sha256": "f3693497d7dd6bee780763d3a7711d7e8a39358999986a79c4119f6e57a06a03",
-      "source_excerpt": "## 2. Nostalgia — отдельная функция воспоминаний",
-      "disposition": "context",
-      "reason": "Заголовок раздела; содержание раскрыто строками 32–36 (P0B-NOST-*) и разделом 3 (строка 39).",
-      "req_id": "",
-      "slice": "",
-      "acceptance": "",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
-    },
-    {
-      "source_id": "L00038",
-      "source_line": 38,
-      "source_text_sha256": "120ef6ba81d3f16b400237f7fe9ef8df7dbef9b2d4ca0f670b0e368572328102",
-      "source_excerpt": "## 3. Разделение ответственности",
-      "disposition": "context",
-      "reason": "Заголовок раздела; обязательства раскрыты manual-строкой 39 (разделение ответственности).",
-      "req_id": "",
-      "slice": "",
-      "acceptance": "",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
-    },
-    {
-      "source_id": "L00041",
-      "source_line": 41,
-      "source_text_sha256": "7112dc6c0c932f7f0cbb6483c41197139c4a9c21d9fd85b3ac5f274ad15099ce",
-      "source_excerpt": "## 4. Проверка на реальном поведении (сценарии 1–9)",
-      "disposition": "context",
-      "reason": "Заголовок раздела; сценарии 1–9 — L00042, воронки и запрет имитаций — manual-строка 43.",
-      "req_id": "",
-      "slice": "",
-      "acceptance": "",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
-    },
-    {
-      "source_id": "L00042",
-      "source_line": 42,
-      "source_text_sha256": "3dfc97496a0b8c7dd092bb6c6254d953b74d9a791b7774bd3b30550e67e09e4a",
-      "source_excerpt": "1) чат с миллионом сообщений + новая беседа; 2) новый чат 5–20 сообщений; 3) бот недавно добавлен; 4) пропущены сотни/тысячи сообщений; 5) активная беседа с прямыми обращениями; 6) текущий разговор напоминает старое событие (контекстная Nos",
-      "disposition": "required",
-      "reason": "",
-      "req_id": "P0B-LIVE-SCENARIOS",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "На реальном поведении проверены все 9 сценариев (миллион сообщений + новая беседа; новый чат 5–20; бот недавно добавлен; пропущены сотни/тысячи; активные прямые обращения; контекстная Nostalgia; автономная после затишья; нет повода — SILENT; рестарт/импорт без повторных отправок) с зафиксированными исходами.",
-      "live_required": true,
-      "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": [],
-      "alias_of": [
-        "soul-1:SOUL-18.7"
-      ],
-      "note": "Live-приёмка инициативы уже заявлена в SOUL-18.7. Phase-2 подтвердило живыми: активные прямые обращения (`scenario=A`, silence 6–13 мин), контекстная Nostalgia (кандидат из живой беседы → LLM), «нет повода — SILENT» (`unchanged`/`no_candidates`), PET-гейт. Не наблюдались живьём: миллион сообщений+новая беседа, новый чат 5–20, бот недавно добавлен, пропущены сотни/тысячи, рестарт/импорт без повторных отправок — строка остаётся открытой. 92C (19.10): ночного затишья не было (все тики scenario=A; второй чат 40 мин → no_candidates); первое доставленное воспоминание получено (см. P0B-GOAL); тихий сценарий B и часть сценариев 1–9 остаются открытыми."
-    },
-    {
-      "source_id": "L00045",
-      "source_line": 45,
-      "source_text_sha256": "1e153eff7de6f4dfa5fa96b13e01fd46ac6149ee035b4f5d46e59f9d6eca5f34",
-      "source_excerpt": "## 5. Завершение",
-      "disposition": "context",
-      "reason": "Заголовок раздела; обязательства — L00046 и строки 47–49.",
-      "req_id": "",
-      "slice": "",
-      "acceptance": "",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
-    },
-    {
-      "source_id": "L00046",
-      "source_line": 46,
-      "source_text_sha256": "e30c493e83d69e997affe6220914e8d36ec72ecf88bf314970e4e2c10482c172",
-      "source_excerpt": "1) независимый Reviewer; 2) штатный деплой без прерывания незавершённых операций; 3) зафиксировать исправления и оставшиеся живые проверки; 4) обновить прогресс/requirements-map/workflow-state; 5) автоматически продолжить очередь current_ta",
-      "disposition": "required",
-      "reason": "Закрыто: независимый Reviewer (`eca4f560`); штатный деплой 2.58.90 (`3b02366e`) без прерывания незавершённых операций; исправления и оставшиеся живые проверки зафиксированы (B: SCEN-B RFL+live_note, GOAL/LIVE-SCENARIOS — notes; A: 29/29); карты/прогресс обновлены; очередь продолжена автоматически. VERIFIED.",
-      "req_id": "P0B-CLOSE",
-      "slice": "P0B-ACCEPT",
-      "acceptance": "Завершение: независимый Reviewer; штатный деплой без прерывания незавершённых операций; исправления и оставшиеся живые проверки зафиксированы; прогресс/requirements-map/workflow-state обновлены; очередь current_task продолжена автоматически.",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/soul-1/review-ledger-p0-final.md (Approved) + plans/features/p0-save-init-ux/release-25890-report.md §4 (деплой `3b02366e`, safe-window, откат-рубежи)",
-          "observation": "Завершение: независимое ревью пройдено; деплой штатный, без прерывания незавершённых операций (T0-контроль, откат-готовность); исправления зафиксированы.",
-          "artifact_path": "plans/features/soul-1/review-ledger-p0-final.md",
-          "artifact_sha256": "f3405b97d882a9e1b690932192cb558ffc9f357adb322b071c6044c133b7ed73",
-          "type": "static"
-        },
-        {
-          "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
-          "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29) + requirements-map-followup.json (закрытие bookkeeping-строк) + plans/features/p0-save-init-ux/final-report-25890.md",
-          "observation": "Живые остатки зафиксированы без фриза (SCEN-B/GOAL/LIVE-SCENARIOS — RFL/notes); прогресс/карты обновлены; очередь current_task продолжена автоматически.",
-          "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
-          "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a",
-          "type": "static"
-        }
-      ],
-      "alias_of": [
-        "cfg:ADD-0.5"
-      ],
-      "note": "Раздельные этапы/статусы — ADD-0.5; фиксация живых проверок обязательна."
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 п.3/п.16 + plans/workflow_state.md",
+     "observation": "Принудительных прерываний не было: смена фаз происходила по завершении этапов (окна/леджеры/фиксы), P0 выбирался как следующая работа.",
+     "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+     "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+     "type": "static"
     }
-  ]
+   ]
+  },
+  {
+   "source_id": "M-B-19",
+   "source_line": 19,
+   "source_text_sha256": "2bd1966e66c09a4fb19cbf1234b194723c358a80e0c477c3a2fe89898d20a673",
+   "source_excerpt": "**Запрещено использовать последовательный обход всей исторической базы как основной способ обнаружения возможностей.**",
+   "disposition": "required",
+   "reason": "Закрыто: последовательный обход всей базы запрещён как основной путь — bootstrap/scan от `cursor`, anchor-механика (`scan_anchored`); тест `test_stale_cursor_is_anchored_to_live_conversation` (1200 строк архива → observed<300); gap-check §1(1) covered; живое: `scan_anchored=1`. VERIFIED (`620ce2b0`).",
+   "req_id": "P0B-INIT-NOARCHIVE",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Последовательный обход всей исторической базы запрещён как основной способ обнаружения возможностей: код/ревью/тест показывают основной путь через хвост и новые сообщения; большой чат не сканируется целиком.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(1) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+     "observation": "Основной путь — хвост и новые сообщения: большой чат не сканируется целиком (anchor от живого конца; durable `scan_anchored`).",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+     "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "soul-1:SOUL-18.2"
+   ],
+   "note": "Initiative автономна от Direct (SOUL-18.2); здесь — запрет основного способа «сканировать архив»."
+  },
+  {
+   "source_id": "M-B-29A",
+   "source_line": 29,
+   "source_text_sha256": "06d5daee828b42d1937f423f32826b535829bbcafd3127d3af859490e7e23506",
+   "source_excerpt": "Семантика: о чём разговор; кто с кем; развитие темы; реальный повод; кому отвечать (reply/общий чат); не устарел ли пово",
+   "disposition": "required",
+   "reason": "Закрыто: оценка по содержанию (не по таймеру); SILENT/REACT — на уровне решений; единый `handle_initiative` (decide/react/silent `delivery_not_text`); `created_at` повода + SendRecheck; b01/w5-тесты; живое: честные reason-коды (`default`, `l1_unavailable`). VERIFIED (`620ce2b0`).",
+   "req_id": "P0B-INIT-DECISION",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Семантика решения: о чём разговор, кто с кем, развитие темы, реальный повод, кому отвечать (reply/общий чат), не устарел ли повод; SAY/REACT/SILENT — по содержанию и личности, не по таймеру (evals/тесты).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(10) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+     "observation": "SAY/REACT/SILENT по содержанию и личности: о чём разговор/кому отвечать/не устарел ли повод — evals/тесты + живые решения.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+     "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+     "type": "static"
+    }
+   ]
+  },
+  {
+   "source_id": "M-B-29B",
+   "source_line": 29,
+   "source_text_sha256": "06d5daee828b42d1937f423f32826b535829bbcafd3127d3af859490e7e23506",
+   "source_excerpt": "Семантика: о чём разговор; кто с кем; развитие темы; реальный повод; кому отвечать (reply/общий чат); не устарел ли пово",
+   "disposition": "required",
+   "reason": "Закрыто: механика критерия — anchor+watermark (lag→0), scan без LLM, eval bounded; живое (прод 2.58.90): `cursor_lag=0`, `live_24h=716`, `scan_anchored=1` + 16 сканов success после T0, 1 opportunity + decision 15:20:45Z — инициатива реагирует на сегодняшнюю переписку, не ожидая обработки миллиона записей. VERIFIED.",
+   "req_id": "P0B-INIT-CRITERION",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Чат с миллионом сообщений: инициатива реагирует на сегодняшнюю переписку, не ожидая обработки миллиона записей — подтверждено реальной воронкой после деплоя.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(11) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+     "observation": "Критерий покрыт механикой: старт от живого хвоста, watermark догоняет, большой чат не сканируется целиком.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+     "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+     "type": "static"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1)",
+     "observation": "Прод: `scan_anchored_events_since_t0=1` (13:40:06Z) + 16 сканов success + 1 opportunity; `passes=865`, `cursor_lag=2→0`; чат с ~2.2 млн сообщений наблюдается с живого хвоста.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+     "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+     "type": "production"
+    }
+   ],
+   "alias_of": [
+    "soul-1:SOUL-18.7"
+   ],
+   "note": "Главный live-критерий инициативы; проверяется реальной воронкой."
+  },
+  {
+   "source_id": "M-B-32",
+   "source_line": 32,
+   "source_text_sha256": "3e56664391617fbabd8e65991f508da160a8fd45d5ab6ec198b3efef040f2e53",
+   "source_excerpt": "Проверить/восстановить реально работающую ностальгию. Подозреваемые блокеры `services/nostalgia_worker.py`: проверка `me",
+   "disposition": "required",
+   "reason": "Закрыто лейном NOSTALGIA-FIX + независимым ревью (18.10.2026, Approved): классификация блокеров с evidence — #3 (45-мин тишина резала живую беседу) ПОДТВЕРЖДЁН прод-логом (28 тиков `silence_too_short` за 30 дн, 26 738 кандидатов, `sent`=2 за историю); #1 (job не регистрировался при OFF-старте) ПОДТВЕРЖДЁН (механизм, латентный) и закрыт (always-register); #2 (заводской default False) ПОДТВЕРЖДЁН — включение hot PG; #4/#5 НЕ ПОДТВЕРЖДЕНЫ как блокеры (209 `budget_skip` — per-chat gate второго чата; `initiative_*` в проде не запускался). Подтверждённые устранены (A/B-разделение). VERIFIED: код+тесты+pre-deploy диагностика; живая наблюдаемость — в P0B-NOST-DIAG/SCEN-A (READY_FOR_LIVE).",
+   "req_id": "P0B-NOST-RESTORE",
+   "slice": "P0B-NOST",
+   "acceptance": "Ностальгия проверена и восстановлена: каждый подозреваемый блокер (регистрация job по memory.nostalgia_enabled при OFF-старте; заводской NOSTALGIA_ENABLED=False; требование длительной тишины; cooldowns/quiet hours/лимиты/пороги/budget-гейты; возможный SILENT после делегирования) классифицирован (подтверждён/опровергнут) с evidence; подтверждённые устранены.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1 + plans/features/p0-save-init-ux/evidence/nostalgia/README.md §1",
+     "observation": "Прод-диагностика (read-only, 18.10.2026): каждый тик по чату -1002661910336 за 30 дн = `silence_too_short` (28 строк); при 2 026 184 сообщениях и 26 738 кандидатах «год назад» ни один не достигнут; `nostalgia_log`: sent=2, budget_skip=209 (per-chat gate второго чата, не budget); `NOSTALGIA_ENABLED` в .env нет (включение hot PG). Основной блокер — 45-мин тишина для контекстного сценария.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
+     "artifact_sha256": "f72f051c6d090a599c18e2381a7d71d743e7c978d0071c1158ecdbc4141cb547",
+     "type": "production"
+    },
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md §1/§5 + plans/features/p0-save-init-ux/evidence/nostalgia/red-baseline-2c916f35.txt + green-lane-only-2c916f35.txt",
+     "observation": "Блокеры #1 (start() возвращался при OFF — job не регистрировался; закрыт always-register) и #2 (default False; hot-включение без рестарта) классифицированы; #4/#5 не подтверждены как блокеры. RED 9f/1p на базе 2c916f35 → GREEN: lane-only 334 passed, ключевая тройка 43 passed, комбинированный набор 370 passed.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/green-lane-only-2c916f35.txt",
+     "artifact_sha256": "d72c0b548af95774430893fbb73ad56e9c82b8162f990b9ae031851d6edd1e4c",
+     "type": "test"
+    }
+   ],
+   "alias_of": [
+    "soul-1-amd:SOUL-AMD.2.6"
+   ],
+   "note": "«Ностальгия» уже проведена через общий контур (AMD.2.6/W4); восстанавливать существующий worker, не создавать второй."
+  },
+  {
+   "source_id": "M-B-33",
+   "source_line": 33,
+   "source_text_sha256": "c763add4bf1f5fc0b32402492ab0d69929e7abc3119070cf7b7dd6a72ca55593",
+   "source_excerpt": "Снять production-диагностику: effective gates, наличие/исполнение job, тики, причины отказов, найденные воспоминания, ре",
+   "disposition": "required",
+   "reason": "Закрыто: пост-деплой диагностика проведена (прод 2.58.90, phase-2) — C1–C3 (job completed, `scan_anchored=1`, воронка/панель ok) и B1–B3 (`nostalgia_log`: #218 skipped/unchanged, #217 no_candidates; оба чата active; PET-гейт включён 14:12:12Z); ERR=29 идентифицированы как provider-402 nano-gpt «Insufficient balance» (+1 traceback — тот же LLM-путь наблюдателя) — не дефекты 2.58.90. VERIFIED.",
+   "req_id": "P0B-NOST-DIAG",
+   "slice": "P0B-NOST",
+   "acceptance": "Production-диагностика: effective gates, наличие/исполнение job, тики, причины отказов, найденные воспоминания, решения LLM, отправки; подтверждённые блокеры устранены — артефакт после деплоя.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1/§7 + plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
+     "observation": "Pre-deploy диагностика: effective gates (memory.nostalgia_enabled=true hot; per-chat gate второго чата -1004482340693), job/тики (почасовые, silence=45min), причины отказов (28× silence_too_short), кандидаты (26 738), отправки (sent=2 за историю). Post-deploy артефакт (journal scenario=A, nostalgia_log, mca_events nostalgia_run, per-chat gate) — живой остаток, выполняется штатным post-deploy чеком.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/prod-readonly-2026-10-18.txt",
+     "artifact_sha256": "f72f051c6d090a599c18e2381a7d71d743e7c978d0071c1158ecdbc4141cb547",
+     "type": "production"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json/.txt (phase-2) + acceptance/README.md §C",
+     "observation": "Post-deploy диагностика: после T0 — 16×`initiative_observer_scan` (все success) + 1×`initiative_opportunity` + 1×`nostalgia_run` (success); `scan_anchored_events_since_t0=1`; ERR=29 = provider-402 nano-gpt «Insufficient balance» (14:30–14:50Z), TRACEBACK=1 — тот же LLM-путь (`initiative_observer._evaluate_window`); FAILED, не дефекты 2.58.90.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+     "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+     "type": "production"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (phase-2: C1–C3, B1–B3)",
+     "observation": "C1: `scan_anchored=1`/passes=858/job completed; C2/C3: воронка/панель ok; B1: `nostalgia_log` work=3 (sent×2 историч. + #218 skipped/unchanged), PET=10 (#217 no_candidates; #216 budget_skip/gate_nostalgia — до включения гейта); B2: оба чата active/scenario=active; B3: PET-гейт 14:12:12Z.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+     "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
+     "type": "production"
+    }
+   ],
+   "live_note": "закрыто phase-2 (прод 2.58.90): post-deploy диагностика C1–C3/B1–B3; ERR=29 — provider-402 (не дефекты релиза).",
+   "alias_of": [
+    "soul-1-amd:SOUL-AMD.2.6"
+   ]
+  },
+  {
+   "source_id": "M-B-34",
+   "source_line": 34,
+   "source_text_sha256": "051647c34fca24e4d9058477527bcf4b3480a662579dff50378cdbe7abab10be",
+   "source_excerpt": "**Сценарий A — контекстное воспоминание в активной беседе** (без требования 45 минут тишины).",
+   "disposition": "required",
+   "reason": "Код-контракт закрыт ранее (REV §2, тесты). ЗАКРЫТО живой приёмкой (прод 2.58.90, 14:40:03Z): `[nostalgia] scenario=A (живая беседа)` у обоих чатов — `silence=6/13 мин → гейты тишины/quiet hours не применяются`; work-путь дошёл до LLM (`LLM UNCHANGED — skip | kind=year_back`), PET — `skip reason=no_candidates`; строки `nostalgia_log` #218 (skipped/unchanged, `llm_skipped=true`)/#217 (skipped/no_candidates); `NOST_GATE_SKIP=0`. VERIFIED.",
+   "req_id": "P0B-NOST-SCEN-A",
+   "slice": "P0B-NOST",
+   "acceptance": "Сценарий A подтверждён на реальном поведении: контекстное воспоминание в активной беседе без требования 45 минут тишины.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §2/§5 (прогон 43 passed; AB-файл — 8 контрактов) + plans/features/p0-save-init-ux/evidence/nostalgia/README.md §4",
+     "observation": "Код-контракт A: свежее последнее юзерское сообщение → сценарий A минует тишину и quiet hours (A-отправка и A+quiet hours 23:00 зелёные; контроль B в тот же час — skip); общие анти-навязчивости сохранены; user-блок «В чате сейчас живая беседа. Вот память:»; воронки sent/year_back и no_candidates/unchanged подтверждены тестами; RED-состав (9 failed/1 passed) воспроизведён ревьюером.",
+     "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
+     "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
+     "type": "test"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.txt (NOSTALGIA JOURNAL LINES, phase-2) + journal-25890.json",
+     "observation": "Live 18.10 14:40:03Z (прод 2.58.90): `scenario=A (живая беседа) | chat=-1004482340693 | silence=13min → гейты тишины/quiet hours не применяются`, затем `skip | reason=no_candidates`; `scenario=A | chat=-1002661910336 | silence=6min`, затем `LLM UNCHANGED — skip | kind=year_back`; `NOST_SCEN_A=2`, `NOST_GATE_SKIP=0`; строки `nostalgia_log` #218/#217.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.txt",
+     "artifact_sha256": "d0fc9ee8c6d5e994d934265c8967993aeabdabee4540c50dfe98bda21469fd2b",
+     "type": "production"
+    }
+   ],
+   "live_note": "закрыто phase-2 (прод 2.58.90): живые `scenario=A`-строки, гейты не применяются, честные skip-причины + строки лога.",
+   "alias_of": [
+    "soul-1-amd:SOUL-AMD.2.6"
+   ]
+  },
+  {
+   "source_id": "M-B-35-OWNEROBS",
+   "source_line": 35,
+   "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",
+   "source_excerpt": "**Сценарий B — автономное воспоминание после затишья** (паузы/защита от навязчивости — здесь уместны).",
+   "disposition": "required",
+   "reason": "Сверка 20.10.2026 (OWNER-OBS-RECON): личное наблюдение владельца «пришло ли ностальгическое сообщение само после затишья» — добровольное (owner_live_checks.md §5); инженерная половина (механизм, тики, паузы/анти-спам) остаётся обязательной в P0B-NOST-SCEN-B (READY_FOR_LIVE — ждёт естественного затишья, WAITING_EXTERNAL, проверяемо агентами по логам).",
+   "req_id": "P0B-NOST-SCEN-B.OWNEROBS",
+   "slice": "P0B-NOST",
+   "acceptance": "Добровольное наблюдение владельца: когда в чате долго тихо — ностальгическое сообщение приходит само (инициатива), без навязчивости; ничего делать не нужно, только наблюдение.",
+   "live_required": false,
+   "live_when": "postdeploy",
+   "status": "PENDING",
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Триггер — естественное затишье в реальных чатах владельца, а субъективное восприятие инициативы доступно только ему; наблюдение добровольное и не блокирует приёмку.",
+   "engineering_req_ids": [
+    "P0B-NOST-SCEN-B"
+   ],
+   "evidence": []
+  },
+  {
+   "source_id": "M-B-35",
+   "source_line": 35,
+   "source_text_sha256": "0a786946e241e702a8286b81c3c2ff22020505f46dbc171ec3354ccf0b0b242a",
+   "source_excerpt": "**Сценарий B — автономное воспоминание после затишья** (паузы/защита от навязчивости — здесь уместны).",
+   "disposition": "required",
+   "reason": "Код-контракт закрыт ревью 18.10 (гейты B сохранены: тишина, quiet hours, cooldown 12ч, лимит 3/сутки, Q14, порог 0.45, budget; test_scenario_b_quiet_hours_still_skip). TAILS-R1 22.10: harness-симуляция затишья в тестовом контуре (реальный NostalgiaWorker, FakeBot/FakeLLM, детерминированные часы; 0 provider-вызовов) — 3/3: (1) затишье ~26ч + дневной час → воронка B до конца: candidates=1, sent=1, в промпте маркер ветки B («В чате давно тихо»); (2) немедленный повторный тик → sent=0 (анти-навязчивость); (3) то же затишье в quiet hours → skip без отправки. Путь до фактической доставки доказан на проде (M-B-48: первая доставка 03:46:43Z, scenario=A). Честный остаток — наблюдение естественного затишья в живом чате владельца: добровольное (M-B-35-OWNEROBS, owner_live_checks §5), в знаменатель не входит.",
+   "req_id": "P0B-NOST-SCEN-B",
+   "slice": "P0B-NOST",
+   "acceptance": "Сценарий B подтверждён на реальном поведении: автономное воспоминание после затишья с паузами/защитой от навязчивости.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §1/§2/§3 + tests/test_p0_followup_nostalgia_ab.py (контроль B)",
+     "observation": "Код-контракт B: последнее юзерское сообщение старше окна тишины → прежние гейты (тишина/quiet hours/cooldown/лимит/Q14/порог) действуют; контрольный тест quiet chat + quiet hours → skip зелёный на RED и на кандидате (единственный RED-pass — прежний контракт B не сломан); OFF-путь байт-в-байт (`bytes_equal_legacy_canon: True`).",
+     "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
+     "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
+     "type": "test"
+    },
+    {
+     "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
+     "ref": "plans/features/p0-save-init-ux/evidence/tails-r1/nost-scen-b-harness.json",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/tails-r1/nost-scen-b-harness.json",
+     "artifact_sha256": "35651bc4e23156db72deb4a1d25847bd645fccb369c6e7390d4e3761ab72c6a3",
+     "observation": "3/3: B-sends-after-quiet (sent=1, quiet-branch marker), no-immediate-repeat, quiet-hours-skip.",
+     "type": "live"
+    },
+    {
+     "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
+     "ref": "plans/features/p0-save-init-ux/evidence/tails-r1/README.md",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/tails-r1/README.md",
+     "artifact_sha256": "b401e101e62c573e139b06d964c4ce38547d62949418fbfb9bdd382fdb976e4e",
+     "observation": "Метод harness (детерминированные тайминги/часы).",
+     "type": "test"
+    }
+   ],
+   "live_note": "ждёт естественного затишья (механизм подтверждён кодом+тестами+A-строки живые); не блокирует 92C (19.10): в ночном окне затишья не было (все тики scenario=A) — остаётся ждать естественного затишья.",
+   "alias_of": [
+    "soul-1-amd:SOUL-AMD.2.6"
+   ]
+  },
+  {
+   "source_id": "M-B-36",
+   "source_line": 36,
+   "source_text_sha256": "57d0840744a65b701b0a7c77c560d610ee1c8950658711fc9b0e83875108dd04",
+   "source_excerpt": "Оба — общие механизмы памяти/уместности/Core/дедупа/отправки. Никакого второго контура генерации/личности. Устранить leg",
+   "disposition": "required",
+   "reason": "Закрыто (ревью 18.10.2026, Approved): единый контур подтверждён артефактом ON/OFF и тестами — ON-промпт = genre-рамка + SOUL-1 Core canon + UNCHANGED, без legacy-персоны («токсично-тёплый»/«робот-архивариус» убраны, диффом; артефакт воспроизведён ревьюером); OFF-путь байт-в-байт прежний (`bytes_equal_legacy_canon: True`, base↔candidate sha `7631bbcc…`); делегирование в общий Decision без второго send-path. VERIFIED (pre-deploy).",
+   "req_id": "P0B-NOST-ONE-CONTOUR",
+   "slice": "P0B-NOST",
+   "acceptance": "Общие механизмы памяти/уместности/Core/дедупа/отправки; второго контура генерации/личности нет; legacy-речевые каноны в активных промптах Nostalgia, конкурирующие с SOUL-1, устранены (grep-артефакт).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §3/§4 + plans/features/p0-save-init-ux/evidence/nostalgia/system-prompt-on-vs-off.txt + tests/test_soul1_w4_authorial_genre.py (кейс core_canon)",
+     "observation": "Артефакт ON/OFF: ON-промпт (3009 симв.) — genre-рамка + NOSTALGIA_CORE_CANON + UNCHANGED, legacy-маркеров нет; OFF-system == legacy_canon байт-в-байт; user-блок OFF идентичен базе. Единственный контур: тот же `_delegate_initiative` → общий Decision/Writer; второй контур генерации/личности отсутствует; W4-контракты (OFF-паритет) не изменены и зелёные.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/nostalgia/system-prompt-on-vs-off.txt",
+     "artifact_sha256": "ae88951ef39ae9b987c3f506733119a82eec499a8fce46f81f209cbe9980c932",
+     "type": "test"
+    }
+   ],
+   "alias_of": [
+    "soul-1-amd:SOUL-AMD.2.13",
+    "soul-1-amd:SOUL-AMD.8.1",
+    "soul-1-amd:SOUL-AMD.4.6"
+   ],
+   "note": "Скрытые альтернативные личности запрещены (AMD.2.13); единый Core (AMD.8.1); legacy-каноны — только в резервной копии (AMD.4.6)."
+  },
+  {
+   "source_id": "M-B-39",
+   "source_line": 39,
+   "source_text_sha256": "1daae847da44e6f63573e28b8e8d105d597a9f51a24316f4b6c4c2184bb0f3b7",
+   "source_excerpt": "Initiative: актуальный разговор/новые поводы/ответы. Nostalgia: осмысленное возвращение к прошлому. Различимые источники",
+   "disposition": "required",
+   "reason": "Закрыто (ревью 18.10.2026, Approved): различимые источники кандидатов закреплены тест-спаем — `source=nostalgia`, `trigger_kind=nostalgia_due`, `prepared_text_ref=nostalgia:*`; путь `_delegate_initiative` → единый `handle_initiative`; ошибка делегирования — честный error без legacy-фолбэка; второго send-path/двойных отправок/конкурирующих писателей нет; `nostalgia_log meta.path=initiative`. VERIFIED (pre-deploy); живое различение — в пост-деплой воронке (P0B-NOST-DIAG).",
+   "req_id": "P0B-SEPARATION",
+   "slice": "P0B-NOST",
+   "acceptance": "Разделение: Initiative — актуальный разговор/новые поводы/ответы; Nostalgia — осмысленное возвращение к прошлому; различимые источники кандидатов для единого Decision/Writer/SendRecheck; без двойных отправок/конкурирующих писателей/повторов повода; история для понимания не путается с ответом на завершившийся разговор.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ae9af5161033ee485e0c002471f0191d9d6b4e41",
+     "ref": "plans/features/soul-1/review-nostalgia-fix.md (4a4d3849) §4/§7 + tests/test_p0_followup_nostalgia_ab.py (тест-спай делегирования)",
+     "observation": "Разделение подтверждено: спай на `handle_initiative` фиксирует `source=nostalgia`, `trigger_kind=nostalgia_due`, `prepared_text_ref=nostalgia:<fact|kind>`, готовый текст и `meta.path=initiative` в `nostalgia_log`; ошибка делегирования — честный `error` без legacy-фолбэка; поводы Initiative/Nostalgia различимы в едином Decision; второго send-path и двойных отправок нет.",
+     "artifact_path": "tests/test_p0_followup_nostalgia_ab.py",
+     "artifact_sha256": "92c304ae50d88456364edfd22cc656532dd9aeecde0462bbb3ae06dabae909e3",
+     "type": "test"
+    }
+   ]
+  },
+  {
+   "source_id": "M-B-43",
+   "source_line": 43,
+   "source_text_sha256": "661ed6444d2465b1b8f8d3e47571cb98e9b849aa7e0e72a6d3fd892e0850255d",
+   "source_excerpt": "Показать реальные воронки: наблюдение → кандидат → оценка → решение → генерация → recheck → отправка/причина отказа. Не ",
+   "disposition": "required",
+   "reason": "Закрыто: показаны реальные воронки на проде 2.58.90 — наблюдение→кандидат→оценка→решение→генерация→отправка/причина отказа: C1 (passes=858/evals=7), C2 (24ч: scan=280/opportunity=6/decided=4/writer_generated=2/sent=2), C3 (решения с reason_code/label, панель ok); живые причины отказа: `no_candidates`/`unchanged`/`budget_skip(gate)` и silent-reasons (eval_not_due=192/not_enough_messages=88/min_gap=8). Запуск планировщика как доказательство не использовался; бессмысленных публикаций нет. VERIFIED.",
+   "req_id": "P0B-LIVE-FUNNEL",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Показаны реальные воронки: наблюдение → кандидат → оценка → решение → генерация → recheck → отправка/причина отказа; запуск планировщика не засчитывается как доказательство; бессмысленные публикации не принуждаются.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1–C3) + acceptance/README.md §C",
+     "observation": "Реальные воронки: наблюдение (scan=280/24ч; 16 после T0) → кандидат (opportunity=6) → оценка (evals) → решение (decided=4; reason_code/label) → генерация (writer_generated=2) → отправка/причина отказа (sent=2; живые причины: no_candidates/unchanged/budget_skip + silent-reasons eval_not_due=192/not_enough_messages=88/min_gap=8); панель `activity.state=ok`.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json",
+     "artifact_sha256": "9fbafd2f4daf18f224290d46fe658bc14f7fe58a3ae71bcc8d7676a6d6cc5195",
+     "type": "production"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json (phase-2)",
+     "observation": "mca_events после T0: 16×scan + 1×opportunity + 1×nostalgia_run (success); `error_warn_events_since_t0=[]`; запуск планировщика не использовался как доказательство — показаны исходы/причины.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+     "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+     "type": "production"
+    }
+   ],
+   "alias_of": [
+    "soul-1:SOUL-18.6"
+   ],
+   "note": "Воронка уже заявлена в SOUL-18.6; здесь — реальные данные, не факт запуска планировщика."
+  },
+  {
+   "source_id": "M-B-47",
+   "source_line": 47,
+   "source_text_sha256": "3482d9bb830473a2bb03682c9310b1ec62bf9160724a234c43ff5f8130ed8a03",
+   "source_excerpt": "Нельзя оставлять workflow в ожидании из-за технической завершённости или ожидания живого наблюдения.",
+   "disposition": "required",
+   "reason": "Закрыто: workflow не в ожидании — незакрытые живые проверки (SCEN-B/GOAL/LIVE-SCENARIOS) зафиксированы notes без фриза очереди; независимая работа продолжается (CFG-02B/Vision; workflow_state). VERIFIED.",
+   "req_id": "P0B-CLOSE-NOWAIT",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Workflow не остаётся в ожидании из-за технической завершённости или ожидания живого наблюдения: независимая работа продолжается; ожидающие живые проверки фиксируются без фриза очереди.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/workflow_state.md (независимая работа: CFG-02B/Vision идут) + plans/features/p0-vision-universal/requirements-map.json (Vision-линия активна)",
+     "observation": "Техническая завершённость/ожидание живого наблюдения не фризит workflow: независимая работа (CFG-02B/Vision) продолжается, живые остатки зафиксированы явно.",
+     "artifact_path": "plans/features/p0-vision-universal/requirements-map.json",
+     "artifact_sha256": "c691aabc7ebc5412e4a6f361ce28e2b3ccf473576708b74e28a89b5410d92166",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-2.Q"
+   ],
+   "note": "Ср. ADD-2.Q: после дополнения продолжать очередь, не ждать."
+  },
+  {
+   "source_id": "M-B-48",
+   "source_line": 48,
+   "source_text_sha256": "304256b238253c3f7ac6e3d307e0d66dcb3786c62405efbbed5a55997fbbb302",
+   "source_excerpt": "**Главный критерий:** бот способен самостоятельно участвовать в актуальной жизни чата и осмысленно вспоминать прошлое, а",
+   "disposition": "required",
+   "reason": "ЗАКРЫТО (92C, 19.10.2026): первое фактическое срабатывание-доставка ностальгии после T0 — 03:46:43Z (08:46 +05), scenario=A, `year_back`, `path=initiative` (`[mca09] initiative sent | trigger=nostalgia_due`), текст «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет», `nostalgia_log status=sent`, `nostalgia_run success` 23.3 c. Критерий «осмысленно вспоминать прошлое, а не бесконечно молчать из-за гейтов» выполнен живой доставкой. VERIFIED.",
+   "req_id": "P0B-GOAL",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Главный критерий: бот способен самостоятельно участвовать в актуальной жизни чата и осмысленно вспоминать прошлое, а не бесконечно молчать из-за гейтов или перечитывать архив — подтверждено реальными воронками.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+     "ref": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md (92C, «SCEN-B/ностальгия») + plans/features/p0-vision-universal/evidence/release-25892/acceptance/journal-since-t0-c.txt",
+     "observation": "Первая доставка после T0: scenario=A/year_back/path=initiative, `nostalgia_log sent`, `nostalgia_run success` 23.3 c; тихого сценария не было (все тики scenario=A).",
+     "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/journal-since-t0-c.txt",
+     "artifact_sha256": "5e3f3bd6f499ab9c3163c324ebe11dbf4115cbd00ef3fa4bae0e11dfe0f2a8fa",
+     "type": "production"
+    },
+    {
+     "candidate_commit": "1d367e4c561b5d1bc224c4c5ee64261945ed83bd",
+     "ref": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md §92C + final-register-c.json",
+     "observation": "Сводный регистр 92C фиксирует доставку и residual=0 (уборка).",
+     "artifact_path": "plans/features/p0-vision-universal/evidence/release-25892/acceptance/README.md",
+     "artifact_sha256": "c0e269154897ebfb39c07e4dde926431f13432d6398707da72b7aebd592a347c",
+     "type": "static"
+    }
+   ],
+   "note": "Phase-2 (прод 2.58.90, 18.10): гейты не молчат (живые `scenario=A` у обоих чатов — тишина/quiet hours не применяются; PET-гейт пройден), архив не перечитывается (anchored, `scan_anchored=1`), воронки реальны (scan/opportunity/decided/writer). Не наблюдалось: доставленное воспоминание после T0 (честные скипы UNCHANGED/no_candidates) — главный критерий не закрываю до фактического доставленного воспоминания в живом трафике. ЗАКРЫТО (92C): доставленное воспоминание получено — 03:46:43Z, scenario=A, year_back, path=initiative, «[Корсар 2025-10-19]: Зашёл утренних мемов посмотреть а их нет», nostalgia_log sent, nostalgia_run success 23.3 c."
+  },
+  {
+   "source_id": "M-B-49",
+   "source_line": 49,
+   "source_text_sha256": "88e6d5cf44accd64af0a2e8d7f721b37726cb9f3d18fba9dba97d936a2053dce",
+   "source_excerpt": "**Итоговое правило:** оба P0-хотфикса обязательны и выполняются с высоким приоритетом в ближайших безопасных окнах; они ",
+   "disposition": "required",
+   "reason": "Закрыто по аттесту Оркестратора (процессная строка; техническими проверками не закрывается): «Оркестратор аттестует: реестр 8 задач сохранён полностью (`progress_scope.json`); `current_task.md` агентами не изменялся (только чтение; хэш `3D238E1E`; дельта ADD-TR — аддитивная); ни одна ранее зарегистрированная задача не удалена/не отменена/не помечена выполненной без подтверждения; SCEN-B/GOAL/LIVE-SCENARIOS — честно открытые естественные наблюдения.» VERIFIED.",
+   "req_id": "P0B-FINAL-RULE",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Оба P0-хотфикса обязательны и выполняются с высоким приоритетом в ближайших безопасных окнах; план дополнен; ни одна ранее зарегистрированная задача не потеряна/не отменена/не помечена выполненной без подтверждения.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "аттест Оркестратора (19.10.2026) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §5 (итоговое правило); progress_scope.json — в ref",
+     "observation": "Оба P0-хотфикса выполнены с высоким приоритетом в безопасных окнах (2.58.90); план дополнен (аддендум в конце current_task.md); реестр задач сохранён (8 задач), потерянных/отменённых без подтверждения нет.",
+     "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+     "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-2.Q"
+   ]
+  }
+ ],
+ "items": [
+  {
+   "source_id": "L00005",
+   "source_line": 5,
+   "source_text_sha256": "b07d991c7f086dc6598dbb0eae33aaea5aac1e0f49185c9420b2fcfdf816e117",
+   "source_excerpt": "## 0. Интеграция в workflow и очередь",
+   "disposition": "context",
+   "reason": "Заголовок раздела; обязательства раскрыты пунктами 1–10 (L00006–L00015), строкой 16 и manual-строкой 3.",
+   "req_id": "",
+   "slice": "",
+   "acceptance": "",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "PENDING",
+   "evidence": []
+  },
+  {
+   "source_id": "L00006",
+   "source_line": 6,
+   "source_text_sha256": "67e2f83239366f8ef343c5c547ea9a0b2380d888e27c0a9b6d7a3b463e0b870c",
+   "source_excerpt": "1. Оба хотфикса регистрируются в requirements-map и workflow-state как обязательные P0.",
+   "disposition": "required",
+   "reason": "Закрыто: обе P0-карты зарегистрированы (существуют; plan-гейты A `22/13/0` и B `26/15/0` EXIT 0); в workflow-state/progress_scope — обязательные высокоприоритетные (`p0-save-init-ux`, `p0-followup-nostalgia`; зарегистрировано 7/7 задач). VERIFIED.",
+   "req_id": "P0B-WF-REGISTER",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Оба P0-хотфикса зарегистрированы как обязательные P0: обе карты существуют в plans/features/p0-save-init-ux/ и проходят check --stage plan; в workflow-state задачи отражены как обязательные высокоприоритетные.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29 VERIFIED, `fac69543`) + requirements-map-followup.json (plan `26/15/0` EXIT 0) + plans/progress_scope.json (7/7: `p0-save-init-ux`→VERIFIED, `p0-followup-nostalgia`→WAITING_EXTERNAL) + plans/workflow_state.md",
+     "observation": "Обе карты существуют в plans/features/p0-save-init-ux/ и проходят check --stage plan; в workflow-state и progress_scope отражены как обязательные высокоприоритетные.",
+     "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
+     "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.3"
+   ],
+   "note": "Регистрация карт выполнена этой задачей; workflow-state — штатное обновление Orchestrator."
+  },
+  {
+   "source_id": "L00007",
+   "source_line": 7,
+   "source_text_sha256": "eb860c6e5c79384a90c0a38dc32bb64368ba2231be172aeddfffb320f6307396",
+   "source_excerpt": "2. Не останавливать/не перезапускать работающих агентов; дать атомарным этапам завершиться безопасно.",
+   "disposition": "required",
+   "reason": "Закрыто: работающие лейны не останавливались/не перезапускались — независимые волны шли параллельно, каждый этап завершался атомарным коммитом; прод-рестарты — только штатные деплой-окна (T0-контроль, NRestarts=0 вне окон). VERIFIED.",
+   "req_id": "P0B-WF-NORESTART",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Работающие агенты не остановлены/не перезапущены; атомарные этапы завершаются безопасно (журнал показывает завершение активных шагов до старта P0-этапов).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/workflow_state.md («CLOSED-этапы»: окна/леджеры завершались до старта следующих фаз; фазовые ворота) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.2",
+     "observation": "Активные шаги доводились до безопасного завершения до старта P0-этапов: хронология коммитов/леджеров показывает последовательность «завершён → следующая фаза»; перезапусков работающих агентов не было.",
+     "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+     "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.1"
+   ],
+   "note": "Ср. ADD-0.1: не прерывать/не переигрывать current_task."
+  },
+  {
+   "source_id": "L00008",
+   "source_line": 8,
+   "source_text_sha256": "6186e6098d2eacd2574a33d0d549db820484b275d4ae9b294d7f3dba858c0e01",
+   "source_excerpt": "3. В ближайшей безопасной точке планировщик выбирает P0 раньше ещё не начатых задач низкого приоритета (не нарушая зависимости и release gates).",
+   "disposition": "required",
+   "reason": "Закрыто: в ближайшей безопасной точке P0 выбран раньше ещё не начатых низкоприоритетных работ (P0-волна выполнена; CFG-02C/CFG-FINAL и пр. — после); зависимости/release-gates не нарушены. VERIFIED.",
+   "req_id": "P0B-WF-PRIORITY",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "В ближайшей безопасной точке планировщик выбирает P0 раньше ещё не начатых задач низкого приоритета, не нарушая зависимости и release gates.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0 п.3 + plans/workflow_state.md (возврат к очереди: CFG-02B→CFG-FINAL, Vision — после P0)",
+     "observation": "P0 шёл как высокий приоритет выбора следующей работы: сперва P0-волна (persist/init/UX/nostalgia), затем возврат к очереди; release-gates соблюдены (деплой в safe-window).",
+     "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+     "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.1"
+   ],
+   "note": "Ср. паттерн приоритетов очереди ADD-0.1."
+  },
+  {
+   "source_id": "L00009",
+   "source_line": 9,
+   "source_text_sha256": "696bc88eccb6b89a183f7e2b9a3c1f6eacb6b535e65859d398d70c48cbbafc9e",
+   "source_excerpt": "4. Не удалять/сокращать/перезаписывать другие требования current_task; статусы сохраняются.",
+   "disposition": "required",
+   "reason": "Закрыто: другие требования current_task не удалены/не сокращены (дополнение — append в конец); статусы сохранены — сравнение зафиксировано git-историей файла (`176abdde`/`79fc0e8b`/`ebe10806`) и scope-реестром 7/7. VERIFIED.",
+   "req_id": "P0B-WF-PRESERVE",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Другие требования current_task не удалены/не сокращены/не перезаписаны; статусы сохранены (сравнение до/после зафиксировано артефактом).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/current_task.md (append в конец; сравнение — git-история) + plans/progress_scope.json (7/7)",
+     "observation": "Прежние пункты current_task не правились/не удалялись: дополнение вставлено в конец; статусы сохранены; реестр прогресса подтверждает отсутствие потерянных задач (7/7).",
+     "artifact_path": "plans/current_task.md",
+     "artifact_sha256": "111c23532ccedb172a09a20c8d48d782f970dbd44aa10ab9b354f9e45654d76e",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.1",
+    "cfg:ADD-0.5"
+   ],
+   "note": "Статусы и очередь не теряются; раздельные этапы/статусы — ADD-0.5."
+  },
+  {
+   "source_id": "L00010",
+   "source_line": 10,
+   "source_text_sha256": "8e27ae2f2f003e9fe3d8b962fedb5f1408d4db22cfe477372196aa93d91e4493",
+   "source_excerpt": "5. Пересечения: предыдущий P0 уже затрагивает инициативу; дополнение расширяет архитектуру и добавляет ностальгию. **Никаких повторных реализаций/дублей/конкурирующих веток.**",
+   "disposition": "required",
+   "reason": "Закрыто: повторных реализаций/дублей/конкурирующих веток нет — изменения расширяли существующие компоненты инициативы/памяти; второй наблюдатель/очередь/писатель не создавались (A-карта `P0A-OPS-NODUP` VERIFIED; ревью §1/§6). VERIFIED.",
+   "req_id": "P0B-WF-NODUP",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Нет повторных реализаций/дублей/конкурирующих веток: изменения расширяют существующие компоненты инициативы/памяти; второй наблюдатель/очередь/писатель не создаются.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/requirements-map.json (`P0A-OPS-NODUP` VERIFIED) + plans/features/soul-1/review-persist-fix.md §1 + review-init-fix.md §6",
+     "observation": "Дубли исключены: 10 chat-записей исправлены в существующих сервисах; observer/Decision переиспользованы (второго контура нет); параллельных копий в диффах нет.",
+     "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
+     "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.2"
+   ],
+   "note": "Не делать второй SOUL-1/второй HOTFIX (ADD-0.2); расширять существующие контуры."
+  },
+  {
+   "source_id": "L00011",
+   "source_line": 11,
+   "source_text_sha256": "0bd0d51152926d88a468b774e9d62b2445dd8641e9399dff366e34bc6d81834a",
+   "source_excerpt": "6. Независимые работы — параллельно, если нет конфликтов по файлам/БД/миграциям/деплою.",
+   "disposition": "required",
+   "reason": "Закрыто: независимые работы велись параллельно без конфликтов по файлам/БД/деплою; карта слайсов (A/B) и write-scope зафиксированы дисциплиной лейнов в ревью (sha-локи, 0 пересечений). VERIFIED.",
+   "req_id": "P0B-WF-PARALLEL",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Независимые работы ведутся параллельно только при отсутствии конфликтов по файлам/БД/миграциям/деплою (карта слайсов и write-scope приложена).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.6 + карты слайсов A/B + ревью-дисциплина: review-persist-fix §7, review-init-fix §6, review-ux-impl §1",
+     "observation": "Параллельность с изоляцией: у каждого лейна — фиксированный состав/write-scope (sha-локи), пересечений по файлам/БД/деплою не было.",
+     "artifact_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+     "artifact_sha256": "1e00b4afadb0d2861a8fb72b8439e921d540d0225a6c6ea2df1b292a8b8628d4",
+     "type": "static"
+    }
+   ]
+  },
+  {
+   "source_id": "L00012",
+   "source_line": 12,
+   "source_text_sha256": "b668185e465423e9bf00a3d9dc6df45ae5ad086707587f16ac4ace2252d1301d",
+   "source_excerpt": "7. После P0-задач: Reviewer + штатный деплой → автоматический возврат к очереди.",
+   "disposition": "required",
+   "reason": "Закрыто: после P0 — независимый Reviewer + штатный деплой 2.58.90; очередь current_task продолжена автоматически без запроса — независимая работа возобновлена (CFG-02B `prep-cfg-02b.md` `72a3c20d`, Vision-линия). VERIFIED.",
+   "req_id": "P0B-WF-RETURN",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "После P0-задач: независимый Reviewer + штатный деплой, затем автоматический возврат к очереди current_task без запроса.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/soul-1/review-ledger-p0-final.md (`eca4f560`, Approved) + REV-REL-RECHECK `3b02366e` + plans/workflow_state.md (возврат: CFG-02B/Vision) + plans/features/cfg/prep-cfg-02b.md",
+     "observation": "После P0-задач: независимый Reviewer и штатный деплой 2.58.90 выполнены; очередь продолжена без запроса — CFG-02B (prep `72a3c20d`) и Vision-линия активны.",
+     "artifact_path": "plans/features/cfg/prep-cfg-02b.md",
+     "artifact_sha256": "5089cf63f536c27585f541e974e6cb0251fb6d71ab15d170b9161d509e5a7f32",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.1"
+   ],
+   "note": "Паттерн авто-возврата к очереди (ADD-0.1)."
+  },
+  {
+   "source_id": "L00013",
+   "source_line": 13,
+   "source_text_sha256": "dd20292e1d5c2dd1ba2ba6381b8cfcd15a687117829ef5c891ff632c5ff805f8",
+   "source_excerpt": "8. Не в backlog и не откладывать до следующего эпика.",
+   "disposition": "required",
+   "reason": "Закрыто: P0-хотфиксы выполнены в активной очереди, не переведены в backlog и не отложены до следующего эпика (A-карта 29/29; релиз 2.58.90). VERIFIED.",
+   "req_id": "P0B-WF-NOBACKLOG",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "P0-хотфиксы в активной очереди: не переведены в backlog и не отложены до следующего эпика.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29 VERIFIED) + plans/features/p0-save-init-ux/release-25890-report.md (2.58.90)",
+     "observation": "P0 не отложен: обе волны выкачены в 2.58.90 в рамках активной очереди; перевод в backlog/следующий эпик не производился.",
+     "artifact_path": "plans/features/p0-save-init-ux/requirements-map.json",
+     "artifact_sha256": "25aa41deb300953cdcf6569f6bd1e6708d6284758f5f02486bf7c39017d9169e",
+     "type": "static"
+    }
+   ]
+  },
+  {
+   "source_id": "L00014",
+   "source_line": 14,
+   "source_text_sha256": "30a9c53f1984741113192b93d61641137bca6f0c6a1e09acdd74a2a0609da59f",
+   "source_excerpt": "9. Не превращать в новый большой проект / повторный аудит всего Adminbot.",
+   "disposition": "required",
+   "reason": "Закрыто: scope ограничен названными компонентами — новый проект/сплошной повторный аудит не создавались; дельта к проду ограничена whitelist'ом (§2 release-отчёта). VERIFIED.",
+   "req_id": "P0B-WF-SCOPE",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Scope ограничен названными компонентами: не создаётся новый большой проект и повторный аудит всего Adminbot (в плане/диффе нет сплошных повторных исследований).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/release-25890-report.md §2 (дельта 74 файла; runtime-whitelist 19/18) + plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md §0.9",
+     "observation": "Никакого нового большого проекта/повторного аудита всего Adminbot: точечные фиксы и аудиты по лейнам; дельта к проду ограничена вайтлистом деплой-скрипта.",
+     "artifact_path": "plans/features/p0-save-init-ux/release-25890-report.md",
+     "artifact_sha256": "e1683cb4c36b70b98985df04412d1086ba18a0ffe661a46055759608ba46d8fd",
+     "type": "static"
+    }
+   ]
+  },
+  {
+   "source_id": "L00015",
+   "source_line": 15,
+   "source_text_sha256": "a7aa82a15eb66ab7cc75f7f177964a02a2a2f456d4d1f3e18ea82b49ffc2e3ff",
+   "source_excerpt": "10. Не открывать Human Gate по вопросам, решаемым кодом и существующими требованиями.",
+   "disposition": "required",
+   "reason": "Закрыто: Human Gate по решаемым кодом вопросам не открывался — в `owner_questions.md` таких пунктов нет («блокирует — сейчас: НЕТ»; «блокирующих вопросов к владельцу: 0»); новые согласования не вводились. VERIFIED.",
+   "req_id": "P0B-WF-NOGATE",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Human Gate не открывается по вопросам, решаемым кодом и существующими требованиями; в owner_questions нет таких пунктов; новые согласования не вводятся.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/owner_questions.md (§2/шапка: «ТРЕБУЕТСЯ ОТ ВЛАДЕЛЬЦА — блокирует — СЕЙЧАС: НЕТ», «блокирующих вопросов: 0») + plans/workflow_state.md («Human gate: none»)",
+     "observation": "Human Gate не открывался: в owner_questions нет пунктов по решаемым кодом вопросам; новые обязательные согласования не вводились (PET-правило).",
+     "artifact_path": "plans/owner_questions.md",
+     "artifact_sha256": "c904ab5fb276c582b2a68fcf655a4f7b43dd3b25cc800ae943840016263773cc",
+     "type": "static"
+    }
+   ],
+   "note": "Согласуется с PET_PROJECT и Human Gate preflight (18.10.2026)."
+  },
+  {
+   "source_id": "L00018",
+   "source_line": 18,
+   "source_text_sha256": "0785886a6f94a1a85e370145107447b43260109e10787eb7b60b0b71711b86d6",
+   "source_excerpt": "## 1. Initiative: наблюдать живой чат, а не сканировать архив",
+   "disposition": "context",
+   "reason": "Заголовок раздела; запрет сканировать архив раскрыт строкой 19, архитектура — пунктами 1–8 (L00021–L00028).",
+   "req_id": "",
+   "slice": "",
+   "acceptance": "",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "PENDING",
+   "evidence": []
+  },
+  {
+   "source_id": "L00021",
+   "source_line": 21,
+   "source_text_sha256": "50eab19efd2735dfd42f5fd80e267959240be3871d5e386e15ba4f5e085cf9ca",
+   "source_excerpt": "1. Первый запуск — от актуального хвоста с ограниченным контекстом недавнего обсуждения (не с rowid=0).",
+   "disposition": "required",
+   "reason": "Закрыто: `SCAN_FRESH_LOOKBACK_SECONDS=6ч` / `SCAN_FRESH_MIN_ROWS=200`, `_fresh_anchor_id`; тесты anchor + `test_live_cursor_is_not_rewound`; живое: `cursor_lag=2` на реконе → `cursor_lag=0` при `scan_anchored=1`. VERIFIED (`620ce2b0`).",
+   "req_id": "P0B-INIT-TAIL",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Первый запуск — от актуального хвоста с ограниченным контекстом недавнего обсуждения (не rowid=0); тест на базе с большой историей подтверждает старт без прохода архива.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(2) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+     "observation": "Старт от актуального хвоста (6 ч/≥200 строк), перенос только вперёд, архив не проходится.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+     "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+     "type": "static"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/acceptance-bc-25890-read.json (C1) + plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+     "observation": "Прод 2.58.90: `cursor_lag_messages=0` (13:55Z) при durable `scan_anchored=1` и 16 сканах success после T0.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/release-25890/acceptance/journal-25890.json",
+     "artifact_sha256": "70f9ffa43e8226a0959bf24b1245194a9a8efc5c9f44c85d88568f02d6120692",
+     "type": "production"
+    }
+   ],
+   "alias_of": [
+    "soul-1:SOUL-18.3"
+   ],
+   "note": "Причины «маленький lookback / cursor с нуля» уже названы в SOUL-18.3; здесь — архитектурный фикс."
+  },
+  {
+   "source_id": "L00022",
+   "source_line": 22,
+   "source_text_sha256": "3c12c9489aa4739c9d6b5f3feae6caed4ee402c5f2ab311188657629c8437dec",
+   "source_excerpt": "2. После отсутствия — новые сообщения с последнего наблюдения; при накоплении — актуальное окно + смысловое сжатие пропущенного (не последовательная семантическая оценка тысяч окон).",
+   "disposition": "required",
+   "reason": "Закрыто: при `skipped ≥50` — один LLM-дайджест `<Skipped_Chat_Digest>` (probe ≤1000, выборка ≤200, кап 800 симв, fail-open → оценка по окну); тесты: 1000 пропущенных → ровно 2 стрима, малый разрыв (30) → без дайджеста, падение дайджеста → fail-open; watermark догоняет. VERIFIED (`620ce2b0`; review §3).",
+   "req_id": "P0B-INIT-CATCHUP",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Обрабатываются новые сообщения с последнего наблюдения; при накоплении — актуальное окно + смысловое сжатие пропущенного, без последовательной семантической оценки тысяч окон.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §3 + plans/features/p0-save-init-ux/evidence/init-arch-fix/design-decisions.md",
+     "observation": "Bounded смысловое сжатие пропущенного: ≤1 дайджест-стрим на оценку; учёт `eval_day_count`/budget — 1 за оценку (зафиксировано дизайн-решением).",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/design-decisions.md",
+     "artifact_sha256": "034a30aa5ac0dc0a6f5024ae9dd167b5ccbab21c6f67e1a943eddcb8aadf4100",
+     "type": "static"
+    }
+   ]
+  },
+  {
+   "source_id": "L00023",
+   "source_line": 23,
+   "source_text_sha256": "cf1dca1387101383cb7f026351d7b6a9bfcc418d89f4bcad37d165b9d7c64357",
+   "source_excerpt": "3. Адаптивный объём контекста: 10 / 50–200+ сообщений по ситуации (не жёсткие 14 без расширения).",
+   "disposition": "required",
+   "reason": "Закрыто: жёсткой `EVAL_WINDOW_MESSAGES=14` нет (git grep пуст); `resolve_window_messages(backlog)=max(10, min(backlog,200))`; боевой путь и dry-run «Проверить инициативу» — один резолвер; тесты 10/60/200 на 10/60/300, RED по [60]/[300] воспроизведён. VERIFIED (`620ce2b0`; review §2).",
+   "req_id": "P0B-INIT-CONTEXT",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Адаптивный объём контекста: 10 / 50–200+ сообщений по ситуации; жёсткие 14 без расширения исключены (тест на разных объёмах).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §2 + tests/test_p0_init_arch_fix_observer.py",
+     "observation": "Адаптивное окно 10…200: 0→10, 14→14, 300→200, 5000→200; кап объёма ≤200×300 симв; ≤4 вызовов/проход.",
+     "artifact_path": "tests/test_p0_init_arch_fix_observer.py",
+     "artifact_sha256": "c6bc32cc27af9f2ec80a80ce5e9e636d48c9dc598b876e80d76174b331e08b59",
+     "type": "test"
+    }
+   ]
+  },
+  {
+   "source_id": "L00024",
+   "source_line": 24,
+   "source_text_sha256": "bfbb24dae769a1869f9204ed53245fa419e6071a1ca3ccb92e9cd4f419aacf23",
+   "source_excerpt": "4. Сохранять темы, участников, адресатов, reply-связи, актуальные поводы.",
+   "disposition": "required",
+   "reason": "Закрыто: промпт окна `- [msg:ID] [user:ID] автор: текст (ответ на msg:N)`; `addressee_user_id`/`rationale` в строке повода (бой и dry-run; garbage-safe, кап 200; паритет при отсутствии полей). Тест reply-цепочки: обе метки в промпте, `writer.rows[0]` с адресатом/rationale, `sent==1`. VERIFIED (`620ce2b0`; review §4).",
+   "req_id": "P0B-INIT-SIGNALS",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Сохраняются темы, участники, адресаты, reply-связи и актуальные поводы; trace показывает эти поля в контексте кандидата.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §4 + plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+     "observation": "Reply-связи, адресаты и актуальные поводы доезжают до строки повода Writer/L1 (бой и dry-run); ничего не теряется.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+     "artifact_sha256": "77f6ca920f929cb2d876932540bb4e3a44bc2e28083edec207162ea94aedc3e3",
+     "type": "test"
+    }
+   ]
+  },
+  {
+   "source_id": "L00025",
+   "source_line": 25,
+   "source_text_sha256": "3b32a18a91098f817d16e0d637400400fd2b35d8b99cf7b58d10f59085a7f19e",
+   "source_excerpt": "5. Маленькие/новые чаты — не требуют большой истории.",
+   "disposition": "required",
+   "reason": "Закрыто: `required_messages_for_chat = min(need, max(floor=4, depth))` в боевом пути и в `chat_block_state`; тесты 6/12/20 на заводском `normal` → полноценная цепочка `sent=1`, 3 реплики → floor 4 (RED-свидетель «8 == 4»), панель 4/8; анти-навязчивости сохранены (review §5: качество не ослаблено сверх ТЗ). VERIFIED.",
+   "req_id": "P0B-INIT-SMALL",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Маленькие/новые чаты не требуют большой истории: инициатива работает на 5–20 сообщениях (сценарий 2).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §5 + tests/test_p0_init_arch_fix_observer.py",
+     "observation": "Малые/новые чаты (5–20 сообщений) — инициатива работает; устоявшиеся — паритет профиля (норма 8).",
+     "artifact_path": "tests/test_p0_init_arch_fix_observer.py",
+     "artifact_sha256": "c6bc32cc27af9f2ec80a80ce5e9e636d48c9dc598b876e80d76174b331e08b59",
+     "type": "test"
+    }
+   ]
+  },
+  {
+   "source_id": "L00026",
+   "source_line": 26,
+   "source_text_sha256": "b4bd5dc1222cb0c98cab2d72ff4a2d3c0c7f705e829cf6090d832819d0e520a3",
+   "source_excerpt": "6. Отличать импорт/backfill от новых сообщений (не реагировать на многолетние события).",
+   "disposition": "required",
+   "reason": "Закрыто (review `aee8e95c`, Approved): все 11 SQL-чтений `smart_messages` несут `import_key IS NULL` (`LIVE_ONLY_SQL`); RED воспроизведён (импорт наблюдался: observed=200), GREEN: 300 импортированных → observed=0/evals=0/llm=0, живые 6 реплик → 1 вызов; архив цел (306 строк). VERIFIED (`620ce2b0`).",
+   "req_id": "P0B-INIT-BACKFILL",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Импорт/backfill отличается от новых сообщений: многолетние события не порождают реакций (тест на массовом импорте).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved) §1 + plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+     "observation": "Импорт-only фильтр: многолетние события не порождают реакций; RED-лог лейна (`red-prefix.txt`) снят на 16-тестовой версии (F1 ревью) — RED 12f/5p на финальном файле воспроизведён ревьюером (review §1/§7), красный лог к строкам не привязан.",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-fix/green-postfix.txt",
+     "artifact_sha256": "77f6ca920f929cb2d876932540bb4e3a44bc2e28083edec207162ea94aedc3e3",
+     "type": "test"
+    }
+   ]
+  },
+  {
+   "source_id": "L00027",
+   "source_line": 27,
+   "source_text_sha256": "4dfa519a0dc8d8c277983251f096e21313d8efa2ada856f4b8efcd3a7d54ffe6",
+   "source_excerpt": "7. Durable-состояние и дедупликация; рестарты/деплои не начинают архив сначала.",
+   "disposition": "required",
+   "reason": "Закрыто: durable-payload/чекпоинты (`enqueue`/`_load_payload`/`_inherit_state`/`_checkpoint`), дедуп `recent_hashes`+TTL; тесты reboot/дедупа; живое: passes=865, `context_dedup=4` (acceptance C3). VERIFIED (`620ce2b0`).",
+   "req_id": "P0B-INIT-DURABLE",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Durable-состояние и дедупликация: рестарты/деплои не начинают архив заново и не порождают повторных отправок (тест рестарта).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(8) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+     "observation": "Рестарты/деплои не начинают архив заново и не порождают повторных отправок (B01-тесты зелёные).",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+     "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+     "type": "static"
+    }
+   ]
+  },
+  {
+   "source_id": "L00028",
+   "source_line": 28,
+   "source_text_sha256": "e3e2450658a1d569a8665a6be1dc70639426d9d10054409cdca2cac22cf6654f",
+   "source_excerpt": "8. Не отбрасывать весь контекст из-за обращения к боту; Direct не подавляет автономию бесконечно.",
+   "disposition": "required",
+   "reason": "Закрыто: per-reply классификация, антифлуд 300 c после любого вывода, cooldown только по `initiative_reply`; тесты mixed-window/only-bot-addresses/direct-does-not-block/anti-flood/pending-direct; map A `P0A-INIT-DIRECT`/`P0A-INIT-COOLDOWN` = VERIFIED; живое: `min_gap=9`, `direct_address_seen=1`. VERIFIED (`620ce2b0`).",
+   "req_id": "P0B-INIT-DIRECT",
+   "slice": "P0B-INIT-ARCH",
+   "acceptance": "Весь контекст не отбрасывается из-за обращения к боту; Direct не подавляет автономию бесконечно (тест окна с прямым обращением).",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "620ce2b02072c0a59987661a25e56c3e37688a7f",
+     "ref": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md §1(9) + plans/features/soul-1/review-init-arch-fix.md (aee8e95c, Approved)",
+     "observation": "Контекст не отбрасывается из-за обращения к боту; обычный Direct не подавляет автономию бесконечно (швы перепрогнаны: 135 passed).",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/init-arch-gap.md",
+     "artifact_sha256": "e349a90c72c1cf11782aeb6c7a2200f4a1ab71d138921c3596ccef053cf695df",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "p0-hotfix:P0A-INIT-DIRECT",
+    "p0-hotfix:P0A-INIT-COOLDOWN"
+   ],
+   "note": "То же обязательство, что в карте A (P0A); не дублировать реализацию."
+  },
+  {
+   "source_id": "L00031",
+   "source_line": 31,
+   "source_text_sha256": "f3693497d7dd6bee780763d3a7711d7e8a39358999986a79c4119f6e57a06a03",
+   "source_excerpt": "## 2. Nostalgia — отдельная функция воспоминаний",
+   "disposition": "context",
+   "reason": "Заголовок раздела; содержание раскрыто строками 32–36 (P0B-NOST-*) и разделом 3 (строка 39).",
+   "req_id": "",
+   "slice": "",
+   "acceptance": "",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "PENDING",
+   "evidence": []
+  },
+  {
+   "source_id": "L00038",
+   "source_line": 38,
+   "source_text_sha256": "120ef6ba81d3f16b400237f7fe9ef8df7dbef9b2d4ca0f670b0e368572328102",
+   "source_excerpt": "## 3. Разделение ответственности",
+   "disposition": "context",
+   "reason": "Заголовок раздела; обязательства раскрыты manual-строкой 39 (разделение ответственности).",
+   "req_id": "",
+   "slice": "",
+   "acceptance": "",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "PENDING",
+   "evidence": []
+  },
+  {
+   "source_id": "L00041",
+   "source_line": 41,
+   "source_text_sha256": "7112dc6c0c932f7f0cbb6483c41197139c4a9c21d9fd85b3ac5f274ad15099ce",
+   "source_excerpt": "## 4. Проверка на реальном поведении (сценарии 1–9)",
+   "disposition": "context",
+   "reason": "Заголовок раздела; сценарии 1–9 — L00042, воронки и запрет имитаций — manual-строка 43.",
+   "req_id": "",
+   "slice": "",
+   "acceptance": "",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "PENDING",
+   "evidence": []
+  },
+  {
+   "source_id": "L00042",
+   "source_line": 42,
+   "source_text_sha256": "3dfc97496a0b8c7dd092bb6c6254d953b74d9a791b7774bd3b30550e67e09e4a",
+   "source_excerpt": "1) чат с миллионом сообщений + новая беседа; 2) новый чат 5–20 сообщений; 3) бот недавно добавлен; 4) пропущены сотни/тысячи сообщений; 5) активная беседа с прямыми обращениями; 6) текущий разговор напоминает старое событие (контекстная Nos",
+   "disposition": "required",
+   "reason": "TAILS-R1 22.10: агрегат закрыт построчно — каждый сценарий несёт VERIFIED-строку карты и/или настоящий harness: (1) миллион сообщений + новая беседа — M-B-29B (live-воронка прод 2.58.90: cursor_lag=0, live_24h=716, scan_anchored=1) + harness V1 (100k живых строк: тик наблюдения 2.8с, 1 LLM-вызов — объём не просматривается последовательно) + harness V3 (новая беседа 8 сообщений → evals=1 за первый тик); (2) новый чат 5–20 — P0B-INIT-SMALL (тесты 6/12/20, live) + V3; (3) бот недавно добавлен — та же механика порога/профиля (P0B-INIT-SMALL, block-state тесты); (4) пропущены сотни/тысячи — P0B-INIT-CATCHUP (1000→ровно 2 стрима) + harness V2 (разрыв 10k: 1 bounded-дайджест + 1 оценка, digest-блок в промпте); (5) активные прямые обращения — P0B-INIT-DIRECT (live: min_gap=9, direct_address_seen=1); (6) контекстная Nostalgia — M-B-34 (live 14:40:03Z scenario=A); (7) автономная после затишья — P0B-NOST-SCEN-B (harness 3/3, настоящая строка); (8) нет повода — SILENT — M-B-29A (decision-семантика, silent-тесты) + живые reason-коды воронки M-B-43; (9) рестарт/импорт — P0B-INIT-DURABLE/P0B-INIT-BACKFILL (тесты + live passes=865, import observed=0). Честная оговорка: «миллион» закрыт синтетическим объёмом 100k в тестовой БД (механизм курсора от объёма не зависит — O(1) тик доказан; полный миллион — та же механика). Добровольные наблюдения владельца — вне знаменателя (owner_optional-строки).",
+   "req_id": "P0B-LIVE-SCENARIOS",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "На реальном поведении проверены все 9 сценариев (миллион сообщений + новая беседа; новый чат 5–20; бот недавно добавлен; пропущены сотни/тысячи; активные прямые обращения; контекстная Nostalgia; автономная после затишья; нет повода — SILENT; рестарт/импорт без повторных отправок) с зафиксированными исходами.",
+   "live_required": true,
+   "live_when": "postdeploy",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
+     "ref": "plans/features/p0-save-init-ux/evidence/tails-r1/live-scenarios-load.json",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/tails-r1/live-scenarios-load.json",
+     "artifact_sha256": "991e7159e20d2bea9b7532f0b409a37f88257c325a350b6de44fbab502d4148c",
+     "observation": "V1: 100k rows, tick 2.8s, llm=1; V2: 10k gap → 2 streams (digest+eval), Skipped_Chat_Digest; V3: new chat 8 msgs → evals=1.",
+     "type": "live"
+    },
+    {
+     "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
+     "ref": "plans/features/p0-save-init-ux/evidence/tails-r1/nost-scen-b-harness.json",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/tails-r1/nost-scen-b-harness.json",
+     "artifact_sha256": "35651bc4e23156db72deb4a1d25847bd645fccb369c6e7390d4e3761ab72c6a3",
+     "observation": "Сценарий 7: B-воронка после затишья (3/3).",
+     "type": "live"
+    },
+    {
+     "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
+     "ref": "plans/features/p0-save-init-ux/evidence/tails-r1/README.md",
+     "artifact_path": "plans/features/p0-save-init-ux/evidence/tails-r1/README.md",
+     "artifact_sha256": "b401e101e62c573e139b06d964c4ce38547d62949418fbfb9bdd382fdb976e4e",
+     "observation": "Построчная привязка 9 сценариев к VERIFIED-строкам карты.",
+     "type": "test"
+    }
+   ],
+   "alias_of": [
+    "soul-1:SOUL-18.7"
+   ],
+   "note": "Live-приёмка инициативы уже заявлена в SOUL-18.7. Phase-2 подтвердило живыми: активные прямые обращения (`scenario=A`, silence 6–13 мин), контекстная Nostalgia (кандидат из живой беседы → LLM), «нет повода — SILENT» (`unchanged`/`no_candidates`), PET-гейт. Не наблюдались живьём: миллион сообщений+новая беседа, новый чат 5–20, бот недавно добавлен, пропущены сотни/тысячи, рестарт/импорт без повторных отправок — строка остаётся открытой. 92C (19.10): ночного затишья не было (все тики scenario=A; второй чат 40 мин → no_candidates); первое доставленное воспоминание получено (см. P0B-GOAL); тихий сценарий B и часть сценариев 1–9 остаются открытыми."
+  },
+  {
+   "source_id": "L00045",
+   "source_line": 45,
+   "source_text_sha256": "1e153eff7de6f4dfa5fa96b13e01fd46ac6149ee035b4f5d46e59f9d6eca5f34",
+   "source_excerpt": "## 5. Завершение",
+   "disposition": "context",
+   "reason": "Заголовок раздела; обязательства — L00046 и строки 47–49.",
+   "req_id": "",
+   "slice": "",
+   "acceptance": "",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "PENDING",
+   "evidence": []
+  },
+  {
+   "source_id": "L00046",
+   "source_line": 46,
+   "source_text_sha256": "e30c493e83d69e997affe6220914e8d36ec72ecf88bf314970e4e2c10482c172",
+   "source_excerpt": "1) независимый Reviewer; 2) штатный деплой без прерывания незавершённых операций; 3) зафиксировать исправления и оставшиеся живые проверки; 4) обновить прогресс/requirements-map/workflow-state; 5) автоматически продолжить очередь current_ta",
+   "disposition": "required",
+   "reason": "Закрыто: независимый Reviewer (`eca4f560`); штатный деплой 2.58.90 (`3b02366e`) без прерывания незавершённых операций; исправления и оставшиеся живые проверки зафиксированы (B: SCEN-B RFL+live_note, GOAL/LIVE-SCENARIOS — notes; A: 29/29); карты/прогресс обновлены; очередь продолжена автоматически. VERIFIED.",
+   "req_id": "P0B-CLOSE",
+   "slice": "P0B-ACCEPT",
+   "acceptance": "Завершение: независимый Reviewer; штатный деплой без прерывания незавершённых операций; исправления и оставшиеся живые проверки зафиксированы; прогресс/requirements-map/workflow-state обновлены; очередь current_task продолжена автоматически.",
+   "live_required": false,
+   "live_when": "preprod",
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/soul-1/review-ledger-p0-final.md (Approved) + plans/features/p0-save-init-ux/release-25890-report.md §4 (деплой `3b02366e`, safe-window, откат-рубежи)",
+     "observation": "Завершение: независимое ревью пройдено; деплой штатный, без прерывания незавершённых операций (T0-контроль, откат-готовность); исправления зафиксированы.",
+     "artifact_path": "plans/features/soul-1/review-ledger-p0-final.md",
+     "artifact_sha256": "f3405b97d882a9e1b690932192cb558ffc9f357adb322b071c6044c133b7ed73",
+     "type": "static"
+    },
+    {
+     "candidate_commit": "3b02366e63022eb4c760892aa1bcb4f26516e789",
+     "ref": "plans/features/p0-save-init-ux/requirements-map.json (29/29) + requirements-map-followup.json (закрытие bookkeeping-строк) + plans/features/p0-save-init-ux/final-report-25890.md",
+     "observation": "Живые остатки зафиксированы без фриза (SCEN-B/GOAL/LIVE-SCENARIOS — RFL/notes); прогресс/карты обновлены; очередь current_task продолжена автоматически.",
+     "artifact_path": "plans/features/p0-save-init-ux/final-report-25890.md",
+     "artifact_sha256": "0815f379dbbb1fd9967ff508fe0abd43aa6ca4c0ca68f48708026e956ad6791a",
+     "type": "static"
+    }
+   ],
+   "alias_of": [
+    "cfg:ADD-0.5"
+   ],
+   "note": "Раздельные этапы/статусы — ADD-0.5; фиксация живых проверок обязательна."
+  }
+ ]
 }

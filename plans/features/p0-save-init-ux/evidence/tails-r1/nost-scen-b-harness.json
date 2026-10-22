@@ -1,0 +1,27 @@
+{
+ "generated_utc": "2026-10-22T05:41:23Z",
+ "provider_calls": 0,
+ "steps": [
+  {
+   "step": "B_quiet_daytime_sends",
+   "ok": true,
+   "sent": 1,
+   "candidates": 1,
+   "bot_calls": 1,
+   "quiet_branch_marker": true
+  },
+  {
+   "step": "B_no_immediate_repeat",
+   "ok": true,
+   "second_sent": 0,
+   "reason": null,
+   "bot_calls_total": 1
+  },
+  {
+   "step": "B_quiet_hours_still_skip",
+   "ok": true,
+   "sent": 0,
+   "log_rows": 0
+  }
+ ]
+}
