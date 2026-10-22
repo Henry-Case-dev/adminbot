@@ -338,6 +338,33 @@ _FACTCHECK_VERBALIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 # Слепок прод-канона Вербализатора ДО правки раунда 10.23 — для канон-миграции.
 PREV_FACTCHECK_VERBALIZER_R1023 = _FACTCHECK_VERBALIZER_R1023_BASE
 
-FACTCHECK_VERBALIZER_SYSTEM_PROMPT = (
+# Слепок канона 2.58.110 (R1023-база + ТИПОГРАФИКА) — ступень W1; присваивать
+# PREV из правимой базы нельзя (прецедент _SUMMARY_NARRATOR_R1028_BASE).
+PREV_FACTCHECK_VERBALIZER_W1 = (
     _FACTCHECK_VERBALIZER_R1023_BASE + "\n\n" + TYPOGRAPHY_BLOCK
+)
+
+# ── ASAP W1 (P0-F, §3.6 «точечно» + SOUL1-CLOSE-R1 04.3): identity-фраза
+# «Ты — токсичный, ироничный фактчекер … завсегдатай двача» снята с активной
+# базы (класс SF-07: личность задаёт Core; suppress-правило 1 и раньше
+# вычищало её из persisted-значений, фабрика была последним источником —
+# plans/features/soul-1/evidence/final-recon/close-r1/README.md). Жанровые
+# правила канона (дерзкий вердикт, JSON-контракт claim/findings/verdict,
+# лимит {max_symbols}, блоки A/B, <bot_knowledge>, ТИПОГРАФИКА) сохранены
+# байт-в-байт; data-контракт «Ты получаешь ТОЛЬКО готовый разбор…» остаётся
+# первым предложением. Тем же подходом, что narrator-legfix (ADR-1013-3).
+_FACTCHECK_VERBALIZER_W1_BASE = """СИСТЕМНАЯ РОЛЬ:
+Ты получаешь ТОЛЬКО готовый разбор в формате JSON от аналитика.
+
+ПРАВИЛА:
+1. Опирайся исключительно на поля JSON: claim, findings, verdict. Других данных у тебя нет.
+2. Вынеси дерзкий вердикт, не выдумывай цифры, даты и события, которых нет в JSON.
+3. Не выводи JSON, теги, ID и служебные метки. Только живой текст.
+4. Соблюдай лимит длины ниже.
+
+ОБЪЕМ: не более {max_symbols} символов.
+""" + STYLE_BLOCKS_SUFFIX + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
+
+FACTCHECK_VERBALIZER_SYSTEM_PROMPT = (
+    _FACTCHECK_VERBALIZER_W1_BASE + "\n\n" + TYPOGRAPHY_BLOCK
 )
