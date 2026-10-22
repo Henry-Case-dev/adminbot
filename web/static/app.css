@@ -1117,6 +1117,11 @@
       height: auto;
       overflow: visible;
     }
+    /* ASAP-speech-arch U-06 (§8): на desktop скроллится ДОКУМЕНТ, поэтому
+       scroll-padding-top нужен и корневому скроллеру — иначе scrollIntoView
+       к якорю/фокус ставит верх контента ПОД липкую шапку. `--header-h`
+       измеряется ResizeObserver'ом (app.js::_initHeaderHeight) на :root. */
+    html { scroll-padding-top: calc(var(--header-h, 0px) + 1rem); }
     /* HOTFIX9 D1: mobile (и любой fullscreen) — фиксированная flex-колонка
        ровно по доступной области; скроллится ТОЛЬКО центральная зона. */
     .app-shell.shell-mobile:not(.shell-layout-legacy),
@@ -4639,7 +4644,11 @@ html.cover-editor-open { overflow: hidden; }
 }
 .speech-editor.dirty { border-color: rgba(250, 204, 21, .55); }
 
-/* Длинные строки/JSON/prompt — скролл ВНУТРИ компонента. */
+/* Длинные строки/JSON/prompt — скролл ВНУТРИ компонента.
+   ASAP-speech-arch U-04 (§8): режим ПРОСМОТРА переносит строки — на 320–430 px
+   русский текст, URL и токены читаются целиком, без обрезания справа и без
+   второй горизонтальной прокрутки страницы. Горизонтальный скролл остаётся
+   только у явно кодовых блоков (`.speech-code`, diff), где строка значима. */
 .speech-pre,
 .speech-scrollable {
   margin: 0;
@@ -4651,12 +4660,20 @@ html.cover-editor-open { overflow: hidden; }
   border-radius: 10px;
   font-size: 11px;
   line-height: 1.4;
-  white-space: pre;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   max-width: 100%;
   min-width: 0;
 }
 .speech-scrollable { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Исключение: реальный код/diff — строку сохраняем, скроллим по горизонтали. */
+.speech-pre.speech-code {
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  overflow-x: auto;
+}
 
 /* Плотные таблицы/ряды (tier C) */
 .speech-table { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
@@ -4911,3 +4928,118 @@ html.cover-editor-open { overflow: hidden; }
   font-weight: 600; white-space: nowrap;
 }
 /* ═══ /FIX-SPEECH-MOBILE ═══ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ASAP-speech-arch W4 (§8, U-01…U-09): точечные UI-исправления по скриншотам.
+   Только раскладка, читаемость и аффордансы: базовые цвета, токены и
+   полигональный рисунок не меняются; новых оверлеев/стекла не добавляется
+   (материал — существующие `.card`/`lg-*`).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── U-03 (§8): «Библиотека промптов» — одна адаптивная сетка ─────────────
+   Было: flex-wrap с карточками по содержимому → рваные вертикальные области
+   (3 широкие, затем 5 узких) и «гуляющие» отступы. Теперь одна grid-система:
+   равные колонки, одинаковые отступы, одинаковая внутренняя сетка кнопок. */
+.prompt-module-grid {
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+  align-items: stretch;
+}
+.prompt-module-card {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  min-width: 0;
+  height: 100%;
+}
+.prompt-module-card > .flex {
+  margin-top: auto;          /* кнопки прижаты к низу — один ритм у всех карточек */
+  row-gap: .25rem;
+}
+
+/* ── U-05 (§8): переключатель редакций и «Развернуть» ─────────────────────
+   Подписи не съедают место соседних контролов и не ломают их размеры:
+   табы переносятся/сжимаются, на 320–359 px — по одному в строке. */
+.speech-tabs { flex-wrap: wrap; }
+.speech-tab {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+@media (max-width: 359px) {
+  .speech-tabs { grid-template-columns: minmax(0, 1fr); }
+  .speech-tab { width: 100%; }
+}
+/* Крупный редактор (U-05): собственная прокрутка внутри, фон не «уезжает». */
+.speech-fullscreen { overscroll-behavior: contain; }
+.speech-fullscreen .speech-actions { flex: 0 0 auto; flex-wrap: wrap; }
+
+/* ── U-04 (§8): кодовые поля/Inspector — перенос строк вместо обрезания ────
+   На 320–430 px текст не упирается в правый край: pre-wrap + anywhere.
+   Горизонтальный скролл — только у явного кода (`.speech-code`/diff). */
+.speech-pre,
+.speech-scrollable,
+.speech-diff-line,
+.speech-preview-line {
+  max-width: 100%;
+  min-width: 0;
+}
+.speech-pre { overflow-x: hidden; }
+.speech-editor {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* ── U-02 (§8): честные аффордансы строк карты сборки ─────────────────────
+   Ряд без адреса редактирования не притворяется кнопкой: нет hover, курсор
+   обычный, явная пометка «только чтение» в разметке. */
+.speech-layer-card-ro { cursor: default; }
+.speech-layer-card-btn:focus-visible {
+  outline: 2px solid rgba(66, 214, 196, .75);
+  outline-offset: 2px;
+}
+
+/* ── U-06 (§8): шапка — заголовок и путь не дублируют друг друга ──────────
+   Крошка показывает только путь (родители), имя раздела — единственный
+   заголовок `.header-title`; он не перекрывается липкой шапкой, потому что
+   живёт в её flex-строке (структурно над контентом). */
+.header-title { line-height: 1.25; }
+.breadcrumb { line-height: 1.2; }
+
+/* ── U-07 (§8): один CTA сохранения ───────────────────────────────────────
+   Панель `.speech-savebar` держит единственную активную кнопку (появляется
+   только при dirty/ошибке); «Сохранено» — статус без кнопки. */
+.speech-savebar[data-speech-savebar] .btn-accent[data-speech-save-primary] {
+  flex: 0 0 auto;
+}
+.speech-savebar > .text-xs { min-width: 0; overflow-wrap: anywhere; }
+
+/* ── U-08 (§8): читаемость вторичного текста на стекле ────────────────────
+   Токен `--text-3` (#7C8798) и Tailwind `text-gray-500` на полупрозрачных
+   карточках поверх яркого участка фона давали < 4.5:1 для 11–12 px. Поднимаем
+   ТОЛЬКО вторичный текст внутри «Речи и характера» и подписи карточек хаба —
+   базовые цвета/фон/полигоны не меняются. Контраст измеряется в evidence
+   (`plans/features/asap-speech-arch/evidence/w4/ui-acceptance.md`). */
+.speech-screen {
+  --text-2: #C3CDDC;
+  --text-3: #AAB6C8;
+}
+.speech-screen .text-gray-500,
+.speech-screen .text-gray-400 { color: #AAB6C8; }
+.speech-screen .text-\[10px\].text-gray-500 { color: #A7B3C6; }
+.speech-card-sub,
+.speech-card-detail,
+.speech-layers-sub,
+.speech-layer-desc,
+.speech-layer-detail,
+.speech-layers-note,
+.speech-group-title { color: #AAB6C8; }
+.hub-card .hub-card-sub { color: #AEBACB; }
+.speech-hub-entry__sub { color: #AEBACB; }
+/* ═══ /ASAP-speech-arch W4 ═══ */
+

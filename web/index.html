@@ -156,18 +156,22 @@
           </div>
           <div class="header-title-wrap min-w-0">
             <!-- F1 (UPD §8.4): на вложенных — текущий раздел + путь назад. -->
+            <!-- ASAP-speech-arch U-06 (§8): ОДИН главный заголовок страницы +
+                 путь к нему. Текущий раздел не повторяется в крошке (раньше
+                 «Статус / ИИ / Библиотека промптов» стояло над заголовком
+                 «Промпты» — два разных имени одной страницы). Крошка — только
+                 путь (кликабельные родители), имя раздела — заголовок ниже. -->
             <nav v-if="iaV2 && breadcrumb" class="breadcrumb" aria-label="Путь назад">
               <button type="button" class="breadcrumb-link"
                       @click="shellNavTo(breadcrumb.root.route)">{{ breadcrumb.root.label }}</button>
-              <span class="breadcrumb-sep" aria-hidden="true">/</span>
               <template v-if="breadcrumb.mid">
+                <span class="breadcrumb-sep" aria-hidden="true">/</span>
                 <button type="button" class="breadcrumb-link"
                         @click="shellNavTo(breadcrumb.mid.route)">{{ breadcrumb.mid.label }}</button>
-                <span class="breadcrumb-sep" aria-hidden="true">/</span>
               </template>
-              <span class="breadcrumb-current" aria-current="page">{{ breadcrumb.current }}</span>
             </nav>
-            <div class="text-sm font-semibold truncate">{{ currentTabLabel }}</div>
+            <div class="header-title text-sm font-semibold truncate"
+                 aria-current="page">{{ headerTitle }}</div>
           </div>
           <!-- D13 (§18I.13) + CFG-04B.1 (source L157): компактный СЧЁТЧИК
               в шапке — появляется ТОЛЬКО при dirty/saving/failed (clean →
@@ -1960,7 +1964,7 @@
                               :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
                               :data-prompt-key="it.key"
                               @click="openWorkspacePrompt(it)">
-                        {{ it.title }}
+                        {{ configItemTitle(it) }}
                         <span v-if="summaryPromptMeta(it.key) && summaryPromptMeta(it.key).badge"
                               class="badge badge-info ml-1">{{ summaryPromptMeta(it.key).badge }}</span>
                       </button>
@@ -1972,7 +1976,7 @@
                             :class="workspacePromptFocus && workspacePromptFocus.key === it.key ? 'is-active' : ''"
                             :data-prompt-key="it.key"
                             @click="openWorkspacePrompt(it)">
-                      {{ it.title }}
+                      {{ configItemTitle(it) }}
                     </button>
                   </template>
                 </aside>
@@ -1987,7 +1991,7 @@
                               && summaryPromptMeta(workspacePromptFocus.key).badge"
                           class="badge badge-info">{{ summaryPromptMeta(workspacePromptFocus.key).badge }}</span>
                   </div>
-                  <div class="text-sm font-bold">{{ workspacePromptFocus.title }}</div>
+                  <div class="text-sm font-bold">{{ configItemTitle(workspacePromptFocus) }}</div>
                   <tech-key :value="workspacePromptFocus.key" class="mb-1"></tech-key>
                   <div v-if="configSourceLabel(workspacePromptFocus)" class="text-[10px] text-gray-500 mb-1">
                     {{ configSourceLabel(workspacePromptFocus) }}
@@ -2004,7 +2008,7 @@
                 </section>
                 <aside v-if="workspacePromptFocus" class="prompt-meta card p-4" data-prompt-meta>
                   <div class="text-xs font-bold uppercase tracking-wide mb-2">Описание</div>
-                  <div class="text-xs text-gray-400 mb-3">{{ workspacePromptFocus.description }}</div>
+                  <div class="text-xs text-gray-400 mb-3">{{ configItemDescription(workspacePromptFocus) }}</div>
                   <div class="text-xs font-bold uppercase tracking-wide mb-2">Параметры</div>
                   <div class="text-xs text-gray-400 mb-1">
                     Ключ: <span class="font-mono">{{ workspacePromptFocus.key }}</span>
@@ -2356,9 +2360,9 @@
                     Выберите модуль — откроется тот же промпт, что и на его
                     странице. Один промпт — один источник.
                   </div>
-                  <div class="flex flex-wrap gap-2">
+                  <div class="prompt-module-grid" data-prompt-library-grid>
                     <div v-for="e in promptLibraryEntries" :key="'plm-' + e.slug"
-                         class="card p-3">
+                         class="card p-3 prompt-module-card">
                       <div class="text-sm font-semibold">{{ e.module.title }}</div>
                       <div class="flex items-center gap-1 flex-wrap mt-1">
                         <button class="btn-ghost text-xs"
@@ -2529,9 +2533,9 @@
                               </div>
                               <div v-if="configItemNotice(item)"
                                    class="text-[10px] text-amber-300 mb-1">{{ configItemNotice(item) }}</div>
-                              <div class="text-sm font-semibold">{{ item.title }}</div>
+                              <div class="text-sm font-semibold">{{ configItemTitle(item) }}</div>
                               <tech-key :value="item.key" class="mb-1"></tech-key>
-                              <div class="text-xs text-gray-400 mb-2">{{ item.description }}</div>
+                              <div class="text-xs text-gray-400 mb-2">{{ configItemDescription(item) }}</div>
                               <textarea class="field scroll-thin" rows="6" :data-cfg-key="item.key" v-model="item.value"></textarea>
                               <!-- F4 (ASAP 8 §4.3, C7): server-compiled
                                    preview «Стиль обложки» — тот же POST
@@ -7658,11 +7662,17 @@
                   <ol class="speech-layers-flow" data-speech-layer-flow>
                     <li v-for="(n, ni) in speechLayerNodes()"
                         :key="'soul14-' + n.key" class="speech-layer">
-                      <button v-if="n.section" type="button"
+                      <!-- U-02 (§8): шеврон и hover-аффорданс — ТОЛЬКО у ряда,
+                           который действительно открывает редактирование
+                           (раздел или конкретный блок каталога). Ряд без
+                           адреса остаётся статичным, с явной пометкой
+                           «только чтение» и причиной — без обманной стрелки и
+                           невидимого hitbox. -->
+                      <button v-if="n.section || n.block_id" type="button"
                               class="speech-layer-card speech-layer-card-btn"
                               :data-speech-layer="n.key"
                               :aria-label="'Открыть раздел: ' + n.title"
-                              @click="openSpeechSection(n.section)">
+                              @click="openSpeechLayerRow(n)">
                         <span class="msr speech-layer-icon" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
                         <span class="speech-layer-body">
                           <span class="speech-layer-top">
@@ -7674,15 +7684,18 @@
                         </span>
                         <span class="msr speech-layer-go" aria-hidden="true">{{ iconGlyph('chevron_right') }}</span>
                       </button>
-                      <div v-else class="speech-layer-card"
-                           :data-speech-layer="n.key">
+                      <div v-else class="speech-layer-card speech-layer-card-ro"
+                           :data-speech-layer="n.key" data-speech-layer-readonly>
                         <span class="msr speech-layer-icon" aria-hidden="true">{{ iconGlyph(n.icon) }}</span>
                         <span class="speech-layer-body">
                           <span class="speech-layer-top">
                             <span class="speech-layer-title">{{ n.title }}</span>
                             <span class="badge" :class="n.badgeClass">{{ n.badge }}</span>
+                            <span class="badge badge-muted">только чтение</span>
                           </span>
                           <span class="speech-layer-desc">{{ n.desc }}</span>
+                          <span v-if="n.readonly_reason" class="speech-layer-detail"
+                                data-speech-layer-readonly-reason>{{ n.readonly_reason }}</span>
                           <span v-if="n.detail" class="speech-layer-detail">{{ n.detail }}</span>
                         </span>
                       </div>
@@ -7786,10 +7799,17 @@
                          ? 'Владельческий первоисточник: им можно править характер, не теряя биографию, память и контракты.'
                          : 'Компактная редакция экономит контекст и сохраняет тот же смысл: заводская — согласованная, не LLM-пересказ на ходу.' }}
                     </div>
+                    <!-- U-07 (§8): единственный CTA сохранения — панель
+                         `.speech-savebar` ниже (появляется ровно при
+                         dirty/ошибке, после успеха показывает статус 10 с).
+                         Здесь — только честное объяснение режима «только
+                         чтение»; второй активной кнопки Save нет. -->
                     <div class="speech-actions">
-                      <button type="button" class="btn-accent text-sm"
-                              :disabled="speechBusy || !speechCore.can_edit"
-                              @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <button v-if="!speechCore.can_edit" type="button"
+                              class="btn-accent text-sm" disabled>Сохранить</button>
+                      <span v-if="!speechCore.can_edit" class="text-xs text-gray-500">
+                        Только чтение: нет прав на правку характера
+                      </span>
                       <button type="button" class="btn-ghost speech-menu-btn" data-speech-menu="core"
                               aria-label="Действия раздела" aria-haspopup="menu"
                               :aria-expanded="speechMenu === 'core' ? 'true' : 'false'"
@@ -7865,18 +7885,24 @@
                       </div>
                     </div>
 
-                    <div v-if="speechCoreDirtyCurrent() || speechCanRetry('core') || speechSavedText('core')"
-                         class="sticky-save speech-savebar" data-speech-savebar>
+                    <div v-if="speechCoreDirtyCurrent() || speechCanRetry('core') || speechSavedText('core') || speechConflictFor('core')"
+                         class="sticky-save speech-savebar" data-speech-savebar
+                         :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('core') ? 'conflict' : (speechCanRetry('core') ? 'error' : (speechCoreDirtyCurrent() ? 'dirty' : 'saved')))">
                       <span class="text-xs">
-                        <template v-if="speechCoreDirtyCurrent()">Не сохранено:
+                        <template v-if="speechConflictFor('core')">Конфликт: {{ speechConflictFor('core').text }}</template>
+                        <template v-else-if="speechCoreDirtyCurrent()">Не сохранено:
                           {{ speechCoreEdition === 'full' ? 'полная редакция' : 'компактная редакция' }}
                           ({{ speechCoreEditionChars() }} зн.)</template>
                         <template v-else-if="speechCanRetry('core')">Сохранить не удалось — ввод сохранён</template>
                         <template v-else>{{ speechSavedText('core') }}</template>
                       </span>
-                      <button type="button" class="btn-accent text-sm"
+                      <button v-if="speechConflictFor('core')" type="button"
+                              class="btn-ghost text-sm" data-speech-save-refresh
+                              @click="loadSpeechSection('core', true)">Обновить данные</button>
+                      <button v-else-if="speechCoreDirtyCurrent() || speechCanRetry('core')"
+                              type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechCore.can_edit"
-                              @click="saveSpeechCore()">Сохранить</button>
+                              @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
                       <button v-if="speechCanRetry('core')" type="button"
                               class="btn-ghost text-sm" :disabled="speechBusy"
                               @click="retrySpeechSave()">Повторить сохранение</button>
@@ -7907,23 +7933,6 @@
                                 @click="rollbackSpeechBlock(blockIdFor('full'), h, 'core')">Откатить</button>
                       </div>
                     </details>
-
-                    <div v-if="speechEditorFull" class="speech-fullscreen"
-                         role="dialog" aria-modal="true" aria-label="Полноэкранный редактор характера">
-                      <textarea class="field w-full speech-editor scroll-thin" rows="10"
-                                spellcheck="false"
-                                :readonly="!speechCore.can_edit"
-                                aria-label="Текст редакции характера (полный экран)"
-                                :value="speechCoreDraft()"
-                                @input="setSpeechCoreDraft($event.target.value)"></textarea>
-                      <div class="speech-actions">
-                        <button type="button" class="btn-accent text-sm"
-                                :disabled="speechBusy || !speechCore.can_edit"
-                                @click="saveSpeechCore()">Сохранить</button>
-                        <button type="button" class="btn-ghost text-sm"
-                                @click="closeSpeechEditorFull()">Готово</button>
-                      </div>
-                    </div>
                   </div>
                 </template>
 
@@ -8026,9 +8035,11 @@
                     </div>
 
                     <div class="speech-actions mt-3" data-speech-actions>
-                      <button type="button" class="btn-accent text-sm"
-                              :disabled="speechBusy || !speechStyle.can_edit"
-                              @click="saveSpeechStyle()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <button v-if="!speechStyle.can_edit" type="button"
+                              class="btn-accent text-sm" disabled>Сохранить</button>
+                      <span v-if="!speechStyle.can_edit" class="text-xs text-gray-500">
+                        Только чтение: нет прав на правку правил письма
+                      </span>
                       <button type="button" class="btn-ghost speech-menu-btn" data-speech-menu="style"
                               aria-label="Действия раздела" aria-haspopup="menu"
                               :aria-expanded="speechMenu === 'style' ? 'true' : 'false'"
@@ -8116,17 +8127,23 @@
                       </div>
                     </details>
 
-                    <div v-if="speechDirty.style || speechCanRetry('style') || speechSavedText('style')"
-                         class="sticky-save speech-savebar" data-speech-savebar>
+                    <div v-if="speechDirty.style || speechCanRetry('style') || speechSavedText('style') || speechConflictFor('style')"
+                         class="sticky-save speech-savebar" data-speech-savebar
+                         :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('style') ? 'conflict' : (speechCanRetry('style') ? 'error' : (speechDirty.style ? 'dirty' : 'saved')))">
                       <span class="text-xs">
-                        <template v-if="speechDirty.style">Не сохранено: правила письма
+                        <template v-if="speechConflictFor('style')">Конфликт: {{ speechConflictFor('style').text }}</template>
+                        <template v-else-if="speechDirty.style">Не сохранено: правила письма
                           ({{ speechStyleViewRules().length }} у вас, {{ speechStyleServerRuleCount() }} на сервере)</template>
                         <template v-else-if="speechCanRetry('style')">Сохранить не удалось — правки сохранены</template>
                         <template v-else>{{ speechSavedText('style') }}</template>
                       </span>
-                      <button type="button" class="btn-accent text-sm"
+                      <button v-if="speechConflictFor('style')" type="button"
+                              class="btn-ghost text-sm" data-speech-save-refresh
+                              @click="loadSpeechSection('style', true)">Обновить данные</button>
+                      <button v-else-if="speechDirty.style || speechCanRetry('style')"
+                              type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechStyle.can_edit"
-                              @click="saveSpeechStyle()">Сохранить</button>
+                              @click="saveSpeechStyle()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
                       <button v-if="speechCanRetry('style')" type="button"
                               class="btn-ghost text-sm" :disabled="speechBusy"
                               @click="retrySpeechSave()">Повторить сохранение</button>
@@ -8230,9 +8247,11 @@
                       </template>
                     </div>
                     <div class="speech-actions">
-                      <button type="button" class="btn-accent text-sm"
-                              :disabled="speechBusy || !speechExpression.can_edit"
-                              @click="saveSpeechExpression()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+                      <button v-if="!speechExpression.can_edit" type="button"
+                              class="btn-accent text-sm" disabled>Сохранить</button>
+                      <span v-if="!speechExpression.can_edit" class="text-xs text-gray-500">
+                        Только чтение: нет прав на правку выражения
+                      </span>
                       <button type="button" class="btn-ghost speech-menu-btn" data-speech-menu="expression"
                               aria-label="Действия раздела" aria-haspopup="menu"
                               :aria-expanded="speechMenu === 'expression' ? 'true' : 'false'"
@@ -8268,16 +8287,22 @@
                       </label>
                       <span class="text-xs text-gray-500">{{ speechScopeNow(speechExpression) }}</span>
                     </div>
-                    <div v-if="speechDirty.expression || speechCanRetry('expression') || speechSavedText('expression')"
-                         class="sticky-save speech-savebar" data-speech-savebar>
+                    <div v-if="speechDirty.expression || speechCanRetry('expression') || speechSavedText('expression') || speechConflictFor('expression')"
+                         class="sticky-save speech-savebar" data-speech-savebar
+                         :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('expression') ? 'conflict' : (speechCanRetry('expression') ? 'error' : (speechDirty.expression ? 'dirty' : 'saved')))">
                       <span class="text-xs">
-                        <template v-if="speechDirty.expression">Не сохранено: манера речи</template>
+                        <template v-if="speechConflictFor('expression')">Конфликт: {{ speechConflictFor('expression').text }}</template>
+                        <template v-else-if="speechDirty.expression">Не сохранено: манера речи</template>
                         <template v-else-if="speechCanRetry('expression')">Сохранить не удалось — настройки сохранены</template>
                         <template v-else>{{ speechSavedText('expression') }}</template>
                       </span>
-                      <button type="button" class="btn-accent text-sm"
+                      <button v-if="speechConflictFor('expression')" type="button"
+                              class="btn-ghost text-sm" data-speech-save-refresh
+                              @click="loadSpeechSection('expression', true)">Обновить данные</button>
+                      <button v-else-if="speechDirty.expression || speechCanRetry('expression')"
+                              type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechExpression.can_edit"
-                              @click="saveSpeechExpression()">Сохранить</button>
+                              @click="saveSpeechExpression()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
                       <button v-if="speechCanRetry('expression')" type="button"
                               class="btn-ghost text-sm" :disabled="speechBusy"
                               @click="retrySpeechSave()">Повторить сохранение</button>
@@ -11023,6 +11048,39 @@
            «Ещё» (more-sheet) УДАЛЕНЫ по решению владельца. Мобильная (<768)
            навигация — компактная верхняя строка внутри sticky-шапки ниже
            (mobile-topnav, row 2), тот же канонический реестр navItems. -->
+    </div>
+
+    <!-- ASAP-speech-arch U-05 (§8): крупный редактор редакции характера.
+         На КОРНЕ #app (вне `.card` с backdrop-filter): иначе `position:fixed`
+         резолвится относительно карточки, и «Развернуть» открывал панель
+         шириной с карточку, а не экран. Закрытие: «✕ Закрыть», «Готово», Esc. -->
+    <div v-if="speechEditorFull" class="speech-fullscreen"
+         role="dialog" aria-modal="true" tabindex="-1"
+         aria-label="Полноэкранный редактор характера"
+         @keydown.esc.stop="closeSpeechEditorFull()">
+      <div class="speech-row">
+        <span class="text-sm font-bold">Характер —
+          {{ speechCoreEdition === 'full' ? 'полная редакция' : 'компактная (runtime)' }}</span>
+        <span class="text-xs text-gray-500">{{ speechCoreEditionChars() }} зн.</span>
+        <button type="button" class="btn-ghost text-xs ml-auto"
+                data-speech-editor-close
+                aria-label="Закрыть полноэкранный редактор"
+                @click="closeSpeechEditorFull()">✕ Закрыть</button>
+      </div>
+      <textarea class="field w-full speech-editor scroll-thin" rows="10"
+                spellcheck="false"
+                :readonly="!speechCore || !speechCore.can_edit"
+                aria-label="Текст редакции характера (полный экран)"
+                :value="speechCoreDraft()"
+                @input="setSpeechCoreDraft($event.target.value)"></textarea>
+      <div class="speech-actions">
+        <button v-if="speechCore && speechCore.can_edit" type="button"
+                class="btn-accent text-sm"
+                :disabled="speechBusy"
+                @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
+        <button type="button" class="btn-ghost text-sm"
+                @click="closeSpeechEditorFull()">Готово</button>
+      </div>
     </div>
 
     <!-- Модалка подтверждения control -->
