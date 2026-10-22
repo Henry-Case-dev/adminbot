@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-22T21:42:00+12:00",
+  "updated": "2026-10-22T21:55:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -117,7 +117,7 @@
       "id": "asap-speech-arch",
       "status": "BUILDING",
       "source_path": "plans/features/asap-speech-arch/source-2026-10-22.md",
-      "source_sha256": "45E5AE551302DFC09085D084C3744A71E662505E6021AFFDD9D5E89CF321A1B6",
+      "source_sha256": "3657B41EA80419536EB9821F6E7878E4BBC71BD39C53C78245D46A7FC14A556C",
       "maps": [
         "plans/features/asap-speech-arch/requirements-map.json"
       ],
