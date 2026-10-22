@@ -1,0 +1,30 @@
+﻿F                                                                        [100%]
+================================== FAILURES ===================================
+______________ test_31_response_act_does_not_force_clarification ______________
+
+    def test_31_response_act_does_not_force_clarification():
+        plan = _l1.normalize_l1_plan({"action": "reply",
+                                      "response_act": "clarification",
+                                      "needs_clarification": False})
+        assert plan.needs_clarification is False
+        assert plan.response_act == "clarification"
+        # ╨╡╨┤╨╕╨╜╤Л╨╣ ╨║╨╛╨╜╤В╤А╨░╨║╤В ╨┤╨╡╨╣╤Б╤В╨▓╨╕╨╣: ╨╜╨╕ ╨╛╨┤╨╕╨╜ ╨▓╤В╨╛╤А╨╛╨╣ ╤Д╨╗╨░╨│ ╨╜╨╡ ╨▓╨║╨╗╤О╤З╨░╨╡╤В ╤Г╤В╨╛╤З╨╜╨╡╨╜╨╕╨╡
+        assert "╤Г╤В╨╛╤З╨╜╤П╤О╤Й" not in _l1.build_l2_plan_block(
+            plan, clarification=bool(plan.needs_clarification)).lower()
+        # тФАтФА B1 (review-struct 23.10.2026): ╤Б╨░╨╝╨░ ╤Б╤В╤А╨╛╨║╨░ ┬л╤Б╨╝╤Л╤Б╨╗╨╛╨▓╨╛╨╣ ╨░╨║╤В ╨╛╤В╨▓╨╡╤В╨░:
+        # clarification┬╗ тАФ ╨▓╤В╨╛╤А╨╛╨╣ model-facing ╤Б╨╕╨│╨╜╨░╨╗. ╨Я╤А╨╕ needs=false ╨╡╤С ╨╜╨╡╤В ╨╜╨╕
+        # ╨┐╤А╨╕ ╨║╨░╨║╨╛╨╝ ╨╖╨╜╨░╤З╨╡╨╜╨╕╨╕ ╤Д╨╗╨░╨│╨░ clarification (╨▓ ╤В.╤З. true ╤Б ╨┐╤Г╤Б╤В╨╛╨╣ ╤Ж╨╡╨╗╤М╤О).
+        for flag in (False, True):
+            block = _l1.build_l2_plan_block(plan, clarification=flag)
+>           assert "clarification" not in block.lower(), flag
+E           AssertionError: False
+E           assert 'clarification' not in '<response_p...sponse_plan>'
+E             
+E             'clarification' is contained here:
+E               ╤В ╨╛╤В╨▓╨╡╤В╨░: clarification
+E               </response_plan>
+
+tests\test_asap2_clar_contract.py:108: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_asap2_clar_contract.py::test_31_response_act_does_not_force_clarification
+1 failed, 23 deselected in 3.23s

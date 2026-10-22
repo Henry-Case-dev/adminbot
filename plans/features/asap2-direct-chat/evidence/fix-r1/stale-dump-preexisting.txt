@@ -1,0 +1,10 @@
+﻿PRE-EXISTING (not caused by this lane): tests/test_soul1_composer_parity_off.py recorded OFF-path dumps predate the ASAP2 canon change (5ad73933). Proven: with services/direct_l1.py reverted to HEAD the same 5 tests fail (5 failed, 8 passed).
+
+FAILED tests/test_soul1_composer_parity_off.py::test_p1_l2_writer_detailed_matches_recorded_dump
+FAILED tests/test_soul1_composer_parity_off.py::test_p2_l2_writer_micro_matches_recorded_dump
+FAILED tests/test_soul1_composer_parity_off.py::test_p5_system2_stage1_and_stage2_match_recorded_dump
+FAILED tests/test_soul1_composer_parity_off.py::test_p4_l1_planner_system_matches_recorded_dump
+FAILED tests/test_soul1_composer_parity_off.py::test_off_path_is_default_and_does_not_consult_composer
+5 failed, 8 passed in 3.47s
+
+

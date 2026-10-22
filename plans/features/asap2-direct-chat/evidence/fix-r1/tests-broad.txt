@@ -1,0 +1,5 @@
+﻿BROAD related set (14 files: direct_chat/cfg07_backstage/soul1_style/soul1_machine/payload_builder/v6_wc_direct_d03,d04,matrix/direct_chat_concurrency/lore_inject/relations_inject/direct_context_asap3/direct_llm_decision/direct_fallback_recompose)
+
+432 passed in 20.73s
+
+

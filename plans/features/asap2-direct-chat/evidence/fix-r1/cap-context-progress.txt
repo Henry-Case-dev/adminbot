@@ -1,0 +1,4 @@
+﻿CAP-CONTEXT step-4 progress probe (B4 window-limit RED).
+input: sections=SOOBSHCHENIE/UCHASTNIKI/PAMYAT/SPEECH/CAPS/HARAKTER, budget=90 tokens
+pre-fix : HANG_CONFIRMED (no exit in 15s)
+post-fix: returned in 0.17s, chars=187; SOOBSHCHENIE kept: True; 

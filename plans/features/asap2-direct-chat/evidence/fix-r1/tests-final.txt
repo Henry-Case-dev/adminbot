@@ -1,0 +1,16 @@
+﻿TARGET SET = brief list: tests/test_asap2_* (test_asap2_clar_contract.py), test_asap7_direct_l1, test_mca08_character_speech, test_prompt_migrations, test_asap_w1_semantics, test_asap8_initreply_binding, test_direct_l1_l1d_contract
+baseline before fix-r1 (same 7 files): 199 passed
+after fix-r1, 3 consecutive runs:
+
+205 passed in 8.78s
+
+
+
+205 passed in 8.73s
+
+
+
+205 passed in 9.21s
+
+
+NOTE: one earlier run of this set showed a single transient fail test_asap8_initreply_binding::test_case4_transport_never_picks_addressee with DB 'connection marked unrecoverable' noise; it did not reproduce in 4 standalone runs (14 passed each) nor in the 3 runs above (known async/DB flake class, cf. review-struct note about case7c).

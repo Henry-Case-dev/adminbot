@@ -780,8 +780,11 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
             rebuilt = []
             for name, body in pairs:
                 if name == victim:
-                    half = max(80, len(body) // 2)
-                    body = body[:half]
+                    # Прогресс обязателен: блок ≤80 симв. уже не режется
+                    # (пол = 80 в шаге 2), поэтому при нехватке бюджета он
+                    # убирается целиком — иначе цикл не завершается.
+                    half = len(body) // 2
+                    body = body[:half] if half >= 80 else ""
                 rebuilt.append((name, body))
             pairs = rebuilt
         return _render(pairs)
@@ -888,7 +891,18 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         lines: list[str] = ["<Response_Plan>",
                             f"действие: {str(plan.action or 'reply')}"]
         act = str(plan.response_act or "other")
-        if act and act != "other":
+        # ASAP 2 (B1 review-struct 23.10.2026; §3.2 source-2026-10-22.md):
+        # сама строка «смысловой акт ответа: clarification» — тоже
+        # model-facing сигнал уточнения. Она допустима только при реально
+        # валидном уточнении (строгий needs_clarification=true И непустой
+        # clarification_target); в невалидной ветке строки нет вовсе, иначе
+        # L2 получает второй приказ переспросить вопреки плану.
+        target = str(getattr(plan, "clarification_target", "") or "").strip()
+        act_ok = (act != "clarification"
+                  or (bool(clarification)
+                      and getattr(plan, "needs_clarification", False) is True
+                      and bool(target)))
+        if act and act != "other" and act_ok:
             lines.append(f"смысловой акт ответа: {act}")
         tone = str(plan.tone or "inherit")
         if tone and tone != "inherit":
@@ -929,8 +943,6 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         # clarification_target). Пустая цель → общей директивы «уточни
         # что-нибудь» нет (generic-опрос не генерируется, §3.2).
         if clarification:
-            target = str(getattr(plan, "clarification_target", "")
-                         or "").strip()
             if target:
                 lines.append(f"недостающий обязательный предмет: {target}")
                 lines.append(
