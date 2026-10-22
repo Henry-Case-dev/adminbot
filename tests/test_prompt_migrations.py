@@ -33,11 +33,13 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_MCA23,
     PREV_CHAT_VERBALIZER_R1023,
     PREV_CHAT_VERBALIZER_W1,
+    PREV_CHAT_VERBALIZER_W1_31,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
     PREV_DIRECT_L1_PLANNER_1022,
     PREV_DIRECT_L1_PLANNER_L1D,
+    PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -265,10 +267,14 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     "prompts.direct_chat_system_prompt": PREV_CHAT_W1_SYSTEM_PROMPT,
     # MCA-23 (§11): откат Вербализатора direct → прод-канон 10.23 (с cap).
     # ASAP W1 (22.10.2026): откат → прод-канон 2.58.110 (d0ef0d376fc3).
+    # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
+    # W1 §3.1 (прод 2.58.111, be03964322aa); стек ступеней цел.
     "prompts.direct_chat_verbalizer_system_prompt":
-        PREV_CHAT_VERBALIZER_W1,
+        PREV_CHAT_VERBALIZER_W1_31,
     # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_L1D,
+    # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
+    # W1 (прод 2.58.111, f8ab20121c02); стек ступеней цел.
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_W1,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -669,7 +675,10 @@ class TestMca23Migration:
             (PREV_CHAT_VERBALIZER_R1023, DIRECT_VERBALIZER_SYSTEM_PROMPT),
             (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT),
             # ASAP W1 (P0-A, §3.1): прод-канон 2.58.110 → канон владельца.
-            (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
+            (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+            # ASAP 2 (23.10.2026, §4.2): канон W1 §3.1 (прод 2.58.111)
+            # → канон с абзацами уточнений в «КАК ПИСАТЬ».
+            (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_mca23_snapshots_differ_from_new(self):
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
@@ -685,10 +694,12 @@ class TestMca23Migration:
     def test_verbalizer_rollback_targets_r1023_full(self):
         """MCA-23: откат снимал ступень MCA-23 → прод-канон 10.23.
         ASAP W1: откат — на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон 2.58.110
-        (PREV_CHAT_VERBALIZER_W1, d0ef0d376fc3)."""
+        (PREV_CHAT_VERBALIZER_W1, d0ef0d376fc3).
+        ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
+        канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31)."""
         assert ROLLBACK_MIGRATIONS[
             "prompts.direct_chat_verbalizer_system_prompt"] == (
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1)
+            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1_31)
 
     @pytest.mark.asyncio
     async def test_pre_mca23_canon_migrates_to_new(self):
@@ -774,13 +785,15 @@ class TestMca23Migration:
         assert report == {
             "prompts.direct_chat_verbalizer_system_prompt": "rolled_back"}
         # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3)
+        # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
+        # канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31).
         assert cache.set_calls == [(
             "prompts.direct_chat_verbalizer_system_prompt",
-            PREV_CHAT_VERBALIZER_W1, "prompts")]
+            PREV_CHAT_VERBALIZER_W1_31, "prompts")]
         # обратная миграция возвращает новый канон (идемпотентность стека)
         back = FakeCache(values={
             "prompts.direct_chat_verbalizer_system_prompt":
-                PREV_CHAT_VERBALIZER_W1})
+                PREV_CHAT_VERBALIZER_W1_31})
         report2 = await migrate_prompt_canons(back)
         assert report2 == {
             "prompts.direct_chat_verbalizer_system_prompt": "updated"}

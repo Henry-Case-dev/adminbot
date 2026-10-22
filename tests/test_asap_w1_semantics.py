@@ -71,7 +71,10 @@ def _reset_registry_cache():
 def test_p0a_verbalizer_is_owner_text_with_documented_adaptation():
     """§3.1 байт-в-байт + ЕДИНСТВЕННАЯ владельцем разрешённая адаптация
     (P0A-RISK): bullet чтения JSON-пакета Stage-2 («если передан» — JSON
-    не обещается вызовам со свободным контекстом)."""
+    не обещается вызовам со свободным контекстом).
+    ASAP 2 (§4.2 asap2 source): поверх канона W1 — вставка абзацев уточнений
+    в «КАК ПИСАТЬ» (текст владельца); байты W1 заморожены в
+    PREV_CHAT_VERBALIZER_W1_31 (прод 2.58.111, be03964322aa/1982)."""
     s31 = _fence("### 3.1. P0-A")
     anchor = ("- Подтверждённые сведения, выдержки и результаты инструментов, "
               "если переданы.\n")
@@ -80,8 +83,19 @@ def test_p0a_verbalizer_is_owner_text_with_documented_adaptation():
                   "facts - подтверждённые сведения, answer_outline - план "
                   "ответа, limitations - границы знания.\n")
     expected = s31.replace(anchor, anchor + adaptation)
-    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == expected
+    # байты канона W1 §3.1 (прод 2.58.111) заморожены как ступень ASAP 2
+    assert cp.PREV_CHAT_VERBALIZER_W1_31 == expected
     assert expected.count("Если вход передан JSON-пакетом") == 1
+    # активный канон = W1-канон + единственная вставка §4.2 в «КАК ПИСАТЬ»
+    assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == expected.replace(
+        "обычная болтовня не требует длинного текста.",
+        "обычная болтовня не требует длинного текста.\n\n"
+        + cp._VERBALIZER_CLAR_PARAGRAPHS, 1)
+    canon = cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
+    # вставка ровно одна, в разделе «КАК ПИСАТЬ», до «ВЫХОД»
+    assert canon.count("Если намерение пользователя понятно") == 1
+    assert canon.index("КАК ПИСАТЬ") < canon.index(
+        "Если намерение пользователя понятно") < canon.index("ВЫХОД")
 
 
 def test_p0a_verbalizer_no_identity_no_mat_no_format_rules():
@@ -108,8 +122,9 @@ def test_p0a_verbalizer_registered_editable_resettable_and_used_in_l2():
     assert spec.ui == "catalog" and spec.speech is True
     assert pr.factory_text(block_id) == \
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
+    # ASAP 2: метка ревизии бампнута (l2-writer-clar)
     assert pr.factory_revision(block_id).startswith("fac:") and \
-        "l2-writer-w1" in pr.factory_revision(block_id)
+        "l2-writer-clar" in pr.factory_revision(block_id)
     # L2-сборка (каналы композера) сохраняет канон головой payload
     composed = psb.compose_verbalizer_system(
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain",
@@ -339,8 +354,14 @@ def test_p0g_l1_participation_section_byte_exact():
                   '"target_message_id": null', '"target_user_id": null',
                   '"confidence": 0.0', '"future_intent": null'):
         assert field in canon, field
-    # литературный Core в L1 не вставлен; L1 не обязан ругаться
-    assert "абсурд" not in canon and "юмор" not in canon.lower()
+    # литературный Core в L1 не вставлен; L1 не обязан ругаться.
+    # ASAP 2 (§4.1 asap2 source): единственное вхождение «юмор» — фраза
+    # владельца в контракте уточнений («юмор и инициативное участие не
+    # являются техническим needs_clarification»), не Core-контент.
+    assert "абсурд" not in canon
+    assert canon.lower().count("юмор") == 1
+    assert ("юмор и инициативное участие не являются техническим "
+            "needs_clarification" in canon)
     for marker in _IDENTITY_MARKERS:
         assert marker not in canon, marker
 
@@ -372,7 +393,7 @@ def test_p0g_parser_contract_unchanged_and_validator_never_assigns():
 
 def test_91_factory_and_active_revisions_distinguishable():
     rev = pr.factory_revision("direct.base.l2_writer")
-    assert rev.startswith("fac:") and "l2-writer-w1" in rev
+    assert rev.startswith("fac:") and "l2-writer-clar" in rev
     eff = pr.effective_prompt("direct.base.l2_writer")
     assert eff.factory_revision.startswith("fac:")
     assert eff.revision.startswith("act:") or eff.revision == ""

@@ -30,10 +30,13 @@ from services import direct_l1 as _l1  # noqa: E402
 from services.chat_prompts import (  # noqa: E402
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_1022,
+    PREV_DIRECT_L1_PLANNER_W1,
+    _DIRECT_L1_CLARIFICATION_CONTRACT,
     _DIRECT_L1_PLANNER_BASE,
     _DIRECT_L1_PLANNER_BASE_L1D,
     _DIRECT_L1_PLANNER_BASE_R1022,
     _DIRECT_L1_PLANNER_RULES,
+    _DIRECT_L1_PLANNER_RULES_W1,
 )
 from services.direct_llm_react import ALLOWED_LLM_REACTIONS  # noqa: E402
 from services.prompt_migrations import PROMPT_MIGRATIONS  # noqa: E402
@@ -50,9 +53,13 @@ def _flatten(text: str) -> str:
 
 def test_canon_schema_has_delivery_fields():
     """§3: delivery/target_message_id/target_user_id в схеме; action-enum
-    и правила 1-7 прежние (совместимость с L1Plan и маршрутами)."""
+    и правила 1-7 прежние (совместимость с L1Plan и маршрутами).
+    ASAP 2 (§4.1 asap2 source): между секцией участия и ПРАВИЛАМИ вставлен
+    контракт «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» (текст владельца)."""
     canon = DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert canon == _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_PLANNER_RULES
+    assert canon == (_DIRECT_L1_PLANNER_BASE
+                     + _DIRECT_L1_CLARIFICATION_CONTRACT
+                     + _DIRECT_L1_PLANNER_RULES)
     assert '"action": "reply|react|silent"' in canon
     assert '"delivery": "chat|reply|null"' in canon
     assert '"target_message_id": null' in canon
@@ -91,9 +98,12 @@ def test_canon_forms_no_priority_and_positive_criteria():
 
 
 def test_canon_prev_1022_is_exact_prod_bytes():
-    """Прод-канон 2.58.109 заморожен байт-в-байт (ступень ADR-1013-3)."""
+    """Прод-канон 2.58.109 заморожен байт-в-байт (ступень ADR-1013-3).
+    ASAP 2: правила прод-канонов 1022/L1D/W1 собраны из замороженного
+    слепка _DIRECT_L1_PLANNER_RULES_W1 (байты прежних активных правил
+    неизменны — sha16 ниже доказывает)."""
     assert PREV_DIRECT_L1_PLANNER_1022 == (
-        _DIRECT_L1_PLANNER_BASE_R1022 + _DIRECT_L1_PLANNER_RULES)
+        _DIRECT_L1_PLANNER_BASE_R1022 + _DIRECT_L1_PLANNER_RULES_W1)
     assert hashlib.sha256(
         PREV_DIRECT_L1_PLANNER_1022.encode("utf-8")).hexdigest()[:16] == \
         PROD_1022_SHA16
@@ -118,10 +128,22 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert targets[PREV_DIRECT_L1_PLANNER_L1D] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert PREV_DIRECT_L1_PLANNER_L1D == (
-        _DIRECT_L1_PLANNER_BASE_L1D + _DIRECT_L1_PLANNER_RULES)
+        _DIRECT_L1_PLANNER_BASE_L1D + _DIRECT_L1_PLANNER_RULES_W1)
     assert "ФОРМА УЧАСТИЯ" in PREV_DIRECT_L1_PLANNER_L1D
     assert "ФОРМА УЧАСТИЯ" not in DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert "ВЫБОР УЧАСТИЯ" in DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    # ASAP 2 (§4.1): прод-канон 2.58.111 (f8ab20121c0265e0, канон W1)
+    # ведёт на контракт уточнений; байты слепка точны.
+    assert targets[PREV_DIRECT_L1_PLANNER_W1] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert PREV_DIRECT_L1_PLANNER_W1 == (
+        _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_PLANNER_RULES_W1)
+    assert hashlib.sha256(
+        PREV_DIRECT_L1_PLANNER_W1.encode("utf-8")).hexdigest()[:16] == \
+        "f8ab20121c0265e0"
+    assert "УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА" in \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert "УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА" not in PREV_DIRECT_L1_PLANNER_W1
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
 
 

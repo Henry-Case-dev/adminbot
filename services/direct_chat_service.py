@@ -4056,10 +4056,12 @@ class DirectChatService:
             parts.append("negation")
         if getattr(signal, "humor_risk", False):
             parts.append("humor_risk")
+        # ── ASAP 2 Direct Chat (§2/§4.4 source-2026-10-22.md, 23.10.2026):
+        # «clarify=ask» в L1 не подаётся — готовый вывод «уточни», собранный
+        # из закрытого набора коротких маркеров, не подсказывается до
+        # семантического решения L1. Assume (анти-переспрос) сохранён.
         clarify = getattr(signal, "clarify", None)
-        if clarify == _ce.CLARIFY_ASK:
-            parts.append("clarify=ask")
-        elif clarify == _ce.CLARIFY_ASSUME:
+        if clarify == _ce.CLARIFY_ASSUME:
             parts.append("clarify=assume")
         return " ".join(parts)
 

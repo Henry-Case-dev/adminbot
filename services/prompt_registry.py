@@ -122,9 +122,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # владельца байт-в-байт; прежние байты — PREV_*_W1 слепки + ступени
     # prompt_migrations (ADR-1013-3).
     "direct.base.tool_phase": "direct-toolphase-w1",
-    "direct.base.l2_writer": "l2-writer-w1",
+    # ASAP 2 (23.10.2026, §4.1/§4.2 asap2 source): канон уточнений вставлен
+    # (L1 контракт + правило 5-отсылка; L2 абзацы «КАК ПИСАТЬ»); прежние
+    # байты — PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31.
+    "direct.base.l2_writer": "l2-writer-clar",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-w1",
+    "direct.base.l1_planner": "l1-planner-clar",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -1637,7 +1640,30 @@ def factory_set_fingerprint() -> str:
 #: direct.base.l1_planner, factcheck.base.verbalizer).
 #: Было ``553a281fe2fd``, стало ``fd4e88754749``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "fd4e88754749"
+#: Бамп ASAP 2 Direct Chat (23.10.2026, P0-корректива
+#: plans/features/asap2-direct-chat/source-2026-10-22.md, слайс
+#: FIX-ASAP2-CLAR; ADR-1013-3): навязчивые уточнения и их зацикливание —
+#: точечные правки ДВУХ канонов и двух код-путей, новых подсистем 0.
+#: direct.base.l1_planner — контракт «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА»
+#: §4.1 владельца байт-в-байт между секцией «ВЫБОР УЧАСТИЯ» (не тронута)
+#: и ПРАВИЛАМИ; правило 5 — короткая отсылка к контракту (старое смысловое
+#: правило не оставлено вторым приказом); схема/правила 1-4/6-7 прежние
+#: (``l1-planner-clar``). direct.base.l2_writer — абзацы §4.2 владельца
+#: байт-в-байт в раздел «КАК ПИСАТЬ» ОДИН раз (``l2-writer-clar``).
+#: Слепки прежних прод-байтов 2.58.111 — PREV_DIRECT_L1_PLANNER_W1
+#: (f8ab20121c02) и PREV_CHAT_VERBALIZER_W1_31 (be03964322aa), ступени
+#: лестницы prompt_migrations + ROLLBACK. Код: normalize_l1_plan — строгий
+#: JSON boolean (§3.2); build_l2_plan_block — узкая фраза §4.3 только при
+#: непустом clarification_target; clarify_action/render_speech_block/
+#: _l1_speech_hints — автономный сигнал clarify=ask и модельная директива
+#: «задай ровно один вопрос» сняты (§3.3/§4.4), assume и прочие сигналы
+#: Speech Understanding не тронуты. Кастомы владельца лестницей не
+#: переписываются (только точное совпадение байт).
+#: Сверка карт фабричных текстов: changed = 2 (direct.base.l1_planner,
+#: direct.base.l2_writer).
+#: Было ``fd4e88754749``, стало ``24ae494ac422``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "24ae494ac422"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

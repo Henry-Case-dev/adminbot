@@ -41,11 +41,13 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_MCA23,
     PREV_CHAT_VERBALIZER_R1023,
     PREV_CHAT_VERBALIZER_W1,
+    PREV_CHAT_VERBALIZER_W1_31,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
     PREV_DIRECT_L1_PLANNER_1022,
     PREV_DIRECT_L1_PLANNER_L1D,
+    PREV_DIRECT_L1_PLANNER_W1,
     PREV_PERSONALITY_CORE_FULL_TEXT,
     PREV_PERSONALITY_CORE_FULL_V2_TEXT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -171,7 +173,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     "prompts.direct_chat_verbalizer_system_prompt": [
         (PREV_CHAT_VERBALIZER_R1023, DIRECT_VERBALIZER_SYSTEM_PROMPT),
         (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT),
-        (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+        (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        # ASAP 2 (23.10.2026, §4.2 asap2 source): канон W1 §3.1 (прод
+        # 2.58.111) ведёт на канон с абзацами уточнений в «КАК ПИСАТЬ»
+        # (вставка §4.2, единственная правка; подлинные кастомы владельца
+        # лестницей не трогаются — только точное совпадение байт).
+        (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
     # Planner Direct. Ступень — база канона без правил (слепок
     # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
@@ -192,7 +199,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_DIRECT_L1_PLANNER_BASE, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_1021, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_1022, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
-        (PREV_DIRECT_L1_PLANNER_L1D, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
+        (PREV_DIRECT_L1_PLANNER_L1D, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        # ASAP 2 (23.10.2026, §4.1 asap2 source): прод-канон 2.58.111
+        # (канон W1 с секцией «ВЫБОР УЧАСТИЯ») ведёт на канон с контрактом
+        # «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» и правилом 5-отсылкой; схема
+        # JSON и секция участия не менялись. Кастом владельца (не точное
+        # совпадение байт) ступенью не трогается.
+        (PREV_DIRECT_L1_PLANNER_W1, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -345,12 +358,16 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
     # 10.23 (с cap-правилом); ключ в PG не удаляется.
     # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3).
+    # ASAP 2 (23.10.2026): откат снимает только ступень уточнений —
+    # на канон W1 §3.1 (прод 2.58.111).
     "prompts.direct_chat_verbalizer_system_prompt":
-        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1),
+        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1_31),
     # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,
     # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
+    # ASAP 2 (23.10.2026): откат снимает ступень уточнений — на канон W1
+    # (прод 2.58.111); стек ступеней цел.
     "prompts.direct_l1_planner_system_prompt":
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_L1D),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_W1),
     # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         (FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1),

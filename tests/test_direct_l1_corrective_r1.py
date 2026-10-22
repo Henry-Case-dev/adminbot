@@ -73,7 +73,10 @@ def test_l1_rules_positive_criteria_present():
     assert "лишь отреагировал" in flat
     # force-контракт не задет: правило 1 байт-в-байт прежнее, схема целая
     assert "Короткая\n   реплика вроде «а этот?»" in rules
-    new_canon = _DIRECT_L1_PLANNER_BASE + rules
+    # ASAP 2 (§4.1 asap2 source): канон = база + контракт уточнений + правила
+    from services.chat_prompts import _DIRECT_L1_CLARIFICATION_CONTRACT
+    new_canon = (_DIRECT_L1_PLANNER_BASE + _DIRECT_L1_CLARIFICATION_CONTRACT
+                 + rules)
     assert new_canon == DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert '"action": "reply|react|silent"' in new_canon
 
@@ -86,19 +89,36 @@ def test_l1_rules_no_hardcoded_word_lists():
 
 
 def test_l1_rule1_and_schema_byte_preserved():
-    """Правило 1 и хвост правил 4-7 не менялись (force/D14 контракты целы)."""
+    """Правило 1 и правила 4/6-7 не менялись (force/D14 контракты целы).
+    ASAP 2 (§4.1 asap2 source): единственная дельта активных правил против
+    замороженных W1 — правило 5 (отсылка к контракту уточнений)."""
+    from services.chat_prompts import _DIRECT_L1_PLANNER_RULES_W1
     old_rules = _DIRECT_L1_PLANNER_RULES_R1028
     new_rules = _DIRECT_L1_PLANNER_RULES
     old_r1 = old_rules.split("2. action=react")[0]
     new_r1 = new_rules.split("2. action=react")[0]
     assert old_r1 == new_r1
-    # хвост после правила 3 — правила 4-7 байт-в-байт (в старом правило 3
-    # однострочное; в новом заканчивается «текст ради текста.»)
-    old_tail = old_rules.split("3. action=silent - только когда лучшее "
-                              "решение сейчас не отвечать вовсе.\n")[1]
-    new_tail = new_rules.split("требуют содержательного\n"
-                               "   ответа.\n")[1]
+    # правило 4 байт-в-байт
+    old_r4 = old_rules.split("4. capabilities_needed")[1].split(
+        "5. needs_clarification")[0]
+    new_r4 = new_rules.split("4. capabilities_needed")[1].split(
+        "5. needs_clarification")[0]
+    assert old_r4 == new_r4
+    # хвост после правила 5 — правила 6-7 байт-в-байт (в старом правило 3
+    # однострочное; в новом заканчивается «текст ради текста.»; ASAP 2
+    # изменил только правило 5, поэтому хвост режется по «6. confidence»)
+    old_tail = old_rules.split("6. confidence")[1]
+    new_tail = new_rules.split("6. confidence")[1]
     assert old_tail == new_tail
+    # правило 5: единственная дельта против замороженных правил W1 —
+    # отсылка к контракту; capability-запрет уточнения сохранён
+    w1_r5 = _DIRECT_L1_PLANNER_RULES_W1.split(
+        "5. needs_clarification")[1].split("6. confidence")[0]
+    new_r5 = new_rules.split("5. needs_clarification")[1].split(
+        "6. confidence")[0]
+    assert new_r5 != w1_r5
+    assert "«УТОЧНЕНИЯ" in new_r5 and "выше" in new_r5
+    assert "не выбирай capabilities" in new_r5
 
 
 # ═══ лестница миграций ══════════════════════════════════════════════════════

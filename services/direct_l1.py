@@ -334,7 +334,11 @@ def normalize_l1_plan(data) -> L1Plan | None:
             if len(seen) >= CAPABILITIES_MAX:
                 break
         plan.capabilities_needed = tuple(seen)
-    plan.needs_clarification = bool(data.get("needs_clarification"))
+    # ── ASAP 2 Direct Chat (§3.2 source-2026-10-22.md, 23.10.2026): строгий
+    # JSON boolean. Только реальный true → True; «false»/null/«true»-строка/
+    # список/объект → False (не запрос уточнения). Безопасный fallback
+    # прежний, нового LLM-вызова ради исправления типа нет.
+    plan.needs_clarification = data.get("needs_clarification") is True
     # ── SOUL-1 (W3, SOUL-05.1): ровно один необязательный comic_strategy.
     # Закрытый набор; невалидное/отсутствующее → "none" (совет, не приказ).
     plan.comic_strategy = _closed(data.get("comic_strategy"), COMIC_STRATEGIES,
@@ -918,10 +922,24 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         if low_confidence:
             lines.append("уверенность плана низкая: опирайся на контекст "
                          "разговора, а не на подсказки плана.")
+        # ── ASAP 2 Direct Chat (§4.3 source-2026-10-22.md, 23.10.2026):
+        # старый императив «Ничего кроме вопроса не пиши» заменён узкой
+        # фразой владельца; директива передаётся ТОЛЬКО от корректного
+        # финального поля L1 (needs_clarification=true + непустой
+        # clarification_target). Пустая цель → общей директивы «уточни
+        # что-нибудь» нет (generic-опрос не генерируется, §3.2).
         if clarification:
-            lines.append("Задача неразрешима без уточнения: сформулируй "
-                         "РОВНО один конкретный уточняющий вопрос по "
-                         "недостающей цели. Ничего кроме вопроса не пиши.")
+            target = str(getattr(plan, "clarification_target", "")
+                         or "").strip()
+            if target:
+                lines.append(f"недостающий обязательный предмет: {target}")
+                lines.append(
+                    "Для выполнения этого запроса действительно не хватает "
+                    "обязательного предмета, указанного в плане уточнения. "
+                    "Спроси только о нём одним понятным вопросом. Не "
+                    "предлагай человеку выбирать необязательные варианты "
+                    "формата, объёма, интервала или способа объяснения. "
+                    "После ответа следует продолжить исходную задачу.")
         lines.append("</Response_Plan>")
         return "\n".join(lines)
     except Exception:      # pragma: no cover - защитная ветка

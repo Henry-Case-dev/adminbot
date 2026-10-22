@@ -409,12 +409,14 @@ def is_short_dependency(text: str | None) -> bool:
 def clarify_action(*, short_dependency: bool, has_reply_parent: bool,
                    is_group: bool, reply_parent_from_bot: bool = False,
                    reply_parent_ends_with_question: bool = False) -> str:
-    """D7: политика уточнения — детерминированная, ≤1 вопрос на ответ.
-
-    `ask` — материалная неоднозначность: короткая зависимая реплика ∧ нет
-    reply-родителя ∧ групповой чат. Anti-loop: родитель — вопрос бота →
-    `assume` (явное допущение, без повторного вопроса); повторных переспросов
-    нет структурно (блок строится один раз на ответ). Всё остальное — `none`.
+    """D7 → ASAP 2 Direct Chat (§3.3/§4.4 source-2026-10-22.md,
+    23.10.2026): автономное право Speech Understanding требовать вопрос
+    СНЯТО — сигнал ``clarify=ask`` (короткая реплика ∧ нет reply-родителя
+    ∧ групповой чат) больше не выдаётся; решение об уточнении принимает
+    только L1 по контракту канона. Описательный признак
+    ``short_dependency`` остаётся обычным флагом (не приказ). Anti-loop
+    сохранён: родитель — вопрос бота → ``assume`` (явное допущение, без
+    повторного вопроса). Всё остальное — ``none``.
     """
     if not short_dependency:
         return CLARIFY_NONE
@@ -422,9 +424,11 @@ def clarify_action(*, short_dependency: bool, has_reply_parent: bool,
         if reply_parent_from_bot and reply_parent_ends_with_question:
             return CLARIFY_ASSUME
         return CLARIFY_NONE
-    if not is_group:
-        return CLARIFY_NONE
-    return CLARIFY_ASK
+    # Прежняя ветка CLARIFY_ASK (group ∧ short ∧ без родителя) удалена:
+    # второй диктующий путь «уточни» в L1/L2 не подаётся (§3.3). Новых
+    # маркеров/списков взамен не вводится — нужную модельную логику содержит
+    # канон L1.
+    return CLARIFY_NONE
 
 
 def build_speech_understanding(
@@ -497,11 +501,11 @@ def render_speech_block(u: SpeechUnderstanding | None) -> str:
     if u.negation:
         lines.append("Учти отрицание буквально: не переворачивай «не» в "
                      "утверждение.")
-    if u.clarify == CLARIFY_ASK:
-        lines.append("Если без уточнения ответ может быть не о том — задай "
-                     "ровно ОДИН короткий уточняющий вопрос, не переспрашивай "
-                     "дальше.")
-    elif u.clarify == CLARIFY_ASSUME:
+    # ── ASAP 2 Direct Chat (§3.3/§4.4 source-2026-10-22.md): директива
+    # CLARIFY_ASK («Если без уточнения ... задай ровно ОДИН ... вопрос»)
+    # СНЯТА — второго модельного приказа «уточни» нет; решение об уточнении
+    # — только L1. Assume-строка (анти-переспрос) сохранена.
+    if u.clarify == CLARIFY_ASSUME:
         lines.append("Не переспрашивай: ответь с явным допущением, как ты "
                      "понял реплику.")
     if not lines:

@@ -128,6 +128,9 @@ def test_fingerprint_constant_matches_recomputed_registry():
     в prompt_registry: … -> 3507bd6f92eb -> 553a281fe2fd -> fd4e88754749;
     W1-бамп 22.10.2026: Core full/compact v3 (§3.2/§3.3), Direct tool phase
     (§3.6), Direct L2 writer (§3.1), L1 «ВЫБОР УЧАСТИЯ» (§3.7),
-    factcheck-вербализатор без identity — PREV_*_W1-слепки + ступени)."""
+    factcheck-вербализатор без identity — PREV_*_W1-слепки + ступени;
+    ASAP 2-бамп 23.10.2026: контракт уточнений L1 (§4.1 asap2 source) +
+    абзацы §4.2 в «КАК ПИСАТЬ» — PREV_DIRECT_L1_PLANNER_W1 /
+    PREV_CHAT_VERBALIZER_W1_31, changed = 2)."""
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
-    assert pr.FACTORY_SET_SHA256_12 == "fd4e88754749"
+    assert pr.FACTORY_SET_SHA256_12 == "24ae494ac422"

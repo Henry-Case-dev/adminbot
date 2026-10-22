@@ -5,8 +5,10 @@ Focused-контракты (без полного suite):
     непустым persona-блоком; anti-generic (режимы/оффсеты не срезают
     владельческий блок); character_block у verbalizer; OFF-паритет.
   * B (K2): SpeechUnderstanding — фасад над `classify_speech_act` (второй
-    классификатор не создаётся); clarify-матрица ask/assume/none; носитель
-    <Speech_Understanding> в ответном пути; notable-события clarify.
+    классификатор не создаётся); clarify-матрица assume/none (ASAP 2,
+    §3.3 source-2026-10-22.md: автономный ask снят — решение об уточнении
+    только за L1); носитель <Speech_Understanding> в ответном пути;
+    notable-события clarify.
   * T-4899: склейка mca-22 canonical envelope/reply/quote на прямом пути
     («почему?» под разными родителями → разный контекст; адресат не теряется).
   * T-4901: write-gate «шутка ≠ биография» на существующих контурах
@@ -320,9 +322,13 @@ class TestSpeechFacade:
         assert "цитата" not in block and "дома" not in block  # R17-safe
 
     def test_clarify_matrix(self):
+        """ASAP 2 (§3.3 asap2 source): автономный ask СНЯТ — короткая
+        зависимая реплика без родителя больше НЕ требует вопрос (решение
+        об уточнении — только L1); anti-loop assume сохранён."""
+        # короткая зависимая реплика в группе → none (прежде ask)
         ask = ce.clarify_action(short_dependency=True, has_reply_parent=False,
                                 is_group=True)
-        assert ask == ce.CLARIFY_ASK
+        assert ask == ce.CLARIFY_NONE
         # ЛС — не материално
         assert ce.clarify_action(short_dependency=True, has_reply_parent=False,
                                  is_group=False) == ce.CLARIFY_NONE
@@ -338,22 +344,34 @@ class TestSpeechFacade:
         assert ce.clarify_action(short_dependency=False, has_reply_parent=False,
                                  is_group=True) == ce.CLARIFY_NONE
 
-    @pytest.mark.parametrize("text,expected", [
-        ("почему?", ce.CLARIFY_ASK),
-        ("зачем", ce.CLARIFY_ASK),
-        ("а как?", ce.CLARIFY_ASK),
-        ("и что мне теперь делать", ce.CLARIFY_NONE),   # >3 слов
-        ("как дела?", ce.CLARIFY_NONE),                 # не маркер
-        ("! почему", ce.CLARIFY_NONE),                  # команда (D7)
+    @pytest.mark.parametrize("text", [
+        "почему?",
+        "зачем",
+        "а как?",
+        "и что мне теперь делать",   # >3 слов
+        "как дела?",                 # не маркер
+        "! почему",                  # команда (D7)
     ])
-    def test_short_dependency_closed_markers(self, text, expected):
+    def test_short_dependency_closed_markers(self, text):
+        """ASAP 2 (§3.3): clarify всегда none; закрытый набор маркеров
+        короткой зависимости остаётся ОПИСАТЕЛЬНЫМ флагом (не приказом)."""
         u = ce.build_speech_understanding(text, is_group=True)
-        assert u.clarify == expected
+        assert u.clarify == ce.CLARIFY_NONE
+        expected_short = text in ("почему?", "зачем", "а как?")
+        assert u.short_dependency is expected_short
+        assert "задай" not in ce.render_speech_block(u)
 
-    def test_ask_instruction_bounded_single_question(self):
+    def test_ask_directive_removed_from_render(self):
+        """§4.4: модельная строка «Если без уточнения ... задай ровно
+        ОДИН ... вопрос» не рендерится ни при каком сигнале; assume-строка
+        (анти-переспрос) сохранена."""
         u = ce.build_speech_understanding("почему?", is_group=True)
-        block = ce.render_speech_block(u)
-        assert "ровно ОДИН" in block
+        assert "задай" not in ce.render_speech_block(u)
+        assert "ровно ОДИН" not in ce.render_speech_block(u)
+        loop = ce.build_speech_understanding(
+            "почему?", is_group=True, has_reply_parent=True,
+            reply_parent_from_bot=True, reply_parent_ends_with_question=True)
+        assert "явным допущением" in ce.render_speech_block(loop)
 
     def test_flags_are_codes_only(self):
         u = ce.build_speech_understanding(
@@ -413,7 +431,10 @@ class TestSpeechInDirectPath:
         assert llm.messages[0]["content"] == CHAT_SYSTEM_PROMPT
 
     @pytest.mark.asyncio
-    async def test_clarify_event_asked(self, monkeypatch):
+    async def test_clarify_event_asked_never_fires(self, monkeypatch):
+        """ASAP 2 (§3.3): событие clarification_asked больше не возникает —
+        автономного ask нет; короткий вопрос в группе не создаёт события и
+        модельной директивы."""
         import services.direct_chat_service as dcs
         calls = []
         monkeypatch.setattr(
@@ -423,9 +444,10 @@ class TestSpeechInDirectPath:
         svc = _make_service(llm=llm)
         msg = _message(text="почему?", message_id=97)
         await svc.handle(_bot(), msg, msg.from_user)
-        assert any(c.get("event_name") == "speech_understanding"
-                   and c.get("reason_code") == "clarification_asked"
-                   for c in calls)
+        assert not any(c.get("reason_code") == "clarification_asked"
+                       for c in calls)
+        assert "clarify=ask" not in llm.messages[0]["content"]
+        assert "задай" not in llm.messages[0]["content"]
 
     @pytest.mark.asyncio
     async def test_clarify_event_assumption_anti_loop(self, monkeypatch):
