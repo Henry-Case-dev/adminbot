@@ -84,6 +84,10 @@ ST_CANCELLED = "cancelled"
 # Статусы, из которых джоба считается активной сборкой (lease/конкуренция).
 BUILDING_STATUSES = frozenset({ST_BUILDING, ST_RUNNING, ST_CHECKPOINT,
                                ST_VALIDATING, ST_QUEUED})
+# Статусы РЕЕСТРА поколений, под которые можно строить/активировать
+# (`_activate` принимает ровно `building`/`validated`). Всё остальное —
+# bookkeeping-состояние, из которого строка не станет активной.
+TARGET_GENERATION_STATUSES = frozenset({"building", "validated"})
 # Паузы по quota/provider — авто-resume (AM-1); операторская `paused` — нет.
 AUTO_RESUME_STATUSES = frozenset({ST_PAUSED_RATE_LIMIT, ST_PAUSED_PROVIDER})
 # Статусы, из которых failure-классификатор (_handle_build_failure) имеет
@@ -1587,10 +1591,172 @@ async def _handle_build_failure(memory, db, index_name: str, job_id: str,
 
 # ── планировщик (startup / перетриггер) ─────────────────────────────────────
 
+async def ensure_current_generation(memory, index_name: str, *,
+                                    current_fp: str | None = None
+                                    ) -> dict | None:
+    """Гарантировать поколение реестра под ТЕКУЩИЙ identity-fingerprint.
+
+    RCA (аудит 23.10.2026, EMBED-REBUILD-MECHANISM): реестр поколений
+    наполнялся ТОЛЬКО внутри `MemoryManager.initialize()` (и vec-reactivation).
+    Смена embedding-identity в рантайме (hot config: provider/model/endpoint —
+    провайдер переключён Google→apinet без рестарта) оставляла реестр со
+    `building`-поколением СТАРОГО fp. `maybe_schedule_rebuilds` по D2 такой
+    build не оживляет — но и НОВОЕ поколение не создавал: индекс навсегда
+    оставался FTS-only (`_vec_write_allowed=False`, backfill=0), без явного
+    состояния. Здесь единственная точка «догнать identity» (REUSE реестра,
+    без ΔDDL и без новой подсистемы):
+
+    * строка текущего fp `building`/`validated` → она и есть цель сборки;
+    * строка текущего fp `active` → перестройка не нужна (None);
+    * строки нет / она терминальна (`superseded`/`failed`) → регистрируется
+      НОВОЕ `building`-поколение (`db.register_embedding_target_generation`).
+      ACTIVE другого identity НЕ трогается (оно описывает модель, построившую
+      текущие векторы), старые строки/векторы/shadow НЕ удаляются.
+
+    Идемпотентно (регистрация идемпотентна по fingerprint) и fail-open:
+    нет реестра/ошибка → None. Возвращает строку поколения-цели или None."""
+    db = memory.db
+    fp = current_fp or memory._identity_fingerprint()
+    if not fp:
+        return None
+    by_fp = getattr(db, "get_generation_by_fingerprint", None)
+    if by_fp is None:
+        return None
+    row = await by_fp(index_name, fp)
+    status = str((row or {}).get("status") or "")
+    if row is not None and status in TARGET_GENERATION_STATUSES:
+        return row
+    if row is not None and status == "active":
+        return None                    # текущий identity уже обслуживается
+    register = getattr(db, "register_embedding_target_generation", None)
+    if register is None:
+        return None                    # тест-двойник/БД без реестра
+    if await _source_empty(db, index_name):
+        # Пустой источник: векторизовать нечего (§28/Q10, `knn_source_empty`).
+        # Поколение не регистрируем — статус честно останется `no_generation`
+        # до появления фактов (следующий тик зарегистрирует и построит).
+        return None
+    previous = None
+    try:
+        previous = await db.get_latest_embedding_generation(index_name)
+    except Exception:
+        previous = None
+    try:
+        from services import summary_memory as sm
+        dims_raw = memory._vec_dim or sm.hot.get(
+            "models.embedding_dim", sm.settings.EMBEDDING_DIM)
+        generation = await register(
+            index_name, fp,
+            provider=sm._embedding_provider(),
+            model=sm.hot.get("models.embedding_model_name",
+                             sm.settings.EMBEDDING_MODEL_NAME),
+            dims=int(dims_raw) if dims_raw else None,
+            preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION,
+            endpoint_fingerprint=sm._endpoint_fingerprint())
+    except Exception:
+        logger.warning("graphrag rebuild: identity re-register failed | "
+                       "index=%s", index_name, exc_info=True)
+        return None
+    if generation is None:
+        return None
+    row = await by_fp(index_name, fp)
+    gen_no = int((row or {}).get("generation") or generation or 0)
+    prev_fp = str((previous or {}).get("fingerprint") or "")
+    # Явное состояние вместо молчаливого FTS-only: смена identity = новая
+    # сборка (холодный старт возможен только под текущий fingerprint).
+    _emit("EMBEDDING_GENERATION_REBUILD_REQUIRED", "skipped", level="warning",
+          index=index_name, generation=gen_no,
+          reason_code="embedding_generation_changed")
+    logger.warning(
+        "EMBEDDING_GENERATION_REBUILD_REQUIRED | index=%s | gen=%d | "
+        "identity changed → new generation | prev_fp=%s | current_fp=%s",
+        index_name, gen_no, _fp12(prev_fp), _fp12(fp))
+    return row
+
+
+async def generation_status(db, *, current_fp: str | None = None,
+                            current_dims: int | None = None) -> dict:
+    """Честный снимок identity-состояния vec-индексов (R17-safe).
+
+    Показывает, ОБСЛУЖИВАЕТСЯ ли векторный индекс текущим identity и, если
+    нет, — требует ли он перестройки. Нужен, чтобы смена embedding-identity
+    не выглядела как «всё нормально» (прод-факт 23.10.2026: индекс 24 дня
+    жил в тихом FTS-only со старым `building`-поколением).
+
+    Никогда не бросает (ошибка БД → пустой снимок)."""
+    out: dict = {"current_fp": "", "current_dims": current_dims,
+                 "indexes": []}
+    try:
+        from services import summary_memory as sm
+        fp = current_fp or sm.embedding_identity_fingerprint()
+        dims = current_dims or int(sm.hot.get(
+            "models.embedding_dim", sm.settings.EMBEDDING_DIM) or 0)
+        out["current_fp"] = _fp12(fp)
+        out["current_dims"] = dims or None
+        get_latest = getattr(db, "get_latest_embedding_generation", None)
+        get_active = getattr(db, "get_active_embedding_generation", None)
+        if get_latest is None:
+            return out                # реестра нет (тест-двойник/БД) — честно пусто
+        for index_name in _INDEX_SPECS:
+            latest = await get_latest(index_name)
+            active = await get_active(index_name) if get_active else None
+            state, reason = "no_generation", "no_generation"
+            latest_fp = str((latest or {}).get("fingerprint") or "")
+            active_fp = str((active or {}).get("fingerprint") or "")
+            if active is not None and active_fp == fp:
+                state, reason = "active", ""
+            elif latest is not None and latest_fp == fp:
+                status = str(latest.get("status") or "")
+                if status in TARGET_GENERATION_STATUSES:
+                    state, reason = "build_in_progress", "build_in_progress"
+                else:
+                    state, reason = "build_failed", "build_failed"
+            elif latest is not None or active is not None:
+                state, reason = "identity_changed", "identity_changed"
+            latest_dims = int((latest or active or {}).get("dims") or 0)
+            dim_mismatch = bool(dims and latest_dims and latest_dims != dims)
+            if dim_mismatch and state == "identity_changed":
+                reason = "dimension_changed"
+            out["indexes"].append({
+                "index": index_name,
+                "state": state,
+                "reason_code": reason,
+                "reindex_required": state != "active",
+                "current_fp": _fp12(fp),
+                "dim_mismatch": dim_mismatch,
+                "latest": _generation_brief(latest),
+                "active": _generation_brief(active),
+            })
+    except Exception:
+        logger.warning("graphrag rebuild: generation status failed",
+                       exc_info=True)
+    return out
+
+
+def _generation_brief(row: dict | None) -> dict | None:
+    """R17-safe выжимка строки реестра (без провайдерских секретов)."""
+    if not row:
+        return None
+    return {
+        "generation": int(row.get("generation") or 0) or None,
+        "status": str(row.get("status") or ""),
+        "fingerprint": _fp12(str(row.get("fingerprint") or "")),
+        "dims": int(row.get("dims") or 0) or None,
+        "pause_reason": row.get("pause_reason"),
+        "next_allowed_at": row.get("next_allowed_at"),
+        "attempts_total": int(row.get("attempts_total") or 0),
+    }
+
+
 async def maybe_schedule_rebuilds(memory, *, include_failed: bool = True
                                   ) -> list[str]:
-    """Для каждого индекса: latest generation `building` с fingerprint ==
-    current → гарантировать durable-джобу и запустить (resume) её.
+    """Для каждого индекса: поколение `building` с fingerprint == current →
+    гарантировать durable-джобу и запустить (resume) её.
+
+    Если реестр отстал от identity (смена provider/model/endpoint без
+    рестарта) — новое поколение регистрируется здесь же
+    (`ensure_current_generation`): «нет поколения под текущий fp» больше не
+    означает вечный тихий FTS-only.
 
     ASAP-4 (T-4407, §23): full-rebuild'ы не стартуют одновременно — общий
     permit (`RebuildLease`, task_jobs) + последовательность «сначала
@@ -1619,19 +1785,30 @@ async def maybe_schedule_rebuilds(memory, *, include_failed: bool = True
                 gen = await db.get_latest_embedding_generation(index_name)
             except Exception:
                 continue
-            if gen is None or str(gen.get("status") or "") != "building":
-                # active → всё обслуживается; failed/superseded — не наш случай
-                continue
-            fp = str(gen.get("fingerprint") or "")
-            if not fp or fp != current_fp:
-                continue          # mismatch — старый build не оживляем (D2)
+            fp = str((gen or {}).get("fingerprint") or "")
+            status = str((gen or {}).get("status") or "")
+            if gen is None or status != "building" or fp != current_fp:
+                # Реестр мог отстать от identity (смена provider/model/endpoint
+                # в рантайме): тогда строки под текущий fp просто нет.
+                # Догоняем identity штатным путём (новое `building`-поколение),
+                # иначе D2-проверка ниже навсегда оставляла бы FTS-only.
+                gen = await ensure_current_generation(
+                    memory, index_name, current_fp=current_fp)
+                if gen is None:
+                    # ACTIVE уже под текущий fp (обслуживается) либо реестра
+                    # нет — нечего планировать.
+                    continue
+                fp = str(gen.get("fingerprint") or "")
+                status = str(gen.get("status") or "")
+            if status != "building" or fp != current_fp:
+                continue          # чужой/терминальный build не оживляем (D2)
             generation = int(gen.get("generation") or 0)
             if generation <= 0:
                 continue
             current_job = await _find_active_job(db, index_name, fp)
             if current_job is not None and not include_failed:
-                status = str(current_job.get("status") or "")
-                if status in (ST_FAILED, ST_VALIDATION_FAILED):
+                job_status = str(current_job.get("status") or "")
+                if job_status in (ST_FAILED, ST_VALIDATION_FAILED):
                     continue      # bounded retry — не из post-release
             job = await _ensure_job(db, index_name, fp, generation)
             if job is None:
@@ -1903,6 +2080,7 @@ __all__ = [
     "ST_VALIDATING", "ST_VALIDATED", "ST_VALIDATION_FAILED",
     "ST_ACTIVATED", "ST_FAILED", "ST_CANCELLED",
     "graphrag_rebuild_enabled", "maybe_schedule_rebuilds", "run_job",
+    "ensure_current_generation", "generation_status",
     "pause_rebuild", "resume_rebuild", "cancel_rebuild", "rebuild_status",
     "RESUME_TICK_SECONDS", "start_resume_ticker", "resume_tick_once",
 ]

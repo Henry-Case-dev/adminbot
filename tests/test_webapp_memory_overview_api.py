@@ -261,3 +261,27 @@ class TestIntelFunnels:
             # осмысленно: значения payload контента не отдаются
             assert '"text"' not in raw
         assert "raw_content" not in raw
+
+
+class TestEmbeddingsGenerationStatus:
+    """EMBED-REBUILD-MECHANISM (23.10.2026): `/api/memory/embeddings` отдаёт
+    явное identity-состояние vec-индекса (`generation`) — «обслуживается /
+    идёт перестройка / ТРЕБУЕТ перестройки» — вместо молчаливого FTS-only.
+
+    TEST-LIFECYCLE: CONTRACT owner=EMBED-REBUILD-MECHANISM
+    """
+
+    def test_401_without_init_data(self, client):
+        assert client.get("/api/memory/embeddings").status_code == 401
+
+    def test_generation_block_present_and_fail_open(self, client):
+        """Read-API остаётся shape-совместимым: существующие ключи на месте,
+        новый `generation` — dict; без реестра (fake-db) он пуст, не 500."""
+        resp = client.get("/api/memory/embeddings", headers=_hdr())
+        assert resp.status_code == 200
+        body = resp.json()
+        for key in ("vector_memory", "provider", "rebuild", "backlog"):
+            assert key in body
+        assert isinstance(body["generation"], dict)
+        # fake-db без методов реестра → честно пустой список индексов.
+        assert body["generation"]["indexes"] == []

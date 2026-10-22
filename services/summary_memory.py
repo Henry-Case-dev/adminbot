@@ -1913,6 +1913,12 @@ class MemoryManager:
         # ASAP-3.2 (§8/§67): BUILDING — ожидаемое состояние идущего rebuild,
         # НЕ «новая авария» на каждый вызов: первый WARNING → далее DEBUG
         # (коалесинг); повторный WARNING — при смене состояния или cooldown.
+        # EMBED-REBUILD-MECHANISM (23.10.2026): «сборка идёт» и «identity
+        # сменилась, нужен rebuild» — РАЗНЫЕ состояния; смешивать их в одном
+        # generic-сообщении значит снова прятать тихий FTS-only.
+        identity_changed = str(latest.get("fingerprint") or "") != current
+        hint = (" | identity changed — rebuild required"
+                if identity_changed else " | build in progress")
         state = (str(latest.get("status") or ""),
                  str(latest.get("fingerprint") or "")[:12])
         now_mono = time.monotonic()
@@ -1923,15 +1929,15 @@ class MemoryManager:
             logger.debug(
                 "SmartModule: embedding generation not serviceable "
                 "(coalesced) | index=%s | status=%s | gen_fp=%s new_fp=%s "
-                "— FTS-only (A06)", index_name, latest.get("status"),
-                str(latest.get("fingerprint"))[:12], current[:12])
+                "— FTS-only (A06)%s", index_name, latest.get("status"),
+                str(latest.get("fingerprint"))[:12], current[:12], hint)
             return False
         _GEN_LOG_STATE[index_name] = (state, now_mono)
         logger.warning(
             "SmartModule: embedding generation not serviceable | index=%s | "
-            "status=%s | gen_fp=%s new_fp=%s — FTS-only (A06)", index_name,
+            "status=%s | gen_fp=%s new_fp=%s — FTS-only (A06)%s", index_name,
             latest.get("status"),
-            str(latest.get("fingerprint"))[:12], current[:12])
+            str(latest.get("fingerprint"))[:12], current[:12], hint)
         _mca_rc.emit_stage_event(
             "retrieval", "skipped",
             reason_code="embedding_generation_changed",

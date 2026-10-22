@@ -526,8 +526,20 @@ async def memory_embeddings_panel(
     except Exception:
         logger.warning("[memory_api] embeddings backlog failed", exc_info=True)
         backlog = {}
+    # EMBED-REBUILD-MECHANISM (аудит 23.10.2026): честное identity-состояние
+    # индекса — «обслуживается / идёт перестройка / ТРЕБУЕТ перестройки»
+    # (прод-факт: при смене embedding-провайдера панель молчала, а поиск жил
+    # в FTS-only). Read-only, R17-safe (короткие fp/счётчики, без секретов).
+    generation: dict = {}
+    try:
+        from services.graphrag_rebuild import generation_status
+        generation = await generation_status(db)
+    except Exception:
+        logger.warning("[memory_api] generation status failed", exc_info=True)
+        generation = {}
     return {"vector_memory": vector_panel, "provider": provider,
-            "rebuild": rebuild, "backlog": backlog}
+            "rebuild": rebuild, "backlog": backlog,
+            "generation": generation}
 
 
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────

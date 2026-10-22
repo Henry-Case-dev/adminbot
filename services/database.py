@@ -6002,6 +6002,12 @@ class DatabaseService:
         `ensure_embedding_generation` здесь не подходит (A06: возвращает
         существующее active и не вставляет). Инвариант §8.1: active остаётся
         ровно один per namespace (partial UNIQUE `idx_mca_eig_active_ns`).
+
+        Идемпотентно по fingerprint в scope (namespace, index): повторный
+        вызов (рестарт/тик планировщика/двойной schedule) возвращает номер
+        СУЩЕСТВУЮЩЕЙ строки вместо дубля `building` — check+insert выполняется
+        под тем же single-writer lock'ом, поэтому гонка двух планировщиков
+        не плодит поколения (EMBED-REBUILD-MECHANISM, 23.10.2026).
         Возвращает generation (номер) или None. Fail-open."""
         if not fingerprint:
             return None
@@ -6009,6 +6015,17 @@ class DatabaseService:
         try:
             async with self.serialized():
                 now = int(time.time())
+                cursor = await self.db.execute(
+                    "SELECT generation, status FROM "
+                    "mca_embedding_index_generations WHERE index_name = ? "
+                    "AND fingerprint = ? AND namespace = ? "
+                    "ORDER BY generation DESC LIMIT 1",
+                    (str(index_name), str(fingerprint), namespace))
+                existing = await cursor.fetchone()
+                if existing is not None and str(existing["status"] or "") in (
+                        "building", "validated", "building_target",
+                        "catching_up", "ready", "active"):
+                    return int(existing["generation"] or 0) or None
                 cursor = await self.db.execute(
                     "SELECT COALESCE(MAX(generation), 0) AS m FROM "
                     "mca_embedding_index_generations WHERE index_name = ?",
