@@ -1,12 +1,12 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-22T09:15:00+12:00",
+  "updated": "2026-10-22T21:40:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "D928AC1171F389922D4D2CE3B1EB2A441B75DC4935486689E24ECAE986DB98DA",
+      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
       "maps": [
         "plans/features/soul-1/requirements-map.json",
         "plans/features/soul-1/requirements-map-amendment.json"
@@ -18,7 +18,7 @@
       "id": "asap8-v6.3",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "D928AC1171F389922D4D2CE3B1EB2A441B75DC4935486689E24ECAE986DB98DA",
+      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
       "maps": [
         "plans/features/asap8-v6-3-live-correction/requirements-map.json"
       ],
@@ -84,7 +84,7 @@
       "id": "add-tr-2026-10-19",
       "status": "VERIFIED",
       "source_path": "plans/current_task.md",
-      "source_sha256": "D928AC1171F389922D4D2CE3B1EB2A441B75DC4935486689E24ECAE986DB98DA",
+      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
       "maps": [
         "plans/features/add-tr/requirements-map.json"
       ],
@@ -95,7 +95,7 @@
       "id": "add-exp-2026-10-19",
       "status": "READY_FOR_LIVE",
       "source_path": "plans/current_task.md",
-      "source_sha256": "D928AC1171F389922D4D2CE3B1EB2A441B75DC4935486689E24ECAE986DB98DA",
+      "source_sha256": "E51A056EBA5E2CFD30E4FAE964244EF0902B11DBD0CD5066770AC8395CAE7AAD",
       "maps": [
         "plans/features/add-exp/requirements-map.json"
       ],
