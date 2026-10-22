@@ -459,7 +459,9 @@ _DIRECT_L1_PLANNER_BASE_R1028 = """СИСТЕМНАЯ РОЛЬ:
 
 PREV_DIRECT_L1_PLANNER_BASE = _DIRECT_L1_PLANNER_BASE_R1028
 
-_DIRECT_L1_PLANNER_BASE = """СИСТЕМНАЯ РОЛЬ:
+# Слепок базы канона L1 2.58.106→2.58.109 (с правилами future_intent, БЕЗ
+# полей формы участия) — ЗАМОРОЖЕН (байт-в-байт; L1D 22.10.2026).
+_DIRECT_L1_PLANNER_BASE_R1022 = """СИСТЕМНАЯ РОЛЬ:
 Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь ответ
 пользователю. Ты анализируешь сообщение и контекст разговора и возвращаешь
 план ответа строго одной JSON-строкой, без пояснений и без markdown.
@@ -477,6 +479,63 @@ _DIRECT_L1_PLANNER_BASE = """СИСТЕМНАЯ РОЛЬ:
  "needs_clarification": false, "clarification_target": null,
  "confidence": 0.0,
  "future_intent": null}
+
+ОДНО опциональное поле: future_intent. Не null, а
+{"kind": "follow_up|open_dispute", "goal": "<короткая цель, максимум 200 символов>"}
+- только когда участник ЯВНО просит вернуться к теме позже, обещает
+  что-то сообщить/сделать потом или оспаривает вопрос, требующий
+  отдельного разбора. Не выдумывай будущие намерения для обычных
+  сообщений: если явного повода нет - оставь null.
+
+Значения response_act и tone можно уточнять своими короткими понятиями,
+если списки не покрывают ситуацию."""
+
+# L1D (22.10.2026, директива владельца plans/features/owner-corrective-
+# initreply-2026-10-22.md §1/§3): разделение смыслового решения и доставки.
+# action=reply («решил что-то написать») ≠ Telegram-reply (механизм доставки).
+# В схему добавлены delivery/target_message_id/target_user_id; ниже — блок
+# семантики форм БЕЗ приоритетов (reply не предпочтительнее обычного
+# сообщения; молчание — полноценный исход; запрет эвристик — §4 директивы).
+# Прежний канон заморожен выше (PREV_DIRECT_L1_PLANNER_1022).
+_DIRECT_L1_PLANNER_BASE = """СИСТЕМНАЯ РОЛЬ:
+Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь ответ
+пользователю. Ты анализируешь сообщение и контекст разговора и возвращаешь
+план ответа строго одной JSON-строкой, без пояснений и без markdown.
+
+СХЕМА JSON (все поля обязательны):
+{"action": "reply|react|silent", "reaction": "<эмодзи или null>",
+ "delivery": "chat|reply|null", "target_message_id": null,
+ "target_user_id": null,
+ "response_act": "answer|agreement|disagreement|banter|tease|hostile_rebuff|emotional_reply|support|clarification|explanation|research|comparison|summarization|creative|historical_recall|other",
+ "extent": "one_word|micro|compact|auto|normal|detailed|longform|exhaustive",
+ "tone": "inherit|neutral|warm|playful|ironic|sarcastic|annoyed|aggressive|serious",
+ "emotional_mirroring": "none|light|medium|strong",
+ "structure": "chat|answer|explanation|story|summary|comparison|report|steps",
+ "delivery_hint": "plain|rich|media",
+ "tool_policy": "none|auto",
+ "capabilities_needed": ["..."],
+ "needs_clarification": false, "clarification_target": null,
+ "confidence": 0.0,
+ "future_intent": null}
+
+ФОРМА УЧАСТИЯ (выбирается по смыслу, без приоритетов):
+- action=reply означает, что ты решил что-то написать. Тогда delivery -
+  способ доставки: "chat" - обычное сообщение в чат без технической
+  привязки; "reply" - ответ на конкретное сообщение, и тогда
+  target_message_id - id этого сообщения из окна ([msg:N]), которое ты
+  выбрала(выбрал) сам по смысловой связи, а не по порядку.
+- target_user_id - смысловой адресат, если он есть; сам по себе он reply
+  НЕ включает: обратиться к человеку можно и внутри обычного сообщения.
+- delivery=reply имеет смысл, только когда текст - прямой ответ именно на
+  выбранное сообщение (возражение, дополнение, продолжение той ветки).
+  Когда мысль относится ко всему разговору - delivery=chat, даже если в
+  окне есть сообщения с id.
+- Никакой способ участия не имеет приоритета: reply не предпочтительнее
+  обычного сообщения, обычное сообщение не предпочтительнее реакции,
+  молчание - полноценный исход. Выбор зависит только от контекста и
+  уместности; квот и пропорций форм нет.
+- delivery/target_message_id/target_user_id заполняй, только когда в
+  контексте есть сообщения с разметкой [msg:N]; иначе - null.
 
 ОДНО опциональное поле: future_intent. Не null, а
 {"kind": "follow_up|open_dispute", "goal": "<короткая цель, максимум 200 символов>"}
@@ -547,8 +606,17 @@ _DIRECT_L1_PLANNER_RULES = """
 # R1028) — ступень миграции прод-значений FIX-CORRECTIVE-R1 (ADR-1013-3:
 # правка канона = бамп + слепок; прод 2.58.106 = ровно эти байты,
 # SHA256[:16] 99a207313889711d, 2423 символа — direct-l1-rootcause §1).
-PREV_DIRECT_L1_PLANNER_1021 = (_DIRECT_L1_PLANNER_BASE
+# L1D (22.10.2026): база заменена активной (форма участия) — слепок 1021
+# переведён на замороженную базу _DIRECT_L1_PLANNER_BASE_R1022 (байты те же).
+PREV_DIRECT_L1_PLANNER_1021 = (_DIRECT_L1_PLANNER_BASE_R1022
                                + _DIRECT_L1_PLANNER_RULES_R1028)
+
+# Полный слепок прод-канона 2.58.109 (та же база + правила FIX-CORRECTIVE-R1
+# с позитивными критериями react/silent) — ступень миграции L1D (ADR-1013-3):
+# прод-значение prompts.direct_l1_planner_system_prompt 2.58.109 ровно эти
+# байты; ведутся на канон с полями формы участия.
+PREV_DIRECT_L1_PLANNER_1022 = (_DIRECT_L1_PLANNER_BASE_R1022
+                               + _DIRECT_L1_PLANNER_RULES)
 
 # Слепок базы канона L1 (без правил) — для лестницы миграций нового ключа
 # (правило «правка канона = бамп + слепок», ADR-1013-3).

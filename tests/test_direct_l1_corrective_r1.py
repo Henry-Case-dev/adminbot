@@ -104,9 +104,12 @@ def test_l1_rule1_and_schema_byte_preserved():
 # ═══ лестница миграций ══════════════════════════════════════════════════════
 
 def test_l1_prev_snapshot_is_exact_prod_bytes():
-    """Прод-канон 2.58.106 признан байт-в-байт (ADR-1013-3 слепок)."""
+    """Прод-канон 2.58.106 признан байт-в-байт (ADR-1013-3 слепок).
+    L1D (22.10.2026): активная база заменена каноном с формой участия —
+    слепок 1021 собирается из замороженной базы R1022 (байты те же)."""
+    from services.chat_prompts import _DIRECT_L1_PLANNER_BASE_R1022
     assert PREV_DIRECT_L1_PLANNER_1021 == (
-        _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_PLANNER_RULES_R1028)
+        _DIRECT_L1_PLANNER_BASE_R1022 + _DIRECT_L1_PLANNER_RULES_R1028)
     assert len(PREV_DIRECT_L1_PLANNER_1021) == 2423
     assert hashlib.sha256(
         PREV_DIRECT_L1_PLANNER_1021.encode("utf-8")).hexdigest()[:16] == \

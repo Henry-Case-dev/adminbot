@@ -1,0 +1,243 @@
+# -*- coding: utf-8 -*-
+"""L1D (owner-corrective-initreply 22.10.2026) — контракт формы участия L1.
+
+Директива владельца plans/features/owner-corrective-initreply-2026-10-22.md:
+
+  * §3: разделить «написать текст» (action=reply) и доставку Telegram-reply
+    (delivery=reply + target_message_id); target_user_id — смысловой адресат,
+    сам по себе reply НЕ включает; source_refs — контекст, а не команда;
+  * §1: никакой способ участия не имеет приоритета (reply ≠ предпочтительнее
+    обычного сообщения; молчание — полноценный исход); критерии форм —
+    позитивные, без словарей слов;
+  * §2: инициативный L1 видит окно с id/reply-связями, ответы бота,
+    allowed-реакции и повод наблюдателя КАК ПРЕДЛОЖЕНИЕ;
+  * ADR-1013-3: прежний канон (прод 2.58.109) заморожен и ведётся лестницей
+    миграций на новый.
+
+TEST-LIFECYCLE: CONTRACT owner=INITREPLY-L1D (канон/схема/лестница/контекст)
+"""
+from __future__ import annotations
+
+import hashlib
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from services import direct_l1 as _l1  # noqa: E402
+from services.chat_prompts import (  # noqa: E402
+    DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+    PREV_DIRECT_L1_PLANNER_1022,
+    _DIRECT_L1_PLANNER_BASE,
+    _DIRECT_L1_PLANNER_BASE_R1022,
+    _DIRECT_L1_PLANNER_RULES,
+)
+from services.direct_llm_react import ALLOWED_LLM_REACTIONS  # noqa: E402
+from services.prompt_migrations import PROMPT_MIGRATIONS  # noqa: E402
+
+#: Прод-байты 2.58.109 (база R1022 + правила FIX-CORRECTIVE-R1).
+PROD_1022_SHA16 = "5fdc90b3f1143abe"
+
+
+def _flatten(text: str) -> str:
+    return " ".join(text.split())
+
+
+# ═══ канон: схема с формой участия, без приоритетов ══════════════════════════
+
+def test_canon_schema_has_delivery_fields():
+    """§3: delivery/target_message_id/target_user_id в схеме; action-enum
+    и правила 1-7 прежние (совместимость с L1Plan и маршрутами)."""
+    canon = DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert canon == _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_PLANNER_RULES
+    assert '"action": "reply|react|silent"' in canon
+    assert '"delivery": "chat|reply|null"' in canon
+    assert '"target_message_id": null' in canon
+    assert '"target_user_id": null' in canon
+    # правила не менялись (tail-контракт прежнего теста сохраняется)
+    assert "1. Решение семантическое" in canon
+    assert "7. В ответе - ровно одна JSON-строка" in canon
+
+
+def test_canon_forms_no_priority_and_positive_criteria():
+    """§1/§3: семантика форм — без приоритетов; reply осмыслен только как
+    прямой ответ на выбранное сообщение; silent — полноценный исход."""
+    flat = _flatten(DIRECT_L1_PLANNER_SYSTEM_PROMPT)
+    assert "Никакой способ участия не имеет приоритета" in flat
+    assert "reply не предпочтительнее обычного сообщения" in flat
+    assert "молчание - полноценный исход" in flat
+    assert "квот и пропорций форм нет" in flat
+    # target_message_id — выбор LLM из контекста, не по порядку
+    assert "по смысловой связи, а не по порядку" in flat
+    # target_user_id сам по себе не включает reply (сценарий C)
+    assert "сам по себе он reply" in flat and "НЕ включает" in flat
+    # source_refs-семантика не пересекается с командой reply:
+    # доставка выбирается по «прямой ответ именно на выбранное сообщение»
+    assert "прямой ответ именно на" in flat
+    # запрет подгонки: нет словарей конкретных слов-триггеров
+    for banned in ("«лол»", "«ахах", "«ок»"):
+        assert banned not in flat
+
+
+def test_canon_prev_1022_is_exact_prod_bytes():
+    """Прод-канон 2.58.109 заморожен байт-в-байт (ступень ADR-1013-3)."""
+    assert PREV_DIRECT_L1_PLANNER_1022 == (
+        _DIRECT_L1_PLANNER_BASE_R1022 + _DIRECT_L1_PLANNER_RULES)
+    assert hashlib.sha256(
+        PREV_DIRECT_L1_PLANNER_1022.encode("utf-8")).hexdigest()[:16] == \
+        PROD_1022_SHA16
+    assert len(PREV_DIRECT_L1_PLANNER_1022) == 3022
+    assert PREV_DIRECT_L1_PLANNER_1022 != DIRECT_L1_PLANNER_SYSTEM_PROMPT
+
+
+def test_migration_ladder_leads_prod_109_to_new_canon():
+    steps = PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
+    targets = {src: dst for src, dst in steps}
+    assert targets[PREV_DIRECT_L1_PLANNER_1022] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    from services.chat_prompts import (PREV_DIRECT_L1_PLANNER_1021,
+                                       PREV_DIRECT_L1_PLANNER_BASE)
+    assert targets[PREV_DIRECT_L1_PLANNER_1021] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert targets[PREV_DIRECT_L1_PLANNER_BASE] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
+
+
+# ═══ нормализация плана (никогда не бросает; отсутствие ≠ reply) ════════════
+
+def test_normalize_delivery_contract():
+    plan = _l1.normalize_l1_plan({
+        "action": "reply", "delivery": "reply", "target_message_id": 321,
+        "target_user_id": 77, "confidence": 0.9})
+    assert plan.delivery == "reply"
+    assert plan.target_message_id == 321
+    assert plan.target_user_id == 77
+    assert _l1.reply_binding_requested(plan)
+
+
+def test_normalize_defaults_never_enable_reply():
+    """Отсутствие/мусор полей → обычное сообщение (2.58.109-дефект
+    невозможен молча)."""
+    for data in ({"action": "reply"}, {"action": "reply", "delivery": None},
+                 {"action": "reply", "delivery": "CHAT"},
+                 {"action": "reply", "delivery": "banana"},
+                 {"action": "reply", "delivery": "reply"},   # без цели
+                 {"action": "reply", "delivery": "reply",
+                  "target_message_id": -5},
+                 {"action": "reply", "delivery": "reply",
+                  "target_message_id": "abc"},
+                 {"action": "reply", "delivery": "reply",
+                  "target_message_id": True}):
+        plan = _l1.normalize_l1_plan(data)
+        assert plan is not None
+        assert _l1.reply_binding_requested(plan) is False, data
+    # delivery="chat" + смысловой адресат — НЕ reply (сценарий C)
+    plan = _l1.normalize_l1_plan({"action": "reply", "delivery": "chat",
+                                  "target_user_id": 42})
+    assert plan.delivery == "chat" and plan.target_user_id == 42
+    assert _l1.reply_binding_requested(plan) is False
+
+
+def test_normalize_is_total_garbage_safe():
+    assert _l1.normalize_l1_plan({"action": "reply", "delivery": 123,
+                                  "target_message_id": [],
+                                  "target_user_id": {}}) is not None
+    assert _l1.normalize_l1_plan(None) is None
+
+
+def test_fallback_plan_has_no_delivery_binding():
+    """Детерминированный fallback (§1.6) не включает reply — решение
+    доставки принадлежит только LLM."""
+    plan = _l1.fallback_plan("вопрос?")
+    assert plan.delivery == ""
+    assert plan.target_message_id is None
+    assert _l1.reply_binding_requested(plan) is False
+
+
+# ═══ контекст: идентифицированное окно + равноправие форм ════════════════════
+
+def test_initiative_line_declares_equal_forms():
+    line = _l1.INITIATIVE_LINE
+    assert "никто бота не звал" in line
+    assert "[msg:N]" in line
+    assert "никакая форма не имеет приоритета" in line
+    assert "предложение, а не приказ" in line
+
+
+def test_render_window_with_ids_marks_messages_and_reply_links():
+    window = [
+        {"id": 11, "user_id": 1, "author_name": "Аня", "text": "привет",
+         "reply_to_id": None},
+        {"id": 12, "user_id": 2, "author_name": "Боря",
+         "text": "отвечаю Ане", "reply_to_id": 11},
+    ]
+    lines = _l1.render_window_lines(window, 10, with_ids=True)
+    assert lines[0].startswith("[msg:11] [user:1] Аня: привет")
+    assert lines[1].startswith("[msg:12] [user:2] Боря:")
+    assert "(ответ на msg:11)" in lines[1]
+    # прежний формат (без id) — для прямого чата, байт-совместим
+    plain = _l1.render_window_lines(window, 10)
+    assert plain == ["Аня: привет", "Боря: отвечаю Ане"]
+
+
+def test_render_window_with_ids_skips_garbage_fields():
+    window = [{"author_name": "Вика", "text": "текст",
+               "id": "x", "user_id": None, "reply_to_id": "y"}]
+    lines = _l1.render_window_lines(window, 10, with_ids=True)
+    assert lines == ["Вика: текст"]
+
+
+def test_build_l1_context_with_ids_keeps_direct_default():
+    """with_ids=False (Direct) — прежняя сборка; with_ids=True — разметка."""
+    window = [{"id": 9, "user_id": 3, "author_name": "Галя",
+               "text": "вопрос", "reply_to_id": None}]
+    ctx_plain = _l1.build_l1_context(query="?", window=window)
+    ctx_ids = _l1.build_l1_context(query="?", window=window, with_ids=True)
+    assert "[msg:9]" not in ctx_plain
+    assert "[msg:9]" in ctx_ids
+
+
+def test_initiative_context_carries_bot_replies_and_reactions():
+    parts = [_l1.INITIATIVE_LINE,
+             "разрешённые реакции: " + " ".join(ALLOWED_LLM_REACTIONS)]
+    ctx = _l1.build_l1_context(query="инициатива",
+                               bot_replies=("мой прошлый ответ",),
+                               force_line="; ".join(parts))
+    assert _l1.BOT_REPLIES_SECTION in ctx
+    assert "мой прошлый ответ" in ctx
+    assert _l1.INITIATIVE_LINE in ctx
+    for emoji in ALLOWED_LLM_REACTIONS:
+        assert emoji in ctx
+
+
+# ═══ plan-блок Writer: форма доставки доезжает (только инициатива) ═══════════
+
+def test_l2_plan_block_delivery_lines():
+    reply_plan = _l1.normalize_l1_plan({
+        "action": "reply", "delivery": "reply", "target_message_id": 42})
+    block = _l1.build_l2_plan_block(reply_plan, include_delivery=True)
+    assert "[msg:42]" in block and "прямым" in block
+    chat_plan = _l1.normalize_l1_plan({
+        "action": "reply", "delivery": "chat", "target_user_id": 7})
+    block_chat = _l1.build_l2_plan_block(chat_plan, include_delivery=True)
+    assert "[user:7]" in block_chat and "reply-привязки" in block_chat
+    plain_plan = _l1.normalize_l1_plan({"action": "reply"})
+    block_plain = _l1.build_l2_plan_block(plain_plan, include_delivery=True)
+    assert "самостоятельная реплика" in block_plain
+    # Direct (include_delivery=False) — блок без строк доставки
+    assert "форма доставки" not in _l1.build_l2_plan_block(reply_plan)
+
+
+# ═══ граница свежести цели — то же окно, что видел L1 ════════════════════════
+
+def test_context_window_seconds_follows_setting():
+    import services.direct_chat_service as dcs
+    seconds = dcs._initiative_context_window_seconds()
+    assert seconds >= 3600
+    from config.settings import settings
+    expected = max(3600, int(float(
+        getattr(settings, "SUMMARY_WINDOW_HOURS", 6.0)) * 3600))
+    assert seconds == expected

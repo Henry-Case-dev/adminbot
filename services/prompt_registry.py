@@ -120,7 +120,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "direct.base.tool_phase": "chat-canon-cfg07a",
     "direct.base.l2_writer": "verbalizer-canon-mca23",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-r1028",
+    "direct.base.l1_planner": "l1-planner-l1d",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -1562,7 +1562,18 @@ def factory_set_fingerprint() -> str:
 #: анти-вымысел; прежние байты — PREV_NOSTALGIA_*_1021. Было
 #: ``3e35aaa38e0c``, стало ``c19d35a1c093``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "c19d35a1c093"
+#: Бамп 5 L1D (22.10.2026, директива владельца owner-corrective-initreply):
+#: канон L1-планера (``direct.base.l1_planner`` = DIRECT_L1_PLANNER_SYSTEM_
+#: PROMPT) получил поля формы участия delivery/target_message_id/
+#: target_user_id + блок семантики форм без приоритетов (reply не
+#: предпочтительнее обычного сообщения; молчание — полноценный исход);
+#: правила 1–7 не менялись. Прежние байты — PREV_DIRECT_L1_PLANNER_1022
+#: (прод 2.58.109, SHA256[:16] 5fdc90b3f114, 3022 симв) — ступень лестницы
+#: prompt_migrations. Метка ревизии блока бампнута (l1-planner-l1d).
+#: Сверка карт фабричных текстов: changed = 1 (direct.base.l1_planner).
+#: Было ``c19d35a1c093``, стало ``3507bd6f92eb``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "3507bd6f92eb"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

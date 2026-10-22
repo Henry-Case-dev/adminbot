@@ -41,6 +41,7 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_R1023,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
+    PREV_DIRECT_L1_PLANNER_1022,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -156,9 +157,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # FIX-CORRECTIVE-R1 (21.10.2026): ступень полного прод-канона 2.58.106
     # (база + правила R1028, SHA 99a207313889711d) ведёт на канон с новыми
     # правилами 2-3 (react/silent — позитивные критерии).
+    # L1D (22.10.2026, директива владельца owner-corrective-initreply):
+    # ступень прод-канона 2.58.109 (слепок PREV_DIRECT_L1_PLANNER_1022)
+    # ведёт на канон с полями формы участия delivery/target_*.
     "prompts.direct_l1_planner_system_prompt": [
         (PREV_DIRECT_L1_PLANNER_BASE, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
-        (PREV_DIRECT_L1_PLANNER_1021, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
+        (PREV_DIRECT_L1_PLANNER_1021, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        (PREV_DIRECT_L1_PLANNER_1022, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),

@@ -50,6 +50,12 @@ L1_DELIVERY = ("plain", "rich", "media")       # подмножество DELIVE
 L1_TOOL_POLICIES = ("none", "auto")            # подмножество TOOL_POLICIES
 EMOTIONAL_MIRRORING = ("none", "light", "medium", "strong")
 
+# L1D (22.10.2026): форма Telegram-доставки текстового решения (action=reply).
+# "reply" - ответ на конкретное сообщение (target_message_id обязателен),
+# "chat" - обычное сообщение без reply-привязки. Пусто/невалидно → "chat"
+# (консервативный дефолт: отсутствие решения L1 НИКОГДА не включает reply).
+L1_DELIVERY_MODES = ("chat", "reply")
+
 RESPONSE_ACT_MAX = 32      # §1.3: открытый словарь, ≤32
 TONE_MAX = 24              # §1.3: открытый словарь, ≤24
 CAPABILITIES_MAX = 8       # bounded список возможностей
@@ -106,6 +112,17 @@ AUTONOMOUS_LINE = ("автономный контекст (ответ на со�
 # (тексты берутся из существующей таблицы bot_replies, вызывающий передаёт).
 BOT_REPLIES_SECTION = "ОТВЕТЫ БОТА (недавние)"
 
+# L1D (22.10.2026, директива владельца plans/features/owner-corrective-
+# initreply-2026-10-22.md §1-2): условия ИНИЦИАТИВНОГО L1. Формы участия
+# равноправны (reply не предпочтительнее обычного сообщения; молчание -
+# полноценный исход); повод Observer - предложение для решения, а не приказ.
+# Только текст существующего факта, без новых механизмов.
+INITIATIVE_LINE = ("автономная инициатива (никто бота не звал): действие "
+                   "свободное - написать в чат, ответить как Telegram-reply "
+                   "на конкретное сообщение (id из окна [msg:N]), поставить "
+                   "реакцию или промолчать; никакая форма не имеет "
+                   "приоритета; повод наблюдателя - предложение, а не приказ")
+
 _WS_RE = re.compile(r"\s+")
 
 
@@ -139,6 +156,15 @@ class L1Plan:
     execution_mode_source: str = "derived"   # derived | llm
     # SOUL-1 (W3, SOUL-05.1): ровно один необязательный совет по приёму юмора.
     comic_strategy: str = "none"
+    # ── L1D (22.10.2026, директива владельца §3): форма участия — РЕШЕНИЕ L1,
+    # не транспорта. ``delivery`` — Telegram-доставка текста ("chat"|"reply"|""),
+    # ``target_message_id`` — конкретное сообщение из контекста ([msg:N],
+    # smart_messages.id), выбранное LLM для reply/реакции; ``target_user_id`` —
+    # СМЫСЛОВОЙ адресат (сам по себе reply НЕ включает — §3 директивы).
+    # Нормализация: мусор → дефолты (""/None); отсутствие полей ≠ reply.
+    delivery: str = ""
+    target_message_id: int | None = None
+    target_user_id: int | None = None
 
     def effective_extent(self) -> str:
         """Явная форма пользователя поверх semantic extent (§2.5)."""
@@ -238,6 +264,32 @@ def confidence_bucket(confidence: float) -> str:
     return "high"
 
 
+def _optional_positive_int(value) -> int | None:
+    """L1D: необязательный id из плана (мусор/bool/≤0 → None). Не бросает."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def reply_binding_requested(plan) -> bool:
+    """L1D (директива 22.10 §3): план просит Telegram-reply доставку.
+
+    Ровно одно сочетание включает привязку: action=reply И delivery=reply И
+    выбран конкретный target_message_id. target_user_id сам по себе reply
+    НЕ включает (сценарий C — обращение без reply). Пустое/старое поле
+    delivery → обычное сообщение (отсутствие решения ≠ reply)."""
+    try:
+        return (getattr(plan, "action", "") == "reply"
+                and getattr(plan, "delivery", "") == "reply"
+                and bool(getattr(plan, "target_message_id", None)))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def normalize_l1_plan(data) -> L1Plan | None:
     """Нормализация L1 JSON → :class:`L1Plan` (§1.3).
 
@@ -298,6 +350,12 @@ def normalize_l1_plan(data) -> L1Plan | None:
     else:
         plan.execution_mode = derive_execution_mode(plan.capabilities_needed)
         plan.execution_mode_source = "derived"
+    # ── L1D (22.10.2026): форма участия. Невалидное/отсутствующее delivery →
+    # "" (обычное сообщение); id — только положительные целые.
+    plan.delivery = _closed(data.get("delivery"), L1_DELIVERY_MODES, "")
+    plan.target_message_id = _optional_positive_int(
+        data.get("target_message_id"))
+    plan.target_user_id = _optional_positive_int(data.get("target_user_id"))
     target = data.get("clarification_target")
     if isinstance(target, str) and target.strip():
         plan.clarification_target = target.strip()[:CLARIFY_TARGET_MAX]
@@ -590,7 +648,8 @@ def build_l1_context(*, query, current_question: str = "",
                      capabilities=(), force_line: str = "",
                      persona_frame: str = "",
                      bot_replies: tuple[str, ...] = (),
-                     budget_tokens: int | None = None) -> str:
+                     budget_tokens: int | None = None,
+                     with_ids: bool = False) -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
     дет. деградация — сначала сокращается окно (заголовки/сообщение/
@@ -612,11 +671,12 @@ def build_l1_context(*, query, current_question: str = "",
         bot_lines = [line for line in bot_lines if line][:3]
         if bot_lines:
             sections.append((BOT_REPLIES_SECTION, "\n".join(bot_lines)))
-        window_lines = render_window_lines(window, L1_WINDOW_MESSAGES)
-        speaker = str(speaker or "неизвестно").strip()
-        addressee = str(addressee or "чат").strip()
+        window_lines = render_window_lines(window, L1_WINDOW_MESSAGES,
+                                           with_ids=with_ids)
         if window_lines:
             sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
+        speaker = str(speaker or "неизвестно").strip()
+        addressee = str(addressee or "чат").strip()
         sections.append(("УЧАСТНИКИ",
                          f"Говорящий: {speaker}\nАдресат: {addressee}"))
         if str(memory_hints or "").strip():
@@ -725,9 +785,16 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         return text
 
 
-def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES) -> list[str]:
+def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
+                        with_ids: bool = False) -> list[str]:
     """§1.5: последние N сообщений окна → компактные строки
-    ``имя: текст`` (кап на строку). Никогда не бросает."""
+    ``имя: текст`` (кап на строку). Никогда не бросает.
+
+    L1D (22.10.2026, директива §2): ``with_ids=True`` — разметка окна
+    идентификаторами и reply-связями (``[msg:ID] [user:UID] имя: текст
+    (ответ на msg:N)``) — L1 выбирает цель reply/реакции ИЗ КОНТЕКСТА сама
+    (та же конвенция разметки, что у окна наблюдателя). Прямой L1 (Direct)
+    продолжает получать прежний формат (with_ids=False по умолчанию)."""
     lines: list[str] = []
     try:
         rows = [r for r in (window or []) if isinstance(r, dict)]
@@ -737,7 +804,31 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES) -> list[str]:
             if not body:
                 media = str(row.get("media_type") or "").strip()
                 body = f"[{media}]" if media else "[медиа]"
-            lines.append(f"{author}: {body[:L1_WINDOW_LINE_CHARS]}")
+            prefix = ""
+            reply_mark = ""
+            if with_ids:
+                msg_id = row.get("id")
+                try:
+                    msg_id = int(msg_id) if msg_id is not None else None
+                except (TypeError, ValueError):
+                    msg_id = None
+                user_id = row.get("user_id")
+                try:
+                    user_id = int(user_id) if user_id is not None else None
+                except (TypeError, ValueError):
+                    user_id = None
+                if msg_id is not None:
+                    prefix = f"[msg:{msg_id}] "
+                if user_id is not None:
+                    prefix += f"[user:{user_id}] "
+                reply_to = row.get("reply_to_id")
+                if reply_to not in (None, "", 0, "0"):
+                    try:
+                        reply_mark = f" (ответ на msg:{int(reply_to)})"
+                    except (TypeError, ValueError):
+                        reply_mark = ""
+            lines.append(f"{prefix}{author}: {body[:L1_WINDOW_LINE_CHARS]}"
+                         f"{reply_mark}")
     except Exception:          # pragma: no cover - защитная ветка
         return []
     return lines
@@ -776,10 +867,17 @@ def build_evidence_packet(raw, plan=None, *,
 
 def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         clarification: bool = False,
-                        low_confidence: bool = False) -> str:
+                        low_confidence: bool = False,
+                        include_delivery: bool = False) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
-    D11: без «коротко»/«по делу». Никогда не бросает."""
+    D11: без «коротко»/«по делу». Никогда не бросает.
+
+    L1D (22.10.2026, директива §2): ``include_delivery=True`` (инициативный
+    Writer) доводит до Writer ВЫБРАННУЮ L1 форму участия — прямой ответ на
+    сообщение / обращение к человеку без reply / самостоятельная реплика,
+    чтобы текст соответствовал способу доставки. Прямой чат (Direct) форму
+    доставки плана не получает (контракт Direct не менялся)."""
     try:
         if plan is None:
             return ""
@@ -798,6 +896,22 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         if strategy and strategy != "none":
             # SOUL-05.1: совет L2, а не приказ быть смешным.
             lines.append(f"если уместно, приём юмора: {strategy}")
+        if include_delivery:
+            # L1D: форма участия выбрана L1; Writer не меняет адресата/способ.
+            delivery = str(getattr(plan, "delivery", "") or "")
+            target_id = getattr(plan, "target_message_id", None)
+            target_user = getattr(plan, "target_user_id", None)
+            if delivery == "reply" and target_id:
+                lines.append(f"форма доставки: Telegram-reply на сообщение "
+                             f"[msg:{target_id}] - текст должен быть прямым "
+                             f"ответом именно на это сообщение")
+            elif target_user:
+                lines.append(f"смысловой адресат: [user:{target_user}] - "
+                             f"обратись к нему в тексте; технической "
+                             f"reply-привязки у реплики нет")
+            else:
+                lines.append("форма доставки: самостоятельная реплика в чат, "
+                             "без reply-привязки")
         note = rejected_note(rejected)
         if note:
             lines.append(note)
@@ -982,8 +1096,9 @@ def get_l1_diagnostics(chat_id: int | None) -> dict | None:
 __all__ = [
     "ACTIONS", "L1_EXTENTS", "LONGFORM_L1_EXTENTS", "L1Plan", "L1ModelSlot",
     "FutureIntent", "FUTURE_INTENT_KINDS", "FUTURE_INTENT_GOAL_MAX",
-    "FORCE_LINE", "AUTONOMOUS_LINE", "REPAIR_ANNOTATION",
-    "EXECUTION_MODES", "normalize_l1_plan", "parse_l1_plan",
+    "FORCE_LINE", "AUTONOMOUS_LINE", "INITIATIVE_LINE", "REPAIR_ANNOTATION",
+    "L1_DELIVERY_MODES", "EXECUTION_MODES", "normalize_l1_plan",
+    "parse_l1_plan", "reply_binding_requested",
     "build_repair_messages", "confidence_bucket", "direct_l1_enabled",
     "l1_fallback_enabled", "l1_context_tokens", "l1_timeout_seconds",
     "l1_max_output_tokens", "l1_temperature", "resolve_l1_model",
