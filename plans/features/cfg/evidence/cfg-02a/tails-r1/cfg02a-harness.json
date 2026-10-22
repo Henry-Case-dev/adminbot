@@ -1,0 +1,115 @@
+{
+ "generated_utc": "2026-10-22T05:36:27Z",
+ "checks": [
+  {
+   "check": "A1_global_write_via_ui_path",
+   "ok": true,
+   "http": 200
+  },
+  {
+   "check": "A2_worker_budget_reads_new_global",
+   "ok": true,
+   "per_chat": 2,
+   "source": "global"
+  },
+  {
+   "check": "A3_two_generations_admitted",
+   "ok": true,
+   "r1": true,
+   "r2": true
+  },
+  {
+   "check": "A4_second_ui_write_ok",
+   "ok": true,
+   "http": 200
+  },
+  {
+   "check": "A5_new_limit_applied_without_restart",
+   "ok": true,
+   "third": true
+  },
+  {
+   "check": "A6_usage_summary_tracks_budget",
+   "ok": true,
+   "used": 3,
+   "metric_env_limit": 5,
+   "catalog_per_chat": [
+    5,
+    "global"
+   ]
+  },
+  {
+   "check": "B1_refusal_before_paid_call",
+   "ok": true,
+   "gen_ok": false,
+   "reason": "budget",
+   "provider_calls": 0
+  },
+  {
+   "check": "B2_refusal_has_honest_reset_time_by_chat_tz",
+   "ok": true,
+   "speech_form": true,
+   "reset_time_present": true
+  },
+  {
+   "check": "B3_reset_is_midnight_chat_tz",
+   "ok": true,
+   "next_reset": "2026-10-23T00:00:00+05:00"
+  },
+  {
+   "check": "C1_global_is_default_for_both_chats",
+   "ok": true,
+   "chat_a": [
+    3,
+    "global"
+   ],
+   "chat_b": [
+    3,
+    "global"
+   ]
+  },
+  {
+   "check": "C2_chat_override_write_ok",
+   "ok": true,
+   "http": 200
+  },
+  {
+   "check": "C3_override_stronger_global_other_chat_untouched",
+   "ok": true,
+   "chat_a": [
+    1,
+    "chat"
+   ],
+   "chat_b": [
+    3,
+    "global"
+   ]
+  },
+  {
+   "check": "C4_override_stored_via_ui_write_path",
+   "ok": true,
+   "overrides": {
+    "limits.image_daily_limit": 1
+   }
+  },
+  {
+   "check": "C5_override_survives_cache_reload",
+   "ok": true,
+   "chat_a": [
+    1,
+    "chat"
+   ]
+  },
+  {
+   "check": "C6_reset_restores_inheritance_global_kept",
+   "ok": true,
+   "http": 200,
+   "chat_a": [
+    3,
+    "global"
+   ],
+   "global_value": 3
+  }
+ ],
+ "provider_calls": 0
+}
