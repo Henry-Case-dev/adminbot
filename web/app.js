@@ -748,6 +748,16 @@
     styles: 'Стили обложки',
   };
   // Модуль → группа промптов каталога (F5 D3/§48: один объект на два маршрута).
+  // ASAP-speech-arch U-03 (§8): подпись Direct-вербализатора в UI описывает его
+  // РОЛЬ (финальный ответ Writer), а не «личность». Ключ
+  // `prompts.direct_chat_verbalizer_system_prompt` и все внутренние id
+  // неизменны — это только presentation-override для карточки каталога.
+  var CONFIG_ITEM_UI_OVERRIDE = {
+    'prompts.direct_chat_verbalizer_system_prompt': {
+      title: 'Direct: финальный ответ (Writer)',
+      description: 'Преобразует план и данные в готовый ответ; характер задаётся отдельно.',
+    },
+  };
   var MODULE_PROMPT_GROUPS = {
     mod_factcheck: 'prompts_factcheck',
     mod_search: 'prompts_search',
@@ -2895,6 +2905,10 @@
         speechEditorFull: false,
         speechSaved: {},
         speechRetry: null,
+        // ASAP-speech-arch U-07 (§8): конфликт одновременной правки —
+        // отдельное состояние (не тост на 3 с), чтобы владелец не перезаписал
+        // чужую редакцию «наугад».
+        speechConflict: null,
         speechFactoryPending: null,
         // toasts
         toasts: [],
@@ -2937,6 +2951,15 @@
         if (m && m.fromRegistry && m.submoduleOf) return m.title;
         var tab = this.currentTab;
         return tab ? tab.label : '';
+      },
+      // ASAP-speech-arch U-06 (§8): единственный главный заголовок шапки.
+      // Имя раздела берётся из того же источника, что и последний элемент
+      // маршрута (крошка показывает только ПУТЬ), поэтому заголовок и крошка
+      // больше не называют одну страницу по-разному.
+      headerTitle: function () {
+        var bc = this.breadcrumb;
+        if (bc && bc.current) return bc.current;
+        return this.currentTabLabel;
       },
       // F24 (ADR-1024-24 D2/§4.1): реактивные аксессоры `:open`. computed читает
       // реактивную карту `this.expand` (localStorage в рендере НЕ читается).
@@ -12957,6 +12980,18 @@
       workspaceTabLabel: function (tabId) {
         return WORKSPACE_TAB_LABELS[tabId] || tabId || '';
       },
+      // ASAP-speech-arch U-03 (§8): UI-подпись Direct-вербализатора приведена к
+      // его действительной роли. Ключ/ID не меняются (правки, история и
+      // реестр остаются прежними), меняется только человеческая подпись,
+      // чтобы внутренний промпт не выглядел «личностью» (характер — Core).
+      configItemTitle: function (item) {
+        var o = CONFIG_ITEM_UI_OVERRIDE[item && item.key];
+        return (o && o.title) || (item && item.title) || '';
+      },
+      configItemDescription: function (item) {
+        var o = CONFIG_ITEM_UI_OVERRIDE[item && item.key];
+        return (o && o.description) || (item && item.description) || '';
+      },
       // MCA-19 (T-5103/T-5116, ADR-1028-19 D15): живая effective-линия
       // карточки «Распознавание изображений». Fail-open: 403/ошибка →
       // visionState=null (линия скрыта). Без сети на бэкенде — из кеша
@@ -19427,13 +19462,17 @@
             badge: flag(gates.character_core_enabled),
             badgeClass: flagClass(gates.character_core_enabled),
             detail: core.detail || '' },
-          { key: 'self_model', section: '', icon: 'badge',
+          { key: 'self_model', section: '', block_id: '', readonly: true,
+            icon: 'badge',
             title: 'Самоощущение (SelfModel)',
             desc: 'как бот воспринимает себя сейчас и какие правила о себе применяет',
             badge: flag(sm.enabled),
             badgeClass: flagClass(sm.enabled),
+            readonly_reason: 'это правила кода о себе, а не редактируемый промпт: ' +
+              'в библиотеке они помечены «только код» и меняются релизом',
             detail: smDetails.join(' · ') },
-          { key: 'l1', section: '', icon: 'bolt',
+          { key: 'l1', section: '', block_id: 'direct.base.l1_planner',
+            icon: 'bolt',
             title: 'Планировщик (L1)',
             desc: 'по реплике выбирает: ответить, поставить реакцию или промолчать; задаёт длину — от «одного слова» до развёрнутого',
             badge: flag(l1.enabled),
@@ -19459,7 +19498,8 @@
             badge: flag(gates.humor_library_enabled),
             badgeClass: flagClass(gates.humor_library_enabled),
             detail: humor.detail || '' },
-          { key: 'writer', section: '', icon: 'edit_note',
+          { key: 'writer', section: '', block_id: 'direct.base.l2_writer',
+            icon: 'edit_note',
             title: 'Writer',
             desc: 'собирает финальный текст; перед отправкой — проверка длины, фактов и правил стиля письма',
             badge: 'активен',
@@ -19650,6 +19690,16 @@
       speechCanRetry: function (section) {
         return !!(this.speechRetry && this.speechRetry.section === section);
       },
+      // U-07 (§8): видимый конфликт правки (данные изменены параллельно).
+      // Пока он не снят явным обновлением, основной CTA сохранения скрыт —
+      // иначе владелец затрёт чужую редакцию «вслепую».
+      speechConflictFor: function (section) {
+        var c = this.speechConflict;
+        return (c && c.section === section) ? c : null;
+      },
+      clearSpeechConflict: function () {
+        this.speechConflict = null;
+      },
       retrySpeechSave: function () {
         var pending = this.speechRetry;
         if (!pending || typeof pending.fn !== 'function') return;
@@ -19686,7 +19736,23 @@
           this._growSpeechEditorEl(nodes[i]);
         }
       },
-      openSpeechEditorFull: function () { this.speechEditorFull = true; },
+      openSpeechEditorFull: function () {
+        this.speechEditorFull = true;
+        // U-05 (§8): крупный редактор доступен с клавиатуры сразу: фокус в
+        // поле, закрытие — Esc (обработчик на самом диалоге) или «Закрыть».
+        var self = this;
+        if (this.$nextTick) {
+          this.$nextTick(function () {
+            try {
+              var el = document.querySelector('.speech-fullscreen .speech-editor');
+              if (el && el.focus) el.focus();
+              var dlg = document.querySelector('.speech-fullscreen');
+              if (!el && dlg && dlg.focus) dlg.focus();
+            } catch (e) { /* нет DOM — без фокуса */ }
+            self._speechEditorFocused = true;
+          });
+        }
+      },
       closeSpeechEditorFull: function () { this.speechEditorFull = false; },
       // P0A-UX §5.2 (TJ-21): технические коды НИКОГДА не показываются как
       // текст ошибки — только человеческая причина; иначе — detail сервера.
@@ -19724,6 +19790,9 @@
           }
           if (msg.indexOf('изменено другим путём') >= 0
               || msg.indexOf('профиль чата не найден') >= 0) {
+            // U-07 (§8): конфликт — отдельное устойчивое состояние раздела,
+            // а не только тост: бар покажет причину и «Обновить данные».
+            this.speechConflict = { section: section, text: msg };
             this.toast(msg + ' — обновите данные и повторите', 'warn');
             return;
           }
@@ -19807,6 +19876,20 @@
         if (!this.speechLoaded[id]) this.loadSpeechSection(id);
         this.scrollSpeechTop();
       },
+      // ASAP-speech-arch U-02 (§8): каждый ряд карты сборки либо реально
+      // открывает своё место редактирования, либо честно помечен read-only.
+      // Нет 'section' — открываем блок каталога «Все инструкции» по его id
+      // (тот же редактор, что и из библиотеки промптов; копий нет).
+      openSpeechLayerRow: function (node) {
+        if (!node) return;
+        if (node.section) { this.openSpeechSection(node.section); return; }
+        if (node.block_id) {
+          this.openSpeechSection('all');
+          this.speechQuery = '';
+          this.speechFamily = '';
+          this.openSpeechBlock(node.block_id);
+        }
+      },
       scrollSpeechTop: function () {
         try {
           var el = document.querySelector('.speech-screen');
@@ -19852,6 +19935,11 @@
       },
       loadSpeechSection: async function (id, force) {
         var self = this;
+        // U-07 (§8): перечитывание раздела снимает состояние конфликта —
+        // база для следующей правки снова актуальна.
+        if (this.speechConflict && this.speechConflict.section === id) {
+          this.speechConflict = null;
+        }
         this.speechSectionLoading = true;
         try {
           if (id === 'core') {

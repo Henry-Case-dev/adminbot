@@ -297,23 +297,53 @@
     stp.webkitFilter = LAYER_FILTER_MID + filterId + ')';
     // Маска-рамка: преломление видно у кромок (там, где карта линзы даёт
     // смещение), центр панели остаётся спокойным/читаемым и не перекрывает
-    // контент под стеклом (SOUL-17.3).
-    applyRingMask(cv, RING_SOLID_PX, RING_FADE_PX);
+    // контент под стеклом (SOUL-17.3). Ширина полос зависит от стороны
+    // поверхности — иначе у компактной карточки рамка покрывает её целиком.
+    applyRingMask(cv, radiusRectW(surface), radiusRectH(surface));
     surface.appendChild(cv);
     return cv;
   }
 
+  /* Фактический CSS-размер поверхности (для пересчёта маски при resize). */
+  function radiusRectW(el) {
+    try { return Math.round(el.getBoundingClientRect().width) || 0; }
+    catch (e) { return 0; }
+  }
+  function radiusRectH(el) {
+    try { return Math.round(el.getBoundingClientRect().height) || 0; }
+    catch (e) { return 0; }
+  }
+
+  /* Ширина полосы рамки ОТ КАЖДОЙ СТОРОНЫ (U-01/U-02).
+   Абсолютные 20+46 px годятся только для высоких панелей: у компактной
+   карточки (78–100 px) верхняя и нижняя полосы смыкаются, union-маска
+   покрывает ВСЮ поверхность — и слой показывает прямоугольную копию фона
+   поверх подложки («карточка разрезана цветным блоком», швы по кромкам).
+   Поэтому полоса пропорциональна стороне и не выходит за капы 20/46 px;
+   на любой стороне остаётся спокойный центр (не меньше ~52% стороны). */
+  function ringBand(side) {
+    var s = (side > 0) ? side : 0;
+    var solid = Math.max(6, Math.min(RING_SOLID_PX, Math.round(s * 0.10)));
+    var fade = Math.max(8, Math.min(RING_FADE_PX, Math.round(s * 0.14)));
+    return { solid: solid, fade: fade };
+  }
+
   /* CSS-рамка через четыре линейных градиента (без URL/data-URI — CSP-safe):
-   * union = рамка с мягким затуханием внутрь поверхности. */
-  function applyRingMask(cv, solidPx, fadePx) {
-    var s = 'linear-gradient(to right, #fff 0 ' + solidPx + 'px, transparent ' +
-      (solidPx + fadePx) + 'px)';
-    var sl = 'linear-gradient(to left, #fff 0 ' + solidPx + 'px, transparent ' +
-      (solidPx + fadePx) + 'px)';
-    var st = 'linear-gradient(to bottom, #fff 0 ' + solidPx + 'px, transparent ' +
-      (solidPx + fadePx) + 'px)';
-    var sb = 'linear-gradient(to top, #fff 0 ' + solidPx + 'px, transparent ' +
-      (solidPx + fadePx) + 'px)';
+   * union = рамка с мягким затуханием внутрь поверхности. Горизонтальные
+   * полосы считаются по ширине, вертикальные — по высоте (см. ringBand). */
+  function applyRingMask(cv, w, h) {
+    var bx = ringBand(w);
+    var by = ringBand(h);
+    var sx = bx.solid + bx.fade;
+    var sy = by.solid + by.fade;
+    var s = 'linear-gradient(to right, #fff 0 ' + bx.solid + 'px, transparent ' +
+      sx + 'px)';
+    var sl = 'linear-gradient(to left, #fff 0 ' + bx.solid + 'px, transparent ' +
+      sx + 'px)';
+    var st = 'linear-gradient(to bottom, #fff 0 ' + by.solid + 'px, transparent ' +
+      sy + 'px)';
+    var sb = 'linear-gradient(to top, #fff 0 ' + by.solid + 'px, transparent ' +
+      sy + 'px)';
     var val = s + ', ' + sl + ', ' + st + ', ' + sb;
     try {
       cv.style.webkitMaskImage = val;
@@ -321,6 +351,45 @@
       cv.style.webkitMaskRepeat = 'no-repeat';
       cv.style.maskRepeat = 'no-repeat';
     } catch (e) { /* без маски слой честно остаётся полным (не ломаем вид) */ }
+  }
+
+  /* Подложки предков между контролируемым фоном и поверхностью (U-01/U-02).
+   * Слой рисует копию фона, но НЕ знал о затемняющих слоях-контейнерах
+   * (desktop `.scroll-area` = rgba(9,13,23,.62)): копия выходила ярче реальной
+   * подложки и на кромке карточки появлялся прямоугольный шов. Здесь
+   * собираем ровно те alpha-заливки, которые лежат над canvas и под
+   * поверхностью; красим их в слой в том же порядке (снаружи → внутрь).
+   * body не берём: его фон рисуется ПОД фоновым canvas. */
+  function ancestorVeil(el) {
+    var out = [];
+    if (!el) return out;
+    var p = el.parentElement;
+    var guard = 0;
+    while (p && p !== document.documentElement && guard < 24) {
+      guard++;
+      if (p === document.body) break;
+      try {
+        var bg = getComputedStyle(p).backgroundColor || '';
+        var m = bg.match(/rgba?\(([^)]+)\)/);
+        if (m) {
+          var parts = m[1].split(',').map(function (x) { return x.trim(); });
+          var a = (parts.length > 3) ? parseFloat(parts[3]) : 1;
+          var cr = parseFloat(parts[0]), cg = parseFloat(parts[1]),
+              cb = parseFloat(parts[2]);
+          if (isFinite(a) && a > 0.02 && isFinite(cr) && isFinite(cg) &&
+              isFinite(cb)) {
+            out.push({
+              color: 'rgb(' + Math.round(cr) + ',' + Math.round(cg) + ',' +
+                     Math.round(cb) + ')',
+              alpha: Math.min(1, a),
+            });
+          }
+        }
+      } catch (e) { /* без подложки предка — как было */ }
+      p = p.parentElement;
+    }
+    out.reverse();
+    return out;
   }
 
   function removeLayer(rec) {
@@ -451,6 +520,14 @@
       var rad = radiusOf(el);
       var radCss = rad ? rad + 'px' : 'inherit';
       if (cst.borderRadius !== radCss) cst.borderRadius = radCss;
+      // Resize/refold: полосы рамки зависят от фактической стороны —
+      // пересчитываем маску, когда геометрия изменилась (U-01/U-02).
+      var mw = Math.round(r.width), mh = Math.round(r.height);
+      if (rec.maskW !== mw || rec.maskH !== mh) {
+        applyRingMask(rec.canvas, mw, mh);
+        rec.maskW = mw;
+        rec.maskH = mh;
+      }
       var ctx = rec.ctx;
       if (!ctx) continue;
       var fr = sourceFrame({ k: src.k || 1 },
@@ -463,15 +540,26 @@
         ctx.globalCompositeOperation = 'source-over';
         ctx.clearRect(0, 0, cw, ch);
         ctx.drawImage(src.el, fr.sx, fr.sy, fr.sw, fr.sh, 0, 0, cw, ch);
-        // Подложка поверхности поверх копии — иначе слой выглядел бы ярче
-        // (замеряно: +23% luma в рамке) и контраст кромки «плыл».
+        // Затемняющие подложки контейнеров над фоном (desktop `.scroll-area`
+        // и т.п.) — иначе копия ярче реальной подложки и на кромке виден шов.
+        var veil = rec.veil || [];
+        for (var vi = 0; vi < veil.length; vi++) {
+          var v = veil[vi];
+          if (!v || !(v.alpha > 0)) continue;
+          ctx.globalAlpha = v.alpha;
+          ctx.fillStyle = v.color;
+          ctx.fillRect(0, 0, cw, ch);
+        }
+        // Собственная подложка поверхности: слой (z-index:-1) рисуется ПОВЕРХ
+        // background родителя, поэтому без неё полоса кромки выходила на
+        // треть ярче интерьера (U-01/U-02). Порядок = фактический стек.
         var tint = rec.tint;
         if (tint && tint.alpha > 0) {
           ctx.globalAlpha = tint.alpha;
           ctx.fillStyle = tint.color;
           ctx.fillRect(0, 0, cw, ch);
-          ctx.globalAlpha = 1;
         }
+        ctx.globalAlpha = 1;
         painted++;
       } catch (e2) {
         st.errors++;
@@ -510,16 +598,19 @@
         if (st.layers[j].surface === surface) { found = st.layers[j]; break; }
       }
       if (found && found.canvas && found.canvas.parentNode) {
-        // Пересобрали состав — обновляем и подложку: тема/флаги могли
-        // смениться (light/dark), подложка обязана совпадать с фактической.
+        // Пересобрали состав — обновляем и подложку/veil: тема/флаги/роут
+        // могли смениться (light/dark, другой контейнер), копия фона обязана
+        // совпадать с фактическим стеком подложек (U-01/U-02).
         try { found.tint = surfaceTint(surface); } catch (eT) { /* как было */ }
+        try { found.veil = ancestorVeil(surface); } catch (eV) { /* как было */ }
         keep.push(found);
         continue;
       }
       var fid = ensureFilter(nextFilterSlot());
       if (!fid) continue;
       var rec = { surface: surface, canvas: null, ctx: null, fid: fid,
-                  tint: surfaceTint(surface) };
+                  tint: surfaceTint(surface), veil: ancestorVeil(surface),
+                  maskW: -1, maskH: -1 };
       // Контейнер: нужен контекст/клип; инлайновые стили возвращаем при снятии.
       try {
         rec.prevOverflow = surface.style.overflow || null;
