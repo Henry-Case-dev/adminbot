@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-22T19:45:00+12:00",
+  "updated": "2026-10-22T09:15:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -112,6 +112,17 @@
       ],
       "coverage_complete": true,
       "source_note": "current_task.md L1794-1914 (verbatim-снапшот): библиотека примеров — 3 категории (Общие/Юмор/Мат с явным expression_mode), редактируемые заводские наборы (persist override/tombstone против seed/деплоя), строгий UI-контракт MiniApp, few-shot семантика по категориям; дельта к SOUL-07/SOUL-10/ADD-EXP/CFG; живые тесты в чаты ЗАПРЕЩЕНЫ (offline/моки/браузер), недоступное — в owner_live_checks; инвентаризация PM DONE 20.10: 76 строк (64 required), plan-гейт EXIT 0, strict_evidence=true, slice-graph; REUSED большой (CRUD/seed-ручной/отбор 0-LLM/API why), NEW: категории+явный режим, tombstone против re-seed, редактор по §4.2, «Почему не используется?» | 22.10: инженерия закрыта — 64 VERIFIED / 0 инженерных открытых (context 12, owner_optional 1 вне знаменателя); деплой 2.58.100+ без регресса; §7 живые просмотры — добровольные"
+    },
+    {
+      "id": "asap-speech-arch",
+      "status": "BUILDING",
+      "source_path": "plans/features/asap-speech-arch/source-2026-10-22.md",
+      "source_sha256": "BDDB853E93FD1093BC143C9D735ADBEA6EA7EA51E1F29BB6C45EFB4F881B7CD2",
+      "maps": [
+        "plans/features/asap-speech-arch/requirements-map.json"
+      ],
+      "coverage_complete": false,
+      "source_note": "Постановка владельца 22.10 (verbatim-снапшот, 378 строк): P0 речевая архитектура - фабричные тексты (L2 verbalizer/Core full+compact/Expression header/Direct tool phase/L1 участие), активная конфигурация PG + миграции + Inspector, инициатива I-01..I-09, UI U-01..U-09; приоритеты P0/P1/P2; W0-W5. Дедупликация против corrective 2.58.107/110 при инициализации карты"
     }
   ]
 }
