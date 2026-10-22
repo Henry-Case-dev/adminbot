@@ -11,7 +11,10 @@ quota-группы бомбились по очереди (Q1/Q10), два full-
 * **Credential pool списком** (§4/§12, T-4402): primary
   (`keys.embedding_api_key`) + fallback_1/2 (`EMBEDDING_FALLBACK_API_KEY[2]`)
   + добавочные entries из `EMBEDDING_EXTRA_API_KEYS` (запятая/`;`). Никаких
-  `..._API_KEY_3` и правок кода для четвёртого ключа.
+  `..._API_KEY_3` и правок кода для четвёртого ключа. Соединение
+  (base_url/модель) — per-slot: named slot'ы берут СВОЙ адрес
+  (`models.embedding_fallback{1,2}_*` / легаси-общий) и ходят именно на него
+  (F2, аудит 23.10.2026); пусто → прежний primary-адрес.
 * **Лестница quota group** (§5 + F8 §15.2/§15.3): provider/runtime metadata
   (если доступна) → connection metadata (developer label
   `EMBEDDING_QUOTA_GROUP_LABELS` / hot `keys.embedding_quota_group_labels`,
@@ -178,7 +181,11 @@ GROUP_SOURCE_UNKNOWN = "unknown"     # не опознана → общая unkn
 @dataclass(frozen=True)
 class EmbeddingCredential:
     """Conf spec A.1. Ключ ХРАНИТСЯ только в памяти процесса (конфиг — не
-    БД); наружу (логи/UI/события) идёт только `alias` (R17)."""
+    БД); наружу (логи/UI/события) идёт только `alias` (R17).
+
+    `base_url`/`model`/`provider` — ФАКТИЧЕСКОЕ соединение ЭТОГО слота
+    (F2, аудит 23.10.2026): fallback-слоты ходят на свой адрес, а не на
+    primary; provider — host этого адреса (выбор адаптера и диагностика)."""
     alias: str
     api_key: str
     base_url: str
@@ -319,18 +326,34 @@ def build_credential_pool() -> list[EmbeddingCredential]:
     Entries: primary (hot `keys.embedding_api_key` → env
     `EMBEDDING_API_KEY`), fallback_1/fallback_2 (legacy env), затем
     добавочные из `EMBEDDING_EXTRA_API_KEYS` (запятая/`;`) — произвольный
-    пул без правок кода. Ключи никогда не логируются (R17)."""
+    пул без правок кода. Ключи никогда не логируются (R17).
+
+    F2 (аудит 23.10.2026): соединение (base_url + модель) — PER-SLOT. Раньше
+    всем ключам подставлялся primary-адрес, поэтому Google-слоты уходили на
+    primary-endpoint, получали 401 и помечались `auth_failed` — запасные
+    слоты не работали. Источник адреса — единый резолвер профилей
+    `resolve_embedding_profiles()` (hot → env → легаси-общий → primary), так
+    что dispatch, панель и identity-отпечаток говорят об одном endpoint'е.
+    Пустой per-slot адрес → прежнее поведение (общий/primary), без
+    исключений; extra_N (нет своего профиля) — соединение primary."""
     labels = parse_quota_group_labels(_hot_get(
         "keys.embedding_quota_group_labels",
         _settings_value("EMBEDDING_QUOTA_GROUP_LABELS", "")))
     pool: list[EmbeddingCredential] = []
-    base_url = str(_hot_get(
-        "models.embedding_base_url",
-        _settings_value("EMBEDDING_BASE_URL", "")) or "").strip()
-    model = str(_hot_get(
-        "models.embedding_model_name",
-        _settings_value("EMBEDDING_MODEL_NAME", "")) or "").strip()
-    provider = _provider_of(base_url)
+    # F2: per-slot адрес/модель (см. docstring). Профили никогда не бросают.
+    profiles = resolve_embedding_profiles()
+    primary_profile = profiles["primary"]
+    default_base = primary_profile.base_url
+    default_model = primary_profile.model
+
+    def _connection(alias: str) -> tuple[str, str]:
+        """Фактический endpoint слота: свой → общий/легаси → primary."""
+        profile = profiles.get(alias)
+        if profile is None:            # extra_N — своего профиля нет
+            return default_base, default_model
+        return (profile.base_url or default_base,
+                profile.model or default_model)
+
     primary, primary_source = resolve_key_slot(
         "keys.embedding_api_key", "EMBEDDING_API_KEY", "")
     entries: list[tuple[str, str, str]] = []
@@ -353,9 +376,10 @@ def build_credential_pool() -> list[EmbeddingCredential]:
                 "keys.embedding_extra_api_keys", _ABSENT) is not _ABSENT else "env"))
     for alias, key, key_source in entries:
         group, known, source = resolve_quota_group_full(alias, labels)
+        slot_base, slot_model = _connection(alias)
         pool.append(EmbeddingCredential(
-            alias=alias, api_key=key, base_url=base_url, model=model,
-            provider=provider, quota_group_id=group,
+            alias=alias, api_key=key, base_url=slot_base, model=slot_model,
+            provider=_provider_of(slot_base), quota_group_id=group,
             quota_group_known=known, quota_group_source=source,
             key_source=key_source))
     return pool

@@ -1,0 +1,12 @@
+E         + https://apinet.test/v1
+
+tests\test_embed_fallback_slots_routing.py:243: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.embedding_control_plane:embedding_control_plane.py:1445 embed credential auth_failed | alias=primary | error=LLMAuthError
+=========================== short test summary info ===========================
+FAILED tests/test_embed_fallback_slots_routing.py::test_pool_slots_carry_their_own_base_url_and_model
+FAILED tests/test_embed_fallback_slots_routing.py::test_pool_connection_matches_resolved_profiles
+FAILED tests/test_embed_fallback_slots_routing.py::test_legacy_common_fallback_address_is_used
+FAILED tests/test_embed_fallback_slots_routing.py::test_executor_failover_uses_slot_endpoint
+FAILED tests/test_embed_fallback_slots_routing.py::test_executor_auth_failed_slot_does_not_break_others
+5 failed, 3 passed in 3.68s
