@@ -1913,7 +1913,7 @@
    "source_text_sha256": "46aa38a9de390627cf7ce39a0a8a7b4f1ed74eb3917b383a9340609c496ff83f",
    "source_excerpt": "**V02. Experience**: русская корректировка без известных regex-фраз → semantic capture → validation → lesson → retrieval/application при релевантном повторе → outcome, отбраковка шутки/спора. Счётчики идут от persisted событий, не synthetic",
    "disposition": "required",
-   "reason": "TAILS-R1 22.10: harness-окно с РЕАЛЬНЫМ провайдером (OpenRouter deepseek-chat-v3; прод-базовый apinet недостижим с dev-машины — оговорка в README): русская корректировка БЕЗ regex-фраз (detector_detected=0) → semantic capture 4/4 → lesson → retrieval на повторе (3 урока) → application → outcome success (lesson_counters_success=1); шутка/слух/несогласие уроков не создали (1 честный parse-error). Честный хвост: прод-метрики scanned/semantic и «lesson из боя» — наблюдение естественного потока (не блокер контракта; контракт ранее доказан 18/18 e2e).",
+   "reason": "TAILS-R1 22.10: harness-окно с РЕАЛЬНЫМ провайдером (OpenRouter deepseek-chat-v3; прод-базовый apinet недостижим с dev-машины — оговорка в README): русская корректировка БЕЗ regex-фраз (detector_detected=0) → semantic capture 3/4 (indirect_style captured=false — см. ревью REV-TAILS-2) → lesson → retrieval на повторе (3 урока) → application → outcome success (lesson_counters_success=1); шутка/слух/несогласие уроков не создали (1 честный parse-error). Честный хвост: прод-метрики scanned/semantic и «lesson из боя» — наблюдение естественного потока (не блокер контракта; контракт ранее доказан 18/18 e2e).",
    "req_id": "V02",
    "slice": "E2E-VERIFY",
    "acceptance": "Release-blocker V02 пройден: корректировка без regex-фраз доходит до lesson и применения при повторе с outcome; шутка/спор отбракованы; счётчики от persisted событий (не synthetic fixtures на проде)",
@@ -1936,7 +1936,7 @@
     {
      "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/tails-r1/harness-experience.json",
-     "observation": "window1_experience: 6 provider-вызовов, detector=0, capture 4/4, retrieval 3, applied recorded=3, counters_success=1.",
+     "observation": "window1_experience: 6 provider-вызовов, detector=0, capture 3/4 (indirect_style captured=false; format.lists_no — из сценария dont_repeat, не indirect_style; атрибуция скорректирована по ревью REV-TAILS-2), retrieval 3, applied recorded=3, counters_success=1.",
      "type": "test"
     },
     {
@@ -1948,7 +1948,7 @@
     {
      "candidate_commit": "db2b70449f99d91dee82211532df4eb7c7587fd1",
      "ref": "plans/features/asap8-v6-3-live-correction/evidence/tails-r1/harness-experience.json",
-     "observation": "window1_experience: 6 provider-вызовов, detector=0, capture 4/4, retrieval 3, applied recorded=3, counters_success=1.",
+     "observation": "window1_experience: 6 provider-вызовов, detector=0, capture 3/4 (indirect_style captured=false; format.lists_no — из сценария dont_repeat, не indirect_style; атрибуция скорректирована по ревью REV-TAILS-2), retrieval 3, applied recorded=3, counters_success=1.",
      "type": "test"
     },
     {
