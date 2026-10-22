@@ -1,0 +1,231 @@
+........................................................................ [ 11%]
+........................................................................ [ 23%]
+........................................................................ [ 35%]
+........................................................................ [ 47%]
+........................................................................ [ 59%]
+........................................................................ [ 71%]
+........................................................................ [ 83%]
+.................................................F...................... [ 94%]
+...............................                                          [100%]
+================================== FAILURES ===================================
+________ test_check_dry_run_carries_live_ephemeral_opportunity_context ________
+
+tmp_path = WindowsPath('C:/Users/main/.config/opencode/OpenCodeScratch/adminbot-ccef72c25768/tmp/pytest-of-main/pytest-2478/test_check_dry_run_carries_liv0')
+
+    @pytest.mark.asyncio
+    async def test_check_dry_run_carries_live_ephemeral_opportunity_context(
+            tmp_path):
+        """TEST-LIFECYCLE: REGRESSION owner=P0A-INIT
+    
+        «Проверить инициативу» обязана показывать ТУ ЖЕ цепочку, что боевой
+        путь наблюдателя: dry-run передаёт Writer контекст эфемерного повода
+        (goal/kind/origin/created_at), а не пустую строку («цель не указана»).
+        Регресс (REV-INIT-FIX): dry-run звал handle_initiative БЕЗ
+        opportunity_row."""
+        db = await _db(tmp_path, "w5_check_ctx.db")
+        _caches({CHAT: {"initiative.frequency_profile": "active",
+                        "initiative.eval_min_messages": 4,
+                        "initiative.eval_min_interval_seconds": 0,
+                        "initiative.min_gap_seconds": 0,
+                        "initiative.eval_llm_budget_per_day": 10}})
+        writer = _RowCapturingWriter()
+        try:
+            for i in range(6):
+                await _msg(db, text="живой повод для проверки %d" % i,
+                           ts_ago=300 - i)
+            result = await diag.run_check(db, chat_id=CHAT, writer_service=writer,
+                                          llm=_FakeLLM())
+>           assert result["mock_send"]["attempted"] is True
+E           assert False is True
+
+tests\test_soul1_w5_initiative_vitality.py:544: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  services.mca_random_source:mca_random_source.py:1445 [random_source] reserve read failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 1443, in _reserve_remaining
+    return await self._store.reserve_remaining()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 645, in reserve_remaining
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_state | phase=op-error
+ERROR    services.database:database.py:2589 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_state
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1708 [random_source] fallback state write failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 1705, in _mark_fallback
+    await self._store.write_state(last_fallback_reason=str(reason)[:160],
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 940, in write_state
+    await self._db.write_transaction(_body, op_name="random_state")
+  File "C:\Code\Python\adminbot\services\database.py", line 2492, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=recover-degraded
+ERROR    services.database:database.py:2572 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=op-error
+ERROR    services.database:database.py:2589 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1696 [random_source] prng journal failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 1694, in _journal_prng
+    await self._store.journal_draw(record)
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 771, in journal_draw
+    return bool(await self._db.write_transaction(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2492, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1445 [random_source] reserve read failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 1443, in _reserve_remaining
+    return await self._store.reserve_remaining()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 645, in reserve_remaining
+    cursor = await self._db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_state | phase=recover-degraded
+ERROR    services.database:database.py:2572 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_state
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_state | phase=op-error
+ERROR    services.database:database.py:2589 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_state
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1708 [random_source] fallback state write failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 1705, in _mark_fallback
+    await self._store.write_state(last_fallback_reason=str(reason)[:160],
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 940, in write_state
+    await self._db.write_transaction(_body, op_name="random_state")
+  File "C:\Code\Python\adminbot\services\database.py", line 2492, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 927, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=recover-degraded
+ERROR    services.database:database.py:2572 database: connection unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+WARNING  services.database:database.py:2634 database: rollback failed | event=database_rollback_failed | op=random_draw_journal | phase=op-error
+ERROR    services.database:database.py:2589 database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=random_draw_journal
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+WARNING  services.mca_random_source:mca_random_source.py:1696 [random_source] prng journal failed
+Traceback (most recent call last):
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 1694, in _journal_prng
+    await self._store.journal_draw(record)
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 771, in journal_draw
+    return bool(await self._db.write_transaction(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2492, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\services\mca_random_source.py", line 766, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+                                 ^^^^^^^^^^
+  File "C:\Code\Python\adminbot\.venv\Lib\site-packages\aiosqlite\core.py", line 137, in _conn
+    raise ValueError("no active connection")
+ValueError: no active connection
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  C:\Code\Python\adminbot\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_soul1_w5_initiative_vitality.py::test_check_dry_run_carries_live_ephemeral_opportunity_context
+1 failed, 606 passed, 1 warning in 22.05s

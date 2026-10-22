@@ -2,10 +2,15 @@
 
 Флаг `flags.unified_composer_enabled`/`UNIFIED_COMPOSER_ENABLED` выключен
 (код-дефолт) → сборка system/user совпадает **байт-в-байт** с дампом,
-переснятым слайсом ASAP-W1 по НОВЫМ фабричным канонам (§3.1/3.6/3.7
-source-2026-10-22.md): plans/features/asap-speech-arch/evidence/w1/
-direct-runtime-assembly-w1.txt. Прежний артефакт soul-1 (каноны до W1,
-прод 2.58.110) сохранён как историческое свидетельство — НЕ правился.
+переснятым по ДЕЙСТВУЮЩИМ фабричным канонам: tests/fixtures/soul1/
+direct-runtime-assembly-asap2.txt (ASAP 2 §4.1 L1 planner + §4.2 L2
+verbalizer, source-2026-10-22.md, код 5ad73933). Прежние артефакты
+сохранены как историческое свидетельство и НЕ правились:
+plans/features/asap-speech-arch/evidence/w1/direct-runtime-assembly-w1.txt
+(каноны W1) и plans/features/soul-1/evidence/direct-runtime-assembly.txt
+(каноны до W1, прод 2.58.110). Дельта W1 → ASAP 2 построчно сведена к
+вставке текста владельца: plans/features/_audit-2026-10-23/soul1-fixtures/
+diff.md.
 
 Тест читает ожидаемые chars/tokens/sha256_12 ИЗ АРТЕФАКТА (не из своих
 констант): расхождение с реальной сборкой ломает тест, а не «подгоняется».
@@ -14,7 +19,7 @@ direct-runtime-assembly-w1.txt. Прежний артефакт soul-1 (кано
 искусственно сломанном `compose_prompt` OFF-сборка не меняется, а ON-ветка
 при отсутствии новых слоёв даёт те же байты, что легаси-склейка хвоста.
 
-TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (шов 2) + ASAP-W1 переснятие
+TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (шов 2) + ASAP-W1/ASAP2 переснятия
 """
 from __future__ import annotations
 
@@ -32,8 +37,9 @@ from services import prompt_style_blocks as psb
 from services import response_extent as _extent
 from services import direct_l1 as _l1
 
-EVIDENCE = os.path.join("plans", "features", "asap-speech-arch", "evidence",
-                        "w1", "direct-runtime-assembly-w1.txt")
+EVIDENCE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "fixtures", "soul1",
+                        "direct-runtime-assembly-asap2.txt")
 
 _SYS_RE = re.compile(r"^SYSTEM\s+chars=(\d+)\s+tokens=(-?\d+)\s+"
                      r"sha256_12=([0-9a-f]{12})", re.MULTILINE)
@@ -50,8 +56,23 @@ def _evidence_text() -> str:
         return fh.read()
 
 
+def _blocks(tail: str) -> tuple[str, str | None]:
+    """Тексты [SYSTEM]/[USER] секции — ровно те, что тест сравнивает."""
+    start = tail.index("[SYSTEM]\n") + len("[SYSTEM]\n")
+    rest = tail[start:]
+    marker = "\n\n[USER]\n"
+    if marker in rest:
+        system, user = rest.split(marker, 1)
+        return system, user.rstrip("\n")
+    return rest.rstrip("\n"), None
+
+
 def recorded(section: str) -> dict:
-    """Ожидаемые метрики секции дампа (P1/P2/P3/P5a/P5b)."""
+    """Ожидаемые метрики секции дампа (P1/P2/P3/P5a/P5b/P4).
+
+    Метрики обязаны сходиться с ТЕКСТОМ в самом артефакте: иначе правка
+    тела дампа расходилась бы с эталоном незаметно (эталон = числа + текст).
+    """
     text = _evidence_text()
     start = text.index(f"## {section}")
     tail = text[start:]
@@ -61,6 +82,17 @@ def recorded(section: str) -> dict:
     system = _SYS_RE.search(tail)
     user = _USER_RE.search(tail)
     assert system is not None, f"{section}: SYSTEM-строка не найдена"
+    sys_text, user_text = _blocks(tail)
+    assert sha12(sys_text) == system.group(3), (
+        f"{section}: тело SYSTEM не соответствует записанному sha")
+    assert len(sys_text) == int(system.group(1)), (
+        f"{section}: тело SYSTEM не соответствует записанной длине")
+    if user is not None:
+        assert user_text is not None, f"{section}: USER-блок отсутствует"
+        assert sha12(user_text) == user.group(3), (
+            f"{section}: тело USER не соответствует записанному sha")
+        assert len(user_text) == int(user.group(1)), (
+            f"{section}: тело USER не соответствует записанной длине")
     return {
         "system": (int(system.group(1)), int(system.group(2)),
                    system.group(3)),

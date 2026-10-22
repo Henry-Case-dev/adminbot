@@ -1,0 +1,6 @@
+baseline: rc=0 | 13 passed in 4.28s
+MUT1 body char (P4 SYSTEM text): rc=1 | 1 failed, 12 passed in 3.76s | DETECTED
+MUT2 metric sha line (P2 SYSTEM): rc=1 | 1 failed, 12 passed in 3.75s | DETECTED
+MUT3 body char (P1 USER text): rc=1 | 2 failed, 11 passed in 3.80s | DETECTED
+MUT4 metric chars line (P5b SYSTEM): rc=1 | 1 failed, 12 passed in 3.69s | DETECTED
+restored: rc=0 | 13 passed in 3.96s

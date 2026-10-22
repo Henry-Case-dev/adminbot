@@ -1,0 +1,39 @@
+FF.FFF.......                                                            [100%]
+================================== FAILURES ===================================
+E   AssertionError: P1: sha256_12 системы 1d4c51c39147 != дампа d05d305eebf0
+    assert '1d4c51c39147' == 'd05d305eebf0'
+      
+      - d05d305eebf0
+      + 1d4c51c39147
+C:\Code\Python\adminbot\tests\_tmp_soul1_before_repro.py:180: AssertionError: P1: sha256_12 системы 1d4c51c39147 != дампа d05d305eebf0
+E   AssertionError: P2: sha256_12 системы d7281532954d != дампа 23556afb74a7
+    assert 'd7281532954d' == '23556afb74a7'
+      
+      - 23556afb74a7
+      + d7281532954d
+C:\Code\Python\adminbot\tests\_tmp_soul1_before_repro.py:180: AssertionError: P2: sha256_12 системы d7281532954d != дампа 23556afb74a7
+E   AssertionError: P5b: sha256_12 системы 1d4c51c39147 != дампа d05d305eebf0
+    assert '1d4c51c39147' == 'd05d305eebf0'
+      
+      - d05d305eebf0
+      + 1d4c51c39147
+C:\Code\Python\adminbot\tests\_tmp_soul1_before_repro.py:180: AssertionError: P5b: sha256_12 системы 1d4c51c39147 != дампа d05d305eebf0
+E   AssertionError: P4: sha256_12 системы c987c03e3ee0 != дампа f8ab20121c02
+    assert 'c987c03e3ee0' == 'f8ab20121c02'
+      
+      - f8ab20121c02
+      + c987c03e3ee0
+C:\Code\Python\adminbot\tests\_tmp_soul1_before_repro.py:180: AssertionError: P4: sha256_12 системы c987c03e3ee0 != дампа f8ab20121c02
+E   AssertionError: P1: sha256_12 системы 1d4c51c39147 != дампа d05d305eebf0
+    assert '1d4c51c39147' == 'd05d305eebf0'
+      
+      - d05d305eebf0
+      + 1d4c51c39147
+C:\Code\Python\adminbot\tests\_tmp_soul1_before_repro.py:180: AssertionError: P1: sha256_12 системы 1d4c51c39147 != дампа d05d305eebf0
+=========================== short test summary info ===========================
+FAILED tests/_tmp_soul1_before_repro.py::test_p1_l2_writer_detailed_matches_recorded_dump
+FAILED tests/_tmp_soul1_before_repro.py::test_p2_l2_writer_micro_matches_recorded_dump
+FAILED tests/_tmp_soul1_before_repro.py::test_p5_system2_stage1_and_stage2_match_recorded_dump
+FAILED tests/_tmp_soul1_before_repro.py::test_p4_l1_planner_system_matches_recorded_dump
+FAILED tests/_tmp_soul1_before_repro.py::test_off_path_is_default_and_does_not_consult_composer
+5 failed, 8 passed in 3.27s

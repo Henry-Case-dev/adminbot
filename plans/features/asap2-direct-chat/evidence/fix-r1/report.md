@@ -146,6 +146,11 @@ DB-шумом `connection marked unrecoverable`; не воспроизвёлся
    Доказано, что не мой дифф: с откатанным `services/direct_l1.py` — те же
    `5 failed, 8 passed`. Файл вне моего WRITE_SCOPE → не правил; нужен
    re-record дампа по процедуре W1 (решение PM/Orchestrator).
+   **РЕШЕНО 23.10.2026 (лейн `SOUL1-FIXTURE-RERECORD`):** дамп переснят по
+   тем же код-канонам ASAP 2, дельта доказана построчно (56/56 проверок,
+   только вставка §4.1/§4.2) — `plans/features/_audit-2026-10-23/
+   soul1-fixtures/report.md`; целевой файл — **13 passed**. Старый
+   W1-артефакт сохранён без изменений.
 2. Per-chat prompt override для `prompts.direct_l1_planner_system_prompt` /
    `prompts.direct_chat_verbalizer_system_prompt` в read-path не существует —
    B3 per-chat часть закрыта как N/A с причиной.
