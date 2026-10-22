@@ -24,7 +24,7 @@ evidence → статус. Нумерация CFG03-F{n}.
   (карточки в реальном рендере), `ui/01…06*.png`.
 * **Статус:** FIXED (static + e2e). Live preprod — Ф6.
 
-## F2. Каталог-тип не совпадал с factory-дефолтом (2 шт.) — DEFERRED
+## F2. Каталог-тип не совпадал с factory-дефолтом (2 шт.) — FIXED (22.10.2026)
 
 * **Причина:** ключи создавались с типом `int`, при этом `Settings` хранит
   `float` (`IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS` = 300.0, env `_env_float`;
@@ -32,21 +32,26 @@ evidence → статус. Нумерация CFG03-F{n}.
   "", env `_env_str`; рантайм не читает вовсе).
 * **Затронутые пути:** `limits.image_freq_limit_cooldown_seconds`,
   `limits.youtube_transcript_proxy_retries` (оба — visible в UI).
-* **Почему не исправлено в этом слайсе:** тип каталога пинуют тесты ЧУЖИХ
-  слайсов, вне write_scope CFG-03:
-  `tests/test_cfg02b_image_freq_limits.py:266` (`retries/cooldown == "int"`),
-  `tests/test_hot_migration.py:225` (`retries.type == "int"`).
-  Правка этих файлов — расширение scope (решение PM) либо отдельный
-  мини-коммит «catalog delta + re-pin» (процедура §3.4).
-* **Текущее состояние:** расхождения документированы в тесте
-  (`TYPE_FAMILY_EXCEPTIONS`) и в `inventory.json`/`audit-summary.json`
-  (`kind=default_type_mismatch`); пользовательской поломки нет: значение
-  `300.5` не теряется (`_cast_to_type` возвращает как есть), ключ `retries`
-  не читается рантаймом (F1).
-* **Автотест:** `test_settings_field_type_family` (исключения перечислены
-  явно — новые расхождения падают).
-* **Статус:** DEFERRED (scope; рекомендация: включить 2 пина + 2 типа в
-  следующий catalog-коммит, например в окно CFG-04/07B).
+* **Почему не исправлено в CFG-03:** типы каталога пиновали тесты ЧУЖИХ
+  слайсов (`tests/test_cfg02b_image_freq_limits.py`,
+  `tests/test_hot_migration.py`) — вне write_scope CFG-03. **Закрыто**
+  отдельным мини-коммитом «catalog delta + re-pin» (§3.4) лейном
+  FIX-SMALL-DEFECTS (22.10.2026): 2 type-пина в `services/param_catalog.py`
+  выровнены с типом дефолта (cooldown **int→float**, retries **int→str**),
+  пины обоих чужих тестов переутверждены тем же значением,
+  `TYPE_FAMILY_EXCEPTIONS` в `test_cfg03_param_audit` обнулён
+  (3→1: остался только group_category F3).
+* **Автотесты:** `test_cfg03_param_audit.py::TestCatalogConsistency::
+  test_type_family_regressions_fixed` (REGRESSION: тип каталога == тип
+  дефолта для обоих ключей), `test_settings_field_type_family` (класс,
+  исключений нет — новое расхождение падает само), F8
+  `test_round1025_f8_registry` (хэш каталога переутверждён, L-F11S-1).
+* **Evidence:** `audit-summary.json` (reemission CFG-03-F2,
+  inconsistencies=1), re-pin `plans/docs/param-registry-round1025.tsv`
+  (data_type: float/str), `--check` OK 582 (22.10.2026).
+* **Статус:** FIXED (22.10.2026). Пользовательской поломки не было и нет:
+  `_cast_to_type` возвращал значение как есть; изменение — согласование
+  метаданных каталога (UI-текстовое поле `retries`, дробный `cooldown`).
 
 ## F3. Флаг в группе лимитов (документированное исключение, не дефект)
 

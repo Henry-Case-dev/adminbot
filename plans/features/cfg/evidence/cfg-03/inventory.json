@@ -1,15 +1,4 @@
 {
- "_generation": {
-  "tool": "tools/cfg03_param_inventory.py",
-  "command": "py -3 tools/cfg03_param_inventory.py --out plans/features/cfg/evidence/cfg-03",
-  "method": "один проход по runtime-коду (bot.py, manage.py, config/, handlers/, services/, web/ + app.js/index.html/static JS, filters/, scripts/, SmartModule/); комментарии вырезаются; REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES из services/param_catalog.py; плюс артефакты plans/docs/param-registry-round1025.tsv и screen-map-round1025.md",
-  "head": "e0c11306",
-  "head_full": "e0c11306b9c54a4538ed7d6ae0b9737aa9d0686b",
-  "date": "2026-10-21",
-  "reemission": "CFG-03-WAVE-A: 579 (снапшот 19.10.2026 @df078406) -> 582 (+3 флага фактчека, коммит 46303ecd); diff ключей: ADDED=[flags.factcheck_wide_context, flags.factcheck_suitability_gate, flags.factcheck_pipeline_v2], REMOVED=[]",
-  "f8_crosscheck": "py -3 tools/gen_param_registry_round1025.py --check -> CHECK OK: реестр 582 == REGISTRY (21.10.2026)",
-  "contract_test": "py -3 -m pytest tests/test_cfg03_param_audit.py -> 16 passed @e0c11306"
- },
  "entries": [
   {
    "key": "ADMIN_USER_ID",
@@ -850,7 +839,7 @@
     "services/summary_memory.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7119",
+    "services/direct_chat_service.py:7169",
     "services/summary_memory.py:3784"
    ],
    "dyn_hits": [],
@@ -940,9 +929,9 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2076",
-    "services/direct_chat_service.py:961",
-    "services/direct_chat_service.py:961"
+    "services/direct_chat_service.py:2103",
+    "services/direct_chat_service.py:962",
+    "services/direct_chat_service.py:962"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1020,7 +1009,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8532"
+    "services/direct_chat_service.py:8582"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1236,7 +1225,7 @@
     "services/model_capacity.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5204",
+    "services/direct_chat_service.py:5254",
     "services/model_capacity.py:262"
    ],
    "dyn_hits": [],
@@ -1384,7 +1373,7 @@
    ],
    "read_ctx_hits": [
     "bot.py:582",
-    "services/direct_chat_service.py:1837"
+    "services/direct_chat_service.py:1838"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1427,9 +1416,9 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5375",
-    "services/direct_chat_service.py:5727",
-    "services/direct_chat_service.py:7409",
+    "services/direct_chat_service.py:5425",
+    "services/direct_chat_service.py:5777",
+    "services/direct_chat_service.py:7459",
     "manage.py:1237",
     "manage.py:1237"
    ],
@@ -1482,8 +1471,8 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5380",
-    "services/direct_chat_service.py:5732",
+    "services/direct_chat_service.py:5430",
+    "services/direct_chat_service.py:5782",
     "services/model_slots.py:61",
     "services/status_service.py:1124",
     "services/model_capacity.py:298",
@@ -1574,8 +1563,8 @@
    ],
    "read_ctx_hits": [
     "bot.py:582",
-    "services/direct_chat_service.py:1837",
-    "services/direct_chat_service.py:1857"
+    "services/direct_chat_service.py:1838",
+    "services/direct_chat_service.py:1858"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1583,9 +1572,9 @@
     "tests/js/routing_test.js",
     "tests/test_104_backend_additions.py",
     "tests/test_access.py",
+    "tests/test_asap8_v63_b10r09_settings_409_race.py",
     "tests/test_budget_data_repair_round1024.py",
-    "tests/test_budget_guardrails_round1024.py",
-    "tests/test_budget_overrides_merge_round1024.py"
+    "tests/test_budget_guardrails_round1024.py"
    ],
    "classification": "working",
    "class_note": "static read-context"
@@ -1619,7 +1608,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:6541"
+    "services/direct_chat_service.py:6591"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1656,7 +1645,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2088"
+    "services/direct_chat_service.py:2115"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1695,7 +1684,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2096"
+    "services/direct_chat_service.py:2123"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1734,7 +1723,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2092"
+    "services/direct_chat_service.py:2119"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1775,7 +1764,7 @@
     "services/smart_cache.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2287",
+    "services/direct_chat_service.py:2314",
     "services/smart_cache.py:203",
     "services/smart_cache.py:212",
     "services/smart_cache.py:340",
@@ -1902,8 +1891,8 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5498",
-    "services/direct_chat_service.py:8343"
+    "services/direct_chat_service.py:5548",
+    "services/direct_chat_service.py:8393"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1943,7 +1932,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8364"
+    "services/direct_chat_service.py:8414"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -1986,8 +1975,8 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:6473",
-    "services/direct_chat_service.py:8359"
+    "services/direct_chat_service.py:6523",
+    "services/direct_chat_service.py:8409"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2160,8 +2149,8 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5454",
-    "services/direct_chat_service.py:8307"
+    "services/direct_chat_service.py:5504",
+    "services/direct_chat_service.py:8357"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2270,7 +2259,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2216"
+    "services/direct_chat_service.py:2243"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2309,8 +2298,8 @@
     "services/summary_memory.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8046",
-    "services/direct_chat_service.py:8068",
+    "services/direct_chat_service.py:8096",
+    "services/direct_chat_service.py:8118",
     "services/summary_memory.py:3521"
    ],
    "dyn_hits": [],
@@ -2351,7 +2340,7 @@
     "services/summary_memory.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8042",
+    "services/direct_chat_service.py:8092",
     "services/summary_memory.py:3519"
    ],
    "dyn_hits": [],
@@ -2437,7 +2426,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5334"
+    "services/direct_chat_service.py:5384"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2474,7 +2463,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7704"
+    "services/direct_chat_service.py:7754"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2511,7 +2500,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7706"
+    "services/direct_chat_service.py:7756"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2586,7 +2575,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8154"
+    "services/direct_chat_service.py:8204"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2709,7 +2698,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2171"
+    "services/direct_chat_service.py:2198"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2746,8 +2735,8 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2169",
-    "services/direct_chat_service.py:2197"
+    "services/direct_chat_service.py:2196",
+    "services/direct_chat_service.py:2224"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2784,7 +2773,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7664"
+    "services/direct_chat_service.py:7714"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2821,7 +2810,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7660"
+    "services/direct_chat_service.py:7710"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -2858,7 +2847,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7689"
+    "services/direct_chat_service.py:7739"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -3041,8 +3030,8 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8477",
-    "services/direct_chat_service.py:8508"
+    "services/direct_chat_service.py:8527",
+    "services/direct_chat_service.py:8558"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -3083,8 +3072,8 @@
    ],
    "read_ctx_hits": [
     "handlers/factcheck.py:368",
-    "services/direct_chat_service.py:5665",
-    "services/direct_chat_service.py:8448"
+    "services/direct_chat_service.py:5715",
+    "services/direct_chat_service.py:8498"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -3127,9 +3116,9 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:6477",
-    "services/direct_chat_service.py:8472",
-    "services/direct_chat_service.py:8504"
+    "services/direct_chat_service.py:6527",
+    "services/direct_chat_service.py:8522",
+    "services/direct_chat_service.py:8554"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -3175,11 +3164,11 @@
     "services/worker_budget.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:5089",
+    "services/direct_chat_service.py:5139",
     "services/tool_router.py:2945",
     "services/tool_router.py:2951",
     "services/worker_budget.py:592",
-    "services/direct_chat_service.py:5090",
+    "services/direct_chat_service.py:5140",
     "services/tool_router.py:2946"
    ],
    "dyn_hits": [],
@@ -4886,7 +4875,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:6644"
+    "services/direct_chat_service.py:6694"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -6528,7 +6517,7 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/search_aggregator.py:52",
+    "services/search_aggregator.py:135",
     "services/web_content_extractor.py:67"
    ],
    "dyn_hits": [],
@@ -6876,7 +6865,7 @@
    ],
    "read_ctx_hits": [
     "services/factcheck_service.py:257",
-    "services/factcheck_service.py:820"
+    "services/factcheck_service.py:861"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -6921,12 +6910,12 @@
     "services/factcheck_renderer.py"
    ],
    "read_ctx_hits": [
-    "services/factcheck_orchestrator.py:194",
-    "services/factcheck_planner.py:70",
-    "services/factcheck_orchestrator.py:191",
-    "services/factcheck_planner.py:67",
-    "services/factcheck_orchestrator.py:191",
-    "services/factcheck_planner.py:67"
+    "services/factcheck_orchestrator.py:199",
+    "services/factcheck_planner.py:74",
+    "services/factcheck_orchestrator.py:196",
+    "services/factcheck_planner.py:71",
+    "services/factcheck_orchestrator.py:196",
+    "services/factcheck_planner.py:71"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -8300,7 +8289,7 @@
     "services/summary_memory.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8203",
+    "services/direct_chat_service.py:8253",
     "services/summary_memory.py:3853"
    ],
    "dyn_hits": [],
@@ -8344,7 +8333,7 @@
     "services/summary_memory.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8136",
+    "services/direct_chat_service.py:8186",
     "services/mca_gates.py:2106",
     "services/summary_generator.py:922",
     "services/summary_generator.py:1757",
@@ -9136,7 +9125,7 @@
    "pg_key": "limits.image_freq_limit_cooldown_seconds",
    "title": "Время ожидания, секунд",
    "description": "Пауза в СЕКУНДАХ до новой серии генераций (300 секунд — 5 минут). Полное восстановление серии — через это время после последней допущенной генерации. 0 — пауза не ограничивает. По умолчанию 300.",
-   "type": "int",
+   "type": "float",
    "secret": false,
    "hidden": false,
    "category": "limits",
@@ -9780,8 +9769,8 @@
     "services/initiative_observer.py"
    ],
    "read_ctx_hits": [
-    "services/initiative_observer.py:359",
-    "services/initiative_observer.py:359"
+    "services/initiative_observer.py:368",
+    "services/initiative_observer.py:368"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -10108,8 +10097,8 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/initiative_observer.py:329",
-    "services/initiative_observer.py:329"
+    "services/initiative_observer.py:338",
+    "services/initiative_observer.py:338"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -10639,7 +10628,7 @@
     "services/lore_worker.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7944"
+    "services/direct_chat_service.py:7994"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -11012,7 +11001,7 @@
     "services/llm_circuit_breaker.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:1845"
+    "services/direct_chat_service.py:1846"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -11051,7 +11040,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:1846"
+    "services/direct_chat_service.py:1847"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -11091,7 +11080,7 @@
     "services/llm_circuit_breaker.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:1844"
+    "services/direct_chat_service.py:1845"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -11877,8 +11866,8 @@
     "services/tool_router.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2774",
-    "services/direct_chat_service.py:5195",
+    "services/direct_chat_service.py:2801",
+    "services/direct_chat_service.py:5245",
     "services/tool_router.py:499"
    ],
    "dyn_hits": [],
@@ -11960,7 +11949,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7755"
+    "services/direct_chat_service.py:7805"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -11999,7 +11988,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7779"
+    "services/direct_chat_service.py:7829"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -13701,7 +13690,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7868"
+    "services/direct_chat_service.py:7918"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -13740,8 +13729,8 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7859",
-    "services/direct_chat_service.py:7889"
+    "services/direct_chat_service.py:7909",
+    "services/direct_chat_service.py:7939"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -14188,7 +14177,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:8243"
+    "services/direct_chat_service.py:8293"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -15346,9 +15335,9 @@
     "handlers/direct_chat.py:256",
     "services/bot_persona.py:259",
     "services/command_prefix.py:36",
-    "services/direct_chat_service.py:2675",
-    "services/direct_chat_service.py:5172",
-    "services/direct_chat_service.py:8581"
+    "services/direct_chat_service.py:2702",
+    "services/direct_chat_service.py:5222",
+    "services/direct_chat_service.py:8631"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -16302,7 +16291,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7071"
+    "services/direct_chat_service.py:7121"
    ],
    "dyn_hits": [
     "services/user_relations.py:61 (f\"limits.{name}\" + 'relations_inject_max_chars')"
@@ -16528,7 +16517,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:7017"
+    "services/direct_chat_service.py:7067"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -18241,7 +18230,7 @@
     "bot.py:495",
     "bot.py:661",
     "services/anticliche_worker.py:397",
-    "services/direct_chat_service.py:5091",
+    "services/direct_chat_service.py:5141",
     "services/dream_worker.py:537",
     "services/lore_worker.py:425"
    ],
@@ -18280,12 +18269,15 @@
    "declared_consumer": "workers/RAG/direct_chat_service (hot.get|get_chat_param)",
    "consumer_status": "runtime",
    "consumer_files": [
+    "services/direct_chat_service.py",
     "services/summary_memory.py",
     "services/summary_test_run.py"
    ],
    "read_ctx_hits": [
     "services/summary_memory.py:2569",
-    "services/summary_test_run.py:144"
+    "services/summary_test_run.py:144",
+    "services/direct_chat_service.py:9163",
+    "services/direct_chat_service.py:9163"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -18328,7 +18320,7 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/search_aggregator.py:50",
+    "services/search_aggregator.py:133",
     "services/web_content_extractor.py:65"
    ],
    "dyn_hits": [],
@@ -18531,8 +18523,8 @@
     "services/temporal_factcheck.py"
    ],
    "read_ctx_hits": [
-    "services/temporal_factcheck.py:599",
-    "services/temporal_factcheck.py:599"
+    "services/temporal_factcheck.py:603",
+    "services/temporal_factcheck.py:603"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -18573,8 +18565,8 @@
     "services/temporal_factcheck.py"
    ],
    "read_ctx_hits": [
-    "services/temporal_factcheck.py:595",
-    "services/temporal_factcheck.py:595"
+    "services/temporal_factcheck.py:599",
+    "services/temporal_factcheck.py:599"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -18675,7 +18667,7 @@
    ],
    "read_ctx_hits": [
     "bot.py:580",
-    "services/direct_chat_service.py:1858",
+    "services/direct_chat_service.py:1859",
     "services/persistent_throttling.py:398"
    ],
    "dyn_hits": [],
@@ -19582,7 +19574,7 @@
     "services/mca_vision.py"
    ],
    "read_ctx_hits": [
-    "services/mca_vision.py:1964"
+    "services/mca_vision.py:1984"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -20586,7 +20578,7 @@
    "pg_key": "limits.youtube_transcript_proxy_retries",
    "title": "Повторы при блокировке (Webshare)",
    "description": "Сколько раз повторять запрос субтитров, если прокси заблокировали (пусто — дефолт библиотеки). Не влияет: значение сохраняется в конфиге, но рантайм его не читает (ретраи каскада заданы кодом).",
-   "type": "int",
+   "type": "str",
    "secret": false,
    "hidden": false,
    "category": "limits",
@@ -20851,7 +20843,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:4310"
+    "services/direct_chat_service.py:4360"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -20889,7 +20881,7 @@
     "services/direct_chat_service.py"
    ],
    "read_ctx_hits": [
-    "services/direct_chat_service.py:2020"
+    "services/direct_chat_service.py:2047"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -20928,7 +20920,7 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_l1.py:379"
+    "services/direct_l1.py:445"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -20971,7 +20963,7 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_l1.py:389"
+    "services/direct_l1.py:455"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -21452,7 +21444,7 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/direct_l1.py:427"
+    "services/direct_l1.py:493"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -22919,11 +22911,11 @@
    "docker_ref": false,
    "test_refs": [
     "tests/js/asap7_f2_direct_ui_test.js",
+    "tests/test_direct_l1_corrective_r1.py",
+    "tests/test_direct_l1_l1d_contract.py",
     "tests/test_outgoing_guard_round1022.py",
     "tests/test_prompt_migrations.py",
-    "tests/test_soul1_composer_parity_off.py",
-    "tests/test_soul1_machine_profile_no_core.py",
-    "tests/test_soul1_registry_legacy_removal.py"
+    "tests/test_soul1_composer_parity_off.py"
    ],
    "classification": "working",
    "class_note": "static literal/field"
@@ -23481,7 +23473,7 @@
     "web/app.js"
    ],
    "read_ctx_hits": [
-    "services/prompt_style_blocks.py:281"
+    "services/prompt_style_blocks.py:291"
    ],
    "dyn_hits": [],
    "docker_ref": false,
@@ -23526,7 +23518,7 @@
    ],
    "read_ctx_hits": [],
    "dyn_hits": [
-    "services/prompt_style_blocks.py:275 (f\"prompts.verbilizer_mode_{mode}\" + 'casual')"
+    "services/prompt_style_blocks.py:285 (f\"prompts.verbilizer_mode_{mode}\" + 'casual')"
    ],
    "docker_ref": false,
    "test_refs": [
@@ -23567,7 +23559,7 @@
    ],
    "read_ctx_hits": [],
    "dyn_hits": [
-    "services/prompt_style_blocks.py:275 (f\"prompts.verbilizer_mode_{mode}\" + 'deep_research')"
+    "services/prompt_style_blocks.py:285 (f\"prompts.verbilizer_mode_{mode}\" + 'deep_research')"
    ],
    "docker_ref": false,
    "test_refs": [
@@ -23608,7 +23600,7 @@
    ],
    "read_ctx_hits": [],
    "dyn_hits": [
-    "services/prompt_style_blocks.py:275 (f\"prompts.verbilizer_mode_{mode}\" + 'serious')"
+    "services/prompt_style_blocks.py:285 (f\"prompts.verbilizer_mode_{mode}\" + 'serious')"
    ],
    "docker_ref": false,
    "test_refs": [
@@ -23818,22 +23810,6 @@
    "group": "limits_chat_budgets",
    "group_category": "limits",
    "param_category": "flags"
-  },
-  {
-   "key": "limits.image_freq_limit_cooldown_seconds",
-   "kind": "default_type_mismatch",
-   "catalog_type": "int",
-   "settings_type": "float",
-   "settings_kind": "dataclass_field",
-   "settings_default": "300.0"
-  },
-  {
-   "key": "limits.youtube_transcript_proxy_retries",
-   "kind": "default_type_mismatch",
-   "catalog_type": "int",
-   "settings_type": "str",
-   "settings_kind": "dataclass_field",
-   "settings_default": "''"
   }
  ],
  "orphan_groups": [],
@@ -24023,7 +23999,7 @@
   "tab_rules": 23,
   "ui_missing": 0,
   "no_consumer": 7,
-  "inconsistencies": 3,
+  "inconsistencies": 1,
   "orphan_groups": 0,
   "dup_settings_fields": 0,
   "dynamic_consumers": 13,

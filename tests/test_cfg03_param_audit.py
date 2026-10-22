@@ -85,14 +85,12 @@ GROUP_CATEGORY_EXCEPTIONS = {
     "flags.chat_context_budgets_enabled",
 }
 
-# Известные (документированные) расхождения тип-семейства, которые нельзя
-# исправить в этом слайсе: типы каталога пинуют тесты других слайсов
-# (tests/test_cfg02b_image_freq_limits.py:266, tests/test_hot_migration.py:225 —
-# оба вне write_scope CFG-03) — см. evidence/cfg-03/failures.md (R3, deferred).
-TYPE_FAMILY_EXCEPTIONS = {
-    "limits.image_freq_limit_cooldown_seconds",
-    "limits.youtube_transcript_proxy_retries",
-}
+# CFG-03-F2 (22.10.2026, закрытие backlog «F2-типы CFG-03»): семейство
+# типов выровнено с дефолтами Settings — cooldown int→float (дефолт 300.0,
+# резолвер float(...)), retries int→str (дефолт '', рантайм не читает);
+# пины чужих слайсов переутверждены (catalog delta + re-pin, §3.4).
+# Исключений не осталось — новое расхождение типов падает само.
+TYPE_FAMILY_EXCEPTIONS: set[str] = set()
 
 
 def _strip_comments(line: str, js: bool = False) -> str:
@@ -344,6 +342,30 @@ class TestCatalogConsistency:
         assert extra == [], (
             "каталог-тип ≠ дефолт Settings: %s (документированные "
             "исключения: %s)" % (extra, sorted(TYPE_FAMILY_EXCEPTIONS)))
+
+    def test_type_family_regressions_fixed(self):
+        """CFG-03-F2 (REGRESSION, 22.10.2026): закрытые расхождения типов.
+
+        Два former TYPE_FAMILY_EXCEPTIONS ключа: тип каталога == тип
+        factory-дефолта Settings (cooldown float 300.0, retries str '').
+        TEST-LIFECYCLE: REGRESSION owner=CFG-03-F2
+        """
+        from config.settings import Settings
+        for pg_key, field, expected in (
+            ("limits.image_freq_limit_cooldown_seconds",
+             "IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS", "float"),
+            ("limits.youtube_transcript_proxy_retries",
+             "YOUTUBE_TRANSCRIPT_PROXY_RETRIES", "str"),
+        ):
+            spec = pc.get_by_pg_key(pg_key)
+            assert spec is not None, pg_key
+            assert spec.type == expected, pg_key
+            assert type(getattr(Settings, field)).__name__ == expected, pg_key
+        # Пин-тесты чужих слайсов переутверждены тем же значением.
+        assert pc.get("IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS").type == \
+            pc.get_by_pg_key("limits.image_freq_limit_cooldown_seconds").type
+        assert pc.get("YOUTUBE_TRANSCRIPT_PROXY_RETRIES").type == \
+            pc.get_by_pg_key("limits.youtube_transcript_proxy_retries").type
 
     def test_select_params_consistent(self):
         for spec in pc.REGISTRY.values():

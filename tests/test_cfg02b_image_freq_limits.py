@@ -259,8 +259,11 @@ class TestCatalogAndDefaults:
         assert float(Settings.IMAGE_FREQ_LIMIT_COOLDOWN_SECONDS) >= 0.0
 
     def test_catalog_keys_shapes(self):
+        # CFG-03-F2 (22.10.2026): cooldown "float" == тип дефолта Settings
+        # (_env_float_min, 300.0); резолвер читает float(...).
         for key, typ in ((FREQ_ENABLED_KEY, "bool"), (FREQ_BURST_KEY, "int"),
-                         (FREQ_COOLDOWN_KEY, "int"), (FREQ_MODE_KEY, "str")):
+                         (FREQ_COOLDOWN_KEY, "float"),
+                         (FREQ_MODE_KEY, "str")):
             spec = pc.get_by_pg_key(key)
             assert spec is not None, key
             assert spec.type == typ, key

@@ -222,7 +222,10 @@ class TestYoutubeProxyCatalogMove:
             assert spec.group == "limits_youtube_proxy", field
             assert spec.description.strip(), field
         retries = pc.get("YOUTUBE_TRANSCRIPT_PROXY_RETRIES")
-        assert retries.type == "int"
+        # CFG-03-F2 (22.10.2026): "str" == тип дефолта Settings (_env_str '');
+        # рантайм значения не читает (F1). Прежний int-пин не совпадал
+        # с типом дефолта (audit default_type_mismatch).
+        assert retries.type == "str"
         assert retries.secret is False
         # секрет-пара остаётся в keys
         assert pc.get("YOUTUBE_TRANSCRIPT_PROXY_PASSWORD").category == "keys"

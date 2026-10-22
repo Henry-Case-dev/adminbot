@@ -160,8 +160,16 @@ PG_DB_SHA256_B07 = (
 # REGISTRY 579→582, delta 168→171; GROUPS/TAB-маппинги/routes не
 # менялись. Хэш переутверждён осознанно (L-F11S-1); fixture
 # f8_baseline.json обновлён тем же инструментом.
+# CFG-03-F2 (22.10.2026, закрытие backlog «F2-типы CFG-03»): Δ каталога = 0
+# (ключи/GROUPS/TAB-маппинги не менялись). Изменены ТОЛЬКО 2 type-пина
+# (catalog delta + re-pin, §3.4; рецепт failures.md F2): cooldown int→float
+# (дефолт Settings 300.0, _env_float_min; резолвер float(...)) и retries
+# int→str (дефолт '', _env_str; рантайм не читает — F1). TYPE_FAMILY_
+# EXCEPTIONS в cfg03-аудите обнулён (3→1: остался group_category only);
+# TSV/meta переэмитированы генератором (--check OK, 582 строк). Хэш
+# переутверждён осознанно (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "a4214ef9971506f909216347710d7fe97207323c21b90bc7a2ca0c8b93ae1c41")
+    "7e9c254430b0a95f896bf340bf8e1a865501631650ac1c8ec5c0d0eba0607887")
 
 
 def _sha256(path: Path) -> str:

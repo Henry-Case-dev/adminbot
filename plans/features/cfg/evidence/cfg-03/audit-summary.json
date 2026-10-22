@@ -3,12 +3,12 @@
   "tool": "tools/cfg03_param_inventory.py",
   "command": "py -3 tools/cfg03_param_inventory.py --out plans/features/cfg/evidence/cfg-03",
   "method": "один проход по runtime-коду (bot.py, manage.py, config/, handlers/, services/, web/ + app.js/index.html/static JS, filters/, scripts/, SmartModule/); комментарии вырезаются; REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES из services/param_catalog.py; плюс артефакты plans/docs/param-registry-round1025.tsv и screen-map-round1025.md",
-  "head": "e0c11306",
-  "head_full": "e0c11306b9c54a4538ed7d6ae0b9737aa9d0686b",
-  "date": "2026-10-21",
-  "reemission": "CFG-03-WAVE-A: 579 (снапшот 19.10.2026 @df078406) -> 582 (+3 флага фактчека, коммит 46303ecd); diff ключей: ADDED=[flags.factcheck_wide_context, flags.factcheck_suitability_gate, flags.factcheck_pipeline_v2], REMOVED=[]",
-  "f8_crosscheck": "py -3 tools/gen_param_registry_round1025.py --check -> CHECK OK: реестр 582 == REGISTRY (21.10.2026)",
-  "contract_test": "py -3 -m pytest tests/test_cfg03_param_audit.py -> 16 passed @e0c11306"
+  "head": "804f4963",
+  "head_full": "804f4963a06005256b7c883601ba9723857b6027",
+  "date": "2026-10-22",
+  "reemission": "CFG-03-F2 (22.10.2026, backlog «F2-типы CFG-03»): рабочее дерево HEAD 804f4963 + дельта FIX-SMALL-DEFECTS — 2 type-пина каталога выровнены с дефолтами Settings (limits.image_freq_limit_cooldown_seconds int→float: Settings _env_float_min 300.0, резолвер float(...); limits.youtube_transcript_proxy_retries int→str: Settings _env_str '', рантайм не читает — F1); счётчик inconsistencies 3→1 (остался group_category only), TYPE_FAMILY_EXCEPTIONS в cfg03-аудите обнулён; пины чужих слайсов переутверждены (catalog delta + re-pin §3.4: TSV/meta переэмитированы, --check OK)",
+  "f8_crosscheck": "py -3 tools/gen_param_registry_round1025.py --check -> CHECK OK: реестр 582 == REGISTRY (22.10.2026, после re-pin)",
+  "contract_test": "py -3 -m pytest tests/test_cfg03_param_audit.py -> 17 passed (16 + 1 REGRESSION test_type_family_regressions_fixed) на рабочем дереве F2; venv-прогон семьи 22.10.2026 — 823 passed"
  },
  "summary": {
   "registry": 582,
@@ -17,7 +17,7 @@
   "tab_rules": 23,
   "ui_missing": 0,
   "no_consumer": 7,
-  "inconsistencies": 3,
+  "inconsistencies": 1,
   "orphan_groups": 0,
   "dup_settings_fields": 0,
   "dynamic_consumers": 13,
@@ -48,22 +48,6 @@
    "group": "limits_chat_budgets",
    "group_category": "limits",
    "param_category": "flags"
-  },
-  {
-   "key": "limits.image_freq_limit_cooldown_seconds",
-   "kind": "default_type_mismatch",
-   "catalog_type": "int",
-   "settings_type": "float",
-   "settings_kind": "dataclass_field",
-   "settings_default": "300.0"
-  },
-  {
-   "key": "limits.youtube_transcript_proxy_retries",
-   "kind": "default_type_mismatch",
-   "catalog_type": "int",
-   "settings_type": "str",
-   "settings_kind": "dataclass_field",
-   "settings_default": "''"
   }
  ],
  "no_consumer": [
