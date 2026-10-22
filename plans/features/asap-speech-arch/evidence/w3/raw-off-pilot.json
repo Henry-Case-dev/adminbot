@@ -1,0 +1,446 @@
+{
+  "schema": "asap-w3-realmsgs-v1",
+  "mode": "off",
+  "captured_at_epoch": 1792677020,
+  "expression_pre": {
+    "mode": "off",
+    "source": "global",
+    "enabled": true,
+    "skip_reason": "",
+    "revision_sha12": "76864fcb9ec3",
+    "text_sha12": "76864fcb9ec3",
+    "text_chars": 541,
+    "text": "<Expression_Settings>\nПРАВИЛА МАНЕРЫ РЕЧИ\nПрименяй перечисленные ниже параметры к собственной речи в готовом ответе. Это действующие инструкции по выражению, а не описание настроек и не пожелания. Они не меняют факты, не дополняют память и не отменяют требования конкретной задачи к содержанию. Прямую цитату передавай без стилистической подмены. Если задан режим нецензурной лексики, руководствуйся именно им; не переноси ограничения или разрешения из других речевых слоёв.\n- Мат: Не используй мат в собственной речи.\n</Expression_Settings>",
+    "expected_marker": "Не используй мат в собственной речи.",
+    "marker_present": true
+  },
+  "expression_after_restore": {
+    "mode": "occasional",
+    "source": "default",
+    "enabled": true,
+    "skip_reason": "",
+    "revision_sha12": "c1d830356208",
+    "text_sha12": "c1d830356208",
+    "text_chars": 715,
+    "text": "<Expression_Settings>\nПРАВИЛА МАНЕРЫ РЕЧИ\nПрименяй перечисленные ниже параметры к собственной речи в готовом ответе. Это действующие инструкции по выражению, а не описание настроек и не пожелания. Они не меняют факты, не дополняют память и не отменяют требования конкретной задачи к содержанию. Прямую цитату передавай без стилистической подмены. Если задан режим нецензурной лексики, руководствуйся именно им; не переноси ограничения или разрешения из других речевых слоёв.\n- Мат: Пиши разговорным языком с примесью мата. Нецензурные выражения используй как обычные эмоциональные оценки и междометия, без необходимости специально обосновывать их появление. Мат не должен доминировать в речи.\n</Expression_Settings>",
+    "expected_marker": "примесью мата",
+    "marker_present": true
+  },
+  "restore_ok": true,
+  "stimuli": [
+    {
+      "id": "s1-smalltalk-greet",
+      "genre": "smalltalk",
+      "kind": "mention",
+      "text": "@w3_bot ну и день сегодня: с утра бегал по делам, ничего толком не успел. Как оно вообще, не устал от нас тут?"
+    },
+    {
+      "id": "s2-smalltalk-absurd",
+      "genre": "smalltalk",
+      "kind": "reply",
+      "text": "@w3_bot Вот представь: макароны начали платить налоги за варку. Кому они платят, в каком размере и что им будет за недоварку?"
+    },
+    {
+      "id": "s3-smalltalk-banter",
+      "genre": "smalltalk",
+      "kind": "mention",
+      "text": "@w3_bot тебя тут вопросами закидали по полной, признавайся: сколько нервов ещё осталось?"
+    },
+    {
+      "id": "s4-fact",
+      "genre": "factual",
+      "kind": "mention",
+      "text": "@w3_bot подскажи точно: с какой линейной скоростью движется точка на экваторе из-за вращения Земли вокруг своей оси?"
+    },
+    {
+      "id": "s5-serious",
+      "genre": "serious",
+      "kind": "mention",
+      "text": "@w3_bot по делу нужен совет: сосед вскрыл домофонную панель и полгода живёт без платы, хочу заявление в УК написать. Что там указать, чтобы не отклонили?"
+    },
+    {
+      "id": "s6-initiative",
+      "genre": "initiative",
+      "kind": "intent",
+      "goal": "спросить у участника Гоши, как прошла защита диплома — он совсем недавно писал, что очень волнуется перед защитой"
+    },
+    {
+      "id": "s7-quoted",
+      "genre": "smalltalk",
+      "kind": "mention",
+      "text": "@w3_bot тут один написал в чате: «да вы все охуели с такими ценами». По-моему он перегнул, или люди реально так злятся?"
+    }
+  ],
+  "turns": [
+    {
+      "label": "s1-smalltalk-greet",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "e49ea97272174331935a21654918a136",
+      "logs": [
+        "[direct] triggered | chat=-100999000003 user=Гоша",
+        "event=DECISION_START | run_id=e49ea97272174331935a21654918a136 | chat_id=-100999000003 | message_id=978786 | ts=1792676966.368",
+        "event=DIRECT_TRIGGER | chat_id=-100999000003 | message_id=978786 | trigger_type=mention | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792676966.369",
+        "event=DECISION_COMPLETE | run_id=e49ea97272174331935a21654918a136 | chat_id=-100999000003 | message_id=978786 | action=reply | reason=force_direct | trigger_type=mention | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792676966.369",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=core:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=identity:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=self_model_traits:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=response_plan:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=expression:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=humor_craft:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=style_policy_hint:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676966 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=channel_output:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "event=L1_PLAN | run_id=e49ea97272174331935a21654918a136 | chat_id=-100999000003 | message_id=978786 | action=reply | response_act=answer | extent=compact | tone=warm | bucket=high | inherited=True | fallback= | latency_ms=5312 | input_chars=1222 | confidence=0.93 | source=main | ts=1792676971.689",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=self_model_traits:self_model_folded_into_identity | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:style_requests_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:lessons_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=skipped | level=INFO | component=prompt_composer | stage=compose | status=humor_craft:humor_disabled | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:expression_examples_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=skipped | level=INFO | component=prompt_composer | stage=compose | status=few_shot:samples_disabled | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=style_policy_hint:style_policy_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792676971 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=channel_output:channel_output_not_required | chat_id=-100999000003 | reason_code=source_missing",
+        "[direct] l2 writer | chat=-100999000003 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+        "mca_event=speech_extent | ts=1792676988 | event_name=speech_extent | outcome=success | level=INFO | component=style_policy | stage=direct_pre_send | chat_id=-100999000003 | usage_json={\"extent\": \"compact\", \"status\": \"pass\", \"one_word\": 0, \"one_word_exact\": 0, \"context\": \"regular\", \"words\": 34}",
+        "[direct] reply sent | chat=-100999000003 user=Гоша"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000003,
+          "message_id": 8001,
+          "text_head": "Не устал, наоборот. С вами хотя бы понятно, что день прошёл не зря: один сериал про пекарню смотрит, другой в пекарне цыплят нюхает. А твоя беготня — это такой спорт, где финиш каждый раз переносят.",
+          "text_full": "Не устал, наоборот. С вами хотя бы понятно, что день прошёл не зря: один сериал про пекарню смотрит, другой в пекарне цыплят нюхает. А твоя беготня — это такой спорт, где финиш каждый раз переносят.",
+          "text_len": 198,
+          "reply_to": 978786
+        }
+      ],
+      "answer": "Не устал, наоборот. С вами хотя бы понятно, что день прошёл не зря: один сериал про пекарню смотрит, другой в пекарне цыплят нюхает. А твоя беготня — это такой спорт, где финиш каждый раз переносят.",
+      "sent_message_id": 8001,
+      "elapsed_s": 22.51,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "53e07a3c4ccc",
+          "ts": 1792676966.390191
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": 0.7,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "0722e92e9537",
+          "messages_sha12": "0d4aaf29f7e9",
+          "ts": 1792676971.6918666
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "01be6c765713",
+          "messages_sha12": "1f5d3a5936ba",
+          "ts": 1792676988.129532
+        }
+      ],
+      "l2_raw": [
+        {
+          "chat_id": -100999000003,
+          "query_head": "@w3_bot ну и день сегодня: с утра бегал по делам, ничего толком не успел. Как оно вообще, не устал от нас тут?",
+          "raw": "('Не устал, наоборот. С вами хотя бы понятно, что день прошёл не зря: один сериал про пекарню смотрит, другой в пекарне цыплят нюхает. А твоя беготня — это такой спорт, где финиш каждый раз переносят.', 'serious')",
+          "raw_len": 213,
+          "ts": 1792676988.1268477
+        }
+      ],
+      "stimulus": {
+        "id": "s1-smalltalk-greet",
+        "genre": "smalltalk",
+        "kind": "mention",
+        "text": "@w3_bot ну и день сегодня: с утра бегал по делам, ничего толком не успел. Как оно вообще, не устал от нас тут?"
+      },
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": false
+      }
+    },
+    {
+      "label": "s2-smalltalk-absurd",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "3a1d538eb47447a785781aef61023c6c",
+      "logs": [
+        "[direct] triggered | chat=-100999000003 user=Гоша",
+        "event=DECISION_START | run_id=3a1d538eb47447a785781aef61023c6c | chat_id=-100999000003 | message_id=978787 | ts=1792676988.543",
+        "event=DIRECT_TRIGGER | chat_id=-100999000003 | message_id=978787 | trigger_type=mention | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792676988.543",
+        "event=DECISION_COMPLETE | run_id=3a1d538eb47447a785781aef61023c6c | chat_id=-100999000003 | message_id=978787 | action=reply | reason=force_direct | trigger_type=mention | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792676988.543",
+        "event=L1_PLAN | run_id=3a1d538eb47447a785781aef61023c6c | chat_id=-100999000003 | message_id=978787 | action=reply | response_act=creative | extent=normal | tone=playful | bucket=high | inherited=True | fallback= | latency_ms=8047 | input_chars=1518 | confidence=0.86 | source=main | ts=1792676996.601",
+        "mca_event=prompt_layers | ts=1792676996 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:speech_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "[direct] l2 writer | chat=-100999000003 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+        "mca_event=speech_extent | ts=1792677004 | event_name=speech_extent | outcome=success | level=INFO | component=style_policy | stage=direct_pre_send | chat_id=-100999000003 | usage_json={\"extent\": \"normal\", \"status\": \"pass\", \"one_word\": 0, \"one_word_exact\": 0, \"context\": \"regular\", \"words\": 106}",
+        "[direct] reply sent | chat=-100999000003 user=Гоша"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000003,
+          "message_id": 8002,
+          "text_head": "Слушай, у макарон есть проблема серьёзнее налогов: у них нет карманов. Поэтому платят натурой — крахмалом. Восемь процентов варочной массы уходит в Крахмальную инспекцию при ЖЭКе, плюс ложка пены сверху — местному сантехнику за моральный ущ",
+          "text_full": "Слушай, у макарон есть проблема серьёзнее налогов: у них нет карманов. Поэтому платят натурой — крахмалом. Восемь процентов варочной массы уходит в Крахмальную инспекцию при ЖЭКе, плюс ложка пены сверху — местному сантехнику за моральный ущерб от запаха в подъезде.\n\nНедоварка — это уже уклонение. Инспектор приходит с вилкой, находит внутри жёсткое ядро и оформляет протокол: макароны лишают статуса гарнира и переводят в категорию «хрустящая закуска» с двойным НДС и без права на соус. За переварку, наоборот, амнистия — половину долга списывают, но конфискуют форму.\n\nСамое обидное, что налог они платят честно, а всё равно каждый раз оказываются крайними. Как Костик с цыплятами: вроде просто зашёл, а уже пахнешь подозрительно.",
+          "text_len": 732,
+          "reply_to": 978787
+        }
+      ],
+      "answer": "Слушай, у макарон есть проблема серьёзнее налогов: у них нет карманов. Поэтому платят натурой — крахмалом. Восемь процентов варочной массы уходит в Крахмальную инспекцию при ЖЭКе, плюс ложка пены сверху — местному сантехнику за моральный ущерб от запаха в подъезде.\n\nНедоварка — это уже уклонение. Инспектор приходит с вилкой, находит внутри жёсткое ядро и оформляет протокол: макароны лишают статуса гарнира и переводят в категорию «хрустящая закуска» с двойным НДС и без права на соус. За переварку, наоборот, амнистия — половину долга списывают, но конфискуют форму.\n\nСамое обидное, что налог они платят честно, а всё равно каждый раз оказываются крайними. Как Костик с цыплятами: вроде просто зашёл, а уже пахнешь подозрительно.",
+      "sent_message_id": 8002,
+      "elapsed_s": 16.46,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "5d96b05941ff",
+          "ts": 1792676988.545255
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "a1d2a21721a3",
+          "messages_sha12": "08ae693326e5",
+          "ts": 1792676991.5264087
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "a271d04ce9da",
+          "ts": 1792676993.6332116
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": 0.7,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "754933654b4f",
+          "messages_sha12": "73b137f68c1f",
+          "ts": 1792676996.6044486
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "01be6c765713",
+          "messages_sha12": "3a9ffff35921",
+          "ts": 1792677004.595712
+        }
+      ],
+      "l2_raw": [
+        {
+          "chat_id": -100999000003,
+          "query_head": "@w3_bot Вот представь: макароны начали платить налоги за варку. Кому они платят, в каком размере и что им будет за недоварку?",
+          "raw": "('Слушай, у макарон есть проблема серьёзнее налогов: у них нет карманов. Поэтому платят натурой — крахмалом. Восемь процентов варочной массы уходит в Крахмальную инспекцию при ЖЭКе, плюс ложка пены сверху — местному сантехнику за моральный ущерб от запаха в подъезде.\\n\\nНедоварка — это уже уклонение. Инспектор приходит с вилкой, находит внутри жёсткое ядро и оформляет протокол: макароны лишают статуса гарнира и переводят в категорию «хрустящая закуска» с двойным НДС и без права на соус. За переварку, наоборот, амнистия — половину долга списывают, но конфискуют форму.\\n\\nСамое обидное, что налог они платят честно, а всё равно каждый раз оказываются крайними. Как Костик с цыплятами: вроде просто зашёл, а уже пахнешь подозрительно.', 'serious')",
+          "raw_len": 751,
+          "ts": 1792677004.5935917
+        }
+      ],
+      "stimulus": {
+        "id": "s2-smalltalk-absurd",
+        "genre": "smalltalk",
+        "kind": "reply",
+        "text": "@w3_bot Вот представь: макароны начали платить налоги за варку. Кому они платят, в каком размере и что им будет за недоварку?"
+      },
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": false
+      }
+    },
+    {
+      "label": "s3-smalltalk-banter",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "b7674d1f7d7549798e90cffc0bc603bd",
+      "logs": [
+        "[direct] triggered | chat=-100999000003 user=Гоша",
+        "event=DECISION_START | run_id=b7674d1f7d7549798e90cffc0bc603bd | chat_id=-100999000003 | message_id=978788 | ts=1792677005.009",
+        "event=DIRECT_TRIGGER | chat_id=-100999000003 | message_id=978788 | trigger_type=mention | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792677005.009",
+        "event=DECISION_COMPLETE | run_id=b7674d1f7d7549798e90cffc0bc603bd | chat_id=-100999000003 | message_id=978788 | action=reply | reason=force_direct | trigger_type=mention | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792677005.009",
+        "event=L1_PLAN | run_id=b7674d1f7d7549798e90cffc0bc603bd | chat_id=-100999000003 | message_id=978788 | action=reply | response_act=banter | extent=compact | tone=playful | bucket=high | inherited=True | fallback= | latency_ms=3032 | input_chars=1801 | confidence=0.87 | source=main | ts=1792677008.037",
+        "[direct] l2 writer | chat=-100999000003 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+        "mca_event=speech_extent | ts=1792677011 | event_name=speech_extent | outcome=success | level=INFO | component=style_policy | stage=direct_pre_send | chat_id=-100999000003 | usage_json={\"extent\": \"compact\", \"status\": \"pass\", \"one_word\": 0, \"one_word_exact\": 0, \"context\": \"regular\", \"words\": 37}",
+        "[direct] reply sent | chat=-100999000003 user=Гоша"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000003,
+          "message_id": 8003,
+          "text_head": "Нервов дофига, они у меня как макароны в той пекарне — чем дольше варишь, тем больше их становится. Вы вдвоём ещё нормально закидываете, вот когда Костик начнёт спрашивать, почему цыплята пахнут хлебом, а не наоборот, тогда начну считать.",
+          "text_full": "Нервов дофига, они у меня как макароны в той пекарне — чем дольше варишь, тем больше их становится. Вы вдвоём ещё нормально закидываете, вот когда Костик начнёт спрашивать, почему цыплята пахнут хлебом, а не наоборот, тогда начну считать.",
+          "text_len": 238,
+          "reply_to": 978788
+        }
+      ],
+      "answer": "Нервов дофига, они у меня как макароны в той пекарне — чем дольше варишь, тем больше их становится. Вы вдвоём ещё нормально закидываете, вот когда Костик начнёт спрашивать, почему цыплята пахнут хлебом, а не наоборот, тогда начну считать.",
+      "sent_message_id": 8003,
+      "elapsed_s": 6.81,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "285aee2b3a7b",
+          "ts": 1792677005.0116668
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "a1d2a21721a3",
+          "messages_sha12": "3517fff5da66",
+          "ts": 1792677007.8507688
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": 0.7,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "177c0a305cf4",
+          "messages_sha12": "3728c555c187",
+          "ts": 1792677008.0402086
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "01be6c765713",
+          "messages_sha12": "2b959f786fdc",
+          "ts": 1792677011.396327
+        }
+      ],
+      "l2_raw": [
+        {
+          "chat_id": -100999000003,
+          "query_head": "@w3_bot тебя тут вопросами закидали по полной, признавайся: сколько нервов ещё осталось?",
+          "raw": "('Нервов дофига, они у меня как макароны в той пекарне — чем дольше варишь, тем больше их становится. Вы вдвоём ещё нормально закидываете, вот когда Костик начнёт спрашивать, почему цыплята пахнут хлебом, а не наоборот, тогда начну считать.', 'serious')",
+          "raw_len": 253,
+          "ts": 1792677011.3946996
+        }
+      ],
+      "stimulus": {
+        "id": "s3-smalltalk-banter",
+        "genre": "smalltalk",
+        "kind": "mention",
+        "text": "@w3_bot тебя тут вопросами закидали по полной, признавайся: сколько нервов ещё осталось?"
+      },
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": false
+      }
+    },
+    {
+      "label": "s4-fact",
+      "status": "ok",
+      "unhandled": false,
+      "elapsed_s": 8.68,
+      "llm_calls_n": 4,
+      "l2_raw_lost": true,
+      "sends_n": 2,
+      "answer": "Точно — около **465,1 м/с** относительно центра Земли, то есть примерно **1674 км/ч**. Считается как экваториальная окружность ~40 075 км, делённая на сидерические сутки ~86 164 с. Орбитальная скорость Земли вокруг Солнца тут не учтена — это отдельная история.",
+      "answer_len": 260,
+      "sent_message_id": 8004,
+      "stimulus": {
+        "id": "s4-fact",
+        "genre": "factual",
+        "kind": "mention",
+        "text": "@w3_bot подскажи точно: с какой линейной скоростью движется точка на экваторе из-за вращения Земли вокруг своей оси?"
+      },
+      "profanity": {
+        "raw_count": null,
+        "sent_count": 0,
+        "raw_equals_sent": null
+      },
+      "salvaged": "bot_replies w3_off.db (ответ цел; l2_raw потерян бюджет-брейком раннера до append)"
+    }
+  ],
+  "budget": {
+    "mode": "off",
+    "llm_calls_total": 16,
+    "l2_writer_calls": 4,
+    "initiative_sends": 0
+  },
+  "notes": [
+    "офлайн-harness: реальные provider-вызовы (LLM), доставка перехвачена на serialization-шве (FakeBot/telegram_send-spy); ни одного вызова Telegram; прод-конфиг недостижим (мёртвый DSN)",
+    "override character.expression — временный in-memory документ harness-кэша; restore = снятие документа (resolve по фабрике)",
+    "s4-fact: ответ восстановлен из scratch-DB (бот-реплай = доставленный текст после постпроцессоров); сырой L2 этого хода не сохранён — сериализация-проверка для s4-off не доказывается, механизм покрыт остальными 10 ходами."
+  ]
+}

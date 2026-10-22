@@ -133,8 +133,14 @@
    "acceptance": "[P0] Зафиксирован точный diff сохранённой владельческой редакции Full Core против заводской §3.2, прежняя версия в истории; в текущую глобальную конфигурацию внесена очищенная редакция owner-preserving patch (убраны только тема мата, служебная ремарка и явные противоречия), diff показан; chat overrides владельца не уничтожены; factory указывает на текст §3.2.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "ref": "plans/features/asap-speech-arch/release-258111/deploy.md",
+     "observation": "W2 deploy: owner-preserving патч rev6 — удалена ровно 1 SOUL-16-ремарка, независимая реконструкция owner_bytes_preserved=true; diff в deploy.md"
+    }
+   ]
   },
   {
    "source_id": "MAN-P0D-BOUNDS",
@@ -172,8 +178,14 @@
    "acceptance": "[P0] В payload рендерится ровно эффективный режим (не все три);wit/sharpness/verbosity и прочие контролы с заводскими значениями сохранены, взаимное влияние проверено; frequent не установлен глобально ради теста; тестирование изолированными временными overrides с доказанным restore (значения до/после равны).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §2",
+     "observation": "W3 probe1 (0 платных): в собранном system каждого режима ровно одна ветка Expression (маркеры взаимоисключающие), system-sha off/occ/freq различаются; capabilities/wit/sharpness сохранены"
+    }
+   ]
   },
   {
    "source_id": "MAN-P0D-QUOTED",
@@ -556,8 +568,14 @@
    "acceptance": "[P0] Ответ сравнён до/после всех постпроцессоров и Telegram serialization: off без мата из-за модели, а не sanitization; frequent доходит до Telegram без вырезания; ограничение провайдера при конфликте со стилем честно зафиксировано с проверкой fallback.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §3-4",
+     "observation": "W3: raw==sent 10/10 (off-pilot s1-s3, occasional s1/s2/s4/s5, frequent s5/s1/s2 вкл. мат); ни один постпроцессор не менял; off чист силой модели, frequent дошёл без вырезания; postprocess_changed/model_ignored_instruction не сработали"
+    }
+   ]
   },
   {
    "source_id": "MAN-GOV-PENDINGLIVE",
@@ -1179,7 +1197,7 @@
    "acceptance": "[P0] DIRECT_VERBALIZER_SYSTEM_PROMPT заменён текстом §3.1 байт-в-байт; зарегистрирована новая Factory Revision (block direct.base.l2_writer); ступень миграции ведёт активные значения; активная запись в PG обновлена; ключ, имя канона, назначение и API прежние; JSON пользователю не отправляется; с Core не слит. Условие ДОП-1: удаление токсичной идентичности из Direct-промптов допустимо только при её сохранении в Core и реальном попадании во все пользовательские речевые маршруты; офлайн-проверка подтверждает присутствие характера (резкость/цинизм/абсурд) в ответах после очистки. Ревью-критерий ДОП-2: проверена сохранность выразительности, глубины и индивидуальности персонажа, не только отсутствие конфликтов. Запрещены скрытые ограничители токсичности, нейтрализующие формулировки, автоматическая цензура.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
@@ -1188,6 +1206,11 @@
      "observation": "Live-половина P0-A на проде 2.58.111: активная запись PG prompts.direct_chat_verbalizer_system_prompt == фабрике §3.1 (sha12 be03964322aa, 1982c) с провенансом owner_edit (persisted) и history; unprovenanced-кастом 091115cadc28 (1676c) погашен, прежние байты в history; runtime payload == канону (resolve_speech_value attested, withheld=False); fingerprint runtime==fd4e88754749. Финальная read-only сверка FINAL_VERIFY_OK.",
      "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md",
      "artifact_sha256": "45ec14fc84e3ddfde046da3b342cd129c7bab4240bbcf4de68ef27f63b6cc3a7"
+    },
+    {
+     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §2-3",
+     "observation": "W1 §3.1 фабрика be03964322aa + миграция active (2.58.111 W2) + W3 реальные L2-вызовы: канон используется, без личности/мата/форматных правил, факт-точность сохранена"
     }
    ]
   },
@@ -1278,7 +1301,7 @@
    "acceptance": "[P0] PERSONALITY_CORE_FULL_TEXT = текст §3.2 байт-в-байт (без регулирования мата, типографики, SOUL-16 и служебных примечаний); ревизия обновлена, история old→new сохранена; стиль и узнаваемость сохранены. Условия ДОП-1/2: токсичность, цинизм, язвительность, сарказм, грубость и провокационный юмор сохранены как полноценные свойства личности; каждый смысловой блок авторского Core сохранён или перенесён с обоснованием (дублирование/конфликт/перенос в конкретный модуль), примитивизация вида «будь токсичным» запрещена; активная пользовательская редакция получает owner-preserving минимальный патч (только мат-тема/служебная ремарка/явные конфликты) с показом diff; ревью включает проверку сохранности выразительности/глубины/индивидуальности.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
@@ -1287,6 +1310,11 @@
      "observation": "Live-половина P0-B на проде 2.58.111: фабрика v3 2ab417d11404 (FACTORY_SET fd4e88754749, runtime==constant); активная владельческая правка rev6 f59ba0f42a48 (2327c) -> 3de4884f29ce (1995c) через owner_preserve_core_full_patch: удалена ровно 1 служебная ремарка «**Важно:**…см. SOUL-16», независимая реконструкция owner_bytes_preserved=true; запись write_speech_value с провенансом owner_edit (persisted) + history; compact пуст -> фабрика 9e6a4ec8b1ea; per-chat overrides не тронуты (26+3 == снимок).",
      "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md",
      "artifact_sha256": "45ec14fc84e3ddfde046da3b342cd129c7bab4240bbcf4de68ef27f63b6cc3a7"
+    },
+    {
+     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §3 + release-258111/deploy.md",
+     "observation": "W1 §3.2/3.3 фабрики 2ab417d11404/9e6a4ec8b1ea + owner-preserving патч active rev6 (только SOUL-16, owner_bytes_preserved=true) + W3: сарказм/цинизм/абсурд во всех режимах, serious чист"
     }
    ]
   },

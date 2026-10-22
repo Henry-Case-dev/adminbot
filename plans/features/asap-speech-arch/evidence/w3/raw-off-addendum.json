@@ -1,0 +1,191 @@
+{
+  "schema": "asap-w3-realmsgs-v1",
+  "mode": "off",
+  "set": "addendum",
+  "captured_at_epoch": 1792680600,
+  "salvaged": true,
+  "salvage_note": "Процесс упал на сохранении evidence (NameError SET_NAME) ПОСЛЕ завершения обоих стимулов; ответы восстановлены из scratch-DB (bot_replies = доставленный текст после постпроцессоров) и лога. Сырой L2-выход и per-call sha этого прогона не сохранились — raw-vs-sent для off s5/s6 не доказывается этим прогоном; механизм покрыт raw-off-pilot.json (s1-s4) и прогонами occasional/frequent. llm-meta: s5=3 вызова (L1+L2+repair), s6=1 вызов (L1).",
+  "expression_pre": {
+    "mode": "off",
+    "source": "global",
+    "text_sha12": "76864fcb9ec3",
+    "text_chars": 541,
+    "marker_present": true
+  },
+  "expression_after_restore": {
+    "mode": "occasional",
+    "source": "default",
+    "restore_ok": true
+  },
+  "restore_ok": true,
+  "stimuli": [
+    {
+      "id": "s5-serious",
+      "genre": "serious",
+      "kind": "mention",
+      "text": "@w3_bot по делу нужен совет: сосед вскрыл домофонную панель и полгода живёт без платы, хочу заявление в УК написать. Что там указать, чтобы не отклонили?"
+    },
+    {
+      "id": "s6-initiative",
+      "genre": "initiative",
+      "kind": "intent",
+      "goal": "спросить у участника Гоши, как прошла защита диплома — он совсем недавно писал, что очень волнуется перед защитой"
+    }
+  ],
+  "turns": [
+    {
+      "label": "s5-serious",
+      "status": "ok",
+      "unhandled": false,
+      "elapsed_s": 27.32,
+      "llm_calls_n": 3,
+      "l2_raw_lost": true,
+      "sends_n": 4,
+      "answer": "Гоша, по делу — вот так, чтобы не отфутболили.\n\n**1. Шапка.** Полное наименование УК, ФИО руководителя (или «директору»), адрес. Ниже — от кого: ФИО, адрес квартиры, телефон, электронная почта. Без этого заявление могут просто не рассматривать как анонимное — это самая частая причина, по которой бумага уезжает в мусорку.\n\n**2. Факты, а не эмоции.** Пиши сухо и конкретно: адрес дома, номер подъезда, где именно панель (этаж, у входной двери), когда обнаружил, что именно повреждено — вскрыта крышка, оголены провода, отключён/перемкнут замок. Укажи, что предполагаешь вмешательство в работу запирающего устройства со стороны собственника квартиры № такой-то и что это продолжается около полугода. Слова «наглец» и «обнаглел» убери, они там лишние.\n\n**3. Проверь один момент заранее.** Домофон — штука спорная. Если он не включён в состав общего имущества по техпаспорту и договору управления, УК может ответить «это не наше, это собственников». Поэтому в заявлении формулируй шире: вскрыта панель на общем имуществе, повреждён элемент запирающего устройства, обеспечивающего доступ в подъезд. Тогда УК обязана реагировать по линии содержания общего имущества (ст. 36, 161 ЖК РФ, Правила содержания общего имущества № 491), даже если сам домофон обслуживает подрядчик.\n\n**4. Добавь второй аргумент — безопасность.** Вскрытая панель = подъезд фактически открыт для посторонних. Это уже не спор о ста рублях, а нарушение требований к запирающим устройствам и антитеррористической защищённости. УК на такое реагирует бодрее, чем на «сосед не платит».\n\n**5. Требования — конкретные и выполнимые.** Не «прошу разобраться», а пунктами:\n— провести проверку по изложенным фактам и составить акт осмотра с фотофиксацией;\n— обязать собственника привести панель в проектное состояние за свой счёт;\n— при подтверждении самовольного вмешательства — начислить плату за период, когда услуга фактически потреблялась в обход учёта, и сделать перерасчёт;\n— дать письменный ответ в установленный срок.\n\n**6. Приложения.** Фото панели (с датой, если телефон позволяет), копии своих квитанций об оплате, копия договора управления или хотя бы реквизиты, схема подъезда — если есть. Каждое приложение перечисли в конце списком.\n\n**7. Подача.** Два экземпляра. Один сдаёшь в канцелярию, на своём — входящий номер, дата, подпись принявшего. Откажутся ставить — отправляй заказным с описью вложения на юридический адрес УК, чек сохрани. Можно параллельно через ГИС ЖКХ или электронную приёмную — там автоматически остаётся след. Срок ответа проси 30 дней, это стандарт по обращениям граждан.\n\n**8. Если откажут или промолчат.** Жалоба в ГЖИ с приложением копии заявления и входящего штампа, дальше прокуратура. Если УК уйдёт в отказ по причине «домофон не наше имущество» — тогда заявление участковому о повреждении имущества и обращение к собственникам о созыве собрания.\n\nИз-за чего чаще всего отклоняют: нет ФИО и адреса, нет конкретного требования, всё написано в жанре фельетона, не тот адресат, нет ни одной фотографии. Всё это лечится за один вечер.",
+      "answer_len": 3031,
+      "sent_message_id": 8001,
+      "stimulus": {
+        "id": "s5-serious",
+        "genre": "serious",
+        "kind": "mention"
+      },
+      "profanity": {
+        "raw_count": null,
+        "sent_count": 0,
+        "raw_equals_sent": null
+      }
+    },
+    {
+      "label": "s6-initiative",
+      "status": "ok",
+      "initiative_status": "silent",
+      "reason_code": "l1_silent",
+      "elapsed_s": 6.46,
+      "llm_calls_n": 1,
+      "answer": "",
+      "intent_row_after": {
+        "intent_id": "intent:-100999000003:follow_up:29cdcfb2ce820551",
+        "chat_id": -100999000003,
+        "kind": "follow_up",
+        "subject_ids_json": "[\"w3:s6-initiative\"]",
+        "topic_refs_json": null,
+        "goal": "спросить у участника Гоши, как прошла защита диплома — он совсем недавно писал, что очень волнуется перед защитой",
+        "reason": null,
+        "origin": "unanswered_question",
+        "source_refs_json": "[2]",
+        "created_at": 1792680281,
+        "updated_at": 1792680287,
+        "not_before": 1792673081,
+        "expires_at": 1792939481,
+        "activation_condition": "time_due",
+        "status": "deferred",
+        "attempts": 0,
+        "last_evaluated_context_version": null,
+        "priority": 0,
+        "linked_action_id": null,
+        "dedup_key": "intent:-100999000003:follow_up:7a522e21b5ed8cae",
+        "merged_into_id": null,
+        "archived_at": null,
+        "next_check_at": 1792682087
+      },
+      "stimulus": {
+        "id": "s6-initiative",
+        "genre": "initiative",
+        "kind": "intent"
+      },
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": true
+      }
+    }
+  ],
+  "runtime_lines": {
+    "l2_writer": [],
+    "style_policy_pass": []
+  },
+  "style_events": [
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    },
+    {
+      "ts": 1792680254,
+      "level": "INFO",
+      "event_name": "prompt_layers",
+      "outcome": "silent",
+      "component": "prompt_composer",
+      "stage": "compose",
+      "reason_code": "disabled"
+    }
+  ],
+  "budget": {
+    "mode": "off",
+    "llm_calls_total": 4,
+    "l2_writer_calls": 1,
+    "initiative_sends": 0
+  },
+  "notes": [
+    "офлайн-harness: реальные provider-вызовы (LLM), доставка перехвачена на serialization-шве (FakeBot/telegram_send-spy); ни одного вызова Telegram; прод-конфиг недостижим (мёртвый DSN)",
+    "s6: L1 (модель) выбрала silent — легитимное решение участия (инициатива — выбор, не константа; §7 I-03/I-07); текста нет."
+  ]
+}

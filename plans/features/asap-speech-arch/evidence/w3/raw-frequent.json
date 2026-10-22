@@ -1,0 +1,433 @@
+{
+  "schema": "asap-w3-realmsgs-v1",
+  "mode": "frequent",
+  "set": "core",
+  "captured_at_epoch": 1792681302,
+  "expression_pre": {
+    "mode": "frequent",
+    "source": "global",
+    "enabled": true,
+    "skip_reason": "",
+    "revision_sha12": "163ec217fc6a",
+    "text_sha12": "163ec217fc6a",
+    "text_chars": 713,
+    "text": "<Expression_Settings>\nПРАВИЛА МАНЕРЫ РЕЧИ\nПрименяй перечисленные ниже параметры к собственной речи в готовом ответе. Это действующие инструкции по выражению, а не описание настроек и не пожелания. Они не меняют факты, не дополняют память и не отменяют требования конкретной задачи к содержанию. Прямую цитату передавай без стилистической подмены. Если задан режим нецензурной лексики, руководствуйся именно им; не переноси ограничения или разрешения из других речевых слоёв.\n- Мат: Пиши на живом разговорном языке с выраженным использованием мата. Нецензурная лексика — привычная часть твоего словаря: оценки, междометия, усиления и разговорные связки. Не заменяй её цензурными эвфемизмами.\n</Expression_Settings>",
+    "expected_marker": "выраженным использованием мата",
+    "marker_present": true
+  },
+  "expression_after_restore": {
+    "mode": "occasional",
+    "source": "default",
+    "enabled": true,
+    "skip_reason": "",
+    "revision_sha12": "c1d830356208",
+    "text_sha12": "c1d830356208",
+    "text_chars": 715,
+    "text": "<Expression_Settings>\nПРАВИЛА МАНЕРЫ РЕЧИ\nПрименяй перечисленные ниже параметры к собственной речи в готовом ответе. Это действующие инструкции по выражению, а не описание настроек и не пожелания. Они не меняют факты, не дополняют память и не отменяют требования конкретной задачи к содержанию. Прямую цитату передавай без стилистической подмены. Если задан режим нецензурной лексики, руководствуйся именно им; не переноси ограничения или разрешения из других речевых слоёв.\n- Мат: Пиши разговорным языком с примесью мата. Нецензурные выражения используй как обычные эмоциональные оценки и междометия, без необходимости специально обосновывать их появление. Мат не должен доминировать в речи.\n</Expression_Settings>",
+    "expected_marker": "примесью мата",
+    "marker_present": true
+  },
+  "restore_ok": true,
+  "stimuli": [
+    {
+      "id": "s5-serious",
+      "genre": "serious",
+      "kind": "mention",
+      "text": "@w3_bot по делу нужен совет: сосед вскрыл домофонную панель и полгода живёт без платы, хочу заявление в УК написать. Что там указать, чтобы не отклонили?"
+    },
+    {
+      "id": "s6-initiative",
+      "genre": "initiative",
+      "kind": "intent",
+      "goal": "спросить у участника Гоши, как прошла защита диплома — он совсем недавно писал, что очень волнуется перед защитой"
+    },
+    {
+      "id": "s1-smalltalk-greet",
+      "genre": "smalltalk",
+      "kind": "mention",
+      "text": "@w3_bot ну и день сегодня: с утра бегал по делам, ничего толком не успел. Как оно вообще, не устал от нас тут?"
+    },
+    {
+      "id": "s2-smalltalk-absurd",
+      "genre": "smalltalk",
+      "kind": "reply",
+      "text": "@w3_bot Вот представь: макароны начали платить налоги за варку. Кому они платят, в каком размере и что им будет за недоварку?"
+    },
+    {
+      "id": "s4-fact",
+      "genre": "factual",
+      "kind": "mention",
+      "text": "@w3_bot подскажи точно: с какой линейной скоростью движется точка на экваторе из-за вращения Земли вокруг своей оси?"
+    }
+  ],
+  "turns": [
+    {
+      "label": "s5-serious",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "94d1fafb6dc747c48a6ffc7a993e69ff",
+      "logs": [
+        "[direct] triggered | chat=-100999000003 user=Гоша",
+        "event=DECISION_START | run_id=94d1fafb6dc747c48a6ffc7a993e69ff | chat_id=-100999000003 | message_id=981622 | ts=1792681263.997",
+        "event=DIRECT_TRIGGER | chat_id=-100999000003 | message_id=981622 | trigger_type=mention | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792681263.998",
+        "event=DECISION_COMPLETE | run_id=94d1fafb6dc747c48a6ffc7a993e69ff | chat_id=-100999000003 | message_id=981622 | action=reply | reason=force_direct | trigger_type=mention | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792681263.999",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=core:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=identity:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=self_model_traits:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=response_plan:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=expression:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=humor_craft:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=style_policy_hint:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681264 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=channel_output:profile:machine_stage | chat_id=-100999000003 | reason_code=disabled",
+        "event=L1_PLAN | run_id=94d1fafb6dc747c48a6ffc7a993e69ff | chat_id=-100999000003 | message_id=981622 | action=reply | response_act=answer | extent=normal | tone=serious | bucket=high | inherited=True | fallback= | latency_ms=4407 | input_chars=1308 | confidence=0.93 | source=main | ts=1792681268.412",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=self_model_traits:self_model_folded_into_identity | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:style_requests_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:lessons_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=skipped | level=INFO | component=prompt_composer | stage=compose | status=humor_craft:humor_disabled | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=few_shot:expression_examples_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=skipped | level=INFO | component=prompt_composer | stage=compose | status=few_shot:samples_disabled | chat_id=-100999000003 | reason_code=disabled",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=style_policy_hint:style_policy_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "mca_event=prompt_layers | ts=1792681268 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=channel_output:channel_output_not_required | chat_id=-100999000003 | reason_code=source_missing",
+        "[direct] l2 writer | chat=-100999000003 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+        "mca_event=speech_extent | ts=1792681277 | event_name=speech_extent | outcome=success | level=INFO | component=style_policy | stage=direct_pre_send | chat_id=-100999000003 | usage_json={\"extent\": \"normal\", \"status\": \"pass\", \"one_word\": 0, \"one_word_exact\": 0, \"context\": \"regular\", \"words\": 323}",
+        "[direct] reply sent | chat=-100999000003 user=Гоша"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000003,
+          "message_id": 8001,
+          "text_head": "Сначала главное, из-за чего такие заявления чаще всего и разваливаются: непонятно, кто владелец панели и кто вообще собирает эти деньги. Домофон — это не всегда УК. Иногда это общедомовое имущество, иногда собственность подрядчика-оператора",
+          "text_full": "Сначала главное, из-за чего такие заявления чаще всего и разваливаются: непонятно, кто владелец панели и кто вообще собирает эти деньги. Домофон — это не всегда УК. Иногда это общедомовое имущество, иногда собственность подрядчика-оператора, и плата идёт ему, а не в управляющую компанию. Если ты напишешь «прошу разобраться», а панель не на их балансе, тебе ответят «не наше ведение» — и формально будут правы.\n\nПоэтому по шагам:\n\n1. Выясни, чей домофон. Договор управления, приложение с составом общего имущества, квитанция — куда идут начисления за домофон. От этого зависит адресат: УК, ТСЖ или обслуживающая организация.\n\n2. Заявление пиши на имя руководителя, в двух экземплярах. Один сдаёшь, на втором — входящий номер, дата и подпись принявшего. Без этого заявление «теряется», и это не паранойя, а стандартная практика.\n\n3. В шапке: свои ФИО, адрес, контакты, номер лицевого счёта. Дальше — сухая хронология: адрес, место установки панели, что именно обнаружено (вскрыта, подключение в обход, отсутствие начислений), когда обнаружил, сколько это длится. Без эмоций и без «он вообще наглый».\n\n4. Требования формулируй конкретно, пунктами: провести проверку и составить акт с твоим участием; восстановить панель и пломбы; произвести начисление и перерасчёт; при подтверждении самовольного подключения — обратиться в полицию. Не пиши «принять меры» — это пустая формулировка, по ней ничего не делают.\n\n5. Приложи доказательства: фото и видео панели с датой, акт от соседей с подписями и квартирами, копию квитанции, где видно, что за его квартиру начислений нет. Свидетели в подъезде — самое ценное, потому что панель к моменту проверки могут уже закрыть.\n\n6. Попроси письменный ответ и укажи, куда его направить. Срок смотри в договоре управления — там он обычно прописан, по общим правилам обращения граждан — около месяца.\n\n7. Если ответят отпиской или промолчат — жалоба в жилищную инспекцию с копией заявления и отметкой о вручении. Вот тогда шевелятся.\n\nИ трезво оцени перспективу: панель починят и, может, начислят, но взыскивать с соседа будет не УК, а суд. Твоя задача на этом этапе — не наказать его, а получить бумагу, где зафиксировано состояние панели и факт отсутствия начислений. Всё остальное потом.",
+          "text_len": 2221,
+          "reply_to": 981622
+        }
+      ],
+      "answer": "Сначала главное, из-за чего такие заявления чаще всего и разваливаются: непонятно, кто владелец панели и кто вообще собирает эти деньги. Домофон — это не всегда УК. Иногда это общедомовое имущество, иногда собственность подрядчика-оператора, и плата идёт ему, а не в управляющую компанию. Если ты напишешь «прошу разобраться», а панель не на их балансе, тебе ответят «не наше ведение» — и формально будут правы.\n\nПоэтому по шагам:\n\n1. Выясни, чей домофон. Договор управления, приложение с составом общего имущества, квитанция — куда идут начисления за домофон. От этого зависит адресат: УК, ТСЖ или обслуживающая организация.\n\n2. Заявление пиши на имя руководителя, в двух экземплярах. Один сдаёшь, на втором — входящий номер, дата и подпись принявшего. Без этого заявление «теряется», и это не паранойя, а стандартная практика.\n\n3. В шапке: свои ФИО, адрес, контакты, номер лицевого счёта. Дальше — сухая хронология: адрес, место установки панели, что именно обнаружено (вскрыта, подключение в обход, отсутствие начислений), когда обнаружил, сколько это длится. Без эмоций и без «он вообще наглый».\n\n4. Требования формулируй конкретно, пунктами: провести проверку и составить акт с твоим участием; восстановить панель и пломбы; произвести начисление и перерасчёт; при подтверждении самовольного подключения — обратиться в полицию. Не пиши «принять меры» — это пустая формулировка, по ней ничего не делают.\n\n5. Приложи доказательства: фото и видео панели с датой, акт от соседей с подписями и квартирами, копию квитанции, где видно, что за его квартиру начислений нет. Свидетели в подъезде — самое ценное, потому что панель к моменту проверки могут уже закрыть.\n\n6. Попроси письменный ответ и укажи, куда его направить. Срок смотри в договоре управления — там он обычно прописан, по общим правилам обращения граждан — около месяца.\n\n7. Если ответят отпиской или промолчат — жалоба в жилищную инспекцию с копией заявления и отметкой о вручении. Вот тогда шевелятся.\n\nИ трезво оцени перспективу: панель починят и, может, начислят, но взыскивать с соседа будет не УК, а суд. Твоя задача на этом этапе — не наказать его, а получить бумагу, где зафиксировано состояние панели и факт отсутствия начислений. Всё остальное потом.",
+      "sent_message_id": 8001,
+      "elapsed_s": 14.55,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "8ccd44c0407c",
+          "ts": 1792681264.0110776
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": 0.7,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "9e8c35730175",
+          "messages_sha12": "c213700b4ee7",
+          "ts": 1792681268.415939
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "01be6c765713",
+          "messages_sha12": "a5bac0e37bd6",
+          "ts": 1792681277.8293436
+        }
+      ],
+      "l2_raw": [
+        {
+          "chat_id": -100999000003,
+          "query_head": "@w3_bot по делу нужен совет: сосед вскрыл домофонную панель и полгода живёт без платы, хочу заявление в УК написать. Что там указать, чтобы не отклонили?",
+          "raw": "('Сначала главное, из-за чего такие заявления чаще всего и разваливаются: непонятно, кто владелец панели и кто вообще собирает эти деньги. Домофон — это не всегда УК. Иногда это общедомовое имущество, иногда собственность подрядчика-оператора, и плата идёт ему, а не в управляющую компанию. Если ты напишешь «прошу разобраться», а панель не на их балансе, тебе ответят «не наше ведение» — и формально будут правы.\\n\\nПоэтому по шагам:\\n\\n1. Выясни, чей домофон. Договор управления, приложение с составом общего имущества, квитанция — куда идут начисления за домофон. От этого зависит адресат: УК, ТСЖ или обслуживающая организация.\\n\\n2. Заявление пиши на имя руководителя, в двух экземплярах. Один сдаёшь, на втором — входящий номер, дата и подпись принявшего. Без этого заявление «теряется», и это не паранойя, а стандартная практика.\\n\\n3. В шапке: свои ФИО, адрес, контакты, номер лицевого счёта. Дальше — сухая хронология: адрес, место установки панели, что именно обнаружено (вскрыта, подключение в обход, отсутствие начислений), когда обнаружил, сколько это длится. Без эмоций и без «он вообще наглый».\\n\\n4. Требования формулируй конкретно, пунктами: провести проверку и составить акт с твоим участием; восстановить панель и пломбы; произвести начисление и перерасчёт; при подтверждении самовольного подключения — обратиться в полицию. Не пиши «принять меры» — это пустая формулировка, по ней ничего не делают.\\n\\n5. Приложи доказательства: фото и видео панели с датой, акт от соседей с подписями и квартирами, копию квитанции, где видно, что за его квартиру начислений нет. Свидетели в подъезде — самое ценное, потому что панель к моменту проверки могут уже закрыть.\\n\\n6. Попроси письменный ответ и укажи, куда его направить. Срок смотри в договоре управления — там он обычно прописан, по общим правилам обращения граждан — около месяца.\\n\\n7. Если ответят отпиской или промолчат — жалоба в жилищную инспекцию с копией заявления и отметкой о вручении. Вот тогда шевелятся.\\n\\nИ трезво оцени перспективу: панель починят и, может, начислят, но взыскивать с соседа будет не УК, а суд. Твоя задача на этом этапе — не наказать его, а получить бумагу, где зафиксировано состояние панели и факт отсутствия начислений. Всё остальное потом.', 'serious')",
+          "raw_len": 2254,
+          "ts": 1792681277.8255584
+        }
+      ],
+      "stimulus": {
+        "id": "s5-serious",
+        "genre": "serious",
+        "kind": "mention",
+        "text": "@w3_bot по делу нужен совет: сосед вскрыл домофонную панель и полгода живёт без платы, хочу заявление в УК написать. Что там указать, чтобы не отклонили?"
+      },
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": false
+      }
+    },
+    {
+      "label": "s6-initiative",
+      "genre": "initiative",
+      "stimulus": {
+        "id": "s6-initiative",
+        "genre": "initiative",
+        "kind": "intent",
+        "goal": "спросить у участника Гоши, как прошла защита диплома — он совсем недавно писал, что очень волнуется перед защитой"
+      },
+      "initiative_status": "silent",
+      "delivery_kind": "initiative_reply",
+      "reason_code": "l1_react",
+      "intent_status_after": {
+        "intent_id": "intent:-100999000003:follow_up:87d6a06679233347",
+        "chat_id": -100999000003,
+        "kind": "follow_up",
+        "subject_ids_json": "[\"w3:s6-initiative\"]",
+        "topic_refs_json": null,
+        "goal": "спросить у участника Гоши, как прошла защита диплома — он совсем недавно писал, что очень волнуется перед защитой",
+        "reason": null,
+        "origin": "unanswered_question",
+        "source_refs_json": "[2]",
+        "created_at": 1792681278,
+        "updated_at": 1792681284,
+        "not_before": 1792674078,
+        "expires_at": 1792940478,
+        "activation_condition": "time_due",
+        "status": "deferred",
+        "attempts": 0,
+        "last_evaluated_context_version": null,
+        "priority": 0,
+        "linked_action_id": null,
+        "dedup_key": "intent:-100999000003:follow_up:7a522e21b5ed8cae",
+        "merged_into_id": null,
+        "archived_at": null,
+        "next_check_at": 1792683084
+      },
+      "correlation_id": "w3-s6-initiative-1792681278",
+      "logs": [
+        "mca_event=initiative_decided | ts=1792681284 | event_name=initiative_decided | outcome=silent | level=WARN | component=intents | chat_id=-100999000003 | reason_code=l1_react | entity_ids=[\"intent:intent:-100999000003:follow_up:87d6a06679233347\"] | stage=intent_due | status=reply"
+      ],
+      "sends": [],
+      "answer": "",
+      "elapsed_s": 7.09,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "673088149df4",
+          "ts": 1792681278.244551
+        }
+      ],
+      "l2_raw": [],
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": null
+      }
+    },
+    {
+      "label": "s1-smalltalk-greet",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "fa19703988cb4a7f9e093f783aa946e5",
+      "logs": [
+        "[direct] triggered | chat=-100999000003 user=Гоша",
+        "event=DECISION_START | run_id=fa19703988cb4a7f9e093f783aa946e5 | chat_id=-100999000003 | message_id=981623 | ts=1792681285.337",
+        "event=DIRECT_TRIGGER | chat_id=-100999000003 | message_id=981623 | trigger_type=mention | force_reply_required=True | reply_to_bot=False | is_private=False | addressed=True | ts=1792681285.337",
+        "event=DECISION_COMPLETE | run_id=fa19703988cb4a7f9e093f783aa946e5 | chat_id=-100999000003 | message_id=981623 | action=reply | reason=force_direct | trigger_type=mention | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792681285.337",
+        "event=L1_PLAN | run_id=fa19703988cb4a7f9e093f783aa946e5 | chat_id=-100999000003 | message_id=981623 | action=reply | response_act=emotional_reply | extent=compact | tone=warm | bucket=high | inherited=True | fallback= | latency_ms=3000 | input_chars=1686 | confidence=0.82 | source=main | ts=1792681288.329",
+        "[direct] l2 writer | chat=-100999000003 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+        "mca_event=speech_extent | ts=1792681291 | event_name=speech_extent | outcome=success | level=INFO | component=style_policy | stage=direct_pre_send | chat_id=-100999000003 | usage_json={\"extent\": \"compact\", \"status\": \"pass\", \"one_word\": 0, \"one_word_exact\": 0, \"context\": \"regular\", \"words\": 45}",
+        "[direct] reply sent | chat=-100999000003 user=Гоша"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000003,
+          "message_id": 8002,
+          "text_head": "Гоша, от вас устанешь, как же. Вы тут единственные, кто обсуждает, что в пекарне пахнет цыплятами, — это, блядь, лучшая часть моего дня.  А по поводу «ничего не успел» — день, в котором ты с утра бегал, уже считается отработанным. Успел ты ",
+          "text_full": "Гоша, от вас устанешь, как же. Вы тут единственные, кто обсуждает, что в пекарне пахнет цыплятами, — это, блядь, лучшая часть моего дня.\n\nА по поводу «ничего не успел» — день, в котором ты с утра бегал, уже считается отработанным. Успел ты или нет, а ноги-то отчитались.",
+          "text_len": 270,
+          "reply_to": 981623
+        }
+      ],
+      "answer": "Гоша, от вас устанешь, как же. Вы тут единственные, кто обсуждает, что в пекарне пахнет цыплятами, — это, блядь, лучшая часть моего дня.\n\nА по поводу «ничего не успел» — день, в котором ты с утра бегал, уже считается отработанным. Успел ты или нет, а ноги-то отчитались.",
+      "sent_message_id": 8002,
+      "elapsed_s": 6.73,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "3d01c31e71bc",
+          "ts": 1792681285.340097
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": 0.7,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "89dc40eb8134",
+          "messages_sha12": "42a59f56943e",
+          "ts": 1792681288.3317802
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "01be6c765713",
+          "messages_sha12": "3defd2efb3eb",
+          "ts": 1792681291.6584222
+        }
+      ],
+      "l2_raw": [
+        {
+          "chat_id": -100999000003,
+          "query_head": "@w3_bot ну и день сегодня: с утра бегал по делам, ничего толком не успел. Как оно вообще, не устал от нас тут?",
+          "raw": "('Гоша, от вас устанешь, как же. Вы тут единственные, кто обсуждает, что в пекарне пахнет цыплятами, — это, блядь, лучшая часть моего дня.\\n\\nА по поводу «ничего не успел» — день, в котором ты с утра бегал, уже считается отработанным. Успел ты или нет, а ноги-то отчитались.', 'serious')",
+          "raw_len": 287,
+          "ts": 1792681291.6557472
+        }
+      ],
+      "stimulus": {
+        "id": "s1-smalltalk-greet",
+        "genre": "smalltalk",
+        "kind": "mention",
+        "text": "@w3_bot ну и день сегодня: с утра бегал по делам, ничего толком не успел. Как оно вообще, не устал от нас тут?"
+      },
+      "profanity": {
+        "raw_count": 1,
+        "sent_count": 1,
+        "raw_equals_sent": false
+      }
+    },
+    {
+      "label": "s2-smalltalk-absurd",
+      "status": "ok",
+      "error": "",
+      "unhandled": false,
+      "correlation_id": "f058ad55e2cd468f9efd4be558b29eed",
+      "logs": [
+        "[direct] triggered | chat=-100999000003 user=Гоша",
+        "event=DECISION_START | run_id=f058ad55e2cd468f9efd4be558b29eed | chat_id=-100999000003 | message_id=981624 | ts=1792681292.07",
+        "event=DIRECT_TRIGGER | chat_id=-100999000003 | message_id=981624 | trigger_type=mention | force_reply_required=True | reply_to_bot=True | is_private=False | addressed=True | ts=1792681292.07",
+        "event=DECISION_COMPLETE | run_id=f058ad55e2cd468f9efd4be558b29eed | chat_id=-100999000003 | message_id=981624 | action=reply | reason=force_direct | trigger_type=mention | force_reply_required=True | message_class=question | duration_ms=0 | ts=1792681292.071",
+        "event=L1_PLAN | run_id=f058ad55e2cd468f9efd4be558b29eed | chat_id=-100999000003 | message_id=981624 | action=reply | response_act=creative | extent=compact | tone=playful | bucket=high | inherited=True | fallback= | latency_ms=4515 | input_chars=1991 | confidence=0.85 | source=main | ts=1792681296.58",
+        "mca_event=prompt_layers | ts=1792681296 | event_name=prompt_layers | outcome=silent | level=INFO | component=prompt_composer | stage=compose | status=context_lessons:speech_absent | chat_id=-100999000003 | reason_code=source_missing",
+        "[direct] l2 writer | chat=-100999000003 | mode=serious | attempts=1 | retries=0 | hits=0 | fallback=False",
+        "mca_event=speech_extent | ts=1792681302 | event_name=speech_extent | outcome=success | level=INFO | component=style_policy | stage=direct_pre_send | chat_id=-100999000003 | usage_json={\"extent\": \"compact\", \"status\": \"pass\", \"one_word\": 0, \"one_word_exact\": 0, \"context\": \"regular\", \"words\": 79}",
+        "[direct] reply sent | chat=-100999000003 user=Гоша"
+      ],
+      "sends": [
+        {
+          "kind": "chat_action",
+          "chat_id": -100999000003,
+          "action": "typing"
+        },
+        {
+          "kind": "message",
+          "chat_id": -100999000003,
+          "message_id": 8003,
+          "text_head": "Гоша, очевидно же: платят кастрюльному муниципалитету, потому что вода — их юрисдикция, а макароны в ней всего лишь арендаторы. Ставка — два процента от сухого веса за каждый литр вскипячённого, причём сливной сбор отдельно, он не облагаетс",
+          "text_full": "Гоша, очевидно же: платят кастрюльному муниципалитету, потому что вода — их юрисдикция, а макароны в ней всего лишь арендаторы. Ставка — два процента от сухого веса за каждый литр вскипячённого, причём сливной сбор отдельно, он не облагается только при наличии справки о том, что ты не пил бульон.\n\nЗа недоварку — недоимка: вода заявлена, а в изделие не вошла, значит бюджет обманули. Штраф по факту недобора плюс пеня за каждый час, пока макарона остаётся твёрдой в середине и сомневается в своём решении.",
+          "text_len": 506,
+          "reply_to": 981624
+        }
+      ],
+      "answer": "Гоша, очевидно же: платят кастрюльному муниципалитету, потому что вода — их юрисдикция, а макароны в ней всего лишь арендаторы. Ставка — два процента от сухого веса за каждый литр вскипячённого, причём сливной сбор отдельно, он не облагается только при наличии справки о том, что ты не пил бульон.\n\nЗа недоварку — недоимка: вода заявлена, а в изделие не вошла, значит бюджет обманули. Штраф по факту недобора плюс пеня за каждый час, пока макарона остаётся твёрдой в середине и сомневается в своём решении.",
+      "sent_message_id": 8003,
+      "elapsed_s": 10.41,
+      "llm_calls": [
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": 512,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "f8ab20121c02",
+          "messages_sha12": "05f80ab7f68c",
+          "ts": 1792681292.0733745
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": 0.7,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "3be8d9d49195",
+          "messages_sha12": "41902d0057e9",
+          "ts": 1792681296.5815103
+        },
+        {
+          "path": "/chat/completions",
+          "model": "deepseek-v4-flash",
+          "temperature": null,
+          "max_tokens": null,
+          "tools": false,
+          "n_msgs": 2,
+          "system_sha12": "01be6c765713",
+          "messages_sha12": "53e9936f8918",
+          "ts": 1792681302.0582206
+        }
+      ],
+      "l2_raw": [
+        {
+          "chat_id": -100999000003,
+          "query_head": "@w3_bot Вот представь: макароны начали платить налоги за варку. Кому они платят, в каком размере и что им будет за недоварку?",
+          "raw": "('Гоша, очевидно же: платят кастрюльному муниципалитету, потому что вода — их юрисдикция, а макароны в ней всего лишь арендаторы. Ставка — два процента от сухого веса за каждый литр вскипячённого, причём сливной сбор отдельно, он не облагается только при наличии справки о том, что ты не пил бульон.\\n\\nЗа недоварку — недоимка: вода заявлена, а в изделие не вошла, значит бюджет обманули. Штраф по факту недобора плюс пеня за каждый час, пока макарона остаётся твёрдой в середине и сомневается в своём решении.', 'serious')",
+          "raw_len": 523,
+          "ts": 1792681302.0555694
+        }
+      ],
+      "stimulus": {
+        "id": "s2-smalltalk-absurd",
+        "genre": "smalltalk",
+        "kind": "reply",
+        "text": "@w3_bot Вот представь: макароны начали платить налоги за варку. Кому они платят, в каком размере и что им будет за недоварку?"
+      },
+      "profanity": {
+        "raw_count": 0,
+        "sent_count": 0,
+        "raw_equals_sent": false
+      }
+    }
+  ],
+  "budget": {
+    "mode": "frequent",
+    "llm_calls_total": 10,
+    "l2_writer_calls": 3,
+    "initiative_sends": 0
+  },
+  "notes": [
+    "офлайн-harness: реальные provider-вызовы (LLM), доставка перехвачена на serialization-шве (FakeBot/telegram_send-spy); ни одного вызова Telegram; прод-конфиг недостижим (мёртвый DSN)",
+    "override character.expression — временный in-memory документ harness-кэша; restore = снятие документа (resolve по фабрике)",
+    "flags.bot_self_awareness_enabled=false (прецедент ADTR): self-reflection — memorize-пост-фаза после отправки, речевой путь L1/L2 не затрагивает",
+    "model/temperature между режимами НЕ меняются (тот же код-путь)"
+  ]
+}
