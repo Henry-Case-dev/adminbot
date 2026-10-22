@@ -76,6 +76,23 @@ RED-прогон: `py -3 -m pytest tests/test_summary_fact_view_v2_anchors.py`
 Классификация: `unrelated/pre-existing`, фиксацию — владельцу соответствующих
 леинов; настоящий дифф их не трогает.
 
+## Ревизия REV-SUMMARY-FACTVIEW B-1 (RELATED_SMALL, исправлено)
+
+Блокер ревью: blanket-обработчик CancelledError переписывал бы в
+SUMMARY_FAILED и ОПУБЛИКОВАННЫЙ ран, отменённый после публикации —
+нарушение инварианта INC-SUMMARY-01 («опубликованный ран в FAILED не
+переписываем», паритет `abort_in_flight`).
+
+Фикс: условие хендлера `ctx.status != STATUS_FAILED AND
+publish_status != "ok"` (`services/summary_generator.py::_run`).
+
+Речек (RED→GREEN):
+- новый тест `test_published_run_cancel_keeps_ok_terminal`: RED до фикса
+  (`assert 'failed' != 'failed'` — published-ран переписывался), GREEN
+  после: publish_status=ok + отмена → терминал остаётся ok (не failed);
+- сьют `tests/test_summary_fact_view_v2_anchors.py` — 9 passed;
+- `tests/test_summary_inc01_shutdown.py` — 14 passed; py_compile OK.
+
 ## Контракты, сохранённые сознательно
 
 - shutdown-дренаж INC-SUMMARY-01: терминальный `reason_code=shutdown` не

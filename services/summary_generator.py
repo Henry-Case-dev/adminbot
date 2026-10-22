@@ -972,9 +972,13 @@ class SummaryGenerator:
             # публикации «-». Причину уже-failed контекста НЕ затираем:
             # штатный shutdown-дренаж (INC-SUMMARY-01 `abort_in_flight`)
             # метит раньше причиной shutdown — она остаётся честным
-            # reason_code'ом терминала. Отмена пробрасывается дальше
-            # (семантика CancelledError сохранена).
-            if ctx.status != STATUS_FAILED:
+            # reason_code'ом терминала. Ревизия REV B-1: ОПУБЛИКОВАННЫЙ
+            # ран (publish_status=ok), отменённый после публикации, в
+            # FAILED не переписывается (инвариант INC-SUMMARY-01).
+            # Отмена пробрасывается дальше (семантика CancelledError
+            # сохранена).
+            if ctx.status != STATUS_FAILED \
+                    and str(getattr(ctx, "publish_status", "") or "") != "ok":
                 ctx.fail(stage="run", reason="interrupted",
                          error_type="CancelledError",
                          code=CODE_SUMMARY_GENERATION_FAILED)

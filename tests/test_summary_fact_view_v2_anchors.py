@@ -369,3 +369,42 @@ async def test_interrupted_run_marks_failed_not_ok(monkeypatch):
     assert ctx.status == "failed"
     assert ctx.reason == "interrupted"
     assert ctx.error_type == "CancelledError"
+
+
+@pytest.mark.asyncio
+async def test_published_run_cancel_keeps_ok_terminal(monkeypatch):
+    """REV B-1 (инвариант INC-SUMMARY-01): опубликованный ран
+    (publish_status=ok), отменённый ПОСЛЕ публикации, НЕ переписывается
+    в SUMMARY_FAILED — терминал остаётся ok (не failed)."""
+    gen = SummaryGenerator(memory=MagicMock(), xml=MagicMock(),
+                           llm=MagicMock(), bot=None)
+    gen._hybrid_l2_enabled = AsyncMock(return_value=True)
+    gen.memory.compress_and_purge = AsyncMock()
+    gen.memory.get_window_messages = AsyncMock(return_value=_rows(2))
+    gen._establish_source_window = AsyncMock(return_value=None)
+    gen._durable_run_create = AsyncMock()
+    gen._durable_stage_result = AsyncMock()
+    gen._durable_mark = AsyncMock()
+    gen._durable_run_finish = AsyncMock()
+    captured = {}
+
+    async def _publish_then_cancel(*args, **kwargs):
+        ctx = kwargs.get("ctx")
+        captured["ctx"] = ctx
+        ctx.publish_status = "ok"       # публикация уже состоялась
+        ctx.publish_channel = "rich"
+        raise asyncio.CancelledError()  # отмена в хвосте (cover/дренаж)
+
+    monkeypatch.setattr(gen, "_run_hybrid_l2", _publish_then_cancel)
+    monkeypatch.setattr("services.summary_generator.mca_gates"
+                        ".summary_pregen_bounds_enabled", lambda: False)
+
+    with pytest.raises(asyncio.CancelledError):
+        await gen._run(CHAT, manual=False)
+
+    ctx = captured["ctx"]
+    assert ctx is not None
+    # Терминал НЕ переписан в failed: публикация была — статус остаётся ok.
+    assert ctx.publish_status == "ok"
+    assert ctx.status != "failed"
+    assert ctx.reason != "interrupted"
