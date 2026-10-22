@@ -262,11 +262,15 @@ async def test_inspector_view_exposes_core_choice_and_versions(monkeypatch):
     assert view["factory_revisions"]["compact"].startswith(pr.FACTORY_PREFIX)
     assert view["edit_blocks"] == {"full": pr.CORE_FULL_BLOCK_ID,
                                    "compact": pr.CORE_COMPACT_BLOCK_ID}
-    # CORRECTIVE-FOLLOWUP (21.10.2026, §1): провенанс заводского Core —
-    # первоисточник + документированная правка (тема мата удалена).
-    assert view["source_provenance"]["amendment"] == \
-        "SOUL-AMD.1.1 + FIX-CORRECTIVE-FOLLOWUP 21.10.2026 §1"
-    assert view["source_provenance"]["line_start"] == 43
+    # ASAP W1 (22.10.2026, §3.2): провенанс заводского Core v3 — готовый
+    # текст владельца (asap-speech-arch §3.2); история v1 (SOUL-02 +
+    # документированная правка) — в CORE_SOURCE_V1.
+    assert str(view["source_provenance"]["path"]).endswith(
+        "asap-speech-arch/source-2026-10-22.md")
+    assert view["source_provenance"]["factory_rev_label"] == \
+        "asap-core-full-v3"
+    assert pr.CORE_SOURCE_V1["line_start"] == 43
+    assert pr.CORE_SOURCE_V1["line_end"] == 53
     # Заводские редакции видны отдельно (размер/хеш/происхождение поля).
     assert view["factory"]["compact"]["origin"] == "factory"
     assert view["factory"]["compact"]["sha256_12"] == pr.sha12(

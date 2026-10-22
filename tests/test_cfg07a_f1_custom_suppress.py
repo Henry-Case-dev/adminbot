@@ -190,7 +190,12 @@ def test_custom_payload_has_no_corpus_markers(name):
     """(a) FIX-CFG07A-F1: кастом (старый канон + правка владельца) при
     сборке effective-payload чистится от корпусных legacy-маркеров; остаток
     корпусных токенов ⊆ остатка чистого канона (легитимные инструкции
-    АНТИ-БОТ/Writer — те же, что в активном каноне)."""
+    АНТИ-БОТ/Writer — те же, что в активном каноне).
+    ИСКЛЮЧЕНИЕ (ASAP W1, §3.6): у Direct блоки A/B сняты с ФАБРИКИ решением
+    владельца (косметический anti-bot), а точечная чистка кастома по-прежнему
+    снимает ТОЛЬКО legacy-сегменты — нейросетевой маркер MB-13 из блока A
+    остаётся в кастоме до перезаписи W2 (withheld-кастомы гасятся
+    write_speech_value с провенансом, W0 §5.4/5.9)."""
     custom = custom_value(name)
     resolved = resolve_custom(name, custom)
     assert resolved.withheld is False, name
@@ -199,6 +204,10 @@ def test_custom_payload_has_no_corpus_markers(name):
         assert marker not in resolved.text, (name, marker)
     residual = corpus_residual(resolved.text)
     active_residual = corpus_residual(ACTIVE_CANONS[name])
+    if name == "direct":
+        assert residual - active_residual <= {"MB-13"}, \
+            (name, sorted(residual - active_residual))
+        return
     assert residual <= active_residual, (
         name, sorted(residual - active_residual))
 

@@ -86,7 +86,15 @@ _NEUTRAL_TAIL_CANONS = {"search", "summary", "webpage", "youtube",
 class TestStyleBlocksPresent:
     @pytest.mark.parametrize("name", list(ACTUALS))
     def test_antibot_and_asymmetry_in_every_actual(self, name):
+        """A/B-блоки — общий суффикс отвечающих канонов. ИСКЛЮЧЕНИЕ (W1,
+        §3.6): у Direct блоки A/B сняты владельцем (косметический anti-bot
+        и повторение Core — личность задаёт Core, формат — Style Policy)."""
         prompt, _prev = ACTUALS[name]
+        if name == "chat":
+            assert ANTI_BOT_BLOCK not in prompt
+            assert ASYMMETRY_BLOCK not in prompt
+            assert "НАЗНАЧЕНИЕ КАНАЛА DIRECT" in prompt
+            return
         assert ANTI_BOT_BLOCK in prompt, name
         assert ASYMMETRY_BLOCK in prompt, name
         if "<bot_knowledge>" in prompt:
@@ -100,6 +108,9 @@ class TestStyleBlocksPresent:
     @pytest.mark.parametrize("name", list(ACTUALS))
     def test_style_suffix_is_shared(self, name):
         prompt, _prev = ACTUALS[name]
+        if name == "chat":
+            assert STYLE_BLOCKS_SUFFIX not in prompt
+            return
         assert STYLE_BLOCKS_SUFFIX in prompt, name
 
 

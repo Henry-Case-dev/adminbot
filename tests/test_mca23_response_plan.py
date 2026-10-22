@@ -31,6 +31,7 @@ from services.direct_chat_service import DirectChatService
 from services.prompt_style_blocks import (
     MODE_CASUAL_BLOCK,
     MODE_DEEP_RESEARCH_BLOCK,
+    PREV_TYPOGRAPHY_BLOCK,
     TYPOGRAPHY_BLOCK,
     compose_verbalizer_system,
 )
@@ -167,10 +168,20 @@ class TestExtentBlocks:
         assert "ФОРМАТ PLAIN" in composed
 
     def test_new_verbalizer_canon_is_extent_driven(self):
-        """§11: unconditional cap-правило убрано из канона Вербализатора."""
+        """§11 + ASAP W1 (§3.1): unconditional cap-правило убрано из канона
+        Вербализатора; extent-семантика живёт в тексте владельца («дан план
+        полноты — исполни его целиком»), а блок «ОЖИДАЕМАЯ ПОЛНОТА» и
+        типографика рендерятся ОТДЕЛЬНЫМИ слоями (response_extent /
+        Style Policy) — в фабричном каноне их нет."""
         assert "одно-два предложения" not in DIRECT_VERBALIZER_SYSTEM_PROMPT
-        assert "ОЖИДАЕМАЯ ПОЛНОТА" in DIRECT_VERBALIZER_SYSTEM_PROMPT
-        assert TYPOGRAPHY_BLOCK in DIRECT_VERBALIZER_SYSTEM_PROMPT
+        assert "Если дан план полноты, исполни его целиком" \
+            in DIRECT_VERBALIZER_SYSTEM_PROMPT
+        assert "ОЖИДАЕМАЯ ПОЛНОТА" not in DIRECT_VERBALIZER_SYSTEM_PROMPT
+        assert TYPOGRAPHY_BLOCK not in DIRECT_VERBALIZER_SYSTEM_PROMPT
+        # extent-блок по-прежнему рендерится отдельным владельцем
+        from services.response_extent import ResponsePlan, render_extent_block
+        plan = ResponsePlan(task_kind="direct", extent="detailed")
+        assert "ОЖИДАЕМАЯ ПОЛНОТА" in render_extent_block(plan)
 
     def test_new_chat_canon_has_no_global_cap(self):
         """§10: глобального cap «СТРОГО 1-2 предложения» в каноне нет."""
@@ -179,13 +190,26 @@ class TestExtentBlocks:
         assert "Не сокращай ответ так" in CHAT_SYSTEM_PROMPT
 
     def test_prev_snapshots_keep_cap_text(self):
-        """Правило миграции: прежний cap-текст живёт в слепках."""
+        """Правило миграции: прежний cap-текст живёт в слепках.
+        W1: непосредственный прежний прод-канон Вербализатора —
+        PREV_CHAT_VERBALIZER_W1 (2.58.110, с типографикой)."""
         assert "СТРОГО ИЗ ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" \
             in PREV_CHAT_MCA23_SYSTEM_PROMPT
         assert "одно-два предложения" in PREV_CHAT_VERBALIZER_MCA23
+        # PREV-композиция обязана узнавать прод-байты 10.23 — прежний блок
+        # типографики (с «Разрешен мат»); REGRESSION-фикс долга
+        # FIX-CORRECTIVE-FOLLOWUP (состав был с чистым TYPOGRAPHY_BLOCK,
+        # байты никогда не сходились).
         assert PREV_CHAT_VERBALIZER_MCA23 == (
-            PREV_CHAT_VERBALIZER_R1023 + "\n\n" + TYPOGRAPHY_BLOCK)
+            PREV_CHAT_VERBALIZER_R1023 + "\n\n" + PREV_TYPOGRAPHY_BLOCK)
+        assert "Разрешен мат" in PREV_CHAT_VERBALIZER_MCA23
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
+        from services.chat_prompts import PREV_CHAT_VERBALIZER_W1
+        # W1-слепок = прод 2.58.110: extent-правило MCA-23 вместо cap,
+        # прежняя типографика (с «Разрешен мат»).
+        assert "ОЖИДАЕМАЯ ПОЛНОТА" in PREV_CHAT_VERBALIZER_W1
+        assert TYPOGRAPHY_BLOCK in PREV_CHAT_VERBALIZER_W1
+        assert PREV_CHAT_VERBALIZER_W1 != DIRECT_VERBALIZER_SYSTEM_PROMPT
 
 
 # ── §11/§32: prompt-conflict scrub ───────────────────────────────────────────

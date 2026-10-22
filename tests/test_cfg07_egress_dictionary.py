@@ -594,11 +594,12 @@ async def test_humor_owner_toggle_off_disables_layer(monkeypatch):
 
 
 def test_allowed_sarcasm_not_removed():
-    """Допустимый сарказм/резкость не удалён чисткой: Core, deadpan,
-    честный слив Direct, админ-жанр checkup."""
-    assert "язвительность" in PERSONALITY_CORE_COMPACT_TEXT
-    assert "непристойный юмор" in PERSONALITY_CORE_COMPACT_TEXT
+    """Допустимый сарказм/резкость не удалён чисткой: Core (v3 §3.2/§3.3),
+    deadpan, честный слив Direct, админ-жанр checkup."""
+    assert "язвительный" in PERSONALITY_CORE_COMPACT_TEXT
+    assert "непристойному юмору" in PERSONALITY_CORE_COMPACT_TEXT
     assert "остроумие" in PERSONALITY_CORE_FULL_TEXT
+    assert "язвительность" in PERSONALITY_CORE_FULL_TEXT
     assert "Ничего не объясняй" in hc.technique_text("deadpan")
     assert ("Признай косяк в саркастичной манере, но оставайся в рамках "
             "фактов.") in CHAT_SYSTEM_PROMPT

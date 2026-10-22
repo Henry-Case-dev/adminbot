@@ -32,9 +32,15 @@ from services.chat_prompts import (
     PREV_CHAT_SYSTEM_PROMPT,
     PREV_CHAT_VERBALIZER_MCA23,
     PREV_CHAT_VERBALIZER_R1023,
+    PREV_CHAT_VERBALIZER_W1,
+    PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
+    PREV_DIRECT_L1_PLANNER_1021,
+    PREV_DIRECT_L1_PLANNER_1022,
+    PREV_DIRECT_L1_PLANNER_L1D,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
+    PREV_R1022_CHAT_SYSTEM_PROMPT,
 )
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
@@ -45,6 +51,7 @@ from services.checkup_prompts import (
 from services.factcheck_prompts import (
     FACTCHECK_ANALYST_SYSTEM_PROMPT,
     FACTCHECK_SYSTEM_PROMPT,
+    FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
     PREV_FACTCHECK_ANALYST_R1023,
     PREV_FACTCHECK_ANALYST_R1023_F2,
     PREV_FACTCHECK_ANALYST_R1023_F3,
@@ -52,6 +59,7 @@ from services.factcheck_prompts import (
     PREV_FACTCHECK_R1021_SYSTEM_PROMPT,
     PREV_FACTCHECK_SYSTEM_PROMPT,
     PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT,
+    PREV_FACTCHECK_VERBALIZER_W1,
 )
 from services.prompt_migrations import (
     PROMPT_MIGRATIONS,
@@ -133,6 +141,9 @@ _ALL_KEYS = [
     # Раунд 10.23 (F1, ADR-1023-1): Stage-1 промпты (PG-ключи создаёт F8).
     "prompts.summary_editor_system_prompt",
     "prompts.factcheck_analyst_system_prompt",
+    # ASAP W1 (P0-F «точечно», SOUL1-CLOSE-R1 04.3): первая ступень ключа
+    # Вербализатора фактчека.
+    "prompts.factcheck_verbalizer_system_prompt",
     # Раунд 10.26 (S3, ADR-1026-5 D4): новый ключ L1-Кластеризатора.
     "prompts.summary_l1_clusterizer_system_prompt",
     # Раунд 10.26 (S5, ADR-1026-7 D3/D4): новый ключ L2-Писателя.
@@ -140,6 +151,9 @@ _ALL_KEYS = [
     # ASAP-2.1 (round1028, контракт g): Narrator получает ступени миграции.
     "prompts.summary_narrator_system_prompt",
 ]
+# ВНИМАНИЕ: порядок _ALL_KEYS == порядку объявления PROMPT_MIGRATIONS
+# (test_iteration_order_is_fixed); фактчек-вербализатор сидит после
+# factcheck_analyst.
 
 # prev-эталон (слепок HEAD 68fb03e) для каждой ступени — первая пара.
 _PREV_BY_KEY: dict[str, str] = {
@@ -167,6 +181,10 @@ _PREV_BY_KEY: dict[str, str] = {
     "prompts.summary_l2_writer_system_prompt": PREV_SUMMARY_L2_WRITER_R1026,
     # ASAP-2.1 (round1028, контракт g): слепок прод-канона Рассказчика ДО правки.
     "prompts.summary_narrator_system_prompt": PREV_SUMMARY_NARRATOR_R1023,
+    # ASAP W1 (P0-F «точечно»): слепок прод-канона Вербализатора фактчека
+    # 2.58.110 (с identity-фразой).
+    "prompts.factcheck_verbalizer_system_prompt":
+        PREV_FACTCHECK_VERBALIZER_W1,
 }
 
 # new-канон (раунд 5) для каждого ключа.
@@ -197,6 +215,9 @@ _NEW_BY_KEY: dict[str, str] = {
     # ASAP-2.1 (round1028, контракт g): канон Рассказчика (§25 — шиза —
     # творческое решение модели).
     "prompts.summary_narrator_system_prompt": SUMMARY_NARRATOR_SYSTEM_PROMPT,
+    # ASAP W1 (P0-F «точечно»): канон Вербализатора фактчека без identity.
+    "prompts.factcheck_verbalizer_system_prompt":
+        FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
 }
 
 # Слепки прод-канона раунда 10.21 (F2+F3) — для новой ступени.
@@ -218,6 +239,10 @@ _PREV_R1021_BY_KEY: dict[str, str] = {
 _ROLLBACK_KEYS = [
     "prompts.direct_chat_system_prompt",
     "prompts.direct_chat_verbalizer_system_prompt",
+    # ASAP W1 (P0-G/P0-F): откат L1-планера и Вербализатора фактчека
+    # (позиция — по порядку объявления ROLLBACK_MIGRATIONS).
+    "prompts.direct_l1_planner_system_prompt",
+    "prompts.factcheck_verbalizer_system_prompt",
     # R1021-ключи (direct_chat уже выписан выше — без дубля).
     *list(_PREV_R1021_BY_KEY)[1:],
     "prompts.summary_editor_system_prompt",
@@ -237,10 +262,16 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # CFG-07A-2 (20.10.2026): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
     # прод-канон 2.58.100 (MCA-23-композиция; снимается только ступень
     # CFG-07A; стек ступеней цел — ADR-1013-3, как у C14 фактчека).
-    "prompts.direct_chat_system_prompt": PREV_CHAT_CFG07A_SYSTEM_PROMPT,
+    "prompts.direct_chat_system_prompt": PREV_CHAT_W1_SYSTEM_PROMPT,
     # MCA-23 (§11): откат Вербализатора direct → прод-канон 10.23 (с cap).
+    # ASAP W1 (22.10.2026): откат → прод-канон 2.58.110 (d0ef0d376fc3).
     "prompts.direct_chat_verbalizer_system_prompt":
-        PREV_CHAT_VERBALIZER_MCA23,
+        PREV_CHAT_VERBALIZER_W1,
+    # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_L1D,
+    # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
+    "prompts.factcheck_verbalizer_system_prompt":
+        PREV_FACTCHECK_VERBALIZER_W1,
     # ASAP-2.1 (round1028, контракт g): откат Legacy Single вёл на канон
     # 2.58.33 (PREV_SUMMARY_SYSTEM_R1028).
     # CFG-07A-2: откат → НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
@@ -336,7 +367,30 @@ class TestPromptMigrationsCatalog:
                          (PREV_CHAT_R1023_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_MCA23_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
                          (PREV_CHAT_CFG07A_SYSTEM_PROMPT,
-                          CHAT_SYSTEM_PROMPT)]
+                          CHAT_SYSTEM_PROMPT),
+                         # ASAP W1 (P0-F, §3.6): прод-канон 2.58.110 →
+                         # канон с ролевым блоком владельца.
+                         (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+
+    def test_w1_steps_present(self):
+        """ASAP W1 (22.10.2026, §3.1-3.7): ступени прод-канонов 2.58.110
+        (tool phase/L2 writer/L1) и первая ступень Вербализатора фактчека."""
+        from services.chat_prompts import PREV_DIRECT_L1_PLANNER_L1D
+        from services.factcheck_prompts import (
+            FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
+            PREV_FACTCHECK_VERBALIZER_W1,
+        )
+        assert (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT) in \
+            PROMPT_MIGRATIONS["prompts.direct_chat_system_prompt"]
+        assert (PREV_CHAT_VERBALIZER_W1,
+                DIRECT_VERBALIZER_SYSTEM_PROMPT) in \
+            PROMPT_MIGRATIONS["prompts.direct_chat_verbalizer_system_prompt"]
+        assert (PREV_DIRECT_L1_PLANNER_L1D,
+                DIRECT_L1_PLANNER_SYSTEM_PROMPT) in \
+            PROMPT_MIGRATIONS["prompts.direct_l1_planner_system_prompt"]
+        assert PROMPT_MIGRATIONS["prompts.factcheck_verbalizer_system_prompt"] \
+            == [(PREV_FACTCHECK_VERBALIZER_W1,
+                 FACTCHECK_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_catalog_points_to_new_canons(self):
         """new во всех ступенях == канону раунда 5 (байт-сверка со спека)."""
@@ -567,10 +621,10 @@ class TestRound1023Migration:
     def test_rollback_chat_targets_pre_mca23(self):
         """MCA-23 (Wave 3): откат чата вёл на канон ДО MCA-23.
         CFG-07A-2 (ADR-1013-3): откат — на НЕПОСРЕДСТВЕННО прежний
-        прод-канон 2.58.100 (PREV_CHAT_CFG07A; снимается только ступень
-        CFG-07A, стек ступеней цел)."""
+        прод-канон 2.58.100. ASAP W1: откат — на прод-канон 2.58.110
+        (PREV_CHAT_W1; снимается только ступень W1, стек ступеней цел)."""
         assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == \
-            (CHAT_SYSTEM_PROMPT, PREV_CHAT_CFG07A_SYSTEM_PROMPT)
+            (CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)
 
     @pytest.mark.asyncio
     async def test_rollback_chat_restores_pre_mca23(self):
@@ -580,7 +634,7 @@ class TestRound1023Migration:
         assert report == {"prompts.direct_chat_system_prompt": "rolled_back"}
         assert cache.set_calls == [
             ("prompts.direct_chat_system_prompt",
-             PREV_CHAT_CFG07A_SYSTEM_PROMPT, "prompts")]
+             PREV_CHAT_W1_SYSTEM_PROMPT, "prompts")]
 
     @pytest.mark.asyncio
     async def test_r1023_snapshots_update_and_rollback(self):
@@ -613,7 +667,9 @@ class TestMca23Migration:
             "prompts.direct_chat_verbalizer_system_prompt"]
         assert steps == [
             (PREV_CHAT_VERBALIZER_R1023, DIRECT_VERBALIZER_SYSTEM_PROMPT),
-            (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
+            (PREV_CHAT_VERBALIZER_MCA23, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+            # ASAP W1 (P0-A, §3.1): прод-канон 2.58.110 → канон владельца.
+            (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_mca23_snapshots_differ_from_new(self):
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
@@ -627,9 +683,12 @@ class TestMca23Migration:
             not in CHAT_SYSTEM_PROMPT
 
     def test_verbalizer_rollback_targets_r1023_full(self):
+        """MCA-23: откат снимал ступень MCA-23 → прод-канон 10.23.
+        ASAP W1: откат — на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон 2.58.110
+        (PREV_CHAT_VERBALIZER_W1, d0ef0d376fc3)."""
         assert ROLLBACK_MIGRATIONS[
             "prompts.direct_chat_verbalizer_system_prompt"] == (
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_MCA23)
+            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1)
 
     @pytest.mark.asyncio
     async def test_pre_mca23_canon_migrates_to_new(self):
@@ -672,14 +731,16 @@ class TestMca23Migration:
         SOUL-1 (W1, §1.2/§7.2): effective-значение проходит реестр речевых
         инструкций — известные сегменты legacy-личности вычищаются на сборке.
         Проверяется ЛЕСТНИЦА (новый канон, не PREV), а не байты канона.
+        W1: новый канон §3.1 без legacy-личности — suppress no-op
+        (effective == канон); прежние ступени (R1023/MCA23) по-прежнему
+        вычищаются.
         """
         from services import hot_config as hot
         from services import prompt_registry as pr
         from services.prompt_style_blocks import resolve_prompt
-        effective_canon, _info = pr.suppress_legacy_speech(
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, source="global")
-        assert effective_canon != DIRECT_VERBALIZER_SYSTEM_PROMPT
-        for prev in (PREV_CHAT_VERBALIZER_R1023, PREV_CHAT_VERBALIZER_MCA23):
+        from services.chat_prompts import PREV_CHAT_VERBALIZER_W1
+        for prev in (PREV_CHAT_VERBALIZER_R1023, PREV_CHAT_VERBALIZER_MCA23,
+                     PREV_CHAT_VERBALIZER_W1):
             cache = FakeCache(values={
                 "prompts.direct_chat_verbalizer_system_prompt": prev})
             await migrate_prompt_canons(cache)
@@ -691,7 +752,7 @@ class TestMca23Migration:
                 resolved = resolve_prompt(
                     "prompts.direct_chat_verbalizer_system_prompt",
                     "CODE_DEFAULT")
-                assert resolved == effective_canon
+                assert resolved == DIRECT_VERBALIZER_SYSTEM_PROMPT
                 assert resolved != prev
                 assert "бот-абьюзер" not in resolved
             finally:
@@ -712,13 +773,14 @@ class TestMca23Migration:
         report = await rollback_prompt_canons(cache)
         assert report == {
             "prompts.direct_chat_verbalizer_system_prompt": "rolled_back"}
+        # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3)
         assert cache.set_calls == [(
             "prompts.direct_chat_verbalizer_system_prompt",
-            PREV_CHAT_VERBALIZER_MCA23, "prompts")]
+            PREV_CHAT_VERBALIZER_W1, "prompts")]
         # обратная миграция возвращает новый канон (идемпотентность стека)
         back = FakeCache(values={
             "prompts.direct_chat_verbalizer_system_prompt":
-                PREV_CHAT_VERBALIZER_MCA23})
+                PREV_CHAT_VERBALIZER_W1})
         report2 = await migrate_prompt_canons(back)
         assert report2 == {
             "prompts.direct_chat_verbalizer_system_prompt": "updated"}

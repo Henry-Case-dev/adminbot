@@ -115,6 +115,12 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
         "summary.base.single", "search.base.system", "checkup.base.system",
         "youtube.base.system", "youtube.base.video", "web.base.system",
         "summary.base.narrator",
+        # ASAP W1 (22.10.2026, §3.1/§3.6/P0F-«точечно»): identity-фразы
+        # сняты с фабрик Direct (tool phase, L2 writer) и Вербализатора
+        # фактчека — прежние байты в ступенях PREV_*_W1; флаг legacy_persona
+        # остаётся контрактом подавления ПЕРСИСТЕНТНЫХ значений (прод-кастомы
+        # W0 ещё несут legacy-сегменты).
+        "direct.base.tool_phase", "direct.base.l2_writer",
     }
     for block_id in (
             "direct.base.tool_phase", "direct.base.l2_writer",
@@ -128,6 +134,14 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
             assert not pr.legacy_persona_present(
                 pr.factory_text(block_id)), (
                 f"{block_id}: фабрика вычищена, маркер не ожидается")
+        elif block_id == "factcheck.base.verbalizer":
+            # ASAP W1 (P0F-«точечно», SOUL1-CLOSE-R1 04.3): identity-фраза
+            # «токсичный … фактчекер … двача» снята; маркер coarse-детектора
+            # остаётся из-за жанрового hostility-<bot_knowledge> (фриз
+            # CFG-06 W3, решение владельца UNIFIED-CORE).
+            assert "токсичный" not in pr.factory_text(block_id)
+            assert "двача" not in pr.factory_text(block_id)
+            assert pr.legacy_persona_present(pr.factory_text(block_id))
         else:
             assert pr.legacy_persona_present(pr.factory_text(block_id)), \
                 block_id

@@ -181,11 +181,12 @@ class TestSystemPromptGuard:
         bot.send_message = AsyncMock(return_value=sent)
         await service.handle(bot, msg, msg.from_user)
         _assert_system_at_zero(llm)
-        # канон раунда 8 (T-790): первый абзац «как читать блоки», блоки
-        # СИСТЕМНАЯ РОЛЬ/ПРИОРИТЕТЫ/ИНСТРУМЕНТЫ сохранены; MCA-23 (§10):
-        # глобальный cap снят, extent-семантика в каноне
+        # канон раунда 8 (T-790): первый абзац «как читать блоки»; MCA-23
+        # (§10): глобальный cap снят, extent-семантика в каноне; W1 (§3.6):
+        # ролевой блок = НАЗНАЧЕНИЕ КАНАЛА DIRECT (владелец)
         assert llm.messages[0]["content"].startswith("КАК ЧИТАТЬ КОНТЕКСТ:")
-        assert "СИСТЕМНАЯ РОЛЬ:" in llm.messages[0]["content"]
+        assert "НАЗНАЧЕНИЕ КАНАЛА DIRECT" in llm.messages[0]["content"]
+        assert "СИСТЕМНАЯ РОЛЬ:" not in llm.messages[0]["content"]
         assert "ОДНОГО ИЛИ ДВУХ ПРЕДЛОЖЕНИЙ" not in llm.messages[0]["content"]
         assert "Не сокращай ответ так, чтобы задача осталась неполной" \
             in llm.messages[0]["content"]

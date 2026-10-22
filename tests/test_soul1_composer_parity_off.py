@@ -1,9 +1,11 @@
 """SOUL-1 (W2) — байт-паритет OFF (шов 2 контракта композера).
 
 Флаг `flags.unified_composer_enabled`/`UNIFIED_COMPOSER_ENABLED` выключен
-(код-дефолт) → сборка system/user совпадает **байт-в-байт** с дампами
-реального рантайма, записанными аудитом:
-`plans/features/soul-1/evidence/direct-runtime-assembly.txt`.
+(код-дефолт) → сборка system/user совпадает **байт-в-байт** с дампом,
+переснятым слайсом ASAP-W1 по НОВЫМ фабричным канонам (§3.1/3.6/3.7
+source-2026-10-22.md): plans/features/asap-speech-arch/evidence/w1/
+direct-runtime-assembly-w1.txt. Прежний артефакт soul-1 (каноны до W1,
+прод 2.58.110) сохранён как историческое свидетельство — НЕ правился.
 
 Тест читает ожидаемые chars/tokens/sha256_12 ИЗ АРТЕФАКТА (не из своих
 констант): расхождение с реальной сборкой ломает тест, а не «подгоняется».
@@ -12,7 +14,7 @@
 искусственно сломанном `compose_prompt` OFF-сборка не меняется, а ON-ветка
 при отсутствии новых слоёв даёт те же байты, что легаси-склейка хвоста.
 
-TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (design-composer-contract §8 шов 2)
+TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (шов 2) + ASAP-W1 переснятие
 """
 from __future__ import annotations
 
@@ -30,8 +32,8 @@ from services import prompt_style_blocks as psb
 from services import response_extent as _extent
 from services import direct_l1 as _l1
 
-EVIDENCE = os.path.join("plans", "features", "soul-1", "evidence",
-                        "direct-runtime-assembly.txt")
+EVIDENCE = os.path.join("plans", "features", "asap-speech-arch", "evidence",
+                        "w1", "direct-runtime-assembly-w1.txt")
 
 _SYS_RE = re.compile(r"^SYSTEM\s+chars=(\d+)\s+tokens=(-?\d+)\s+"
                      r"sha256_12=([0-9a-f]{12})", re.MULTILINE)

@@ -21,6 +21,7 @@ from services import hot_config as hot
 from services import chat_params
 from services import chat_prompts
 from services import checkup_prompts
+from services import factcheck_prompts
 from services import param_catalog as pc
 from services import prompt_factory as pf_mod
 from services import prompt_migrations as pm
@@ -62,8 +63,14 @@ LEGACY_CANON_BLOCK_IDS = tuple(
 #: (safety-bypass/identity/hostility сняты из кода), поэтому контракт
 #: подавления проверяется на ПЕРСИСТЕНТНЫХ байтах прежнего прод-канона
 #: (ступени миграции PREV_*_CFG07A; фактчек — фриз CFG-06 W3, не тронут).
+#: ASAP W1 (22.10.2026, §3.1/§3.6/P0F-«точечно»): фабрики Direct
+#: (tool phase 2.58.110 байты, L2 writer) и Вербализатора фактчека вычищены
+#: — контракт подавления проверяется на их прод-байтах (PREV_*_W1-ступени).
 _PERSISTED_BYTES: dict[str, str] = {
-    "direct.base.tool_phase": chat_prompts.PREV_CHAT_CFG07A_SYSTEM_PROMPT,
+    "direct.base.tool_phase": chat_prompts.PREV_CHAT_W1_SYSTEM_PROMPT,
+    "direct.base.l2_writer": chat_prompts.PREV_CHAT_VERBALIZER_W1,
+    "factcheck.base.verbalizer":
+        factcheck_prompts.PREV_FACTCHECK_VERBALIZER_W1,
     "checkup.base.system": checkup_prompts.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     "summary.base.single": summary_prompts.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
     # LEGFIX (22.10.2026, backlog «narrator-канон identity-фраза»): фабрика
@@ -166,10 +173,17 @@ def test_cleaned_factory_canons_have_no_legacy_markers():
     """CFG-07A-2: фабричные каноны ПОЛНОСТЬЮ вычищенных блоков (все 6
     не-фактчек маршрутов) больше не несут сегменты старой личности —
     подавление на них no-op (маркеров нет). Канон Direct identity-строку
-    сохраняет (вне скоупа SF-07) — его подавление проверяется выше."""
+    сохраняет (вне скоупа SF-07) — его подавление проверяется выше.
+    ASAP W1: identity-фраза снята также с Вербализатора фактчека (в тесте —
+    честная граница: coarse-детектор остаётся на жанровом hostility-
+    <bot_knowledge>, фриз CFG-06 W3; identity-маркеров нет)."""
     for block_id in set(_PERSISTED_BYTES) - {"direct.base.tool_phase"}:
         raw = pr.factory_text(block_id)
         _stripped, info = pr.suppress_legacy_speech(raw, source="global")
+        if block_id == "factcheck.base.verbalizer":
+            assert "токсичн" not in raw and "бот-абьюзер" not in raw
+            assert "двача" not in raw
+            continue
         assert info.legacy_present is False, block_id
         assert info.applied is False, block_id
 
@@ -180,8 +194,10 @@ def test_custom_value_is_never_edited_but_is_visible_as_conflict():
     Кастом владельца не переписывается самой вычисткой; решение о том, что
     сохранённое значение стало действующим слоем, принимает резолвер по
     провенансу (см. ``test_unattested_custom_is_withheld_from_effective``).
+    W1: фабрика вербализатора вычищена — «известный канон со старой
+    личностью» для кастома берётся из прод-байтов 2.58.110 (ступень W1).
     """
-    raw = pr.factory_text("direct.base.l2_writer")
+    raw = chat_prompts.PREV_CHAT_VERBALIZER_W1
     custom = raw + "\n\nМоя правка характера: будь добрее."
     result, info = pr.suppress_legacy_speech(custom, source="global")
     assert result == custom, "кастом владельца изменён"
@@ -388,13 +404,14 @@ def test_resolve_prompt_suppresses_only_persisted_values():
     # PG down → код-канон байт-в-байт (паритет OFF).
     assert psb.resolve_prompt(key, canon) == canon
     # PG есть → известный канон: провенанса нет ⇒ действует заводская
-    # редакция (тот же вычищенный текст), сохранённые байты не тронуты.
+    # редакция. W1: фабрика §3.1 чиста — вычистка no-op, effective байт-в-байт
+    # равен канону, сохранённые байты не тронуты.
     cache = FakeConfigCache({key: canon})
     hot.set_config_cache(cache)
     effective = psb.resolve_prompt(key, canon)
-    assert effective != canon
+    assert effective == canon
     assert "бот-абьюзер" not in effective
-    assert "ТИПОГРАФИКА" in effective
+    assert "РОЛЬ И ЗАДАЧА" in effective
     assert cache.values[key] == canon and cache.writes == []
     # Кастом из PG (без записи через API реестра) — тоже не активный слой.
     custom = canon + "\n\nвладельческая строка"

@@ -55,7 +55,10 @@ ACTIVE_CANONS: dict[str, str] = {
     "direct": ch.CHAT_SYSTEM_PROMPT,
 }
 
-# Непосредственные прежние прод-каноны 2.58.100 (ступени/цели отката).
+# Непосредственные прежние прод-каноны (ступени/цели отката).
+# W1 (22.10.2026): для direct непосредственный прежний — прод-канон
+# 2.58.110 (PREV_CHAT_W1_SYSTEM_PROMPT, 0fe9680ba280); слепок 2.58.100
+# (PREV_CHAT_CFG07A) остаётся предыдущей ступенью лестницы.
 PREV_CANONS: dict[str, str] = {
     "search": sp.PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     "youtube": yt.PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
@@ -63,7 +66,7 @@ PREV_CANONS: dict[str, str] = {
     "web": wp.PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     "checkup": cp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     "summary": sm.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
-    "direct": ch.PREV_CHAT_CFG07A_SYSTEM_PROMPT,
+    "direct": ch.PREV_CHAT_W1_SYSTEM_PROMPT,
 }
 
 MIGRATION_KEYS: dict[str, str] = {
@@ -116,12 +119,18 @@ def test_active_canon_has_no_source_fix_markers(name):
 @pytest.mark.parametrize("name", sorted(ACTIVE_CANONS))
 def test_active_canon_keeps_genre_contracts(name):
     """Жанровые контракты каналов пережили чистку (корпус POSITIVE).
-    Direct не носит {max_symbols} (extent-семантика MCA-23) — только форма."""
+    Direct не носит {max_symbols} (extent-семантика MCA-23) — только форма.
+    W1 (§3.6): у Direct жанровые маркеры — tool/context-контракты и
+    анти-галюцинации (блоки оформления/АНТИ-БОТ сняты владельцем)."""
     prompt = ACTIVE_CANONS[name]
+    if name == "direct":
+        assert "ИНСТРУМЕНТЫ:" in prompt
+        assert "АНТИ-ГАЛЛЮЦИНАЦИИ:" in prompt
+        assert "НАЗНАЧЕНИЕ КАНАЛА DIRECT" in prompt
+        return
     assert "Имитируй торопливое письмо" in prompt, name
     assert "АНТИ-БОТ (СТРОГО ЗАПРЕЩЕНО):" in prompt, name
-    if name != "direct":
-        assert "{max_symbols}" in prompt, name
+    assert "{max_symbols}" in prompt, name
 
 
 def test_checkup_fallback_notice_has_no_bracket_marker():
@@ -166,10 +175,12 @@ def test_ladder_step_and_rollback_target(name):
 
 @pytest.mark.parametrize("name", sorted(PREV_CANONS))
 def test_prev_canon_is_byte_identical_to_deployed_family(name):
-    """Ступень хранит прежние байты прод-канона: свой SOURCE_FIX-маркер ещё
-    в слепке (обязанность узнавать прод-значения, C14-прецедент)."""
+    """Ступень хранит прежние байты прод-канона: свой legacy-маркер ещё
+    в слепке (обязанность узнавать прод-значения, C14-прецедент).
+    W1: слепок direct — прод-канон 2.58.110 (без «перегрелись», но с
+    identity-строкой и блоками A/B)."""
     prev = PREV_CANONS[name]
-    own_marker = ("перегрелись серверы" if name == "direct"
+    own_marker = ("бот-абьюзер" if name == "direct"
                   else BYPASS)
     assert own_marker in prev, name
     if name != "direct":
@@ -324,19 +335,22 @@ def test_unchanged_echo_is_caught_by_token_guard():
 def test_summary_l2_profanity_seam_closed_by_p0_priority():
     """CORRECTIVE-FOLLOWUP (21.10.2026, §2): жанровое «мат разрешены и
     уместны» УДАЛЕНО из L2-канона — источник противоречия устранён, а не
-    перекрыт приоритетом. P0-строка приоритета в шапке Expression сохранена
-    (арбитраж с прочими канонными разрешениями остаётся)."""
+    перекрыт приоритетом. ASAP W1 (§3.4): шапка Expression = текст владельца
+    — слой изолирован («не переноси ограничения или разрешения из других
+    речевых слоёв»), конфликт с прочими канонными разрешениями закрыт
+    изоляцией слоя, а не строкой приоритета."""
     assert "мат разрешены" not in sm.SUMMARY_L2_WRITER_SYSTEM_PROMPT
     assert "Сарказм, интернет-сленг и двачерские обороты разрешены" \
         in sm.SUMMARY_L2_WRITER_SYSTEM_PROMPT
-    assert "эти настройки важнее общего разрешения канона" in mex.EXPRESSION_HEADER
+    assert ("не переноси ограничения или разрешения из других речевых слоёв"
+            in mex.EXPRESSION_HEADER)
     off_text = mex.render_expression_text({
         "enabled": True,
         "controls": {"profanity": {"value": "off"}},
     })
     assert off_text
     assert "Не используй мат в собственной речи." in off_text
-    assert "важнее общего разрешения канона" in off_text
+    assert "важнее общего разрешения канона" not in off_text
 
 
 # ═══ 7. POSITIVE-контроли корпуса (не задеты чисткой) ═══════════════════════

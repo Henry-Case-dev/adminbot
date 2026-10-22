@@ -31,6 +31,7 @@ from services.chat_prompts import (  # noqa: E402
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_1022,
     _DIRECT_L1_PLANNER_BASE,
+    _DIRECT_L1_PLANNER_BASE_L1D,
     _DIRECT_L1_PLANNER_BASE_R1022,
     _DIRECT_L1_PLANNER_RULES,
 )
@@ -62,20 +63,28 @@ def test_canon_schema_has_delivery_fields():
 
 
 def test_canon_forms_no_priority_and_positive_criteria():
-    """§1/§3: семантика форм — без приоритетов; reply осмыслен только как
-    прямой ответ на выбранное сообщение; silent — полноценный исход."""
+    """§1/§3 (W1: секция §3.7 «ВЫБОР УЧАСТИЯ»): семантика форм — без
+    приоритетов; reply осмыслен только как ответ на конкретное сообщение;
+    silent — полноценное действие; запрет эвристик/квот."""
     flat = _flatten(DIRECT_L1_PLANNER_SYSTEM_PROMPT)
-    assert "Никакой способ участия не имеет приоритета" in flat
-    assert "reply не предпочтительнее обычного сообщения" in flat
-    assert "молчание - полноценный исход" in flat
-    assert "квот и пропорций форм нет" in flat
-    # target_message_id — выбор LLM из контекста, не по порядку
-    assert "по смысловой связи, а не по порядку" in flat
+    assert "Никакое действие не предпочтительнее остальных по умолчанию" \
+        in flat
+    assert ("Reply возможен, но никогда не обязателен и не используется как "
+            "fallback по умолчанию") in flat
+    # target_message_id — выбор LLM из окна по смысловой связи
+    assert "твоя мысль смыслово относится именно к этому сообщению" in flat
     # target_user_id сам по себе не включает reply (сценарий C)
-    assert "сам по себе он reply" in flat and "НЕ включает" in flat
-    # source_refs-семантика не пересекается с командой reply:
-    # доставка выбирается по «прямой ответ именно на выбранное сообщение»
-    assert "прямой ответ именно на" in flat
+    assert "target_user_id не превращает chat в reply" in flat
+    # реакция без reply-цели; молчание без полей доставки
+    assert "Для реакции не назначай цель reply текстового сообщения" in flat
+    assert "Для молчания не заполняй поля доставки и адресата" in flat
+    # запрет подгонки/эвристик (§4 директивы) — в каноне владельца
+    assert "Не принимай решение по признаку" in flat
+    assert "Нет квоты, процента, принудительного чередования" in flat
+    # доставка — только для инициативного вызова (Direct scope не переносит
+    # инициативный контракт)
+    assert ("этот вызов относится к инициативе, отдельно выбери доставку"
+            ) in flat
     # запрет подгонки: нет словарей конкретных слов-триггеров
     for banned in ("«лол»", "«ахах", "«ок»"):
         assert banned not in flat
@@ -98,11 +107,21 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert targets[PREV_DIRECT_L1_PLANNER_1022] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     from services.chat_prompts import (PREV_DIRECT_L1_PLANNER_1021,
-                                       PREV_DIRECT_L1_PLANNER_BASE)
+                                       PREV_DIRECT_L1_PLANNER_BASE,
+                                       PREV_DIRECT_L1_PLANNER_L1D)
     assert targets[PREV_DIRECT_L1_PLANNER_1021] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert targets[PREV_DIRECT_L1_PLANNER_BASE] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    # W1 (§3.7): прод-канон 2.58.110 (ace6246bd360) ведёт на секцию
+    # «ВЫБОР УЧАСТИЯ»; прежний канон заморожен байт-в-байт.
+    assert targets[PREV_DIRECT_L1_PLANNER_L1D] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert PREV_DIRECT_L1_PLANNER_L1D == (
+        _DIRECT_L1_PLANNER_BASE_L1D + _DIRECT_L1_PLANNER_RULES)
+    assert "ФОРМА УЧАСТИЯ" in PREV_DIRECT_L1_PLANNER_L1D
+    assert "ФОРМА УЧАСТИЯ" not in DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert "ВЫБОР УЧАСТИЯ" in DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
 
 

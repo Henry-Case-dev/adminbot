@@ -179,10 +179,14 @@ class TestResponseModeRouter:
 
 class TestModeAndFormatBlocks:
     def test_stage2_canons_carry_typography(self):
+        """W1 (§3.1/§3.5): Direct L2-канон БЕЗ типографики (правила подачи —
+        Style Policy); жанровые Stage-2 каноны (Рассказчик/фактчек —
+        неизменённые владельцем слои) типографику сохраняют."""
         for prompt in (SUMMARY_NARRATOR_SYSTEM_PROMPT,
-                       FACTCHECK_VERBALIZER_SYSTEM_PROMPT,
-                       DIRECT_VERBALIZER_SYSTEM_PROMPT):
+                       FACTCHECK_VERBALIZER_SYSTEM_PROMPT):
             assert TYPOGRAPHY_BLOCK in prompt
+        assert TYPOGRAPHY_BLOCK not in DIRECT_VERBALIZER_SYSTEM_PROMPT
+        assert "кавычки" not in DIRECT_VERBALIZER_SYSTEM_PROMPT
 
     def test_prev_snapshots_are_pre_f3(self):
         assert PREV_SUMMARY_NARRATOR_R1023 != SUMMARY_NARRATOR_SYSTEM_PROMPT

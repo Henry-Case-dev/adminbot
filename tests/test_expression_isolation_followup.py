@@ -125,10 +125,9 @@ def test_factory_texts_registered_set_has_no_mat_outside_expression():
 
 def test_fingerprint_constant_matches_recomputed_registry():
     """FACTORY_SET пересчитан после правки канонов (бампы задокументированы
-    в prompt_registry: 037080375ac8 -> 21717a79dc67 -> 71c6a7b6c612 ->
-    3e35aaa38e0c -> c19d35a1c093 -> 3507bd6f92eb -> 553a281fe2fd; итерации:
-    Core/каноны речи, очистка search/youtube/web/summary/L2-writer/
-    typography, канон ностальгии, L1D-форма участия в каноне L1-планера,
-    LEGFIX-снятие identity-фразы из канона Рассказчика)."""
+    в prompt_registry: … -> 3507bd6f92eb -> 553a281fe2fd -> fd4e88754749;
+    W1-бамп 22.10.2026: Core full/compact v3 (§3.2/§3.3), Direct tool phase
+    (§3.6), Direct L2 writer (§3.1), L1 «ВЫБОР УЧАСТИЯ» (§3.7),
+    factcheck-вербализатор без identity — PREV_*_W1-слепки + ступени)."""
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
-    assert pr.FACTORY_SET_SHA256_12 == "553a281fe2fd"
+    assert pr.FACTORY_SET_SHA256_12 == "fd4e88754749"
