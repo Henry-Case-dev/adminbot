@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap2-direct-chat\\source-2026-10-22.md",
   "source_sha256": "8f600767e06877ac45ed9bd9768922459a052dfc7b344f8b793c1e41f8531de7",
-  "candidate_commit": "",
+  "candidate_commit": "34af90ff",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -19,8 +19,25 @@
       "acceptance": "[P0] L1 — единственный интерпретатор намерения и решение об уточнении; код проверяет только программные факты (наличие ссылки, существование target-message, доступность инструмента, тип JSON-поля); в diff нет объявлений «понятно/непонятно» по словам, длине, знакам препинания, категориям, response_act, числу сообщений, шаблонам, спискам исключений и универсальным предикатам (ревью diff + grep).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §1",
+          "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §3",
+          "observation": "Четыре существующих места: L1 schema/needs_clarification (strict is True, схема не менялась), build_l2_plan_block (единственный plan-hint), clarify_action/render_speech_block ({none,assume}, без ask), _l1_speech_hints (short_dependency в L1 не уходит); секция §4.1 вставлена, канон корректен.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "MAN-GOV-MINIMAL-DIFF",
@@ -34,8 +51,25 @@
       "acceptance": "[P0] Сложившиеся модули и интерфейсы сохранены; исправлен действующий поток Direct Chat; diff минимален при полноценном исправлении, без архитектурного «решения» там, где достаточно промпта, контекста и устранения конфликтующей команды (ревью diff).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §5",
+          "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L1-PRINCIPLE",
@@ -50,7 +84,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Полный семантический раунд по всем классам §6.1–§6.3 (недостающие T10/T11/T14/T17/T18/T22/T26) с 2–3 парафразами; оценить, что ответ даётся при любой разумной интерпретации",
+      "owner_role": "Builder",
+      "blocked_reason": "принцип сформулирован в каноне, но его выполнение проверено только на 14 классах из 26"
     },
     {
       "source_id": "MAN-CLAR-L1-PRIOR",
@@ -65,7 +119,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: измерить, что уточнение не превращается в сбор ТЗ (T04/T06/T12 уже отвечают без вопросов; нужны широкие и составные просьбы)",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: приоритет «понять и ответить» не проверен на широких/составных формулировках"
     },
     {
       "source_id": "MAN-CLAR-L1-SCOPE",
@@ -79,8 +153,25 @@
       "acceptance": "[P0] В DIRECT_L1_PLANNER_SYSTEM_PROMPT переписано только смысловое правило уточнения; продемонстрировано, что L1 получает достаточно контекста (runtime payload тестового маршрута; тест канона).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:774-805",
+          "observation": "В prompts.direct_l1_planner_system_prompt заменено только правило 5: вместо прежнего «needs_clarification=true — только если задача неразрешима…» стоит отсылка к контракту §4.1; правила 1-4/6-7 и требование «ровно одна JSON-строка» сохранены; секция «ВЫБОР УЧАСТИЯ» (W1) не тронута; JSON-схема не менялась.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/tests-final.txt",
+          "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-final.txt",
+          "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-BOOL-STRICT",
@@ -94,8 +185,25 @@
       "acceptance": "[P0] normalize_l1_plan принимает только реальный JSON boolean needs_clarification; строка «false» не превращается в True (тест #28).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:337-341",
+          "observation": "normalize_l1_plan: plan.needs_clarification = data.get('needs_clarification') is True — «false»/null/«true»/1/[]/{} не становятся запросом уточнения; нового LLM-вызова нет.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-PLAN-SOURCE",
@@ -109,8 +217,25 @@
       "acceptance": "[P0] Уточнение в Writer включается только от одного корректного финального поля L1; второго конкурирующего источника нет (тесты сборки плана; #31).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §1",
+          "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:891-955",
+          "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-SPEECH-CLAIM",
@@ -124,8 +249,25 @@
       "acceptance": "[P0] clarify_action/render_speech_block больше не порождают clarify=ask и модельную инструкцию спросить; автономное право Speech Understanding требовать вопрос убрано; остальные речевые сигналы сохранены (runtime payload; тесты Speech).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/claim_envelope.py:409-431",
+          "observation": "clarify_action возвращает только none/assume (ветка ask удалена); CLARIFY_ASK остаётся неиспользуемым значением enum, не новым классом; рендер кладёт «не переспрашивай».",
+          "artifact_path": "services/claim_envelope.py",
+          "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B2",
+          "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-SPEECH-HINTS",
@@ -139,8 +281,33 @@
       "acceptance": "[P0] _l1_speech_hints не подсказывает L1 готовый вывод «уточни», построенный по длине или наличию reply (runtime payload до модели; тест).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/claim_envelope.py:489-524",
+          "observation": "render_speech_block содержит только анти-переспрос; директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели.",
+          "artifact_path": "services/claim_envelope.py",
+          "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:129-159",
+          "observation": "test_32_speech_hints_never_suggest_clarify: hints не содержат clarify=ask и не подсказывают вывод «уточни» по длине/reply.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-BOOL-TOOLGATE",
@@ -154,8 +321,25 @@
       "acceptance": "[P0] Пропуск инструментов действует только для корректного финального структурированного решения L1; альтернативные ветки блокировки не добавлены (тесты #32–#33).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_chat_service.py:4424-4427",
+          "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "096a46aef6fb00f380648bfd15aeb241284162fadf0dcc9fb94679a07dc00c6f"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §1",
+          "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L2-NOMENU",
@@ -170,7 +354,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §6.3 (частично)",
+          "observation": "В 14 L2-текстах нет вопросительного знака; два уточнения — узкая просьба об объекте, не меню.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: широкие вопросы с несколькими равноправными объяснениями/вариантами (T06/T10/T14) — убедиться, что Writer не строит меню",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: отсутствие меню проверено на ограниченной выборке формулировок"
     },
     {
       "source_id": "MAN-GOV-CAPABILITIES",
@@ -184,8 +380,17 @@
       "acceptance": "[P0] response_extent.py и direct_capabilities.py не сломаны; переиспользованы только для технической проверки обязательной цели конкретного действия (медиа), без смыслового анализа всех разговоров (существующие тесты зелёные; ревью).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/tests-broad.txt (14 файлов)",
+          "observation": "response_extent.py/direct_capabilities.py не сломаны: широкий набор, включая direct_execution/payload/fallback, 432 passed; arch-audit §5 фиксирует переиспользование существующих средств без новых правил.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-broad.txt",
+          "artifact_sha256": "8f6285c0fcf111bc13a3b000a6fe9cf9a88e80259f67a97a2474c1934c4e10fa"
+        }
+      ]
     },
     {
       "source_id": "MAN-TESTS-TRACE",
@@ -199,8 +404,17 @@
       "acceptance": "[P0] Причина конкретного прод-ответа не утверждается без проверки его trace и active effective-конфигурации; недоказанная причинность помечена, статический конфликт путей фиксируется как потенциальный.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "probe/protocol.md §5 (ограничения)",
+          "observation": "Причина прод-ответа нигде не утверждается без trace/effective: protocol.md и results.md §5–§6 явно фиксируют границы, arch-audit §2 отмечает, что хеши прода не снимались.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/protocol.md",
+          "artifact_sha256": "112a0c0f5176e365c56fc5c120cd07da9252762c95350762ea1dd35895bc1dd2"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-CTX-THREE",
@@ -214,8 +428,25 @@
       "acceptance": "[P0] После уточняющего вопроса бота следующий ответ пользователя идёт в L1 с существующей историей, где видны все три элемента: исходная просьба, вопрос бота, новый ответ человека; ограничения контекстного окна/сборка branch/fallback не теряют их (тест сборки контекста, в т.ч. после restart); исправлена передача уже существующего контекста, новая память и граф состояний не созданы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:513-546",
+          "observation": "test_24_second_turn_sees_original_request_bot_question_answer: в L1 payload второго хода есть исходная просьба, вопрос бота и «сегодня»; рестарт (новый сервис + повторная загрузка истории) даёт тот же payload.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
+          "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L1-CONTINUATION",
@@ -230,7 +461,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
+          "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: T20/T24 (ответ после рестарта и ответ «сегодня») на реальной модели; канон §4.1 уже содержит контракт продолжения",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: контракт продолжения проверен структурно и на 3 цепочках, но не на T20/T24"
     },
     {
       "source_id": "MAN-CLAR-CTX-HONEST",
@@ -245,7 +496,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:552-597 (частично)",
+          "observation": "test_24_truncated_window_and_branch_are_honest: усечённое окно не выдумывает исходную просьбу; branch доносит вопрос бота.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ],
+      "next_check": "Раунд 2: T10 (частичный доступ к истории) — проверить честное указание границ вместо выдуманного контекста на реальной модели",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: честность при реально отсутствующей истории проверена только структурно"
     },
     {
       "source_id": "MAN-GOV-CANON-EXACT",
@@ -259,8 +522,33 @@
       "acceptance": "[P0] Фрагменты §4.1–§4.4 вставлены дословно или с минимальной синтаксической адаптацией к месту вставки; остальные смысловые блоки длинных базовых промптов сохранены; Personality Core, Expression, Style Policy, архитектура инициативы, прямых ответов и доступов не изменены (тесты канонов; матрица #35–#36).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:530-539",
+          "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:891-955",
+          "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        }
+      ]
     },
     {
       "source_id": "MAN-MIGR-EFFECTIVE",
@@ -275,7 +563,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §2",
+          "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ],
+      "next_check": "DevOps: подтвердить, что active global PG-запись L1 обновлена и effective L1 = PG; для L2 подтвердить effective = factory (PG-only rollback no-op); приложить значения/хеши",
+      "owner_role": "DevOps",
+      "blocked_reason": "требуется фактическая проверка активной записи PostgreSQL и effective-резолва на проде"
     },
     {
       "source_id": "MAN-MIGR-BOTHSIDES",
@@ -290,7 +598,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §2",
+          "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ],
+      "next_check": "DevOps: доказать отсутствие обоих односторонних состояний — «factory исправлен, effective PG старый» и «PG обновлён, прод на старом коде»; сверить factory fingerprint и effective source",
+      "owner_role": "DevOps",
+      "blocked_reason": "нужна двусторонняя сверка factory+PG на фактическом проде"
     },
     {
       "source_id": "MAN-T01",
@@ -304,8 +632,17 @@
       "acceptance": "[P0] Матрица §6.1 #01: «Бот, что происходит?» после живого обсуждения → рассказ о доступном разговоре, не выбор диапазона (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T01 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Бот, что происходит?» после живой дискуссии: summarization/compact, clarify=false → пересказ дискуссии, без вопроса (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T02",
@@ -319,8 +656,17 @@
       "acceptance": "[P0] Матрица §6.1 #02: «Что за движ здесь?» с той же смысловой ситуацией → аналогичный исход; не regexp-патч под фразу #1 (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T02 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Что за движ здесь?» (перефраз T01): тот же класс — пересказ спора без вопроса (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T03",
@@ -334,8 +680,17 @@
       "acceptance": "[P0] Матрица §6.1 #03: «О чём спорили сегодня?» → обзор доступных обсуждений (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T03 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«О чём спорили сегодня?»: summarization/compact/caps=chat_history, clarify=false → обзор обсуждений, без вопроса о периоде (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T04",
@@ -349,8 +704,17 @@
       "acceptance": "[P0] Матрица §6.1 #04: «Расскажи обо всём важном за последнее время» → разумный контекстный охват, не вопрос об интервале (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T04 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Расскажи обо всём важном за последнее время»: охват выбран сам (ремонт+поездка), вопроса об интервале нет (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T05",
@@ -364,8 +728,17 @@
       "acceptance": "[P0] Матрица §6.1 #05: большой технический вопрос с несколькими абзацами деталей → ответ на заданные части, не анкетирование о приоритетах (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T05 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "Длинный технический вопрос (nginx/websocket/letsencrypt): 9197 симв. ответа по всем заданным частям, без уточнения (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T06",
@@ -379,8 +752,17 @@
       "acceptance": "[P0] Матрица §6.1 #06: сложная тема с несколькими равноправными объяснениями → начать объяснять существенное, не требовать выбрать подход (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T06 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "Сложная тема с равноправными объяснениями: начал объяснять существенное, без «выберите ракурс» (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T07",
@@ -394,8 +776,17 @@
       "acceptance": "[P0] Матрица §6.1 #07: «Почему?» в понятной текущей беседе без Telegram-reply → ответ на смысл предыдущей реплики (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T07 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Почему?» без Telegram-reply: объясняет смысл предыдущей реплики бота, clarify=false (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T08",
@@ -409,8 +800,17 @@
       "acceptance": "[P0] Матрица §6.1 #08: «А он правда это говорил?» после очевидной ветки → предмет установлен по контексту; при нехватке факта — честное ограничение (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T08 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«А он правда это говорил?»: предмет установлен по ветке (chat_history+historical_search), clarify=false (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T09",
@@ -424,8 +824,17 @@
       "acceptance": "[P0] Матрица §6.1 #09: «А что насчёт второго?» после перечисления → понято по ветке либо оправданное предположение (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T09 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«А что насчёт второго?» после перечисления: понято по ветке («второй вариант — автобус в 9:00»), без уточнения (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T10",
@@ -440,7 +849,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: реальный L1/L2 с урезанной историей; проверить ответ из видимой части + честное указание границ",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: широкий вопрос при частичном доступе к истории — живого прогона нет"
     },
     {
       "source_id": "MAN-T11",
@@ -455,7 +867,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: прогон с доступным tool (например fetch_url) — инструмент использован, уточнения нет",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: вопрос, требующий уже доступного инструмента — tool-маршрут живьём не исполнялся"
     },
     {
       "source_id": "MAN-T12",
@@ -469,8 +884,17 @@
       "acceptance": "[P0] Матрица §6.1 #12: длинная просьба с указанным форматом → формат соблюдён, повторный вопрос про формат не задан (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T12 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Разбей план на 5 пунктов, каждый ≤ 2 строк»: формат соблюдён, повторного вопроса о формате нет (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T13",
@@ -484,8 +908,17 @@
       "acceptance": "[P0] Матрица §6.2 #13: «Скачай это», объект отсутствует в сообщении и доступном контексте → один вопрос о самом объекте, не о качестве/формате (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T13 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Бот, скачай это» без объекта: clarification=true, target=«ссылка или вложение отсутствуют» → один узкий вопрос «что именно скачать» (PASS, one_reasonable_clarification).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T14",
@@ -500,7 +933,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: reply-ветка с медиа; цель не уточняется",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: «Расшифруй» в reply на конкретный ролик — живого прогона нет"
     },
     {
       "source_id": "MAN-T15",
@@ -514,8 +950,17 @@
       "acceptance": "[P0] Матрица §6.2 #15: «Расшифруй» без какого-либо доступного объекта → короткий запрос обязательной цели (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T15 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Бот, расшифруй» без объекта: clarification=true, target=media_target → короткий вопрос об объекте, не меню (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T16",
@@ -529,8 +974,17 @@
       "acceptance": "[P0] Матрица §6.2 #16: команда изменить/удалить объект без указания, какой именно → не угадывать: получена обязательная цель либо безопасный отказ (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T16 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«Бот, удали это сообщение» без указания: безопасный отказ (возможности нет), без угадывания (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T17",
@@ -545,7 +999,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: объект в истории без текущего упоминания; найденная цель переиспользована",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: объект действия в предшествующей ветке — живого прогона нет"
     },
     {
       "source_id": "MAN-T18",
@@ -560,7 +1017,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: запрос внешнего факта без tool; честное указание невозможности, без уточнения",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: нет инструмента для актуального внешнего факта — живого прогона нет"
     },
     {
       "source_id": "MAN-T19",
@@ -574,8 +1034,25 @@
       "acceptance": "[P0] Матрица §6.3 #19: запрос с подлинно неизвестным предметом → бот уточняет → пользователь называет предмет → исходный запрос продолжен, новый опрос не начат (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 T19",
+          "observation": "T13 → Маша присылает pdf → «тот pdf, который Маша скинула»: L1 turn2 clarify=false, caps=media_download → использует найденную цель, tool_use (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/raw/raw-T19.turn2.json",
+          "observation": "T19: сырой turn2-вызов содержит контекст второго хода и план с clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/raw/raw-T19.turn2.json",
+          "artifact_sha256": "823ca979261441b7d9e8b8e9c8ed4e1c597498937f058f09f79c59d3ed8ea0f8"
+        }
+      ]
     },
     {
       "source_id": "MAN-T20",
@@ -590,7 +1067,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Reviewer: решить, переформулировать ли T20 под новый канон (обязательный предмет) или подтвердить not_applicable; при новом сценарии — раунд 2",
+      "owner_role": "Reviewer",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: цепочка «период → сегодня» not_reproduced: канон больше не спрашивает период (4 попытки)"
     },
     {
       "source_id": "MAN-T21",
@@ -604,8 +1084,25 @@
       "acceptance": "[P0] Матрица §6.3 #21: запрос → уточнение → прислан URL → первоначальная операция выполнена с присланным URL (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 T21",
+          "observation": "T13 → «вот ссылка: https://example.com/report.zip»: L1 turn2 clarify=false, caps=fetch_url → продолжает исходную операцию с присланным URL, tool_use (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/raw/raw-T21.turn2.json",
+          "observation": "T21: сырой turn2-вызов содержит контекст второго хода и план с clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/raw/raw-T21.turn2.json",
+          "artifact_sha256": "c8aa46f651f42c14b2564205e46f45ecbca67281932abaaf68f091f3ddea5f99"
+        }
+      ]
     },
     {
       "source_id": "MAN-T22",
@@ -620,7 +1117,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: две задачи подряд; новый запрос не тянет предыдущий контекст как уточнение",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: новая независимая задача после закрытой в том же чате — живого прогона нет"
     },
     {
       "source_id": "MAN-T23",
@@ -634,8 +1134,25 @@
       "acceptance": "[P0] Матрица §6.3 #23: короткое продолжение без Telegram-reply после собственного вопроса бота → предыдущие сообщения бота учтены (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 T23",
+          "observation": "T15 → Кирилл присылает voice → «вот это» без reply: L1 turn2 clarify=false, caps=transcription+media_download → учитывает вопрос бота и медиа, tool_use (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/raw/raw-T23.turn2.json",
+          "observation": "T23: сырой turn2-вызов содержит контекст второго хода и план с clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/raw/raw-T23.turn2.json",
+          "artifact_sha256": "26144db8999156e170ac9e00a5767ac90e23364d3fd1c311a9db799d4ccbddc9"
+        }
+      ]
     },
     {
       "source_id": "MAN-T24",
@@ -650,7 +1167,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Reviewer/Builder: принять service-level :513-546 как T24 либо добавить живой прогон после рестарта",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: ответ после restart и повторной загрузки истории — есть service-level тест, живого прогона нет"
     },
     {
       "source_id": "MAN-T25",
@@ -664,8 +1184,17 @@
       "acceptance": "[P0] Матрица §6.3 #25: L1 сохранил needs_clarification=false, но Speech-сигнал считает фразу короткой → Speech не имеет права навязать переспрос (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T25 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
+          "observation": "«а как?» при L1=false, Speech видит короткую фразу: объясняет, НЕ переспрашивает (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "MAN-T26",
@@ -680,7 +1209,10 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "next_check": "Раунд 2: опасное действие с недостающим предметом; поведение — один вопрос или безопасный отказ",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: ввод не устраняет критическую неопределённость при опасном действии — живого прогона нет"
     },
     {
       "source_id": "MAN-T27",
@@ -694,8 +1226,17 @@
       "acceptance": "[P0] Матрица §6.4 #27: JSON needs_clarification: false → False (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json T27",
+          "observation": "JSON needs_clarification:false → False; plan-блок без директивы (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-T28",
@@ -709,8 +1250,17 @@
       "acceptance": "[P0] Матрица §6.4 #28: JSON needs_clarification: \"false\" → не True; отмечено как некорректная структура (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json T28",
+          "observation": "Строка «false» (и «true», 1, [], {}) → False, не True; помечено как некорректная структура (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-T29",
@@ -724,8 +1274,17 @@
       "acceptance": "[P0] Матрица §6.4 #29: JSON needs_clarification: null → не True (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json T29",
+          "observation": "null → False (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-T30",
@@ -739,8 +1298,17 @@
       "acceptance": "[P0] Матрица §6.4 #30: JSON needs_clarification: true, пустая clarification_target → generic «что уточнить?» не запускается (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json T30",
+          "observation": "true + пустой clarification_target: флаг True, но generic-директивы и fixed-question ветки нет (PASS).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-T31",
@@ -754,8 +1322,25 @@
       "acceptance": "[P0] Матрица §6.4 #31: response_act=clarification, needs_clarification=false → ни один второй флаг не включает forced clarification (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:94-124",
+          "observation": "test_31_response_act_does_not_force_clarification: act=clarification + needs_clarification=false не включает уточнение — в plan-блоке нет подстроки 'clarification' в любом регистре, директивы §4.3 нет; положительная ветка (true+target) сохраняет act-строку и директиву.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B1",
+          "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ]
     },
     {
       "source_id": "MAN-T32",
@@ -769,8 +1354,25 @@
       "acceptance": "[P0] Матрица §6.4 #32: обычный вопрос не требует уточнения, инструменты доступны → tool-путь не блокируется Speech-сигналом (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:129-159",
+          "observation": "test_32_speech_hints_never_suggest_clarify: Speech-сигналы не блокируют tool-путь и не подсказывают вывод «уточни».",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_chat_service.py:4424-4427",
+          "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "096a46aef6fb00f380648bfd15aeb241284162fadf0dcc9fb94679a07dc00c6f"
+        }
+      ]
     },
     {
       "source_id": "MAN-T33",
@@ -784,8 +1386,25 @@
       "acceptance": "[P0] Матрица §6.4 #33: Composer ON/OFF; L1 ON/OFF и прежний fallback → нет второго скрытого приказа уточнять, intended behavior сохранён (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B2",
+          "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:436-496",
+          "observation": "test_33_composer_on_off_payload_identical_and_clean + test_33_l1_off_and_prev_fallback_payload_clean: Composer ON/OFF payload побайтово равен, второго скрытого приказа нет; L1 OFF/fallback чист.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "MAN-T34",
@@ -799,8 +1418,25 @@
       "acceptance": "[P0] Матрица §6.4 #34: Factory, global PG, per-chat override, hot cache → действует корректный effective prompt без уничтожения кастомизаций (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:245-315",
+          "observation": "test_34_migrate_rollback_idempotent_hot_resolve_custom_kept: Factory/global PG/hot/custom — действует корректный effective prompt; per-chat для этих ключей N/A с причиной.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "MAN-T35",
@@ -814,8 +1450,17 @@
       "acceptance": "[P0] Матрица §6.4 #35: Initiative reply/chat/react/silent → контракты инициативы и транспорта не изменились (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:317-330",
+          "observation": "test_35_initiative_delivery_contracts_unchanged: контракты инициативы/транспорта не изменены.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "MAN-T36",
@@ -829,8 +1474,17 @@
       "acceptance": "[P0] Матрица §6.4 #36: Personality Core/Expression/Style Policy и обычные вопросы персонажа → характер, токсичность, мат-режимы, юмор и свободный разговор не сломаны (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:331-356",
+          "observation": "test_36_character_expression_style_untouched: Personality Core/Expression/Style Policy не тронуты.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "MAN-DUP-L00289",
@@ -859,8 +1513,33 @@
       "acceptance": "[P0] Эвристические правила «коротко => непонятно», «вопрос абстрактный => уточнить», «есть слова как/что/почему => уточнить», «confidence ниже порога => уточнить», «длинная просьба => собрать параметры», «тема многогранная => выбрать аспект» в код не добавлены (ревью diff + grep).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §3",
+          "observation": "Четыре существующих места: L1 schema/needs_clarification (strict is True, схема не менялась), build_l2_plan_block (единственный plan-hint), clarify_action/render_speech_block ({none,assume}, без ask), _l1_speech_hints (short_dependency в L1 не уходит); секция §4.1 вставлена, канон корректен.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L2-ROLE",
@@ -875,7 +1554,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:530-539",
+          "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2 на реальном L2: проверить, что Writer не анкетирует поверх плана в tool-маршрутах (T11/T17/T18) и не повторяет инструкции Speech",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: L2-роль проверена на 14 текстах без tool-маршрутов; отдельного живого покрытия нет"
     },
     {
       "source_id": "MAN-CLAR-BOOL-TOOLROUTE",
@@ -889,8 +1588,25 @@
       "acceptance": "[P0] Tool routing меняется только от корректно разобранного existing needs_clarification; инструменты не выключаются из-за «широкого» вопроса или сигнала short_dependency; промежуточная стадия валидации содержимого L2 не добавлена (тест #32; ревью diff).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §1",
+          "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_chat_service.py:4424-4427",
+          "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "096a46aef6fb00f380648bfd15aeb241284162fadf0dcc9fb94679a07dc00c6f"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L1-KEYSCOPE",
@@ -904,8 +1620,17 @@
       "acceptance": "[P0] В prompts.direct_l1_planner_system_prompt заменено только прежнее общее правило needs_clarification; JSON-схема, другие правила L1, ответ/реакция/молчание, initiative delivery=chat|reply и адресация сохранены; старое правило не осталось вторым дублирующим приказом (тест канона; runtime payload).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:774-805",
+          "observation": "В prompts.direct_l1_planner_system_prompt заменено только правило 5: вместо прежнего «needs_clarification=true — только если задача неразрешима…» стоит отсылка к контракту §4.1; правила 1-4/6-7 и требование «ровно одна JSON-строка» сохранены; секция «ВЫБОР УЧАСТИЯ» (W1) не тронута; JSON-схема не менялась.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L1-CANON",
@@ -919,8 +1644,17 @@
       "acceptance": "[P0] Блок «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» §4.1 присутствует в каноне L1 дословно или с минимальной синтаксической адаптацией: уточнение — редкое исключение; широкая тема/глубина/ракурсы/временной диапазон/нехватка фактов не требуют переспроса; needs_clarification=true только для неразрешимой из контекста неизвестности с конкретным clarification_target; контракт продолжения; естественные вопросы не запрещены (тест канона; матрица §6.1, §6.3).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L1-NEGATIVE",
@@ -934,8 +1668,17 @@
       "acceptance": "[P0] В model-facing текст L1 не добавлены примеры пользовательских фраз из тестовой матрицы, частота уточнений, количество вопросов или жёсткие временные окна; JSON-структура L1Plan не раздута (тест канона; GOV-NOQUOTA/NOEXAMPLES на diff).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:813-827",
+          "observation": "В model-facing тексте L1 нет примеров фраз тестовой матрицы, частот уточнений и числовых порогов; PM-поиск фраз матрицы по services/*.py не находит совпадений в каноне (единственный legacy-regex — response_extent.py:261, вне диффа).",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L2-ONCE",
@@ -949,8 +1692,17 @@
       "acceptance": "[P0] Абзац §4.2 вставлен в раздел «КАК ПИСАТЬ» канона prompts.direct_chat_verbalizer_system_prompt ровно один раз; второй system prompt не добавлен (тест канона/сборки payload).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:530-539",
+          "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-L2-CANON",
@@ -964,8 +1716,25 @@
       "acceptance": "[P0] Абзац §4.2 присутствует дословно или с минимальной адаптацией: понятное намерение → содержательный ответ по контексту с самостоятельным охватом; честное обозначение нехватки фактов без «непонятной просьбы»; один конкретный вопрос только по явному плану L1 с обязательным предметом; без собственной цепочки уточнений; ответ на уточнение выполняет исходную просьбу; естественные вопросы не запрещены (тест канона; матрица §6.1).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:530-539",
+          "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:160-182",
+          "observation": "test_33_fallback_speech_and_canons_clean: каноны L1/L2 чисты от второго приказа, fallback и speech не добавляют clarify-директиву.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-PLAN-NARROW",
@@ -979,8 +1748,25 @@
       "acceptance": "[P0] В build_l2_plan_block ветка clarification=True не содержит старой фразы «Ничего кроме вопроса не пиши»; вставлена узкая формулировка §4.3; без валидного clarification_target общая директива «уточни что-нибудь» не генерируется (тест build_l2_plan_block).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:891-955",
+          "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B1",
+          "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-PLAN-CANON",
@@ -994,8 +1780,17 @@
       "acceptance": "[P0] Фраза §4.3 присутствует дословно: спросить только об указанном плане обязательном предмете одним понятным вопросом; без предложения выбирать необязательные варианты формата/объёма/интервала/способа объяснения; после ответа — продолжение исходной задачи (тест build_l2_plan_block).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:939-954 vs source §4.3",
+          "observation": "Фраза §4.3 присутствует дословно: «Для выполнения этого запроса действительно не хватает обязательного предмета, указанного в плане уточнения. Спроси только о нём одним понятным вопросом. Не предлагай человеку выбирать необязательные варианты формата, объёма, интервала или способа объяснения. После ответа следует продолжить исходную задачу.» — совпадает с source-2026-10-22.md §4.3 (сверка PM).",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-PLAN-BOUNDS",
@@ -1009,8 +1804,33 @@
       "acceptance": "[P0] Фрагмент §4.3 передаётся только при допустимом структурированном решении L1; новый semantic proof/post-L1 validator не создан; технические проверки объектов при работе с инструментами остаются в существующих инструментальных маршрутах (ревью diff; тесты).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:891-955",
+          "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B1",
+          "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "MAN-CLAR-SPEECH-REMOVE",
@@ -1024,8 +1844,25 @@
       "acceptance": "[P0] В claim_envelope директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели; _l1_speech_hints не отправляет clarify=ask из закрытого набора коротких маркеров; взамен не добавлено новой инструкции; нужная логика — в L1 (runtime payload без второго model-facing clarify=ask; тест).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/claim_envelope.py:489-524",
+          "observation": "render_speech_block содержит только анти-переспрос; директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели.",
+          "artifact_path": "services/claim_envelope.py",
+          "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B2",
+          "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ]
     },
     {
       "source_id": "MAN-TESTS-SCOPE",
@@ -1039,8 +1876,25 @@
       "acceptance": "[P0] Матрица §6 — только сценарии внешней проверки: не превращена в runtime ключевые слова/исключения/типы запросов/new-if; использованы существующие тесты Direct L1/Speech/L2 с небольшими дополнениями; автономный evaluation-фреймворк не построен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        }
+      ]
     },
     {
       "source_id": "MAN-DONE-TWORESULTS",
@@ -1054,8 +1908,17 @@
       "acceptance": "[P0] Реестр ограничен этим багом; пересечения с ASAP Speech Architecture дедуплицированы (reconciliation.md), программа не перезапущена, scope не увеличен; в отчёте два самостоятельных результата: исправление объективных контрактов и верификация смыслового поведения модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "reconciliation.md §Вердикт/§Таблица пересечений",
+          "observation": "Реестр ограничен этим багом: дубликатов с ASAP Speech Architecture нет, пересечения только в общих файлах-носителях; внутри источника дедупликация зафиксирована (duplicate/context с причинами).",
+          "artifact_path": "plans/features/asap2-direct-chat/reconciliation.md",
+          "artifact_sha256": "8eb11448a4ab13ee5adb60a977d64616cbc17f1553602cc0b9b3fe92643d1a1a"
+        }
+      ]
     },
     {
       "source_id": "MAN-GOV-ARCH-AUDIT",
@@ -1069,8 +1932,17 @@
       "acceptance": "[P0] Architect-аудит actual effective L1/L2 и четырёх существующих мест (L1 schema/rules, Speech Understanding hint, Writer plan, контекст продолжения) выполнен на текущей конфигурации; минимальный diff указан; semantic-validator и новая инфраструктура явно отклонены; предложение нового класса/сервиса/таблицы возможно только при доказанной недостаточности существующих мест (для этой задачи не ожидается).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "review",
+          "ref": "arch-audit.md (весь файл)",
+          "observation": "Architect-аудит actual effective L1/L2 и четырёх мест выполнен: вердикт ARCH_REUSE_CONFIRMED, замороженные контракты перечислены, остаточный сигнал act=clarification подтверждён независимым исполнением и закрыт в 40389f55.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "MAN-TESTS-REVIEWER",
@@ -1084,8 +1956,17 @@
       "acceptance": "[P0] Перед принятием: diff-поиск новых clarify-классов/таблиц/регулярок/списков ключевых слов; прогнаны все сценарии §§6.1–6.4 и негативные варианты, включая live-model replay; FAIL при зависимости «улучшения» от совпадения фразы запроса с тестовым текстом и при сохранившемся меню уточнений на нормальные широкие вопросы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "review",
+          "ref": "review-r2.md (независимое повторное ревью)",
+          "observation": "Независимое ревью кандидата 34af90ff: блокеры 1–4 закрыты и подтверждены отдельными RED/GREEN, service-level тестами; целевой набор 205 passed ×3; остаётся только B5 (эта привязка) и условие поезда по SOUL-1-фикстурам (коммит 4bd2f3c6).",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        }
+      ]
     },
     {
       "source_id": "MAN-MIGR-DEVOPS",
@@ -1100,7 +1981,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §2",
+          "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ],
+      "next_check": "DevOps: owner-preserving миграция/версионирование Factory и active PG, точечный deploy с rollback-планом, сверка effective, health/rollback evidence",
+      "owner_role": "DevOps",
+      "blocked_reason": "деплой не выполнялся (lane PM не трогает прод)"
     },
     {
       "source_id": "MAN-DONE-REPORT",
@@ -1115,7 +2008,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/tests-final.txt",
+          "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-final.txt",
+          "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
+        }
+      ],
+      "next_check": "Заполнить финальный отчёт: время с зоной, worktree/prod commit и версия, доказанная причина, файлы/слайсы/каноны, результаты тестов и живых прогонов, payload, deploy/rollback/health, остаточные ограничения",
+      "owner_role": "Orchestrator",
+      "blocked_reason": "финальные commit/version/live-поля ещё не заполнены (деплой не выполнен)"
     }
   ],
   "items": [
@@ -1146,8 +2051,25 @@
       "acceptance": "[P0] В diff/PR нет новых ClarificationService/IntentResolver/SemanticValidator/ClarificationGuard, графов решений, реестров блокеров, отдельного оркестратора, новой БД/таблицы, нового queue/worker, нового LLM-вызова перепроверки, новой state machine, отдельной памяти уточнений; число новых классов/таблиц/модельных вызовов = 0 (ревью diff + отчёт).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §5",
+          "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "L00020",
@@ -1161,8 +2083,25 @@
       "acceptance": "[P0] В коде нет if «что происходит» in text, регулярок по формулировкам, словарей «понятных запросов»/«опасных слов»/«неопределённых местоимений», классификации по числу слов или знаку вопроса (ревью diff + grep по diff).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §5",
+          "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "L00021",
@@ -1176,8 +2115,25 @@
       "acceptance": "[P0] Псевдо-семантические функции (has_unresolved_referential_dependency, same_intent_classifier, is_question_clear и подобные), требующие нового распознавателя/эвристик/ключевых слов, не добавлены (ревью diff).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §1",
+          "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "L00022",
@@ -1191,8 +2147,17 @@
       "acceptance": "[P0] Нет принудительных квот «одно уточнение на чат/пользователя/сутки», счётчиков микровопросов и магических порогов уверенности (ревью diff; матрица #22).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        }
+      ]
     },
     {
       "source_id": "L00023",
@@ -1206,8 +2171,25 @@
       "acceptance": "[P0] Нет глобального needs_clarification=False и запрета задавать вопросы; характер, токсичность, юмор, инициатива и выбор reply не изменены (матрица #36; тесты личности зелёные).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/chat_prompts.py:807-827",
+          "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
+          "artifact_path": "services/chat_prompts.py",
+          "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §5",
+          "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "L00024",
@@ -1221,8 +2203,17 @@
       "acceptance": "[P0] Сценарии §6 не превращены в специальные ветки кода: grep diff не находит фраз/примеров матрицы в runtime-коде и промптах; примеры существуют только в тестах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп + PM grep services/",
+          "observation": "Сценарии §6 не превращены в ветки кода: в diff нет новых def/class/re.compile; поиск фраз матрицы («что происходит», «что за движ», «Скачай это», «а как?») в services/*.py даёт единственное совпадение — legacy-regex response_extent.py:261 «расшифруй видео|транскрипц», введённый в 2.58.70 (bbfd8fba), вне диффа asap2 и не являющийся веткой матрицы.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        }
+      ]
     },
     {
       "source_id": "L00028",
@@ -1251,8 +2242,17 @@
       "acceptance": "[P0] Понятное намерение + широкая тема → содержательный ответ с самостоятельно выбранным естественным охватом; при нехватке сведений — честное обозначение ограничений, не анкета (реальный L1/L2, матрица #1–#6).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T04/T05/T06",
+          "observation": "Понятное намерение + широкая тема → содержательный ответ с самостоятельно выбранным охватом: T04 «обо всём важном» — сводка без вопроса об интервале; T05 длинный технический вопрос — 9197 симв. по всем частям; T06 несколько равноправных причин — начал объяснять существенное, без «выберите ракурс».",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ]
     },
     {
       "source_id": "L00039",
@@ -1267,7 +2267,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T04 (частично)",
+          "observation": "Частично: недостаток необязательного интервала не вызвал переспроса (T04), инструменты/память использованы в T03/T04/T08.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Прогон 2-го семантического раунда: T10 (частичный доступ к истории), T11 (доступный tool), T18 (нет инструмента для внешнего факта) на кандидате; команда — probes по protocol.md, затем перепривязка строки",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: класс «недостающие факты ≠ непонятный запрос» не покрыт живьём на частичном доступе/инструментах/честных границах"
     },
     {
       "source_id": "L00040",
@@ -1282,7 +2294,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T13/T15/T16 (частично)",
+          "observation": "Частично: T13/T15 — ровно один узкий вопрос о недостающем объекте; T16 — безопасный отказ без угадывания.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: T14 (объект в reply), T17 (объект в предшествующей ветке), T20-подобная цепочка с обязательным предметом; проверить, что вопрос остаётся один и адресный",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: DIST3 опирается на непокрытые T14/T17/T20"
     },
     {
       "source_id": "L00041",
@@ -1297,7 +2321,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
+          "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/tests-final.txt (test_24_*)",
+          "observation": "Service-level: второй ход после вопроса бота несёт исходную просьбу и вопрос бота; рестарт даёт тот же payload; усечённое окно просьбу не выдумывает.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-final.txt",
+          "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
+        }
+      ],
+      "next_check": "Раунд 2: минимум 2–3 парафразы ответа на уточнение (включая «сегодня» и URL) на кандидате; подтвердить, что использован именно предыдущий вопрос бота",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: живьём подтверждены 3 цепочки, но парафраз/полнота класса не покрыты"
     },
     {
       "source_id": "L00042",
@@ -1312,7 +2356,35 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/claim_envelope.py:409-431",
+          "observation": "clarify_action возвращает только none/assume (ветка ask удалена); CLARIFY_ASK остаётся неиспользуемым значением enum, не новым классом; рендер кладёт «не переспрашивай».",
+          "artifact_path": "services/claim_envelope.py",
+          "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/claim_envelope.py:489-524",
+          "observation": "render_speech_block содержит только анти-переспрос; директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели.",
+          "artifact_path": "services/claim_envelope.py",
+          "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T25 (частично)",
+          "observation": "Частично: «а как?» при L1=false не переспрашивается, Speech-сигнал не навязывает вопрос.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: T22 (новая независимая задача после закрытой) и T26 (ввод не устраняет критическую неопределённость при опасном действии) — различить техническое уточнение и естественный вопрос",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: различение технического clarification и живого вопроса проверено только на T25/T32"
     },
     {
       "source_id": "L00048",
@@ -1401,8 +2473,25 @@
       "acceptance": "[P0] needs_clarification=false → обычный Direct/Tool/Writer путь; ни один отдельный слой не объявляет «сначала спроси» (негативные тесты; матрица #25, #31).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B2",
+          "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "L00108",
@@ -1417,7 +2506,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B4",
+          "observation": "B4/T19–T24: второй ход через реальный handle видит исходную просьбу, вопрос бота и «сегодня»; рестарт с повторной загрузкой истории даёт тот же payload; усечённое окно не выдумывает просьбу; бюджет 140 токенов сохраняет [СООБЩЕНИЕ]; branch доносит вопрос бота; первый ход — ровно одна адресная директива §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: живые вызовы для класса «один адресный вопрос в Writer» вне T13/T15 (T20/T22/T26), включая парафразы target-а",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: узкая директива подтверждена структурно и на 2 живых уточнениях; класс целиком не покрыт"
     },
     {
       "source_id": "L00109",
@@ -1431,8 +2540,33 @@
       "acceptance": "[P0] «false»/null/«true»/список/объект вместо boolean не трактуются как запрос уточнения; действует безопасный fallback; новый LLM-вызов ради исправления типа не добавлен (тесты #28–#29).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:337-341",
+          "observation": "normalize_l1_plan: plan.needs_clarification = data.get('needs_clarification') is True — «false»/null/«true»/1/[]/{} не становятся запросом уточнения; нового LLM-вызова нет.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:41-61",
+          "observation": "test_27_29_needs_clarification_strict_boolean + test_27_real_true_is_only_truthy_path: только реальный JSON true даёт True; строка/число/список/объект/null → False, fallback_plan не создаёт опросник.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1446,8 +2580,33 @@
       "acceptance": "[P0] response_act=clarification при needs_clarification=false сам по себе уточнение не включает; единой контракт действий, без флагов-арбитров (тест #31).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:891-955",
+          "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B1",
+          "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ]
     },
     {
       "source_id": "L00111",
@@ -1461,8 +2620,33 @@
       "acceptance": "[P0] needs_clarification=true с пустым clarification_target → без generic-опроса «а что именно?»; безопасная нормализация как недействительное структурированное уточнение; безопасность опасных действий — через существующие гарантии; новый semantic validator не создан (тест #30).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:891-955",
+          "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:62-93",
+          "observation": "test_30_empty_target_never_generic_clarify: true + пустой target → нет generic-директивы и нет fixed-question ветки.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1672,7 +2856,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §2",
+          "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ],
+      "next_check": "DevOps: до/после деплоя снять Factory / active global / per-chat overrides / effective по ключам prompts.direct_l1_planner_system_prompt и prompts.direct_chat_verbalizer_system_prompt (read-only SQL + /healthz), сохранить снимок как artifact",
+      "owner_role": "DevOps",
+      "blocked_reason": "снимки фактического effective на проде не снимались (arch-audit §2 фиксирует только механику)"
     },
     {
       "source_id": "L00205",
@@ -1686,8 +2882,25 @@
       "acceptance": "[P0] Изменены точечно только указанные участки канонов; Factory revision бампнута; старый snapshot/ступень миграции сохранены по существующей процедуре prompt_registry/prompt_migrations и canonical sources.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/prompt_registry.py FACTORY_SET_SHA256_12 + git 5ad73933",
+          "observation": "Factory revision бампнута точечно: FACTORY_SET_SHA256_12 fd4e88754749 → 24ae494ac422, изменены ровно 2 ключа (direct.base.l1_planner, direct.base.l2_writer); в HEAD factory_set_fingerprint() == 24ae494ac422 (измерено); прежние байты сохранены как PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31 (ступень лестницы).",
+          "artifact_path": "services/prompt_registry.py",
+          "artifact_sha256": "61b7bc35bea98709f4d2313b4a6025e7953388426de43e39a16837ad896e8e65"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ]
     },
     {
       "source_id": "L00206",
@@ -1701,8 +2914,25 @@
       "acceptance": "[P0] Прежний заводской текст переведён по точному hash/step; пользовательские отредактированные значения не перезаписаны целиком: узкая owner-preserving замена однозначно совпадающего фрагмента либо сохранение кастома с отражённым конфликтом; старая редакция не выдаётся за обновлённую.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py:245-315",
+          "observation": "test_34_migrate_rollback_idempotent_hot_resolve_custom_kept: миграция по точному hash/step, кастом владельца (не точное совпадение) не перетирается ни миграцией, ни rollback.",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "L00207",
@@ -1716,8 +2946,25 @@
       "acceptance": "[P0] Глобальный factory-reset Core/Expression/Style Policy/Direct L2/всей библиотеки не производился; истории и возможность отката сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        }
+      ]
     },
     {
       "source_id": "L00208",
@@ -1732,7 +2979,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B2",
+          "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ],
+      "next_check": "DevOps: снять эффективный итоговый model payload допустимого тестового маршрута без секретов; проверить отсутствие второго приказа уточнять и наличие §4.3 только в валидной ветке",
+      "owner_role": "DevOps",
+      "blocked_reason": "payload с прода не демонстрировался; тестовый payload кандидата есть (B2), но это не прод"
     },
     {
       "source_id": "L00209",
@@ -1746,8 +3005,25 @@
       "acceptance": "[P0] Hot apply/инвалидация кеша работают штатно; миграций схемы БД нет (новые структуры не нужны).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §2",
+          "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "L00213",
@@ -1851,8 +3127,33 @@
       "acceptance": "[P0] Unit/integration тесты покрывают структуру, передачу данных, отсутствие дублирующих директив, контекст, отсутствие новых сущностей и сохранность существующих путей; тесты не выдаются за гарантию семантически верного решения L1 при любом живом вопросе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/tests-final.txt",
+          "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-final.txt",
+          "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "tests/test_asap2_clar_contract.py (24 теста)",
+          "observation": "Unit/integration покрывают структуру, передачу контекста, отсутствие дублирующих директив, fallback и Composer/L1 ON-OFF; прогон PM на HEAD: 24 passed (3.37 s, без сети).",
+          "artifact_path": "tests/test_asap2_clar_contract.py",
+          "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        }
+      ]
     },
     {
       "source_id": "L00276",
@@ -1867,7 +3168,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: реальные L1/L2 на кандидате 34af90ff для непокрытых T10/T11/T14/T17/T18/T20/T22/T24/T26; при провайдерском лимите — после его снятия (26.10), с записью ledger",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: 38/45 вызовов на 5ad73933, перенос на кандидата допустим, но не равен повторному прогону; часть классов не покрыта"
     },
     {
       "source_id": "L00277",
@@ -1882,7 +3195,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2 T01/T02 (частично)",
+          "observation": "Для одного класса есть 2 формулировки (T01/T02), для остальных — по одной.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: минимум 2–3 смысловые формулировки на ключевой класс (§6.1–§6.3)",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: TESTS-METHOD-PARAPHRASE не закрыт"
     },
     {
       "source_id": "L00278",
@@ -1896,8 +3221,25 @@
       "acceptance": "[P0] Обнаруженное ложное уточнение исправляется подачей контекста/каноном L1/устранением конфликтующего prompt source; denylist-фразы и новые эвристики в код не добавляются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B1",
+          "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        }
+      ]
     },
     {
       "source_id": "L00279",
@@ -1912,7 +3254,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "probe/protocol.md §5 (ограничения выборки)",
+          "observation": "Протокол фиксирует границы: 38/45 вызовов, по одной формулировке на сценарий, tool-маршруты не исполнялись, приватная трассировка недоступна — причина прод-ответа не утверждается.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/protocol.md",
+          "artifact_sha256": "112a0c0f5176e365c56fc5c120cd07da9252762c95350762ea1dd35895bc1dd2"
+        }
+      ],
+      "next_check": "Получить приватную трассировку исходного прод-кейса либо зафиксировать UNCONFIRMED с границами причины (без утверждения причины)",
+      "owner_role": "Orchestrator",
+      "blocked_reason": "приватная трассировка со скриншота недоступна; причина конкретного прод-ответа не утверждается"
     },
     {
       "source_id": "L00283",
@@ -1957,7 +3311,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B4",
+          "observation": "B4/T19–T24: второй ход через реальный handle видит исходную просьбу, вопрос бота и «сегодня»; рестарт с повторной загрузкой истории даёт тот же payload; усечённое окно не выдумывает просьбу; бюджет 140 токенов сохраняет [СООБЩЕНИЕ]; branch доносит вопрос бота; первый ход — ровно одна адресная директива §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
+          "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: живой прогон второго хода на кандидате (вопрос бота + исходная просьба в L1 payload) с 2–3 парафразами; service-level уже зелёный",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: критерий подтверждён структурно/на пробах, но не как полный живой контракт"
     },
     {
       "source_id": "L00302",
@@ -1971,8 +3345,25 @@
       "acceptance": "[P0] Нет независимого второго приказа Speech Understanding «уточни» по краткости или отсутствию Telegram-reply (runtime payload; матрица #25).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B2",
+          "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §1",
+          "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        }
+      ]
     },
     {
       "source_id": "L00303",
@@ -1986,8 +3377,25 @@
       "acceptance": "[P0] needs_clarification типобезопасен; отсутствие/неправильный формат не превращает обычный запрос в принудительный вопрос; некорректный response_act не подменяет результат (тесты #27–#31).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_l1.py:337-341",
+          "observation": "normalize_l1_plan: plan.needs_clarification = data.get('needs_clarification') is True — «false»/null/«true»/1/[]/{} не становятся запросом уточнения; нового LLM-вызова нет.",
+          "artifact_path": "services/direct_l1.py",
+          "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "probe/structural.json (T27–T31, speech_T25)",
+          "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/structural.json",
+          "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
+        }
+      ]
     },
     {
       "source_id": "L00304",
@@ -2002,7 +3410,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "arch-audit.md §2",
+          "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
+          "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
+          "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3",
+          "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ],
+      "next_check": "DevOps: снимок Factory и действующей конфигурации L1/L2 (factory + active PG + effective) с учётом owner edits; подтвердить, что effective соответствует новым канонам",
+      "owner_role": "DevOps",
+      "blocked_reason": "effective-состояние прода не снято; тест подтверждает только механику резолва"
     },
     {
       "source_id": "L00305",
@@ -2017,7 +3445,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "code",
+          "ref": "services/direct_chat_service.py:4424-4427",
+          "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
+          "artifact_path": "services/direct_chat_service.py",
+          "artifact_sha256": "096a46aef6fb00f380648bfd15aeb241284162fadf0dcc9fb94679a07dc00c6f"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Раунд 2: стандартный Direct→tool→L2 путь без лишней команды переспросить (T11/T17/T18) и действительно отсутствующий объект (T13/T15)",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: tool-маршруты живьём не исполнялись"
     },
     {
       "source_id": "L00306",
@@ -2032,7 +3480,19 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §2–§4",
+          "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        }
+      ],
+      "next_check": "Завершить семантические прогоны §6 (недостающие T10/T11/T14/T17/T18/T20/T22/T24/T26) + интеграционные проверки; runtime слов матрицы не добавлять",
+      "owner_role": "Builder",
+      "blocked_reason": "матрица §6 пройдена не полностью (14 классов живьём), TESTS-METHOD-PARAPHRASE открыт"
     },
     {
       "source_id": "L00307",
@@ -2046,8 +3506,17 @@
       "acceptance": "[P0] В PR/diff не появились новые clarification_* подсистемы, базы, классы-анализаторы, периодические проверки, новые LLM-вызовы, magic thresholds и искусственные квоты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "audit",
+          "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
+          "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        }
+      ]
     },
     {
       "source_id": "L00308",
@@ -2062,7 +3531,27 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "semantic",
+          "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
+          "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
+          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/report.md §B4",
+          "observation": "B4/T19–T24: второй ход через реальный handle видит исходную просьбу, вопрос бота и «сегодня»; рестарт с повторной загрузкой истории даёт тот же payload; усечённое окно не выдумывает просьбу; бюджет 140 токенов сохраняет [СООБЩЕНИЕ]; branch доносит вопрос бота; первый ход — ровно одна адресная директива §4.3.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        }
+      ],
+      "next_check": "Раунд 2: цепочки #19–#24 (T19–T24) на реальной модели, включая T22/T24; зафиксировать, что повторных цепочек нет",
+      "owner_role": "Builder",
+      "blocked_reason": "review-r2: антицикл подтверждён на 3 цепочках, не на всём классе"
     },
     {
       "source_id": "L00309",
@@ -2076,8 +3565,28 @@
       "acceptance": "[P0] Есть commit, результаты тестов, разрешённая демонстрация финального payload, deploy/rollback/health; статусы DEPLOYED, TESTED и LIVE_VERIFIED не смешаны.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "34af90ff",
+          "type": "review",
+          "ref": "review-r2.md §«Поезд 2.58.112» (pre-deploy состояние)",
+          "observation": "На момент привязки есть код-кандидат 34af90ff, целевой набор 205 passed ×3, чистый scope и согласие ревьюера включать код в поезд; деплой/rollback/health и демонстрация payload ещё не выполнены — это postdeploy-проверка.",
+          "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
+          "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "34af90ff",
+          "type": "test",
+          "ref": "fix-r1/tests-final.txt",
+          "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-final.txt",
+          "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
+        }
+      ],
+      "next_check": "DevOps после деплоя: deploy+rollback+health, снимок effective PG/payload, статистика уточнений; затем --stage release с deployed_commit",
+      "owner_role": "DevOps",
+      "blocked_reason": "live_required/live_when=postdeploy: до деплоя допустим только READY_FOR_LIVE"
     },
     {
       "source_id": "L00315",
@@ -2184,5 +3693,6 @@
       "status": "PENDING",
       "evidence": []
     }
-  ]
+  ],
+  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit."
 }
