@@ -1289,6 +1289,28 @@ class TestStatic:
         assert "--glass-blur: blur(16px)" in css
         assert "/static/fonts/material-symbols-rounded.woff2" in css
 
+    def test_app_css_head_content_length_matches_get(self, client):
+        """FIX (backlog «app.css content-length», 22.10.2026): HEAD-маршрут.
+
+        Прежде HEAD /static/app.css падал сквозь выделенный GET-маршрут в
+        /static-mount и отдавал content-length сырого файла (без подстановки
+        ?v=), расходясь с GET-телом (прод-проба release-25898: 234981 vs
+        234959). TEST-LIFECYCLE: REGRESSION owner=FIX-SMALL-DEFECTS/app-css
+        """
+        get = client.get("/static/app.css")
+        head = client.head("/static/app.css")
+        assert get.status_code == 200 and head.status_code == 200
+        assert int(head.headers["content-length"]) == len(get.content)
+        assert int(get.headers["content-length"]) == len(get.content)
+        # Подстановка версии состоялась: GET-тело ≠ сырой файл, длина честная.
+        with open("web/static/app.css", "rb") as fh:
+            raw_css = fh.read()
+        raw = len(raw_css)
+        assert "__APP_VERSION__" not in get.text
+        assert len(get.content) != raw or b"__APP_VERSION__" not in raw_css
+        # Кэш-политика HEAD повторяет GET (диагностика по заголовкам).
+        assert head.headers["cache-control"] == get.headers["cache-control"]
+
     def test_web_app_js_served(self, client):
         resp = client.get("/web/app.js")
         assert resp.status_code == 200

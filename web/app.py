@@ -296,6 +296,20 @@ def create_app(cache: ConfigCache, control=None) -> FastAPI:
             headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
         )
 
+    # FIX (backlog «app.css content-length», 22.10.2026, прод-проба
+    # release-25898: HEAD 234981 vs GET-тело 234959): без явного HEAD-роута
+    # запрос уходил сквозь маршрут в /static-mount и отдавал content-length
+    # СЫРОГО файла (без подстановки ?v=), расходясь с GET-телом. Прецедент —
+    # HEAD-роуты 10.17 (F1, web_index_head): детерминированная внешняя
+    # диагностика `curl -I`; тело HEAD Starlette отбрасывает по методу,
+    # content-length == длине GET-тела.
+    @app.head("/static/app.css", include_in_schema=False)
+    async def static_app_css_head():
+        return Response(
+            content=rendered_css, media_type="text/css",
+            headers={"Cache-Control": "no-cache, no-store, must-revalidate"},
+        )
+
     @app.get("/", include_in_schema=False)
     async def root():
         return RedirectResponse(url="/web/")
