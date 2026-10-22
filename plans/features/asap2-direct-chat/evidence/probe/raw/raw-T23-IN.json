@@ -1,0 +1,56 @@
+{
+ "label": "L1 T23-IN",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "9fce78de161f",
+ "messages_sha12": "4f1d11ea4eb6",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2127,
+  "completion_tokens": 257,
+  "total_tokens": 2443,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 127
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.103948e-05
+ },
+ "latency_s": 4.01,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"answer\", \"extent\": \"auto\", \"tone\": \"inherit\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"transcription\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null}",
+ "reasoning_head": "The user says \"расшифруй\" (transcribe/decode) referring to a voice message from Кирилл. We have transcription capability. Need to transcribe the voice message. The message to transcribe is the voice message. Delivery: reply to the voice message? target_message_id is null (not provided). We don't have IDs. So chat likely. But it's a reply to the voice message — no IDs available, so chat.\n\nneeds_cla",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nрасшифруй\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: смотрите что записал на прогулке\nКирилл: [voice]\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "extent": "auto",
+  "tone": "inherit",
+  "structure": "chat",
+  "tool_policy": "auto",
+  "capabilities_needed": [
+   "transcription"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.9,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

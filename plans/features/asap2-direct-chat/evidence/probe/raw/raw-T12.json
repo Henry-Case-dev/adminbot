@@ -1,0 +1,54 @@
+{
+ "label": "L1 T12",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "46acaa177d9a",
+ "messages_sha12": "a7e2fb944a67",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2199,
+  "completion_tokens": 267,
+  "total_tokens": 2525,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 140
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.178e-05
+ },
+ "latency_s": 4.58,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"answer\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"steps\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null}",
+ "reasoning_head": "The user asks: break down the trip plan to Suzdal into 5 points, each no longer than two lines, no fluff, no introductions. Direct request to bot — text reply required. Delivery: chat (general request, not tied to specific message). Could be reply to Кирилл's message but it's a new question in chat; chat is fine. Actually the message is from Кирилл asking directly — reply to that message id? We do",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nразбей план поездки в Суздаль на 5 пунктов, каждый не длиннее двух строк, без воды и без вступлений.\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nПётр: на выходных думаем в Суздаль, но не решили, как ехать\nМаша: смотря во сколько вставать\nПётр: если рано, то электричка удобнее\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[РЕЧЕВОЙ СИГНАЛ]\nact=assert negation\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "steps",
+  "tool_policy": "none",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.9,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": "act=assert negation"
+}

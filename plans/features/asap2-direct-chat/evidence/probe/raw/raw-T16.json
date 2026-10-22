@@ -1,0 +1,54 @@
+{
+ "label": "L1 T16",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "6fd2c818d15d",
+ "messages_sha12": "02b6d9d9d0d0",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2242,
+  "completion_tokens": 398,
+  "total_tokens": 2699,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 270
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.494536e-05
+ },
+ "latency_s": 4.26,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"micro\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.85, \"future_intent\": null}",
+ "reasoning_head": "The user says \"удали это сообщение\" — delete this message. The bot likely doesn't have deletion capability. Available capabilities don't include message deletion. So we need to reply explaining we can't delete messages, or clarify which message. \"это сообщение\" — which one? The previous message from Кирилл is \"зато не бликует и мыть проще\" (that's Маша actually). Hmm, \"это сообщение\" is ambiguous ",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nудали это сообщение\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую, глянец в санузле выглядит дёшево\nКирилл: матовая в санузле плохая идея: на ней разводы видно\nМаша: зато не бликует и мыть проще\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "explanation",
+  "extent": "micro",
+  "tone": "neutral",
+  "structure": "chat",
+  "tool_policy": "none",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.85,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

@@ -1,0 +1,94 @@
+{
+ "label": "L1 T04",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "b151daf6f01d",
+ "messages_sha12": "69407c4383f8",
+ "finish_reason": "length",
+ "usage": {
+  "prompt_tokens": 2299,
+  "completion_tokens": 512,
+  "total_tokens": 2870,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 512
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.78421e-05
+ },
+ "latency_s": 5.98,
+ "content": "",
+ "reasoning_head": "We need answer \"Расскажи обо всём важном за последнее время\" — просьба к боту, прямой вопрос. Нужно ответить содержательно. Но контекст: последние сообщения о ремонте санузла, плитке, поездке в Суздаль. \"Обо всём важном за последнее время\" — вероятно, бот должен подвести итог обсуждения в чате за последнее время. Можно использовать chat_history/chat_memory. Формат: сводка/саммари. action=reply? Пр",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nРасскажи обо всём важном за последнее время\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую, глянец в санузле выглядит дёшево\nКирилл: матовая в санузле плохая идея: на ней разводы видно\nМаша: зато не бликует и мыть проще\nПётр: на выходных думаем в Суздаль, но не решили, как ехать\nМаша: смотря во сколько вставать\nПётр: если рано, то электричка удобнее\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "summarization",
+  "extent": "normal",
+  "tone": "inherit",
+  "structure": "summary",
+  "tool_policy": "auto",
+  "capabilities_needed": [
+   "chat_history",
+   "chat_memory"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.72,
+  "confidence_bucket": "medium"
+ },
+ "repair": {
+  "label": "L1 T04 repair",
+  "model_requested": "deepseek-v4-flash",
+  "model_returned": "deepseek-v4-flash",
+  "temperature": "omitted",
+  "max_tokens": 512,
+  "system_sha12": "c987c03e3ee0",
+  "system_chars": 6542,
+  "user_sha12": "86502e9d4762",
+  "messages_sha12": "f29b8aad788b",
+  "finish_reason": "stop",
+  "usage": {
+   "prompt_tokens": 2365,
+   "completion_tokens": 334,
+   "total_tokens": 2758,
+   "prompt_tokens_details": {
+    "cached_tokens": 0,
+    "text_tokens": 0,
+    "audio_tokens": 0,
+    "image_tokens": 0
+   },
+   "completion_tokens_details": {
+    "text_tokens": 0,
+    "audio_tokens": 0,
+    "image_tokens": 0,
+    "reasoning_tokens": 197
+   },
+   "input_tokens": 0,
+   "output_tokens": 0,
+   "input_tokens_details": null,
+   "claude_cache_creation_5_m_tokens": 0,
+   "claude_cache_creation_1_h_tokens": 0,
+   "cost": 2.444442e-05
+  },
+  "latency_s": 5.15,
+  "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"summarization\", \"extent\": \"normal\", \"tone\": \"inherit\", \"emotional_mirroring\": \"light\", \"structure\": \"summary\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"chat_history\", \"chat_memory\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.72, \"future_intent\": null}",
+  "reasoning_head": "The user asks \"Расскажи обо всём важном за последнее время\" — a broad request to summarize what's important recently. Context is a group chat with renovation talk and Suzdal trip planning. The bot has chat_history, chat_memory, historical_search, web_search.\n\nInterpretation: summarize recent important things from the chat (and maybe news?). \"обо всём важном за последнее время\" — likely a summary o"
+ },
+ "speech_hints": ""
+}

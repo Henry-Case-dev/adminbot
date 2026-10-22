@@ -1,0 +1,54 @@
+{
+ "label": "L1 T15",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "76bde8a13f06",
+ "messages_sha12": "66e59dd0e70f",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2242,
+  "completion_tokens": 364,
+  "total_tokens": 2665,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 234
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.420484e-05
+ },
+ "latency_s": 4.17,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"clarification\", \"extent\": \"micro\", \"tone\": \"inherit\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"media_target\", \"confidence\": 0.82, \"future_intent\": null}",
+ "reasoning_head": "The user says \"расшифруй\" (decipher/transcribe). But there's no media attached in the context. The conversation is about bathroom renovation. \"расшифруй\" likely refers to a voice message or image, but no media is provided. So needs_clarification=true with target media_target.\n\nPer contract: needs_clarification only when truly unresolvable. Here \"расшифруй\" without an attached media — we don't know",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nрасшифруй\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую, глянец в санузле выглядит дёшево\nКирилл: матовая в санузле плохая идея: на ней разводы видно\nМаша: зато не бликует и мыть проще\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "clarification",
+  "extent": "micro",
+  "tone": "inherit",
+  "structure": "chat",
+  "tool_policy": "none",
+  "capabilities_needed": [],
+  "needs_clarification": true,
+  "clarification_target": "media_target",
+  "confidence": 0.82,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

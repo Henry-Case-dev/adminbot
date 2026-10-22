@@ -1,0 +1,57 @@
+{
+ "label": "L1 T08",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "23e1ffe96345",
+ "messages_sha12": "6b891710683c",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2151,
+  "completion_tokens": 318,
+  "total_tokens": 2528,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 184
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.25423e-05
+ },
+ "latency_s": 4.02,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"research\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"answer\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"chat_history\", \"historical_search\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.82, \"future_intent\": null}",
+ "reasoning_head": "The user asks \"А он правда это говорил?\" — did Kirill really say that? Context: Kirill said he lays tiles himself, doesn't hire masters. Masha says \"Кирилл сказал, что плитку клали мастера\". Contradiction. The question asks to verify whether Kirill actually said that. We need chat history search — capability chat_history / historical_search. So answer requires checking history.\n\nDirect address to ",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nА он правда это говорил?\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: я плитку сам кладу, мастеров не беру\nМаша: ну да, конечно\nМаша: Кирилл сказал, что плитку клали мастера\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "research",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "answer",
+  "tool_policy": "auto",
+  "capabilities_needed": [
+   "chat_history",
+   "historical_search"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.82,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

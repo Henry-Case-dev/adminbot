@@ -1,0 +1,54 @@
+{
+ "label": "L1 T02",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "ae183b38f245",
+ "messages_sha12": "d23994ec7859",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2242,
+  "completion_tokens": 263,
+  "total_tokens": 2564,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 134
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.133824e-05
+ },
+ "latency_s": 3.31,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"summarization\", \"extent\": \"compact\", \"tone\": \"inherit\", \"emotional_mirroring\": \"light\", \"structure\": \"summary\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.82, \"future_intent\": null}",
+ "reasoning_head": "The user asks \"Что за движ здесь?\" — \"What's going on here?\" Kirill asks what's the deal/activity here. Direct address to bot, text reply required. The conversation is about bathroom renovation, debate about matte vs glossy tiles. The bot should summarize the ongoing discussion. Response act: summarization. Extent: compact. Tone: inherit/neutral. Structure: summary. Delivery: chat (general topic, ",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nЧто за движ здесь?\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую, глянец в санузле выглядит дёшево\nКирилл: матовая в санузле плохая идея: на ней разводы видно\nМаша: зато не бликует и мыть проще\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "summarization",
+  "extent": "compact",
+  "tone": "inherit",
+  "structure": "summary",
+  "tool_policy": "none",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.82,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

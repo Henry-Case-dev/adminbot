@@ -1,0 +1,56 @@
+{
+ "label": "L1 T19.turn2",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "ba241b978aac",
+ "messages_sha12": "aef6e39d19a9",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2328,
+  "completion_tokens": 408,
+  "total_tokens": 2795,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 277
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.578752e-05
+ },
+ "latency_s": 7.08,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"answer\", \"extent\": \"micro\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"media_download\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.85, \"future_intent\": null}",
+ "reasoning_head": "The user is clarifying which file: the PDF Maria sent. The bot earlier asked \"what exactly to download — send link or file\". Now Kirill clarifies: \"that pdf Maria sent\". The message shows Маша: [document] earlier. So we have a target: the document message. We need to reply, likely download the file. Delivery: reply to Kirill's message clarifying, or chat. The message is a clarification of a previo",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nтот pdf, который Маша скинула\n</Current_Question>\n\n[ОТВЕТЫ БОТА (недавние)]\nЧто именно скачать — пришли ссылку или файл.\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую, глянец в санузле выглядит дёшево\nКирилл: матовая в санузле плохая идея: на ней разводы видно\nМаша: зато не бликует и мыть проще\nМаша: [document]\nКирилл: Бот, скачай это\nБот: Что именно скачать — пришли ссылку или файл.\nКирилл: тот pdf, который Маша скинула\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "extent": "micro",
+  "tone": "neutral",
+  "structure": "chat",
+  "tool_policy": "auto",
+  "capabilities_needed": [
+   "media_download"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.85,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

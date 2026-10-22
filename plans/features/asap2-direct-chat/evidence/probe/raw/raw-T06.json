@@ -1,0 +1,54 @@
+{
+ "label": "L1 T06",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "27d5348393f2",
+ "messages_sha12": "2a00351850d6",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2144,
+  "completion_tokens": 232,
+  "total_tokens": 2435,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 103
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.06184e-05
+ },
+ "latency_s": 3.51,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"inherit\", \"emotional_mirroring\": \"light\", \"structure\": \"explanation\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.86, \"future_intent\": null}",
+ "reasoning_head": "The user asks a technical question. Direct address to bot — text reply mandatory. Should answer with explanation. Maybe use web_search? Not necessary — general knowledge. action=reply, delivery=chat (no specific message to reply to... actually current question is from Кирилл; no message id given). delivery chat. response_act=explanation. extent=normal. tone=inherit. structure=explanation. capabili",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nпочему у меня вечером лагает интернет в квартире?\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nМаша: у меня тоже вечером всё тупит\nПётр: провайдеры в час пик проседают\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "explanation",
+  "extent": "normal",
+  "tone": "inherit",
+  "structure": "explanation",
+  "tool_policy": "none",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.86,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

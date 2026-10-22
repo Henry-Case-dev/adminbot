@@ -1,0 +1,57 @@
+{
+ "label": "L1 T20-STAT",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "b9e23335a322",
+ "messages_sha12": "d682803eff39",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2295,
+  "completion_tokens": 274,
+  "total_tokens": 2628,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 140
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.262942e-05
+ },
+ "latency_s": 5.29,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"research\", \"extent\": \"normal\", \"tone\": \"inherit\", \"emotional_mirroring\": \"none\", \"structure\": \"report\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"chat_history\", \"statistics\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.83, \"future_intent\": null}",
+ "reasoning_head": "The user asks \"собери статистику по чату\" - gather chat statistics. Direct address to bot, text reply required. We have statistics capability and chat_history. Need to decide: chat vs reply. The message is a direct request, no specific message to reply to. Delivery: chat. Extent: probably compact/normal - statistics request, need to compute. Structure: report. capabilities_needed: statistics, chat",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nсобери статистику по чату\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую, глянец в санузле выглядит дёшево\nКирилл: матовая в санузле плохая идея: на ней разводы видно\nМаша: зато не бликует и мыть проще\nПётр: на выходных думаем в Суздаль, но не решили, как ехать\nМаша: смотря во сколько вставать\nПётр: если рано, то электричка удобнее\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "research",
+  "extent": "normal",
+  "tone": "inherit",
+  "structure": "report",
+  "tool_policy": "auto",
+  "capabilities_needed": [
+   "chat_history",
+   "statistics"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.83,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

@@ -1,0 +1,58 @@
+{
+ "label": "L1 T20-IN",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "8e59981f4b7a",
+ "messages_sha12": "1b90fc9a9e67",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2170,
+  "completion_tokens": 272,
+  "total_tokens": 2501,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 131
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.167836e-05
+ },
+ "latency_s": 6.74,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"summarization\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"summary\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"chat_history\", \"chat_memory\", \"historical_search\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.85, \"future_intent\": null}",
+ "reasoning_head": "The user asks \"что мы обсуждали?\" — a summary request. We have chat history in the window. Need summarization. Use chat_memory/historical_search maybe. Answer with summary of recent topics: плитка, отпуск, стремянка, затирка. Delivery: chat, since addressed to chat generally. Could be reply? The question is from Кирилл addressed to chat. Delivery chat.\n\nresponse_act: summarization. extent: compact",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nчто мы обсуждали?\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nМаша: вчера до ночи выбирали плитку\nКирилл: а в среду спорили про отпуск\nПётр: сегодня утром я принёс стремянку\nМаша: и договорились, что затирка в субботу\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "summarization",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "summary",
+  "tool_policy": "auto",
+  "capabilities_needed": [
+   "chat_history",
+   "chat_memory",
+   "historical_search"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.85,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

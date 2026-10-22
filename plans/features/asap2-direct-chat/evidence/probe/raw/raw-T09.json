@@ -1,0 +1,54 @@
+{
+ "label": "L1 T09",
+ "model_requested": "deepseek-v4-flash",
+ "model_returned": "deepseek-v4-flash",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "b089a0c302a6",
+ "messages_sha12": "39e72f55c39f",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2293,
+  "completion_tokens": 251,
+  "total_tokens": 2603,
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0
+  },
+  "completion_tokens_details": {
+   "text_tokens": 0,
+   "audio_tokens": 0,
+   "image_tokens": 0,
+   "reasoning_tokens": 124
+  },
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "input_tokens_details": null,
+  "claude_cache_creation_5_m_tokens": 0,
+  "claude_cache_creation_1_h_tokens": 0,
+  "cost": 2.211396e-05
+ },
+ "latency_s": 3.46,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"answer\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"answer\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null}",
+ "reasoning_head": "The user asks \"А что насчёт второго?\" — referring to the second option, the bus. Need to reply with details about option 2: bus at 9:00, three hours, stops at the hotel. So answer about the bus.\n\nDelivery: reply to the bot's message? The question refers to bot's message. Target message_id unknown — no IDs provided. So chat probably. Since no message IDs given, use chat. Actually delivery=chat is f",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nА что насчёт второго?\n</Current_Question>\n\n[ОТВЕТЫ БОТА (недавние)]\nпо поездке два варианта: 1) электричка в 8:10, идёт два часа и приходит прямо в город; 2) автобус в 9:00, идёт три часа, но останавливается у гостиницы\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nПётр: на выходных думаем в Суздаль, но не решили, как ехать\nМаша: смотря во сколько вставать\nПётр: если рано, то электричка удобнее\nБот: по поездке два варианта: 1) электричка в 8:10, идёт два часа и приходит прямо в город; 2) автобус в 9:00, идёт три часа, но останавливается у гостиницы\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "answer",
+  "tool_policy": "none",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.9,
+  "confidence_bucket": "high"
+ },
+ "repair": null,
+ "speech_hints": ""
+}

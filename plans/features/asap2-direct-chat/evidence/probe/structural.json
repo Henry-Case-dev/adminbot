@@ -1,0 +1,88 @@
+{
+ "T27 false": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T28 'false'": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T28b 'true'": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T28c 1": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T28d []": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T28e {}": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T29 null": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T30 true+empty": {
+  "needs_clarification": true,
+  "clarification_target": null,
+  "response_act": "other",
+  "plan_block": "<Response_Plan>\nдействие: reply\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T31 clarification-act+false": {
+  "needs_clarification": false,
+  "clarification_target": null,
+  "response_act": "clarification",
+  "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: clarification\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "T31b clarification-act+true": {
+  "needs_clarification": true,
+  "clarification_target": null,
+  "response_act": "clarification",
+  "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: clarification\n</Response_Plan>",
+  "generic_directive": false,
+  "fixed_question_branch": ""
+ },
+ "speech_T25": {
+  "short_dependency": true,
+  "clarify": "none",
+  "hints_rendered": "",
+  "ask_branch_exists": false
+ }
+}
