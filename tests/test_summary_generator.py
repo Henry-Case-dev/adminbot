@@ -23,6 +23,11 @@ def no_sleep(monkeypatch):
     fake = MagicMock()
     fake.sleep = AsyncMock(return_value=None)
     fake.Lock = real_asyncio.Lock
+    # Регрессия 138330c0: `except asyncio.CancelledError` в `_run` вычисляет
+    # атрибут уже подменённого модуля; MagicMock-атрибут — не класс исключения
+    # → TypeError вместо обработчика. Реальный класс возвращаем явно (T1 ревью
+    # аудита 23.10); прод-инвариант «raise, не переписывать ран в failed» цел.
+    fake.CancelledError = real_asyncio.CancelledError
     monkeypatch.setattr("services.summary_generator.asyncio", fake)
     return fake.sleep
 

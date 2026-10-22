@@ -95,7 +95,8 @@ AnchorSpace targeted path); single-paragraph контракт не изменё�
 | RED нового файла | `8 failed, 3 passed` | — |
 | Новый файл | — | `11 passed` |
 | Фокусный набор (10 summary/L2/review файлов, см. ниже) | `330 passed` | `330 passed` |
-| Широкий набор summary/l2/review/failsoft (74 файла, `-p no:randomly`) | `1636 passed, 4 failed` (чистый HEAD `468d1041` в изолированном worktree) | `1647 passed, 4 failed` (те же 4) |
+| `tests/test_summary_generator.py` | `61 passed, 4 failed` | `65 passed, 0 failed` (после T1, см. §5) |
+| Широкий набор summary/l2/review/failsoft (74 файла, `-p no:randomly`) | `1636 passed, 4 failed` (чистый HEAD `468d1041` в изолированном worktree) | `1651 passed, 0 failed` (после T1) |
 
 Фокусный набор: `test_summary_anchors_wiring_asap42`, `test_asap44_l2_review_closure`,
 `test_asap5_summary_domain`, `test_summary_reviewer_source_asap41`,
@@ -117,13 +118,43 @@ AnchorSpace targeted path); single-paragraph контракт не изменё�
 3. **Остаточный риск batch-ревизии:** размер user-контента растёт с числом
    абзацев с находками (ограничен самим черновиком ≤`RICH_MAX_CHARS=32000`;
    полный черновик и так подаётся ревьюеру на той же стадии). Если ревизор
-   вернёт неполный batch — вторая ревизия закрывает остаток; если
-   malformed — ревизия сгорает как раньше (`revision_invalid_patch`).
-4. **Pre-existing, не мой scope:** 4 теста `tests/test_summary_generator.py`
-   (`TestPipeline::test_llm_error_retry_then_ux_r13`, `test_db_error_ux_phrase`,
-   `test_generic_error_ux_phrase`, `test_ux_send_failure_does_not_crash`)
-   падают на чистом HEAD `468d1041` — причина: фикстура `no_sleep`
-   (`tests/test_summary_generator.py:18-27`) подменяет
-   `services.summary_generator.asyncio` на `MagicMock`, после чего
-   `except asyncio.CancelledError` получает не-исключение. К этому лейну
-   отношения не имеет; не исправлялось (вне write-scope).
+   вернёт неполный batch — применяется частичный batch; остаток закрывает
+   вторая ревизия только при условии, что повторный Reviewer снова заявит
+   находку по этому абзацу (иначе документ может уйти в approved с
+   непочиненным абзацем — best-effort, но строго лучше прежнего поведения).
+   Malformed batch сгорает как раньше (`revision_invalid_patch`).
+
+## 5. T1 (ревью аудита 23.10): регрессия тест-фикстуры от `138330c0` — устранена
+
+4 падения `tests/test_summary_generator.py::TestPipeline::*`
+(`test_llm_error_retry_then_ux_r13`, `test_db_error_ux_phrase`,
+`test_generic_error_ux_phrase`, `test_ux_send_failure_does_not_crash`) — **не
+pre-existing долг**, а регрессия тест-фикстуры, внесённая первым коммитом
+поезда 2.58.112. По коммитам:
+
+| Коммит | Что это | `tests/test_summary_generator.py` |
+|---|---|---|
+| `ec359bb3` (дерево 2.58.111) | прод-база | **65 passed** |
+| `138330c0` | добавил `except asyncio.CancelledError` в `_run` | **4 failed, 61 passed** |
+| `10f3a2a0` (B-1) | только тело обработчика (`publish_status`) | **4 failed, 61 passed** |
+| `468d1041` | база этого лейна | **4 failed, 61 passed** |
+| `b1525b60` | кандидат F1/F2 | **4 failed, 61 passed** |
+| fix T1 (этот коммит) | 1 строка в фикстуре `no_sleep` | **65 passed, 0 failed** |
+
+Механизм: фикстура `no_sleep` (`tests/test_summary_generator.py:18-27`)
+подменяет весь модуль `services.summary_generator.asyncio` на `MagicMock`,
+восстанавливая только `Lock`. При всплытии `LLMError`/SQLite-ошибки
+интерпретатор вычисляет `except asyncio.CancelledError`
+(`services/summary_generator.py:968`) и получает MagicMock-атрибут — не класс
+исключения → `TypeError: catching classes that do not inherit from
+BaseException`, 4 error-path теста не доходят до своих обработчиков.
+
+Фикс — только тест: `fake.CancelledError = real_asyncio.CancelledError` рядом
+с `fake.Lock`. **Прод-код не менялся** (`git diff --stat HEAD~1 -- services/`
+пусто): инвариант «опубликованный ран не переписывается в failed» и `raise` в
+обработчике сохранены; B-1 покрыт отдельным тестом
+`tests/test_summary_fact_view_v2_anchors.py`, фикстуру `no_sleep` не
+использующим.
+
+После фикса: `tests/test_summary_generator.py` — **65 passed, 0 failed**;
+широкий набор 74 файла — **1651 passed, 0 failed**.
