@@ -1,0 +1,12 @@
+﻿# REV-HARNESS-FENCE — review (22.10.2026)
+
+Вердикт: **Approved** обе волны. Кандидаты: ADTR-HARNESS-R1 `60110e77` (@1b03c428), FIX-VISION-FENCE `1cf0f400` + биндинги `06b7ef4d`.
+
+- FIX: `_strip_markdown_fence` снимает ТОЛЬКО обёртку (первая ```-строка + хвостовой ```), содержимое не правится; строгий `json.loads` сохранён, невалидный JSON → parse_error (тест `test_fence_is_unwrap_not_json_repair` покрывает: забор-мусор, обрывок, голый ```, битый JSON в заборе). Вызов заменён одной строкой, другой код не тронут. `test_mca19_block_b_round1043.py` — 33 passed (воспроизведено). RED/GREEN-файлы честные (1 failed до фикса).
+- w5-fence-fix.json: POSTGEN-ON ready (photo 518988B, описание фактического bitmap 78 симв., image_analysis ready, Writer по факту, vision_transport=2, реальные тайминги/модели/correlation_id); P0V heavy: byte-ident fixture (sha12 e9fbb33b116b), ready GT 3/3 (ZEBRA77/QUARTZ88/LOTUS99), 1 vision-вызов. before (parse_error) / after (ready) честные. sha256 артефакта = биндингу.
+- Harness (выборочно S3/S7/EDGE/OFF/DEDUP по JSON): S3 bare UNHANDLED 0 LLM; S7 how-to-draw — объяснение, no_generate_image_tool=true; EDGE альбом/PDF/edited-caption UNHANDLED; w4 glm-4-flash tools=false → реальная генерация 520871B; w3 status=off/0 vision; w1 dedup cache_hit=true.
+- Бюджет: превышение (33+11+5+~12+~30 vs ≤30) честно разложено в harness-r1-notes.md (bring-up ChatActionSender ×3, мёртвый Pollinations, перебор моделей; финальные окна ~25). Принято как bring-up, не маскировка. verify-report.md человеческий, остатки названы.
+- Карта: ADTR-POSTGEN-ON / ADTR-VERIFY-DOD3 / M-ADTR-VERIFY-S9 / P0V-PIPE-CONTEXT → VERIFIED, evidence @1cf0f400, artifact существует, история notes сохранена; live_when=postdeploy + live_required=True сохранены (не owner-гейт). Plan-гейты EXIT 0 ×2 воспроизведены (32/24 inventory, 0 errors). Review-гейт rc=1 — резидуал: RFL POSTGEN-OFF/DEDUP (postdeploy-канарейки волны деплоя) + исторические чужие биндинги (M-ADTR-POSTGEN-DEFECT/REUSE) — вне данных волн.
+- Гигиена: чужие файлы/фактчек/каноны не тронуты (diff-стат подтверждает), ID строк карт не переименовывались, секретов в evidence нет.
+
+Риски (неблокирующие): prod-live позитивы OFF/DEDUP/S — обязательная acceptance-волна следующего деплоя (release-гейт); OFF-эхо предмета промпта — тюнинг Personality, задокументировано; map candidate_commit=1b03c428 — финальный SHA свяжет release-стадия.

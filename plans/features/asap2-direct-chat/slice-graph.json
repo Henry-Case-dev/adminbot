@@ -1,0 +1,116 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "asap2-direct-chat (P0-корректива поверх ASAP Speech Architecture W1). Минимальный diff в существующих файлах; слайсы с общими файлами сериализованы зависимостями (совпадающие write_scope). Волны: W1 GOV(аудит)+CLAR-BOOL∥CLAR-SPEECH∥CLAR-L1; W2 CLAR-PLAN∥CLAR-CTX; W3 CLAR-L2; W4 MIGR; W5 TESTS; W6 DONE-CRITERIA. CLAR-L1/CLAR-L2 — edit-in-place поверх канонов W1 (секция «ВЫБОР УЧАСТИЯ» и «КАК ПИСАТЬ» не трогаются), координация с поездом W1 в reconciliation.md.",
+  "slices": [
+    {
+      "id": "GOV",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/asap2-direct-chat/arch-audit.md"
+      ],
+      "acceptance": "Architect-аудит actual effective L1/L2 и четырёх мест (L1 schema/rules, Speech hint, Writer plan, контекст продолжения) выполнен на текущей конфигурации; минимальный diff указан; semantic-validator/новая инфраструктура явно отклонены; guardrails §0/§3.1 (0 новых классов/таблиц/LLM-вызовов, нет регулярок/словарей/квот/порогов, примеры §6 не в коде, запрещённые эвристики не добавлены) проверены ревью diff и grep на финальном кандидате."
+    },
+    {
+      "id": "CLAR-BOOL",
+      "depends_on": [],
+      "write_scope": [
+        "services/direct_l1.py",
+        "tests/test_asap7_direct_l1.py"
+      ],
+      "acceptance": "normalize_l1_plan принимает только реальный JSON boolean («false»/null/«true»/список/объект → безопасный fallback, не уточнение, без нового LLM-вызова); response_act=clarification не включает уточнение при needs_clarification=false; пустой clarification_target без generic-опроса; tool routing/gate меняются только от корректного финального структурированного решения, без альтернативных веток блокировки и валидации содержимого L2 (тесты + матрица #27–#33)."
+    },
+    {
+      "id": "CLAR-SPEECH",
+      "depends_on": [],
+      "write_scope": [
+        "services/claim_envelope.py",
+        "services/direct_chat_service.py",
+        "tests/test_mca08_character_speech.py"
+      ],
+      "acceptance": "Директива «Если без уточнения…» и clarify=ask (из clarify_action/render_speech_block/_l1_speech_hints) не доходят до модели (runtime payload чист, матрица #25); ничего не добавлено взамен; остальные функции Speech Understanding (цитаты/отрицание/ирония/шутки) не сломаны; tool-путь не блокируется speech-сигналом (матрица #32; тесты)."
+    },
+    {
+      "id": "CLAR-L1",
+      "depends_on": [],
+      "write_scope": [
+        "services/chat_prompts.py",
+        "tests/test_asap2_l1_clarification.py"
+      ],
+      "acceptance": "В DIRECT_L1_PLANNER_SYSTEM_PROMPT заменено только прежнее правило needs_clarification на блок «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» §4.1 (дословно/минимальная адаптация; без примеров матрицы, частот, окон, раздувания JSON); схема JSON, инициатива delivery=chat|reply и остальные правила нетронуты; старого правила-дубля нет; секция «ВЫБОР УЧАСТИЯ» W1 сохранена (тест канона + diff + runtime payload)."
+    },
+    {
+      "id": "CLAR-PLAN",
+      "depends_on": [
+        "CLAR-BOOL"
+      ],
+      "write_scope": [
+        "services/direct_l1.py",
+        "tests/test_asap7_direct_l1.py"
+      ],
+      "acceptance": "build_l2_plan_block при clarification=True вставляет только узкую фразу §4.3 от единственного корректного поля L1; без валидного clarification_target общей директивы нет; фрагмент только при допустимом структурированном решении; без post-L1 validator (тесты)."
+    },
+    {
+      "id": "CLAR-CTX",
+      "depends_on": [
+        "CLAR-SPEECH"
+      ],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "tests/test_asap2_context_continuity.py"
+      ],
+      "acceptance": "После уточняющего вопроса бота L1 получает все три элемента (исходная просьба + вопрос бота + ответ пользователя) в существующей истории, в т.ч. после restart; ограничения окна/branch/fallback не теряют их; при реальном отсутствии истории — честный недостаток контекста; новая память/граф состояний не созданы (тесты + матрица #19–#24, #8, #10)."
+    },
+    {
+      "id": "CLAR-L2",
+      "depends_on": [
+        "CLAR-L1"
+      ],
+      "write_scope": [
+        "services/chat_prompts.py"
+      ],
+      "acceptance": "Абзац §4.2 вставлен в «КАК ПИСАТЬ» вербализатора ровно один раз (без второго system prompt); Writer отвечает по плану с естественным охватом, меню не устраивает, собственных причин переспроса не придумывает; типографика/extent-правила W1 не задублированы (тест канона + матрица §6.1)."
+    },
+    {
+      "id": "MIGR",
+      "depends_on": [
+        "CLAR-L1",
+        "CLAR-L2",
+        "CLAR-SPEECH"
+      ],
+      "write_scope": [
+        "services/prompt_factory.py",
+        "services/prompt_migrations.py",
+        "services/prompt_registry.py",
+        "services/config_cache.py",
+        "services/hot_config.py",
+        "tests/test_soul1_factory_defaults.py"
+      ],
+      "acceptance": "Factory и активная PG (global/per-chat) приведены к новым канонам L1/L2 по существующей процедуре (revision бамп, snapshot/ступени, owner-preserving локальная замена либо сохранение кастома с отражённым конфликтом); без factory-reset остальных слоёв и без миграций схемы; hot apply/кеш штатно; effective payload без clarify=ask, правило дошло до модели; Factory и active согласованы в обе стороны, откат возможен (матрица #34)."
+    },
+    {
+      "id": "TESTS",
+      "depends_on": [
+        "CLAR-BOOL",
+        "CLAR-PLAN",
+        "CLAR-CTX",
+        "MIGR"
+      ],
+      "write_scope": [
+        "tests/test_asap2_clarification_matrix.py",
+        "plans/features/asap2-direct-chat/evidence/matrix-run.md"
+      ],
+      "acceptance": "Матрица §6.1–§6.4 (T01–T36) прогнана: структурные регрессии #27–#36 тестами; семантика #1–#26 реальными L1/L2 на обезличенных сценариях с парафразами (≥2–3 на ключевой класс) и цепочками продолжений; live-model replay; негативные кейсы; оцениваются полезность и отсутствие ненужного переспроса; без fake-L1 самообмана, runtime словарей и автономного evaluation-фреймворка; недоказанная причина конкретного turn помечена UNCONFIRMED."
+    },
+    {
+      "id": "DONE-CRITERIA",
+      "depends_on": [
+        "TESTS"
+      ],
+      "write_scope": [
+        "plans/features/asap2-direct-chat/report.md",
+        "plans/workflow_state.md"
+      ],
+      "acceptance": "DoD §8 (D1–D9) сведён: контекст/анти-second-приказ/типобезопасность/effective+owner+rollback/чистый standard path/матрица на реальной модели/diff-чистота/без цепочек/commit+tests+payload+deploy+rollback+health; отчёт с временем, доказанной причиной, 2–5 точками, 0 новых сущностей и двумя самостоятельными результатами; DEPLOYED/TESTED/LIVE_VERIFIED не смешаны, незакрытые live помечены PENDING_LIVE."
+    }
+  ]
+}
