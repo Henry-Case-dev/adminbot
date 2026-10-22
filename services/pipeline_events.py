@@ -308,7 +308,9 @@ def l2_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
     ближайший enum (`failed`). counts (usage_json, R17-safe — только
     коды/числа): reason_code (гранулярный), reason_group, paragraph_index,
     chars (длина абзаца, НИКОГДА текст), l2_calls (1|2), correction_used,
-    repair_actions.
+    repair_actions; плюс durable-исход semantic review, если он запускался:
+    review_verdict / review_blocking / review_finding_codes (≤8 кодов) /
+    revision_fixed — на approved И rejected/unusable путях.
     """
     metrics = metrics if isinstance(metrics, dict) else {}
     status_str = str(status or "")
@@ -317,6 +319,25 @@ def l2_stage(run_id, *, chat_id, usable: bool, invalid_reason=None,
         if (status_str == "invalid" and not reviewer_reject) else "failed")
     counts: dict = {"output_count": int(paragraphs)
                     if paragraphs is not None else None}
+    # Аудит 23.10.2026 (F2): durable-диагностика semantic review на ОБОИХ
+    # исходах стадии (approved и rejected/unusable). Раньше вердикт/коды
+    # жили только в in-memory stage_events (TTL 900 c) и journal-окне →
+    # разбор инцидента требовал SSH-археологии. R17: коды/числа, не тексты.
+    review_verdict = metrics.get("l2_review_last_verdict")
+    if review_verdict:
+        counts["review_verdict"] = str(review_verdict)[:32]
+    review_blocking = metrics.get("l2_review_blocking")
+    if isinstance(review_blocking, int) and not isinstance(review_blocking,
+                                                           bool):
+        counts["review_blocking"] = review_blocking
+    review_codes = metrics.get("l2_review_finding_codes")
+    if isinstance(review_codes, list) and review_codes:
+        counts["review_finding_codes"] = [str(code)[:48]
+                                          for code in review_codes[:8]]
+    revision_fixed = metrics.get("l2_revision_fixed_count")
+    if isinstance(revision_fixed, int) and not isinstance(revision_fixed,
+                                                         bool):
+        counts["revision_fixed"] = revision_fixed
     if not usable:
         granular_reason = str(metrics.get("reason_code")
                               or invalid_reason or "error")

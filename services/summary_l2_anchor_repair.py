@@ -23,6 +23,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import enum
+import json
 import logging
 
 from services.summary_source_anchors import (
@@ -251,6 +252,24 @@ def validate_review_result(data, anchor_map: SourceAnchorMap, *,
 
 # ── Targeted Writer revision (R8-D-002) ────────────────────────────────────
 
+def group_issues_by_paragraph(issues) -> dict:
+    """Сгруппировать валидированные находки по абзацам (порядок — по id).
+
+    Аудит 23.10.2026 (RCA §2 «ПОТЕРЯ-3»): ревизия чинила только
+    ``issues[0]`` — один абзац за вызов при 4–15 находках в 7–12 абзацах,
+    поэтому цикл структурно не сходился. Группировка даёт ревизии ВЕСЬ
+    набор заявленных абзацев в пределах того же бюджета вызовов.
+    Находка без валидного ``paragraph_id`` в группировку не попадает
+    (валидатор такие уже отбрасывает)."""
+    grouped: dict = {}
+    for issue in issues or ():
+        pid = getattr(issue, "paragraph_id", None)
+        if isinstance(pid, bool) or not isinstance(pid, int):
+            continue
+        grouped.setdefault(pid, []).append(issue)
+    return {pid: grouped[pid] for pid in sorted(grouped)}
+
+
 def build_targeted_revision_content(*, paragraph, paragraph_id: int,
                                     issue: ReviewIssue,
                                     source_excerpts, title: str = ""
@@ -288,11 +307,57 @@ def build_targeted_revision_content(*, paragraph, paragraph_id: int,
             + json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
 
 
+def build_targeted_revision_batch_content(*, entries, title: str = "") -> str:
+    """User-контент batch-targeted ревизии: ВСЕ абзацы с находками в одном
+    bounded запросе (R8-D-002, тот же бюджет вызовов).
+
+    ``entries`` — ``[{"paragraph_id", "paragraph", "issues",
+    "source_excerpts"}, …]`` (по одному на абзац). Whole-article regen не
+    запрашивается: ответ — только ``replace_paragraphs`` для перечисленных
+    ``paragraph_id``; исправление каждого абзаца по-прежнему проходит
+    §99/anchor-ревалидацию в вызывающем коде."""
+    paragraphs: list = []
+    for entry in entries or ():
+        pid = entry.get("paragraph_id")
+        issues = list(entry.get("issues") or ())
+        paragraphs.append({
+            "paragraph_id": int(pid),
+            "problems": [
+                {"reason": issue.reason,
+                 "source_anchors": list(issue.source_anchors),
+                 "repair_instruction": issue.repair_instruction}
+                for issue in issues],
+            "paragraph": entry.get("paragraph") or {},
+            "source_excerpts": list(entry.get("source_excerpts") or []),
+        })
+    payload = {
+        "revision_scope": "multiple_paragraphs",
+        "paragraphs": paragraphs,
+        "preserve": ("Исправь ТОЛЬКО перечисленные абзацы. Сохрани остальные "
+                     "абзацы неизменно. Не добавляй новых фактов, имён, чисел "
+                     "или цитат; опирайся на source_excerpts."),
+        # T-4877: output schema пиннится явно — иначе любая другая форма
+        # ответа сгорает как revision_invalid_patch.
+        "output_format": (
+            'Верни СТРОГО JSON: {"replace_paragraphs": [{"paragraph_id": 0, '
+            '"text": "полный исправленный текст абзаца", '
+            '"source_anchors": ["m0000-A1"]}]} — ровно по одному элементу на '
+            "КАЖДЫЙ перечисленный выше paragraph_id; source_anchors — "
+            "массив anchors ТОЛЬКО из source_excerpts/problems (без реальных "
+            "message_id). Остальные абзацы не возвращай."),
+    }
+    if title:
+        payload["article_title"] = str(title)
+    return ("ВЕРНИ ИСПРАВЛЕННЫЕ АБЗАЦЫ (компактный JSON):\n"
+            + json.dumps(payload, ensure_ascii=False, separators=(",", ":")))
+
+
 __all__ = [
     "ReviewReason", "REVIEW_REASONS", "REASON_TO_FINDING_CODE",
     "STATUS_APPROVED", "STATUS_NEEDS_FIXES", "STATUS_UNUSABLE",
     "REVIEW_STATUSES", "EvidenceRepairReport", "repair_l2_evidence",
     "paragraphs_without_evidence", "ReviewIssue", "ReviewResult",
     "validate_review_result", "build_targeted_revision_content",
+    "build_targeted_revision_batch_content", "group_issues_by_paragraph",
     "l2_evidence_repair_enabled", "l2_targeted_revision_enabled",
 ]

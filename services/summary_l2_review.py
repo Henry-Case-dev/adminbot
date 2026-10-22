@@ -31,7 +31,9 @@ Semantic Reviewer (§50.10–§50.17, §50.26–§50.28):
 Revision (§50.22–§50.25, ADR D5): patch-контракт
 ``{"replace_paragraphs": [{index, text, evidence_message_ids}]}`` — primary;
 full-document revision — escape-hatch (findings > 50% абзацев, патч дважды
-невалиден, kill-switch OFF). Preserve-инструкция §50.22. Progress criterion
+невалиден, kill-switch OFF). В AnchorSpace targeted-ревизия покрывает ВСЕ
+абзацы с находками (batch, аудит 23.10.2026: раньше — только первый),
+один LLM-вызов на итерацию. Preserve-инструкция §50.22. Progress criterion
 §50.25: blocking findings не уменьшились → сразу safe fallback (Legacy),
 без бесконечного repair. После второй итерации autonomous-циклов нет.
 
@@ -84,7 +86,9 @@ from services.summary_l2_writer import (
 )
 # ── ASAP 4.2 D1 (AM-1; spec §1) — AnchorSpace review + targeted revision.
 from services.summary_l2_anchor_repair import (
+    build_targeted_revision_batch_content,
     build_targeted_revision_content,
+    group_issues_by_paragraph,
     validate_review_result as validate_anchor_review_result,
 )
 from services.summary_source_anchors import (
@@ -567,21 +571,97 @@ def apply_targeted_revision(document, payload, *, anchor_map: SourceAnchorMap,
     return canonical, None
 
 
+def apply_targeted_revision_batch(document, payload, *,
+                                  anchor_map: SourceAnchorMap, package,
+                                  allowed_paragraph_ids
+                                  ) -> tuple[dict | None, str | None]:
+    """Применить batch-targeted ревизию: ВСЕ заявленные Reviewer'ом абзацы.
+
+    Аудит 23.10.2026 (F1): один bounded вызов закрывает все абзацы с
+    находками (раньше — только ``anchor_issues[0]``). Границы не
+    ослаблены:
+
+    * заменяются ТОЛЬКО ``allowed_paragraph_ids`` (абзацы, где Reviewer
+      реально заявил находку); чужой индекс → invalid patch;
+    * текст непустой, evidence нормализуется в anchor-space;
+    * документ (не патч) проходит тот же §99/anchor-валидатор, что и
+      одиночная targeted-ревизия; любая невалидная замена → ``None``
+      (атомарно, частично применённый документ не публикуется).
+    Не бросает."""
+    data = parse_json_object(str(payload or ""))
+    if not isinstance(data, dict):
+        return None, "revision_invalid_json"
+    replacements = data.get("replace_paragraphs")
+    if not isinstance(replacements, list) or not replacements:
+        return None, "revision_invalid_patch"
+    allowed: set[int] = set()
+    for pid in allowed_paragraph_ids or ():
+        if isinstance(pid, bool) or not isinstance(pid, int):
+            continue
+        allowed.add(pid)
+    if not allowed:
+        return None, "revision_invalid_patch"
+    paragraphs = [dict(p) for p in (document or {}).get("paragraphs") or []]
+    touched: set[int] = set()
+    for item in replacements:
+        if not isinstance(item, dict):
+            return None, "revision_invalid_patch"
+        pid = item.get("paragraph_id", item.get("index"))
+        if isinstance(pid, bool) or not isinstance(pid, int) \
+                or pid not in allowed or pid in touched \
+                or not 0 <= pid < len(paragraphs):
+            return None, "revision_invalid_patch"
+        touched.add(pid)
+        text = item.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return None, "revision_invalid_patch"
+        anchors = _normalized_target_anchors(
+            item.get("source_anchors", item.get("evidence_refs",
+                                                item.get("evidence_message_ids"))),
+            anchor_map)
+        paragraphs[pid] = {"text": text, "source_anchors": anchors,
+                           "emphasis_spans": [], "emphasis": None}
+    revised = {"schema_version": 1,
+               "title": str((document or {}).get("title") or ""),
+               "paragraphs": paragraphs}
+    if (document or {}).get("finale"):
+        revised["finale"] = document["finale"]
+    canonical, _metrics = validate_l2_document_anchors(
+        revised, package, anchor_map)
+    if canonical is None:
+        return None, "revision_invalid_patch"
+    return canonical, None
+
+
 def _anchor_source_excerpts(issue, anchor_map: SourceAnchorMap,
                             payload_items) -> list:
     """Source excerpts (реальные сообщения) для targeted revision.
 
     Разворачиваются детерминированно из окна по anchors проблемы; без
     ``payload_items`` — только anchor-дескрипторы (никогда raw id/вымысел)."""
-    descriptors = [{"source_anchor": anchor} for anchor in issue.source_anchors]
+    return _anchor_source_excerpts_many([issue], anchor_map, payload_items)
+
+
+def _anchor_source_excerpts_many(issues, anchor_map: SourceAnchorMap,
+                                 payload_items) -> list:
+    """Source excerpts для набора находок одного абзаца (anchors dedup).
+
+    Та же поверхность доказательств, что у одиночной ревизии: реальные
+    сообщения по anchors, без raw id; без ``payload_items`` — только
+    anchor-дескрипторы."""
+    anchors: list = []
+    for issue in issues or ():
+        for anchor in getattr(issue, "source_anchors", ()) or ():
+            if anchor not in anchors:
+                anchors.append(anchor)
     if not payload_items:
-        return descriptors
+        return [{"source_anchor": anchor} for anchor in anchors]
     by_id: dict = {}
     for item in payload_items or []:
         if isinstance(item, dict) and item.get("message_id") is not None:
             by_id.setdefault(item.get("message_id"), item)
     out: list = []
-    for anchor in issue.source_anchors:
+    for anchor in anchors:
         real = anchor_map.real_id(anchor)
         item = by_id.get(real)
         if item is None:
@@ -813,6 +893,35 @@ def _review_metrics() -> dict:
         METRIC_REVIEW_DEGRADED: 0,
         "l2_review_dropped_findings": 0,
     }
+
+
+# ── Durable-диагностика исхода ревью (аудит 23.10.2026, F2) ─────────────────
+# Вердикт/коды/blocking раньше жили только в in-memory stage_events (TTL
+# 900 c) и в journal-окне → инцидент нельзя было разобрать по durable
+# каналу. SUMMARY_L2_STAGE эмитится всегда (вкл. прод-путь от source
+# window) → те же числа/коды кладутся в metrics → counts события.
+MAX_DURABLE_FINDING_CODES = 8
+
+
+def _durable_review_metrics(metrics: dict, verdict: ReviewVerdict | None) -> None:
+    """Записать в metrics durable-исход ревью (R17: коды/числа, не тексты)."""
+    if verdict is None:
+        return
+    metrics["l2_review_last_verdict"] = str(verdict.status)
+    metrics["l2_review_blocking"] = int(verdict.blocking_count)
+    codes = sorted({str(f.code) for f in verdict.findings})
+    metrics["l2_review_finding_codes"] = codes[:MAX_DURABLE_FINDING_CODES]
+
+
+def _revision_fixed_count(first_blocking: int | None,
+                          verdict: ReviewVerdict | None) -> int:
+    """§50.58: сколько blocking-находок закрыто bounded-ревизиями.
+
+    Считается одинаково на approved И rejected пути (раньше rejected-путь
+    оставлял дефолтный 0 — метрика читалась как «ревизии бесполезны»)."""
+    if verdict is None:
+        return 0
+    return max(0, int(first_blocking or 0) - int(verdict.blocking_count))
 
 
 def _log_review(*, run_id, chat_id, metrics, status, reason=None) -> None:
@@ -1147,6 +1256,9 @@ async def run_l2_with_review(llm, package, *, service=None,
                 # немедленно (server-подтверждённый unusable, §4.1).
                 metrics["l2_legacy_after_review"] = 1
                 metrics["l2_review_dropped_findings"] = dropped_total
+                metrics["l2_revision_fixed_count"] = _revision_fixed_count(
+                    first_blocking, verdict)
+                _durable_review_metrics(metrics, verdict)
                 _log_review(run_id=correlation_id, chat_id=chat_id,
                             metrics=metrics, status="unusable",
                             reason=REASON_L2_REVIEW_UNUSABLE)
@@ -1247,9 +1359,59 @@ async def run_l2_with_review(llm, package, *, service=None,
             or patch_failures >= 1
             or findings_majority)
         revision_started = time.time()
-        targeted_issue = anchor_issues[0] if (anchor_mode and anchor_issues) \
-            else None
-        if targeted_issue is not None:
+        # F1 аудита 23.10: ревизия покрывает ВСЕ абзацы, где Reviewer
+        # заявил находки (раньше — только anchor_issues[0]). Один вызов на
+        # итерацию: бюджет ≤2 ревизий/≤6 логических вызовов не меняется.
+        issues_by_paragraph = group_issues_by_paragraph(anchor_issues) \
+            if (anchor_mode and anchor_issues) else {}
+        targeted_ids = sorted(issues_by_paragraph)
+        if len(targeted_ids) > 1:
+            entries = []
+            for pid in targeted_ids:
+                para = paragraphs_now[pid] \
+                    if 0 <= pid < len(paragraphs_now) else {}
+                entries.append({
+                    "paragraph_id": pid,
+                    "paragraph": para,
+                    "issues": issues_by_paragraph[pid],
+                    "source_excerpts": _anchor_source_excerpts_many(
+                        issues_by_paragraph[pid], anchor_map,
+                        review_payload_items),
+                })
+            try:
+                raw_rev, _usage = await _call_llm(
+                    llm, reviewer,
+                    [{"role": "system",
+                      "content": SUMMARY_L2_REVISER_SYSTEM_PROMPT + "\n\n"
+                      + SUMMARY_L2_TARGETED_REVISION_ANCHORS_BLOCK},
+                     {"role": "user",
+                      "content": build_targeted_revision_batch_content(
+                          entries=entries,
+                          title=str(current_doc.get("title") or ""))}],
+                    correlation_id=correlation_id, llm_call=revision_call,
+                    operation="revision")
+            except Exception as exc:  # noqa: BLE001 - revision outage
+                _record(ctx, _stage_event(
+                    "revision", attempt=revisions_done + 1, status="error",
+                    reason_code=type(exc).__name__, started=revision_started,
+                    repair_target="targeted_batch",
+                    revision_target="targeted_batch",
+                    revision_result="error",
+                    revision_failure_reason=f"revision_{type(exc).__name__}"))
+                return _degraded_or_legacy(
+                    draft, current_doc, metrics,
+                    reason=f"revision_{type(exc).__name__}",
+                    correlation_id=correlation_id, chat_id=chat_id, exc=exc)
+            calls += 1
+            metrics["l2_revision_calls"] += 1
+            revisions_done += 1
+            metrics["l2_revision_count"] = revisions_done
+            revised, reason = apply_targeted_revision_batch(
+                current_doc, raw_rev, anchor_map=anchor_map,
+                package=run_package, allowed_paragraph_ids=targeted_ids)
+            repair_target = "targeted_batch"
+        elif targeted_ids:
+            targeted_issue = issues_by_paragraph[targeted_ids[0]][0]
             # ASAP 4.2 D1 (AM-1; R8-D-002): targeted revision — ТОЛЬКО
             # проблемный абзац + source excerpts (bounded; whole-article
             # regen не вызывается).
@@ -1377,9 +1539,10 @@ async def run_l2_with_review(llm, package, *, service=None,
             metrics["l2_first_pass_approved"] = 1
         else:
             # §50.58: сколько blocking-находок первой ревизии закрыто.
-            metrics["l2_revision_fixed_count"] = max(
-                0, (first_blocking or 0) - last_verdict.blocking_count)
+            metrics["l2_revision_fixed_count"] = _revision_fixed_count(
+                first_blocking, last_verdict)
         metrics["l2_review_dropped_findings"] = dropped_total
+        _durable_review_metrics(metrics, last_verdict)
         _log_review(run_id=correlation_id, chat_id=chat_id, metrics=metrics,
                     status="approved")
         return _ok_result(current_doc, metrics, draft, _elapsed())
@@ -1392,6 +1555,11 @@ async def run_l2_with_review(llm, package, *, service=None,
         _deterministic_unusable_proof(current_doc_metrics)
         or any(finding_class(f.code) == FINDING_CLASS_HARD
                for f in (last_verdict.findings if last_verdict else ())))
+    # F2 аудита 23.10: та же durable-диагностика и на НЕ-approved исходах —
+    # именно rejected/unusable раны разбираются постфактум.
+    metrics["l2_revision_fixed_count"] = _revision_fixed_count(
+        first_blocking, last_verdict)
+    _durable_review_metrics(metrics, last_verdict)
     if not remaining_hard:
         return _degraded_or_legacy(
             draft, current_doc, metrics,
@@ -1416,6 +1584,31 @@ async def _writer_call(llm, package, *, service, correlation_id, chat_id,
                         anchor_map=anchor_map)
 
 
+def _quote_unverified_is_live(metrics: dict) -> bool:
+    """Живая ли подсказка ``quote_unverified_count`` (аудит 23.10, RCA §3).
+
+    Счётчик исторический: ``quotes_total − quotes_verified`` ДО
+    детерминированного ремонта — repaired/removed цитаты остаются в
+    документе в безопасной форме, поэтому после успешной валидации он
+    почти всегда >0 при ``quotes_verified=0`` (прод: 41/6/11 при нуле
+    verified). Ревьюер получал «41 непроверенная цитата» про документ, где
+    кавычек для проверки уже нет → шум в findings.
+
+    Находкой счётчик остаётся только когда учёт НЕ закрыт
+    (``verified + repaired + removed < total``) или есть живой
+    unresolved-блокер. Без accounting-полей (legacy/OFF-путь kill-switch'а)
+    сигнал сохраняется — не скрываем возможную живую проблему."""
+    if metrics.get("quote_unresolved_blockers"):
+        return True
+    total = metrics.get("quotes_total")
+    if isinstance(total, bool) or not isinstance(total, int) or total <= 0:
+        return True
+    accounted = sum(
+        int(metrics.get(key) or 0)
+        for key in ("quotes_verified", "quotes_repaired", "quotes_removed"))
+    return accounted < total
+
+
 def _deterministic_findings_from_metrics(metrics: dict | None) -> list[dict]:
     """Детерминированные находки по АКТУАЛЬНЫМ metrics валидатора (§50.10;
     codes/числа, без текстов). T-4876: после каждой успешной revision findings
@@ -1423,13 +1616,17 @@ def _deterministic_findings_from_metrics(metrics: dict | None) -> list[dict]:
     W1-A: коды берутся ТОЛЬКО из живых unresolved-блокеров; история успешных
     ремонтов (``quote_repair_reason_codes``/union ``quote_reason_codes``,
     вкл. ``quote_attribution_repaired`` вне FINDING_CODES) в контекст
-    ревьюера не подаётся."""
+    ревьюера не подаётся. ``quote_unverified_count`` — только живой
+    (см. :func:`_quote_unverified_is_live`)."""
     findings: list[dict] = []
     metrics = metrics or {}
     for code in metrics.get("quote_unresolved_blockers") or []:
         findings.append({"source": "deterministic", "code": code})
-    for key in ("quote_unverified_count", "ids_stripped_count",
-                "emphasis_dropped_count", "paragraphs_without_evidence"):
+    keys = ["ids_stripped_count", "emphasis_dropped_count",
+            "paragraphs_without_evidence"]
+    if _quote_unverified_is_live(metrics):
+        keys.insert(0, "quote_unverified_count")
+    for key in keys:
         value = metrics.get(key)
         if isinstance(value, int) and value > 0:
             findings.append({"source": "deterministic", "code": key,
@@ -1494,6 +1691,12 @@ def _degraded_or_legacy(draft: L2Result, document, metrics: dict, *,
     if reason:
         # Точная причина деградации — для final_policy/трейса (ASAP 5 D5).
         metrics["l2_review_degraded_reason"] = str(reason)[:80]
+    # F2 аудита 23.10: durable-вердикт присутствует на ВСЕХ исходах ревью.
+    # outage/revision-ошибка не имеет валидного вердикта модели — честно
+    # помечается degraded (не выдуманный approved/needs_fixes).
+    metrics.setdefault("l2_review_last_verdict", "degraded")
+    metrics.setdefault("l2_review_blocking", 0)
+    metrics.setdefault("l2_review_finding_codes", [])
     _log_review(run_id=correlation_id, chat_id=chat_id, metrics=metrics,
                 status="degraded", reason=reason)
     try:
@@ -1521,6 +1724,7 @@ __all__ = [
     "apply_full_revision",
     "apply_revision_patch",
     "apply_targeted_revision",
+    "apply_targeted_revision_batch",
     "build_participant_roster",
     "build_review_content",
     "build_review_evidence_slices",
