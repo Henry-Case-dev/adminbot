@@ -1786,7 +1786,10 @@ def _inspector_conflicts(layers, conflicts, global_doc, chat_doc) -> dict:
             continue
         cid = str(record.get("conflict_id") or "")
         klass = "role"
-        if cid == "core_protected_from_budget":
+        # P0-E: защита Expression от аддитивного бюджета — тот же класс
+        # «бюджет против характера/манеры», а не «роль».
+        if cid in ("core_protected_from_budget",
+                   "expression_protected_from_budget"):
             klass = "budget"
         elif cid in ("one_word_not_supported", "chat_global_rule_override"):
             klass = "length"

@@ -1501,20 +1501,31 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     else:
         text = str(expression.text)
         cost = estimate_tokens(text)
+        # P0-E (source §6.2 п.3 / §6.3): Expression — единственный носитель
+        # режима мата в готовой речи. Тихий `budget_excluded` превращал
+        # настроенный FREQUENT в ложный «ноль различий» (арх-дизайн §4).
+        # Слой защищён как Core: рендерится всегда, а перерасход виден
+        # конфликтом `expression_protected_from_budget`
+        # (outcome `exempted_protected`, R17-safe: только числа/коды).
         if budget is not None and consumed + cost > budget:
-            traces.append(_trace(
-                LAYER_EXPRESSION, block_id="expression", owner="core",
-                source=str(expression.source or "global"),
-                revision=str(expression.revision or ""),
-                skip_reason="budget_excluded"))
-        else:
-            consumed += cost
-            _append(parts, text)
-            traces.append(_trace(
-                LAYER_EXPRESSION, block_id="expression", text=text,
-                owner="core", source=str(expression.source or "global"),
-                revision=str(expression.revision or _sha16(text)),
-                rendered=True))
+            detail = (f"expression_tokens={cost} budget={budget} "
+                      f"consumed={consumed}")
+            conflicts.append(ConflictRecord(
+                conflict_id="expression_protected_from_budget",
+                outcome="exempted_protected", layer=LAYER_EXPRESSION,
+                block_id="expression", detail=detail,
+                provenance="expression:{}".format(
+                    expression.revision or _sha16(text))))
+            logger.warning(
+                "[composer] expression protected from budget | %s "
+                "| mode=%s", detail, str(expression.mode or "unknown"))
+        consumed += cost
+        _append(parts, text)
+        traces.append(_trace(
+            LAYER_EXPRESSION, block_id="expression", text=text,
+            owner="core", source=str(expression.source or "global"),
+            revision=str(expression.revision or _sha16(text)),
+            rendered=True))
 
     # ── 8. humor_craft (приёмы, не личность; 0 доп. LLM) ───────────────────
     if not speech:

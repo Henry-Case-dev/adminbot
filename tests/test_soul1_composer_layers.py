@@ -208,10 +208,13 @@ def test_core_is_never_evicted_by_additive_budget(monkeypatch):
     assert core.skip_reason == ""
     assert CORE in manifest.system
     assert "budget_excluded" != core.skip_reason
-    for layer in ("expression", "humor_craft", "few_shot",
-                  "style_policy_hint"):
+    for layer in ("humor_craft", "few_shot", "style_policy_hint"):
         assert by_layer[layer].rendered is False, layer
         assert by_layer[layer].skip_reason == "budget_excluded", layer
+    # P0-E: Expression защищён от бюджета (иначе режим мата пропадал молча).
+    assert by_layer["expression"].rendered is True
+    assert by_layer["expression"].skip_reason == ""
+    assert EXPRESSION in manifest.system
     conflict = [c for c in manifest.conflicts
                 if c.conflict_id == "core_protected_from_budget"]
     assert conflict, "перерасход Core обязан быть видимым"
@@ -221,6 +224,10 @@ def test_core_is_never_evicted_by_additive_budget(monkeypatch):
     assert conflict[0].provenance.startswith("core:")
     assert CORE not in conflict[0].provenance, "R17: без текста промпта"
     assert "budget=20" in conflict[0].detail
+    expr_conflict = [c for c in manifest.conflicts
+                     if c.conflict_id == "expression_protected_from_budget"]
+    assert expr_conflict, "перерасход Expression обязан быть видимым"
+    assert expr_conflict[0].outcome == "exempted_protected"
     # Защищённая user-часть не изменилась.
     assert manifest.user_parts == (USER_Q, EVIDENCE)
 
