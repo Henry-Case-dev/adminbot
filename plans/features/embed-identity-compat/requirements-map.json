@@ -3,7 +3,7 @@
   "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
   "source_sha256": "429a986838d5f7539f89517bb2c33e77b9e2007c4bcfeea30264a86b49ff66fb",
   "candidate_commit": "e4ee54f3",
-  "deployed_commit": "",
+  "deployed_commit": "e4ee54f3",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -419,7 +419,7 @@
       "acceptance": "Критерий результата: после смены API-провайдера без смены пространства память работает на существующем индексе без полной перевекторизации (prod-наблюдение)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -444,6 +444,14 @@
           "observation": "resolve на прод-данных: insufficient -> probe -> compatible, mean/min/hit5 = 1.0, перестройка не запускалась; прод не изменён (read-only). A0 также: compatible, checked=12, cosine 42/42, top-1 KNN 42/42.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/resolver-pre/report.md",
           "artifact_sha256": "e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "прод 2.58.113: adopt graph_facts_vec + canary + реальный поиск",
+          "observation": "DEPLOY-258113 23.10.2026: рестарт 2.58.113, EMBEDDING_COMPAT_ADMITTED checked=12 mean=1.0 min=1.0 hit5=1.0; generation.graph_facts_vec state=active, serviceable=true, reindex_required=false, config_revision adopt1:...; EMBEDDING_GENERATION_BUILD_START=0 (полной перевекторизации не было); KNN top-5 по старым фактам cosine 0.832-0.795; backlog 4234->3619. Детали и отклонения — deploy.md.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy.md",
+          "artifact_sha256": "19fc2653a471beb92301668fc999f9e326b48156df0ff764429953e662ada7d6"
         }
       ],
       "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
@@ -2368,7 +2376,7 @@
       "acceptance": "Сценарий 10: поиск по старым фактам новым API даёт реальную семантическую выдачу, а не только совпадение размерности (production-проверка)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -2393,6 +2401,14 @@
           "observation": "resolve на прод-данных: insufficient -> probe -> compatible, mean/min/hit5 = 1.0, перестройка не запускалась; прод не изменён (read-only). A0 также: compatible, checked=12, cosine 42/42, top-1 KNN 42/42.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/resolver-pre/report.md",
           "artifact_sha256": "e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "прод 2.58.113: adopt graph_facts_vec + canary + реальный поиск",
+          "observation": "DEPLOY-258113 23.10.2026: рестарт 2.58.113, EMBEDDING_COMPAT_ADMITTED checked=12 mean=1.0 min=1.0 hit5=1.0; generation.graph_facts_vec state=active, serviceable=true, reindex_required=false, config_revision adopt1:...; EMBEDDING_GENERATION_BUILD_START=0 (полной перевекторизации не было); KNN top-5 по старым фактам cosine 0.832-0.795; backlog 4234->3619. Детали и отклонения — deploy.md.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy.md",
+          "artifact_sha256": "19fc2653a471beb92301668fc999f9e326b48156df0ff764429953e662ada7d6"
         }
       ],
       "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
