@@ -1,0 +1,11 @@
+REL-258115 delta-DDL check
+range: 49c1b151..d5e19047 (release delta; 46 files = 15 code/test + 31 bump)
+scope: services/ web/ config/ scripts/ tools/ added lines
+DDL tokens scanned: CREATE TABLE, ALTER TABLE, CREATE INDEX, DROP TABLE,
+                   user_version, DDL_STATEMENTS, ADD COLUMN
+hits: NONE
+SQLite schema constant: _SCHEMA_VERSION_HUMOR_SAMPLES = 37 (unchanged)
+schema/migration files in delta: NONE (services/database.py,
+  services/chat_migration.py, services/config_migrations.py,
+  services/prompt_migrations.py, scripts/ not touched)
+VERDICT: delta DDL = 0; no DevOps migration notice required.

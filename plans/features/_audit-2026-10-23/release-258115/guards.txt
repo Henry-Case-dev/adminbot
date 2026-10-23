@@ -1,0 +1,38 @@
+REL-258115 guards — консолидированный журнал (24.10.2026)
+
+Интерпретатор: C:\Code\Python\adminbot\.venv\Scripts\python.exe
+  (Python 3.12.0, aiogram 3.31.0)
+Worktree: C:\Code\Python\adminbot-wt258115
+Base: 49c1b151 (origin/master, 2.58.114); pre-bump: eb333635; bump: d5e19047.
+Node: системный node.
+
+[PASS] bump-verify ............................. files=31 pairs=33, non-token NONE, CHECK OK (bump-verify.txt)
+[PASS] offline aggregate ....................... 19/19 PASS, EXIT 0 (bump-offline-check.txt)
+[PASS] F8 generator --check ..................... 582 == REGISTRY, карта полна, R17-чисто, EXIT 0 (gen-param-check.txt)
+[PASS] F8 pins .................................. 29 passed (focused-f8-pins.txt)
+[PASS] frozen canon pins ........................ 66 passed (frozen-pins.txt)
+[PASS] pins24 ................................... 868 passed / 0 failed, 66.24s (pins24-full.txt)
+[PASS] help-sync ................................ 24 passed (focused-help-sync.txt)
+[PASS] JS-unit .................................. 39 passed (focused-js-unit.txt)
+[PASS] node pins + mini-lens .................... 5/5 rc=0 (js-pins-node.txt)
+[PASS] JS syntax sweep .......................... 107 files / 0 bad (js-pins-node.txt)
+[PASS] py_compile changed py .................... 37 files / 0 bad (py-compile.txt)
+[PASS] frozen UI assets ......................... FROZEN-ASSETS-OK (frozen-assets.txt)
+[PASS] factory fingerprint ...................... 0163a686c401 == 0163a686c401 (frozen-fingerprint.txt)
+[PASS] test_asap3_hidden_limits.py .............. 13 passed
+[PASS] test_speech_inspector_exact.py ........... 12 passed
+[PASS] test_llm_client.py ....................... 115 passed
+[PASS] test_asap2_boundary_marker.py ............ 8 passed
+[PASS] test_asap3_identity_aliases.py ........... 22 passed
+[RED ] test_soul1_composer_parity_off.py ........ 8 passed / 5 failed (13 collected)
+        identical red on base 49c1b151: 5 failed / 8 passed
+        причина: stale fixture baseline (ASAP2 canons 24ae494ac422) vs base canons R3/R3B (0163a686c401)
+        logs: parity-off-base-49c1b151.txt, parity-off-train.txt
+        re-record НЕ выполнялся (вне делегированного состава; требует решения Orchestrator)
+[PASS] UI e2e inspector ......................... checks=142 failures=0 (e2e-inspector.txt)
+[PASS] W4 UI e2e ................................ failures=0, POST=8, notes=163 (e2e-w4.txt)
+[PASS] ASAP3 hint e2e ........................... PASS: 10 проверок (e2e-asap3-hint.txt)
+
+Суммарно pytest: 1175 passed / 5 failed (наборы пересекаются намеренно).
+Не выполнено (не входит в brief): полный repository-wide suite, deploy/restart,
+live/e2e-на-проде.

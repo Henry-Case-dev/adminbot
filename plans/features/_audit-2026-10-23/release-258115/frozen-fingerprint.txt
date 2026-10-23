@@ -1,0 +1,10 @@
+REL-258115 frozen fingerprint
+base: 49c1b151; pre-bump: eb333635; bump: d5e19047
+rollback point: e9f7595b (2.58.114 prod, deployed)
+factory fingerprint: 0163a686c401 (runtime == constant, probe rc=0)
+probe stdout: '2.58.115 0163a686c401 0163a686c401'
+canon files changed by train: NONE (services/prompt_registry.py untouched)
+post-bump sha256_12:
+  config/settings.py: 1f9f6b14b4f7
+  README.md: e7303e667654
+  plans/docs/param-registry-round1025.meta.md: e7f9ed50e891

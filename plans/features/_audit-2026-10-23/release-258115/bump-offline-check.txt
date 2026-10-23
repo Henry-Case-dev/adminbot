@@ -1,0 +1,25 @@
+REL-258115 bump offline check (post-commit candidate)
+  [PASS] HEAD is bump commit d5e19047 (prefix)
+  [PASS] settled candidate tree (only evidence dir is untracked)
+  [PASS] settings APP_VERSION == 2.58.115
+  [PASS] settings has no stale 2.58.114 pin
+  [PASS] README has v2.58.115
+  [PASS] README has no stale v2.58.114
+  [PASS] F8-meta APP_VERSION 2.58.115
+  [PASS] F8-meta HEAD eb333635 (pre-bump factual)
+  [PASS] F8-meta no stale 2.58.114/667dc434
+  [PASS] F8-meta catalog counters unchanged 582/171
+  [PASS] bump set == 31 files
+  [PASS] bump set matches proc-114 31-file convention (only F8-meta under plans/)
+  [PASS] train (5 cherry-picks) touches no plans/
+  [PASS] train code/test files == 15
+  [PASS] delta DDL == 0 in prod perimeter
+  [PASS] schema constant still 37
+  [PASS] import settings+registry probe == 2.58.115 0163a686c401 0163a686c401
+  [PASS] registered canon files untouched (prompt_registry.py not in delta)
+  [PASS] rollback point e9f7595b exists (2.58.114 prod)
+HEAD: d5e1904783771377a696756a131a2406c54f06df
+base: 49c1b151; pre-bump: eb333635; bump: d5e19047; rollback: e9f7595b (2.58.114)
+probe stdout: '2.58.115 0163a686c401 0163a686c401' (rc=0)
+bump files: 31; train code/test files: 15; DDL hits: 0
+OFFLINE CHECK: EXIT 0
