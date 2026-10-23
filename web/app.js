@@ -20016,6 +20016,8 @@
                 rules: JSON.parse(JSON.stringify((style && style.rules) || [])),
                 soft_instructions: JSON.parse(JSON.stringify(
                   (style && style.soft_instructions) || [])),
+                hint_limits: this.speechStyleOwnLimits(
+                  this.speechScopeFor('style'), style),
               };
             }
             this.speechScopeHint('style',
@@ -20331,9 +20333,159 @@
       },
       ensureStyleDraft: function () {
         if (!this.speechStyleDraft) {
-          this.speechStyleDraft = { rules: [], soft_instructions: [] };
+          this.speechStyleDraft = { rules: [], soft_instructions: [],
+                                    hint_limits: {} };
+        }
+        if (!this.speechStyleDraft.hint_limits
+            || typeof this.speechStyleDraft.hint_limits !== 'object') {
+          this.speechStyleDraft.hint_limits = {};
         }
         return this.speechStyleDraft;
+      },
+      // ── ASAP3 §1.2/§1.3: два независимых лимита подсказки ────────────────
+      // Лимит живёт в документе СЛОЯ (global/chat), поэтому черновик хранит
+      // только СОБСТВЕННЫЕ поля слоя: отсутствующее поле наследует другой
+      // слой, а не замораживает унаследованное значение при сохранении.
+      speechStyleOwnLimits: function (scope, style) {
+        var lim = ((style || this.speechStyle) || {}).hint_limits || {};
+        var layers = lim.layers || null;
+        var out = {};
+        if (layers && typeof layers === 'object') {
+          var own = layers[scope === 'chat' ? 'chat' : 'global'] || {};
+          ['max_chars', 'max_items'].forEach(function (field) {
+            if (!Object.prototype.hasOwnProperty.call(own, field)) return;
+            var n = parseInt(own[field], 10);
+            out[field] = (isFinite(n) && n > 0) ? n : 0;
+          });
+          return out;
+        }
+        // Совместимость со старым payload (без layers): берём значение,
+        // только если effective-источник совпадает с редактируемым слоем.
+        var sources = lim.sources || {};
+        var want = scope === 'chat' ? 'chat' : 'global';
+        ['max_chars', 'max_items'].forEach(function (field) {
+          var n = parseInt(lim[field], 10);
+          if (isFinite(n) && n > 0 && (sources[field] || '') === want) {
+            out[field] = n;
+          }
+        });
+        return out;
+      },
+      speechStyleHintLimits: function () {
+        return (this.speechStyle && this.speechStyle.hint_limits) || {};
+      },
+      speechStyleHintRender: function () {
+        return (this.speechStyle && this.speechStyle.hint_render) || {};
+      },
+      speechStyleLimitValue: function (field) {
+        var lim = this.ensureStyleDraft().hint_limits || {};
+        var n = parseInt(lim[field], 10);
+        return (isFinite(n) && n > 0) ? n : 0;
+      },
+      speechStyleLimitOn: function (field) {
+        return this.speechStyleLimitValue(field) > 0;
+      },
+      // Включение лимита само по себе ничего не отрезает: стартовое значение —
+      // фактический текущий размер блока (сервер), иначе исторические 400/5
+      // только как запасной вариант при пустом блоке.
+      speechStyleLimitDefault: function (field) {
+        if (field === 'max_chars') {
+          var chars = parseInt(this.speechStyleHintLimits().current_chars, 10);
+          return (isFinite(chars) && chars > 0) ? chars : 400;
+        }
+        var total = parseInt(this.speechStyleHintRender().total_items, 10);
+        return (isFinite(total) && total > 0) ? total : 5;
+      },
+      toggleStyleLimit: function (field, on) {
+        var draft = this.ensureStyleDraft();
+        draft.hint_limits[field] = on
+          ? this.speechStyleLimitDefault(field) : 0;
+        this.speechDirty.style = true;
+        this.clearSpeechSaved('style');
+      },
+      setStyleLimitValue: function (field, value) {
+        var draft = this.ensureStyleDraft();
+        var n = parseInt(value, 10);
+        draft.hint_limits[field] = (isFinite(n) && n > 0) ? n : 0;
+        this.speechDirty.style = true;
+        this.clearSpeechSaved('style');
+      },
+      disableStyleLimits: function () {
+        var draft = this.ensureStyleDraft();
+        draft.hint_limits.max_chars = 0;
+        draft.hint_limits.max_items = 0;
+        this.speechDirty.style = true;
+        this.clearSpeechSaved('style');
+      },
+      focusStyleLimits: function () {
+        var host = document.querySelector('[data-speech-hint-limits]');
+        var input = host ? host.querySelector('input[type=number]') : null;
+        if (input) {
+          input.focus();
+          if (input.scrollIntoView) input.scrollIntoView({ block: 'center' });
+        }
+      },
+      speechHintLimitText: function (limits) {
+        var lim = limits || this.speechStyleHintLimits();
+        var parts = [];
+        var chars = parseInt(lim.max_chars, 10);
+        var items = parseInt(lim.max_items, 10);
+        if (isFinite(chars) && chars > 0) parts.push('до ' + chars + ' симв.');
+        if (isFinite(items) && items > 0) {
+          parts.push('до ' + items + ' инструкций');
+        }
+        return parts.length ? parts.join(' · ') : 'Без ограничения';
+      },
+      speechHintDraftLimitText: function () {
+        return this.speechHintLimitText({
+          max_chars: this.speechStyleLimitValue('max_chars'),
+          max_items: this.speechStyleLimitValue('max_items'),
+        });
+      },
+      speechHintSourceText: function (field) {
+        var src = (this.speechStyleHintLimits().sources || {})[field] || '';
+        return { chat: 'этот чат', global: 'все чаты',
+                 default: 'не задан (выключено)' }[src]
+          || 'не задан (выключено)';
+      },
+      speechHintCurrentText: function () {
+        var lim = this.speechStyleHintLimits();
+        var ren = this.speechStyleHintRender();
+        var chars = parseInt(lim.current_chars, 10) || 0;
+        var total = parseInt(ren.total_items, 10) || 0;
+        var included = parseInt(ren.included_items, 10) || 0;
+        if (!total) {
+          return 'Сейчас: активных инструкций нет. Действует: '
+            + this.speechHintLimitText(lim);
+        }
+        return 'Сейчас: ' + chars + ' зн.; входят ' + included + ' из '
+          + total + ' инструкций. Действует: ' + this.speechHintLimitText(lim);
+      },
+      speechHintExcluded: function () {
+        return this.speechStyleHintRender().excluded || [];
+      },
+      speechHintOverflow: function () {
+        return this.speechHintExcluded().length > 0;
+      },
+      speechHintExcludedLabel: function (row) {
+        var title = row.text || row.title || row.key || 'инструкция';
+        return title + ' — ' + (row.reason_label || row.reason || 'исключено');
+      },
+      speechStyleLimitPending: function () {
+        var own = this.speechStyleOwnLimits(this.speechScopeFor('style'));
+        var draft = this.ensureStyleDraft().hint_limits || {};
+        var fields = ['max_chars', 'max_items'];
+        for (var i = 0; i < fields.length; i++) {
+          var field = fields[i];
+          var a = parseInt(own[field], 10) || 0;
+          var b = parseInt(draft[field], 10) || 0;
+          if (a !== b) return true;
+          if (Object.prototype.hasOwnProperty.call(own, field)
+              !== Object.prototype.hasOwnProperty.call(draft, field)) {
+            return true;
+          }
+        }
+        return false;
       },
       // ── Рендер редактора — ИЗ ЧЕРНОВИКА (SOUL-10.2, review-w6 F2) ──────
       // Список/счётчик/привычки показывают то, что реально уйдёт в Save:
@@ -20432,10 +20584,21 @@
       },
       speechStyleDocument: function () {
         var draft = this.ensureStyleDraft();
-        return {
+        var doc = {
           rules: JSON.parse(JSON.stringify(draft.rules || [])),
           soft_instructions: JSON.parse(JSON.stringify(draft.soft_instructions || [])),
         };
+        // ASAP3 §1.2: лимиты — часть того же документа. Поле отправляется,
+        // только если слой реально владеет значениями (в т.ч. явный 0 = OFF
+        // для этого слоя); иначе отсутствие ключа = наследование другого слоя.
+        var limits = draft.hint_limits || {};
+        if (Object.keys(limits).length) {
+          doc.hint_limits = {
+            max_chars: Math.max(0, parseInt(limits.max_chars, 10) || 0),
+            max_items: Math.max(0, parseInt(limits.max_items, 10) || 0),
+          };
+        }
+        return doc;
       },
       saveSpeechStyle: async function () {
         if (this.speechBusy) return;
@@ -20457,6 +20620,8 @@
             rules: JSON.parse(JSON.stringify((this.speechStyle && this.speechStyle.rules) || [])),
             soft_instructions: JSON.parse(JSON.stringify((this.speechStyle
               && this.speechStyle.soft_instructions) || [])),
+            hint_limits: this.speechStyleOwnLimits(
+              this.speechScopeFor('style'), this.speechStyle),
           };
           this.speechDirty.style = false;
           this.speechRetry = null;
@@ -21459,6 +21624,41 @@
           parts.push(k + ' ' + versions[k]);
         }
         return parts.length ? parts.join(' · ') : '—';
+      },
+      // ── ASAP3 §1.5: Style Policy в фактической сборке Inspector ──────────
+      speechStyleBuild: function (build) {
+        return build && typeof build === 'object' ? build : {};
+      },
+      speechStyleBuildLimitText: function (build) {
+        var limits = this.speechStyleBuild(build).limits || {};
+        return this.speechHintLimitText(limits);
+      },
+      speechStyleBuildSourceText: function (build) {
+        var source = this.speechStyleBuild(build).source || '';
+        return { chat: 'этот чат', global: 'все чаты',
+                 default: 'заводское' }[source] || (source || '—');
+      },
+      speechStyleBuildStateText: function (build) {
+        var layer = this.speechStyleBuild(build).layer || {};
+        var state = layer.state || '';
+        var known = {
+          rendered: 'слой включён в фактический payload',
+          budget_excluded: 'слой ИСКЛЮЧЁН бюджетом композера — в payload его нет',
+          style_policy_absent: 'активных инструкций нет — слой пуст',
+          style_policy_disabled: 'слой выключен гейтом стиля',
+          style_policy_unavailable: 'Style Policy недоступна',
+          absent: 'слой отсутствует в сборке',
+        };
+        return known[state] || ('состояние: ' + (state || '—'));
+      },
+      speechStyleBuildStateClass: function (build) {
+        var layer = this.speechStyleBuild(build).layer || {};
+        if (layer.state === 'rendered') return 'badge-info';
+        if (layer.state === 'budget_excluded') return 'badge-warn';
+        return 'badge-muted';
+      },
+      speechStyleBuildExcluded: function (build) {
+        return this.speechStyleBuild(build).excluded || [];
       },
       switchBadgeText: function (sw) {
         if (!sw) return '—';

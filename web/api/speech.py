@@ -1151,6 +1151,192 @@ async def _style_documents(cache) -> tuple[Any, Any]:
     return _read_global_doc(cache, "style.policy"), None
 
 
+#: Человеческие подписи служебных строк hint (не привязаны к id правила).
+_STYLE_HINT_META_TITLES = {
+    "extent": "Длина ответа (обычный/короткий/микро)",
+    "verbatim_protected": "Защита цитат и дословных фрагментов",
+}
+_STYLE_HINT_REASON_TITLES = {
+    "user_limit": "лимит владельца",
+    "budget_excluded": "бюджет модели/композера",
+}
+
+
+def _style_hint_title(kind: str, key: str, titles: Mapping) -> str:
+    if kind == "soft_instruction":
+        return "Мягкая привычка"
+    if key.startswith("meta.") or kind in _STYLE_HINT_META_TITLES:
+        return _STYLE_HINT_META_TITLES.get(kind) or titles.get(kind) or kind
+    return titles.get(kind) or kind
+
+
+def _style_hint_excluded(view: Mapping) -> list[dict]:
+    """Исключённые из подсказки инструкции с человеческой подписью.
+
+    R17-safe по смыслу: id/kind/причина + текст СОБСТВЕННЫХ привычек владельца
+    (он уже показан в редакторе этого же раздела). Нужен, чтобы предупреждение
+    «что не вошло» называло правило, а не только машинный ключ.
+    """
+    soft = {str(row.get("id") or ""): str(row.get("text") or "")
+            for row in (view.get("soft_instructions") or ())
+            if isinstance(row, dict)}
+    titles = {str(row.get("kind") or ""): str(row.get("title_ru") or "")
+              for row in (view.get("rule_kinds") or ())
+              if isinstance(row, dict)}
+    rows: list[dict] = []
+    for row in ((view.get("hint_render") or {}).get("excluded") or ()):
+        if not isinstance(row, dict):
+            continue
+        key = str(row.get("key") or "")
+        kind = str(row.get("kind") or "")
+        reason = str(row.get("reason") or "")
+        rows.append({
+            "key": key, "kind": kind, "reason": reason,
+            "reason_label": _STYLE_HINT_REASON_TITLES.get(reason, reason),
+            "title": _style_hint_title(kind, key, titles),
+            "text": soft.get(key, ""),
+        })
+    return rows
+
+
+def _style_policy_as_view(policy) -> dict:
+    """Срез EffectiveStylePolicy в форму, понятную ``_style_hint_excluded``."""
+    try:
+        from services import style_policy as sp
+        rules = [r.as_dict() for r in (policy.rules or ())]
+        soft = [s.as_dict() for s in (policy.soft_instructions or ())]
+        kinds = sorted({str(row.get("kind") or "") for row in rules})
+        kind_titles = [{"kind": kind,
+                        "title_ru": str((sp.RULE_KIND_SPECS.get(kind) or {}
+                                         ).get("title_ru") or kind)}
+                       for kind in kinds]
+    except Exception:       # pragma: no cover — защитная ветка
+        soft, kind_titles = [], []
+    return {
+        "soft_instructions": soft,
+        "rule_kinds": kind_titles,
+        "hint_render": {"excluded": list(
+            getattr(policy, "hint_excluded", ()) or ())},
+    }
+
+
+def _style_layer_documents(cache, chat_id: int | None, overrides: Mapping,
+                           candidate: Any = None) -> tuple[Any, Any]:
+    """Документы ОБОИХ слоёв Style Policy: (global, chat).
+
+    ASAP3 §1.5 / arch §4: предпросмотр обязан собирать global+chat так же, как
+    рантайм. Раньше чатовый документ подменял глобальный (источник, наследование
+    лимитов и сами инструкции показывались неверно). Кандидат формы пишется в
+    тот слой, куда сохраняет редактор: чат → chat, глобально → global.
+    """
+    global_doc = _read_global_doc(cache, "style.policy")
+    global_doc = global_doc if isinstance(global_doc, dict) else None
+    chat_doc = (overrides or {}).get("style.policy")
+    chat_doc = chat_doc if isinstance(chat_doc, dict) else None
+    cand = candidate if isinstance(candidate, dict) else None
+    if cand is not None:
+        if chat_id is not None:
+            chat_doc = cand
+        else:
+            global_doc = cand
+    return global_doc, chat_doc
+
+
+def _style_documents_summary(global_doc: Any, chat_doc: Any) -> dict:
+    """Провенанс слоёв документа (ревизии/наличие) для Inspector."""
+    from services import style_policy as sp
+    try:
+        glob, glob_issues = sp.validate_document(global_doc)
+        chat, chat_issues = sp.validate_document(chat_doc)
+    except Exception:       # pragma: no cover — защитная ветка
+        return {"global_present": False, "chat_present": False,
+                "global_revision": 0, "chat_revision": 0,
+                "global_issues": [], "chat_issues": []}
+    return {
+        "global_present": bool(glob), "chat_present": bool(chat),
+        "global_revision": int(glob.get("revision", 0) or 0),
+        "chat_revision": int(chat.get("revision", 0) or 0),
+        "global_issues": [str(i) for i in glob_issues],
+        "chat_issues": [str(i) for i in chat_issues],
+    }
+
+
+def _style_build_summary(policy, layers) -> dict:
+    """ФАКТИЧЕСКАЯ сборка Style Policy: доступно/включено/исключено + лимит.
+
+    ``hint_text`` — ровно тот блок, который композер получает как слой 10;
+    если слой не вошёл в payload (``budget_excluded``), это видно в
+    ``layer.state``/``payload_included`` и текст помечен как неотправленный.
+    """
+    excluded = _style_hint_excluded(_style_policy_as_view(policy))
+    layer: Mapping = {}
+    for row in (layers or ()):
+        if isinstance(row, dict) and str(row.get("layer") or "") == \
+                "style_policy_hint":
+            layer = row
+            break
+    skip = str(layer.get("skip_reason") or "")
+    if layer.get("rendered"):
+        state = "rendered"
+    elif skip:
+        state = skip
+    else:
+        state = "absent"
+    limits = {key: int((getattr(policy, "hint_limits", {}) or {}).get(key, 0)
+                       or 0) for key in ("max_chars", "max_items")}
+    return {
+        "source": str(getattr(policy, "source", "") or "default"),
+        "limits": {**limits,
+                   "off": not any(value > 0 for value in limits.values()),
+                   "sources": dict(getattr(policy, "hint_limit_sources", {}) or {})},
+        "total_items": int(getattr(policy, "hint_total", 0) or 0),
+        "included_items": int(getattr(policy, "hint_included", 0) or 0),
+        "excluded": excluded,
+        "limited_by": str(getattr(policy, "hint_limited_by", "") or ""),
+        "hint_chars": len(getattr(policy, "hint", "") or ""),
+        "hint_text": str(getattr(policy, "hint", "") or ""),
+        "layer": {"state": state,
+                  "rendered": bool(layer.get("rendered")),
+                  "skip_reason": skip,
+                  "chars": int(layer.get("chars") or 0),
+                  "tokens": int(layer.get("tokens") or 0),
+                  "revision": str(layer.get("revision") or "")},
+        "payload_included": bool(layer.get("rendered")),
+    }
+
+
+def _style_sent_summary(manifest) -> dict:
+    """Слой Style Policy в манифесте РЕАЛЬНОГО хода (без выдуманного состава)."""
+    layer: Mapping = {}
+    for trace in (getattr(manifest, "layers", ()) or ()):
+        if str(getattr(trace, "layer", "") or "") != "style_policy_hint":
+            continue
+        layer = {"rendered": bool(getattr(trace, "rendered", False)),
+                 "skip_reason": str(getattr(trace, "skip_reason", "") or ""),
+                 "chars": int(getattr(trace, "chars", 0) or 0),
+                 "tokens": int(getattr(trace, "tokens", 0) or 0),
+                 "revision": str(getattr(trace, "revision", "") or "")}
+        layer["state"] = "rendered" if layer["rendered"] else (
+            layer["skip_reason"] or "absent")
+        break
+    block = ""
+    try:
+        from services import prompt_style_blocks as psb
+        system = str(getattr(manifest, "system", "") or "")
+        start = system.find(psb.STYLE_POLICY_HINT_OPEN)
+        end = system.find(psb.STYLE_POLICY_HINT_CLOSE)
+        if 0 <= start < end:
+            block = system[start:end + len(psb.STYLE_POLICY_HINT_CLOSE)]
+    except Exception:       # pragma: no cover — защитная ветка
+        block = ""
+    return {
+        "layer": layer or {"rendered": False, "skip_reason": "absent",
+                           "chars": 0, "tokens": 0, "revision": ""},
+        "hint_block_masked": _mask_text(block) if block else "",
+        "masked": True,
+    }
+
+
 async def _style_payload(cache, chat_id: int | None,
                          context: str = "regular") -> dict:
     global_doc, _ = await _style_documents(cache)
@@ -1168,6 +1354,29 @@ async def _style_payload(cache, chat_id: int | None,
     except Exception:
         logger.warning("[speech] preset documents failed", exc_info=True)
         view["preset_documents"] = {}
+    # ASAP3 §1.3: предупреждение о превышении должно НАЗЫВАТЬ не вошедшие
+    # инструкции, а не только машинный ключ.
+    hint_render = view.setdefault("hint_render", {})
+    hint_render["excluded"] = _style_hint_excluded(view)
+    hint_render["excluded_count"] = len(hint_render["excluded"])
+    hint_render["excluded_user_limit"] = sum(
+        1 for row in hint_render["excluded"] if row["reason"] == "user_limit")
+    hint_render["excluded_budget"] = sum(
+        1 for row in hint_render["excluded"]
+        if row["reason"] == "budget_excluded")
+    # ASAP3 §1.2: лимит хранится в документе слоя. Редактор должен видеть
+    # СОБСТВЕННЫЕ поля слоя (а не только effective-merge), иначе сохранение
+    # чатовой правки замораживало бы унаследованные глобальные значения.
+    try:
+        from services import style_policy as sp_limits
+        glob_norm, _ = sp_limits.validate_document(global_doc)
+        chat_norm, _ = sp_limits.validate_document(chat_doc)
+        view["hint_limits"]["layers"] = {
+            "global": dict(glob_norm.get("hint_limits") or {}),
+            "chat": dict(chat_norm.get("hint_limits") or {}),
+        }
+    except Exception:       # pragma: no cover — защитная ветка
+        view["hint_limits"]["layers"] = {"global": {}, "chat": {}}
     view["scope"] = "chat" if chat_id is not None else "global"
     view["chat_id"] = chat_id
     view["examples"] = [dict(item) for item in STYLE_EXAMPLES]
@@ -1219,6 +1428,10 @@ async def _style_preview(candidate: Any, chat_id: int | None,
         "candidate_present": cand_doc is not None,
         "candidate_revision": cand.revision,
         "current_revision": current.revision,
+        # ASAP3 §1.3/§1.5: состав подсказки кандидата считается тем же
+        # рендером, что и рантайм — «что реально войдёт» до сохранения.
+        "candidate_hint": _style_build_summary(cand, ()),
+        "current_hint": _style_build_summary(current, ()),
         "rows": rows,
     }
 
@@ -1443,6 +1656,9 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
             "user_parts_masked": [_mask_text(p) for p in
                                   (manifest.user_parts or ())],
             "system_chars": len(manifest.system or ""),
+            # ASAP3 §1.5: слой Style Policy в РЕАЛЬНОМ payload (chars/state) и
+            # сам блок подсказки (маскирован как весь payload).
+            "style": _style_sent_summary(manifest),
         }
     return {
         "chat_id": chat_id,
@@ -1522,13 +1738,12 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
     if core_ref is None:
         core_ref = await composer.resolve_core_ref(chat_id_key)
 
-    style_doc = overrides.get("style.policy")
-    if not isinstance(style_doc, dict):
-        style_doc = _read_global_doc(cache, "style.policy")
-        style_doc = style_doc if isinstance(style_doc, dict) else None
-    if isinstance(candidate.get("style_document"), dict):
-        style_doc = candidate["style_document"]
-    policy = sp.effective_policy_sync(None, style_doc, context="regular")
+    style_global, style_chat = _style_layer_documents(
+        cache, chat_id, overrides,
+        (candidate or {}).get("style_document")
+        if isinstance(candidate, dict) else None)
+    policy = sp.effective_policy_sync(style_global, style_chat,
+                                      context="regular")
     hint = policy.hint or ""
 
     # ADD-EXP §1.6/§5.1.7: слой «Выражение» собирается ТЕМ ЖЕ builder-ом, что
@@ -1562,11 +1777,22 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
             hint=hint, revision=policy.revision or "",
             source=policy.source or "default",
             rule_count=len(policy.rules or ()),
-            skip_reason=policy.skip_reason or ""),
+            soft_count=len(policy.soft_instructions or ()),
+            skip_reason=policy.skip_reason or "",
+            hint_total=int(policy.hint_total or 0),
+            hint_included=int(policy.hint_included or 0),
+            hint_excluded=tuple(dict(row) for row in
+                                (policy.hint_excluded or ())),
+            hint_limits=tuple(sorted((policy.hint_limits or {}).items())),
+            hint_limited_by=policy.hint_limited_by or "",
+            hint_truncated=bool(policy.hint_truncated)),
         expression=expression_settings,
     )
     manifest = composer.compose_prompt(plan)
     layers = composer.render_effective_layers(manifest)["layers"]
+    style_summary = _style_build_summary(policy, layers)
+    style_summary["documents"] = _style_documents_summary(style_global,
+                                                          style_chat)
     return {
         "manifest_id": manifest.manifest_id,
         "writer": manifest.writer,
@@ -1579,6 +1805,9 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
         "conflicts": [c.conflict_id for c in manifest.conflicts],
         "system_masked": _mask_text(manifest.system),
         "system_chars": len(manifest.system or ""),
+        # ASAP3 §1.5: Inspector показывает фактическую сборку слоя Style
+        # Policy (оба слоя, лимит, исключённые, точный текст подсказки).
+        "style": style_summary,
         "preview_note": ("Предпросмотр — детерминированный текст инструкции, "
                          "не речевой результат; для проверки голоса — "
                          "«Проверить вживую». Слои, которые приносит сам ход "

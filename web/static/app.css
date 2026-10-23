@@ -4625,6 +4625,38 @@ html.cover-editor-open { overflow: hidden; }
   overflow-wrap: anywhere;
 }
 
+/* ASAP3 §1.3: ограничения подсказки — в существующей дизайн-системе. */
+.speech-limits {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(9, 14, 25, .78);
+  border: 1px solid rgba(148, 163, 184, .18);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.speech-limit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  min-width: 0;
+}
+.speech-limit-value {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.speech-limit-input {
+  width: 120px;
+  max-width: 100%;
+  min-height: 44px;
+}
+
 /* Редактор (tier C): непрозрачная подложка — выбор/каретка и черновик живут
    независимо от перерисовок и поллинга других разделов. §4-C6: автовысота
    от 3 строк (JS autoGrowEditor), максимум 40vh, resize выключен. */
