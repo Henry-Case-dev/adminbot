@@ -2,15 +2,17 @@
 
 Флаг `flags.unified_composer_enabled`/`UNIFIED_COMPOSER_ENABLED` выключен
 (код-дефолт) → сборка system/user совпадает **байт-в-байт** с дампом,
-переснятым по ДЕЙСТВУЮЩИМ фабричным канонам: tests/fixtures/soul1/
-direct-runtime-assembly-asap2.txt (ASAP 2 §4.1 L1 planner + §4.2 L2
-verbalizer, source-2026-10-22.md, код 5ad73933). Прежние артефакты
-сохранены как историческое свидетельство и НЕ правились:
+переснятым по ДЕЙСТВУЮЩИМ фабричным канонам 2.58.114+: R3 §3.7 (af7de4e9) +
+R3B (a8d047a7), FACTORY_SET `0163a686c401`; тем же offline-стендом, что и
+прежние переснятия. Прежние артефакты сохранены как историческое
+свидетельство и НЕ правились:
+plans/features/_audit-2026-10-23/release-258116/parity-before.txt
+(каноны ASAP 2, `24ae494ac422`, прод-база 2.58.112–.113),
 plans/features/asap-speech-arch/evidence/w1/direct-runtime-assembly-w1.txt
 (каноны W1) и plans/features/soul-1/evidence/direct-runtime-assembly.txt
-(каноны до W1, прод 2.58.110). Дельта W1 → ASAP 2 построчно сведена к
-вставке текста владельца: plans/features/_audit-2026-10-23/soul1-fixtures/
-diff.md.
+(каноны до W1, прод 2.58.110). Дельта ASAP2 → R3/R3B сведена построчно и
+арифметически к канонам R3/R3B: plans/features/_audit-2026-10-23/
+release-258116/diff.md (+ verify_delta.py, 30/30 checks).
 
 Тест читает ожидаемые chars/tokens/sha256_12 ИЗ АРТЕФАКТА (не из своих
 констант): расхождение с реальной сборкой ломает тест, а не «подгоняется».
