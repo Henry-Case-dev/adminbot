@@ -59,6 +59,25 @@ _VERDICT_HEADLINE = {
     "insufficient_evidence": "Недостаточно данных для проверки",
 }
 
+#: P0-FACTCHECK (§3.6, owner 24.10.2026): технический исход НЕ прячется за
+#: универсальным «Недостаточно данных» — отдельный заголовок по reason-коду
+#: прогона (существующие коды реестра; новых не выдумываем).
+_TECHNICAL_HEADLINE = {
+    "deadline_exceeded": "Проверка не завершена: истёк лимит времени",
+    "provider_unavailable": "Проверка не завершена: поиск недоступен",
+    "source_missing": "Проверка не завершена: материалы не удалось разобрать",
+}
+
+#: Пояснение к техническому исходу (когда вербализатор не сказал этого сам).
+_TECHNICAL_NOTICE = {
+    "deadline_exceeded": ("Поиск был прерван по лимиту времени — это "
+                          "ограничение проверки, а не опровержение."),
+    "provider_unavailable": ("Поисковые сервисы не ответили — это "
+                             "технический сбой, а не отсутствие фактов."),
+    "source_missing": ("Первоисточники открыть не удалось — вывод сделан "
+                       "по выдержкам без проверяемых ссылок."),
+}
+
 #: Честное ограничение при evidence без URL (CFG-06.B: «подтверждает
 #: реальными источниками или честно сообщает ограничение»).
 _NO_LINKS_NOTICE = (
@@ -155,8 +174,10 @@ def _points(text: str) -> list[str] | None:
 def _content(presentation: FactcheckPresentation,
              verdict: CheckedVerdict | None):
     """Единая контент-модель для HTML- и plain-сериализации."""
-    headline = (_VERDICT_HEADLINE.get(verdict.factual_verdict)
-                if verdict is not None else None)
+    technical = (_TECHNICAL_HEADLINE.get(str(verdict.reason_code or ""))
+                 if verdict is not None else None)
+    headline = technical or (_VERDICT_HEADLINE.get(verdict.factual_verdict)
+                             if verdict is not None else None)
     links = _safe_links(presentation.links)
     if verdict is not None:
         # FC-RENDER (§3.6): есть цитаты аналитика → показываем ТОЛЬКО
@@ -169,6 +190,12 @@ def _content(presentation: FactcheckPresentation,
             if cited_urls:
                 links = tuple(u for u in links if u in cited_urls)
     notice = str(presentation.notice or "").strip()
+    # §3.6: технический сбой объясняется явно, а не тонет в общем заголовке.
+    technical_notice = _TECHNICAL_NOTICE.get(str(
+        verdict.reason_code or "")) if verdict is not None else None
+    if technical_notice and technical_notice not in notice:
+        notice = f"{notice} {technical_notice}".strip() if notice \
+            else technical_notice
     if not links and not notice and verdict is not None \
             and verdict.evidence.refs:
         notice = _NO_LINKS_NOTICE
@@ -192,7 +219,11 @@ def _part_bindings(verdict: CheckedVerdict | None) -> list:
     """FC-RENDER (§3.6): (текст части, вердикт части, [EvidenceRef]) —
     разбор ключевых утверждений с цитатами, привязанными к каждому.
     Только URL из EvidenceMap текущего прогона (allowlist уже проверен
-    сервером в verdict_from_payload)."""
+    сервером в verdict_from_payload).
+
+    P0-FACTCHECK (§3.5): часть без привязки к источнику НЕ выпадает из
+    разбора — иначе «неподтверждённая часть» исчезала и общий вердикт
+    выглядел полным. Такая часть показывается без ссылок."""
     if verdict is None:
         return []
     refs = _refs_by_id(verdict)
@@ -209,8 +240,6 @@ def _part_bindings(verdict: CheckedVerdict | None) -> list:
             continue
         part_refs = [refs[str(r)] for r in (part.get("evidence_refs") or ())
                      if isinstance(r, str) and str(r) in refs]
-        if not part_refs:
-            continue
         seen_texts.add(key)
         out.append((text, str(part.get("factual_verdict") or ""), part_refs))
     return out
@@ -274,14 +303,16 @@ def _serialize(presentation: FactcheckPresentation,
                     cites.append(ref.url)
             cites_text = ", ".join(cites)
             trimmed = _trim(text)
-            if html_mode:
-                prefix = f"• {esc(trimmed)} — {esc(label)}: " if label \
-                    else f"• {esc(trimmed)}: "
-                lines.append(prefix + cites_text)
+            label_part = f" — {esc(label)}" if (label and html_mode) else \
+                (f" — {label}" if label else "")
+            body_text = esc(trimmed) if html_mode else trimmed
+            if cites_text:
+                line = f"{body_text}{label_part}: {cites_text}"
             else:
-                prefix = f"• {trimmed} — {label}: " if label \
-                    else f"• {trimmed}: "
-                lines.append(prefix + cites_text)
+                # P0-FACTCHECK: часть без источника остаётся видимой и
+                # честно помечена (не «факт без ссылки» и не выброшена).
+                line = f"{body_text}{label_part} (проверяемой ссылки нет)"
+            lines.append("• " + line)
         blocks.append("По утверждениям:\n" + "\n".join(lines))
     bound_urls = {ref.url for _t, _v, refs in bindings for ref in refs}
     rows = _sources_rows(verdict, links, bound_urls=bound_urls,

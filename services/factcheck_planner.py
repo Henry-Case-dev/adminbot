@@ -38,7 +38,11 @@ logger = logging.getLogger(__name__)
 # fp2 (FC-SEMQUERY/FC-EVIDQ, owner 21.10.2026 §3.3–3.4): запросы строятся
 # от самостоятельных частей клейма (claim_items/предложения) + generic
 # синонимы; выдача проверяется на содержательную релевантность.
-PLANNER_VERSION = "fp2"
+# fp3 (P0-FACTCHECK, owner 24.10.2026 §3.3/§3.5): КАЖДАЯ проверяемая часть
+# получает свой запрос (бюджет тот же ≤3) — составная публикация больше не
+# сводится к одному запросу; свидетельство без URL не считается
+# доказательством; бюджет запроса урезает per-engine таймауты.
+PLANNER_VERSION = "fp3"
 
 # Интенты запросов (06C: 2–4 запроса с различающей целью).
 INTENT_ENTITY_CHECK = "entity_check"
@@ -305,33 +309,38 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
 
     # FC-SEMQUERY (owner §3.3): запрос — от самостоятельной части клейма
     # (claim_items/предложения), с сущностями/числами/годами ЭТОЙ части;
-    # НЕ первые 8 токенов всего сообщения. Цели запросов различаются
-    # (06C.2), бюджеты сохранены (≤3 запроса, ≤200 символов). Privacy:
-    # каждый unit проходит тот же фильтр участников, что и весь клейм.
-    entity_done = numeric_done = temporal_done = False
+    # НЕ первые 8 токенов всего сообщения. Бюджеты сохранены (≤3 запроса,
+    # ≤200 символов). Privacy: каждый unit проходит тот же фильтр участников,
+    # что и весь клейм.
+    #
+    # P0-FACTCHECK (§3.3/§3.5, 24.10.2026): КАЖДАЯ часть получает СВОЙ
+    # запрос — прежняя схема «по одному запросу на интент» превращала
+    # составную новость в единственный общий запрос (прод: queries=1) и
+    # теряла остальные тезисы. Интент части = её собственный характер
+    # (числа → numeric, годы → temporal, иначе entity_check); общий бюджет
+    # НЕ увеличен, поэтому составная публикация покрывается ≤3 частями.
     for raw_unit in _claim_units(items, claim):
+        if len(queries) >= max(1, int(max_queries)):
+            break
         unit, _unit_dropped = _strip_privacy(raw_unit, authors)
         if not unit:
             continue
         uterms = _claim_terms(unit, limit=8)
         uents = [e for e in _entities(unit)
                  if e.lower() not in {t.lower() for t in uterms}][:3]
-        if not entity_done:
-            base = _expand_terms((uents + uterms)[:10])
-            if _add(_make_query(base, INTENT_ENTITY_CHECK)):
-                entity_done = True
+        base = _expand_terms((uents + uterms)[:10])
         numeric = _numeric_phrases(unit)
-        if not numeric_done and numeric:
-            if _add(_make_query(_expand_terms(uterms), INTENT_NUMERIC,
-                                tail=" ".join(numeric))):
-                numeric_done = True
         years = _years(unit)
-        if not temporal_done and years:
-            if _add(_make_query(_expand_terms(uterms), INTENT_TEMPORAL,
-                                tail=" ".join(years))):
-                temporal_done = True
-        if entity_done and numeric_done and temporal_done:
-            break
+        # Основной запрос части: её сущности+предмет.
+        _add(_make_query(base, INTENT_ENTITY_CHECK))
+        # Уточнения ЭТОЙ части (числа/годы) — отдельными интентами, пока
+        # есть бюджет; так «120 мм» и «2019» проверяются своими запросами.
+        if numeric:
+            _add(_make_query(_expand_terms(uterms), INTENT_NUMERIC,
+                             tail=" ".join(numeric)))
+        if years:
+            _add(_make_query(_expand_terms(uterms), INTENT_TEMPORAL,
+                             tail=" ".join(years)))
     # Цитата → проверка происхождения (цитата может быть в любой части)
     quoted = _QUOTED_RE.search(claim)
     if quoted:
@@ -474,7 +483,12 @@ _BUDGET_SECONDS_DEFAULT = 10.0
 
 @dataclasses.dataclass(frozen=True)
 class RetrievalOutcome:
-    """Результат единого retrieval-контура v2 + метрики 06G.7."""
+    """Результат единого retrieval-контура v2 + метрики 06G.7.
+
+    P0-FACTCHECK (§3.6): ``provider_failures`` — сколько запросов упало на
+    провайдерах/транспорте; вместе с ``budget_exhausted`` это позволяет
+    factcheck_service отличить технический сбой от реального отсутствия
+    доказательств (сегодня оба превращались в insufficient_evidence)."""
     evidence_map: EvidenceMap | None
     search_text: str                 # объединённая выдача для user-content
     queries_attempted: int
@@ -483,6 +497,7 @@ class RetrievalOutcome:
     fetch_errors: int
     budget_exhausted: bool
     planner_version: str = PLANNER_VERSION
+    provider_failures: int = 0
 
     @property
     def ok(self) -> bool:
@@ -511,7 +526,7 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     outcome_empty = RetrievalOutcome(
         evidence_map=None, search_text="", queries_attempted=0,
         queries_used=0, refs_collected=0, fetch_errors=0,
-        budget_exhausted=False)
+        budget_exhausted=False, provider_failures=0)
     if plan is None or not plan.queries or aggregator is None:
         return outcome_empty
     relevance_search = getattr(aggregator, "search_relevant", None)
@@ -520,26 +535,43 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     attempted = 0
     used = 0
     fetch_errors = 0
+    provider_failures = 0
     budget_exhausted = False
-    for query in plan.queries:
-        if loop.time() >= deadline:
+    total_queries = len(plan.queries)
+    for index, query in enumerate(plan.queries):
+        remaining = deadline - loop.time()
+        if remaining <= 0:
             budget_exhausted = True
             break
         attempted += 1
         query_terms = _claim_terms(query.text, limit=10)
+        # §3.3: бюджет ДЕЛИТСЯ между оставшимися запросами — один медленный
+        # провайдер не съедает весь контур; дедлайн проверен ДО запроса.
+        per_query_budget = max(1.0, remaining / max(1, total_queries - index))
         try:
             if relevance_search is not None:
-                chunk = await relevance_search(
-                    query.text, query.max_symbols,
-                    relevance_terms=query_terms)
+                try:
+                    chunk = await relevance_search(
+                        query.text, query.max_symbols,
+                        relevance_terms=query_terms,
+                        timeout_budget=per_query_budget)
+                except TypeError:
+                    # фейк/старый агрегатор без timeout_budget (контракт
+                    # остаётся совместимым)
+                    chunk = await relevance_search(
+                        query.text, query.max_symbols,
+                        relevance_terms=query_terms)
             else:
                 chunk = await aggregator.search(query.text, query.max_symbols)
         except Exception:
-            fetch_errors += 1
+            provider_failures += 1
             logger.info("[factcheck_planner] query failed | intent=%s",
                         query.intent, exc_info=True)
+            if loop.time() >= deadline:
+                budget_exhausted = True
             continue
         if not chunk or not str(chunk).strip():
+            provider_failures += 1
             continue
         used += 1
         blocks.append(str(chunk))
@@ -550,6 +582,11 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         for ref in evidence_refs_from_search(
                 str(chunk), intent=query.intent,
                 max_rows=max_rows_per_query):
+            if not ref.url:
+                # P0-FACTCHECK (§3.6): строка без URL — не доказательство:
+                # её нельзя открыть/проверить (прод-кейс: 4 off-topic строки
+                # с url=null). В search_text она остаётся как контекст.
+                continue
             key = re.sub(r"\W+", "", ref.support.lower())[:100]
             if key in seen_support:
                 continue
@@ -595,4 +632,5 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         evidence_map=evidence_map, search_text=search_text,
         queries_attempted=attempted, queries_used=used,
         refs_collected=len(evidence_map.refs) if evidence_map else 0,
-        fetch_errors=fetch_errors, budget_exhausted=budget_exhausted)
+        fetch_errors=fetch_errors, budget_exhausted=budget_exhausted,
+        provider_failures=provider_failures)

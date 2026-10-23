@@ -173,6 +173,178 @@ def _human_evaluated_period(period: dict | None) -> str:
     return ""
 
 
+# ── P0-FACTCHECK (owner 24.10.2026 §3.3/§3.5/§3.6): материал изображения ──────
+# Текст с картинки приходит в анализ ЧЕРЕЗ СУЩЕСТВУЮЩИЙ Vision-контур
+# (`mca_vision.render_media_context_async`: OCR + визуальное описание уже
+# сохранённого анализа). Новый OCR/vision-пайплайн не создаётся; если анализ
+# ещё не готов — честная пометка `image_not_analyzed`, подпись сохраняется.
+
+@dataclasses.dataclass(frozen=True)
+class ClaimMediaMaterial:
+    """Что дало изображение целевого сообщения (для анализа и честности)."""
+    text_suffix: str = ""             # блок для claim/envelope (пусто — нет)
+    image_present: bool = False
+    image_analyzed: bool = False
+    image_not_analyzed: bool = False
+    ocr_chars: int = 0
+    caption: str = ""
+
+    def notice(self) -> str:
+        """Человеческое ограничение (никогда не выдумывает распознавание)."""
+        if self.image_not_analyzed:
+            return ("На изображении мог быть текст, но распознавание ещё не "
+                    "готово — проверен только текст сообщения.")
+        return ""
+
+
+async def load_claim_media(db, chat_id: int | None,
+                           tg_message_id: int | None, *,
+                           render_async=None,
+                           max_chars: int = 2000) -> ClaimMediaMaterial:
+    """OCR-текст изображения целевого сообщения (REUSE mca_vision).
+
+    Возвращает контракт «что попало в анализ»: ``text_suffix`` уходит в
+    claim/envelope (=> в поисковые запросы и в промпт аналитика), а
+    ``image_not_analyzed`` — честная пометка, когда изображение есть, но
+    распознавания ещё нет. Fail-open: любая ошибка → пустой материал
+    (прежнее поведение без изображения)."""
+    if db is None or not chat_id or not tg_message_id:
+        return ClaimMediaMaterial()
+    if render_async is None:
+        try:
+            from services import mca_vision
+            render_async = mca_vision.render_media_context_async
+        except Exception:          # pragma: no cover — vision выключен
+            return ClaimMediaMaterial()
+    try:
+        media = await render_async(db, chat_id=int(chat_id),
+                                   tg_message_id=int(tg_message_id))
+    except Exception:
+        logger.warning("[factcheck] media context read failed — caption only",
+                       exc_info=True)
+        return ClaimMediaMaterial()
+    if not media:
+        return ClaimMediaMaterial()
+    caption = str(media.get("caption") or "").strip()
+    ocr_texts = [str(t).strip() for t in (media.get("untrusted_ocr_texts")
+                                          or ()) if str(t or "").strip()]
+    ocr_text = "\n".join(ocr_texts).strip()[:max_chars]
+    if not ocr_text:
+        return ClaimMediaMaterial(image_present=True, image_not_analyzed=True,
+                                  caption=caption)
+    suffix = ("Текст с изображения (OCR, не слова автора):\n"
+              + ocr_text)
+    return ClaimMediaMaterial(text_suffix=suffix, image_present=True,
+                              image_analyzed=True, ocr_chars=len(ocr_text),
+                              caption=caption)
+
+
+# ── P0-FACTCHECK (§3.6): классы исхода retrieval — сбой ≠ «нет данных» ───────
+
+RETRIEVAL_OK = "ok"
+RETRIEVAL_NOT_RUN = "not_run"
+RETRIEVAL_BUDGET = "budget_exhausted"
+RETRIEVAL_SEARCH_FAILED = "search_failed"
+RETRIEVAL_PROCESSING_FAILED = "processing_failed"
+RETRIEVAL_INSUFFICIENT = "insufficient_evidence"
+
+#: Класс → существующий reason-код реестра (новые коды не выдумываются:
+#: `verdict_from_payload` пропускает только REASON_CODES).
+_RETRIEVAL_REASON = {
+    RETRIEVAL_BUDGET: "deadline_exceeded",
+    RETRIEVAL_SEARCH_FAILED: "provider_unavailable",
+    RETRIEVAL_PROCESSING_FAILED: "source_missing",
+    RETRIEVAL_INSUFFICIENT: "insufficient_evidence",
+}
+
+#: Класс → человеческая оговорка (в uncertainty; НЕ выдуманный вердикт).
+_RETRIEVAL_CAVEAT = {
+    RETRIEVAL_BUDGET: ("поиск прерван по лимиту времени — проверены не все "
+                       "запросы"),
+    RETRIEVAL_SEARCH_FAILED: ("поисковые сервисы не ответили — это "
+                              "технический сбой, а не отсутствие фактов"),
+    RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
+                                  "проверки выдержек из них не получено"),
+}
+
+#: Класс → что честно сказать вербализатору (замена «данных недостаточно»).
+_RETRIEVAL_SITUATION = {
+    RETRIEVAL_BUDGET: ("проверка не завершена: истёк лимит времени на поиск"),
+    RETRIEVAL_SEARCH_FAILED: ("проверка не завершена: поисковые сервисы "
+                              "оказались недоступны"),
+    RETRIEVAL_PROCESSING_FAILED: ("поиск выполнен, но найденные материалы не "
+                                  "удалось превратить в проверяемые выдержки"),
+}
+
+
+def classify_retrieval(retrieval) -> str:
+    """RetrievalOutcome → класс исхода (P0-FACTCHECK §3.6).
+
+    ``None`` → not_run (внутренний поиск ветки, прежний контракт). Есть
+    evidence → ok. Нет evidence, но метрики говорят о технической причине —
+    бюджет/недоступность провайдеров/потеря обработки; иначе — реальная
+    недостаточность доказательств. Детерминированно, без новых вызовов."""
+    if retrieval is None:
+        return RETRIEVAL_NOT_RUN
+    try:
+        if getattr(getattr(retrieval, "evidence_map", None), "refs", ()):
+            return RETRIEVAL_OK
+        attempted = int(getattr(retrieval, "queries_attempted", 0) or 0)
+        used = int(getattr(retrieval, "queries_used", 0) or 0)
+        failures = int(getattr(retrieval, "provider_failures", 0) or 0)
+        if getattr(retrieval, "budget_exhausted", False) and used == 0:
+            return RETRIEVAL_BUDGET
+        if used == 0 and (attempted > 0 or failures > 0):
+            return RETRIEVAL_SEARCH_FAILED
+        if used > 0:
+            return RETRIEVAL_PROCESSING_FAILED
+    except Exception:          # pragma: no cover — метрики не рвут вердикт
+        return RETRIEVAL_NOT_RUN
+    return RETRIEVAL_INSUFFICIENT
+
+
+def _server_parts(envelope, evidence) -> tuple:
+    """FC-PERCLAIM (§3.5): части из СЕРВЕРНОЙ декомпозиции, когда модель их
+    не дала. Вердикт части — не выше insufficient_evidence (положительный
+    без доказательства запрещён); evidence привязывается к части по
+    содержательному перекрытию, а не «ко всему прогону»."""
+    try:
+        from services import temporal_factcheck as tf
+        parts = list(tf.decompose_claim(envelope))[:4]
+    except Exception:
+        return ()
+    if len(parts) < 2:
+        return ()
+    try:
+        from services.factcheck_planner import _claim_terms
+    except Exception:          # pragma: no cover
+        def _claim_terms(text, limit=8):
+            return [w for w in str(text or "").lower().split()
+                    if len(w) > 3][:limit]
+
+    ref_ids = [str(r.get("evidence_id")) for r in (evidence or ())
+               if r.get("evidence_id")]
+    support_by_id = {str(r.get("evidence_id")): str(r.get("support") or "")
+                     for r in (evidence or ()) if r.get("evidence_id")}
+    result: list[dict] = []
+    for part in parts:
+        terms = _claim_terms(part.text, limit=10)
+        scored: list[tuple[int, str]] = []
+        for ref_id in ref_ids:
+            haystack = support_by_id.get(ref_id, "").lower()
+            score = sum(1 for t in terms if t in haystack)
+            if score > 0:
+                scored.append((score, ref_id))
+        scored.sort(key=lambda pair: (-pair[0], pair[1]))
+        result.append({
+            "part_id": part.part_id,
+            "text": part.text,
+            "factual_verdict": "insufficient_evidence",
+            "evidence_refs": [rid for _s, rid in scored[:2]],
+        })
+    return tuple(result)
+
+
 class FactCheckService:
     """Фактчек: поиск фактов по целевому тексту → LLM-вердикт → cleanup."""
 
@@ -652,6 +824,13 @@ class FactCheckService:
         correlation_id = usage_events.new_correlation_id()
         fallback_used = False
         verdict_reason = search_reason
+        # P0-FACTCHECK (§3.6): технический класс исхода retrieval. Раньше
+        # бюджет/недоступность провайдеров/потеря обработки не читались и
+        # любой пустой evidence давал «недостаточно доказательств».
+        retrieval_state = classify_retrieval(retrieval) if not evidence \
+            else RETRIEVAL_OK
+        if retrieval_state in _RETRIEVAL_REASON:
+            verdict_reason = _RETRIEVAL_REASON[retrieval_state]
 
         # verdict (D10/D11): data-only JSON-стадия; невалидный JSON →
         # fallback-попытка; обе мимо → честный degraded-вердикт с датами.
@@ -665,10 +844,11 @@ class FactCheckService:
                         if evidence else None)
         # TH-5/CA-20-10 (no-false-acceptance): движки недоступны/пусто →
         # insufficient_evidence СЕРВЕРНО, verdict модели не проходит.
+        # Причина при этом честная: сбой/бюджет/обработка ≠ «нет фактов».
         if not evidence:
             raw_payload = {"factual_verdict": "insufficient_evidence",
                            "temporal_status": "unknown",
-                           "reason": search_reason
+                           "reason": verdict_reason
                            or "temporal_insufficient_evidence"}
         else:
             raw_payload = await self._temporal_verdict_json(
@@ -740,19 +920,37 @@ class FactCheckService:
                 "дата публикации оригинала не определена — временная оценка "
                 "ограничена")
             verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
+        # P0-FACTCHECK (§3.5): части есть даже без разбора модели — из
+        # СЕРВЕРНОЙ декомпозиции, с вердиктом не выше insufficient и
+        # привязкой evidence к части (в durable evidence раньше было
+        # claim_part=null у всех строк). Положительный вердикт части без
+        # доказательства запрещён.
+        if not verdict.parts:
+            server_parts = _server_parts(env, evidence)
+            if server_parts:
+                verdict = dataclasses.replace(verdict, parts=server_parts)
+        # P0-FACTCHECK (§3.6): технический класс пишется в оговорки, чтобы
+        # пользователь и вербализатор не читали «сбой» как «фактов нет».
+        caveat = _RETRIEVAL_CAVEAT.get(retrieval_state)
+        if caveat:
+            uncertainty = dict(verdict.uncertainty or {})
+            uncertainty["retrieval_state"] = caveat
+            verdict = dataclasses.replace(verdict, uncertainty=uncertainty)
         tf.stage_event("verdict", "success", reason_code=verdict.reason,
                        chat_id=env.chat_id)
 
         # verbalize (D11/CA-20-13): стилизация ПОСЛЕ вердикта; даты/
         # оговорки — обязательная часть payload каждой стадии; все ветки
         # (включая fallback) получают один envelope.
-        verdict_text = await self._temporal_verbalize(env, verdict, fallback_used,
-                                                      correlation_id)
+        verdict_text = await self._temporal_verbalize(
+            env, verdict, fallback_used, correlation_id,
+            retrieval_state=retrieval_state)
         trace.add("verbalize", "success" if verdict_text else "skipped",
                   reason=None if verdict_text else "temporal_fallback_mode")
 
         if not verdict_text:
-            verdict_text = self._temporal_fallback_text(env, verdict)
+            verdict_text = self._temporal_fallback_text(
+                env, verdict, retrieval_state=retrieval_state)
 
         return tf.TemporalRunResult(
             envelope=env, verdict=verdict, verdict_text=verdict_text,
@@ -854,6 +1052,7 @@ class FactCheckService:
     async def _temporal_verbalize(
         self, env: tf.TemporalClaimEnvelope, verdict: tf.TemporalVerdict,
         fallback_used: bool, correlation_id: str | None,
+        *, retrieval_state: str | None = None,
     ) -> str:
         """Вербализатор (REUSE существующего контракта фактчека): verdict →
         текст с СОХРАНЕНИЕМ существенных дат/оговорок (SC-R3c). Любой сбой
@@ -893,6 +1092,10 @@ class FactCheckService:
             payload["caveats"] = caveats
         payload["parts"] = list(verdict.parts)
         payload["claim"] = env.claim_text
+        situation = _RETRIEVAL_SITUATION.get(str(retrieval_state or ""))
+        if situation:
+            # §3.6: вербализатор не должен называть сбой «отсутствием фактов».
+            payload["situation"] = situation
         if fallback_used:
             payload["fallback_note"] = (
                 "структурированный анализ не удался — не утверждай больше, "
@@ -929,9 +1132,14 @@ class FactCheckService:
 
     @staticmethod
     def _temporal_fallback_text(env: tf.TemporalClaimEnvelope,
-                                verdict: tf.TemporalVerdict) -> str:
+                                verdict: tf.TemporalVerdict,
+                                *, retrieval_state: str | None = None) -> str:
         """Детерминированный честный текст (все ветки получают даты, D11):
-        краткая дата/неопределённость без технической схемы (D15)."""
+        краткая дата/неопределённость без технической схемы (D15).
+
+        P0-FACTCHECK (§3.6): технический сбой не маскируется под «мало
+        данных» — фраза прямо называет причину (бюджет/недоступность/
+        непригодные выдержки)."""
         import datetime as _dt
 
         def _fmt(ts):
@@ -943,7 +1151,20 @@ class FactCheckService:
             except (ValueError, OverflowError, OSError):
                 return None
 
-        pieces = ["Недостаточно данных для полной проверки утверждения."]
+        openers = {
+            RETRIEVAL_BUDGET:
+                "Проверку не удалось довести до конца: истёк лимит времени "
+                "на поиск. Это не значит, что утверждение опровергнуто.",
+            RETRIEVAL_SEARCH_FAILED:
+                "Проверку не удалось выполнить: поисковые сервисы не "
+                "ответили. Это технический сбой, а не отсутствие фактов.",
+            RETRIEVAL_PROCESSING_FAILED:
+                "Материалы найти удалось, но пригодных для проверки "
+                "выдержек из них получить не вышло.",
+        }
+        pieces = [openers.get(str(retrieval_state or ""),
+                              "Недостаточно данных для полной проверки "
+                              "утверждения.")]
         orig = _fmt(env.original_published_at)
         if env.date_source in ("telegram_origin", "telegram_message") and orig:
             kind = "оригинала" if env.date_source == "telegram_origin" \
