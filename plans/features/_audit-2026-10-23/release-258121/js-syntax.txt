@@ -1,0 +1,1 @@
+js-syntax: checked=90 bad=0 

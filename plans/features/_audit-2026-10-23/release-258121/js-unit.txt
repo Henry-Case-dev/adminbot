@@ -1,0 +1,212 @@
+METHODS-DUP-KEYS-OK blocks=7 keys=1094 duplicate-problems=0 behavioral=ok
+  WARN: ╨╝╤С╤А╤В╨▓╤Л╨╣ ╨┤╤Г╨▒╨╗╤М (╤В╨╡╨╗╨░ ╨╕╨┤╨╡╨╜╤В╨╕╤З╨╜╤Л, ╨╕╨╖╨▓╨╡╤Б╤В╨╡╨╜ ╨▓ HEAD): `_prefersReducedMotion` ├Ч2 @ 23517, 23536
+тЬФ tests\js\app_methods_dup_keys_guard_test.js (218.1865ms)
+ASAP31-OVERSIGHT-RENDER-OK
+тЬФ tests\js\asap31_oversight_render_test.js (190.9152ms)
+ZONE-G-INSPECTOR-OK
+тЬФ tests\js\asap41_zone_g_inspector_test.js (192.284ms)
+ASAP42-STEP2C2-LAYOUT-OK
+тЬФ tests\js\asap42_step2c2_layout_test.js (194.0712ms)
+ASAP43-COVER-STYLE-SURGICAL-OK
+тЬФ tests\js\asap43_cover_style_surgical_test.js (208.9333ms)
+asap44 cover final closure JS: OK
+тЬФ tests\js\asap44_cover_final_closure_test.js (134.1633ms)
+ASAP5-COVER-MANIFEST-OK
+тЬФ tests\js\asap5_cover_manifest_test.js (141.8548ms)
+ASAP5-DECISION-TRACE-OK
+тЬФ tests\js\asap5_decision_trace_test.js (142.7603ms)
+EMBEDDING-PROFILES-UI-OK
+тЬФ tests\js\asap6_embedding_profiles_ui_test.js (143.1387ms)
+WAVE2-UX-TABS-OK
+тЬФ tests\js\asap6_wave2_ux_tabs_test.js (154.7643ms)
+ASAP7-F2-DIRECT-UI-OK
+тЬФ tests\js\asap7_f2_direct_ui_test.js (136.9283ms)
+ASAP7-F7-COVER-COMPILE-OK
+тЬФ tests\js\asap7_f7_cover_compile_test.js (137.5349ms)
+ASAP7-F8-COVER-PROMPTS-OK
+тЬФ tests\js\asap7_f8_cover_prompts_test.js (143.9963ms)
+ASAP8-D1213-SAVE-CONTRACT-OK
+тЬФ tests\js\asap8_d1213_save_contract_test.js (154.2616ms)
+F9-PROXY-UI-OK
+тЬФ tests\js\asap8_f9_youtube_proxy_health_test.js (154.2931ms)
+MINI-LENS-BINDING-OK
+тЬФ tests\js\asap8_u084d_mini_lens_binding_test.js (134.3211ms)
+W3-ANALYTICS-UNIT-OK: 93 checks passed
+тЬФ tests\js\asap8_v63_w3_analytics_test.js (161.9883ms)
+W3-MODULES-UI-OK
+тЬФ tests\js\asap8_v63_w3_modules_ui_test.js (143.572ms)
+W3-STATUS-UNIT-OK
+тЬФ tests\js\asap8_v63_w3_status_logs_test.js (169.1006ms)
+D05-EXPERIENCE-UI-OK
+тЬФ tests\js\asap8_v6_d05_experience_ui_test.js (138.1147ms)
+D07-OVERRIDE-STACK-OK
+тЬФ tests\js\asap8_v6_d07_override_stack_test.js (145.105ms)
+P1-D09-PANELS-UNIT-OK
+тЬФ tests\js\asap8_v6_p1_d09_panels_test.js (144.9201ms)
+DOSSIER-GUARD-UNIT-OK
+тЬФ tests\js\asap8_v6_wa2_dossier_guard_test.js (151.1008ms)
+1. decideOffer-╨╝╨░╤В╤А╨╕╤Ж╨░ OK (tdesktop тАФ ╨╛╨▒╤Л╤З╨╜╤Л╨╣ ╨║╨╗╨╕╨╡╨╜╤В)
+2.1 requestтЖТackтЖТexit OK
+2.2 no-inversion ╨▒╨╡╨╖ SDK-boolean OK
+2.3 UNSUPPORTED OK
+2.4 ALREADY_FULLSCREEN OK
+2.5 Launch Mode=Fullscreen OK
+2.6 tdesktop: ╤А╨░╨▒╨╛╤З╨╕╨╣ ╨┐╨╡╤А╨╡╨║╨╗╤О╤З╨░╤В╨╡╨╗╤М ╨▒╨╡╨╖ ╨░╨▓╤В╨╛-╨▓╤Л╤Е╨╛╨┤╨░ OK
+2.7 pending-guard OK
+2.8 ack-╤В╨░╨╣╨╝╨░╤Г╤В OK
+2.9 rotation ╨▒╨╡╨╖ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨╛╨▓ OK
+2.10 stand-alone ╨▒╤А╨░╤Г╨╖╨╡╤А OK
+2.11 subscribe OK
+3. ╤Б╤В╤А╤Г╨║╤В╤Г╤А╨╜╤Л╨╡ ╨┐╤А╨╛╨▓╨╡╤А╨║╨╕ OK
+4.1 explain() ╨▒╨╡╨╖ ┬л╨│╨╛╨╗╤Л╤Е┬╗ ╨║╨╛╨┤╨╛╨▓ ╨╕ ╨▒╨╡╨╖ ╨▓╤Л╨┤╤Г╨╝╨░╨╜╨╜╤Л╤Е ╨┐╤А╨╕╤З╨╕╨╜ OK
+4.2 diagnostics() тАФ ╤Д╨░╨║╤В╤Л, launch params (F1), ╨▒╨╡╨╖ ╤Б╨╡╨║╤А╨╡╤В╨╛╨▓ OK
+4.3 clickResult/╨╜╨╡╨│╨░╤В╨╕╨▓╤Л (UNSUPPORTED/ALREADY/tdesktop/pending) OK
+4.4 trace/warnings (init, DOUBLE_INIT, ACK_TIMEOUT) OK
+4.5 UI-╨╖╨░╨│╨╗╤Г╤И╨╡╨║ ╨╜╨╡╤В, dev-API ╤Б╨╛╤Е╤А╨░╨╜╤С╨╜ OK
+4.6 admin-╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨░ ╨│╨╡╨╛╨╝╨╡╤В╤А╨╕╨╕ (┬з8) OK
+dev-API ╨┐╨╛╨╗╨╕╤В╨╕╨║╨╕ (╨╛╨▒╤К╤П╤Б╨╜╨╡╨╜╨╕╨╡ + ╨┤╨╕╨░╨│╨╜╨╛╤Б╤В╨╕╨║╨░) OK
+FS-POLICY-OK
+тЬФ tests\js\asap8_w2_fullscreen_policy_test.js (502.0584ms)
+W2-SHELL-UNIT-OK
+тЬФ tests\js\asap8_w2_shell_mobile_nav_test.js (151.4301ms)
+CFG04-FORMS-OK
+тЬФ tests\js\cfg04_forms_contract_test.js (138.4584ms)
+JS-UNIT-OK glass-probe
+тЬФ tests\js\glass_probe_test.js (125.5373ms)
+JS-UNIT-OK glass-refraction
+тЬФ tests\js\glass_refraction_test.js (137.0617ms)
+MCA23-RESPONSE-PIPELINE-OK
+тЬФ tests\js\mca23_response_pipeline_test.js (142.6319ms)
+P0-STORIES-NO-CHAT-RENDER-OK
+тЬФ tests\js\p0_stories_no_chat_render_test.js (131.5013ms)
+P0V-UI-OK
+тЬФ tests\js\p0_vision_ui_test.js (153.3514ms)
+JS-UNIT-OK
+тЬФ tests\js\round1020_ui_rework_test.js (138.4325ms)
+JS-UNIT-OK
+тЬФ tests\js\round1020_ui_test.js (126.1974ms)
+JS-UNIT-OK
+тЬФ tests\js\round1021_ui_audit_test.js (149.877ms)
+ALIASES-UNIT-OK
+тЬФ tests\js\round1022_aliases_test.js (137.7046ms)
+DOSSIER-REBUILD-UNIT-OK
+тЬФ tests\js\round1022_dossier_rebuild_test.js (143.7027ms)
+round1022 help-ui JS gate: OK
+тЬФ tests\js\round1022_help_test.js (147.0754ms)
+VERBILIZER-UNIT-OK
+тЬФ tests\js\round1023_verbilizer_tabs_test.js (145.0039ms)
+ALIASES-RENDER-OK
+тЬФ tests\js\round1024_aliases_render_test.js (175.9902ms)
+BUDGET-TOGGLE-OK
+тЬФ tests\js\round1024_budget_toggle_test.js (140.4022ms)
+DOSSIER-FEED-OK
+тЬФ tests\js\round1024_dossier_feed_test.js (152.5163ms)
+IMAGE-KEY-OK
+тЬФ tests\js\round1024_image_key_test.js (135.2844ms)
+IMAGE-MODULE-OK
+тЬФ tests\js\round1024_image_module_test.js (134.1409ms)
+NODEFLOW-UNIT-OK
+тЬФ tests\js\round1024_nodeflow_test.js (163.5267ms)
+PROMPTS-UI-UNIT-OK
+тЬФ tests\js\round1024_prompts_ui_test.js (132.5708ms)
+PROVIDERS-FS-OK
+тЬФ tests\js\round1024_providers_fullscreen_test.js (138.794ms)
+ROUND1025-CLICHE-UI-OK
+тЬФ tests\js\round1025_cliche_ui_test.js (138.6288ms)
+JS-UNIT-OK
+тЬФ tests\js\round1025_design_tokens_test.js (190.3065ms)
+F11-LOG-COUNTS-OK
+тЬФ tests\js\round1025_f11_log_counts_test.js (138.9009ms)
+F11-STATUS-GRID-OK
+F11-HEARTBEAT-OK
+тЬФ tests\js\round1025_f11_status_grid_test.js (152.7645ms)
+MODULE-CATALOG-OK
+тЬФ tests\js\round1025_f4_catalog_ui_test.js (132.9941ms)
+MODULE-STORE-OK
+тЬФ tests\js\round1025_f4_module_store_test.js (147.6264ms)
+MODELS-GROUPS-OK
+тЬФ tests\js\round1025_f5_models_test.js (128.4878ms)
+PROMPTS-SINGLE-SOURCE-OK
+тЬФ tests\js\round1025_f5_prompts_single_source_test.js (146.4626ms)
+MODULE-WORKSPACE-OK
+тЬФ tests\js\round1025_f5_workspace_route_test.js (150.4785ms)
+F6-ANALYTICS-MEMORY-OK
+тЬФ tests\js\round1025_f6_analytics_memory_test.js (156.4295ms)
+F6-EXECGRAPH-OK
+тЬФ tests\js\round1025_f6_execution_graph_test.js (117.7243ms)
+F7-PERMSOC-LOCAL-UNIT-OK
+тЬФ tests\js\round1025_f7_permsoc_local_test.js (137.9181ms)
+F9-SAVEBAR-OK
+тЬФ tests\js\round1025_f9_savebar_visual_test.js (138.4735ms)
+F9-SECRET-OK
+тЬФ tests\js\round1025_f9_secret_field_test.js (219.7683ms)
+HOTFIX10-GLASS-GEOMETRY-BG-OK
+тЬФ tests\js\round1025_hotfix10_glass_geometry_bg_test.js (207.2419ms)
+ROUND1025-HOTFIX3-CLICHE-REPORT-OK
+тЬФ tests\js\round1025_hotfix3_cliche_report_test.js (124.7926ms)
+JS-UNIT-OK round1025_hotfix4_shell_test
+тЬФ tests\js\round1025_hotfix4_shell_test.js (204.9822ms)
+HOTFIX6-LENS-HEARTBEAT-SHELL-OK
+тЬФ tests\js\round1025_hotfix6_lens_heartbeat_shell_test.js (239.5041ms)
+HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+тЬФ tests\js\round1025_hotfix7_shell_glass_heartbeat_test.js (202.7978ms)
+HOTFIX8-SHELL-AURORA-OK
+тЬФ tests\js\round1025_hotfix8_shell_aurora_test.js (209.1462ms)
+HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+тЬФ tests\js\round1025_hotfix9_shell_flex_glass_aurora_test.js (221.7869ms)
+JS-UNIT-OK round1025_ia_routing_test
+тЬФ tests\js\round1025_ia_routing_test.js (190.3835ms)
+ROUND1025-SAVE-STATE-OK
+тЬФ tests\js\round1025_save_state_test.js (196.5731ms)
+SCOPE-SELECTOR-OK
+тЬФ tests\js\round1025_scope_selector_test.js (196.8575ms)
+JS-UNIT-OK round1025_shell_breakpoints_test
+тЬФ tests\js\round1025_shell_breakpoints_test.js (196.6269ms)
+POLYGON-LUMINESCENCE-OK
+тЬФ tests\js\round1026_polygon_background_test.js (189.7807ms)
+S6-PUBLISH-OK
+тЬФ tests\js\round1026_s6_publish_test.js (183.8295ms)
+S7-LOG-SUMMARY-OK
+тЬФ tests\js\round1026_s7_log_summary_filter_test.js (176.9441ms)
+S8-EXECGRAPH-OK
+тЬФ tests\js\round1026_s8_execution_graph_test.js (171.2644ms)
+SUMMARY-TESTING-UI-OK
+тЬФ tests\js\round1026_s9_testing_test.js (165.1656ms)
+ASAP2-SUMMARY-SECTIONS-OK
+тЬФ tests\js\round1027_asap2_summary_sections_test.js (158.7987ms)
+MCA17A-OBSERVABILITY-UI-OK
+тЬФ tests\js\round1027_mca17a_observability_ui_test.js (151.9095ms)
+ANU-TAXONOMY-OK
+тЬФ tests\js\round1028_anu_taxonomy_p0_test.js (145.1815ms)
+ASAP3-DIRECT-CONTEXT-OK
+тЬФ tests\js\round1028_asap3_direct_context_test.js (138.982ms)
+EXTRA-COVER-STYLES-UI-OK
+тЬФ tests\js\round1029_extra_cover_styles_test.js (144.0181ms)
+PIPELINE-INSPECTOR-STATIC-OK
+PIPELINE-INSPECTOR-OK
+тЬФ tests\js\round1030_pipeline_inspector_test.js (136.8724ms)
+MCA10A-RANDOM-OK
+тЬФ tests\js\round1037_random_source_test.js (68.0042ms)
+MCA16-EXP-OK
+тЬФ tests\js\round1039_experience_lessons_test.js (68.2269ms)
+MCA20-TEMPORAL-UI-OK
+тЬФ tests\js\round1044_temporal_factcheck_ui_test.js (72.2354ms)
+MCA12-STORIES-UI-OK
+тЬФ tests\js\round1046_mca12_stories_ui_test.js (87.1525ms)
+MCA17C-UI-OK
+тЬФ tests\js\round1047_mca17c_ui_test.js (75.7544ms)
+[adminbot] DOMPurify ╨╜╨╡╨┤╨╛╤Б╤В╤Г╨┐╨╡╨╜ тАФ ╤В╨╡╨║╤Б╤В ╨▒╨╡╨╖ HTML
+JS-UNIT-OK
+тЬФ tests\js\routing_test.js (115.7422ms)
+SOUL1-W5-PANEL-OK
+тЬФ tests\js\soul1_w5_initiative_panel_test.js (90.8314ms)
+VUE-MOUNT-OK
+тЬФ tests\js\vue_mount_test.js (71.1034ms)
+тД╣ tests 90
+тД╣ suites 0
+тД╣ pass 90
+тД╣ fail 0
+тД╣ cancelled 0
+тД╣ skipped 0
+тД╣ todo 0
+тД╣ duration_ms 801.414

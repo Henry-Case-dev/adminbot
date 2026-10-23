@@ -1,0 +1,2 @@
+﻿DDL statements in diff 95803de0..HEAD (services/ web/ config/ scripts/ tools/): 0
+RESULT: deltaDDL=0

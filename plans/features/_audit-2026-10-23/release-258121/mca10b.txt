@@ -1,0 +1,10 @@
+python.exe : 
+C:\Users\main\AppData\Local\Temp\opencode\g_focused.ps1:19 знак:3
++   & $py -m pytest $g.file -q -p no:cacheprovider 2>&1 | Tee-Object -F ...
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+WARNING: closed 7 leaked aiosqlite connection(s)
+.................                                                        [100%]
+17 passed in 4.76s
