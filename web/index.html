@@ -7890,22 +7890,26 @@
                          :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('core') ? 'conflict' : (speechCanRetry('core') ? 'error' : (speechCoreDirtyCurrent() ? 'dirty' : 'saved')))">
                       <span class="text-xs">
                         <template v-if="speechConflictFor('core')">Конфликт: {{ speechConflictFor('core').text }}</template>
+                        <template v-else-if="speechCanRetry('core')">Сохранить не удалось — ввод сохранён</template>
                         <template v-else-if="speechCoreDirtyCurrent()">Не сохранено:
                           {{ speechCoreEdition === 'full' ? 'полная редакция' : 'компактная редакция' }}
                           ({{ speechCoreEditionChars() }} зн.)</template>
-                        <template v-else-if="speechCanRetry('core')">Сохранить не удалось — ввод сохранён</template>
                         <template v-else>{{ speechSavedText('core') }}</template>
                       </span>
                       <button v-if="speechConflictFor('core')" type="button"
                               class="btn-ghost text-sm" data-speech-save-refresh
                               @click="loadSpeechSection('core', true)">Обновить данные</button>
-                      <button v-else-if="speechCoreDirtyCurrent() || speechCanRetry('core')"
+                      <!-- B2 (ревью W4): ровно ОДИН главный CTA на состояние:
+                           error → повтор той же отправки; dirty → сохранить;
+                           conflict → только обновление данных (без повтора). -->
+                      <button v-else-if="speechCanRetry('core') && !speechConflictFor('core')" type="button"
+                              class="btn-ghost text-sm" data-speech-save-retry
+                              :disabled="speechBusy"
+                              @click="retrySpeechSave()">Повторить сохранение</button>
+                      <button v-else-if="speechCoreDirtyCurrent()"
                               type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechCore.can_edit"
                               @click="saveSpeechCore()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
-                      <button v-if="speechCanRetry('core')" type="button"
-                              class="btn-ghost text-sm" :disabled="speechBusy"
-                              @click="retrySpeechSave()">Повторить сохранение</button>
                     </div>
 
                     <details class="speech-adv" data-speech-core-more>
@@ -8132,21 +8136,22 @@
                          :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('style') ? 'conflict' : (speechCanRetry('style') ? 'error' : (speechDirty.style ? 'dirty' : 'saved')))">
                       <span class="text-xs">
                         <template v-if="speechConflictFor('style')">Конфликт: {{ speechConflictFor('style').text }}</template>
+                        <template v-else-if="speechCanRetry('style')">Сохранить не удалось — правки сохранены</template>
                         <template v-else-if="speechDirty.style">Не сохранено: правила письма
                           ({{ speechStyleViewRules().length }} у вас, {{ speechStyleServerRuleCount() }} на сервере)</template>
-                        <template v-else-if="speechCanRetry('style')">Сохранить не удалось — правки сохранены</template>
                         <template v-else>{{ speechSavedText('style') }}</template>
                       </span>
                       <button v-if="speechConflictFor('style')" type="button"
                               class="btn-ghost text-sm" data-speech-save-refresh
                               @click="loadSpeechSection('style', true)">Обновить данные</button>
-                      <button v-else-if="speechDirty.style || speechCanRetry('style')"
+                      <button v-else-if="speechCanRetry('style') && !speechConflictFor('style')" type="button"
+                              class="btn-ghost text-sm" data-speech-save-retry
+                              :disabled="speechBusy"
+                              @click="retrySpeechSave()">Повторить сохранение</button>
+                      <button v-else-if="speechDirty.style"
                               type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechStyle.can_edit"
                               @click="saveSpeechStyle()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
-                      <button v-if="speechCanRetry('style')" type="button"
-                              class="btn-ghost text-sm" :disabled="speechBusy"
-                              @click="retrySpeechSave()">Повторить сохранение</button>
                     </div>
                   </div>
                 </template>
@@ -8292,20 +8297,21 @@
                          :data-speech-save-state="speechBusy ? 'saving' : (speechConflictFor('expression') ? 'conflict' : (speechCanRetry('expression') ? 'error' : (speechDirty.expression ? 'dirty' : 'saved')))">
                       <span class="text-xs">
                         <template v-if="speechConflictFor('expression')">Конфликт: {{ speechConflictFor('expression').text }}</template>
-                        <template v-else-if="speechDirty.expression">Не сохранено: манера речи</template>
                         <template v-else-if="speechCanRetry('expression')">Сохранить не удалось — настройки сохранены</template>
+                        <template v-else-if="speechDirty.expression">Не сохранено: манера речи</template>
                         <template v-else>{{ speechSavedText('expression') }}</template>
                       </span>
                       <button v-if="speechConflictFor('expression')" type="button"
                               class="btn-ghost text-sm" data-speech-save-refresh
                               @click="loadSpeechSection('expression', true)">Обновить данные</button>
-                      <button v-else-if="speechDirty.expression || speechCanRetry('expression')"
+                      <button v-else-if="speechCanRetry('expression') && !speechConflictFor('expression')" type="button"
+                              class="btn-ghost text-sm" data-speech-save-retry
+                              :disabled="speechBusy"
+                              @click="retrySpeechSave()">Повторить сохранение</button>
+                      <button v-else-if="speechDirty.expression"
                               type="button" class="btn-accent text-sm" data-speech-save-primary
                               :disabled="speechBusy || !speechExpression.can_edit"
                               @click="saveSpeechExpression()">{{ speechBusy ? 'Сохранение…' : 'Сохранить' }}</button>
-                      <button v-if="speechCanRetry('expression')" type="button"
-                              class="btn-ghost text-sm" :disabled="speechBusy"
-                              @click="retrySpeechSave()">Повторить сохранение</button>
                     </div>
                   </div>
                 </template>

@@ -19681,6 +19681,13 @@
         delete next[section];
         this.speechSaved = next;
       },
+      // N2 (ревью W4): зелёный тост «Сохранено…» не должен переживать новую
+      // попытку сохранения — иначе рядом с 409/503 виден «успех».
+      dismissSpeechSavedToast: function () {
+        this.toasts = (this.toasts || []).filter(function (t) {
+          return String(t.text || '').indexOf('Сохранено') !== 0;
+        });
+      },
       speechSavedText: function (section) {
         var stamp = (this.speechSaved || {})[section];
         return stamp ? ('Сохранено ✓ ' + stamp) : '';
@@ -19784,6 +19791,10 @@
         }
         var msg = this.speechErrText(e);
         if (e.status === 409) {
+          // B2 (ревью W4): 409 — не «повтори тот же payload». Любой конфликт
+          // версии/валидации снимает retry, иначе «Повторить сохранение»
+          // обходило защиту и перезаписывало чужую редакцию вслепую.
+          this.speechRetry = null;
           if (msg.indexOf('документ не прошёл проверку') >= 0) {
             this.toast(msg + ' — исправьте и сохраните снова', 'warn');
             return;
@@ -19870,25 +19881,57 @@
         this.speechSection = '';
       },
       openSpeechSection: function (id) {
-        if (!id) return;
+        if (!id) return null;
         this.speechSection = id;
         this.speechSectionLoading = !this.speechLoaded[id];
-        if (!this.speechLoaded[id]) this.loadSpeechSection(id);
+        // B1 (ревью W4): возвращаем промис первой загрузки, чтобы вызывающий
+        // мог дождаться отрисованного раздела, а не прокручивать к ещё пустому
+        // DOM (иначе detail «прыгает» после прихода списка).
+        var load = this.speechLoaded[id] ? null : this.loadSpeechSection(id);
         this.scrollSpeechTop();
+        return load;
       },
       // ASAP-speech-arch U-02 (§8): каждый ряд карты сборки либо реально
       // открывает своё место редактирования, либо честно помечен read-only.
       // Нет 'section' — открываем блок каталога «Все инструкции» по его id
       // (тот же редактор, что и из библиотеки промптов; копий нет).
-      openSpeechLayerRow: function (node) {
+      // B1 (ревью W4): реестр отфильтровывается по этому ключу, и после
+      // загрузки detail прокручивается в видимую область — иначе пользователь
+      // видел верх списка из 77 блоков, а не выбранный (U-02/§6 «не скроллит
+      // в пустоту»).
+      openSpeechLayerRow: async function (node) {
         if (!node) return;
         if (node.section) { this.openSpeechSection(node.section); return; }
-        if (node.block_id) {
-          this.openSpeechSection('all');
-          this.speechQuery = '';
-          this.speechFamily = '';
-          this.openSpeechBlock(node.block_id);
+        if (!node.block_id) return;
+        var load = this.openSpeechSection('all');
+        this.speechFamily = '';
+        // Реестр отфильтрован по ключу: в списке остаётся ровно выбранный блок,
+        // поэтому detail-карточка оказывается сразу под ним.
+        this.speechQuery = String(node.block_id);
+        await Promise.all([load, this.openSpeechBlock(node.block_id)]);
+        var reveal = function (force) {
+          try {
+            var el = document.querySelector('.speech-section [data-speech-block-detail]');
+            if (!el || !el.getBoundingClientRect) return;
+            var r = el.getBoundingClientRect();
+            var head = document.querySelector('.main-header');
+            var headBottom = head ? head.getBoundingClientRect().bottom : 0;
+            // Явный клик по ряду — это навигация: ставим карточку под шапку,
+            // даже если её верх уже формально виден (иначе от 738-пиксельной
+            // карточки на экране остаётся только заголовок).
+            if (!force && r.top >= headBottom - 2
+                && r.top < window.innerHeight - 40) return;
+            if (el.scrollIntoView) el.scrollIntoView({ block: 'start' });
+          } catch (e) { /* вне DOM */ }
+        };
+        if (this.$nextTick) {
+          this.$nextTick(function () { reveal(true); });
+        } else {
+          reveal(true);
         }
+        // Второй проход после раскладки (шрифты/растущие редакторы): если
+        // карточка уже в виду, reveal ничего не меняет.
+        setTimeout(function () { reveal(false); }, 80);
       },
       scrollSpeechTop: function () {
         try {
@@ -20071,6 +20114,10 @@
         var self = this;
         var edition = this.speechCoreEdition;
         this.speechBusy = true;
+        // N2 (ревью W4): старый зелёный «Сохранено…» не должен висеть рядом с
+        // новой попыткой/ошибкой — новая запись начинается с чистого статуса.
+        this.clearSpeechSaved('core');
+        this.dismissSpeechSavedToast();
         try {
           var res = await this.api('/api/speech/block/' + blockId, {
             method: 'POST',
@@ -20394,6 +20441,8 @@
         if (this.speechBusy) return;
         var self = this;
         this.speechBusy = true;
+        this.clearSpeechSaved('style');
+        this.dismissSpeechSavedToast();
         try {
           var res = await this.api('/api/speech/style', {
             method: 'POST',
@@ -20589,6 +20638,8 @@
         if (this.speechBusy) return;
         var self = this;
         this.speechBusy = true;
+        this.clearSpeechSaved('expression');
+        this.dismissSpeechSavedToast();
         try {
           var draft = this.speechExpressionDraft || {};
           var res = await this.api('/api/speech/expression', {
@@ -21329,6 +21380,7 @@
         if (!detail || this.speechBusy) return;
         var self = this;
         this.speechBusy = true;
+        this.dismissSpeechSavedToast();
         try {
           await this.api('/api/speech/block/' + encodeURIComponent(detail.block_id), {
             method: 'POST',
