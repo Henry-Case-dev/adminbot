@@ -9416,19 +9416,26 @@ async def _validate_plan_target(db, chat_id: int, plan, *,
 
 async def _execute_initiative_react(bot, db, chat_id: int, decision,
                                     l1_plan, delivery_kind: str, *,
-                                    writer_service=None) -> dict:
+                                    writer_service=None,
+                                    correlation_id: str | None = None) -> dict:
     """L1D (директива 22.10 §5-D/§7): исполнение реакции, выбранной L1.
 
     Реакция — ТОЛЬКО существующий механизм ``react_moai``; цель — только
     ``target_message_id`` из плана, прошедшая техническую проверку (§6).
     Валидной реакции/цели нет → честное молчание БЕЗ произвольной
     перепривязки цели и БЕЗ превращения реакции в текст. Никогда не
-    бросает (возвращает R17-safe статус)."""
+    бросает (возвращает R17-safe статус).
+
+    Аудит доставки 24.10.2026 (G1/G2/G7): решение пишет `action=react`
+    (не `reply`) и выбранную форму; успешная реакция фиксирует ФАКТ в
+    существующем событии доставки (`form:react`, `reply:<tg_id>`)."""
     reaction = getattr(l1_plan, "reaction", None)
     if reaction not in _llm_react.ALLOWED_LLM_REACTIONS:
         reaction = None
     target_tg, code = await _validate_plan_target(
         db, chat_id, l1_plan, mode="react")
+    plan_target = _plan_target_message_id(l1_plan)
+    plan_user = _plan_semantic_addressee(l1_plan)
     if reaction is not None and target_tg is not None:
         mech = reaction_mechanics_enabled()
         outcome_code = await react_moai(
@@ -9437,8 +9444,20 @@ async def _execute_initiative_react(bot, db, chat_id: int, decision,
             reason_code="l1_react")
         if writer_service is not None:
             await _f6_plan_next_check(db, decision)
-        _mca_intents.note_decision(decision, chat_id=chat_id,
-                                   outcome="ok", reason_code="l1_react")
+        _mca_intents.note_decision(
+            decision, chat_id=chat_id, outcome="ok", reason_code="l1_react",
+            action="react", delivery="react", delivery_kind="react",
+            target_message_id=plan_target, target_user_id=plan_user,
+            correlation_id=correlation_id)
+        # G7: фактическая форма — в существующем событии доставки (текста
+        # нет, ревизии манифеста честно пусты, `msg:-`).
+        try:
+            _mca_intents.note_delivery_manifest(
+                chat_id=chat_id, correlation_id=str(correlation_id or ""),
+                reply_to=target_tg, delivery="react", delivery_form="react")
+        except Exception:
+            logger.warning("[mca09] initiative react delivery event failed",
+                           exc_info=True)
         if decision.intent_id and db is not None:
             try:
                 await _mca_intents.get_service(db).mark_attempt(
@@ -9455,8 +9474,11 @@ async def _execute_initiative_react(bot, db, chat_id: int, decision,
                    "reason=%s", chat_id, code or "invalid_reaction")
     if writer_service is not None:
         await _f6_plan_next_check(db, decision)
-    _mca_intents.note_decision(decision, chat_id=chat_id,
-                               outcome="silent", reason_code="l1_react")
+    _mca_intents.note_decision(
+        decision, chat_id=chat_id, outcome="silent",
+        reason_code=(code or "l1_react"), action="react", delivery="react",
+        delivery_kind="react", target_message_id=plan_target,
+        target_user_id=plan_user, correlation_id=correlation_id)
     return {"status": "silent", "delivery_kind": delivery_kind,
             "reason_code": "l1_react", "decision": decision}
 
@@ -9554,8 +9576,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             # каждые 300 с; bounded backoff, expiry/hygiene ограничивают).
             if writer_service is not None:
                 await _f6_plan_next_check(db, decision)
-            _mca_intents.note_decision(decision, chat_id=chat_id,
-                                       outcome="silent")
+            _mca_intents.note_decision(
+                decision, chat_id=chat_id, outcome="silent",
+                action="silent", delivery_kind="silent",
+                correlation_id=correlation_id)
             return {"status": "silent", "delivery_kind": kind,
                     "decision": decision}
         if kind != _mca_intents.DELIVERY_TEXT:
@@ -9563,9 +9587,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             # + планирование (не candidate_ready — генерации для них нет).
             if writer_service is not None:
                 await _f6_plan_next_check(db, decision)
-            _mca_intents.note_decision(decision, chat_id=chat_id,
-                                       outcome="silent",
-                                       reason_code="delivery_not_text")
+            _mca_intents.note_decision(
+                decision, chat_id=chat_id, outcome="silent",
+                reason_code="delivery_not_text",
+                delivery_kind=kind, correlation_id=correlation_id)
             return {"status": "silent", "delivery_kind": kind,
                     "reason_code": "delivery_not_text", "decision": decision}
         if not prepared_text and writer_service is None:
@@ -9596,8 +9621,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 except Exception:
                     logger.warning("[mca09] candidate planning failed",
                                    exc_info=True)
-            _mca_intents.note_decision(decision, chat_id=chat_id,
-                                       outcome="candidate_ready")
+            _mca_intents.note_decision(
+                decision, chat_id=chat_id, outcome="candidate_ready",
+                delivery_kind="text", correlation_id=correlation_id)
             return {"status": "candidate_ready", "delivery_kind": kind,
                     "next_check_at": decision.next_check_at,
                     "decision": decision}
@@ -9613,9 +9639,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             if intent_row is None or str(intent_row.get("status") or "") \
                     not in ("pending", "deferred"):
                 # намерение исчезло/закрыто, пока кандидат ждал тик
-                _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="cancelled",
-                                           reason_code="intent_closed")
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="cancelled",
+                    reason_code="intent_closed", delivery_kind="text",
+                    correlation_id=correlation_id)
                 return {"status": "cancelled", "reason_code": "intent_closed",
                         "delivery_kind": kind, "decision": decision}
         else:
@@ -9634,17 +9661,19 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     await _f6_close_intent(db, decision.intent_id,
                                            status="fulfilled",
                                            reason_code="already_answered")
-                    _mca_intents.note_decision(decision, chat_id=chat_id,
-                                               outcome="cancelled",
-                                               reason_code="already_answered")
+                    _mca_intents.note_decision(
+                        decision, chat_id=chat_id, outcome="cancelled",
+                        reason_code="already_answered", delivery_kind="text",
+                        correlation_id=correlation_id)
                     return {"status": "cancelled",
                             "reason_code": "already_answered",
                             "delivery_kind": kind, "decision": decision}
                 if pre.direct_request_pending:
                     await _f6_plan_next_check(db, decision)
-                    _mca_intents.note_decision(decision, chat_id=chat_id,
-                                               outcome="cancelled",
-                                               reason_code="direct_pending")
+                    _mca_intents.note_decision(
+                        decision, chat_id=chat_id, outcome="cancelled",
+                        reason_code="direct_pending", delivery_kind="text",
+                        correlation_id=correlation_id)
                     return {"status": "cancelled",
                             "reason_code": "direct_pending",
                             "delivery_kind": kind, "decision": decision}
@@ -9655,9 +9684,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 chat_id, intent_row or {}, correlation_id=correlation_id)
             if l1_plan is None:
                 await _f6_plan_next_check(db, decision)
-                _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="silent",
-                                           reason_code="l1_unavailable")
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="silent",
+                    reason_code="l1_unavailable", delivery_kind="text",
+                    correlation_id=correlation_id)
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "l1_unavailable",
                         "decision": decision}
@@ -9665,12 +9695,14 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 # L1D §5-D: поддерживаемая реакция исполняется без текста.
                 return await _execute_initiative_react(
                     bot, db, chat_id, decision, l1_plan, kind,
-                    writer_service=writer_service)
+                    writer_service=writer_service,
+                    correlation_id=correlation_id)
             if getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
-                _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="silent",
-                                           reason_code="l1_silent")
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="silent",
+                    reason_code="l1_silent", action="silent",
+                    delivery_kind="silent", correlation_id=correlation_id)
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "l1_silent", "decision": decision}
             prepared_text = await writer_service.generate_initiative_reply(
@@ -9690,8 +9722,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                         logger.warning(
                             "[f6] writer failure bookkeeping failed",
                             exc_info=True)
-                _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="writer_failed")
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="writer_failed",
+                    delivery_kind="text", correlation_id=correlation_id)
                 return {"status": "writer_failed", "outcome": outcome,
                         "delivery_kind": kind, "decision": decision}
             # F6 (§13.3): событие генерации (trigger=initiative) для funnel.
@@ -9748,12 +9781,14 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 # исполняется, а не демотируется молча.
                 return await _execute_initiative_react(
                     bot, db, chat_id, decision, l1_plan, kind,
-                    writer_service=writer_service)
+                    writer_service=writer_service,
+                    correlation_id=correlation_id)
             if l1_plan is None or getattr(l1_plan, "action", "") != "reply":
                 await _f6_plan_next_check(db, decision)
-                _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="silent",
-                                           reason_code="recheck_demoted")
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="silent",
+                    reason_code="recheck_demoted", action="silent",
+                    delivery_kind="silent", correlation_id=correlation_id)
                 return {"status": "silent", "delivery_kind": kind,
                         "reason_code": "recheck_demoted",
                         "decision": decision}
@@ -9771,8 +9806,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                         logger.warning(
                             "[f6] writer failure bookkeeping failed",
                             exc_info=True)
-                _mca_intents.note_decision(decision, chat_id=chat_id,
-                                           outcome="writer_failed")
+                _mca_intents.note_decision(
+                    decision, chat_id=chat_id, outcome="writer_failed",
+                    delivery_kind="text", correlation_id=correlation_id)
                 return {"status": "writer_failed", "outcome": outcome,
                         "delivery_kind": kind, "decision": decision}
             _mca_intents.note_writer_generated(chat_id=chat_id,
@@ -9812,6 +9848,13 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         reply_target_id = None
         binding_code = ""
         semantic_addressee = None
+        # G1 (аудит 24.10.2026): выбранная L1 форма и цель — в событие решения;
+        # G7: фактическая форма — в событие доставки. Только ID/enum, без текста.
+        plan_target_id = (_plan_target_message_id(l1_plan)
+                          if l1_plan is not None else None)
+        chosen_delivery = (str(getattr(l1_plan, "delivery", "") or "")
+                           if l1_plan is not None else "")
+        actual_reply_id = None
         if l1_plan is not None:
             semantic_addressee = _plan_semantic_addressee(l1_plan)
             if _l1.reply_binding_requested(l1_plan):
@@ -9829,7 +9872,12 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                             await _f6_plan_next_check(db, decision)
                         _mca_intents.note_decision(
                             decision, chat_id=chat_id, outcome="cancelled",
-                            reason_code=binding_code)
+                            reason_code=binding_code, action="reply",
+                            delivery="reply", delivery_kind="text",
+                            target_message_id=plan_target_id,
+                            target_user_id=semantic_addressee,
+                            addressee_user_id=semantic_addressee,
+                            correlation_id=correlation_id)
                         return {"status": "cancelled",
                                 "reason_code": binding_code,
                                 "delivery_kind": kind,
@@ -9842,6 +9890,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 message = await _tg_send.send_text(
                     bot, chat_id, chunk,
                     **({"reply_to_message_id": reply_id} if reply_id else {}))
+                if reply_id and actual_reply_id is None:
+                    actual_reply_id = reply_id     # фактический reply_to (G4)
             except TelegramBadRequest as exc:
                 # Цель исчезла к моменту отправки: та же семантика решения —
                 # fail-soft (один повтор без reply) для самостоятельного
@@ -9856,17 +9906,35 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                         await _f6_plan_next_check(db, decision)
                     _mca_intents.note_decision(
                         decision, chat_id=chat_id, outcome="cancelled",
-                        reason_code="target_gone")
+                        reason_code="target_gone", action="reply",
+                        delivery="reply", delivery_kind="text",
+                        target_message_id=plan_target_id,
+                        target_user_id=semantic_addressee,
+                        addressee_user_id=semantic_addressee,
+                        correlation_id=correlation_id)
                     return {"status": "cancelled",
                             "reason_code": "target_gone",
                             "delivery_kind": kind, "decision": decision}
                 logger.warning("[mca09] initiative reply target gone — "
                                "retry without reply | chat=%s msg=%s",
                                chat_id, reply_id, exc_info=True)
+                binding_code = binding_code or "target_gone"
                 message = await _tg_send.send_text(bot, chat_id, chunk)
             sent += 1
             if sent_id is None:
                 sent_id = getattr(message, "message_id", None)
+        # G7: фактическая форма текстовой доставки и причина расхождения с
+        # выбранной L1 формой (reply → chat при недоступной/исчезнувшей цели).
+        actual_form = "reply" if actual_reply_id else "chat"
+        delivery_mismatch = ""
+        if chosen_delivery == "reply" and actual_form != "reply":
+            delivery_mismatch = (binding_code
+                                 or _mca_intents.MISMATCH_REPLY_UNAVAILABLE)
+        try:
+            opportunity_addressee = int(
+                (opportunity_row or {}).get("addressee_user_id") or 0) or None
+        except (TypeError, ValueError):
+            opportunity_addressee = None
         # ── mca-10b (ADR-1028-17 D6, T-5055): `last_used_in_chat_at` —
         # ТОЛЬКО после подтверждённой доставки (сон/поиск ≠ рассказ, R6d).
         if selected_candidate_ref is not None and db is not None:
@@ -9893,6 +9961,9 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     bot_user_id=getattr(bot, "id", None),
                     output_kind=direct_output_kind(TRIGGER_INITIATIVE),
                     sent_at=int(time.time()), correlation_id=correlation_id,
+                    # G4: фактический Telegram-reply (как у Direct-пути).
+                    parent_message_ref=(f"tg:{actual_reply_id}"
+                                        if actual_reply_id else None),
                     source_feature="mca09_intents")
             except Exception:
                 logger.warning("[mca09] initiative ledger failed",
@@ -9941,11 +10012,21 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                 message_id=sent_id, core_revision=_core_rev,
                 style_policy_revision=_policy_rev,
                 identity_revision=_identity_rev, manifest_id=_manifest_id,
-                composer_state=_composer_state)
+                composer_state=_composer_state,
+                reply_to=actual_reply_id, delivery=chosen_delivery,
+                delivery_form=actual_form, mismatch=delivery_mismatch)
         except Exception:
             logger.warning("[soul1] initiative manifest event failed",
                            exc_info=True)
-        _mca_intents.note_decision(decision, chat_id=chat_id, outcome="ok")
+        _mca_intents.note_decision(
+            decision, chat_id=chat_id, outcome="ok", action="reply",
+            delivery=(chosen_delivery or None), delivery_kind="text",
+            target_message_id=plan_target_id,
+            target_user_id=semantic_addressee,
+            addressee_user_id=(opportunity_addressee
+                               if opportunity_addressee is not None
+                               else semantic_addressee),
+            correlation_id=correlation_id)
         logger.info(
             "[mca09] initiative sent | chat=%s | kind=%s | chunks=%d | "
             "trigger=%s | generated=%s", chat_id, kind, sent,

@@ -161,7 +161,7 @@ def test_reason_codes_269():
     # unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/
     # semantic_parse_error; честные исходы observer инициативы и
     # семантического опыта, §17.2 — словарь расширяемый).
-    assert len(mca_events.REASON_CODES) == 302       # 285 → 290
+    assert len(mca_events.REASON_CODES) == 309       # 285 → 290
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
     # (spec §8.5).

@@ -109,6 +109,17 @@ def _token_value(tokens: list[str], prefix: str) -> str:
     return ""
 
 
+def _split_decision_status(raw) -> tuple[str, str]:
+    """G2: `status` = `action.delivery_kind` (`reply.text`, `react.react`).
+
+    Старые события (до 24.10.2026) писали только action без `.` — читаются
+    ровно как раньше: `("reply", "")`. Незнакомый формат не теряется:
+    первая часть остаётся действием."""
+    text = str(raw or "")
+    action, _, kind = text.partition(".")
+    return action, kind
+
+
 async def _event_rows(db, since_ts: int, chat_id: int | None,
                       names: tuple | None = None) -> list[dict]:
     """События окна как словари (`SELECT *`; схема-терпимо)."""
@@ -165,9 +176,17 @@ async def _decision_rows(db, since_ts: int, chat_id: int | None,
     for row in rows[:max(1, int(limit))]:
         code = str(row.get("reason_code") or "")
         tokens = _tokens_of(row)
+        action, delivery_kind = _split_decision_status(row.get("status"))
         out.append({
             "ts": _int(row.get("ts")),
-            "action": str(row.get("status") or ""),
+            "action": action,
+            "delivery_kind": delivery_kind,
+            "delivery": _token_value(tokens, "delivery"),
+            "target_message_id": _token_value(tokens, "tgt"),
+            "target_user_id": _token_value(tokens, "tgt_user"),
+            "addressee_user_id": _token_value(tokens, "addr"),
+            "correlation_id": (str(row.get("trace_id") or "")
+                               or _token_value(tokens, "corr")),
             "outcome": str(row.get("outcome") or ""),
             "reason_code": code,
             "reason_label": obs.reason_label(code),
@@ -199,7 +218,8 @@ async def _action_counts(db, since_ts: int, chat_id: int | None) -> dict:
     rows = await _event_rows(db, since_ts, chat_id, (DECIDED_EVENT,))
     out = {"say": 0, "react": 0, "silent": 0, "cancelled": 0, "other": 0}
     for row in rows:
-        action = str(row.get("status") or "")
+        # G2: `action.delivery_kind`; старая запись без `.` — только action.
+        action, _kind = _split_decision_status(row.get("status"))
         if str(row.get("outcome") or "") == "cancelled":
             out["cancelled"] += 1
             continue
@@ -365,6 +385,10 @@ async def _manifest_refs(db, since_ts: int, chat_id: int | None) -> dict:
             "identity_revision": _token_value(tokens, "identity"),
             "manifest_id": _token_value(tokens, "manifest"),
             "composer": _token_value(tokens, "composer"),
+            "delivery": _token_value(tokens, "delivery"),
+            "delivery_form": _token_value(tokens, "form"),
+            "reply_to": _token_value(tokens, "reply"),
+            "delivery_mismatch": _token_value(tokens, "mismatch"),
             "manifest_ts": _int(row.get("ts")),
             "manifest_message_id": None,
         }
@@ -385,17 +409,40 @@ async def _manifest_refs(db, since_ts: int, chat_id: int | None) -> dict:
 
 
 def _parse_manifest_version(raw: str) -> dict:
-    """`core=<rev>;style=<rev>;identity=<rev>;manifest=<id>` → словарь."""
+    """Сводка `config_version` → словарь (три формата).
+
+    Новый (24.10.2026): `core.<rev>_style.<rev>_ident.<rev>_man.<id>_c.<on>`
+    — единственный формат, переживающий R17 code-валидатор (≤64 символа,
+    только `[A-Za-z0-9_.:-]`); полные ревизии — в токенах события.
+    Старый `core=<rev>;style=...` читается как раньше (обратная
+    совместимость уже записанных событий)."""
     out = {"core_revision": "", "style_policy_revision": "",
            "identity_revision": "", "manifest_id": "", "composer": ""}
-    for part in str(raw or "").split(";"):
+    text = str(raw or "")
+    if not text:
+        return out
+    keys = {"core": "core_revision", "style": "style_policy_revision",
+            "ident": "identity_revision", "identity": "identity_revision",
+            "man": "manifest_id", "manifest": "manifest_id",
+            "c": "composer", "composer": "composer"}
+    if "=" not in text and "_" in text:
+        for part in text.split("_"):
+            key, _, value = part.partition(".")
+            target = keys.get(key.strip())
+            value = value.strip()
+            if target and value and value != "-":
+                out[target] = value
+        return out
+    if "=" not in text:
+        return out
+    for part in text.split(";"):
         if "=" not in part:
             continue
         key, value = part.split("=", 1)
-        key = key.strip()
+        target = keys.get(key.strip())
         value = value.strip()
-        if key in out and value != "-":
-            out[key] = value
+        if target and value and value != "-":
+            out[target] = value
     return out
 
 
@@ -476,6 +523,12 @@ async def collect_window(db, *, hours: int = 24, chat_id: int | None = None,
             "identity_revision": str(ref.get("identity_revision") or ""),
             "manifest_id": str(ref.get("manifest_id") or ""),
             "composer": str(ref.get("composer") or ""),
+            # G1/G7 (аудит 24.10.2026): фактическая форма доставки и цель
+            # reply из существующего события манифеста (без сырого текста).
+            "delivery": str(ref.get("delivery") or ""),
+            "delivery_form": str(ref.get("delivery_form") or ""),
+            "reply_to": str(ref.get("reply_to") or ""),
+            "delivery_mismatch": str(ref.get("delivery_mismatch") or ""),
             "ledger_output_id": row["output_id"],
         })
     latency = await _latency(db, since, chat_id)

@@ -320,7 +320,7 @@ class TestObservabilityContract:
         # mca-17c (round 10.47): 279 → 280 (+1 oversight_job_action).
         # ASAP 8 (F6): 280 → 285 (+5 инициативы — вне observability-стадий).
         # v6.3 B01/B02 (W1-CHAT-INTEL): 285→290 (+5: initiative_writer_unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/semantic_parse_error).
-        assert len(mca_events.REASON_CODES) == 302
+        assert len(mca_events.REASON_CODES) == 309
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \
             <= mca_events.REASON_CODES
