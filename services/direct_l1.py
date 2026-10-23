@@ -644,6 +644,18 @@ L1_PERSONA_FRAME_CHARS = 400  # голова character_block
 L1_REPLY_BLOCK_CHARS = 400
 L1_WINDOW_LINE_CHARS = 200
 
+# ASAP2 T10-BOUNDARY / CLAR-CTX-HONEST (§6.1 #10, §3.4, §3.5 source):
+# единственная честная пометка о том, что видна не вся история. Факт берётся
+# у самого кода (усечение вызовом/лимитом окна/`_cap_context`), анализаторов
+# и порогов нет. В ответе канон L2 (chat_prompts.py:515/:521) велит называть
+# границу знания обычными словами и не публиковать служебные метки.
+HISTORY_SCOPE_SECTION = "ГРАНИЦА ИСТОРИИ"
+HISTORY_PARTIAL_LINE = (
+    "показана только часть истории чата: более ранние сообщения в этот "
+    "пакет не переданы")
+#: Та же пометка для строки-анонса L2 (Global_Context): "... (…)".
+HISTORY_PARTIAL_INLINE = "более ранняя история не передана"
+
 
 def build_l1_context(*, query, current_question: str = "",
                      reply_block: str = "", window=None,
@@ -654,7 +666,8 @@ def build_l1_context(*, query, current_question: str = "",
                      bot_replies: tuple[str, ...] = (),
                      budget_tokens: int | None = None,
                      with_ids: bool = False,
-                     alias_resolver=None) -> str:
+                     alias_resolver=None,
+                     history_partial: bool = False) -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
     дет. деградация — сначала сокращается окно (заголовки/сообщение/
@@ -662,7 +675,11 @@ def build_l1_context(*, query, current_question: str = "",
     FIX-CORRECTIVE-R1 (P2): ``bot_replies`` — недавние ответы бота
     (существующая таблица bot_replies; вызывающий решает, сколько давать);
     секция даёт планеру собственную предыдущую реплику — критерий
-    «разговор уже завершён» из правила 3 канона. Никогда не бросает."""
+    «разговор уже завершён» из правила 3 канона. Никогда не бросает.
+    ASAP2 T10-BOUNDARY: ``history_partial`` — вызывающий знает, что в БД
+    есть сообщения старше видимого окна; пометка ``ГРАНИЦА ИСТОРИИ``
+    добавляется ровно по факту усечения (флаг или окно > L1_WINDOW_MESSAGES
+    либо срез ``_cap_context``) и переживает сжатие бюджета."""
     try:
         sections: list[tuple[str, str]] = []
         current = str(current_question or query or "").strip()
@@ -681,6 +698,11 @@ def build_l1_context(*, query, current_question: str = "",
                                            alias_resolver=alias_resolver)
         if window_lines:
             sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
+        # ASAP2 T10-BOUNDARY: пометка ставится ровно по факту усечения —
+        # вызывающий сказал «в БД есть более ранние сообщения»
+        # (`history_partial`) ИЛИ окно не влезло в L1_WINDOW_MESSAGES.
+        if bool(history_partial) or len(tuple(window or ())) > L1_WINDOW_MESSAGES:
+            sections.append((HISTORY_SCOPE_SECTION, HISTORY_PARTIAL_LINE))
         speaker = str(speaker or "неизвестно").strip()
         addressee = str(addressee or "чат").strip()
         sections.append(("УЧАСТНИКИ",
@@ -718,7 +740,7 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         if count_tokens(text) <= budget:
             return text
         protected = {"СООБЩЕНИЕ", "УЧАСТНИКИ", "ДОСТУПНЫЕ ВОЗМОЖНОСТИ",
-                     "УСЛОВИЯ"}
+                     "УСЛОВИЯ", HISTORY_SCOPE_SECTION}
 
         def _render(pairs) -> str:
             return "\n\n".join(f"[{name}]\n{body}" for name, body in pairs)
@@ -727,13 +749,21 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
         # Шаг 1: окно сокращается первым (10 → 5 → 0 строк).
         for window_cap in (10, 5, 0):
             rebuilt = []
+            _has_note = any(n == HISTORY_SCOPE_SECTION for n, _ in pairs)
             for name, body in pairs:
                 if name == "ПОСЛЕДНИЕ СООБЩЕНИЯ":
-                    lines = body.splitlines()[-window_cap:] if window_cap \
-                        else []
-                    if not lines:
-                        continue
-                    body = "\n".join(lines)
+                    lines = body.splitlines()
+                    kept = lines[-window_cap:] if window_cap else []
+                    # T10-BOUNDARY: строки реально отброшены — факт, а не
+                    # эвристика; пометка переживает дальнейшее сжатие
+                    # (protected) и встаёт на место окна, если оно ушло всё.
+                    dropped = len(kept) < len(lines)
+                    if kept:
+                        rebuilt.append((name, "\n".join(kept)))
+                    if dropped and not _has_note:
+                        rebuilt.append((HISTORY_SCOPE_SECTION,
+                                        HISTORY_PARTIAL_LINE))
+                    continue
                 rebuilt.append((name, body))
             pairs = rebuilt
             if count_tokens(_render(pairs)) <= budget:
