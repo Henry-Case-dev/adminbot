@@ -1,6 +1,7 @@
 # ASAP 3 Corrective — UI-фаза Style Policy и честный Inspector
 
 Lane: `ASAP3-UI` · 23.10.2026 · кандидат UI-фазы (web/** + API-клей `web/api/speech.py`).
+Code commit: `0243441452f04967611b4fd11287ef69b9e7465c`.
 Источник: `plans/features/asap3-corrective/source-2026-10-23.md` §1.2, §1.3, §1.4, §1.5.
 Дизайн: `arch-design.md` (корректировки 1 и 3), §12 «визуальный контракт» — только REFINE.
 
