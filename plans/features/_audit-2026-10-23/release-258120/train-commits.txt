@@ -1,0 +1,9 @@
+﻿RELEASE 2.58.120 / LANE RELEASE-258120
+base            41ba6bc6  (release/2.58.119, version 2.58.119, FACTORY_SET 47f0d1eb8de4)
+pick 81864863 -> cd0c4d1a  test(p0-e): align stale FREQUENT snapshots (Expression)
+pick 57efa10a -> d928708a  feat(initiative): delivery form telemetry (audit G1-G7)
+bump 2.58.119 -> 2.58.120  913cdb27
+evidence commit  (see next commit)
+FACTORY_SET 47f0d1eb8de4 == proc-119 (SET EQUAL)
+deltaDDL 0
+deploy NOT performed (prod stays 2.58.118 / 9ed68ee8)

@@ -1,0 +1,451 @@
+﻿python.exe : ----------------------------------------
+строка:1 знак:1
++ & "C:\Code\Python\adminbot\.venv\Scripts\python.exe" tools\ui_round10 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (----------------------------------------:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Exception occurred during processing of request from ('127.0.0.1', 55830)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 49310)
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\graph'
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\cognition\\status'
+
+During handling of the above exception, another exception occurred:
+
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+----------------------------------------
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 56302)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 55368)
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\cognition\\status'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\graph'
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+
+During handling of the above exception, another exception occurred:
+
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+Traceback (most recent call last):
+----------------------------------------
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 63312)
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\cognition\\status'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 49668)
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+----------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\graph'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+----------------------------------------
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 50974)
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 731, in send_head
+    f = open(path, 'rb')
+        ^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\main\\AppData\\Local\\Temp\\opencode\\rel258120\\wt
+-base118\\api\\memory\\cognition\\status'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 692, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 362, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 672, in __init__
+    super().__init__(*args, **kwargs)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 761, in __init__
+    self.handle()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 676, in do_GET
+    f = self.send_head()
+        ^^^^^^^^^^^^^^^^
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 733, in send_head
+    self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\http\server.py", line 491, in send_error
+    self.wfile.write(body)
+  File "C:\Users\main\AppData\Local\Python\pythoncore-3.12-64\Lib\socketserver.py", line 840, in write
+    self._sock.sendall(b)
+ConnectionAbortedError: [WinError 10053] ╨Я╤А╨╛╨│╤А╨░╨╝╨╝╨░ ╨╜╨░ ╨▓╨░╤И╨╡╨╝ ╤Е╨╛╤Б╤В-╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤А╨░╨╖╨╛╤А╨▓╨
+░╨╗╨░ ╤Г╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╜╨╛╨╡ ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╕╨╡
+----------------------------------------
+[matrix] config stub: items=580 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=119
+[matrix] 320x700   root: scrollW=320 innerW=320 sidebar=False bottomNav=False(0)
+[matrix] 360x780   root: scrollW=360 innerW=360 sidebar=False bottomNav=False(0)
+[matrix] 390x844   root: scrollW=390 innerW=390 sidebar=False bottomNav=False(0)
+[matrix] 430x932   root: scrollW=430 innerW=430 sidebar=False bottomNav=False(0)
+[matrix] 768x1024  root: scrollW=768 innerW=768 sidebar=False bottomNav=False(0)
+[matrix] 1024x768  root: scrollW=1024 innerW=1024 sidebar=False bottomNav=False(0)
+[matrix] 1280x800  root: scrollW=1280 innerW=1280 sidebar=True bottomNav=False(0)
+[matrix] 1440x900  root: scrollW=1440 innerW=1440 sidebar=True bottomNav=False(0)
+[matrix] 1920x1080 root: scrollW=1920 innerW=1920 sidebar=True bottomNav=False(0)
+[matrix] 2560x1440 root: scrollW=2560 innerW=2560 sidebar=True bottomNav=False(0)
+[matrix] low-tg 1280x400: failures=0 routes=19
+[matrix] failures: 178
+  ! 320x700 #/: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/oversight: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/oversight: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/how: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/how: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/modules: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/modules: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/ai: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/ai: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/ai/llm: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/ai/llm: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/ai/prompts: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/ai/prompts: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/ai/smart-cache: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/ai/smart-cache: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/ai/names: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/ai/names: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/memory: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/memory: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/memory/rag: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/memory/rag: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/memory/lore: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/memory/lore: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/access: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/access: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/permsoc: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/permsoc: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/status/graph: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/status/graph: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/modules/factcheck: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/modules/factcheck: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/modules/factcheck/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/modules/factcheck/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/modules/direct/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/modules/direct/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 #/modules/summary: ╨╜╨╡╤В bottom-nav (<768)
+  ! 320x700 #/modules/summary: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 320x700 glass: --glass-displace=''
+  ! 320x700 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 320x700 chat-scope: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/oversight: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/oversight: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/how: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/how: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/modules: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/modules: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/ai: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/ai: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/ai/llm: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/ai/llm: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/ai/prompts: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/ai/prompts: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/ai/smart-cache: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/ai/smart-cache: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/ai/names: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/ai/names: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/memory: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/memory: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/memory/rag: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/memory/rag: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/memory/lore: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/memory/lore: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/access: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/access: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/permsoc: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/permsoc: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/status/graph: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/status/graph: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/modules/factcheck: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/modules/factcheck: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/modules/factcheck/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/modules/factcheck/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/modules/direct/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/modules/direct/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 #/modules/summary: ╨╜╨╡╤В bottom-nav (<768)
+  ! 360x780 #/modules/summary: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 360x780 glass: --glass-displace=''
+  ! 360x780 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 360x780 chat-scope: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/oversight: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/oversight: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/how: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/how: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/modules: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/modules: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/ai: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/ai: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/ai/llm: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/ai/llm: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/ai/prompts: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/ai/prompts: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/ai/smart-cache: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/ai/smart-cache: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/ai/names: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/ai/names: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/memory: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/memory: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/memory/rag: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/memory/rag: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/memory/lore: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/memory/lore: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/access: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/access: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/permsoc: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/permsoc: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/status/graph: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/status/graph: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/modules/factcheck: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/modules/factcheck: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/modules/factcheck/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/modules/factcheck/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/modules/direct/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/modules/direct/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 #/modules/summary: ╨╜╨╡╤В bottom-nav (<768)
+  ! 390x844 #/modules/summary: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 glass: --glass-displace=''
+  ! 390x844 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 390x844 chat-scope: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 390x844 H9-module-modal: SaveBar ╨╜╨╡ ╨▓ footer.modal-actions
+  ! 430x932 #/: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/oversight: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/oversight: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/how: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/how: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/modules: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/modules: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/ai: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/ai: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/ai/llm: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/ai/llm: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/ai/prompts: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/ai/prompts: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/ai/smart-cache: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/ai/smart-cache: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/ai/names: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/ai/names: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/memory: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/memory: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/memory/rag: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/memory/rag: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/memory/lore: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/memory/lore: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/access: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/access: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/permsoc: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/permsoc: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/status/graph: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/status/graph: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/modules/factcheck: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/modules/factcheck: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/modules/factcheck/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/modules/factcheck/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/modules/direct/models: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/modules/direct/models: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 #/modules/summary: ╨╜╨╡╤В bottom-nav (<768)
+  ! 430x932 #/modules/summary: ╤В╨░╤З-╤Ж╨╡╨╗╤М ╤Б╨╡╨╗╨╡╨║╤В╨╛╤А╨░ 40px < 44
+  ! 430x932 glass: --glass-displace=''
+  ! 430x932 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 768x1024 glass: --glass-displace=''
+  ! 768x1024 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 768x1024 H9-module-modal: SaveBar ╨╜╨╡ ╨▓ footer.modal-actions
+  ! 1024x768 glass: --glass-displace=''
+  ! 1024x768 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 1280x800 glass: --glass-displace=''
+  ! 1280x800 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 1280x800 H9-module-modal: SaveBar ╨╜╨╡ ╨▓ footer.modal-actions
+  ! 1440x900 glass: --glass-displace=''
+  ! 1440x900 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 1920x1080 glass: --glass-displace=''
+  ! 1920x1080 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+  ! 2560x1440 glass: --glass-displace=''
+  ! 2560x1440 glass allow: ╨╜╨╕ ╨╛╨┤╨╕╨╜ [data-glass="a"] ╨╜╨╡ ╨┐╨╛╨╗╤Г╤З╨╕╨╗ tier A
+[matrix] ╨░╤А╤В╨╡╤Д╨░╨║╤В╤Л: C:\Users\main\AppData\Local\Temp\opencode\rel258120\wt-base118\tools\_ui_round1025_raw.json + C:\Users\main\AppData\Local\Temp\opencode\rel258120\wt-base118\tools\_ui_round1025_shots
