@@ -2523,15 +2523,91 @@ def generation_space_identity(row: dict | None) -> str:
     """MSI уже записанного поколения (колонки реестра + текущие константы).
 
     Revision/params в реестре не хранятся — берутся текущие (сейчас `{}`).
-    NULL-размерность → пустой MSI (провенанс неизвестен, fail-closed)."""
+    NULL-размерность → пустой MSI (провенанс неизвестен, fail-closed).
+
+    B3 (review 23.10.2026): у строк от 29.09 `preprocessing_version` может
+    быть NULL. Тогда версия предобработки выводится из СОХРАНЁННОГО
+    legacy-fingerprint (`provider|model|dims|preproc|endpoint`): если он
+    воспроизводится с текущей версией, строка построена именно с ней — MSI
+    однозначен. Не воспроизводится → пустой MSI: вызывающий обязан трактовать
+    это как `insufficient` (нет провенанса), а НЕ как «другое пространство»,
+    иначе legacy-строка запускает полную перевекторизацию."""
     row = row or {}
     dims = row.get("dims")
     model = str(row.get("model") or "")
     if not model or not dims:
         return ""
+    preprocessing_version, _source = _row_preprocessing_version(row)
+    if not preprocessing_version:
+        return ""
     return model_space_identity(
         model=model, dimension=int(dims),
-        preprocessing_version=str(row.get("preprocessing_version") or ""))
+        preprocessing_version=preprocessing_version)
+
+
+def _row_fingerprint_matches(row: dict | None,
+                             preprocessing_version: str) -> bool:
+    """B3: воспроизводится ли сохранённый fingerprint строки реестра.
+
+    Формула неизменна с MCA-07 D4 (`sha256(provider|model|dims|preproc|
+    endpoint)`); совпадение доказывает, с какой версией предобработки строка
+    была зарегистрирована (единственное несохранённое MSI-поле)."""
+    row = row or {}
+    stored = str(row.get("fingerprint") or "").strip()
+    provider = str(row.get("provider") or "").strip()
+    model = str(row.get("model") or "").strip()
+    dims = row.get("dims")
+    if not stored or not provider or not model or not dims:
+        return False
+    try:
+        from services.summary_memory import embedding_identity_fingerprint
+        calc = str(embedding_identity_fingerprint(
+            provider=provider, model=model, dims=int(dims),
+            preprocessing_version=str(preprocessing_version),
+            endpoint_fingerprint=str(row.get("endpoint_fingerprint") or "")))
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
+    return calc == stored
+
+
+def _row_preprocessing_version(row: dict | None) -> tuple[str, str]:
+    """(версия предобработки, источник) для строки реестра (B3).
+
+    `source`: `registry` — поле сохранено; `fingerprint` — NULL выведен из
+    сохранённого fingerprint; `` — провенанс недоказуем (legacy)."""
+    row = row or {}
+    stored = str(row.get("preprocessing_version") or "").strip()
+    if stored:
+        return stored, "registry"
+    current = _current_preprocessing_version()
+    if current and _row_fingerprint_matches(row, current):
+        return current, "fingerprint"
+    return "", ""
+
+
+def generation_space_provenance(row: dict | None) -> str:
+    """Откуда взят MSI строки: `registry` | `fingerprint` | `` (unknown)."""
+    try:
+        return _row_preprocessing_version(row)[1]
+    except Exception:      # pragma: no cover
+        return ""
+
+
+def _row_space_differs_provably(row: dict | None, *, model_now: str,
+                                dims_now: int | None) -> str:
+    """B3: пространство строки ДОКАЗУЕМО другое даже при неизвестном
+    `preprocessing_version` (различаются модель или размерность).
+
+    `''` — не доказано (нужен провенанс, rebuild запрещён). `identity_changed`
+    / `dimension_changed` — доказано, миграция допустима."""
+    row = row or {}
+    dims = row.get("dims")
+    if _dims_differ(dims, dims_now):
+        return "dimension_changed"
+    model = str(row.get("model") or "")
+    if model and model_now and model != str(model_now):
+        return "identity_changed"
+    return ""
 
 
 def _provider_family(base_url: str) -> str:
@@ -3051,6 +3127,12 @@ def _pick_active(rows: list[dict]) -> dict | None:
     return None
 
 
+# Статусы реестра, которые могут описывать ПРОВЕНАНС live-векторов (векторы
+# target-поколения строятся в SHADOW и в live не попадают).
+_PROVENANCE_ROW_STATUSES = frozenset({
+    "active", "building", "building_target", "catching_up", "ready"})
+
+
 def _pick_space_candidate(rows: list[dict], space_now: str) -> dict | None:
     """Строка-провенанс live-векторов при отсутствии ACTIVE.
 
@@ -3059,9 +3141,7 @@ def _pick_space_candidate(rows: list[dict], space_now: str) -> dict | None:
     space-совместимая строка, а не свежий target (иначе adopt приписал бы
     провенанс новому шлюзу). `rows` — по убыванию generation."""
     for row in reversed(rows):
-        if str(row.get("status") or "") not in ("active", "building",
-                                                "building_target",
-                                                "catching_up", "ready"):
+        if str(row.get("status") or "") not in _PROVENANCE_ROW_STATUSES:
             continue
         if generation_space_identity(row) == space_now:
             return row
@@ -3093,6 +3173,7 @@ async def resolve_index_compat(db, index_name: str, *,
     dims_now = (int(current_dims) if current_dims
                 else await _current_dim(db, index_name))
     space_now = await _current_space(db, index_name, dims=dims_now)
+    model_now = _current_model()
     conn_now = _current_conn()
     namespace = str(namespace or DEFAULT_NAMESPACE)
     fp_hint = str(current_fp or "") or await _current_fingerprint(db,
@@ -3173,8 +3254,21 @@ async def resolve_index_compat(db, index_name: str, *,
             return out
         active_space = generation_space_identity(active)
         if not active_space:
+            # B3: ACTIVE-строка без выводимого MSI. Если модель/размерность
+            # ДОКАЗУЕМО другие — это настоящая несовместимость (миграция);
+            # иначе провенанс неизвестен: ни rebuild, ни adopt.
+            differs = _row_space_differs_provably(
+                active, model_now=model_now, dims_now=dims_now)
+            if differs:
+                out["state"] = STATE_INCOMPATIBLE
+                out["reason_code"] = differs
+                out["class"] = (COMPAT_DIMENSION
+                                if differs == "dimension_changed"
+                                else COMPAT_REINDEX)
+                out["action"] = "controlled_migration"
+                return out
             out["state"] = STATE_INSUFFICIENT
-            out["reason_code"] = "provenance_unknown"
+            out["reason_code"] = "legacy_metadata_missing"
             out["action"] = "need_old_vectors"
             return out
         if active_space != space_now:
@@ -3233,6 +3327,22 @@ async def resolve_index_compat(db, index_name: str, *,
         out["state"] = STATE_INSUFFICIENT
         out["reason_code"] = "compat_not_proven"
         out["action"] = "retry_canary"
+        return out
+    unresolved = [r for r in rows
+                  if str(r.get("status") or "") in _PROVENANCE_ROW_STATUSES
+                  and not generation_space_identity(r)
+                  and not _row_space_differs_provably(
+                      r, model_now=model_now, dims_now=dims_now)]
+    if unresolved:
+        # B3 (review 23.10.2026): строки реестра есть, но их MSI не выводится
+        # (legacy-метаданные от 29.09: NULL model/dims/preprocessing и
+        # невоспроизводимый fingerprint). Провенанс live-векторов НЕИЗВЕСТЕН —
+        # это не доказательство другого пространства: полная перевекторизация
+        # и adopt запрещены, ждём восстановления провенанса.
+        out["state"] = STATE_INSUFFICIENT
+        out["reason_code"] = "legacy_metadata_missing"
+        out["action"] = "need_old_vectors"
+        out["legacy_rows"] = len(unresolved)
         return out
     out["state"] = STATE_INCOMPATIBLE
     best = rows[0] if rows else {}
@@ -3371,10 +3481,15 @@ def _emit_compat_event(name: str, outcome: str, *, level: str = "info",
 
 
 async def _pause_rebuild_under(db, index_name: str) -> bool:
-    """Поставить текущую сборку индекса на паузу (обратимо, §3.7)."""
+    """Поставить текущую сборку индекса на паузу (обратимо, §3.7).
+
+    B1 (review 23.10.2026): причина паузы — durable `reason_code`
+    (`COMPAT_PAUSE_REASON`). Операторская пауза (`paused`) остаётся
+    неотличимо-своей и НЕ снимается резолвером никогда."""
     try:
         from services import graphrag_rebuild as gr
-        ok = bool(await gr.pause_rebuild(db, index_name))
+        ok = bool(await gr.pause_rebuild(
+            db, index_name, reason_code=gr.COMPAT_PAUSE_REASON))
         if ok:
             _PAUSED_BY_COMPAT.add(str(index_name))
         return ok
@@ -3383,17 +3498,32 @@ async def _pause_rebuild_under(db, index_name: str) -> bool:
 
 
 async def _resume_rebuild_under(db, index_name: str) -> bool:
-    """Снять паузу, поставленную ТОЛЬКО ради ожидания вердикта (§3.7)."""
+    """Снять паузу, поставленную ТОЛЬКО ради ожидания вердикта (§3.7).
+
+    B1: авторитет — durable `reason_code=paused_compat_insufficient`, а не
+    process-set `_PAUSED_BY_COMPAT`: доказанная несовместимость обязана
+    возобновлять сборку и после рестарта (раньше пауза застревала навсегда).
+    Операторская `paused` не задевается (другой reason_code)."""
     try:
-        if str(index_name) not in _PAUSED_BY_COMPAT:
-            return False
         from services import graphrag_rebuild as gr
-        ok = bool(await gr.resume_rebuild(db, index_name))
-        if ok:
+        resumed = int(await gr.resume_compat_paused(db, index_name) or 0)
+        if resumed:
             _PAUSED_BY_COMPAT.discard(str(index_name))
-        return ok
+        return bool(resumed)
     except Exception:
         return False
+
+
+async def _cancel_compat_pause_under(db, index_name: str) -> int:
+    """B1: снять compat-паузу, когда сборка больше не нужна (adopt)."""
+    try:
+        from services import graphrag_rebuild as gr
+        cancelled = int(await gr.cancel_compat_paused(db, index_name) or 0)
+        if cancelled:
+            _PAUSED_BY_COMPAT.discard(str(index_name))
+        return cancelled
+    except Exception:
+        return 0
 
 
 async def _cancel_rebuild_for(db, index_name: str, fp: str) -> bool:
@@ -3432,12 +3562,21 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
         return compat
     if compat.get("state") == STATE_COMPATIBLE:
         note_compat_pending(index_name, pending=False)
+        # B1: допуск уже доказан — висящая compat-пауза (крэш между записью
+        # допуска и отменой сборки) не должна оставаться навсегда.
+        cancelled = await _cancel_compat_pause_under(db, index_name)
+        if cancelled:
+            _emit_compat_event("EMBEDDING_COMPAT_REBUILD_CANCELLED", "ok",
+                               index=index_name, cancelled=int(cancelled))
         return compat
     if not compat.get("needs_probe"):
         # incompatible / source_empty / no_generation — поведение существующих
         # путей (миграция через target-generation, пустой источник и т.д.).
         note_compat_pending(index_name, pending=False)
         if compat.get("state") == STATE_INCOMPATIBLE:
+            # B1: пауза «до вердикта» (в т.ч. пережившая рестарт) больше не
+            # нужна — вердикт доказан, миграция должна идти.
+            await _resume_rebuild_under(db, index_name)
             _emit_compat_event("EMBEDDING_COMPAT_INCOMPATIBLE", "failed",
                                level="error", index=index_name,
                                reason_code=str(compat.get("reason_code")))
@@ -3546,6 +3685,9 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
         for other_fp in sorted(building_fps | {fp}):
             if await _cancel_rebuild_for(db, index_name, other_fp):
                 cancelled += 1
+        # 2b) B1: compat-пауза (в т.ч. пережившая рестарт) не должна висеть
+        # после допуска — перестройка не нужна, reason_code устарел.
+        cancelled += await _cancel_compat_pause_under(db, index_name)
         # 3) Прочие незавершённые targets — superseded (stale worker).
         supersede = getattr(db, "supersede_building_generations", None)
         if supersede is not None:
@@ -4241,6 +4383,7 @@ __all__ = [
     # EMBED-IDENTITY-COMPAT (23.10.2026): MSI/PCI + проба + единый резолвер
     "COMPAT_ADMITTED", "adoption_enabled",
     "model_space_identity", "generation_space_identity",
+    "generation_space_provenance",
     "connection_identity", "profile_space_identity",
     "format_admission", "parse_admission", "admission_valid",
     "compat_probe", "resolve_index_compat", "ensure_index_compat",
