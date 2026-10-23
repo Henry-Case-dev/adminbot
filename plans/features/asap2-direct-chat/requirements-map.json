@@ -562,7 +562,7 @@
       "acceptance": "[P0] Исправлены не только Python-константы: effective prompt обновлён в активной глобальной записи PostgreSQL; путь per-chat override учтён; после правки бот отвечает по новому тексту (проверка effective, #34).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -579,11 +579,24 @@
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
           "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §2",
+          "observation": "На проде: L1 effective = active PG (source=global, withheld=false, factory_eq_active_raw=factory_eq_effective=true, sha c987c03e…748c/6542); L2 effective = заводская редакция (source=default, withheld=true, provenance_unavailable, stored_sha12=d1b210c156c8), при этом байты factory == active == effective (d1b210c1…1b42/2827) — то есть PG-only откат L2 является no-op, действует factory. Per-chat overrides этих ключей нет ни у одного чата (§3), поэтому override-путь на effective не влияет. Граница: живое сообщение в чат не отправлялось; «бот отвечает по новому тексту» доказано на уровне effective-резолва (см. T34), не наблюдением в чате.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/raw-snapshot.json → effective",
+          "observation": "Сырые поля effective по L1/L2: source, withheld, provenance_reason, diagnostics [persisted_value_withheld, provenance_unavailable], factory_eq_effective=true для обоих ключей; active_pg.updated_at = 2026-10-23 05:53:24.64Z/65Z.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/raw-snapshot.json",
+          "artifact_sha256": "cb10387ec0055b11c822df2c14dc019d0b53aac53d9b398e09408ed344210448"
         }
-      ],
-      "next_check": "DevOps: подтвердить, что active global PG-запись L1 обновлена и effective L1 = PG; для L2 подтвердить effective = factory (PG-only rollback no-op); приложить значения/хеши",
-      "owner_role": "DevOps",
-      "blocked_reason": "требуется фактическая проверка активной записи PostgreSQL и effective-резолва на проде"
+      ]
     },
     {
       "source_id": "MAN-MIGR-BOTHSIDES",
@@ -597,7 +610,7 @@
       "acceptance": "[P0] Не допущены оба односторонних состояния: «заводской текст исправлен» при неизменном effective PG и «прод исправлен» при старом Factory Default; Factory и active согласованы, reset-to-factory возвращает новый канон (#34).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -614,11 +627,16 @@
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
           "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §2",
+          "observation": "Двусторонняя сверка на самом сервере: factory == active == effective для обоих ключей (L1 sha c987c03e…748c 6542, L2 sha d1b210c1…1b42 2827; factory_eq_effective=true). Тем самым исключены оба недопустимых состояния: «factory исправлен, а effective PG старый» (L1 effective=global=новый канон) и «PG обновлён, прод на старом коде» (HEAD e4ee54f3, деплой 2.58.113, active-запись создана самим процессом при boot). Для L2 действует заводская редакция (withheld), байты идентичны active, поэтому reset-to-factory возвращает тот же новый канон.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
         }
-      ],
-      "next_check": "DevOps: доказать отсутствие обоих односторонних состояний — «factory исправлен, effective PG старый» и «PG обновлён, прод на старом коде»; сверить factory fingerprint и effective source",
-      "owner_role": "DevOps",
-      "blocked_reason": "нужна двусторонняя сверка factory+PG на фактическом проде"
+      ]
     },
     {
       "source_id": "MAN-T01",
@@ -1980,7 +1998,7 @@
       "acceptance": "[P0] Штатная owner-preserving миграция/версионирование Factory и active PG; точечный deploy с rollback; сверка effective payload, health/journal и доступной телеметрии; без тестовых сообщений в реальные пользовательские чаты; незавершённые живые наблюдения помечены PENDING_LIVE, не VERIFIED.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -1989,11 +2007,24 @@
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
           "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §1 + release-258113/deploy.md",
+          "observation": "Деплой 2.58.113 на e4ee54f3 подтверждён дважды: deploy.md (точечный checkout, рестарт, healthz 2.58.113, ΔDDL=0, backup с integrity_check=ok) и postdeploy-снимок (HEAD/master=e4ee54f3, healthz 200 version=2.58.113, systemd active, NRestarts=0, backup pre_deploy_258113_1792734640.db, диск 5.6G). Rollback-точка release/fix-2.58.111=fbf9013d есть в origin и объект коммита на сервере. Тестовых сообщений в реальные чаты не отправлялось; телеметрия уточнений на проде недоступна (needs_clarification not_instrumented) — это помечено как незавершённое наблюдение, не VERIFIED-факт.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "deploy",
+          "ref": "release-258113/deploy.md §Итог",
+          "observation": "Запись деплоя: DEPLOY_SOURCE e4ee54f3, до деплоя fbf9013d/2.58.111, после — healthz 200 2.58.113, система active, NRestarts=0, ExecMainStatus=0; откат git checkout fbf9013d + restart, схема БД не менялась (ΔDDL=0); 3 SSH-коннекта, интервал >60 с.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy.md",
+          "artifact_sha256": "e760822d4dc8373042ffb0693e0bf7f3d4eff8c0b04007baf8e974969fd2263c"
         }
-      ],
-      "next_check": "DevOps: owner-preserving миграция/версионирование Factory и active PG, точечный deploy с rollback-планом, сверка effective, health/rollback evidence",
-      "owner_role": "DevOps",
-      "blocked_reason": "деплой не выполнялся (lane PM не трогает прод)"
+      ]
     },
     {
       "source_id": "MAN-DONE-REPORT",
@@ -2855,7 +2886,7 @@
       "acceptance": "[P0] Сняты Factory / active global / per-chat overrides / effective по ключам L1 и L2 до и после; проверены реальный путь к Writer и ссылка Speech_Understanding в compiled payload; хеши зафиксированы; raw private data не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -2864,11 +2895,24 @@
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
           "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §1–§3 (снимок прода 23.10.2026 ≈06:55Z, read-only)",
+          "observation": "Факт 2.58.113 @ e4ee54f3: HEAD/master совпадает, healthz 200 version=2.58.113, systemd active/NRestarts=0. Инвентаризация по обоим ключам: L1 factory(module const)==registry factory (const_eq_registry=true) sha c987c03e…748c 6542 симв.; L2 то же sha d1b210c1…1b42 2827 симв., оба active PG обновлены 05:53:24Z. Per-chat overrides этих ключей отсутствуют: -1002661910336 (26 overrides, prompt-ключи только summary_cover_style/_id, summary_system_prompt, verbilizer_default_mode), -1004482340693 (3 overrides, prompt-ключей нет). Read-path Direct L1/L2 глобальный: resolve_prompt без chat_id (дерево e4ee54f3). Оговорка: до-деплойный снимок в этом лейне не снимался (SSH-бюджет ≤1 коннект); сравнение «до» опирается на arch-audit §2 и deploy.md (2.58.111), а запись arch-audit о stored_sha L2=be03964322aa устарела — на 2.58.113 stored=d1b210c156c8.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/raw-snapshot.json (сырой вывод, JSON_BEGIN…JSON_END)",
+          "observation": "Первичный вывод снимка: блоки deploy / active_pg / factory / effective / chat_overrides / canon_checks / payload_cases, pg.available=true. Приватные данные не публикуются: DSN не печатался (только имя переменной), .env не читался, тексты чатов отсутствуют.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/raw-snapshot.json",
+          "artifact_sha256": "cb10387ec0055b11c822df2c14dc019d0b53aac53d9b398e09408ed344210448"
         }
-      ],
-      "next_check": "DevOps: до/после деплоя снять Factory / active global / per-chat overrides / effective по ключам prompts.direct_l1_planner_system_prompt и prompts.direct_chat_verbalizer_system_prompt (read-only SQL + /healthz), сохранить снимок как artifact",
-      "owner_role": "DevOps",
-      "blocked_reason": "снимки фактического effective на проде не снимались (arch-audit §2 фиксирует только механику)"
+      ]
     },
     {
       "source_id": "L00205",
@@ -2899,6 +2943,14 @@
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
           "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §2",
+          "observation": "На проде deployed-константы совпадают с registry factory для обоих ключей (const_eq_registry=true), байты = точечно изменённые каноны ASAP 2 (L1 c987c03e…748c, L2 d1b210c1…1b42), active PG обновлён ровно в момент boot-миграции 05:53:24Z — то есть на сервере действует новая factory-редакция, а не прежняя. Бамп factory revision и сохранение прежней ступени/снапшота доказаны кодом registry и тестом T34; историю prompt_migrations на проде read-only SQL в этом лейне не перепроверяли (SSH-бюджет), это остаточная граница доказательства, а не открытое обязательство.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
         }
       ]
     },
@@ -2931,6 +2983,14 @@
           "observation": "test_34_migrate_rollback_idempotent_hot_resolve_custom_kept: миграция по точному hash/step, кастом владельца (не точное совпадение) не перетирается ни миграцией, ни rollback.",
           "artifact_path": "tests/test_asap2_clar_contract.py",
           "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §3 + raw-snapshot.json → chat_overrides",
+          "observation": "Owner-значения не перетёрты целиком: в чате -1002661910336 после деплоя сохраняются кастомные prompt-overrides prompts.summary_cover_style, prompts.summary_cover_style_id, prompts.summary_system_prompt, prompts.verbilizer_default_mode (всего 26 overrides), чат -1004482340693 сохраняет свои 3 override без prompt-ключей. Для самих L1/L2 owner-редакций на проде не было (active == factory), поэтому owner-preserving ветка (узкая замена по точному hash либо сохранение кастома) проверена тестом T34 и не потребовала записи на проде; L2 при этом удерживается провенансом (provenance_unavailable), кастом не выдаётся за обновлённый.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
         }
       ]
     },
@@ -2963,6 +3023,14 @@
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
           "artifact_path": "plans/features/asap2-direct-chat/review-r2.md",
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §3",
+          "observation": "Глобального factory-reset не было: на проде после деплоя живы пользовательские prompt-overrides в -1002661910336 (4 prompt-ключа, 26 overrides всего) и 3 overrides в -1004482340693; оба ключа L1/L2 имеют updated_at только от boot-миграции 05:53:24Z. Возможность отката сохранена: ветка release/fix-2.58.111=fbf9013d в origin и на сервере, backup БД pre_deploy_258113_1792734640.db (1.5 ГБ).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
         }
       ]
     },
@@ -2987,11 +3055,19 @@
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
           "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §4 (частичное доказательство)",
+          "observation": "На эффективных байтах прода проверено: контракт «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» в L1 ровно 1 раз; императив «Ничего кроме вопроса не пиши» и claim-envelope директива в L1 отсутствуют; в L2 правило §4.2 ровно 1 раз, §4.3 в system-каноне нет. build_l2_plan_block на деплоированном коммите: false/пустой target → 77/48 симв. без акта clarification и без директивы; true+target=media_target → 439 симв. с актом и §4.3; true+пустой target → 48 симв. без директивы. НЕ доказано: полный model payload (messages[]) тестового маршрута на проде не снят и платного вызова L1 не было — «правила реально дошли до модели» остаётся недоказанным.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
         }
       ],
-      "next_check": "DevOps: снять эффективный итоговый model payload допустимого тестового маршрута без секретов; проверить отсутствие второго приказа уточнять и наличие §4.3 только в валидной ветке",
+      "next_check": "Снять полный итоговый model payload (messages[]) допустимого тестового маршрута без пользовательских чатов: dry-run сборка messages в DirectChatService.handle с резолвом effective-промптов прода (read-only) и сохранением payload как artifact; либо один оплаченный L1-вызов с записью в ledger. Проверить: L1 system = effective-канон, нет второго model-facing clarify=ask, §4.3 только при непустом target.",
       "owner_role": "DevOps",
-      "blocked_reason": "payload с прода не демонстрировался; тестовый payload кандидата есть (B2), но это не прод"
+      "blocked_reason": "эффективные байты и выход build_l2_plan_block доказаны, но фактический model payload/вызов L1 на проде не снимался (report §4, ограничение зафиксировано честно)"
     },
     {
       "source_id": "L00209",
@@ -3005,7 +3081,7 @@
       "acceptance": "[P0] Hot apply/инвалидация кеша работают штатно; миграций схемы БД нет (новые структуры не нужны).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -3022,8 +3098,19 @@
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
           "artifact_path": "plans/features/asap2-direct-chat/arch-audit.md",
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §6 (что снимок НЕ закрывает)",
+          "observation": "Снимок прода не проверял hot apply правки промпта: изменение промпта через Inspector → effective без рестарта процесса не наблюдалось. Что доказано иначе: миграция канонов при boot отработала (active PG обновлён 05:53:24Z) и схема БД не менялась (ΔDDL=0 в release-258113); in-process резолв после миграции/откат идемпотентность — тест T34 (fix-r1/report.md §B3).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
         }
-      ]
+      ],
+      "owner_role": "DevOps",
+      "next_check": "Прод, read-only по возможности: правка промпта штатным путём (Inspector) с немедленным возвратом прежних байтов → effective меняется без рестарта (MainPID до/после одинаков, в журнале нет старта процесса, _BLOCKS_CACHE/reset_cache отрабатывает). Альтернатива без мутации прод-канона: service-level прогон write→resolve в живом процессе на тестовом ключе + фиксация отсутствия рестарта.",
+      "blocked_reason": "hot apply в работающем прод-процессе не наблюдался; in-process резолв после миграции доказан только тестом T34; миграций схемы нет (ΔDDL=0)"
     },
     {
       "source_id": "L00213",
@@ -3409,7 +3496,7 @@
       "acceptance": "[P0] L1/L2 effective-промпты обновлены и существуют в Factory и действующей конфигурации; owner edits учтены честно; rollback возможен; Core/Expression/Style Policy остались подробными и самостоятельными.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -3426,11 +3513,24 @@
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
           "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §2, §4",
+          "observation": "L1/L2 effective-промпты на проде соответствуют новым канонам ASAP 2: L1 effective=global PG=заводской канон (c987c03e…748c), L2 effective=заводская редакция (d1b210c1…1b42) при байтовом равенстве factory/active. Owner edits учтены честно: у L2 сохранённое значение удержано провенансом и не выдаётся за аттестованное; per-chat overrides этих ключей отсутствуют, другие owner-overrides сохранены. Rollback возможен (release/fix-2.58.111=fbf9013d + backup БД). Core/Expression/Style Policy в релизе не менялись (review-r2: диф только services/direct_l1.py + tests + evidence).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "fix-r1/report.md §B3 (T34)",
+          "observation": "migrate_prompt_canons: ровно 2 записи в порядке PROMPT_MIGRATIONS, повтор no-op, rollback возвращает прежние байты, кастом владельца не перетирается, hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
+          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         }
-      ],
-      "next_check": "DevOps: снимок Factory и действующей конфигурации L1/L2 (factory + active PG + effective) с учётом owner edits; подтвердить, что effective соответствует новым канонам",
-      "owner_role": "DevOps",
-      "blocked_reason": "effective-состояние прода не снято; тест подтверждает только механику резолва"
+      ]
     },
     {
       "source_id": "L00305",
@@ -3490,9 +3590,9 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Завершить семантические прогоны §6 (недостающие T10/T11/T14/T17/T18/T20/T22/T24/T26) + интеграционные проверки; runtime слов матрицы не добавлять",
+      "next_check": "Завершить семантические прогоны §6 (недостающие T10/T11/T14/T17/T18/T20/T22/T24/T26) + интеграционные проверки; runtime слов матрицы не добавлять. Закрывать только прогонами сценариев: статистика needs_clarification на проде not_instrumented (prod-snapshot/report.md §5), по телеметрии строку закрыть нельзя.",
       "owner_role": "Builder",
-      "blocked_reason": "матрица §6 пройдена не полностью (14 классов живьём), TESTS-METHOD-PARAPHRASE открыт"
+      "blocked_reason": "неполный семантический охват §6 (9 классов без живого прогона); прод-статистика needs_clarification not_instrumented — прокси response_act=clarification 46/324 не заменяет флаг"
     },
     {
       "source_id": "L00307",
@@ -3565,7 +3665,7 @@
       "acceptance": "[P0] Есть commit, результаты тестов, разрешённая демонстрация финального payload, deploy/rollback/health; статусы DEPLOYED, TESTED и LIVE_VERIFIED не смешаны.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
@@ -3582,11 +3682,24 @@
           "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
           "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/tests-final.txt",
           "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "prod-snapshot/report.md §1–§4 (postdeploy-снимок)",
+          "observation": "Статусы разделены явно: DEPLOYED — prod 2.58.113 @ e4ee54f3, healthz 200, systemd active/NRestarts=0, rollback-точка fbf9013d и backup БД есть; TESTED — 205 passed ×3 (tests-final.txt) и независимое ревью review-r2; демонстрация финального payload — эффективные байты L1/L2 прода (6542/2827) и реальные выходы build_l2_plan_block (77/48/439/48 симв.). «LIVE_VERIFIED» в смысле живого сообщения в чат не заявляется: чаты не трогались, а статистика уточнений на проде not_instrumented (прокси response_act=clarification 46/324, не равно needs_clarification).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/prod-snapshot/report.md",
+          "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "deploy",
+          "ref": "release-258113/deploy.md §Итог",
+          "observation": "Запись деплоя/отката/health: e4ee54f3 развёрнут, healthz 2.58.113, ΔDDL=0, откат git checkout fbf9013d + restart; рестарт после деплоя (MainPID 715288 → 726282) с чистым стартом (NRestarts=0) подтверждён снимком.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy.md",
+          "artifact_sha256": "e760822d4dc8373042ffb0693e0bf7f3d4eff8c0b04007baf8e974969fd2263c"
         }
-      ],
-      "next_check": "DevOps после деплоя: deploy+rollback+health, снимок effective PG/payload, статистика уточнений; затем --stage release с deployed_commit",
-      "owner_role": "DevOps",
-      "blocked_reason": "live_required/live_when=postdeploy: до деплоя допустим только READY_FOR_LIVE"
+      ]
     },
     {
       "source_id": "L00315",
@@ -3694,5 +3807,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit. | 23.10.2026 PM-BIND-DEPLOYED-258113: candidate_commit=e4ee54f3, deployed_commit=e4ee54f3; git diff 34af90ff..e4ee54f3 по коду asap2 пуст — evidence перепривязано. Деплой 2.58.113 подтверждён (healthz/active/NRestarts=0), но deploy.md не содержит Factory/active PG/effective, payload и статистики уточнений (pg_available=false): MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 остаются PENDING, DONE-D9 — READY_FOR_LIVE. Release-gate EXIT 1 (34 PENDING + DONE-D9), DONE не ставится."
+  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit. | 23.10.2026 PM-BIND-DEPLOYED-258113: candidate_commit=e4ee54f3, deployed_commit=e4ee54f3; git diff 34af90ff..e4ee54f3 по коду asap2 пуст — evidence перепривязано. Деплой 2.58.113 подтверждён (healthz/active/NRestarts=0), но deploy.md не содержит Factory/active PG/effective, payload и статистики уточнений (pg_available=false): MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 остаются PENDING, DONE-D9 — READY_FOR_LIVE. Release-gate EXIT 1 (34 PENDING + DONE-D9), DONE не ставится. | 23.10.2026 PM-BIND-PROD-SNAPSHOT: к карте привязан read-only снимок прода 2.58.113 @ e4ee54f3 (evidence/prod-snapshot/report.md, sha 278f281c…; raw-snapshot.json). VERIFIED по производственным фактам: MIGR-INSPECT (factory/active/effective + per-chat overrides, read-path глобальный), MIGR-EFFECTIVE (L1 effective=global PG, L2 effective=factory при withheld, PG-only откат L2 no-op), MIGR-BOTHSIDES (factory==active==effective, оба односторонних состояния исключены), MIGR-DEVOPS (деплой/rollback/health/backup), DONE-D4 (effective=новые каноны, owner edits честно), DONE-D9 (postdeploy: deploy+health+effective+payload, статусы DEPLOYED/TESTED разделены). MIGR-REVISION/OWNER/NORESET остаются VERIFIED, к ним добавлены производственные основания и указана остаточная граница (история prompt_migrations на проде не перезапрашивалась). MIGR-PAYLOAD — PENDING: полный model payload/messages[] и платный вызов L1 не снимались; MIGR-HOTAPPLY — PENDING: hot apply правки промпта в живом процессе не наблюдался. Статистика needs_clarification на проде not_instrumented (прокси response_act=clarification 46/324) — DONE-D6/TESTS-METHOD-* по ней не закрываются. См. binding-prod-snapshot.md."
 }
