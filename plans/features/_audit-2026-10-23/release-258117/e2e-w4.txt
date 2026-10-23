@@ -1,0 +1,4 @@
+﻿[matrix] config stub: items=580 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=119
+
+== ╨Ш╨в╨Ю╨У: failures=0, POST=8, notes=163

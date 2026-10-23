@@ -1,0 +1,26 @@
+REL-258117 guards — кандидат 724b77ac (24.10.2026)
+Интерпретатор: C:\Code\Python\adminbot\.venv\Scripts\python.exe (Python 3.12.0)
+Worktree: C:\Code\Python\adminbot-wt258115
+База: be3e83d1 (release/2.58.115, 2.58.116); pre-bump: d10fd151; bump: 724b77ac.
+Node: v24.16.0.
+
+[PASS] bump-verify ..................... files=31 pairs=33, non-token NONE, CHECK OK (bump-verify.txt)
+[PASS] F8 generator --check ............ 582 == REGISTRY, карта полна, R17-чисто, EXIT 0 (gen-param-check.txt)
+[PASS] factory fingerprint ............. 2.58.117 0163a686c401 0163a686c401 (frozen-fingerprint.txt)
+[PASS] F8 pins ......................... 29 passed (focused-core.txt)
+[PASS] frozen canon pins ............... prompt_migrations 43 + clar_contract 24 + r3b 7 + corrective 12 + expression 4 (focused-core.txt)
+[PASS] pins24 .......................... 868 passed / 0 failed, 66.49s (pins24-full.txt)
+[PASS] help-sync ....................... 21 + 24 passed (focused-core.txt)
+[PASS] JS-unit (node --test) ........... 90 pass / 0 fail (js-pins-node.txt)
+[PASS] node pins + mini-lens ........... 5/5 rc=0 (js-pins-node.txt)
+[PASS] JS syntax sweep ................. 90 files / 0 bad (js-pins-node.txt)
+[PASS] py_compile changed py ........... 27 files / 0 bad (py-compile.txt)
+[PASS] frozen UI assets ................ web/index.html + app.js + static/ — 0 changed (frozen-assets.txt)
+[PASS] delta DDL ....................... 0 hits in prod perimeter be3e83d1..724b77ac (ddl-check.txt)
+[PASS] test_soul1_composer_parity_off .. 13 passed (focused-core.txt)
+[PASS] test_speech_inspector_exact ..... 17 passed (focused-core.txt)
+[PASS] test_llm_client ................. 115 passed (focused-core.txt)
+[PASS] UI e2e inspector ................ checks=142 failures=0 (e2e-inspector.txt)
+[PASS] W4 UI e2e ....................... failures=0, POST=8, notes=163 (e2e-w4.txt)
+
+Не запускалось (по брифу): repository-wide pytest, deploy/restart, live/e2e в Telegram.

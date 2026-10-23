@@ -1,0 +1,8 @@
+[node --test tests/js/*.js]
+ℹ pass 90 | ℹ fail 0 | ℹ cancelled 0 | ℹ skipped 0 | ℹ todo 0 | ℹ duration_ms 982.17
+round1025_hotfix7_shell_glass_heartbeat_test.js: rc=0 HOTFIX7-SHELL-GLASS-HEARTBEAT-OK
+round1025_hotfix8_shell_aurora_test.js: rc=0 HOTFIX8-SHELL-AURORA-OK
+round1025_hotfix9_shell_flex_glass_aurora_test.js: rc=0 HOTFIX9-SHELL-FLEX-GLASS-AURORA-OK
+round1025_hotfix10_glass_geometry_bg_test.js: rc=0 HOTFIX10-GLASS-GEOMETRY-BG-OK
+asap8_u084d_mini_lens_binding_test.js: rc=0 MINI-LENS-BINDING-OK
+js-syntax sweep: 90 files / 0 bad

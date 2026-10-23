@@ -1,0 +1,5 @@
+REL-258117 train commits (base be3e83d1 -> bump 724b77ac)
+d10fd151 fix(inspector): log every generate_chat HTTP attempt (review r3)   [cherry-pick of 647854903a80fec64efb2ddce23a38652e6b8fa5]
+724b77ac chore(release-258117): bump 2.58.116 -> 2.58.117 (31-file proc set SET EQUAL proc-116, F8-meta HEAD=d10fd151, deltaDDL=0)
+
+cherry-pick conflicts: NONE (auto-merged services/llm_client.py; version file untouched by the source commit)
