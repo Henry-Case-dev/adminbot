@@ -1,0 +1,11 @@
+{
+  "runs": [
+    {"run": "run_r3.py", "purpose": "I-01/I-02/I-04/I-07/I-09 + EVAL-MODES (occasional/frequent x3)", "completion_calls": 18, "cap": 20},
+    {"run": "run_r3b.py", "purpose": "I-01/I-04 repeat on pre-final R3 text", "completion_calls": 2, "cap": 20},
+    {"run": "run_r3c.py", "purpose": "I-04 final canon (positive chat criterion), 2 independent runs", "completion_calls": 4, "cap": 20},
+    {"run": "run_r3d.py", "purpose": "I-02/I-09 on final canon (l1_system_sha12=ab6817a18657)", "completion_calls": 3, "cap": 20}
+  ],
+  "total_completion_calls": 27,
+  "embedding_calls": 0,
+  "note": "ledger.jsonl contains the per-call detail of the 18-call first run; repeat runs captured aggregate counts only (raw-i-repeat-r3.json / raw-i04-final-r3.json / raw-final-i02-i09-r3.json)."
+}

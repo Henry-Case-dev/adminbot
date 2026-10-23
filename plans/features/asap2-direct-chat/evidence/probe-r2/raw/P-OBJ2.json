@@ -1,0 +1,56 @@
+{
+ "label": "L1 P-OBJ2",
+ "model_requested": "deepseek/deepseek-v4.1-flash",
+ "model_returned": "deepseek/deepseek-v4.1-flash",
+ "base_url": "https://nano-gpt.com/api/v1",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "7d361e8692af",
+ "messages_sha12": "7186a3a5b371",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2168,
+  "completion_tokens": 134,
+  "total_tokens": 2302,
+  "reasoning_tokens": 0,
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "cache_read_input_tokens": 1920,
+  "prompt_tokens_details": {
+   "cached_tokens": 1920,
+   "created_cache_tokens": 128,
+   "audio_tokens": 0
+  },
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "cache_creation_input_tokens": 0,
+  "input_tokens": 248,
+  "cost": 6.733999999999999e-05,
+  "currency": "USD"
+ },
+ "latency_s": 3.3,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"clarification\", \"extent\": \"micro\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"ссылка или файл видео\", \"confidence\": 0.9, \"future_intent\": null}",
+ "reasoning_head": "",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nперескажи это видео\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "clarification",
+  "extent": "micro",
+  "tone": "neutral",
+  "structure": "chat",
+  "capabilities_needed": [],
+  "needs_clarification": true,
+  "clarification_target": "ссылка или файл видео",
+  "confidence": 0.9,
+  "confidence_bucket": "high"
+ },
+ "class": "clarification",
+ "speech_hints": "",
+ "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: clarification\nтон: neutral\nнедостающий обязательный предмет: ссылка или файл видео\nДля выполнения этого запроса действительно не хватает обязательного предмета, указанного в плане уточнения. Спроси только о нём одним понятным вопросом. Не предлагай человеку выбирать необязательные варианты формата, объёма, интервала или способа объяснения. После ответа следует продолжить исходную задачу.\n</Response_Plan>"
+}

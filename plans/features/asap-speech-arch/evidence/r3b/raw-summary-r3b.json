@@ -1,0 +1,93 @@
+{
+ "candidate": "5d99293a",
+ "generated_from": "raw/*.json + ledger.jsonl (пересобрано после 6-го вызова; автоснимок на 5 вызовах, candidate 28aeb384, заменён этим файлом)",
+ "note": "Снимок отражает 6 вызовов; значения взяты из raw, не из предыдущей версии файла.",
+ "calls": 6,
+ "cap": 6,
+ "t20_before_class": "clarification",
+ "t20_before_plan": {
+  "action": "reply",
+  "response_act": "clarification",
+  "capabilities_needed": [
+   "summarization"
+  ],
+  "needs_clarification": true,
+  "clarification_target": "какой именно сегодняшний отчёт (за какой период/по какой теме) и из какого источника его взять",
+  "confidence": 0.5
+ },
+ "t20_after_class": "tool_use",
+ "t20_after_plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "capabilities_needed": [
+   "summarization"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.8
+ },
+ "t20_user_payload_sha12": "45723cb027b3",
+ "t20_payloads_identical": true,
+ "t20_before_sys_sha12": "ab6817a18657",
+ "t20_after_sys_sha12": "6c2ddc17c998",
+ "t20_control_l2_no_evidence": {
+  "sys_sha12": "5a0fa77704a9",
+  "answer": "«Сегодняшний» — какой именно: за сегодня по продажам, по задачам или ещё какой-то? Уточни название или формат, и я скину.",
+  "note": "Writer без tool-evidence: другой уточняющий вопрос; ветка не входит в приёмку T20 (см. report §2/§7)."
+ },
+ "t20_writer_with_evidence": {
+  "sys_sha12": "103baa404705",
+  "answer": "Отчёт за сегодня: 42 сообщения, три темы — ремонт санузла, тарифы на электричество и фестиваль в субботу. Больше всех писали: Кирилл — 18, Маша — 11, Гоша — 7.",
+  "note": "evidence собран вручную (2 строки сводки), tool-фаза не исполнялась — это не e2e."
+ },
+ "t10_user_payload_sha12": "29651be8153d",
+ "t10_payloads_identical": true,
+ "t10_before_sys_sha12": "1d5bcb126fc0",
+ "t10_after_sys_sha12": "103baa404705",
+ "t10_before_text": "Обсуждали ремонт санузла: Кирилл за час разобрал его до ремонта, а сборка заняла неделю; Маша заметила, что демонтаж всегда быстрый. Потом речь зашла о плитке — взяли серо-голубую под бетон, но Маша сказала, что выбрала бы матовую.",
+ "t10_after_text": "По видимой части переписки — ремонт санузла у Кирилла: демонтаж занял час, а сборка неделю, плитку взяли серо-голубую под бетон, а Маша считает, что лучше была бы матовая. Более ранние сообщения мне не переданы, так что это только последние четыре реплики.",
+ "ledger": [
+  {
+   "n": 1,
+   "label": "T20-before-L1",
+   "ts": "2026-10-23 23:03:34",
+   "status": 200,
+   "system_sha12": "ab6817a18657"
+  },
+  {
+   "n": 2,
+   "label": "T20-after-L1",
+   "ts": "2026-10-23 23:03:38",
+   "status": 200,
+   "system_sha12": "6c2ddc17c998"
+  },
+  {
+   "n": 3,
+   "label": "T20-after-L2",
+   "ts": "2026-10-23 23:03:41",
+   "status": 200,
+   "system_sha12": "5a0fa77704a9"
+  },
+  {
+   "n": 4,
+   "label": "T10-before-L2+marker",
+   "ts": "2026-10-23 23:03:44",
+   "status": 200,
+   "system_sha12": "1d5bcb126fc0"
+  },
+  {
+   "n": 5,
+   "label": "T10-after-L2+marker",
+   "ts": "2026-10-23 23:03:47",
+   "status": 200,
+   "system_sha12": "103baa404705"
+  },
+  {
+   "n": 6,
+   "label": "T20-after-L2+evidence",
+   "ts": "2026-10-23 23:04:22",
+   "status": 200,
+   "system_sha12": "103baa404705"
+  }
+ ]
+}

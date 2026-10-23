@@ -1,0 +1,289 @@
+RC=0
+--ERR--
+[prompt_registry] persisted speech value withheld | key=prompts.direct_chat_verbalizer_system_prompt | block=direct.base.l2_writer | reason=provenance_unavailable | stored_sha=d1b210c156c8 | stored_chars=2827
+--JSON--
+JSON_BEGIN
+{
+ "deploy": {
+  "git_head": "e4ee54f3cc12c39492c60eb2a0865f5da429454c",
+  "git_branch": "master",
+  "git_head_time": "2026-10-23T16:46:23+12:00",
+  "git_head_subject": "chore(release-258113): bump 2.58.112 -> 2.58.113",
+  "version_line": "APP_VERSION = \"2.58.113\"   # asap8-v6 финал (14.10.2026): D01 dossier guard + D02 supergroup migration + D03/D04 Direct credentials/execution-modes/evidence + D05 Experience detector + D06 chat isolation + D07 overrides map + D08 Random toggle + D09 dream/graphrag + D10 temporal dates + D11 registry + D12/D13 UI truthful + D14 help; wave2 (F2+F6+F9): Style preservation + prompt truth UX + module truth + Stories humanize + embeddings quota-groups; wave2 (F2+F6+F9): Summary Test=production (build_summary_execution_input, map-v1 repair) + Initiative v2 (producers->L2 Writer->SendRecheck->send, freshness, funnel) + YouTube 407 permanent + proxy health; далее описание F1: Summary L2 validator reliability — repair-first детерминированный ремонт валидаторных дефектов абзацев (services/summary_l2_repair.py NEW: detect_paragraph_defects/repair_document/repair_projection — split по границе предложения с наследованием evidence refs и пересчётом emphasis штатным канонизатором, удаление только пустого/пустого-после-cleanup; invented evidence/quote_attribution/структурный JSON — fail-closed как раньше), РОВНО ОДИН LLM-correction attempt с machine reason (happy=1 вызов, max=2), гранулярная reason-модель (reason = код, reason_group = старый umbrella для совместимости аналитики), telemetry SUMMARY_L2_STAGE/L2_ERROR с reason_code/paragraph_index/chars/l2_calls/correction_used/repair_actions (R17: без текста абзацев), durable-статус attempted_invalid («выполнено, отвергнуто валидатором» — отличие от not_run/transport-failed сквозно event→durable→analytics→UI), anchor-путь: проброс якорей через repair_projection (split-части наследуют якоря исходного абзаца, drop исключает свои, рассинхрон длин → fail-closed internal_error без публикации — фикс REV-F1), coverage Inspector — 4 раздельные оси Source ingested / L1 semantic / L2 accepted / Final (единый скаляр и карточка «Неполное саммари» из headline удалены, Legacy-overwrite влияет только на Final). Review REV-F1 Approved после речека anchor-механизма (probe RED→GREEN). Тесты: test_asap8_f1_summary_l2_repair 39 + anchors_wiring/writer/wave_d/l2_review 179, полный summary-sweep 1665 passed. Откат: cold git revert; soft: repair отключается через существующие SUMMARY_L2_* env, reason_group сохраняет старые коды для алертов. Prior 2.58.74 (asap7-wave3).",
+  "rollback_ref": "release/fix-2.58.111\nMISSING",
+  "rollback_obj_ok": "OK",
+  "healthz": "{\"status\":\"ok\",\"version\":\"2.58.113\"}",
+  "systemctl_active": "active",
+  "systemctl_show": "MainPID=726282\nNRestarts=0\nExecMainStatus=0",
+  "backup": "-rw-r--r-- 1 root developers 1497432064 Oct 23 05:50 /var/www/admin_bot/backups/pre_deploy_258113_1792734640.db",
+  "disk_free": "/dev/vda2        24G   17G  5.6G  76% /"
+ },
+ "dsn_env": "POSTGRES_DSN",
+ "active_pg": {
+  "prompts.direct_chat_verbalizer_system_prompt": {
+   "sha256": "d1b210c156c8af0d141924efcbdb3ca6bd5f18e3dbf40979e1ace5b7c4b91b42",
+   "sha12": "d1b210c156c8",
+   "len": 2827,
+   "head80": "РОЛЬ И ЗАДАЧА Ты превращаешь подготовленный контекст и план ответа в окончательн",
+   "tail60": "определяются отдельными слоями, если они переданы сборщиком.",
+   "updated_at": "2026-10-23 05:53:24.646066+00:00"
+  },
+  "prompts.direct_l1_planner_system_prompt": {
+   "sha256": "c987c03e3ee07613b39d6b9bd2bea617b4540eb3924c738cd860bb400f7a748c",
+   "sha12": "c987c03e3ee0",
+   "len": 6542,
+   "head80": "СИСТЕМНАЯ РОЛЬ: Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь отве",
+   "tail60": "В ответе - ровно одна JSON-строка. Никакого текста вне JSON.",
+   "updated_at": "2026-10-23 05:53:24.657665+00:00"
+  }
+ },
+ "chat_overrides": {
+  "-1004482340693": {
+   "has_doc": true,
+   "override_keys_total": 3,
+   "picked": {},
+   "any_prompt_override": []
+  },
+  "-1002661910336": {
+   "has_doc": true,
+   "override_keys_total": 26,
+   "picked": {},
+   "any_prompt_override": [
+    "prompts.summary_cover_style",
+    "prompts.summary_cover_style_id",
+    "prompts.summary_system_prompt",
+    "prompts.verbilizer_default_mode"
+   ]
+  }
+ },
+ "chat_profiles_rows": [
+  -1004482340693,
+  -1002661910336
+ ],
+ "usage_steps_7d": [
+  {
+   "module": "llm",
+   "step": "single",
+   "n": 1228
+  },
+  {
+   "module": "direct_chat",
+   "step": "l2_writer",
+   "n": 418
+  },
+  {
+   "module": "direct_chat",
+   "step": "l1_planner",
+   "n": 384
+  },
+  {
+   "module": "summary",
+   "step": "l2_writer",
+   "n": 128
+  },
+  {
+   "module": "initiative",
+   "step": "opportunity_eval",
+   "n": 92
+  },
+  {
+   "module": "image",
+   "step": "image",
+   "n": 84
+  },
+  {
+   "module": "summary",
+   "step": "l1_clusterizer",
+   "n": 64
+  },
+  {
+   "module": "summary",
+   "step": "stage2",
+   "n": 33
+  },
+  {
+   "module": "summary",
+   "step": "stage1",
+   "n": 22
+  },
+  {
+   "module": "factcheck",
+   "step": "temporal_verbalize",
+   "n": 14
+  },
+  {
+   "module": "factcheck",
+   "step": "temporal_verdict",
+   "n": 9
+  },
+  {
+   "module": "factcheck",
+   "step": "temporal_validator",
+   "n": 9
+  }
+ ],
+ "plan_meta_7d": {
+  "rows_with_plan_meta": 324,
+  "keys": {
+   "tone": 324,
+   "action": 324,
+   "bucket": 324,
+   "extent": 324,
+   "source": 324,
+   "inherited": 324,
+   "confidence": 324,
+   "latency_ms": 324,
+   "input_chars": 324,
+   "response_act": 324,
+   "execution_mode": 324,
+   "credential_source": 324,
+   "capabilities": 62
+  },
+  "has_needs_clarification": false,
+  "response_act_counts": {
+   "banter": 74,
+   "answer": 66,
+   "hostile_rebuff": 21,
+   "research": 3,
+   "creative": 36,
+   "explanation": 19,
+   "clarification": 46,
+   "agreement": 5,
+   "other": 10,
+   "emotional_reply": 7,
+   "summarization": 6,
+   "comparison": 2,
+   "support": 13,
+   "disagreement": 11,
+   "advice": 2,
+   "fact_check": 1,
+   "thematic_reply": 1,
+   "refusal": 1
+  }
+ },
+ "pg": {
+  "available": true
+ },
+ "factory": {
+  "prompts.direct_l1_planner_system_prompt": {
+   "module_const": {
+    "sha256": "c987c03e3ee07613b39d6b9bd2bea617b4540eb3924c738cd860bb400f7a748c",
+    "sha12": "c987c03e3ee0",
+    "len": 6542,
+    "head80": "СИСТЕМНАЯ РОЛЬ: Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь отве",
+    "tail60": "В ответе - ровно одна JSON-строка. Никакого текста вне JSON."
+   },
+   "registry_factory": {
+    "sha256": "c987c03e3ee07613b39d6b9bd2bea617b4540eb3924c738cd860bb400f7a748c",
+    "sha12": "c987c03e3ee0",
+    "len": 6542,
+    "head80": "СИСТЕМНАЯ РОЛЬ: Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь отве",
+    "tail60": "В ответе - ровно одна JSON-строка. Никакого текста вне JSON."
+   },
+   "const_eq_registry": true
+  },
+  "prompts.direct_chat_verbalizer_system_prompt": {
+   "module_const": {
+    "sha256": "d1b210c156c8af0d141924efcbdb3ca6bd5f18e3dbf40979e1ace5b7c4b91b42",
+    "sha12": "d1b210c156c8",
+    "len": 2827,
+    "head80": "РОЛЬ И ЗАДАЧА Ты превращаешь подготовленный контекст и план ответа в окончательн",
+    "tail60": "определяются отдельными слоями, если они переданы сборщиком."
+   },
+   "registry_factory": {
+    "sha256": "d1b210c156c8af0d141924efcbdb3ca6bd5f18e3dbf40979e1ace5b7c4b91b42",
+    "sha12": "d1b210c156c8",
+    "len": 2827,
+    "head80": "РОЛЬ И ЗАДАЧА Ты превращаешь подготовленный контекст и план ответа в окончательн",
+    "tail60": "определяются отдельными слоями, если они переданы сборщиком."
+   },
+   "const_eq_registry": true
+  }
+ },
+ "effective": {
+  "prompts.direct_l1_planner_system_prompt": {
+   "active_present": true,
+   "effective": {
+    "sha256": "c987c03e3ee07613b39d6b9bd2bea617b4540eb3924c738cd860bb400f7a748c",
+    "sha12": "c987c03e3ee0",
+    "len": 6542,
+    "head80": "СИСТЕМНАЯ РОЛЬ: Ты - планировщик ответа (L1) в групповом чате. Ты НЕ пишешь отве",
+    "tail60": "В ответе - ровно одна JSON-строка. Никакого текста вне JSON."
+   },
+   "source": "global",
+   "withheld": false,
+   "withheld_sha12": "",
+   "provenance_reason": "",
+   "diagnostics": [],
+   "factory_eq_active_raw": true,
+   "factory_eq_effective": true,
+   "active_eq_effective": true
+  },
+  "prompts.direct_chat_verbalizer_system_prompt": {
+   "active_present": true,
+   "effective": {
+    "sha256": "d1b210c156c8af0d141924efcbdb3ca6bd5f18e3dbf40979e1ace5b7c4b91b42",
+    "sha12": "d1b210c156c8",
+    "len": 2827,
+    "head80": "РОЛЬ И ЗАДАЧА Ты превращаешь подготовленный контекст и план ответа в окончательн",
+    "tail60": "определяются отдельными слоями, если они переданы сборщиком."
+   },
+   "source": "default",
+   "withheld": true,
+   "withheld_sha12": "d1b210c156c8",
+   "provenance_reason": "provenance_unavailable",
+   "diagnostics": [
+    "persisted_value_withheld",
+    "provenance_unavailable"
+   ],
+   "factory_eq_active_raw": true,
+   "factory_eq_effective": true,
+   "active_eq_effective": true
+  }
+ },
+ "canon_checks": {
+  "l1_clar_contract_count": 1,
+  "l1_legacy_imperative_present": false,
+  "l1_claim_envelope_directive_present": false,
+  "l1_clarify_ask_marker_present": false,
+  "l1_clarify_assume_marker_present": false,
+  "l2_single_question_rule_count": 1,
+  "l2_section_43_phrase_present": false,
+  "l2_legacy_no_more_than_question": false
+ },
+ "payload_cases": [
+  {
+   "name": "P1_false_no_target",
+   "has_act_line": false,
+   "has_target_line": false,
+   "has_43_directive": false,
+   "chars": 77,
+   "body": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\n</Response_Plan>"
+  },
+  {
+   "name": "P2_act_clar_but_flag_false",
+   "has_act_line": false,
+   "has_target_line": false,
+   "has_43_directive": false,
+   "chars": 48,
+   "body": "<Response_Plan>\nдействие: reply\n</Response_Plan>"
+  },
+  {
+   "name": "P3_true_with_target",
+   "has_act_line": true,
+   "has_target_line": true,
+   "has_43_directive": true,
+   "chars": 439,
+   "body": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: clarification\nнедостающий обязательный предмет: media_target\nДля выполнения этого запроса действительно не хватает обязательного предмета, указанного в плане уточнения. Спроси только о нём одним понятным вопросом. Не предлагай человеку выбирать необязательные варианты формата, объёма, интервала или способа объяснения. После ответа следует продолжить исходную задачу.\n</Response_Plan>"
+  },
+  {
+   "name": "P4_true_empty_target",
+   "has_act_line": false,
+   "has_target_line": false,
+   "has_43_directive": false,
+   "chars": 48,
+   "body": "<Response_Plan>\nдействие: reply\n</Response_Plan>"
+  }
+ ]
+}
+JSON_END

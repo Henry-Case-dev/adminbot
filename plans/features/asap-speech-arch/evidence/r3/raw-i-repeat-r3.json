@@ -1,0 +1,38 @@
+[
+  {
+    "label": "R3B-I-01-dispute-3",
+    "status": "silent",
+    "reason_code": "l1_silent",
+    "plan": {
+      "action": "silent",
+      "delivery": "",
+      "target_message_id": null,
+      "target_user_id": null,
+      "reaction": null,
+      "confidence": 0.72,
+      "source": "llm",
+      "delivery_hint": "plain",
+      "structure": "chat"
+    },
+    "sends": [],
+    "llm_calls": 1
+  },
+  {
+    "label": "R3B-I-04-common-topic",
+    "status": "silent",
+    "reason_code": "l1_silent",
+    "plan": {
+      "action": "silent",
+      "delivery": "",
+      "target_message_id": null,
+      "target_user_id": null,
+      "reaction": null,
+      "confidence": 0.72,
+      "source": "llm",
+      "delivery_hint": "plain",
+      "structure": "chat"
+    },
+    "sends": [],
+    "llm_calls": 1
+  }
+]

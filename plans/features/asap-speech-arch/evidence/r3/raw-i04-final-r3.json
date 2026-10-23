@@ -1,0 +1,54 @@
+[
+  {
+    "label": "R3C-I-04-common-topic-1",
+    "status": "sent",
+    "reason_code": null,
+    "plan": {
+      "action": "reply",
+      "delivery": "chat",
+      "target_message_id": null,
+      "target_user_id": null,
+      "reaction": null,
+      "confidence": 0.6,
+      "source": "llm",
+      "delivery_hint": "plain",
+      "structure": "chat"
+    },
+    "sends": [
+      {
+        "chat_id": -100999000801,
+        "text": "Я тоже подтянусь, но без обещаний: если фестиваль окажется очередным рынком с шатрами «мёд/чеснок/плетёные корзины», я телепортируюсь в бар.",
+        "text_len": 140,
+        "reply_to": null,
+        "ts": 1792746641.059905
+      }
+    ],
+    "llm_calls": 2
+  },
+  {
+    "label": "R3C-I-04-common-topic-2",
+    "status": "sent",
+    "reason_code": null,
+    "plan": {
+      "action": "reply",
+      "delivery": "chat",
+      "target_message_id": null,
+      "target_user_id": null,
+      "reaction": null,
+      "confidence": 0.7,
+      "source": "llm",
+      "delivery_hint": "plain",
+      "structure": "chat"
+    },
+    "sends": [
+      {
+        "chat_id": -100999000802,
+        "text": "Гоша, шесть — это для тех, кто хочет застать очередь за пивом до того, как она станет частью фестивальной программы. Костик мудрый: к семи там уже всё разогреется, включая чью-то палатку с фермерским сыром. Я бы тоже подгрёб к семи, но исключительно чтобы посмотреть, как Гоша к этому моменту успеет поучаствовать во всём подряд.",
+        "text_len": 329,
+        "reply_to": null,
+        "ts": 1792746647.4850452
+      }
+    ],
+    "llm_calls": 2
+  }
+]

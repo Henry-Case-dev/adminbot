@@ -1,0 +1,62 @@
+{
+ "label": "L1 T14",
+ "model_requested": "deepseek/deepseek-v4.1-flash",
+ "model_returned": "deepseek/deepseek-v4.1-flash",
+ "base_url": "https://nano-gpt.com/api/v1",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "9882ebffd68b",
+ "messages_sha12": "c5de5b841d26",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "prompt_tokens": 2203,
+  "completion_tokens": 143,
+  "total_tokens": 2346,
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "cost": 0.00023401999999999996,
+  "currency": "USD",
+  "reasoning_tokens": 0,
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "input_tokens": 2203
+ },
+ "latency_s": 4.56,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": \"555\", \"target_user_id\": null, \"response_act\": \"explanation\", \"extent\": \"normal\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"explanation\", \"delivery_hint\": \"rich\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"media_download\", \"transcription\", \"video_summary\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null}",
+ "reasoning_head": "",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nрасшифруй [медиа: video tg:555]\n</Current_Question>\n\n[ОТВЕТ НА (reply/цитата)]\nавтор: Маша\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую\nМаша: [video]\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "explanation",
+  "extent": "normal",
+  "tone": "neutral",
+  "structure": "explanation",
+  "capabilities_needed": [
+   "media_download",
+   "transcription",
+   "video_summary"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.9,
+  "confidence_bucket": "high"
+ },
+ "class": "tool_use",
+ "speech_hints": "",
+ "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: explanation\nтон: neutral\n</Response_Plan>"
+}

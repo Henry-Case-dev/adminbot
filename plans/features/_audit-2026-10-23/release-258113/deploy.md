@@ -87,7 +87,7 @@ SEM_QUERY name=generic n=5 top=[(17273,0.832),(11458,0.8047),(12662,0.7973),(166
 
 Выдача непустая, косинусы 0.83–0.80 — семантика, а не только совпадение размерности. Контрольный canary: `checked=12, mean=min=hit5=1.0`.
 
-Ограничение: второй probe взял самый новый «старый» факт `id=20522` (возраст 2 дня), который ещё в backlog без вектора; self-hit=false ожидаемо и в зачёт не берётся.
+Ограничение: второй probe взял самый новый «старый» факт `id=20522` (возраст 2 дня), который ещё в backlog без вектора; self-hit=false ожидаемо и в зачёт не берётся. → **Закрыто в §Postcheck B.3:** self-recall на факте, у которого вектор есть, даёт top-1 = тот же факт (distance `0.000000`).
 
 ## B11 (read-only, `tools/v63_b11_mechanisms_report.py`)
 
@@ -108,14 +108,76 @@ SEM_QUERY name=generic n=5 top=[(17273,0.832),(11458,0.8047),(12662,0.7973),(166
 | 12 | реальный семантический поиск непустой | **PASS** | top-5, cosine 0.832–0.795; canary hit5=1.0 |
 | 13 | B11 Summary → attention, backlog число/unknown | **PASS** | Summary `degraded` (не ok); backlog `3619` (ok) |
 | 14 | следующий тик Summary 19:00Z | **WAITING_EXTERNAL** | не наступил; в лейне не ждали |
+| 15 | независимый self-recall (повторное кодирование сохранённого факта) | **PASS** | §Postcheck B: top-1 = тот же факт, distance `0.000000` |
+| 16 | состояние сервиса не изменилось за время замеров | **PASS** | healthz 200/2.58.113 до и после пакета; NRestarts 0, MainPID 715288 |
 
-**Итог: деплой 2.58.113 успешен, обязательные пункты 7–13 — PASS.** Блокеров отката нет. Полный `DONE` релиза не ставится: тик Summary 19:00Z впереди, плюс родительские release-гейты/карты.
+**Итог: деплой 2.58.113 успешен, обязательные пункты 7–13, 15–16 — PASS.** Блокеров отката нет. Полный `DONE` релиза не ставится: тик Summary 19:00Z впереди, плюс родительские release-гейты/карты.
+
+## Postcheck B (LANE VERIFY-258113-B, 06:17 UTC, один read-only коннект)
+
+Свежий срез через `venv/bin/python` (`sqlite_vec.load`, `mode=ro` + `query_only=1`), повторный B11 и один платный embedding-вызов. Весь объёмный вывод писался в `/tmp/v113_*`, в канал ушёл только дайджест; пакет занял **15.7 с**.
+
+**Время.** Авторитетные часы — сервер: `NOW_UTC 2026-10-23T06:17:13Z` (`date -u`). Локальное время рабочей станции `18:17` = UTC+12; первое чтение времени в этом лейне (`18:13`) было локальным, не UTC — поправка зафиксирована здесь.
+
+### B.1 Счётчики и backlog
+
+| Метрика | Значение 06:17Z |
+|---|---|
+| `graph_facts` всего / eligible (`expires_at IS NULL OR > now`) | 20 122 / 15 875 |
+| строк в `graph_facts_vec` | 17 503 |
+| eligible-факты **без вектора** (backlog) | **2 732** |
+| vec-строки, чей `fact_id` отсутствует в `graph_facts` | 619 (см. находку 4) |
+
+Дренаж backlog: 4 192 (05:53) → 3 734 (06:03) → **2 732** (06:17, прямой `count` по БД; панель 06:03 показывала 3 734/3 619 — сходится). Перевекторизация `graph_facts_vec` не стартовала: `BUILD_START=0`.
+
+### B.2 B11 (повторный прогон, `/tmp/b11now.json`, 29 734 B)
+
+`B11_RC=0`, `db_read_errors=[]`, `pg_available=false` (DSN не передавался — как и в первом прогоне).
+
+- Summary: `ok=6, attention=2, unknown=1, degraded=1` — идентично прогону 06:03 (изменений нет).
+- `attention`: `graph_memory`, `embeddings` — «job cancelled — не успешный терминал» (следствие штатной отмены старого rebuild при adopt); `backlog` в отчёте `3 619` — это значение последней попытки механизма, а не живой счётчик (живой backlog на 06:17 — 2 732, §B.1).
+- `degraded`: `summary_scheduler`, run `1e2aa19a74ec48ae8d19f70dba0b43bc` (published, health=degraded).
+- `unknown`: `experience` — вне релиза.
+- Остальные механизмы: `dream ok`, `deep_sleep ok`, `belief_revision kept`, `paradigms ok`, `self_model self`, `initiative completed`.
+
+### B.3 Реальный не-FTS поиск (self-recall)
+
+Взят сохранённый факт `id=18154` (chat `-1002661910336`, 127 символов, есть вектор), его текст заново закодирован штатным `LLMClient` (gemini-embedding-001 через текущий шлюз, **1 вызов, 1 текст**), затем `embedding MATCH ... k=5` по `graph_facts_vec`:
+
+```
+SEM_DIMS=3072
+SEM_TOP rowid=18154 distance=0.000000   ← тот же факт
+SEM_TOP rowid=15922 distance=0.207375
+SEM_TOP rowid=18155 distance=0.209702
+SEM_SELF_TOP1=True
+```
+
+Это закрывает ограничение ACC-10: ранее self-hit не проверялся (пробный факт был без вектора), теперь повторное кодирование даёт **байт-идентичный** float32-вектор и top-1 совпадает с исходным `fact_id`. Поиск идёт по векторам, а не по FTS.
+
+### B.4 `smart_archive` — 2 `building`-строки
+
+| Проверка | Факт |
+|---|---|
+| `smart_archive_facts` (источник) | **0 строк** |
+| строк в vec-таблице `smart_archive` | **0** |
+| `BUILD_START` после 05:53 | **0** |
+| job'ы `graphrag`/`embed` в `task_jobs` | только `embedding_rebuild_lease` (все `released`), rebuild-джобы для `smart_archive` нет → `reason_code=job_missing` |
+| записи в журнале | `not serviceable | index=smart_archive` ровно **3** раза: 05:53:36, 06:03:36, 06:13:36 (10-минутный health-probe), не ошибка, квоты не тратит |
+
+Корректировка §«Совместимость»: строка `smart_archive` gen2 создана **не** до деплоя, а новым процессом в 05:53:27 (`created_at=1792734807`, provider `apinet.cloud`, fp `2d0efab0e817`) — реестр регистрирует поколение под новую identity, но сборка не стартует, т.к. источник пуст. `graph_facts_vec` не затронут (одно активное поколение, adopt1). Классификация: **косметика/шум журнала, не блокер**, отдельная задача по семантике «не регистрировать поколение при пустом источнике».
+
+### B.5 Журнал и здоровье (окно 05:53–06:17, 1 089 строк)
+
+`CRITICAL=0`, `Traceback=0`, `ERROR/429=0`, `ADOPTED=1`, `BUILD_START=0`, `SHADOW=0`. `/healthz` на `127.0.0.1:8000` — **200** `{"status":"ok","version":"2.58.113"}` до и после пакета.
+
 
 ## Находки
 
 1. **MEDIUM (панель/данные, не блокер):** агрегированный `compat` в `/api/memory/embeddings` пуст, т.к. `vector_memory.indexes=0` — legacy `graphrag_rebuild.payload` без `index`. Фактическая совместимость подтверждена `generation`-блоком и логом. Отдельная задача Builder/Reviewer.
 2. **LOW (реестр):** новая `smart_archive` gen2 `building` при пустом источнике; сборка не запускалась, B11 attention. Не влияет на graph-индекс.
 3. **ВНЕ РЕЛИЗА:** B11 `experience` = unknown (механизм Experience, не связан с изменением эмбеддингов/W4).
+4. **LOW (pre-existing, не следствие 2.58.113):** 619 строк в `graph_facts_vec` ссылаются на уже удалённые факты. Причина видна в коде: retention-очистка `purge_expired` (`services/database.py:9964-9970`) удаляет `graph_facts_fts` и `graph_facts`, но **не** `graph_facts_vec` (одиночные удаления vec-строку чистят). Эффект: лишние строки в KNN-индексе и возможное «съедание» мест в top-k несуществующими фактами. Данные не теряются, квоту не тратит. Оговорка: подсчёт шёл по auxiliary-колонке `fact_id`, строки с `NULL fact_id` не отделялись. Задача — Builder/Reviewer, отдельно от релиза.
+5. **LOW (шум журнала):** WARNING `embedding generation not serviceable | index=smart_archive` повторяется каждые 10 минут (health-probe) при пустом источнике — не ошибка, но засоряет журнал.
 
 ## Следующее
 

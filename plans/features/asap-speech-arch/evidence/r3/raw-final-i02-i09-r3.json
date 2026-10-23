@@ -1,0 +1,57 @@
+[
+  {
+    "label": "R3D-I-02-objection-addressee",
+    "status": "sent",
+    "reason_code": null,
+    "plan": {
+      "action": "reply",
+      "delivery": "reply",
+      "target_message_id": 1,
+      "target_user_id": 990002777,
+      "reaction": null,
+      "confidence": 0.72,
+      "source": "llm",
+      "delivery_hint": "plain",
+      "structure": "answer"
+    },
+    "sends": [
+      {
+        "chat_id": -100999000902,
+        "text": "Гоша, тут главная подмена: люди не перестают разговаривать, они перестают орать это в переговорке, а начинают писать в чат, где всё остаётся в истории и не испаряется через пять минут после кофе. Контекст на удалёнке как раз теряется меньше — его можно перечитать, а не восстанавливать по памяти, кто что буркнул.",
+        "text_len": 313,
+        "reply_to": 846834,
+        "ts": 1792746857.5936923
+      }
+    ],
+    "expected": {
+      "reply_target": 1,
+      "target_user": 990002777
+    },
+    "reaction_target": null,
+    "llm_calls": 2,
+    "l1_system_sha12": "ab6817a18657"
+  },
+  {
+    "label": "R3D-I-09-reaction",
+    "status": "reacted",
+    "reason_code": "l1_react",
+    "plan": {
+      "action": "react",
+      "delivery": "",
+      "target_message_id": 3,
+      "target_user_id": 990002777,
+      "reaction": "😂",
+      "confidence": 0.72,
+      "source": "llm",
+      "delivery_hint": "plain",
+      "structure": "chat"
+    },
+    "sends": [],
+    "expected": {
+      "react_target": 3
+    },
+    "reaction_target": 846836,
+    "llm_calls": 1,
+    "l1_system_sha12": "ab6817a18657"
+  }
+]
