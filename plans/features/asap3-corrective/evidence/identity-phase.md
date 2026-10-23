@@ -171,8 +171,55 @@ tests/test_direct_context_composer_asap3.py
   намеренно: `chat_params`/`hot` читаются из кэша, стоимость мала, зато
   прямой вызов сервиса в тестах/фоновых путях не зависит от middleware.
 
-## 6. Кандидат
+## 6. Rework после review-identity (Needs Fixes)
+
+### BLOCKER-1 — L1/инициатива получали старый `author_name`
+
+- Было: `services/direct_l1.py:809` брал `row["author_name"]` напрямую, а
+  `direct_chat_service.py:4182-4194/8737-8743/8808-8813` передавали окно
+  без резолвера; адресат инициативы (`:8711-8719`) — тоже сырой
+  `author_name`. RED: один uid 1001 → `[user:1001] Игорь (имя из клиента)`
+  в окне и `Говорящий: Макс` в «УЧАСТНИКИ».
+- Стало: `render_window_lines(..., alias_resolver=...)` и
+  `build_l1_context(..., alias_resolver=...)` (`direct_l1.py:795,648-656,678`)
+  резолвят имя по известному `user_id` перед рендером. Direct L1
+  (`direct_chat_service.py:4182`), инициативный L1 (`:8737`), адресат
+  (`:8709-8724`) и L2 `<Fresh_Chat_Window>` (`:8808`) получают
+  `self.aliases`. История/`author_name` не переписываются.
+- GREEN: `test_a13_initiative_l1_and_l2_use_alias_not_author_name` — один
+  uid даёт `Гипербореец` в «УЧАСТНИКИ», адресате, окне L1 и L2; старого
+  имени в промпте нет.
+
+### BLOCKER-2 — веб-досье теряло факты с устойчивым uid
+
+- Было: `web/api/chat_lore.py:865` вызывал `get_persona_card(chat_id, name,
+  limit, now)` без `user_id`; после переименования `target_user=Игорь`
+  факт с `subject_ref_id=1` не находился по новому имени → пустая карточка.
+- Стало: `get_persona_card(..., user_id=user_id)` (`:865-866`);
+  additивный kwarg уже читает `subject_ref_id`. Legacy-строки без uid
+  по-прежнему не привязываются автоматически.
+- GREEN: `test_dossier_keeps_fact_with_stable_uid_after_rename` на реальной
+  `DatabaseService`: uid-aware досье содержит «Игорь любит кофе», legacy
+  без uid — нет; отдельная RED-проверка подтверждает, что name-only путь
+  этот факт не находит.
+
+### Целевые числа rework
+
+- `tests/test_asap3_identity_aliases.py` — **22 passed** (было 20).
+- `test_summary_aliases + test_aliases_render_round1024 + round1022 +
+  test_chat_params` — **52 passed** (без нового identity-файла).
+- `test_mca03_message_identity_round1027` — **25 passed**.
+- `test_chat_lore_api + test_chat_lore_participant_names_round1024` —
+  **40 passed**.
+- `test_direct_l1_l1d_contract + test_direct_l1_corrective_r1 +
+  test_asap2_clar_contract` — **51 passed**.
+- Полный прогон не запускался (рамки полосы).
+
+Rework code commit: `bfc1236682e3e4e1b6f494c00d1cb5142b36a377`.
+
+## 7. Кандидат
 
 Code commit: `f398cb7199205ce5ee1579b6aa0a18c720e5fa6c`
 (ASAP3 identity: merge aliases by user_id, live per-turn resolver, merged
 diag). Evidence-файл коммитится отдельным docs-коммитом поверх него.
+Rework-коммит: `bfc1236682e3e4e1b6f494c00d1cb5142b36a377`.
