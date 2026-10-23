@@ -350,6 +350,13 @@ REASON_CODES = frozenset({
     # W5 (SOUL-18.6): сопоставление доставленной инициативы с манифестом
     # Core/Style (ревизии в config_version, не текст).
     "initiative_delivered_manifest",
+    # Аудит телеметрии доставки инициативы (24.10.2026, G5): технические
+    # исходы привязки цели, выбранной L1 (литералы уже эмитились
+    # `_validate_plan_target`/отправкой, но whitelist их выбрасывал → причина
+    # отмены терялась). Метки для них уже есть в
+    # `initiative_observer.reason_label`. Второй словарь не вводится.
+    "target_invalid", "target_missing", "target_no_tg_id", "target_stale",
+    "target_addressee_mismatch", "target_unavailable", "target_gone",
 })
 
 # ── контракт полей §17.1 ────────────────────────────────────────────────────
@@ -665,9 +672,20 @@ _MCA_EVENTS_INSERT_SQL = (
 
 
 async def _insert_event(conn, ev: dict) -> None:
-    """Вставить событие (v19-колонки, nullable=честный unknown)."""
+    """Вставить событие (v19-колонки, nullable=честный unknown).
+
+    G6 (аудит 24.10.2026): скалярный `entity_id` — correlation Observer-событий
+    (`initiative_sent`/`initiative_reacted`). Отдельной колонки `entity_id` в
+    `mca_events` нет, нового DDL в этой правке нет, поэтому значение не
+    теряется: при пустом `trace_id` оно едет в `trace_id` (по контракту §17.1
+    `trace_id` = run_id/correlation_id). Заполненный `trace_id` приоритетнее."""
+    row = ev
+    entity_id = ev.get("entity_id")
+    if entity_id and not ev.get("trace_id"):
+        row = dict(ev)
+        row["trace_id"] = entity_id
     await conn.execute(_MCA_EVENTS_INSERT_SQL,
-                       tuple(ev.get(c) for c in _MCA_EVENTS_INSERT_COLS))
+                       tuple(row.get(c) for c in _MCA_EVENTS_INSERT_COLS))
 
 
 async def flush_events(db) -> int:

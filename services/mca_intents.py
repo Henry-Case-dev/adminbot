@@ -710,13 +710,77 @@ def note_initiative_sent(*, chat_id: int, intent_id: str,
           stage="delivery", usage_json={"chunks": max(0, int(chunks))})
 
 
+#: G1/G7 (аудит 24.10.2026): технические enum формы доставки инициативы.
+#: `chat`/`reply` — выбранная L1 форма текста, `react` — реакция без текста.
+DELIVERY_FORMS = ("chat", "reply", "react")
+
+#: `initiative_delivery_kind()` → короткое слово формы (для `status`/токенов).
+_KIND_WORDS = {
+    DELIVERY_TEXT: "text", DELIVERY_REACT: "react",
+    DELIVERY_SILENT: "silent", DELIVERY_TOOL: "tool",
+    # решение Coordinator (`action`) → форма доставки
+    "reply": "text", "say": "text", "react": "react",
+    "silent": "silent", "tool": "tool",
+}
+
+#: Код расхождения «выбрано reply → фактически chat» без внешней причины.
+MISMATCH_REPLY_UNAVAILABLE = "reply_unavailable"
+
+
+def _kind_word(value) -> str:
+    """Форма доставки коротким словом (text/react/silent/tool); иначе ""."""
+    text = str(value or "")
+    if text in _KIND_WORDS.values():
+        return text
+    return _KIND_WORDS.get(text, "")
+
+
+def _safe_token(value, limit: int = 48) -> str:
+    """R17-safe machine-токен: ASCII [A-Za-z0-9_.:-] (как `_IDENT_RE` поля
+    события). Пустое/непригодное → "" (в токене будет `-`)."""
+    out = "".join(
+        ch for ch in str(value or "")
+        if ch.isascii() and (ch.isalnum() or ch in "_.:-"))
+    return out[:limit]
+
+
+def _delivery_form(value) -> str:
+    """Форма из закрытого набора (`chat`/`reply`/`react`); иначе ""."""
+    text = str(value or "")
+    return text if text in DELIVERY_FORMS else ""
+
+
+def _token(prefix: str, value) -> str:
+    """`prefix:value` либо `prefix:-` (честный unknown, без текста)."""
+    return "%s:%s" % (prefix, _safe_token(value) or "-")
+
+
+def decision_status(action, kind) -> str:
+    """G2: `status` = `action.delivery_kind` (напр. `reply.text`,
+    `react.react`, `silent.silent`).
+
+    Разделитель `.` — единственный безопасный: code-поля события проходят
+    `_IDENT_RE` ([A-Za-z0-9_.:-]), а `|`/`/` в значение не пропускаются
+    (проверка `_safe_value`). Старые события без `.` читаются как раньше
+    (`_split_decision_status` в `initiative_diagnostics`)."""
+    action_text = _safe_token(action, 32)
+    kind_text = _kind_word(kind)
+    if action_text and kind_text:
+        return "%s.%s" % (action_text, kind_text)
+    return action_text or ""
+
+
 def note_delivery_manifest(*, chat_id: int, correlation_id: str,
                            message_id: int | None = None,
                            core_revision: str = "",
                            style_policy_revision: str = "",
                            identity_revision: str = "",
                            manifest_id: str = "",
-                           composer_state: str = "") -> None:
+                           composer_state: str = "",
+                           reply_to: int | None = None,
+                           delivery: str = "",
+                           delivery_form: str = "",
+                           mismatch: str = "") -> None:
     """W5 (SOUL-18.6): сопоставление доставленной инициативы с Core/Style.
 
     Пишется ПОСЛЕ подтверждённой доставки и только с ID/ревизиями (R17:
@@ -724,23 +788,41 @@ def note_delivery_manifest(*, chat_id: int, correlation_id: str,
     показать, под каким Core/Style-манифестом ушло конкретное сообщение —
     без ретроспективной подстановки текущих значений.
 
+    Аудит доставки 24.10.2026 (G3/G7): в том же событии фиксируется
+    ФАКТИЧЕСКАЯ форма доставки (`form:chat|reply|react`), фактический
+    Telegram-reply (`reply:<tg_id>`), выбранная L1 форма (`delivery:`) и
+    причина расхождения (`mismatch:<code|none>`) — нового события/таблицы
+    нет.
+
     Транспорт — существующие колонки события: `entity_ids` (JSON-список
-    machine-токенов; колонки `entity_id`/`message_id` в `mca_events` нет)
-    + `config_version` (человекочитаемая сводка)."""
+    machine-токенов; колонок `entity_id`/`message_id`/`delivery` в
+    `mca_events` нет) + `config_version` (R17-safe сводка ревизий)."""
     tokens = [
         "initiative_delivery",
         "corr:%s" % (correlation_id or "-"),
         "msg:%s" % (int(message_id) if message_id is not None else "-"),
-        "core:%s" % (core_revision or "-"),
-        "style:%s" % (style_policy_revision or "-"),
-        "identity:%s" % (identity_revision or "-"),
-        "manifest:%s" % (manifest_id or "-"),
-        "composer:%s" % (composer_state or "unknown"),
+        "core:%s" % (_safe_token(core_revision) or "-"),
+        "style:%s" % (_safe_token(style_policy_revision) or "-"),
+        "identity:%s" % (_safe_token(identity_revision) or "-"),
+        "manifest:%s" % (_safe_token(manifest_id) or "-"),
+        "composer:%s" % (_safe_token(composer_state) or "unknown"),
+        _token("reply", int(reply_to) if reply_to is not None else ""),
+        _token("delivery", _delivery_form(delivery)),
+        _token("form", _delivery_form(delivery_form)),
+        _token("mismatch", mismatch or "none"),
     ]
-    version = ("core=%s;style=%s;identity=%s;manifest=%s;composer=%s" % (
-        core_revision or "-", style_policy_revision or "-",
-        identity_revision or "-", manifest_id or "-",
-        composer_state or "unknown"))
+    # G3: `config_version` раньше уходил в формате `core=...;style=...` и
+    # МОЛЧА отбрасывался `_safe_value` (`=`/`;` вне `_IDENT_RE`) — в БД было
+    # пусто у 16/16 манифестов. Формат только из безопасных символов.
+    # R17 code-поле: только `[A-Za-z0-9_.:-]` и не длиннее 64 символов —
+    # полные ревизии остаются в токенах события (`core:`/`style:`/...).
+    version = "_".join([
+        "core." + (_safe_token(core_revision, 8) or "-"),
+        "style." + (_safe_token(style_policy_revision, 8) or "-"),
+        "ident." + (_safe_token(identity_revision, 6) or "-"),
+        "man." + (_safe_token(manifest_id, 8) or "-"),
+        "c." + (_safe_token(composer_state, 2) or "-"),
+    ])[:64]
     _emit("initiative_delivery_manifest", outcome="success", chat_id=chat_id,
           reason_code="initiative_delivered_manifest",
           stage="delivery_manifest", entity_ids=tokens,
@@ -748,7 +830,13 @@ def note_delivery_manifest(*, chat_id: int, correlation_id: str,
 
 
 def note_decision(decision, *, chat_id: int, outcome: str = "ok",
-                  reason_code: str | None = None) -> None:
+                  reason_code: str | None = None,
+                  action: str | None = None,
+                  delivery_kind: str | None = None,
+                  delivery: str | None = None,
+                  target_message_id=None, target_user_id=None,
+                  addressee_user_id=None,
+                  correlation_id: str | None = None) -> None:
     """`initiative_decided` — ≤1 на ситуацию (notable-only; R17-safe:
     только ID/коды/enum/числа). Вызывается один раз финализатором ситуации.
 
@@ -756,16 +844,47 @@ def note_decision(decision, *, chat_id: int, outcome: str = "ok",
     mca-13 (иначе событие молча отбрасывается `build_event`).
     `reason_code` (P0-хотфикс 18.10.2026): ЯВНАЯ причина отказа конкретной
     стадии (L1/recheck/writer) — иначе событие несло бы только код решения
-    («default») и воронка показывала молчание без причины."""
+    («default») и воронка показывала молчание без причины.
+
+    Аудит доставки 24.10.2026:
+    * G1 — выбранная L1 форма (`delivery:chat|reply`), `tgt:`/`tgt_user:`/
+      `addr:` и `corr:` едут machine-токенами в `entity_ids`, correlation —
+      ещё и в `trace_id` (связка «решение ↔ доставка» без новых колонок);
+    * G2 — `status` = `action.delivery_kind` (`react.react` больше не
+      выглядит как `reply`): `action` — решение, `delivery_kind` — форма.
+      Текст сообщения не пишется никогда."""
+    resolved_action = _safe_token(
+        action or getattr(decision, "action", "") or "", 32)
+    resolved_kind = _kind_word(
+        delivery_kind
+        if delivery_kind
+        else (initiative_delivery_kind(decision) if action is None
+              else action))
+    tokens = ["initiative_decision"]
+    if getattr(decision, "intent_id", None):
+        tokens.append("intent:%s" % _safe_token(decision.intent_id))
+    form = _delivery_form(delivery)
+    if form:
+        tokens.append("delivery:%s" % form)
+    if target_message_id is not None:
+        tokens.append("tgt:%s" % _safe_token(target_message_id))
+    if target_user_id is not None:
+        tokens.append("tgt_user:%s" % _safe_token(target_user_id))
+    if addressee_user_id is not None:
+        tokens.append("addr:%s" % _safe_token(addressee_user_id))
+    corr = _safe_token(correlation_id)
+    if corr:
+        tokens.append("corr:%s" % corr)
+    status = decision_status(resolved_action, resolved_kind)
     _emit("initiative_decided",
           outcome=_INITIATIVE_OUTCOMES.get(str(outcome or ""), "success"),
           chat_id=chat_id,
           reason_code=(str(reason_code) if reason_code
                        else getattr(decision, "reason_code", None)),
-          entity_ids=(["intent:%s" % getattr(decision, "intent_id")
-                       ] if getattr(decision, "intent_id", None) else None),
+          entity_ids=tokens,
+          trace_id=(corr or None),
           stage=(getattr(decision, "trigger_kind", "") or None),
-          status=(getattr(decision, "action", "") or None))
+          status=(status or None))
 
 
 def apply_intent_bundle_signals(bundle, *, intent_row: dict | None = None,
