@@ -1249,6 +1249,13 @@ async def _memorize_youtube(memory, chat_id: int, transcript: str) -> None:
         await memory.memorize_facts(chat_id, text, "youtube_content")
         return
     try:
+        if len(text) > _FACT_EXTRACT_MAX_CHARS:
+            # ASAP3 §2 (#19): субтитры длиннее tail-лимита сжимаются по хвосту —
+            # потеря начала не молчит (R17: только числа).
+            logger.warning(
+                "[graphrag hook] youtube transcript clipped for compress | "
+                "chat_id=%s | chars=%d -> %d", chat_id, len(text),
+                _FACT_EXTRACT_MAX_CHARS)
         raw = await memory.llm.generate([
             {"role": "system", "content": _MEMORIZE_COMPRESS_PROMPT},
             {"role": "user", "content": text[-_FACT_EXTRACT_MAX_CHARS:]},
@@ -3305,6 +3312,13 @@ class MemoryManager:
         text = " ".join(str(raw_text).split())
         if not text:
             return {"status": "skipped", "reason": "validation_failed"}
+        if len(text) > _FACT_EXTRACT_MAX_CHARS:
+            # ASAP3 §2 (#19): хвостовой срез экстрактора — не молча (R17: числа;
+            # текст владельца в лог не попадает).
+            logger.warning(
+                "graphrag memorize: extract input truncated | chat_id=%s | "
+                "source=%s | chars=%d -> %d", chat_id, source_type,
+                len(text), _FACT_EXTRACT_MAX_CHARS)
         tail = text[-_FACT_EXTRACT_MAX_CHARS:]
         # F8 (ADR-1019-7 D2): `LLMError` первичной экстракции (timeout nano-gpt
         # после исчерпания bounded-ретраев) больше НЕ теряет факты молча —
@@ -5290,6 +5304,13 @@ class MemoryManager:
             trace_step(logger, component="graph", step="gate", status="empty",
                        reason="no_captions", chat_id=chat_id)
             return
+        if len(text) > _GRAPH_EXTRACT_MAX_CHARS:
+            # ASAP3 §2 (#19): батч длиннее tail-лимита уходит в LLM хвостом —
+            # потеря начала не молчит (R17: только числа).
+            logger.warning(
+                "graph extract: batch tail clipped | chat_id=%s | "
+                "chars=%d -> %d", chat_id, len(text),
+                _GRAPH_EXTRACT_MAX_CHARS)
         tail = text[-_GRAPH_EXTRACT_MAX_CHARS:]
 
         if not _graph_retry_enabled():

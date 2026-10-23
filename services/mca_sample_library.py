@@ -64,6 +64,11 @@ SAMPLE_CATEGORY_LABELS: dict[str, str] = {
 SAMPLE_CATEGORY_STORAGE: tuple[str, ...] = SAMPLE_CATEGORIES + ("legacy",)
 #: Явное поле режима для категории «Мат» (не теги; SU-CAT.MAT).
 EXPRESSION_SAMPLE_MODES: tuple[str, ...] = ("off", "occasional", "frequent")
+#: Технический бюджет §3.2: строк на режим (совпадает с
+#: ``mca_expression.EXPRESSION_EXAMPLES_MAX_ITEMS``; импорт не нужен, чтобы не
+#: заводить цикл). Отбор НЕ обрывается на этом числе молча: резолвер считает
+#: все подходящие строки и отдаёт числа в ``stats`` (ASAP3 §2, #13).
+EXPRESSION_RESOLVE_MAX_ITEMS = 4
 
 #: Технические поля записи (design §2.3: «ровно требуемые источником +
 #: технические»): ревизия, дедуп сидов, учёт применений для recency/penalty.
@@ -1364,7 +1369,8 @@ async def resolve_expression_examples(chat_id: int, mode: str, *,
 
 
 async def resolve_expression_examples_ex(chat_id: int, mode: str, *,
-                                         db=None
+                                         db=None,
+                                         stats: dict | None = None
                                          ) -> tuple[tuple[dict, ...], str]:
     """`(строки, честная причина)` — BLOCK-1: «нет одобренных» ≠ «нет строк».
 
@@ -1377,8 +1383,19 @@ async def resolve_expression_examples_ex(chat_id: int, mode: str, *,
     `expression_mode`, а не произвольные теги (тег не создаёт режим;
     mat-карточка без поля режима в отбор не попадает — владелец задаёт
     режим в редакторе).
+
+    ASAP3 §2 (#13): ``stats`` — необязательный out-параметр с фактическим
+    составом ДО технического лимита ``EXPRESSION_RESOLVE_MAX_ITEMS``:
+    ``eligible`` (сколько одобренных строк режима реально подошло),
+    ``selected`` (сколько отдано) и ``dropped``. Без него числа потерялись бы:
+    вызывающий код видел только ≤4 строки и не мог отличить «у владельца 4
+    примера» от «у владельца 20, вошло 4».
     """
     from services import mca_gates
+    if stats is not None:
+        # Любой ранний выход оставляет честные нули, а не прошлый вызов.
+        stats.clear()
+        stats.update({"eligible": 0, "selected": 0, "dropped": 0})
     mode = str(mode or "")
     if mode not in EXPRESSION_SAMPLE_MODES:
         return (), "expression_examples_absent"
@@ -1396,6 +1413,7 @@ async def resolve_expression_examples_ex(chat_id: int, mode: str, *,
         logger.warning("[humor-samples] expr resolve failed", exc_info=True)
         return (), "expression_examples_absent"
     out: list[dict] = []
+    eligible = 0
     drafts_in_mode = 0
     for view in rows:
         # Явное поле режима; теги режим не создают (SU-CAT.MAT).
@@ -1413,9 +1431,14 @@ async def resolve_expression_examples_ex(chat_id: int, mode: str, *,
             continue
         if scan_sensitivity(view.get("input_text"), view.get("reply_text")):
             continue
-        out.append(dict(view))
-        if len(out) >= 4:
-            break
+        # ASAP3 §2 (#13): считаем ВСЕ подходящие строки; лимит §3.2 только
+        # ограничивает выдачу, а не счёт (иначе потеря 5..N невидима).
+        eligible += 1
+        if len(out) < EXPRESSION_RESOLVE_MAX_ITEMS:
+            out.append(dict(view))
+    if stats is not None:
+        stats.update({"eligible": eligible, "selected": len(out),
+                      "dropped": max(0, eligible - len(out))})
     if out:
         return tuple(out), ""
     if drafts_in_mode:

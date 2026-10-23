@@ -29,15 +29,15 @@ Feature: `asap3-corrective` · Lane: `ASAP3-LIMITS-INVENTORY` · 24.10.2026
 | 8 | Глубина треда (`chat_thread_max_depth`) | размер контекста | `:8585-8610` | да | да (per-chat гарантия; композер идёт до корня) | `USER_VISIBLE` | блок лимитов чата |
 | 9 | Бюджет треда (tokens/chars) | размер контекста | `:8610-8640` (`limits.chat_thread_*`) | да | да (в бюджете композера) | `TECHNICAL_VISIBLE` | Inspector (слой исключён бюджетом) |
 | 10 | Широкий фон L2 в контексте (символы) | размер контекста | `:8440-8460` (`limits.chat_level2_max_chars`) + WARN `:8454` | да | да, но не молча (WARN) | `TECHNICAL_VISIBLE` | WARN + строка «широкий фон:» |
-| 11 | **Текущий вопрос пользователя (cap 800, срез посередине)** | защита запроса | `:6660-6690` (`limits.chat_current_question_max_chars`) | да (chat params) | **было да и молча** → теперь WARN `current question truncated` с числами (`:6667,6677`) | `HIDDEN_LOSS` → исправлено | WARN + chat params |
-| 12 | **Досье в карточке: 10 фактов/связей + 1200 символов** | размер блока памяти | `:445,448,8108-8132`; `services/dossier_prompts.py:584-646` (`stats`) | нет (константы модуля) | **было да и молча** → теперь `stats` + WARN `persona dossier capped` (`:8124`) | `HIDDEN_LOSS` → исправлено | WARN (числа) + будущий счётчик в разделе памяти |
-| 13 | **Примеры регистра речи: ≤4 строки / 140 токенов / 700 символов** | бюджет few-shot §3.2 | `services/mca_expression.py:160-164, 379-444, 461-520`; отбор `services/mca_sample_library.py:1400-1408` | нет (бюджет контракта ADD-EXP) | **было да и молча**: полная потеря выдавалась за `expression_examples_absent` | `HIDDEN_LOSS` → исправлено (`budget_excluded` в манифесте + WARN `kept=X/Y`) | Inspector (причина слоя) + библиотека примеров |
-| 14 | **Поля примера при сохранении: input 2000 / reply 4000 символов** | защита БД/rendering | `services/mca_sample_library.py:565-586` (`_clip_field`) | нет (технический потолок) | **было да и молча** → теперь WARN `field clipped` с числами | `HIDDEN_LOSS` → исправлено (видимость) | WARN + счётчик длины в редакторе примеров (UI — отдельная полоса) |
+| 11 | **Текущий вопрос пользователя (cap 800, срез посередине)** | защита запроса | `:6660-6692` (`limits.chat_current_question_max_chars`) | да (chat params) | **было да и молча** → теперь WARN `current question truncated` с числами (`:6673,6683`) и WARN `current question dropped` при `room=0` (маркеры заняли весь cap, `:6678`) | `HIDDEN_LOSS` → исправлено | WARN + chat params |
+| 12 | **Досье в карточке: 10 фактов/мемов + 1200 символов** | размер блока памяти | `:445,448,8093-8160`; `services/dossier_prompts.py:584-646` (`stats`) | нет (константы модуля) | **было да и молча**: 10-элементная срезка применялась ДО форматтера, `stats` видел ≤10 и WARN не срабатывал → теперь totals считаются до срезки, WARN `persona dossier capped` (`:8113` flat, `:8154` dossier), счётчик в заголовке — настоящий (35, не 10) | `HIDDEN_LOSS` → исправлено | WARN (числа) + будущий счётчик в разделе памяти |
+| 13 | **Примеры регистра речи: ≤4 строки / 140 токенов / 700 символов** | бюджет few-shot §3.2 | `services/mca_expression.py:160-164, 408-465, 474-505`; отбор `services/mca_sample_library.py:66-71, 1370-1440` | нет (бюджет контракта ADD-EXP) | **было да и молча** (дважды): (а) полная потеря выдавалась за `expression_examples_absent`; (б) резолвер обрывал отбор на 4, поэтому `total_items` никогда не был >4. Теперь резолвер считает ВСЕ подходящие одобренные строки (`stats.eligible/selected/dropped`), `ExampleRender.total_items` берётся из него, WARN `kept=4/20` | `HIDDEN_LOSS` → исправлено (`budget_excluded` + WARN `kept=X/Y`) | Inspector (причина слоя) + библиотека примеров |
+| 14 | **Поля примера при сохранении: input 2000 / reply 4000 символов** | защита БД/rendering | `services/mca_sample_library.py:565-586` (`_clip_field`); API-потолок `web/api/speech.py:3466-3469` (`SampleWrite`) | нет (технический потолок) | через владельческий UI недостижимо (422), но не-UI писатели (tools/import) режутся — теперь WARN `field clipped` с числами (defense-in-depth) | `TECHNICAL_VISIBLE` (WARN) | WARN + счётчик длины в редакторе примеров (UI — отдельная полоса) |
 | 15 | Legacy-саммари: число sendMessage-частей | Telegram/лимит отправки | `services/summary_generator.py:162-169, 223-231` (`limits.max_summary_parts`) | да | да, но WARN `LEGACY_CHUNKS_CAPPED` с числами | `TECHNICAL_VISIBLE` | WARN + chat params |
 | 16 | L2-review вызовы (≤6) и writer-вызовы (≤2) | бюджет LLM | `services/summary_generator.py:184-202`; review-модуль | нет (технический) | нет (влияет на стоимость, не на данные владельца) | `NOT_RELEVANT` | метрики стадии в Inspector саммари |
 | 17 | Активация GraphRAG: 5 фактов в горячий кэш, 12 узлов-кандидатов | анти-взрыв выборки | `services/summary_memory.py:73,75,4613-4642` | нет | нет: остальные факты остаются доступны обычной выборкой/KNN | `NOT_RELEVANT` | не требуется |
 | 18 | Имена/связи GraphRAG: 100/200 символов; поля факта 100/200/400 | форма данных из LLM | `services/summary_memory.py:164-167,754-755` | нет | да, но это нормализация вывода экстрактора, а не настройка владельца | `NOT_RELEVANT` | не требуется |
-| 19 | Tail текста для экстрактора/графа: 8000 символов | стоимость LLM | `services/summary_memory.py:164,753` | нет | да (хвост длинного чата не экстрагируется за один проход) | `TECHNICAL_VISIBLE` (WARN экстрактора) | журнал/события памяти |
+| 19 | **Tail текста для экстрактора/графа: 8000 символов** | стоимость LLM | `services/summary_memory.py:164,288,753`; срезы `:1251-1262` (YouTube-сжатие), `:3314-3322` (memorize), `:5305-5313` (граф-батч) | нет | **было да и молча**: длинный текст владельца терял начало без сигнала; теперь WARN с числами на всех трёх срезах | `HIDDEN_LOSS` → исправлено (WARN) | WARN в журнале памяти |
 | 20 | История редакций документа Style Policy (20) | bounded growth | `services/style_policy.py:65,732,2569` | нет | нет (старые ревизии — архив, текущий документ цел) | `NOT_RELEVANT` | история ревизий в разделе |
 | 21 | Анти-залипание: окно 12 реплик, ban 50, архив 200 | защита от повторов | `services/style_policy.py:1990-1996` | нет | нет (внутренняя дедупликация n-грамм, текст владельца не режется) | `NOT_RELEVANT` | не требуется |
 | 22 | Блоки контекста по каталогу: отношения 600, лор 3000, якорь стиля 400, RAG-память 2000 (символы) | размер контекста | `services/direct_chat_service.py:7189-7200, 7897-7910, 7807-7815, 8334-8345`; `services/param_catalog.py:1606,1732,1749,1876,1907` | да (каталог параметров) | да, с WARN и маркерами в блоках | `USER_VISIBLE` / `TECHNICAL_VISIBLE` | каталог параметров (`limits_*` группы) |
@@ -47,11 +47,16 @@ Feature: `asap3-corrective` · Lane: `ASAP3-LIMITS-INVENTORY` · 24.10.2026
 
 - Всего проверено ограничений: **23** (класс — по основному действию строки).
 - `USER_VISIBLE`: **5** (№1, 2, 6, 8, 22).
-- `TECHNICAL_VISIBLE`: **8** (№3, 4, 5, 7, 9, 10, 15, 19).
-- `HIDDEN_LOSS` найдено: **4** (№11 текущий вопрос, №12 досье, №13 примеры регистра,
-  №14 поля примера при сохранении). **Исправлено: 4/4.**
+- `TECHNICAL_VISIBLE`: **7** (№3, 4, 5, 7, 9, 10, 15, 14).
+- `HIDDEN_LOSS` найдено: **5** (№11 текущий вопрос, №12 досье, №13 примеры регистра,
+  №14 поля примера при сохранении, №19 tail экстрактора). **Исправлено: 5/5.**
 - `NOT_RELEVANT`: **6** с обоснованием (№16, 17, 18, 20, 21, 23).
-- 5+8+4+6 = 23.
+- 5+7+5+6 = 23.
+
+Правка после ревью `review-limits.md` (F1–F3, 24.10.2026): строка №19 переклассифицирована
+`TECHNICAL_VISIBLE → HIDDEN_LOSS` (WARN экстрактора фактически отсутствовал), №14 — в
+`TECHNICAL_VISIBLE` как defense-in-depth (владельческий UI отдаёт 422), №11/12/13 усилены
+(см. §3).
 
 ## 3. Что именно было скрытой потерей и чем исправлено
 
@@ -61,6 +66,9 @@ Feature: `asap3-corrective` · Lane: `ASAP3-LIMITS-INVENTORY` · 24.10.2026
 (default 800) через `stripped[:cap]`; при медиа-маркерах — до резерва под суффикс. Владелец мог
 написать вопрос длиннее и модель получала начало без единого признака усечения (и без WARN).
 Правка: WARN `direct: current question truncated | chars=N -> M | cap=K` (только числа; R17).
+Уточнение после ревью: при `room == 0` (медиа-маркеры заняли весь cap) текст вопроса не входил
+вовсе и раньше исчезал без сигнала — добавлен отдельный WARN
+`direct: current question dropped | chars=N | cap=K | markers=M` (`direct_chat_service.py:6676-6684`).
 Payload не менялся — поведение и байты промпта при коротком тексте прежние.
 
 ### 3.2 №12 — досье в карточке резало факты/мемы молча
@@ -70,6 +78,30 @@ Payload не менялся — поведение и байты промпта 
 out-параметр `stats` (`facts_total/facts_kept/memes_total/memes_kept/truncated`), существующие
 вызовы без него не меняются (`services/tool_router.py:2158`); в `build_persona_card` при
 `truncated` — WARN `direct: persona dossier capped` с числами. Семантика усечения не изменена.
+
+**Исправление после ревью (F1, было нерабочим).** `_PERSONA_MAX_ITEMS = 10` применялся к
+`facts/protected/lore` и `memes` ДО `format_dossier_block`, поэтому `stats` физически видел ≤10
+строк и `truncated` всегда был `False`: WARN не срабатывал, а заголовок «знаю о тебе: 10 фактов»
+показывал усечённое число как полное. Теперь в `direct_chat_service.build_persona_card:8093-8160`:
+
+- `facts_total = len(lore + protected + facts)`, `memes_total = len(memes)` считаются ДО срезки;
+- форматтеру по-прежнему уходят только 10 строк (бюджет и payload не менялись), но истинные
+  totals возвращаются в `stats` после вызова, и `truncated` пересчитывается по ним;
+- WARN один и тот же в обеих ветках: `mode=dossier` (`:8154`) и `mode=flat` (`:8113`, irony OFF
+  тоже режет список до 10);
+- счётчик в заголовке = настоящий total (как уже было в flat-ветке), а не число вошедших строк.
+
+Замер на пробе ревью (30 фактов + 5 защищённых + 15 мемов, irony ON):
+
+```text
+до:   знаю о тебе: 10 фактов, 0 связей; 10 строк фактов; WARN нет
+после: WARNING direct: persona dossier capped | chat=1 | mode=dossier |
+        facts_kept=10/35 | memes_kept=10/15 | cap_chars=1200
+       знаю о тебе: 35 фактов, 0 связей
+```
+
+Тест: `test_persona_card_counts_items_before_ten_item_cap`, `test_persona_card_flat_branch_logs_item_cap`
+(`tests/test_asap3_hidden_limits.py`).
 
 ### 3.3 №13 — одобренные примеры речи исчезали как «набор отсутствует»
 
@@ -86,13 +118,62 @@ out-параметр `stats` (`facts_total/facts_kept/memes_total/memes_kept/tru
 - частичная потеря → WARN `[expression] examples capped | kept=X/Y | by=items/tokens/chars`;
 - бюджет ≤4/140/700 и контракт ADD-EXP §3.2 не изменены (это защитный лимит, а не настройка).
 
+**Исправление после ревью (F2, было нерабочим).** Резолвер сам обрывал отбор на 4
+(`mca_sample_library.py:1417-1418` старой версии), поэтому `render_expression_examples_block`
+никогда не видел больше 4 строк: `total_items`/`dropped` описывали остаток после отбора, а не
+набор владельца, и WARN `kept=X/Y` не мог сработать (20 одобренных → `total=4 kept=4 dropped=0`).
+Теперь:
+
+- `resolve_expression_examples_ex(..., stats=...)` НЕ обрывает счёт: `eligible` — все подходящие
+  одобренные строки режима, `selected`/`dropped` — выдача и потеря (`mca_sample_library.py:66-71,
+  1370-1440`); ранние выходы (OFF/absent) оставляют честные нули;
+- `render_expression_examples_block(..., available_items=N)` берёт `total_items` из резолвера
+  (`mca_expression.py:408-465`), `limited_by="items"` появляется и когда строки отбросил отбор;
+- `build_expression_examples_refs` передаёт `stats["eligible"]` в рендер (`mca_expression.py:483-495`),
+  поэтому WARN `kept=4/20 | by=items` отражает реальность.
+
+Замер на пробе ревью (20 одобренных mat-строк, режим off):
+
+```text
+до:   resolver rows=4; ExampleRender total=4 included=4 dropped=0 limited_by=""; WARN нет
+после: stats={'eligible': 20, 'selected': 4, 'dropped': 16}
+       WARNING [expression] examples capped | mode=off | kept=4/20 | by=items
+       ExampleRender total=20 included=4 dropped=16 limited_by="items"
+```
+
+Тест: `test_expression_resolver_counts_approved_rows_before_item_cap` (реальный сev резолвера, не
+мок) в `tests/test_asap3_hidden_limits.py`.
+
 ### 3.4 №14 — поля примера резались при сохранении молча
 
 `normalize_fields` резал `input_text` до 2000 и `reply_text` до 4000 символов без какого-либо
 сигнала. Правка: `_clip_field` → WARN `[humor-samples] field clipped | field=… | chars=N -> M`.
 Создание/обновление примера не изменилось по результату, но потеря больше не бесшумна.
+Уточнение после ревью: владельческий UI этот потолок превысить не может — `SampleWrite`
+(`web/api/speech.py:3466-3469`) отдаёт 422 с ошибкой валидации; WARN нужен как defense-in-depth
+для не-UI писателей (tools/импорт) и сам по себе не является восстановлением потерянного поля,
+поэтому строка переклассифицирована в `TECHNICAL_VISIBLE`. Тест на WARN:
+`test_sample_field_clip_is_logged`.
 Осталось (вне write-scope полосы, `web/**` запрещён): счётчик длины и предупреждение в редакторе
 примеров — существующий UI-раздел библиотеки.
+
+### 3.5 №19 (нашлась на ревью) — tail экстрактора 8000 резал текст владельца молча
+
+`summary_memory.py:3308` делал `tail = text[-8000:]` без сравнения длины и без лога: длинное
+сообщение владельца теряло начало при извлечении фактов, и это не было видно нигде. Та же схема —
+YouTube-сжатие (`:1254`) и граф-батч (`:5293`). Строка инвентаризации утверждала «WARN
+экстрактора», которого не существовало, поэтому переклассифицирована в `HIDDEN_LOSS`.
+Правка (только видимость, бюджеты 8000 не менялись):
+
+- `memorize`: WARN `graphrag memorize: extract input truncated | chat_id=… | source=… | chars=N -> 8000`
+  (`:3314-3322`);
+- YouTube: WARN `[graphrag hook] youtube transcript clipped for compress | chat_id=… | chars=N -> 8000`
+  (`:1251-1262`);
+- граф-батч: WARN `graph extract: batch tail clipped | chat_id=… | chars=N -> 8000` (`:5305-5313`).
+
+R17: в лог идут только числа, текст владельца не логируется. Тест:
+`test_extract_tail_truncation_is_logged` (проверяет и длину фактически отправленного хвоста, и
+отсутствие текста в логе).
 
 ## 4. Сверка с уже сделанным (без дублей)
 
@@ -107,24 +188,39 @@ out-параметр `stats` (`facts_total/facts_kept/memes_total/memes_kept/tru
 ## 5. Прогон
 
 ```text
-tests/test_asap3_hidden_limits.py (new)                  7 passed
+tests/test_asap3_hidden_limits.py (7 старых + 6 новых)  13 passed
 tests/test_add_exp_expression.py + test_samples_fewshot  52 passed
 tests/test_dossier_irony.py + test_chat_lore.py +
   test_direct_chat.py                                   193 passed
 tests/test_asap3_style_hint_limits.py + acceptance +
   identity_aliases                                       45 passed
+tests/test_dossier_prompts.py + test_soul1_w4_sample_library  52 passed
+tests/test_soul1_w4_examples_scope.py + categories +
+  factory_persist                                        29 passed
+tests/test_graphrag_memory.py + asap44_batch_breaker +
+  asap8_v63_b03 + asap8_v6_p1_d09                       203 passed
 ```
 
-Все прогоны — локальные, целевые файлы (рамка полосы: ≤3 мин на файл, без сети/прода).
+Итого затронутые файлы: **574 passed, 0 failed** (включая `summary_memory`-набор, которого не было
+в первом прогоне ревью). Все прогоны — локальные, целевые файлы (рамка полосы: ≤3 мин на файл,
+без сети/прода).
+
+Пробы ревью, перезапущенные на правке: досье `facts_kept=10/35` + честный заголовок; примеры
+`eligible=20 selected=4 dropped=16` + WARN `kept=4/20 | by=items` (`OPENCODE_WORKFLOW_SCRATCH/fx_dossier_probe.py`,
+`.../dbg_expr.py`).
 
 ## 6. Что осталось и почему
 
 1. №14 — предупреждение о длине в редакторе примеров (`web/**` — вне write-scope полосы; WARN уже
-   делает потерю диагностируемой).
+   делает потерю диагностируемой, UI-потолок отдаёт 422).
 2. №12 — владельческая настройка бюджета досье (сейчас константа 1200) не вводилась: источник §2
    требует видимости деградации, а не новой универсальной системы лимитов; при необходимости это
    отдельный ключ каталога `limits.*` в разделе памяти, не в этой полосе.
 3. №13 — «настраиваемость» бюджета примеров не вводилась: это защитный бюджет контракта ADD-EXP
    §3.2; сейчас потеря видна кодом `budget_excluded` и числами в WARN.
-4. Прод-конфигурация (реальные значения chat params/каталога) в полосе не читалась — сеть/прод
+4. №12, связи в карточке: `get_persona_card` читает связи с SQL `LIMIT ?`
+   (`services/database.py:11025-11038`), поэтому total связей вызывающему неизвестен и заголовок
+   показывает число вошедших связей. Факты уже честные (30 → «35 фактов»); для связей нужен
+   дополнительный `COUNT` в `database.py` — файл вне write-scope полосы, отдельная микрозадача.
+5. Прод-конфигурация (реальные значения chat params/каталога) в полосе не читалась — сеть/прод
    запрещены; проверка эффективных значений остаётся postdeploy (`migration.md` §5).
