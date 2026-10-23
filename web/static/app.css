@@ -4644,6 +4644,10 @@ html.cover-editor-open { overflow: hidden; }
   min-height: 44px;
   min-width: 0;
 }
+.speech-limit-row .badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .speech-limit-value {
   display: flex;
   align-items: center;

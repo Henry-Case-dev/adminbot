@@ -8057,20 +8057,28 @@
                                :aria-label="'Ограничивать размер инструкций Style Policy'"
                                @change="toggleStyleLimit('max_chars', $event.target.checked)">
                         <span class="text-xs">Ограничивать размер инструкций Style Policy</span>
+                        <span v-if="speechStyleLimitInherited('max_chars')"
+                              class="badge badge-muted"
+                              data-speech-hint-inherited-badge="max_chars">унаследовано</span>
                       </label>
                       <div v-if="speechStyleLimitOn('max_chars')" class="speech-limit-value">
                         <input type="number" min="0" step="1" class="field speech-limit-input"
                                data-speech-hint-limit-input="max_chars"
                                aria-label="Максимальный размер инструкций в символах"
-                               :value="speechStyleLimitValue('max_chars')"
+                               :value="speechStyleLimitDisplayValue('max_chars')"
                                @input="setStyleLimitValue('max_chars', $event.target.value)">
                         <span class="text-xs text-gray-500">символов · сейчас
                           {{ speechStyleHintLimits().current_chars || 0 }} зн.</span>
                       </div>
-                      <div v-if="speechStyleLimitOn('max_chars')" class="text-xs text-gray-500">
-                        Установлено: {{ speechStyleLimitValue('max_chars') }} симв. ·
-                        действующее значение: {{ speechStyleHintLimits().max_chars || 0 }}
-                        (источник: {{ speechHintSourceText('max_chars') }})
+                      <div v-if="speechStyleLimitOn('max_chars')"
+                           class="text-xs text-gray-500"
+                           data-speech-hint-limit-source="max_chars">
+                        Действует: до {{ speechStyleHintLimits().max_chars || 0 }} симв. ·
+                        {{ speechStyleLimitOriginText('max_chars') }}.
+                        <template v-if="speechStyleLimitInherited('max_chars')">
+                          Отключение снимет его только для этого слоя; изменение
+                          поля создаст переопределение.
+                        </template>
                       </div>
                       <label class="speech-limit-row">
                         <input type="checkbox" data-speech-hint-limit-toggle="max_items"
@@ -8078,31 +8086,40 @@
                                :aria-label="'Ограничивать количество инструкций'"
                                @change="toggleStyleLimit('max_items', $event.target.checked)">
                         <span class="text-xs">Ограничивать количество инструкций</span>
+                        <span v-if="speechStyleLimitInherited('max_items')"
+                              class="badge badge-muted"
+                              data-speech-hint-inherited-badge="max_items">унаследовано</span>
                       </label>
                       <div v-if="speechStyleLimitOn('max_items')" class="speech-limit-value">
                         <input type="number" min="0" step="1" class="field speech-limit-input"
                                data-speech-hint-limit-input="max_items"
                                aria-label="Максимальное количество инструкций"
-                               :value="speechStyleLimitValue('max_items')"
+                               :value="speechStyleLimitDisplayValue('max_items')"
                                @input="setStyleLimitValue('max_items', $event.target.value)">
                         <span class="text-xs text-gray-500">инструкций · сейчас
                           {{ speechStyleHintRender().included_items || 0 }} из
                           {{ speechStyleHintRender().total_items || 0 }}</span>
                       </div>
-                      <div v-if="speechStyleLimitOn('max_items')" class="text-xs text-gray-500">
-                        Установлено: {{ speechStyleLimitValue('max_items') }} ·
-                        действующее значение: {{ speechStyleHintLimits().max_items || 0 }}
-                        (источник: {{ speechHintSourceText('max_items') }})
+                      <div v-if="speechStyleLimitOn('max_items')"
+                           class="text-xs text-gray-500"
+                           data-speech-hint-limit-source="max_items">
+                        Действует: до {{ speechStyleHintLimits().max_items || 0 }}
+                        инструкций · {{ speechStyleLimitOriginText('max_items') }}.
+                        <template v-if="speechStyleLimitInherited('max_items')">
+                          Отключение снимет его только для этого слоя; изменение
+                          поля создаст переопределение.
+                        </template>
                       </div>
                       <div v-if="speechStyleLimitPending()" class="text-xs text-gray-500"
                            data-speech-hint-draft>
-                        Черновик лимита: {{ speechHintDraftLimitText() }} — применится
-                        после «Сохранить».
+                        Черновик переопределения лимита: {{ speechHintDraftLimitText() }} —
+                        применится после «Сохранить».
                       </div>
                       <div v-if="speechHintOverflow()" class="speech-warn"
                            data-speech-hint-overflow>
                         <div>
-                          В действующий лимит ({{ speechHintLimitText(speechStyleHintLimits()) }})
+                          В действующий пользовательский лимит
+                          ({{ speechHintLimitText(speechStyleHintLimits()) }})
                           помещаются не все инструкции:
                           {{ speechStyleHintRender().included_items || 0 }} из
                           {{ speechStyleHintRender().total_items || 0 }}.
@@ -8128,9 +8145,12 @@
                       </div>
                       <div v-else class="text-xs text-gray-500" data-speech-hint-complete>
                         <template v-if="speechStyleHintRender().total_items">
-                          Все активные инструкции входят в подсказку —
+                          Все активные инструкции входят в подсказку в пределах
+                          пользовательского лимита —
                           {{ speechStyleHintRender().included_items || 0 }} из
                           {{ speechStyleHintRender().total_items || 0 }}.
+                          Технический бюджет модели виден в Effective Prompt
+                          Inspector.
                         </template>
                         <template v-else>
                           Активных инструкций нет — подсказка пуста.
@@ -9373,7 +9393,13 @@
                       <div class="text-xs text-gray-500">
                         доступно инструкций:
                         {{ speechInspector.preview.style.total_items }} ·
-                        включено: {{ speechInspector.preview.style.included_items }} ·
+                        <template v-if="speechStyleBuildInPayload(speechInspector.preview.style)">
+                          в подсказке: {{ speechInspector.preview.style.included_items }} ·
+                        </template>
+                        <template v-else>
+                          в подсказке (НЕ отправлено):
+                          {{ speechInspector.preview.style.included_items }} ·
+                        </template>
                         источник: {{ speechStyleBuildSourceText(speechInspector.preview.style) }}
                       </div>
                       <div class="text-xs text-gray-500">
@@ -9390,7 +9416,20 @@
                         {{ speechInspector.preview.style.documents.chat_present ? 'есть' : 'нет' }}
                         (rev {{ speechInspector.preview.style.documents.chat_revision }})
                       </div>
-                      <div v-if="speechStyleBuildExcluded(speechInspector.preview.style).length"
+                      <!-- ASAP3 §1.4/§1.5 + review-ui BLOCKER-3: техническое
+                           исключение слоя нельзя подавать как «всё включено». -->
+                      <div v-if="!speechStyleBuildInPayload(speechInspector.preview.style)"
+                           class="speech-warn" data-speech-inspector-style-payload>
+                        <div>
+                          Слой Style Policy не вошёл в фактический payload —
+                          модель этот текст НЕ получила.
+                        </div>
+                        <div class="text-xs">
+                          Причина: {{ speechStyleBuildReasonText(speechInspector.preview.style) }}.
+                          Ниже — что было бы включено (не отправлено).
+                        </div>
+                      </div>
+                      <div v-else-if="speechStyleBuildExcluded(speechInspector.preview.style).length"
                            class="speech-warn" data-speech-inspector-style-excluded>
                         <div>Часть активных инструкций в payload НЕ вошла:</div>
                         <div v-for="(row, ex) in speechStyleBuildExcluded(speechInspector.preview.style)"
@@ -9402,8 +9441,14 @@
                       <div v-else class="text-xs text-gray-500">
                         Ничего не исключено: {{ speechStyleBuildLimitText(speechInspector.preview.style) }}.
                       </div>
-                      <div class="speech-adv-title">Точная редакция включённых инструкций</div>
-                      <pre class="speech-pre" data-speech-inspector-style-hint>{{ speechInspector.preview.style.hint_text || '(подсказка пуста)' }}</pre>
+                      <div class="speech-adv-title">
+                        {{ speechStyleBuildInPayload(speechInspector.preview.style)
+                           ? 'Точная редакция включённых инструкций'
+                           : 'Что было бы включено (НЕ отправлено)' }}
+                      </div>
+                      <pre class="speech-pre" data-speech-inspector-style-hint
+                           :data-speech-inspector-style-payload-included="
+                             speechStyleBuildInPayload(speechInspector.preview.style) ? 'yes' : 'no'">{{ speechInspector.preview.style.hint_text || '(подсказка пуста)' }}</pre>
                     </div>
                     <div class="card speech-pad" v-if="speechInspector.last_run_present">
                       <div class="text-sm font-bold mb-1">Фактически отправленный payload</div>

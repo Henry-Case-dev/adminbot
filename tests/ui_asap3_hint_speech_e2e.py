@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """ASAP3 §1.3/§1.5 — лимиты подсказки Style Policy и честный Inspector.
 
 Проверяет РЕАЛЬНЫЕ `web/index.html` + `web/app.js` + `web/static/app.css`
@@ -96,6 +96,7 @@ EXCLUDED = [{
 
 def style_payload():
     limited = STATE["mode"] == "limited"
+    inherited = STATE["mode"] == "inherited"
     limits = {"max_chars": 0, "max_items": 0, "sources": {},
               "off": True, "current_chars": 0,
               "layers": {"global": {}, "chat": {}}}
@@ -109,6 +110,14 @@ def style_payload():
         render = {"total_items": 3, "included_items": 2,
                   "excluded": list(EXCLUDED), "overflow": True,
                   "limited_by": "items", "truncated": False}
+    elif inherited:
+        # review-ui BLOCKER-2: глобальный лимит действует, в чате своего поля нет.
+        limits = {"max_chars": 180, "max_items": 0,
+                  "sources": {"max_chars": "global"},
+                  "off": False, "current_chars": 120,
+                  "layers": {"global": {"max_chars": 180}, "chat": {}}}
+        render = {"total_items": 3, "included_items": 3, "excluded": [],
+                  "overflow": False, "limited_by": "", "truncated": False}
     return {
         "scope": "chat", "chat_id": CHAT, "can_edit": True,
         "context": "regular", "source": "chat", "revision": "g3.c2",
@@ -169,6 +178,16 @@ def style_build():
             "layer": {"state": "rendered", "rendered": True,
                       "skip_reason": "", "chars": 120, "tokens": 30,
                       "revision": "g3.c2"},
+        })
+    if STATE["mode"] == "budget":
+        # review-ui BLOCKER-3: технический бюджет выкинул ВЕСЬ слой.
+        build.update({
+            "excluded": [],
+            "hint_chars": 0,
+            "layer": {"state": "budget_excluded", "rendered": False,
+                      "skip_reason": "budget_excluded", "chars": 0,
+                      "tokens": 0, "revision": ""},
+            "payload_included": False,
         })
     return build
 
@@ -346,6 +365,28 @@ def api_checks():
     if summary["limits"]["off"] is not False:
         fail("api/off", "лимит помечен выключенным при max_items=2")
 
+    # review-ui BLOCKER-1: частичный чатовый лимит НЕ отменяет унаследованный.
+    merged_limits, _ = sp.merge_hint_limits(
+        {"hint_limits": {"max_chars": 180}},
+        {"hint_limits": {"max_items": 3}})
+    if merged_limits.get("max_chars") != 180:
+        fail("api/partial_merge", "чатовый item-лимит отменил глобальный "
+             "max_chars: %s" % (merged_limits,))
+    partial_policy = sp.effective_policy_sync(
+        {"hint_limits": {"max_chars": 180}},
+        {"hint_limits": {"max_items": 3}})
+    if partial_policy.hint_limits.get("max_chars") != 180:
+        fail("api/partial_effective", "эффективный max_chars потерян: %s"
+             % (partial_policy.hint_limits,))
+    # review-ui BLOCKER-3: техническое исключение слоя видно в summary.
+    budget_summary = S._style_build_summary(partial_policy, [{
+        "layer": "style_policy_hint", "rendered": False,
+        "skip_reason": "budget_excluded"}])
+    if budget_summary["payload_included"] is not False \
+            or budget_summary["layer"]["state"] != "budget_excluded":
+        fail("api/budget_state", "budget_excluded не отражён: %s"
+             % (budget_summary["layer"],))
+
     async def _overrides(chat_id):
         return {"style.policy": CHAT_DOC}
 
@@ -436,6 +477,8 @@ INSPECTOR_PROBE = r"""
     present: true,
     text: strip(card.textContent),
     hintText: hint ? hint.textContent : '',
+    payloadIncluded: hint ? hint.getAttribute(
+      'data-speech-inspector-style-payload-included') : null,
     excluded: Array.from(
       card.querySelectorAll('[data-speech-inspector-style-excluded] div'))
       .map((el) => strip(el.textContent)),
@@ -465,6 +508,19 @@ def snap(page, shots, name):
     if shots:
         os.makedirs(shots, exist_ok=True)
         page.screenshot(path=os.path.join(shots, name + ".png"))
+
+
+def snap_at(page, shots, name, selector):
+    """Снимок с прокруткой к проверяемому блоку (иначе 390-кадр показывает
+    только верх раздела — замечание review-ui)."""
+    if not shots:
+        return
+    try:
+        page.locator(selector).first.scroll_into_view_if_needed()
+        page.wait_for_timeout(250)
+    except Exception:  # noqa: BLE001
+        pass
+    snap(page, shots, name)
 
 
 def open_style(page):
@@ -498,7 +554,7 @@ def run_style_off(browser, shots):
             fail(label, "горизонтальный overflow: %d" % data["overflow"])
         if data["minTap"] is not None and data["minTap"] < 44:
             fail(label, "тач-цель < 44px: %s" % data["small"])
-        snap(page, shots, "style_off_390")
+        snap_at(page, shots, "style_off_390", "[data-speech-hint-limits]")
         notes.append({"label": label, "probe": data})
     finally:
         ctx.close()
@@ -528,7 +584,7 @@ def run_style_limited(browser, shots):
             fail(label, "горизонтальный overflow: %d" % data["overflow"])
         if data["minTap"] is not None and data["minTap"] < 44:
             fail(label, "тач-цель < 44px: %s" % data["small"])
-        snap(page, shots, "style_limited_390")
+        snap_at(page, shots, "style_limited_390", "[data-speech-hint-limits]")
 
         page.click("[data-speech-hint-disable]")
         page.wait_for_timeout(200)
@@ -544,10 +600,59 @@ def run_style_limited(browser, shots):
         else:
             limits = (posts[-1]["body"].get("document") or {}).get(
                 "hint_limits") or {}
-            if limits.get("max_chars") != 0 or limits.get("max_items") != 0:
-                fail(label, "в документ не записан явный OFF-лимит: %s"
+            # BLOCKER-1: отключаем только ДЕЙСТВУЮЩИЙ item-лимит; размер
+            # не был задан в слое и не должен получить явный 0.
+            if limits.get("max_items") != 0:
+                fail(label, "в документ не записан явный OFF item-лимита: %s"
+                     % (limits,))
+            if "max_chars" in limits:
+                fail(label, "отключение item-лимита дописало max_chars=0: %s"
                      % (limits,))
         notes.append({"label": label, "probe": data, "after": after,
+                      "posts": [p["path"] for p in POSTS]})
+    finally:
+        ctx.close()
+
+
+def run_style_inherited(browser, shots):
+    """BLOCKER-1/2: унаследованный глобальный лимит виден как действующий,
+    а частичное сохранение чатового item-лимита не отменяет глобальный размер."""
+    label = "style-inherited"
+    STATE["mode"] = "inherited"
+    POSTS[:] = []
+    ctx, page = new_page(browser, 390, 844)
+    try:
+        open_style(page)
+        data = page.evaluate(PROBE)
+        if [t["checked"] for t in data["toggles"]] != [True, False]:
+            fail(label, "унаследованный лимит показан выключенным: %s"
+                 % data["toggles"])
+        if "унаследовано" not in data["text"] or "все чаты" not in data["text"]:
+            fail(label, "нет пометки источника «унаследовано: все чаты»")
+        if "до 180 симв." not in data["text"]:
+            fail(label, "нет действующего значения 180 симв.")
+        values = {row["field"]: row["value"] for row in data["inputs"]}
+        if str(values.get("max_chars")) != "180":
+            fail(label, "поле не показывает действующий размер: %s" % values)
+        if data["warning"]:
+            fail(label, "при непереполненном лимите показано предупреждение")
+        snap_at(page, shots, "style_inherited_390", "[data-speech-hint-limits]")
+
+        # Включаем только item-лимит (по умолчанию = текущее число инструкций).
+        page.click("[data-speech-hint-limit-toggle='max_items']")
+        page.wait_for_timeout(200)
+        page.click(".speech-section .btn-accent")
+        page.wait_for_timeout(700)
+        posts = [p for p in POSTS if p["path"] == "style"]
+        if not posts:
+            fail(label, "частичное сохранение не ушло в POST /style")
+        else:
+            limits = (posts[-1]["body"].get("document") or {}).get(
+                "hint_limits") or {}
+            if sorted(limits.keys()) != ["max_items"]:
+                fail(label, "сохранение отправило лишние поля лимита: %s"
+                     % (limits,))
+        notes.append({"label": label, "probe": data,
                       "posts": [p["path"] for p in POSTS]})
     finally:
         ctx.close()
@@ -581,6 +686,20 @@ def run_inspector(browser, width, height, label, mode, shots):
             if "Пиши живо, без канцелярита" not in data["hintText"]:
                 fail(label, "Inspector не показывает точную редакцию "
                             "включённых инструкций")
+        elif mode == "budget":
+            if "Ничего не исключено" in data["text"]:
+                fail(label, "budget_excluded подан как «ничего не исключено»")
+            if "не вошёл" not in data["text"]:
+                fail(label, "нет явного «слой не вошёл в payload»")
+            if "бюджет композитора" not in data["text"]:
+                fail(label, "причина budget_excluded не названа")
+            if "не отправлено" not in data["text"].lower():
+                fail(label, "блок не помечен как НЕ отправленный")
+            if data.get("payloadIncluded") != "no":
+                fail(label, "payload_included не помечен false: %s"
+                     % data.get("payloadIncluded"))
+            if "Пиши живо, без канцелярита" not in data["hintText"]:
+                fail(label, "не показано, что было бы включено")
         else:
             if "Без ограничения" not in data["text"]:
                 fail(label, "при OFF Inspector не показывает «Без ограничения»")
@@ -590,7 +709,8 @@ def run_inspector(browser, width, height, label, mode, shots):
                 fail(label, "при OFF не все инструкции в фактической редакции")
         if data["overflow"] > 1:
             fail(label, "горизонтальный overflow: %d" % data["overflow"])
-        snap(page, shots, "inspector_%s_%s" % (mode, label))
+        snap_at(page, shots, "inspector_%s_%s" % (mode, label),
+                "[data-speech-inspector-style]")
         notes.append({"label": label, "probe": data})
     finally:
         ctx.close()
@@ -614,10 +734,13 @@ def main() -> int:
         with browser:
             run_style_off(browser, args.shots)
             run_style_limited(browser, args.shots)
+            run_style_inherited(browser, args.shots)
             run_inspector(browser, 390, 844, "390", "limited", args.shots)
             run_inspector(browser, 1280, 900, "desktop", "limited", args.shots)
             run_inspector(browser, 390, 844, "390", "off", args.shots)
             run_inspector(browser, 1280, 900, "desktop", "off", args.shots)
+            run_inspector(browser, 390, 844, "390", "budget", args.shots)
+            run_inspector(browser, 1280, 900, "desktop", "budget", args.shots)
 
     if args.json:
         with open(args.json, "w", encoding="utf-8") as fh:
