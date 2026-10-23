@@ -1,0 +1,14 @@
+{
+  "before": {
+    "url": "https://admin-bot.duckdns.org/healthz",
+    "http": 200,
+    "latency_s": 1.716,
+    "body": "{\"status\":\"ok\",\"version\":\"2.58.111\"}"
+  },
+  "after": {
+    "url": "https://admin-bot.duckdns.org/healthz",
+    "http": 200,
+    "latency_s": 1.234,
+    "body": "{\"status\":\"ok\",\"version\":\"2.58.111\"}"
+  }
+}

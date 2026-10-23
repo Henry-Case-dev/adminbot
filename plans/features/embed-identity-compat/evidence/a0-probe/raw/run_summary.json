@@ -1,0 +1,70 @@
+{
+  "git_commit": "30a2f868aa36348c5c6c99ef2d723bf7a083c124",
+  "module_sha256": "5cebfe022d9700a3594e5ce92f4f12679f1f5280aaa30fe69898168b5c60f31d",
+  "ssh_connections": 1,
+  "connect_s": 2.17,
+  "wall_s": 39.59,
+  "remote_rc": 0,
+  "stderr_tail": [],
+  "dims_seen": [
+    3072
+  ],
+  "cosine_stats_all": {
+    "n": 42,
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+  },
+  "cosine_stats_probe": {
+    "n": 12,
+    "mean": 1.0,
+    "min": 1.0,
+    "max": 1.0
+  },
+  "probe": {
+    "verdict": "compatible",
+    "reason_code": "",
+    "checked": 12,
+    "mean": 1.0,
+    "min": 1.0,
+    "hit5": 1.0,
+    "dims": 3072,
+    "sampled": 12,
+    "sample_offset": 0,
+    "sample_ids": [
+      35,
+      216,
+      220,
+      941,
+      1144,
+      1145,
+      1268,
+      1703,
+      10751,
+      13467,
+      13473,
+      13913
+    ],
+    "runs": 1
+  },
+  "calls": [
+    {
+      "n": 12,
+      "http": 200,
+      "latency_s": 3.257,
+      "ok": true,
+      "vectors": 12,
+      "dims": 3072,
+      "model": "gemini-embedding-001"
+    },
+    {
+      "n": 30,
+      "http": 200,
+      "latency_s": 5.056,
+      "ok": true,
+      "vectors": 30,
+      "dims": 3072,
+      "model": "gemini-embedding-001"
+    }
+  ]
+}

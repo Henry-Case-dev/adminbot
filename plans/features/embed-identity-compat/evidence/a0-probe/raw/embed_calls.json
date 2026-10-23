@@ -1,0 +1,74 @@
+{
+  "calls": [
+    {
+      "n": 12,
+      "http": 200,
+      "latency_s": 3.257,
+      "ok": true,
+      "vectors": 12,
+      "dims": 3072,
+      "model": "gemini-embedding-001"
+    },
+    {
+      "n": 30,
+      "http": 200,
+      "latency_s": 5.056,
+      "ok": true,
+      "vectors": 30,
+      "dims": 3072,
+      "model": "gemini-embedding-001"
+    }
+  ],
+  "total": 2,
+  "latency_s_total": 8.313,
+  "probe_elapsed_s": 3.322,
+  "extended": {
+    "attempted": 30,
+    "vectors": 30,
+    "calls": [
+      {
+        "n": 30,
+        "http": 200,
+        "latency_s": 5.056,
+        "ok": true,
+        "vectors": 30,
+        "dims": 3072,
+        "model": "gemini-embedding-001"
+      }
+    ],
+    "error": null,
+    "batch_size": 30,
+    "ids": [
+      36,
+      192,
+      217,
+      218,
+      219,
+      933,
+      937,
+      938,
+      942,
+      1059,
+      1623,
+      1624,
+      1653,
+      1709,
+      1710,
+      6858,
+      10969,
+      10970,
+      11048,
+      11744,
+      11747,
+      13469,
+      13470,
+      13471,
+      13474,
+      13475,
+      13476,
+      14760,
+      14771,
+      15467
+    ]
+  }
+}

@@ -1,0 +1,1885 @@
+{
+  "schema": "openworkflow-coverage-v1",
+  "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
+  "source_sha256": "429a986838d5f7539f89517bb2c33e77b9e2007c4bcfeea30264a86b49ff66fb",
+  "candidate_commit": "570e1eee",
+  "deployed_commit": "",
+  "strict_evidence": true,
+  "slice_graph_path": "slice-graph.json",
+  "additional_requirements": [
+    {
+      "source_id": "M00011",
+      "source_line": 11,
+      "source_text_sha256": "d9923fa621e712125917dc168294eef617f18347f6081514b7f2d7f04c8a4c90",
+      "source_excerpt": "Разделить два понятия:",
+      "disposition": "required",
+      "reason": "Проза §1: требование разделить два понятия; определения — L13/L14, поведение — L16/L18.",
+      "req_id": "IDENT-01",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Control plane различает model-space identity и connection identity: unit-тест даёт одинаковый model identity при разных base_url/key и разные connection identity",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "MSI/PCI разведены",
+          "observation": "test_space_identity_ignores_key_quota_timeout_route: space identity совпадает при разных quota/alias, PCI различается; scenario_01 меняет только base_url → adopt. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "Смена только шлюза",
+          "observation": "scenario_01: смена base_url при той же модели даёт adopt, а не rebuild. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00016",
+      "source_line": 16,
+      "source_text_sha256": "7c85a164370d16802e46e1a1a17dd2f83b56214a1d3d0aa651c912bb06e07b8c",
+      "source_excerpt": "Смена Provider Connection Identity сама по себе НЕ доказывает несовместимость векторов и НЕ является достаточным основанием для полной перестройки индекса.",
+      "disposition": "required",
+      "reason": "Прямой запрет: смена connection identity не доказывает несовместимость.",
+      "req_id": "IDENT-04",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Тест: смена только base_url/ключа не даёт REINDEX_REQUIRED и не помечает пространство несовместимым — уходит на фактическую проверку",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "base_url не запускает reindex",
+          "observation": "scenario_01: после смены base_url resolve даёт insufficient(needs_probe), затем adopt; rebuild не стартует. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "квота/ключ не меняют пространство",
+          "observation": "test_space_identity_ignores_key_quota_timeout_route: смена quota group не меняет MSI. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        }
+      ]
+    },
+    {
+      "source_id": "M00018",
+      "source_line": 18,
+      "source_text_sha256": "00f037b3930c5ade9d51450a05c2ca0455190bd332009fdc6d6ea58f9e7195bb",
+      "source_excerpt": "При совпадении модели и существенных параметров проводить проверку фактической совместимости старого и нового векторного пространства.",
+      "disposition": "required",
+      "reason": "Обязательность фактической проверки при совпадении модели/параметров.",
+      "req_id": "IDENT-05",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Тест: при совпадении модели и существенных параметров вызывается canary-сверка старых и новых векторов, а не безусловная перестройка",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "фактическая проверка вместо rebuild",
+          "observation": "scenario_01: при совпадении модели и параметров вызывается compat_probe на старых векторах (один батч), а не безусловная перестройка. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00020",
+      "source_line": 20,
+      "source_text_sha256": "4441c9f6b3637f833197dc0d12b0fc3559b064224ea3fa35018b7b9945f0c45b",
+      "source_excerpt": "При этом одного совпадения названия `gemini-embedding-001` недостаточно для признания совместимости: шлюзы могут использовать разные ревизии модели и настройки.",
+      "disposition": "required",
+      "reason": "Запрет признавать совместимость по одному названию модели.",
+      "req_id": "IDENT-06",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Тест: одинаковое имя модели при расходящихся параметрах или векторах не даёт вердикт compatible",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "имя модели не доказывает совместимость",
+          "observation": "scenario_03: то же имя модели при других векторах → incompatible(low_hit5), допуск не выдаётся. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00076",
+      "source_line": 76,
+      "source_text_sha256": "c23ff5fa514c2324ef6f33e63be773e4eafb2b812fbaa1e4735386ba1218b194",
+      "source_excerpt": "Сохранить защиту от реальной смены модели, размерности и дрейфа эмбеддингов.",
+      "disposition": "required",
+      "reason": "Требование сохранить защиту от реальной смены модели/размерности/дрейфа.",
+      "req_id": "IDENT-07",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Негативные тесты: смена модели, размерности или дрейф эмбеддингов по-прежнему распознаются и не открывают vec-поиск через старый индекс",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "смена модели/размерности распознаётся",
+          "observation": "scenario_03/04: другое пространство и другая размерность → incompatible, vec-запись закрыта. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "дрейф распознаётся",
+          "observation": "test_canary_drift_on_alias_change: дрейф даёт fail-safe вердикт. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        }
+      ]
+    },
+    {
+      "source_id": "M00024",
+      "source_line": 24,
+      "source_text_sha256": "b525df1df1437245b0698718c31ba8722979640eee9379062ec770416d42d8a4",
+      "source_excerpt": "Расширить существующий механизм проверки совместимости в `services/embedding_control_plane.py`.",
+      "disposition": "required",
+      "reason": "Использовать существующий canary, не создавать подсистему.",
+      "req_id": "CANARY-01",
+      "slice": "CANARY",
+      "acceptance": "Расширение существующего canary в services/embedding_control_plane.py; в диффе нет нового сервиса, таблицы, реестра моделей или агента",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет новой подсистемы",
+          "observation": "GOV-01/06: ΔDDL=0, новых сервисов/таблиц/реестров/агентов нет; расширены существующие control plane и canary.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        }
+      ]
+    },
+    {
+      "source_id": "M00026",
+      "source_line": 26,
+      "source_text_sha256": "6376a41839fade575bad5359e947f115d89b4e46858493acb2a63b4c15c30785",
+      "source_excerpt": "При смене провайдера без смены заявленной модели:",
+      "disposition": "required",
+      "reason": "Условие запуска проверки: provider change без declared model change.",
+      "req_id": "CANARY-02",
+      "slice": "CANARY",
+      "acceptance": "Тест: canary запускается при смене provider connection без смены заявленной модели; смена модели не подменяется canary-путём",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "проба при смене провайдера",
+          "observation": "scenario_01: смена только connection identity запускает пробу старых векторов и adopt. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "смена модели не обходится canary",
+          "observation": "test_identity_change_registers_generation_and_job: реальная смена модели по-прежнему регистрирует поколение и rebuild. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_graphrag_identity_reindex.py",
+          "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        }
+      ]
+    },
+    {
+      "source_id": "M00035",
+      "source_line": 35,
+      "source_text_sha256": "b0a98a9cd2978f891fb608ce262ecdcb7fce177620f63610cad2a2e8ea9a155d",
+      "source_excerpt": "**Критически важно:** нельзя создавать эталоны новым провайдером и затем сравнивать его же результаты с ними. Это проверит стабильность нового API, но ничего не докажет о совместимости со старым индексом.",
+      "disposition": "required",
+      "reason": "Критический запрет сравнивать new-vs-new.",
+      "req_id": "CANARY-09",
+      "slice": "CANARY",
+      "acceptance": "Тест-ловушка: эталон, созданный новым провайдером, не принимается как доказательство; сравнение идёт только со старыми векторами",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "анти-теорема new-vs-new",
+          "observation": "test_antitheorem_new_vs_new_cannot_prove_compatibility: эталоны только из embedding_cache дают insufficient/no_old_vectors, не compatible. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00037",
+      "source_line": 37,
+      "source_text_sha256": "fb37a02a2fffccfb6bb19163a1b5be5e423d35326c164f4731a50ff2b5118a81",
+      "source_excerpt": "Проверка должна использовать именно старые сохранённые векторы.",
+      "disposition": "required",
+      "reason": "Обязательный источник эталонов — старые векторы.",
+      "req_id": "CANARY-10",
+      "slice": "CANARY",
+      "acceptance": "В тесте и отчёте видно, что источник эталонов — старые сохранённые векторы, а не свежий вызов нового API",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "источник эталонов — live",
+          "observation": "test_antitheorem + scenario_10: доказательство строится на сохранённых live-векторах, не на свежем вызове провайдера. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "описание источника эталонов",
+          "observation": "report.md §1: эталон — graph_facts_vec JOIN graph_facts; embedding_cache эталоном не является.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/report.md",
+          "artifact_sha256": "347b05d2ea633dd7f3420e13af19428f1ce1bd2bb5bf2351af1220e9e52e541a"
+        }
+      ]
+    },
+    {
+      "source_id": "M00067",
+      "source_line": 67,
+      "source_text_sha256": "f325417c291426b4a6e1c7965caf5a5989807b94eab0cedc941b89daba5edeba",
+      "source_excerpt": "Проверить и согласованно исправить:",
+      "disposition": "required",
+      "reason": "Требование согласованно исправить все связанные точки.",
+      "req_id": "INT-01",
+      "slice": "INTEGRATION",
+      "acceptance": "Все перечисленные точки используют один общий вердикт; тест-консистентность: одинаковый вход даёт одинаковое решение в каждом потребителе",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "единый вердикт во всех точках",
+          "observation": "scenario_01/05 + test_register_gate_and_inline_probe_wiring + test_generation_status_and_panel_share_verdict: summary_memory, graphrag, панель читают один резолвер. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "API-адаптер",
+          "observation": "GET /api/memory/embeddings отдаёт compat из того же резолвера (fail-open тест). 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_webapp_memory_overview_api.py",
+          "artifact_sha256": "46059a8913b1b2f5fa5b90fbefdd6b3b0877389408dcf54cfca3076835bbaa76"
+        }
+      ]
+    },
+    {
+      "source_id": "M00074",
+      "source_line": 74,
+      "source_text_sha256": "371ad0f0797dc1c4641db9399f8ae95c4ce889902b7f4800af888b7734df94ff",
+      "source_excerpt": "Не допустить ситуации, когда одна часть системы признала векторы совместимыми, а другая продолжает блокировать поиск из-за другого URL.",
+      "disposition": "required",
+      "reason": "Запрет ситуации, когда одна часть признала совместимость, а другая блокирует.",
+      "req_id": "INT-06",
+      "slice": "INTEGRATION",
+      "acceptance": "Нет split-brain: при вердикте compatible ни один потребитель не блокирует поиск из-за другого URL; интеграционный тест на все точки",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет split-brain по URL",
+          "observation": "scenario_01: новый base_url не блокирует поиск после adopt; _index_generation_ok не сравнивает endpoint (review §3). 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00105",
+      "source_line": 105,
+      "source_text_sha256": "31fadb8c7bb939a2e38a716d550af7075b3fcbd84b91d92fab3fee7588de061a",
+      "source_excerpt": "**Критерий результата:** при смене API-провайдера без изменения фактического embedding-пространства память продолжает работать с существующим индексом без полной перевекторизации.",
+      "disposition": "required",
+      "reason": "Итоговый критерий результата; проверяется на проде после деплоя.",
+      "req_id": "ACC-11",
+      "slice": "ACCEPT",
+      "acceptance": "Критерий результата: после смены API-провайдера без смены пространства память работает на существующем индексе без полной перевекторизации (prod-наблюдение)",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "provider",
+          "ref": "pre-deploy измерение",
+          "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). A0 выполнен на модуле 30a2f868; функции compat_probe/_select_sample/classify_identity_compatibility байт-идентичны 570e1eee (sha256 81d0b55a…/6b54b9a5…/6390ebde…). resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
+          "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "условия и откат",
+          "observation": "report.md §7 + a0-probe/report.md §7: serviceable/canary/generation/backfill, откат снятием допуска.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/report.md",
+          "artifact_sha256": "347b05d2ea633dd7f3420e13af19428f1ce1bd2bb5bf2351af1220e9e52e541a"
+        }
+      ],
+      "next_check": "postdeploy: /healthz 200; GET /api/memory/embeddings → compat.serviceable=true, generation.state=active, canary.mean/min/hit5; _vec_write_allowed=true; backfill 4048→0; живой поиск; откат status='building', config_revision=NULL."
+    },
+    {
+      "source_id": "M00007",
+      "source_line": 7,
+      "source_text_sha256": "bd9c3f7407d172ff495d2e9ceecfb0dc955e901466de520bac3f3c581a99e869",
+      "source_excerpt": "Это неприемлемо: в проекте несколько лет истории сообщений, десятки тысяч фактов и два активных чата. Обычная смена поставщика API не должна приводить к длительной деградации памяти, повторной обработке всей истории и лишним затратам.",
+      "disposition": "required",
+      "reason": "Требование-результат: обычная смена поставщика не должна деградировать память.",
+      "req_id": "ACC-12",
+      "slice": "ACCEPT",
+      "acceptance": "Смена поставщика API не даёт повторной обработки всей истории и лишних затрат: adopt не запускает rebuild/переизвлечение, счётчики неизменны (тест); kNN по старому индексу 42/42 top-1 на прод-данных (A0); end-to-end до/после — ACC-11",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет повторной обработки",
+          "observation": "scenario_01: adopt не запускает rebuild/переизвлечение, live/source counters неизменны. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "provider",
+          "ref": "нет долгой деградации по выдаче",
+          "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). Повторная обработка 16 003 векторов не требуется: 2 embed-батча вместо полной перевекторизации.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
+          "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        }
+      ]
+    },
+    {
+      "source_id": "M00109A",
+      "source_line": 109,
+      "source_text_sha256": "01d1c3bc5f4cd150d0a8f18504463f57106e89bc3d22ae2748788378c137d9d5",
+      "source_excerpt": "Интегрируй задачу в очередь, согласуй с действующими ASAP и выполняй в штатном workflow. После реализации покажи, как определялась совместимость, почему принято решение использовать старый индекс или перестраивать его, и результаты проверок",
+      "disposition": "required",
+      "reason": "Обязательный человекочитаемый отчёт после реализации.",
+      "req_id": "ACC-13",
+      "slice": "ACCEPT",
+      "acceptance": "Итоговый отчёт показывает, как определялась совместимость, почему выбран старый индекс или перестройка, и результаты проверок; путь к артефакту",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "отчёт: как и почему",
+          "observation": "report.md §1 (как определяется совместимость), §2 (почему adopt/rebuild/ничего), §4 (метрики и прогоны).",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/report.md",
+          "artifact_sha256": "347b05d2ea633dd7f3420e13af19428f1ce1bd2bb5bf2351af1220e9e52e541a"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "зафиксированный контракт",
+          "observation": "arch-design.md: MSI/PCI, резолвер, canary, adopt, откат.",
+          "artifact_path": "plans/features/embed-identity-compat/arch-design.md",
+          "artifact_sha256": "700f68128ff78c736d64679a39e4b7a53509747923debaccb7089174fb89ddf7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00109B",
+      "source_line": 109,
+      "source_text_sha256": "01d1c3bc5f4cd150d0a8f18504463f57106e89bc3d22ae2748788378c137d9d5",
+      "source_excerpt": "Интегрируй задачу в очередь, согласуй с действующими ASAP и выполняй в штатном workflow. После реализации покажи, как определялась совместимость, почему принято решение использовать старый индекс или перестраивать его, и результаты проверок",
+      "disposition": "required",
+      "reason": "Запрет объявлять совместимость без фактов.",
+      "req_id": "ACC-14",
+      "slice": "ACCEPT",
+      "acceptance": "Совместимость не объявляется доказанной без фактического сравнения; ревьюер сверяет вердикт с измеренными косинусами и search-пробой",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "без недоказанных заявлений",
+          "observation": "test_antitheorem_new_vs_new_cannot_prove_compatibility: new-vs-new не даёт compatible. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "provider",
+          "ref": "измеренные числа",
+          "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). A0 выполнен на модуле 30a2f868; функции compat_probe/_select_sample/classify_identity_compatibility байт-идентичны 570e1eee (sha256 81d0b55a…/6b54b9a5…/6390ebde…). resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
+          "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        }
+      ]
+    },
+    {
+      "source_id": "M00080",
+      "source_line": 80,
+      "source_text_sha256": "5d939093516bd5e54ea7e2dc73455d76f6f4822c0889cabed2739265dec20cbe",
+      "source_excerpt": "**Никаких новых сервисов, таблиц, параллельных реестров моделей и дополнительных агентов.** Использовать существующий Embedding Control Plane, Canary, кеш и систему поколений.",
+      "disposition": "required",
+      "reason": "Архитектурный запрет на новые подсистемы.",
+      "req_id": "GOV-01",
+      "slice": "GOV",
+      "acceptance": "Аудит диффа: нет новых сервисов, таблиц, параллельных реестров моделей и агентов; переиспользованы control plane/canary/кеш/поколения",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "аудит диффа",
+          "observation": "GOV-01/06: новых сервисов, таблиц, реестров моделей и агентов нет; ΔDDL=0; переиспользованы control plane/canary/поколения.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        }
+      ]
+    },
+    {
+      "source_id": "M00082",
+      "source_line": 82,
+      "source_text_sha256": "aa2c90d4c285d44664a5daeabe0bb05801870c157d243d7e75790eba343c6674",
+      "source_excerpt": "Не создавать хардкод под API.NET или Gemini. Решение должно быть универсальным для любых провайдеров одной фактической embedding-модели.",
+      "disposition": "required",
+      "reason": "Универсальность решения для любых провайдеров одной модели.",
+      "req_id": "GOV-02",
+      "slice": "GOV",
+      "acceptance": "Нет хардкода под API.NET или Gemini; тест с другим base_url/провайдером проходит тот же путь",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "провайдер-агностичность",
+          "observation": "GOV-02: в логике нет apinet/gemini; PCI строится из urlsplit, MSI — из параметров.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "другой base_url проходит тот же путь",
+          "observation": "scenario_01: old-gateway.test → apinet.cloud, тот же код. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00084",
+      "source_line": 84,
+      "source_text_sha256": "341fd0ca4778e3d2fecd67f008b34e7522009edf03ab50dadb3778d0d4ef9742",
+      "source_excerpt": "Не подменять полноценную проверку безусловным сравнением строк названия модели.",
+      "disposition": "required",
+      "reason": "Запрет сводить проверку к сравнению имени.",
+      "req_id": "GOV-03",
+      "slice": "GOV",
+      "acceptance": "Полноценная проверка не подменена безусловным сравнением строк названия модели; аудит кода и тест с одинаковым именем и разными векторами",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "не name-only",
+          "observation": "GOV-03: compatible требует fingerprint/допуск/пробу; имя модели само по себе недостаточно.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "тест одинакового имени",
+          "observation": "scenario_03: одинаковое имя + другие векторы → incompatible. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00086",
+      "source_line": 86,
+      "source_text_sha256": "24a122e6b05621c71ba68a46ce5dfd5f8a7e4a147b95e37a666ef40f3fb50185",
+      "source_excerpt": "Не отключать существующие механизмы защиты, не переписывать fingerprint вручную и не объявлять все векторы совместимыми принудительно.",
+      "disposition": "required",
+      "reason": "Запрет обходить существующие механизмы защиты.",
+      "req_id": "GOV-04",
+      "slice": "GOV",
+      "acceptance": "Защиты не отключены, fingerprint не переписан вручную, все векторы не объявлены совместимыми принудительно; аудит диффа",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "защиты не отключены",
+          "observation": "GOV-04: legacy fingerprint не изменён; _validate/_activate/lease/pauses/kill-switch не тронуты; массового adopt нет.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "fail-closed guards",
+          "observation": "test_garbage_admission_fails_closed + test_kill_switch_off_restores_legacy_rebuild. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "M00088",
+      "source_line": 88,
+      "source_text_sha256": "c5b34556a821206588a015428c360701472c01df80ded80da8cdc10eb6dec3ce",
+      "source_excerpt": "Не вносить изменений, которые могут потерять или повредить многолетнюю историю, факты, графовые связи либо пользовательские досье.",
+      "disposition": "required",
+      "reason": "Запрет на потерю многолетних данных.",
+      "req_id": "GOV-05",
+      "slice": "GOV",
+      "acceptance": "Нет изменений, теряющих/повреждающих историю, факты, графовые связи или досье: в диффе нет DELETE/DROP (gov-report), тесты сверяют счётчики, read-only A0-проба прод-БД не изменила данные",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет DELETE/DROP",
+          "observation": "GOV-05: adopt — только UPDATE строки реестра; отмена rebuild удаляет лишь производную shadow-таблицу; live/source не трогаются.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "счётчики неизменны",
+          "observation": "scenario_01/03/05/09: graph_facts/live/поколения не уменьшаются. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "provider",
+          "ref": "прод не изменялся",
+          "observation": "A0: соединение read-only (mode=ro, query_only=1), ни одной записи и ни одного рестарта.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
+          "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        }
+      ]
+    },
+    {
+      "source_id": "M00107",
+      "source_line": 107,
+      "source_text_sha256": "1e881378539a40d5e19518b8c6fb0ba821fc27cbcba01ac06b851be1aedf6cf4",
+      "source_excerpt": "Это корректировка существующей архитектуры, а не отдельный эпик по созданию новой системы эмбеддингов.",
+      "disposition": "required",
+      "reason": "Явное указание масштаба: корректировка, не новый эпик.",
+      "req_id": "GOV-06",
+      "slice": "GOV",
+      "acceptance": "Решение оформлено как корректировка существующей архитектуры, а не новый эмбеддинг-эпик; в отчёте и диффе нет новой системы",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "корректировка, не эпик",
+          "observation": "GOV-06: новых подсистем нет, решение — корректировка существующей архитектуры.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "дизайн переиспользования",
+          "observation": "ARCH_REUSE_CONFIRMED: существующие сервисы/реестр/ canary, ΔDDL=0.",
+          "artifact_path": "plans/features/embed-identity-compat/arch-design.md",
+          "artifact_sha256": "700f68128ff78c736d64679a39e4b7a53509747923debaccb7089174fb89ddf7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00109C",
+      "source_line": 109,
+      "source_text_sha256": "01d1c3bc5f4cd150d0a8f18504463f57106e89bc3d22ae2748788378c137d9d5",
+      "source_excerpt": "Интегрируй задачу в очередь, согласуй с действующими ASAP и выполняй в штатном workflow. После реализации покажи, как определялась совместимость, почему принято решение использовать старый индекс или перестраивать его, и результаты проверок",
+      "disposition": "required",
+      "reason": "Требование интегрировать задачу в очередь и штатный workflow.",
+      "req_id": "GOV-07",
+      "slice": "GOV",
+      "acceptance": "Задача стоит в очереди и идёт штатным workflow: запись в plans/progress_scope.json, план и релизная цепочка; проверяется ревьюером",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "план и релизная цепочка",
+          "observation": "plan.md: слайсы, волны, приёмка, live-критерии и статус 23.10; задача проведена Architect → PM → Builder → Reviewer.",
+          "artifact_path": "plans/features/embed-identity-compat/plan.md",
+          "artifact_sha256": "201b7d2924b8f684a0f500ff52de189dad6954e051b3d5543ec8cefb28508b9f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "машинный граф",
+          "observation": "slice-graph.json: 6 слайсов, зависимости и write-scope без циклов; plan-гейт EXIT 0.",
+          "artifact_path": "plans/features/embed-identity-compat/slice-graph.json",
+          "artifact_sha256": "9e95d15e814b5c2663e71c3cabdb749cca8c6b4d868126cc77caf964c90f243c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00001",
+      "source_line": 1,
+      "source_text_sha256": "ea1d9a85d49077e7d991900bb79c71eb12e58255d28d084a9e22fc6a59813379",
+      "source_excerpt": "# ASAP - исправить проверку совместимости эмбеддингов при смене API-провайдера",
+      "disposition": "context",
+      "reason": "Заголовок задачи; отдельных обязательств не добавляет, нормативные требования — §1–§6.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00003",
+      "source_line": 3,
+      "source_text_sha256": "e90eda3c72906fb2c14632e751cab5b0aaa172ef4ce5f53257896123487917c7",
+      "source_excerpt": "**Контекст:** основной провайдер эмбеддингов переключён с бесплатного API на платный API.NET. При этом используется та же модель **Gemini Embedding 001**. Изменился API-шлюз, а не намеренно выбранная модель.",
+      "disposition": "context",
+      "reason": "Фон/причина: шлюз сменился на платный API.NET при той же модели gemini-embedding-001; нормативное требование «смена шлюза ≠ смена модели» — L11–L20.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00005",
+      "source_line": 5,
+      "source_text_sha256": "bd7d7c308f2306e22c412c1079259379437b1793a7085e195ea3d7cbbfdd2573",
+      "source_excerpt": "Сейчас Adminbot воспринимает изменение endpoint/provider как смену векторного пространства, блокирует семантический поиск и инициирует полную перестройку индекса.",
+      "disposition": "context",
+      "reason": "Диагностика текущего поведения (endpoint воспринимается как смена пространства, поиск блокируется, идёт rebuild); нормативные запреты — L7 и §1–§3.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00041",
+      "source_line": 41,
+      "source_text_sha256": "dc77d60366acd2a395275c3e0aa2ec88b68b81b30273cef97bea94f72ee34bc4",
+      "source_excerpt": "**Совместимость подтверждена:**",
+      "disposition": "context",
+      "reason": "Метка ветки «совместимость подтверждена»; её обязательства перечислены отдельными строками L43–L48.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00050",
+      "source_line": 50,
+      "source_text_sha256": "dbc5279b74cffaf6bf8cbc662ddd8066a2446181cc74a9f0752c67f450a18457",
+      "source_excerpt": "**Совместимость не подтверждена из-за недостатка данных:**",
+      "disposition": "context",
+      "reason": "Метка ветки «недостаток данных»; обязательства — L52–L56.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00058",
+      "source_line": 58,
+      "source_text_sha256": "262e0c1e8ed9a2c564d832fb03ed1eee34a1bbd5941d4162a9f20fad4b0a92a9",
+      "source_excerpt": "**Несовместимость доказана:**",
+      "disposition": "context",
+      "reason": "Метка ветки «несовместимость доказана»; обязательства — L60–L63.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00092",
+      "source_line": 92,
+      "source_text_sha256": "fc2005253983b6ca61df07d3042ba8474443a0eb76dee3eddf4e595ca0dd2d0c",
+      "source_excerpt": "Проверить следующие сценарии:",
+      "disposition": "context",
+      "reason": "Вводная фраза к перечню сценариев; сами сценарии — L94–L103, отдельного обязательства не добавляет.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    }
+  ],
+  "items": [
+    {
+      "source_id": "L00009",
+      "source_line": 9,
+      "source_text_sha256": "a549ee5f4e1a596d7d24f32beb440e7dc1ac9aadb5c91c6831fc79ad46310fb9",
+      "source_excerpt": "## 1. Исправить сам принцип определения совместимости",
+      "disposition": "context",
+      "reason": "Заголовок §1; его обязательства перечислены в L11–L20.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00013",
+      "source_line": 13,
+      "source_text_sha256": "54561fe2f8c719630e62dd119eb99b99c6b09b39eec7d91b41b2cb1a348e28e1",
+      "source_excerpt": "- **Embedding Model Identity** - фактическая модель, её версия, размерность, режим формирования эмбеддингов, нормализация и параметры, влияющие на значения векторов.",
+      "disposition": "required",
+      "reason": "Определение Embedding Model Identity (L13).",
+      "req_id": "IDENT-02",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Model identity вычисляется из модели, доступной ревизии/версии, размерности, режима, нормализации и параметров препроцессинга; тест меняет каждое поле и получает другое значение",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "MSI: model/dims",
+          "observation": "Покрыты только model и dims (test_same_dim_different_model_is_reindex_required, test_different_dimension_is_incompatible); revision/task_mode/normalization/preprocessing/material_params не проверяются по отдельности. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        }
+      ],
+      "next_check": "Unit-тест model_space_identity: поочерёдное изменение revision / task_mode / normalization / preprocessing_version / material_params должно менять MSI (model и dims уже покрыты)."
+    },
+    {
+      "source_id": "L00014",
+      "source_line": 14,
+      "source_text_sha256": "6c24dc30a1de4180524ebfd0f79c6071751be4a013ac0100f70f0cde80affcb8",
+      "source_excerpt": "- **Provider Connection Identity** - URL API, поставщик, ключ, квота, маршрутизация и параметры подключения.",
+      "disposition": "required",
+      "reason": "Определение Provider Connection Identity (L14).",
+      "req_id": "IDENT-03",
+      "slice": "IDENT-SPLIT",
+      "acceptance": "Connection identity фиксирует URL/провайдера/ключ/квоту/маршрутизацию отдельно и не участвует в сравнении векторного пространства (тест)",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "PCI отдельно от MSI",
+          "observation": "test_space_identity_ignores_key_quota_timeout_route: profile_identity (PCI) различается, profile_space_identity (MSI) совпадает; PCI не закрывает индекс. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        }
+      ]
+    },
+    {
+      "source_id": "L00022",
+      "source_line": 22,
+      "source_text_sha256": "8624d1e96f0e8f98b66e3c03d76c87c2d89e9fe9197c622e99d99babb9a50b28",
+      "source_excerpt": "## 2. Использовать существующий Canary, не создавать новую подсистему",
+      "disposition": "context",
+      "reason": "Заголовок §2; обязательства — L24–L37.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00028",
+      "source_line": 28,
+      "source_text_sha256": "e8b9437a1d7b6f53e63f08c63334e83737f4a3cb50cd7bf65190a47ca53c79b5",
+      "source_excerpt": "1. Сверить фактическую размерность, модель, доступную информацию о версии и параметры генерации векторов.",
+      "disposition": "required",
+      "reason": "Шаг 1 canary: сверить фактические характеристики.",
+      "req_id": "CANARY-03",
+      "slice": "CANARY",
+      "acceptance": "Probe возвращает фактические model/dim/доступную версию и параметры генерации; тест ловит расхождение заявленных и фактических значений",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "сверяется только dims",
+          "observation": "scenario_04 ловит фактическую размерность (dim_mismatch), но проба не возвращает model/доступную revision и params генерации. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ],
+      "next_check": "Решить и покрыть тестом: проба фиксирует фактическую model/доступную revision из ответа провайдера либо явно возвращает insufficient_data при недоступности ревизии (plan.md §Внешний факт); сейчас сверяется только dims."
+    },
+    {
+      "source_id": "L00029",
+      "source_line": 29,
+      "source_text_sha256": "164c82aa640f2a6f9d28189a0ff0bb1651571eb22385ab8824652cc7a175eada",
+      "source_excerpt": "2. Выбрать репрезентативную выборку уже сохранённых векторов и соответствующих исходных текстов из существующей памяти.",
+      "disposition": "required",
+      "reason": "Шаг 2: источник — существующая память, а не новые тексты.",
+      "req_id": "CANARY-04",
+      "slice": "CANARY",
+      "acceptance": "Выборка строится из уже сохранённых векторов и их исходных текстов в существующей памяти; тест требует непустую репрезентативную выборку",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "выборка из сохранённых векторов",
+          "observation": "scenario_08: sample_ids принадлежат graph_facts, выборка покрывает оба chat_id; test_uneven_chats_still_reach_min_sample добирает до min 8. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "фикстура пробы",
+          "observation": "20 фактов/2 чата: checked=12, выборка непустая; эталоны — live-векторы.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/probe_fixture.json",
+          "artifact_sha256": "f51f0934fb3c8ed0a767cbf1a69e59cad8931ef50c93c5b22b3278ad667c5749"
+        }
+      ]
+    },
+    {
+      "source_id": "L00030",
+      "source_line": 30,
+      "source_text_sha256": "b2474f9d7db10e71252a98724d8e55c67294ab29b250696b633531921917aa19",
+      "source_excerpt": "3. Получить эмбеддинги этих же текстов через новый API с теми же существенными параметрами.",
+      "disposition": "required",
+      "reason": "Шаг 3: повторное кодирование тех же текстов новым API.",
+      "req_id": "CANARY-05",
+      "slice": "CANARY",
+      "acceptance": "Новые векторы получены ровно одним батчем тех же текстов через штатный serving-путь (_embed), т.е. с теми же существенными параметрами генерации; тест фиксирует один вызов и те же тексты",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "один батч тех же текстов",
+          "observation": "scenario_01: ровно один embed-вызов, те же тексты через штатный serving-путь (_embed), т.е. с теми же параметрами генерации; тест проверяет len(embedder.calls)==1. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00031",
+      "source_line": 31,
+      "source_text_sha256": "96369f9187d5c52ab152cfd71ab9fcd79f6d27997d0bc50865c6867bc9f15b01",
+      "source_excerpt": "4. Сравнить старые и новые векторы по косинусной близости. Учесть допустимые численные погрешности.",
+      "disposition": "required",
+      "reason": "Шаг 4: косинусная близость и допустимые погрешности.",
+      "req_id": "CANARY-06",
+      "slice": "CANARY",
+      "acceptance": "Косинус старый-vs-новый с явным допуском; тест: погрешность в допуске → compatible, вне допуска → divergent",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "косинус и полоса",
+          "observation": "scenario_02a/02b: mean в полосе 0.970–0.995 даёт ровно один повтор; compatible только при подтверждении, иначе insufficient. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00032",
+      "source_line": 32,
+      "source_text_sha256": "6fff81193db11de94af001d22810445ab628066d59e168190d964ddf041d0951",
+      "source_excerpt": "5. Проверить совместимость на уровне поиска: запросы, закодированные новым провайдером, должны корректно находить документы в старом индексе.",
+      "disposition": "required",
+      "reason": "Шаг 5: проверка совместимости на уровне поиска.",
+      "req_id": "CANARY-07",
+      "slice": "CANARY",
+      "acceptance": "Search-level проба: запрос, закодированный новым провайдером, находит целевой документ в старом индексе; тест на известном документе",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "search-level hit5",
+          "observation": "scenario_10: hit5=1.0 на точных векторах и падение выдачи в чужом пространстве (hit5 ≤ floor). 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "KNN на полном индексе",
+          "observation": "42 запроса к полному прод-индексу (16 003): top-1 42/42, top-5 42/42; канонные 12/12.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/raw/knn_full_index.json",
+          "artifact_sha256": "fdb391c7d3e7d224ad6988283f5fe399e22d2f7aa72fb48c11f03d3fd5bea0d3"
+        }
+      ]
+    },
+    {
+      "source_id": "L00033",
+      "source_line": 33,
+      "source_text_sha256": "253cbc6535a9574d7e195307f8d0e3b4b2025509cab28f800d7052e09f46cb33",
+      "source_excerpt": "6. Различать подтверждённую совместимость, подтверждённое расхождение и недостаточность данных.",
+      "disposition": "required",
+      "reason": "Шаг 6: различать три состояния.",
+      "req_id": "CANARY-08",
+      "slice": "CANARY",
+      "acceptance": "Классификатор возвращает ровно три исхода: compatible / divergent / insufficient_data; тест на каждый исход",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "три исхода",
+          "observation": "scenario_01 compatible, scenario_03 incompatible, scenario_05 insufficient — все три ветки пройдены. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00039",
+      "source_line": 39,
+      "source_text_sha256": "15bf915a7c63aa1323a585ae93336b8adc6bb08238c7240221ad5044cd6f8958",
+      "source_excerpt": "## 3. Поведение при результатах проверки",
+      "disposition": "context",
+      "reason": "Заголовок §3; ветки и их обязательства — L41–L63.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00043",
+      "source_line": 43,
+      "source_text_sha256": "a20b7219d71d2c2d713f9e9703b46f83bb215a0ffd5d2ee386f4c1fb00deea98",
+      "source_excerpt": "- Продолжить использование существующего векторного индекса.",
+      "disposition": "required",
+      "reason": "Ветка «совместимость подтверждена».",
+      "req_id": "DEC-01",
+      "slice": "DECISION",
+      "acceptance": "При compatible существующий векторный индекс остаётся рабочим; интеграционный тест не удаляет и не пересоздаёт его",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "индекс остаётся рабочим",
+          "observation": "scenario_01: live-счётчик неизменен, поколение одно, _index_generation_ok=True после adopt. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00044",
+      "source_line": 44,
+      "source_text_sha256": "6cdf347c36ab0c72539fab923b30b5373b3d71f4aafaed0b488c576d9597e82e",
+      "source_excerpt": "- Не запускать полный rebuild/reindex.",
+      "disposition": "required",
+      "reason": "Запрет полного rebuild при подтверждённой совместимости.",
+      "req_id": "DEC-02",
+      "slice": "DECISION",
+      "acceptance": "При compatible полный rebuild/reindex не запускается; тест проверяет отсутствие новой джобы и нового building-поколения",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "rebuild не стартует",
+          "observation": "scenario_01: maybe_schedule_rebuilds()==[] и нового building-поколения нет. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00045",
+      "source_line": 45,
+      "source_text_sha256": "cc7ff9f84a02d4166d4105016116492776c3eebf3ddf3234bef92426c7856589",
+      "source_excerpt": "- Не обнулять кеш и не удалять старые векторы.",
+      "disposition": "required",
+      "reason": "Запрет обнулять кеш/удалять векторы.",
+      "req_id": "DEC-03",
+      "slice": "DECISION",
+      "acceptance": "Adopt не чистит кеш и не удаляет старые векторы: SQL adopt — только UPDATE строки реестра (аудит gov-report §GOV-05), live-счётчик неизменен (тест scenario_01)",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "live-векторы целы",
+          "observation": "scenario_01: COUNT(graph_facts_vec) не меняется после adopt. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "кеш не чистится",
+          "observation": "GOV-05: adopt — только UPDATE строки реестра, DELETE/DROP отсутствуют; embedding_cache не трогается.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        }
+      ]
+    },
+    {
+      "source_id": "L00046",
+      "source_line": 46,
+      "source_text_sha256": "25e25b7d8420b5e9c362db5dcb8c31b7b128ab84a16e0dd8751547fc20dba21f",
+      "source_excerpt": "- Обновить необходимые метаданные совместимости, сохранив происхождение исходных векторов.",
+      "disposition": "required",
+      "reason": "Обновление метаданных с сохранением provenance.",
+      "req_id": "DEC-04",
+      "slice": "DECISION",
+      "acceptance": "Метаданные совместимости обновляются с сохранением происхождения исходных векторов; тест видит прежний provider/endpoint у старых записей",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "провенанс сохранён",
+          "observation": "scenario_01: fingerprint/provider/endpoint_fingerprint старые, config_revision=adopt1:…; test_adopt_idempotent_and_never_steals_other_active. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00047",
+      "source_line": 47,
+      "source_text_sha256": "6e1c8d37212cff955328ed811688a5ddc0c26bb44a6ac1536c4866a3c5c871a6",
+      "source_excerpt": "- Обеспечить корректную работу новых записей и поисковых запросов через новый API.",
+      "disposition": "required",
+      "reason": "Корректная работа новых записей/запросов через новый API.",
+      "req_id": "DEC-05",
+      "slice": "DECISION",
+      "acceptance": "Новые записи и поисковые запросы через новый API работают: интеграционный тест пишет новый факт и находит его семантически",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "новая запись находится",
+          "observation": "test_new_write_after_adopt_is_searchable: после adopt новый факт пишется в тот же индекс и находится KNN. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00048",
+      "source_line": 48,
+      "source_text_sha256": "257257a24b598cd49ee0b766fd633656c64bd9f8772f3fbe4e67a62d68c5ab75",
+      "source_excerpt": "- Не требовать повторного извлечения фактов из старой истории.",
+      "disposition": "required",
+      "reason": "Запрет повторного извлечения фактов при compatible.",
+      "req_id": "DEC-06",
+      "slice": "DECISION",
+      "acceptance": "Adopt не запускает rebuild и повторное извлечение фактов: scheduler пуст, счётчики graph_facts/live неизменны (тест scenario_01); новых вызовов извлечения в диффе нет (gov-report)",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет rebuild/переизвлечения",
+          "observation": "scenario_01: scheduler пуст, счётчики graph_facts и live неизменны. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет новых вызовов извлечения",
+          "observation": "GOV-05/06: дифф не добавляет путей извлечения фактов; adopt не запускает extraction.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
+          "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        }
+      ]
+    },
+    {
+      "source_id": "L00052",
+      "source_line": 52,
+      "source_text_sha256": "01ab4c913ebd7581e1b791589a5fa3e67410c5ebf99d7d6a8e671050f04bfd43",
+      "source_excerpt": "- Не объявлять пространство совместимым без доказательств.",
+      "disposition": "required",
+      "reason": "Ветка «недостаточно данных».",
+      "req_id": "DEC-07",
+      "slice": "DECISION",
+      "acceptance": "При insufficient_data пространство не объявляется совместимым; тест проверяет статус и отсутствие записи в ACTIVE под новым fp",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "несовместимость не объявляется",
+          "observation": "scenario_02b/05: ACTIVE под новым fp не появляется, serviceable=False. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00053",
+      "source_line": 53,
+      "source_text_sha256": "1bd83ebb199bffd3397253f63ca7f74acf759560abaef3b6991acf2cc1fad6c5",
+      "source_excerpt": "- Не запускать автоматически дорогостоящую полную перестройку только из-за смены endpoint.",
+      "disposition": "required",
+      "reason": "Запрет автоматического дорогого rebuild из-за endpoint.",
+      "req_id": "DEC-08",
+      "slice": "DECISION",
+      "acceptance": "При insufficient_data полная перестройка не стартует автоматически только из-за смены endpoint; тест проверяет отсутствие джобы",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "нет авто-rebuild при insufficient",
+          "observation": "scenario_02b/05: maybe_schedule_rebuilds()==[], target не регистрируется. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "пауза переживает рестарт",
+          "observation": "test_b1_restart_then_insufficient_keeps_pause_without_rebuild: job остаётся paused, scheduler==[]. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat_restart_legacy.py",
+          "artifact_sha256": "484f442d5300fea16552a6f2532fbe1311cd77737bd82087e2f96c5f5b01df77"
+        }
+      ]
+    },
+    {
+      "source_id": "L00054",
+      "source_line": 54,
+      "source_text_sha256": "1d9cacc3ee5f2476f6c75c35d2cf561897946788500c2b32dc308d0bf7f8a317",
+      "source_excerpt": "- Сохранить существующий индекс, факты и возможность отката.",
+      "disposition": "required",
+      "reason": "Сохранение индекса/фактов/отката.",
+      "req_id": "DEC-09",
+      "slice": "DECISION",
+      "acceptance": "При insufficient_data сохраняются индекс, факты и возможность отката; тест подтверждает целостность и rollback-путь",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "данные целы при insufficient",
+          "observation": "scenario_05: live/source/поколение сохранены, ACTIVE нет; но путь отката допуска тестом не проверен. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ],
+      "next_check": "Добавить тест откатa: adopt → status='building', config_revision=NULL → _index_generation_ok=false (vec-поиск закрыт), FTS возвращает непустую выдачу, live/source counters неизменны."
+    },
+    {
+      "source_id": "L00055",
+      "source_line": 55,
+      "source_text_sha256": "487667f0ea0afd2f59111e956bb92164048d390c0e220df95f17b37b4f5298e7",
+      "source_excerpt": "- Использовать доступный FTS-поиск, если безопасное векторное чтение невозможно.",
+      "disposition": "required",
+      "reason": "FTS-fallback при insufficient_data.",
+      "req_id": "DEC-10",
+      "slice": "DECISION",
+      "acceptance": "При невозможности безопасного векторного чтения поиск идёт через FTS; интеграционный тест получает непустую выдачу",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "гейт закрыт → поиск не через vec",
+          "observation": "scenario_05: _index_generation_ok=False при insufficient, данные и FTS-путь доступны. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "FTS возвращает непустую выдачу",
+          "observation": "TestVectorSearchFallback: vec unavailable / embed fail / нет vec-таблицы → непустой FTS-результат. 3 passed (TestVectorSearchFallback) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_summary_memory.py",
+          "artifact_sha256": "d38dadfcff357a8f4fa489de1ca7bdbc4847cc00f1f4963e78fc4e57349a4aa3"
+        }
+      ]
+    },
+    {
+      "source_id": "L00056",
+      "source_line": 56,
+      "source_text_sha256": "eb68b02dede5067e6f1e65b3be15d7f5c1eeed8121276806b8f2d96d985c2104",
+      "source_excerpt": "- Вывести понятную диагностику причины и доступных способов восстановления совместимости.",
+      "disposition": "required",
+      "reason": "Понятная диагностика причины и путей восстановления.",
+      "req_id": "DEC-11",
+      "slice": "DECISION",
+      "acceptance": "Диагностика показывает причину insufficient_data и доступные способы восстановления; тест проверяет поля статуса MiniApp/API",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "диагностика причины и действия",
+          "observation": "scenario_05 + test_generation_status_and_panel_share_verdict: state=compat_insufficient, reason_code, reindex_required=False, action; панель читает тот же вердикт. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "аддитивный блок compat",
+          "observation": "test_compat_block_present_and_fail_open: GET /api/memory/embeddings отдаёт compat и fail-open. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_webapp_memory_overview_api.py",
+          "artifact_sha256": "46059a8913b1b2f5fa5b90fbefdd6b3b0877389408dcf54cfca3076835bbaa76"
+        }
+      ]
+    },
+    {
+      "source_id": "L00060",
+      "source_line": 60,
+      "source_text_sha256": "b9c4c8936bb5410820667de0b62c97ea6c0d98f726978e3552a05105a24a736b",
+      "source_excerpt": "- Не смешивать несовместимые векторы.",
+      "disposition": "required",
+      "reason": "Ветка «несовместимость доказана».",
+      "req_id": "DEC-12",
+      "slice": "DECISION",
+      "acceptance": "При divergent несовместимые векторы не смешиваются; тест: записи нового пространства не попадают в старый vec-индекс",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "не смешивает пространства",
+          "observation": "scenario_03/04: live не меняется, _vec_write_allowed=False до миграции, target — отдельное поколение. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00061",
+      "source_line": 61,
+      "source_text_sha256": "6a1d91d3efa102648676ec4a3a78b4d7963bb3af8c4a2426e2fae6e68d801bf6",
+      "source_excerpt": "- Использовать существующий механизм контролируемой миграции поколений, сохраняя исходные факты и предыдущий индекс до успешного переключения.",
+      "disposition": "required",
+      "reason": "Контролируемая миграция поколений без потери источника.",
+      "req_id": "DEC-13",
+      "slice": "DECISION",
+      "acceptance": "При divergent используется существующий механизм миграции поколений; исходные факты и предыдущий индекс живы до успешного переключения",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "миграция поколений",
+          "observation": "scenario_03: target-generation building, live и source целы; старый ACTIVE не тронут. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "активация сохраняет старые данные",
+          "observation": "test_identity_change_rebuild_activates_and_keeps_old_data: после активации старые факты/индекс на месте. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_graphrag_identity_reindex.py",
+          "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        }
+      ]
+    },
+    {
+      "source_id": "L00062",
+      "source_line": 62,
+      "source_text_sha256": "9c5b2a065b01b6262f7a208452190800c89151600272a09058e15abf00f742b9",
+      "source_excerpt": "- Не запускать повторное извлечение фактов из многолетней истории: при необходимости перестраиваются векторы уже сохранённых фактов.",
+      "disposition": "required",
+      "reason": "Перестройка только векторов, не фактов.",
+      "req_id": "DEC-14",
+      "slice": "DECISION",
+      "acceptance": "При divergent перестраиваются векторы уже сохранённых фактов без повторного извлечения истории: source-факты неизменны, rebuild читает graph_facts (тесты migration + identity rebuild)",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "resumable migration, source intact",
+          "observation": "test_migration_chunked_resumable_source_intact: перестройка идёт по сохранённым фактам, source не переизвлекается. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "rebuild по сохранённым фактам",
+          "observation": "test_identity_change_rebuild_activates_and_keeps_old_data: rebuild читает graph_facts, история не переизвлекается. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_graphrag_identity_reindex.py",
+          "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        }
+      ]
+    },
+    {
+      "source_id": "L00063",
+      "source_line": 63,
+      "source_text_sha256": "f8a3fbed742162f18c44b247a041e21948fa3780943f21acdc95aa48cf7f377f",
+      "source_excerpt": "- Обеспечить безопасное возобновление после сбоя или рестарта.",
+      "disposition": "required",
+      "reason": "Безопасное возобновление после сбоя/рестарта.",
+      "req_id": "DEC-15",
+      "slice": "DECISION",
+      "acceptance": "Сбой или рестарт посреди миграции возобновляется безопасно: рестарт моделируется reset_compat_state + новый MemoryManager, текущее поколение и live-строки не теряются (тесты B1 и resumable migration)",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "рестарт посреди миграции",
+          "observation": "test_b1_restart_then_incompatible_resumes_migration: после reset_compat_state (рестарт) incompatible возобновляет сборку, live неизменен. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat_restart_legacy.py",
+          "artifact_sha256": "484f442d5300fea16552a6f2532fbe1311cd77737bd82087e2f96c5f5b01df77"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "resume после сбоя",
+          "observation": "test_migration_chunked_resumable_source_intact: прерванная миграция продолжается без потери поколения. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        }
+      ]
+    },
+    {
+      "source_id": "L00065",
+      "source_line": 65,
+      "source_text_sha256": "6e1725eb41b53e3e5554ebbe84df894b2064d9da89fb085e9352fdf7e126c601",
+      "source_excerpt": "## 4. Исправить все связанные точки",
+      "disposition": "context",
+      "reason": "Заголовок §4; обязательства — L67–L76.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00069",
+      "source_line": 69,
+      "source_text_sha256": "45296d6d44d0edd2cf5d098aa1dea650277f36e7969767f54c3785d29f246eec",
+      "source_excerpt": "- `services/summary_memory.py` - `embedding_identity_fingerprint()`, `_identity_fingerprint()`, `_index_generation_ok()` и ключи embedding-cache.",
+      "disposition": "required",
+      "reason": "Явно названная точка интеграции.",
+      "req_id": "INT-02",
+      "slice": "INTEGRATION",
+      "acceptance": "summary_memory: embedding_identity_fingerprint/_identity_fingerprint/_index_generation_ok и ключи embedding-cache согласованы с новым контрактом; unit-тесты",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "summary_memory согласован",
+          "observation": "scenario_01: _index_generation_ok=True, _vec_write_allowed=True после adopt; legacy fingerprint/keys не менялись (report §3). 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00070",
+      "source_line": 70,
+      "source_text_sha256": "564bf42815a6d0c8cee0649113130576fe98f1a6ebe22c1d77eb265bda00c8b4",
+      "source_excerpt": "- `services/embedding_control_plane.py` - `profile_identity()`, `classify_identity_compatibility()`, Canary и планирование смены подключения.",
+      "disposition": "required",
+      "reason": "Явно названная точка интеграции.",
+      "req_id": "INT-03",
+      "slice": "INTEGRATION",
+      "acceptance": "embedding_control_plane: profile_identity/classify_identity_compatibility/canary/планирование смены подключения работают по единому контракту; unit-тесты",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "control plane по единому контракту",
+          "observation": "scenario_01/03/05: profile_space_identity, compat_probe, ensure_index_compat, resolve_index_compat согласованы. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "profile_identity/classify",
+          "observation": "test_space_identity_ignores_key_quota_timeout_route: profile_identity=PCI, classify учитывает ADMITTED_COMPATIBLE. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_asap5_embedding_identity.py",
+          "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        }
+      ]
+    },
+    {
+      "source_id": "L00071",
+      "source_line": 71,
+      "source_text_sha256": "9ff341e0afd0c1574a27159865d9b885b30cf71f558ab9034736e36708ce4eaf",
+      "source_excerpt": "- `services/graphrag_rebuild.py` - проверки идентичности и условия запуска rebuild.",
+      "disposition": "required",
+      "reason": "Явно названная точка интеграции.",
+      "req_id": "INT-04",
+      "slice": "INTEGRATION",
+      "acceptance": "graphrag_rebuild: проверки идентичности и условия запуска rebuild используют вердикт canary; тест не запускает rebuild при compatible",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "graphrag слушает вердикт",
+          "observation": "scenario_01 scheduler==[], scenario_03 scheduler==[index]; ensure_current_generation не запускает rebuild при compatible. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "условия rebuild",
+          "observation": "test_identity_change_registers_generation_and_job: rebuild только при доказанной смене пространства. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_graphrag_identity_reindex.py",
+          "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        }
+      ]
+    },
+    {
+      "source_id": "L00072",
+      "source_line": 72,
+      "source_text_sha256": "3ff9906c464471e43509c11b3195c8e9340d434f22826ff152dbef8043fdc371",
+      "source_excerpt": "- Регистрацию ACTIVE/target generations и связанную диагностику MiniApp.",
+      "disposition": "required",
+      "reason": "Регистрация поколений и диагностика MiniApp.",
+      "req_id": "INT-05",
+      "slice": "INTEGRATION",
+      "acceptance": "Регистрация ACTIVE/target generations и диагностика MiniApp показывают согласованный статус; API-тест полей статуса",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "поколения и панель согласованы",
+          "observation": "test_generation_status_and_panel_share_verdict: generation_status и vector_memory_panel показывают один state/класс/метрики. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "MiniApp API",
+          "observation": "test_compat_block_present_and_fail_open: аддитивный блок compat присутствует и fail-open. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_webapp_memory_overview_api.py",
+          "artifact_sha256": "46059a8913b1b2f5fa5b90fbefdd6b3b0877389408dcf54cfca3076835bbaa76"
+        }
+      ]
+    },
+    {
+      "source_id": "L00078",
+      "source_line": 78,
+      "source_text_sha256": "90eafeacbd21b70440e3fd80ae3d89dca9c4a405e33fd7ba8f7dd91b6eb89225",
+      "source_excerpt": "## 5. Архитектурные ограничения",
+      "disposition": "context",
+      "reason": "Заголовок §5; запреты — L80–L88.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00090",
+      "source_line": 90,
+      "source_text_sha256": "761db1ff62b36fef16dbe1bfc9a8f854674b1505ad6bad60d3d3495f86f31374",
+      "source_excerpt": "## 6. Обязательная приёмка",
+      "disposition": "context",
+      "reason": "Заголовок §6; 10 сценариев перечислены отдельными строками L94–L103 и замаплены отдельными req_id ACC-01…ACC-10.",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00094",
+      "source_line": 94,
+      "source_text_sha256": "fe7973458a12e3049f699f32f730de2a52b3654203409fce256f6d838171ca90",
+      "source_excerpt": "1. Одна модель, одинаковые векторы, разные API-провайдеры - перестройка не запускается.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 1.",
+      "req_id": "ACC-01",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 1: одна модель, одинаковые векторы, разные провайдеры — перестройка не запускается (тест на реальном индексе-фикстуре)",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_01_gateway_swap_adopts_existing_index",
+          "observation": "смена только провайдера → adopt, rebuild не запускается; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00095",
+      "source_line": 95,
+      "source_text_sha256": "6cb6b93b1e35762730dd0c61d145c7f918c422040d5aff410038278b017f50e2",
+      "source_excerpt": "2. Одна модель, небольшая численная погрешность, сохранённая корректность поиска - совместимость оценивается обоснованно.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 2.",
+      "req_id": "ACC-02",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 2: небольшая численная погрешность при сохранённой корректности поиска — совместимость оценена обоснованно, с числами косинуса",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_02a/02b band",
+          "observation": "малая погрешность в полосе → повтор и обоснованный вердикт; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00096",
+      "source_line": 96,
+      "source_text_sha256": "1e501f994728f4b8309dcf7be04efd72eb38a07b0feb2451a15553b2e63b3f8d",
+      "source_excerpt": "3. Одинаковое название модели, но разные фактические векторы - несовместимость обнаруживается.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 3.",
+      "req_id": "ACC-03",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 3: одинаковое название модели, но разные фактические векторы — несовместимость обнаружена и не замаскирована допуском",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_03_same_name_different_space_is_incompatible",
+          "observation": "то же имя, другие векторы → incompatible; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00097",
+      "source_line": 97,
+      "source_text_sha256": "c1d0e7f4166cb9d87fc796812a143a49a65d04b265b0a7ccd51353795e1cea6d",
+      "source_excerpt": "4. Разные модели или размерности - несовместимые индексы не смешиваются.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 4.",
+      "req_id": "ACC-04",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 4: разные модели или размерности — несовместимые индексы не смешиваются, vec-поиск закрыт до миграции",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_04_dimension_mismatch_never_mixes",
+          "observation": "другая размерность → индексы не смешиваются; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00098",
+      "source_line": 98,
+      "source_text_sha256": "2b7458a12ae021a1fb706784fe3ebbc4b39ec231618cbbf62ad67d64b9251489",
+      "source_excerpt": "5. Недоступность нового API или невозможность сравнения - данные не теряются, автоматического разрушительного переключения нет.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 5.",
+      "req_id": "ACC-05",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 5: новый API недоступен или сравнение невозможно — данные целы, автоматического разрушительного переключения нет",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_05_api_unavailable_is_insufficient_keeps_data",
+          "observation": "API недоступен → insufficient, данные целы; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00099",
+      "source_line": 99,
+      "source_text_sha256": "733ec42b3c066ffb8c13d97e8b9fc7bbf0aac35ed6ea565490e3c14050b125ee",
+      "source_excerpt": "6. Возврат к предыдущему провайдеру - старый подтверждённый индекс может использоваться повторно.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 6.",
+      "req_id": "ACC-06",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 6: возврат к предыдущему провайдеру — старый подтверждённый индекс переиспользуется без новой перестройки",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_06_flip_back_reuses_confirmed_index",
+          "observation": "возврат к провайдеру → старый допуск переиспользуется; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00100",
+      "source_line": 100,
+      "source_text_sha256": "e772a08d58107c2255f62e18ac78362924433abe52cdc27b680b54355eb5c2c3",
+      "source_excerpt": "7. Рестарт приложения - результат безопасной совместимости сохраняется и повторная перестройка не начинается.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 7.",
+      "req_id": "ACC-07",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 7: рестарт приложения — вердикт и совместимость сохраняются, повторная перестройка не начинается",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_07_restart_reads_durable_admission",
+          "observation": "рестарт → durable-допуск, повторной перестройки нет; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "B1 restart",
+          "observation": "test_b1_restart_then_incompatible_resumes_migration + insufficient-pause: рестарт не теряет вердикт. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat_restart_legacy.py",
+          "artifact_sha256": "484f442d5300fea16552a6f2532fbe1311cd77737bd82087e2f96c5f5b01df77"
+        }
+      ]
+    },
+    {
+      "source_id": "L00101",
+      "source_line": 101,
+      "source_text_sha256": "2970907c7a796134ee2c0bbabff057ed9e26284068a5c9f6f54e19631a551095",
+      "source_excerpt": "8. Два чата с общей конфигурацией - нет дублирующих перестроек и нарушения изоляции данных.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 8.",
+      "req_id": "ACC-08",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 8: два чата с общей конфигурацией — нет дублирующих перестроек и нарушения изоляции данных чатов",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_08_two_chats_single_adopt_no_isolation_break",
+          "observation": "два чата → один adopt, изоляция цела; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00102",
+      "source_line": 102,
+      "source_text_sha256": "e70d0b41394970c1cdd6e7852fb3c2d7e9a5a5432a4e897aff73ce00b49b914b",
+      "source_excerpt": "9. Уже запущенный rebuild - проверить возможность безопасной отмены ненужной работы после доказанной совместимости без повреждения текущего поколения.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 9.",
+      "req_id": "ACC-09",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 9: уже запущенный rebuild — отмена ненужной работы после доказанной совместимости не повреждает текущее поколение",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "scenario_09_running_rebuild_cancelled_by_adopt",
+          "observation": "запущенный rebuild отменяется, live цел; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        }
+      ]
+    },
+    {
+      "source_id": "L00103",
+      "source_line": 103,
+      "source_text_sha256": "09273b5e952d2adcccff5ad68a8d2c022fea0f76092167c77d31242731e2a6e0",
+      "source_excerpt": "10. Поиск по старым фактам новым API - проверить реальную семантическую выдачу, а не только совпадение размеров векторов.",
+      "disposition": "required",
+      "reason": "Сценарий приёмки 10; live-проверка после деплоя.",
+      "req_id": "ACC-10",
+      "slice": "ACCEPT",
+      "acceptance": "Сценарий 10: поиск по старым фактам новым API даёт реальную семантическую выдачу, а не только совпадение размерности (production-проверка)",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
+          "ref": "механизм search-level",
+          "observation": "scenario_10: hit5=1.0 на точных векторах, контроль чужого пространства. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "provider",
+          "ref": "реальная выдача на прод-данных",
+          "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). A0 выполнен на модуле 30a2f868; функции compat_probe/_select_sample/classify_identity_compatibility байт-идентичны 570e1eee (sha256 81d0b55a…/6b54b9a5…/6390ebde…). resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/raw/knn_full_index.json",
+          "artifact_sha256": "fdb391c7d3e7d224ad6988283f5fe399e22d2f7aa72fb48c11f03d3fd5bea0d3"
+        }
+      ],
+      "next_check": "postdeploy: GET /api/memory/embeddings → compat.serviceable=true, compat.canary.hit5≥0.8; затем реальный семантический запрос по старому факту и проверка top-1 в выдаче; лог EMBEDDING_COMPAT_ADMITTED."
+    }
+  ]
+}

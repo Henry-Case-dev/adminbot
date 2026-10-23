@@ -1,0 +1,103 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "embed-identity-compat",
+  "source": "plans/features/embed-identity-compat/source-2026-10-23.md",
+  "slices": [
+    {
+      "id": "IDENT-SPLIT",
+      "depends_on": [],
+      "writer": "ARCH-EMBED-IDENTITY (contract) -> Builder",
+      "write_scope": [
+        "services/embedding_control_plane.py",
+        "services/summary_memory.py",
+        "tests/test_embedding_identity_split.py"
+      ],
+      "outcome": "Model-space identity отделена от connection identity; provider-only смена больше не означает другое векторное пространство; legacy-отпечатки остаются объяснимыми.",
+      "acceptance": "Unit-тесты: разные base_url/key при той же модели дают одинаковый model identity и разный connection identity; смена модели/размерности/препроцессинга меняет model identity; старые строки реестра/кеша сохраняют происхождение.",
+      "risk": "R2",
+      "next": "Builder"
+    },
+    {
+      "id": "CANARY",
+      "depends_on": [
+        "IDENT-SPLIT"
+      ],
+      "writer": "Builder",
+      "write_scope": [
+        "services/embedding_control_plane.py",
+        "tests/test_embedding_canary_compat.py"
+      ],
+      "outcome": "Canary сравнивает новые эмбеддинги со СТАРЫМИ сохранёнными векторами и их текстами и выдаёт три исхода, включая search-level пробу.",
+      "acceptance": "Тесты: выборка непустая и берётся из существующей памяти; эталон не создаётся новым провайдером; косинус в допуске → compatible, вне → divergent, нет данных/API → insufficient_data; search-проба находит известный документ.",
+      "risk": "R2",
+      "next": "Builder"
+    },
+    {
+      "id": "DECISION",
+      "depends_on": [
+        "CANARY"
+      ],
+      "writer": "Builder",
+      "write_scope": [
+        "services/embedding_control_plane.py",
+        "services/graphrag_rebuild.py",
+        "tests/test_embed_decision_matrix.py"
+      ],
+      "outcome": "Три вердикта имеют зафиксированное поведение: compatible сохраняет индекс, insufficient_data — FTS без разрушения, divergent — контролируемая миграция поколений.",
+      "acceptance": "Матричный тест: compatible не создаёт rebuild-джобу и не чистит кеш; insufficient_data не стартует rebuild и отдаёт диагностику; divergent не смешивает векторы и сохраняет старое поколение до переключения; resume после сбоя безопасен.",
+      "risk": "R3",
+      "next": "Builder"
+    },
+    {
+      "id": "INTEGRATION",
+      "depends_on": [
+        "DECISION"
+      ],
+      "writer": "Builder",
+      "write_scope": [
+        "services/summary_memory.py",
+        "services/graphrag_rebuild.py",
+        "services/embedding_control_plane.py",
+        "web/api/memory_agi.py",
+        "tests/test_embed_integration_consistency.py"
+      ],
+      "outcome": "summary_memory, control plane, graphrag_rebuild и регистрация поколений/диагностика MiniApp используют один вердикт; split-brain отсутствует.",
+      "acceptance": "Интеграционный тест: один и тот же вход даёт согласованный вердикт во всех точках; при compatible vec-поиск открыт во всех потребителях; регистрация ACTIVE/target и поля диагностики отражают фактическое поколение.",
+      "risk": "R2",
+      "next": "Builder"
+    },
+    {
+      "id": "GOV",
+      "depends_on": [
+        "INTEGRATION"
+      ],
+      "writer": "Reviewer (architecture guard audit)",
+      "write_scope": [
+        "plans/features/embed-identity-compat/evidence/gov-report.md"
+      ],
+      "outcome": "Независимый аудит подтверждает соблюдение архитектурных запретов и отсутствие потери данных.",
+      "acceptance": "Отчёт с проверкой диффа/DDL: нет новых сервисов, таблиц, реестров, агентов и хардкода; нет name-only подмены; fingerprint не переписан вручную; счётчики истории/фактов/графа/досье на копии прод-БД не уменьшились.",
+      "risk": "R1",
+      "next": "Reviewer"
+    },
+    {
+      "id": "ACCEPT",
+      "depends_on": [
+        "IDENT-SPLIT",
+        "CANARY",
+        "DECISION",
+        "INTEGRATION",
+        "GOV"
+      ],
+      "writer": "Builder -> Reviewer",
+      "write_scope": [
+        "tests/test_embed_accept_scenarios.py",
+        "plans/features/embed-identity-compat/evidence/"
+      ],
+      "outcome": "Все 10 сценариев приёмки и итоговый критерий подтверждены фактическими измерениями; реальная семантическая выдача проверена на старых фактах.",
+      "acceptance": "10 сценариев ACC-01…ACC-10 имеют отдельные проверки и артефакты; ACC-11 подтверждён на проде (индекс работает без полной перевекторизации); ACC-10 — реальная семантическая выдача; ACC-13/ACC-14 — отчёт с числами косинуса/search-пробы и без недоказанных заявлений.",
+      "risk": "R2",
+      "next": "Reviewer -> DevOps"
+    }
+  ]
+}

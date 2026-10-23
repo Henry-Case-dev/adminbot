@@ -1,0 +1,103 @@
+{
+  "db": "/var/www/admin_bot/local_database.db",
+  "query_only": 1,
+  "ddl": "CREATE VIRTUAL TABLE graph_facts_vec USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)",
+  "live_rows": 16003,
+  "source_rows": 20097,
+  "dims": 3072,
+  "ddl_dims": 3072,
+  "blob_bytes": 12288,
+  "chats": [
+    {
+      "chat_id": -1002661910336,
+      "n": 15126
+    },
+    {
+      "chat_id": 5885953495,
+      "n": 255
+    },
+    {
+      "chat_id": 1313107079,
+      "n": 2
+    },
+    {
+      "chat_id": 529151103,
+      "n": 1
+    }
+  ],
+  "origins": [
+    {
+      "origin": "history_import",
+      "n": 8926
+    },
+    {
+      "origin": "chat_history",
+      "n": 2265
+    },
+    {
+      "origin": "search_fact",
+      "n": 1811
+    },
+    {
+      "origin": "voice_transcript",
+      "n": 976
+    },
+    {
+      "origin": "bot_self_reply",
+      "n": 484
+    },
+    {
+      "origin": "youtube_content",
+      "n": 292
+    },
+    {
+      "origin": "bot_direct_reply",
+      "n": 265
+    },
+    {
+      "origin": "derived_belief",
+      "n": 171
+    },
+    {
+      "origin": "video_transcript",
+      "n": 138
+    },
+    {
+      "origin": "web_content",
+      "n": 47
+    },
+    {
+      "origin": "user_memory",
+      "n": 9
+    }
+  ],
+  "sample_meta": {
+    "rows": 42,
+    "dims": 3072,
+    "chats": [
+      "-1002661910336",
+      "1313107079",
+      "5885953495"
+    ],
+    "origins": [
+      "bot_direct_reply",
+      "chat_history",
+      "derived_belief",
+      "history_import",
+      "search_fact",
+      "user_memory",
+      "web_content"
+    ],
+    "length_buckets": {
+      "short": 34,
+      "mid": 8,
+      "long": 0
+    }
+  },
+  "sample_transfer": {
+    "rows": 42,
+    "json_bytes": 702969,
+    "wire_bytes": 696900,
+    "dims": 3072
+  }
+}

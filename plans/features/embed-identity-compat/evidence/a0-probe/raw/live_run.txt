@@ -1,0 +1,3 @@
+[a0] sample rows=42 dims=3072 wire=696900B
+[a0] knn queried=42 error=None
+{"verdict": "compatible", "checked": 12, "mean": 1.0, "min": 1.0, "hit5": 1.0, "reason_code": "", "calls": 2, "sample_rows": 42, "full_index_hit1": 1.0, "full_index_hit5": 1.0, "healthz": [200, 200]}
