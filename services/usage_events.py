@@ -53,6 +53,9 @@ PLAN_META_FIELDS = frozenset({
     # (§18C.6/§18C.7/§18C.8 — durable observability of the full chain).
     "execution_mode", "planner_fallback_reason", "required_capability",
     "credential_source", "temperature", "temperature_unsupported",
+    # ASAP 2 (наблюдаемость уточнений, 23.10.2026): только флаги — частотa
+    # и «ложность» уточнений измеримы на проде без текста цели/пользователя.
+    "needs_clar", "clar_target_present",
 })
 _PLAN_META_LIST_FIELDS = frozenset({"capabilities", "tools"})
 _PLAN_META_NUM_FIELDS = frozenset(

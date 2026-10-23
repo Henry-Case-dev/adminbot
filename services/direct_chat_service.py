@@ -299,6 +299,18 @@ _L1_PLAN_META_UPDATE_SQL = (
 )
 
 
+def _clar_target_present(plan) -> bool:
+    """ASAP 2 (§3.2): непустая цель уточнения — ТОЛЬКО флаг (R17).
+
+    Та же строгая семантика, что в нормализации L1 (`isinstance(str)` +
+    `strip()`): мусорный тип/пробелы = цели нет."""
+    try:
+        target = getattr(plan, "clarification_target", None)
+    except Exception:
+        return False
+    return isinstance(target, str) and bool(target.strip())
+
+
 def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
                         latency_ms: int, input_chars: int) -> dict:
     """R17-whitelist-оси usage-plan_meta — зеркально emit_l1_plan_event
@@ -323,6 +335,13 @@ def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
         "source": str(meta.get("source") or "main"),
         "execution_mode": str(getattr(p, "execution_mode", "") or "none"),
         "credential_source": str(meta.get("credential_source") or "global"),
+        # ASAP 2 (наблюдаемость уточнений, 23.10.2026): только ДВА bool —
+        # ни текста цели, ни пользовательского текста (R17). needs_clar —
+        # строгий boolean плана (`is True`, как в normalize_l1_plan);
+        # пара (true,true) = валидное уточнение, (true,false) = generic-
+        # ветка без предмета (её и нужно видеть отдельно).
+        "needs_clar": getattr(p, "needs_clarification", False) is True,
+        "clar_target_present": _clar_target_present(p),
     }
     fb_reason = str(meta.get("planner_fallback_reason") or "")
     if fb_reason:
