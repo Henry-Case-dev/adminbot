@@ -60,7 +60,11 @@ from handlers.menu import menu_router
 from services.olya_relay import OlyaRelay
 from handlers.summary import summary_observer_router, summary_router, setup_summary
 from services.llm_client import LLMClient
-from services.summary_aliases import AliasResolver
+from services.summary_aliases import (
+    AliasResolver,
+    LiveAliasView,
+    alias_scope_middleware as _alias_scope_middleware,
+)
 from services.summary_generator import SummaryGenerator
 from services.summary_memory import MemoryManager
 from services.summary_scheduler import SummarySchedulerService
@@ -461,6 +465,11 @@ async def on_startup():
                               settings.EMBEDDING_API_KEY),
     )
     aliases = AliasResolver(hot.get("limits.summary_aliases", settings.SUMMARY_ALIASES))
+    # ASAP 3 Corrective §4.4: стабильный DI-объект делегирует действующему
+    # per-chat резолверу хода (contextvar); стартовый снапшот — только
+    # fallback нечатовых путей. Live-apply без рестарта и без утечки между
+    # параллельными чатами.
+    aliases = LiveAliasView(aliases)
     # Epic 60 (66.9, T-487): aliases → MemoryManager (привязка фактов к
     # людям по алиасам: канон-имена в фактах/узлах → карточки /persona).
     memory = MemoryManager(db, _llm_client, aliases=aliases)
@@ -693,9 +702,9 @@ async def on_startup():
             _lore_worker = LoreWorker(
                 lore_store, cache=get_lore_cache(), db=db,
                 llm=lore_llm, bot_id=bot.id, pg=lore_store.pg,
-                # F8 (spec §4.1): канонизация target мемов (aliases.canon_name).
-                aliases=AliasResolver(hot.get("limits.summary_aliases",
-                                              settings.SUMMARY_ALIASES)))
+                # F8 (spec §4.1): канонизация target мемов (aliases.canon_name)
+                # ASAP3: тот же live-view, что у остальных речевых маршрутов.
+                aliases=aliases)
             await _lore_worker.start()
             set_lore_components(
                 store=lore_store, cache=get_lore_cache(),
@@ -944,6 +953,10 @@ async def on_startup():
     # dp.update — единая точка входа ДО диспетчеризации; thin/fail-open;
     # гейт CHAT_PROFILE_FALLBACK_ENABLED (env, default ON).
     dp.update.outer_middleware(chat_profile_fallback_middleware)
+    # ASAP 3 Corrective §4.4 (A4/A5/A13): live-резолвер алиасов на каждый
+    # update — handlers/media/tool видят сохранённое значение уже в
+    # следующем ходе, без рестарта; contextvar изолирует параллельные чаты.
+    dp.update.outer_middleware(_alias_scope_middleware)
 
     # 2. Kostik router — user ID 350803143
     dp.include_router(kostik_router)

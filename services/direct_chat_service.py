@@ -2164,11 +2164,28 @@ class DirectChatService:
         if replied is not None:
             replied.add(int(chat_id))
 
+    async def _refresh_turn_aliases(self, chat_id: int) -> None:
+        """ASAP 3 Corrective §4.4: per-turn резолвер (global+chat merge).
+
+        Кэш `chat_params` инвалидируется существующим `set_chat_params`,
+        поэтому сохранённый алиас действует уже в следующем ходе. Ошибка
+        сборки не рвёт ход: остаётся прежний резолвер, WARNING в лог.
+        """
+        from services import summary_aliases as _sa
+        try:
+            await _sa.bind_turn_aliases(int(chat_id))
+        except Exception:
+            logger.warning(
+                "[direct] alias refresh failed — previous resolver | "
+                "chat=%s", chat_id, exc_info=True)
+
     async def _handle_turn(self, bot, message, user) -> None:
         """Триггер уже проверен хендлером. Кулдаун → фраза R50-7; иначе —
         контекст → LLM → Reply → memorize (fire-and-forget, ПОСЛЕ отправки).
         Epic 60 (63.2): генерация — под per-chat замком (после throttle/CB)."""
         chat_id = message.chat.id
+        # ASAP 3 Corrective §4.4: имена действуют с текущего хода.
+        await self._refresh_turn_aliases(chat_id)
         user_id = user.id if user is not None else 0
         target_name = self._resolve_name(user)
         # ADD-TR.2 (ADTR-ENTRY): текст хода = text ИЛИ caption подписи —
@@ -8664,6 +8681,7 @@ class DirectChatService:
         нет. Один вызов L1 (без repair-лестницы — инициатива вторична:
         outage/невалидный JSON → None → SILENT, не повтор). Никогда не
         бросает."""
+        await self._refresh_turn_aliases(chat_id)
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
@@ -8762,6 +8780,7 @@ class DirectChatService:
         Compact context: цель намерения + свежее окно чата + кадр личности;
         plan-блок от L1-решения. Пустой результат → '' (вызывающий решает
         writer_failed). Никогда не бросает."""
+        await self._refresh_turn_aliases(chat_id)
         try:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
