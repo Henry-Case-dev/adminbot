@@ -2,7 +2,7 @@
   "schema": "openworkflow-slices-v1",
   "feature": "p0-factcheck-speech",
   "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
-  "source_sha256": "07d944ea761a50a16c42ab4076b6f51e6d3a775ea1a36a37e380a17c78a7ecfd",
+  "source_sha256": "d69c104d2cfe58290c5ead6826b78ac9ce37502ef3829b8948fe9e2048872d70",
   "plan": "plans/features/p0-corrective-factcheck-speech/plan.md",
   "priority": "P0",
   "waves": [
@@ -342,7 +342,7 @@
         "services/prompt_migrations.py",
         "tests/test_p0fc_core_enrichment.py"
       ],
-      "acceptance": "Действующая и заводские Full/Compact прочитаны и сопоставлены; недостающие качества интегрированы в смысловые разделы, дубли и противоречия устранены точечно; авторский объём, формулировки и структура сохранены, список §5.1 не стал заменой Core; Full и Compact смыслово соответствуют; пользовательские изменения не перезаписаны заводскими; один источник характера и один источник Expression. Дополнение ASAP 4: только недостающий принцип повествования, вставка Full/Compact дословно при отсутствии смысла, технический Checkup-жанр и Betterstack/401 в Core не перенесены.",
+      "acceptance": "Действующая и заводские Full/Compact прочитаны и сопоставлены; недостающие качества интегрированы в смысловые разделы, дубли и противоречия устранены точечно; авторский объём, формулировки и структура сохранены, список §5.1 не стал заменой Core; Full и Compact смыслово соответствуют; пользовательские изменения не перезаписаны заводскими; один источник характера и один источник Expression. Дополнение ASAP 4: только недостающий принцип повествования, вставка Full/Compact дословно при отсутствии смысла, технический Checkup-жанр и Betterstack/401 в Core не перенесены. Дополнение 24.10 #2: принцип свободы речи внедрён на уровне личности (Full+Compact) owner-preserving и идемпотентно; второго источника/регулятора мата нет; Checkup/Factcheck/Summary/Search не получают конкурирующих определений личности и мата.",
       "risk": "R3",
       "next_role": "Builder",
       "can_parallel_with": [
@@ -382,6 +382,7 @@
         "REQ-CORE-ROUTE-CONTRACT",
         "REQ-CORE-NO-FABRICATION",
         "REQ-CORE-NO-GENRE-COPIES",
+        "REQ-CORE-FREESPEECH",
         "SP-04",
         "SP-06",
         "REQ-A4-VOICE-METHOD-NOT-ROLE",
@@ -573,6 +574,14 @@
     "new_slices": false,
     "summary": "ASAP 4 / P0 (карта принадлежности Checkup-промпта) разложен по существующим слайсам: 27 CHECKUP, 17 CORE, 10 PROMPTS, 16 ACCEPT.",
     "provenance_policy": "user-custom / old factory / intermediate различаются до применения; без массовой активации старых промптов и без перезаписи авторских правок."
+  },
+  "addendum_2": {
+    "id": "ADDENDUM2-core-freespeech",
+    "source_heading_line": 802,
+    "mode": "supersedes-§1-core-part-only",
+    "new_slices": false,
+    "summary": "ADDENDUM #2 (L802-806) добавляет REQ-CORE-FREESPEECH в слайс CORE и перекрывает строку §1 «Никуда» только в части Core; строка §1 сохранена как история (context, superseded_by).",
+    "dependency_note": "CORE зависит от PROMPTS: текст Core применяется после приёма реестром и штатной миграции (owner_preserve_core_full_patch); CHECKUP не дублирует личность/мат и остаётся без второго определения."
   },
   "arch_freeze": {
     "owner": "Architect",
