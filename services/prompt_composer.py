@@ -31,7 +31,9 @@ import dataclasses
 import hashlib
 import json
 import logging
+import re
 import threading
+import time
 from collections import OrderedDict
 from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
@@ -179,6 +181,124 @@ _ERROR_REASONS = frozenset({
     "core_read_error", "identity_read_error", "style_policy_read_error",
     "style_policy_unavailable", "lessons_unavailable",
 })
+
+#: Устаревшие служебные метки SOUL-* (INS-CONFLICT): в payload модели их быть
+#: не должно. Проверка фактическая — по тексту отрендеренных блоков.
+_SOUL_LABEL_RE = re.compile(r"SOUL-\d+(?:\.\d+)*")
+
+#: Человеческие подписи слоёв для Inspector (INS-HIERARCHY). Ключ — слой из
+#: закрытого набора ``LAYERS``; неизвестный слой показывается как есть.
+LAYER_LABELS: Mapping[str, str] = {
+    LAYER_CHANNEL_CONTRACT: "Контракт канала (L2)",
+    LAYER_CORE: "Характер (Core)",
+    LAYER_IDENTITY: "Личность и манера",
+    LAYER_SELF_MODEL_TRAITS: "Самоощущение",
+    LAYER_CONTEXT_LESSONS: "Контекст: уроки и правила",
+    LAYER_RESPONSE_PLAN: "План ответа",
+    LAYER_EXPRESSION: "Выражение (настройки речи)",
+    LAYER_HUMOR_CRAFT: "Приём юмора",
+    LAYER_FEW_SHOT: "Примеры (few shot)",
+    LAYER_STYLE_POLICY_HINT: "Стиль письма",
+    LAYER_CHANNEL_OUTPUT: "Формат вывода",
+}
+
+#: INS-SKIPREASON: доступный русский вместо машинного кода в основном тексте.
+#: Код остаётся в диагностике (``title``/``reason_code``), не как основной
+#: текст для владельца. Покрывает весь ``SKIP_REASONS``.
+SKIP_REASON_LABELS: Mapping[str, str] = {
+    "": "",
+    "channel_contract_missing":
+        "База канала не передана — этот блок не вошёл в запрос.",
+    "channel_output_not_required":
+        "Отдельный форматный блок этому этапу не нужен.",
+    "core_absent":
+        "Характер (Core) не передан — слой пуст, модель его не получила.",
+    "core_disabled":
+        "Характер (Core) выключен настройкой — слой не отправлен.",
+    "core_read_error":
+        "Характер не удалось прочитать — слой честно пропущен.",
+    "identity_absent": "Описание личности не задано — слой пуст.",
+    "identity_read_error":
+        "Описание личности не удалось прочитать — слой пропущен.",
+    "persona_disabled": "Личность (персона) выключена настройкой.",
+    "character_layers_disabled":
+        "Слои характера выключены — используется прежний режим.",
+    "self_model_absent":
+        "Самоощущение не задано, отдельного блока нет.",
+    "self_model_folded_into_identity":
+        "Самоощущение уже вошло в описание личности — отдельный блок не нужен.",
+    "lessons_absent": "Уроков и правил для этого чата нет — блок пуст.",
+    "lessons_unavailable":
+        "Уроки опыта недоступны (хранилище) — слой честно пропущен.",
+    "style_requests_absent":
+        "В сообщении нет просьб о стиле — отдельный блок не нужен.",
+    "style_scope_disabled":
+        "Правила «в этом чате» выключены — слой не отправлен.",
+    "speech_absent":
+        "Настройки речи пусты — отдельного блока нет.",
+    "character_speech_disabled":
+        "Настройки речи выключены — слой не отправлен.",
+    "response_plan_absent":
+        "План ответа не сформирован — модель получила запрос без плана.",
+    "response_plan_disabled":
+        "План ответа выключен — модель получила запрос без плана.",
+    "verbilizer_modes_disabled":
+        "Умные режимы речевого слоя выключены — использована прежняя база.",
+    "expression_absent": "Параметры манеры речи не заданы — блок пуст.",
+    "expression_disabled":
+        "Параметры манеры речи выключены — слой не отправлен.",
+    "expression_examples_absent":
+        "Примеры не выбраны: нет подходящих подтверждённых примеров.",
+    "expression_examples_disabled":
+        "Библиотека примеров выключена — примеры не отправлены.",
+    "not_owner_approved":
+        "Владелец не утвердил этот текст — в запрос он не идёт.",
+    "humor_no_strategy":
+        "Приём юмора на этот ход не выбран — отдельного блока нет.",
+    "humor_disabled":
+        "Приёмы юмора выключены — слой не отправлен.",
+    "samples_absent":
+        "Примеры не выбраны: нет подходящих подтверждённых примеров.",
+    "samples_disabled":
+        "Библиотека примеров выключена — примеры не отправлены.",
+    "style_policy_absent":
+        "Активных правил стиля письма нет — блок пуст.",
+    "style_policy_disabled":
+        "Правила стиля письма выключены — слой не отправлен.",
+    "style_policy_unavailable":
+        "Правила стиля письма недоступны — слой честно пропущен.",
+    "style_policy_read_error":
+        "Правила стиля письма не удалось прочитать — слой пропущен.",
+    "budget_excluded":
+        "Слой не вошёл в запрос: исчерпан бюджет дополнительных блоков "
+        "(технический лимит модели).",
+    "compose_error":
+        "Сборка слоя не удалась — отправлена только база канала.",
+    "profile:machine_stage":
+        "Машинный этап: личность и стиль к этому вызову не относятся.",
+    "profile:editorial_eligibility":
+        "Редакционный профиль ждёт разрешения владельца — Core не подключён.",
+    "profile:internal_silent":
+        "Служебный молчаливый профиль: ответ в чат не формируется.",
+}
+
+
+def layer_label(layer: Any) -> str:
+    """Человеческое имя слоя (INS-HIERARCHY); неизвестный — как есть."""
+    code = str(layer or "")
+    return LAYER_LABELS.get(code, code or "—")
+
+
+def skip_reason_label(code: Any) -> str:
+    """Человеческая причина пропуска (INS-SKIPREASON); код — не текст."""
+    key = str(code or "")
+    if not key:
+        return ""
+    known = SKIP_REASON_LABELS.get(key)
+    if known:
+        return known
+    # Незнакомый код не выдумываем: честно показываем его как технический.
+    return "Слой пропущен (техническая причина: %s)." % key
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Оценка и хеши
@@ -455,6 +575,11 @@ class LayerTrace:
     #: Уточнение провенанса блока (без текста промпта): например выбор
     #: редакции Core (`level=… reason=… origin=… doc=…`).
     detail: str = ""
+    #: ТОЧНЫЙ текст включённого блока (только ``rendered=True``). Живёт в
+    #: манифесте in-memory (owner-debug, INS-HIERARCHY); в события/телеметрию
+    #: НЕ попадает — ``manifest_for_events``/``render_effective_layers``
+    #: собирают поля явно.
+    text: str = ""
 
 
 @dataclass(frozen=True)
@@ -886,6 +1011,14 @@ _diffs: "OrderedDict[str, dict]" = OrderedDict()
 _event_lock = threading.Lock()
 _emitted_reasons: "OrderedDict[tuple[int, str], None]" = OrderedDict()
 
+#: INS-TRACE/INS-EXACT: bounded журнал РЕАЛЬНЫХ provider-вызовов.
+#: Хранит структуру + хэши + санитизированный точный текст (owner-debug).
+#: Не телеметрия и не публичный лог: доступ только через Inspector.
+PROVIDER_CALL_MAX = 24
+_PROVIDER_TEXT_MAX = 60000
+_provider_lock = threading.Lock()
+_provider_calls: "OrderedDict[str, dict]" = OrderedDict()
+
 
 def _turn_key(chat_id: int, run_id: str | None) -> tuple[int, str] | None:
     if not run_id:
@@ -1016,6 +1149,7 @@ def reset_state() -> None:
         _last_layers.clear()
     with _event_lock:
         _emitted_reasons.clear()
+    reset_provider_calls()
 
 
 def get_manifest(chat_id: int, *, run_id: str | None = None,
@@ -1060,6 +1194,9 @@ def _trace(layer: str, *, block_id: str = "", text: str = "", owner: str = "",
         skip_reason=str(skip_reason or ""),
         conflict=str(conflict or ""),
         detail=str(detail or ""),
+        # Текст блока хранится только для ВКЛЮЧЁННЫХ слоёв: пропущенный слой
+        # объясняется причиной, а не содержимым, которого модель не видела.
+        text=(str(text) if rendered and text else ""),
     )
 
 
@@ -1541,6 +1678,22 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             revision=sha12(channel_output), rendered=True))
 
     system = _joined(parts)
+    # INS-CONFLICT: устаревшие служебные метки `SOUL-*` не должны попадать в
+    # модель. Проверка по ФАКТИЧЕСКИ отрендеренным блокам (не по конфигу):
+    # метка есть в payload → честный conflict_reported с провенансом.
+    for trace in traces:
+        if not trace.rendered or not trace.text:
+            continue
+        found = _SOUL_LABEL_RE.findall(trace.text)
+        if not found:
+            continue
+        conflicts.append(ConflictRecord(
+            conflict_id="soul_legacy_label_in_payload",
+            outcome="conflict_reported", layer=trace.layer,
+            block_id=trace.block_id,
+            detail="labels=%s" % ",".join(sorted(set(found))[:4]),
+            provenance="%s:%s" % (trace.owner or "code",
+                                  trace.revision or sha12(trace.text))))
     versions = _versions(plan, profile, base_text, core_text, identity_text,
                          lessons_traces, traces)
     manifest = PromptManifest(
@@ -1747,9 +1900,193 @@ def compose_machine_system(base_prompt: str, *, writer: str,
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# «Покажи effective layers» + R17-safe события
+# INS-TRACE / INS-EXACT: журнал РЕАЛЬНЫХ provider-вызовов
 # ═════════════════════════════════════════════════════════════════════════════
 
+
+def sha256_text(text: Any) -> str:
+    """sha256 произвольного текста (payload/сообщения)."""
+    value = "" if text is None else str(text)
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def payload_checksum(payload: Any) -> str:
+    """sha256 канонического JSON фактически отправленного payload.
+
+    Канонизация (``sort_keys`` + компактные сепараторы) не зависит от порядка
+    ключей в памяти, но полностью определяется значениями: два разных тела
+    запроса не дадут одинаковый хеш.
+    """
+    try:
+        body = json.dumps(payload, ensure_ascii=False, sort_keys=True,
+                          separators=(",", ":"), default=str)
+    except Exception:       # pragma: no cover — защитная ветка
+        body = str(payload)
+    return sha256_text(body)
+
+
+def messages_checksum(messages: Sequence[Mapping[str, Any]]) -> str:
+    """sha256 канонического списка сообщений (role+content, порядок важен)."""
+    norm = [{"role": str(m.get("role") or ""),
+             "content": str(m.get("content") or "")}
+            for m in (messages or ()) if isinstance(m, Mapping)]
+    return payload_checksum(norm)
+
+
+def _redact_chat_id(chat_id: Any) -> dict:
+    """chat_id с privacy-redaction (INS-TRACE): raw не отдаётся наружу."""
+    try:
+        value = int(chat_id or 0)
+    except (TypeError, ValueError):
+        value = 0
+    text = str(value)
+    if len(text) <= 4:
+        masked = text
+    elif len(text) <= 7:
+        masked = text[:2] + "*" * (len(text) - 3) + text[-1]
+    else:
+        masked = text[:2] + "*" * (len(text) - 4) + text[-2:]
+    return {"chat_id_redacted": masked,
+            "chat_sha12": sha256_text(text)[:12]}
+
+
+def record_provider_call(*, payload: Any, messages: Sequence[Mapping[str, Any]],
+                         model: str = "", provider: str = "",
+                         module: str = "", step: str = "",
+                         correlation_id: str = "", chat_id: Any = None,
+                         channel: str = "primary", status: str = "ok",
+                         error: str = "") -> dict:
+    """Зафиксировать РЕАЛЬНЫЙ вызов провайдера (INS-TRACE/INS-EXACT).
+
+    ``payload`` — ровно то тело, что ушло в HTTP (после adapt/fallback);
+    ``messages`` — те же сообщения (system+user, порядок как в запросе).
+    Текст обязан приходить уже санитизированным вызывающим (``llm_client``
+    маскирует секреты каноническим маскером) — журнал R17-safe. Хеши
+    считаются по фактическим байтам содержимого и остаются доказательством,
+    даже если длинный текст усечён для памяти.
+
+    Никогда не бросает: диагностика не должна ломать вызов модели.
+    """
+    try:
+        checksum = payload_checksum(payload)
+        parts: list[dict] = []
+        for msg in (messages or ()):
+            if not isinstance(msg, Mapping):
+                continue
+            content = str(msg.get("content") or "")
+            truncated = len(content) > _PROVIDER_TEXT_MAX
+            parts.append({
+                "role": str(msg.get("role") or ""),
+                "chars": len(content),
+                "sha256": sha256_text(content),
+                "truncated": bool(truncated),
+                "text": (content[:_PROVIDER_TEXT_MAX] + "…"
+                         if truncated else content),
+            })
+        system_text = next((p["text"] for p in parts
+                            if p["role"] == "system"), "")
+        entry = {
+            "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "correlation_id": str(correlation_id or ""),
+            "manifest_checksum": checksum,
+            "checksum_algo": "sha256",
+            "messages_checksum": messages_checksum(messages),
+            "model": str(model or ""),
+            "provider": str(provider or ""),
+            "module": str(module or ""),
+            "step": str(step or ""),
+            "channel": str(channel or "primary"),
+            "status": str(status or "ok"),
+            "error": str(error or ""),
+            "message_count": len(parts),
+            "roles": [p["role"] for p in parts],
+            "chars_total": sum(p["chars"] for p in parts),
+            "messages": parts,
+            "system": system_text,
+            "system_chars": len(system_text),
+            "system_sha256": sha256_text(system_text),
+        }
+        entry.update(_redact_chat_id(chat_id))
+        key = "%s:%s:%s" % (checksum[:16], time.time_ns(),
+                            str(correlation_id or "")[:8])
+        with _provider_lock:
+            _provider_calls[key] = entry
+            while len(_provider_calls) > PROVIDER_CALL_MAX:
+                _provider_calls.popitem(last=False)
+        return dict(entry)
+    except Exception:       # pragma: no cover — защитная ветка
+        logger.warning("[composer] provider trace failed — fail-open",
+                       exc_info=True)
+        return {}
+
+
+def provider_calls(*, chat_id: Any = None, limit: int = 10,
+                   module: str = "", status: str = "") -> list[dict]:
+    """Последние реальные вызовы (новые → старые), фильтр по чату/этапу."""
+    try:
+        key_chat = int(chat_id or 0) if chat_id is not None else None
+    except (TypeError, ValueError):
+        key_chat = None
+    out: list[dict] = []
+    with _provider_lock:
+        items = list(reversed(_provider_calls.values()))
+    for entry in items:
+        if module and str(entry.get("module") or "") != module:
+            continue
+        if status and str(entry.get("status") or "") != status:
+            continue
+        if key_chat is not None:
+            raw = entry.get("chat_id_redacted") or ""
+            # Точная привязка к чату — по хешу, а не по маске.
+            if entry.get("chat_sha12") != sha256_text(key_chat)[:12]:
+                continue
+        out.append(dict(entry))
+        if len(out) >= max(1, int(limit or 1)):
+            break
+    return out
+
+
+def last_provider_call(*, chat_id: Any = None, module: str = "") -> dict | None:
+    """Самый свежий реальный вызов (для «last actual request» в Inspector)."""
+    calls = provider_calls(chat_id=chat_id, module=module, limit=1)
+    return calls[0] if calls else None
+
+
+def reset_provider_calls() -> None:
+    """Очистить журнал вызовов (тесты/диагностика)."""
+    with _provider_lock:
+        _provider_calls.clear()
+
+
+def render_layer_texts(manifest: PromptManifest) -> dict:
+    """Текст каждого включённого блока манифеста (owner-debug, INS-HIERARCHY).
+
+    Отдельный API, а не поле ``render_effective_layers``: провенанс-события и
+    телеметрия остаются без сырого текста. Вызывать только из owner-gated
+    поверхностей (Inspector).
+    """
+    rows = []
+    for trace in manifest.layers:
+        rows.append({
+            "layer": trace.layer,
+            "label": layer_label(trace.layer),
+            "block_id": trace.block_id,
+            "owner": trace.owner,
+            "source": trace.source,
+            "revision": trace.revision,
+            "chars": trace.chars,
+            "rendered": trace.rendered,
+            "skip_reason": trace.skip_reason,
+            "skip_reason_human": skip_reason_label(trace.skip_reason),
+            "detail": trace.detail,
+            "text": trace.text if trace.rendered else "",
+        })
+    return {"manifest_id": manifest.manifest_id, "layers": rows}
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# «Покажи effective layers» + R17-safe события
+# ═════════════════════════════════════════════════════════════════════════════
 
 def render_effective_layers(manifest: PromptManifest) -> dict:
     """Публичный API эффективных слоёв (§2 правило 3).

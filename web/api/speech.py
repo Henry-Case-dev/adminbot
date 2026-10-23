@@ -1581,6 +1581,293 @@ def _latest_real_turn_manifest(chat_key: int):
     return None
 
 
+#: INS-HIERARCHY: порядок и подписи блоков для владельца (не код слоя).
+HIERARCHY_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("contract", ("channel_contract", "channel_output")),
+    ("core", ("core",)),
+    ("identity", ("identity", "self_model_traits")),
+    ("context", ("context_lessons", "response_plan")),
+    ("expression", ("expression", "humor_craft")),
+    ("examples", ("few_shot",)),
+    ("style", ("style_policy_hint",)),
+)
+HIERARCHY_TITLES = {
+    "contract": "L2 контракт и формат",
+    "core": "Характер (Core)",
+    "identity": "Личность и самоощущение",
+    "context": "Контекст и план ответа",
+    "expression": "Выражение и юмор",
+    "examples": "Примеры (few shot)",
+    "style": "Стиль письма",
+}
+
+#: INS-CONFLICT: классы конкурирующих правил, которые проверяются по реальным
+#: данным. Класс без данных не «находится» выдумкой — он честно помечен.
+CONFLICT_CLASS_TITLES = {
+    "typography": "Типографика (кавычки/тире/точка)",
+    "length": "Длина и одно слово",
+    "role": "Роль и дублирование характера",
+    "budget": "Бюджет против характера",
+    "chat_global": "Правило чата против глобального",
+    "soul_legacy": "Устаревшие метки SOUL-*",
+    "profanity_case": "Мат и регистр",
+}
+_TYPOGRAPHY_KINDS = ("dash", "trailing_period", "quotation_marks",
+                     "line_breaks", "forbidden_chars")
+
+
+def _inspector_layer_rows(layers) -> list[dict]:
+    """Слои + человеческая причина пропуска и подпись (INS-SKIPREASON)."""
+    from services import prompt_composer as composer
+    rows = []
+    for row in (layers or ()):
+        if not isinstance(row, dict):
+            continue
+        copy = dict(row)
+        code = str(row.get("skip_reason") or "")
+        copy["skip_reason_code"] = code
+        copy["skip_reason_human"] = (""
+                                     if row.get("rendered")
+                                     else composer.skip_reason_label(code))
+        copy["label"] = composer.layer_label(row.get("layer"))
+        rows.append(copy)
+    return rows
+
+
+def _inspector_hierarchy(layers, layer_texts=None) -> list[dict]:
+    """Иерархия «L2 → … → Few shot» с текстом/источником/редакцией (INS-HIERARCHY)."""
+    from services import prompt_composer as composer
+    rows = [r for r in (layers or ()) if isinstance(r, dict)]
+    texts = {}
+    for row in ((layer_texts or {}).get("layers") or ()):
+        if isinstance(row, dict):
+            texts[(row.get("layer"), row.get("block_id"))] = row.get("text") or ""
+    grouped = {key: [] for key, _ in HIERARCHY_GROUPS}
+    seen = set()
+    for row in rows:
+        layer = str(row.get("layer") or "")
+        placed = False
+        for key, members in HIERARCHY_GROUPS:
+            if layer in members:
+                grouped[key].append(row)
+                placed = True
+                break
+        if not placed:
+            grouped.setdefault("other", []).append(row)
+        seen.add(layer)
+    out = []
+    for key, members in HIERARCHY_GROUPS:
+        items = grouped.get(key) or []
+        if not items:
+            continue
+        out.append({
+            "group": key,
+            "title": HIERARCHY_TITLES.get(key, key),
+            "items": [{
+                "layer": str(r.get("layer") or ""),
+                "label": composer.layer_label(r.get("layer")),
+                "block_id": str(r.get("block_id") or ""),
+                "owner": str(r.get("owner") or ""),
+                "source": str(r.get("source") or ""),
+                "revision": str(r.get("revision") or ""),
+                "chars": int(r.get("chars") or 0),
+                "rendered": bool(r.get("rendered")),
+                "skip_reason_code": str(r.get("skip_reason") or ""),
+                "skip_reason_human": ("" if r.get("rendered") else
+                                     composer.skip_reason_label(
+                                         r.get("skip_reason"))),
+                "detail": str(r.get("detail") or ""),
+                "text": texts.get((r.get("layer"), r.get("block_id")), ""),
+            } for r in items],
+        })
+    if grouped.get("other"):
+        out.append({
+            "group": "other", "title": "Прочие блоки",
+            "items": [{
+                "layer": str(r.get("layer") or ""),
+                "label": composer.layer_label(r.get("layer")),
+                "block_id": str(r.get("block_id") or ""),
+                "owner": str(r.get("owner") or ""),
+                "source": str(r.get("source") or ""),
+                "revision": str(r.get("revision") or ""),
+                "chars": int(r.get("chars") or 0),
+                "rendered": bool(r.get("rendered")),
+                "skip_reason_code": str(r.get("skip_reason") or ""),
+                "skip_reason_human": ("" if r.get("rendered") else
+                                     composer.skip_reason_label(
+                                         r.get("skip_reason"))),
+                "detail": str(r.get("detail") or ""),
+                "text": texts.get((r.get("layer"), r.get("block_id")), ""),
+            } for r in grouped["other"]],
+        })
+    return out
+
+
+def _style_rule_conflicts(global_doc, chat_doc) -> list[dict]:
+    """Реальные конфликты правил формы (INS-CONFLICT): чат против global.
+
+    Сравниваются ТИПИЗИРОВАННЫЕ правила обоих документов (данные, а не
+    догадка): один и тот же ``kind`` с разными параметрами — конкурирующие
+    инструкции. Одинаковые правила — нормальное наследование, не конфликт.
+    """
+    from services import style_policy as sp
+    out: list[dict] = []
+    try:
+        glob = sp.validate_document(global_doc)[0] or {}
+        chat = sp.validate_document(chat_doc)[0] or {}
+    except Exception:       # pragma: no cover — защитная ветка
+        return out
+
+    def _index(doc):
+        index = {}
+        for rule in (doc.get("rules") or ()):
+            if not isinstance(rule, dict) or rule.get("enabled") is False:
+                continue
+            index.setdefault(str(rule.get("kind") or ""), []).append(rule)
+        return index
+
+    g_index, c_index = _index(glob), _index(chat)
+    for kind in sorted(set(g_index) & set(c_index)):
+        g_params = sorted({_json_key(r.get("params")) for r in g_index[kind]})
+        c_params = sorted({_json_key(r.get("params")) for r in c_index[kind]})
+        if g_params == c_params:
+            continue          # одинаковое правило — просто наследование
+        klass = "typography" if kind in _TYPOGRAPHY_KINDS else "length"
+        out.append({
+            "class": klass,
+            "conflict_id": "chat_global_rule_override",
+            "title": CONFLICT_CLASS_TITLES[klass],
+            "detail": "%s: global=%s chat=%s" % (
+                kind, ",".join(g_params) or "—", ",".join(c_params) or "—"),
+            "provenance": "style:global|style:chat",
+            "outcome": "conflict_reported",
+        })
+    return out
+
+
+def _json_key(value) -> str:
+    try:
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    except Exception:       # pragma: no cover — защитная ветка
+        return str(value)
+
+
+def _inspector_conflicts(layers, conflicts, global_doc, chat_doc) -> dict:
+    """Классы конфликтов/дубликатов из ФАКТИЧЕСКИХ данных сборки."""
+    rows: list[dict] = list(_style_rule_conflicts(global_doc, chat_doc))
+    for record in (conflicts or ()):
+        if not isinstance(record, dict):
+            continue
+        cid = str(record.get("conflict_id") or "")
+        klass = "role"
+        if cid == "core_protected_from_budget":
+            klass = "budget"
+        elif cid in ("one_word_not_supported", "chat_global_rule_override"):
+            klass = "length"
+        elif cid == "soul_legacy_label_in_payload":
+            klass = "soul_legacy"
+        rows.append({
+            "class": klass,
+            "conflict_id": cid,
+            "title": CONFLICT_CLASS_TITLES.get(klass, klass),
+            "detail": str(record.get("detail") or ""),
+            "provenance": str(record.get("provenance") or ""),
+            "outcome": str(record.get("outcome") or ""),
+            "layer": str(record.get("layer") or ""),
+            "block_id": str(record.get("block_id") or ""),
+        })
+    # Конфликт, пришедший только меткой слоя (без ConflictRecord).
+    for row in (layers or ()):
+        if not isinstance(row, dict) or not row.get("conflict"):
+            continue
+        cid = str(row.get("conflict"))
+        if any(r.get("conflict_id") == cid for r in rows):
+            continue
+        rows.append({
+            "class": "role", "conflict_id": cid,
+            "title": CONFLICT_CLASS_TITLES["role"],
+            "detail": "", "provenance": str(row.get("layer") or ""),
+            "outcome": "conflict_reported",
+            "layer": str(row.get("layer") or ""),
+            "block_id": str(row.get("block_id") or ""),
+        })
+    classes = []
+    for key, title in CONFLICT_CLASS_TITLES.items():
+        items = [r for r in rows if r.get("class") == key]
+        classes.append({"class": key, "title": title,
+                        "detected": len(items),
+                        "items": items})
+    # Честная граница: класс «мат и регистр» не имеет второго источника
+    # правил в этой сборке — он не может быть найден и не выдумывается.
+    return {
+        "classes": classes,
+        "detected_total": len(rows),
+        "coverage_note": ("Класс «Мат и регистр» проверяется только при "
+                          "наличии конкурирующих правил в данных сборки; "
+                          "сейчас второго источника правил в payload нет — "
+                          "конфликт не выдумывается."),
+    }
+
+
+def _inspector_exact(provider_call, preview: dict) -> dict:
+    """INS-EXACT: «полный итоговый промпт» = реальный запрос провайдера."""
+    from services import prompt_composer as composer
+    if provider_call:
+        messages = provider_call.get("messages") or []
+        system = next((m.get("text") or "" for m in messages
+                       if m.get("role") == "system"), "")
+        return {
+            "label": "last actual request",
+            "is_actual": True,
+            "checksum": provider_call.get("manifest_checksum") or "",
+            "checksum_algo": "sha256",
+            "messages_checksum": provider_call.get("messages_checksum") or "",
+            "correlation_id": provider_call.get("correlation_id") or "",
+            "model": provider_call.get("model") or "",
+            "provider": provider_call.get("provider") or "",
+            "module": provider_call.get("module") or "",
+            "step": provider_call.get("step") or "",
+            "channel": provider_call.get("channel") or "",
+            "status": provider_call.get("status") or "",
+            "error": provider_call.get("error") or "",
+            "recorded_at": provider_call.get("recorded_at") or "",
+            "roles": provider_call.get("roles") or [],
+            "chars_total": provider_call.get("chars_total") or 0,
+            "system": system,
+            "messages": [{"role": m.get("role") or "",
+                          "chars": m.get("chars") or 0,
+                          "sha256": m.get("sha256") or "",
+                          "truncated": bool(m.get("truncated")),
+                          "text": m.get("text") or ""} for m in messages],
+            "chat_id_redacted": provider_call.get("chat_id_redacted") or "",
+        }
+    # Снимка реального вызова нет: показываем сборку, но это ПРЕВЬЮ.
+    system = str(preview.get("system_masked") or "")
+    parts = list(preview.get("user_parts_masked") or [])
+    return {
+        "label": "preview",
+        "is_actual": False,
+        "checksum": composer.payload_checksum(
+            [{"role": "system", "content": str(preview.get("system") or
+                                               preview.get("system_masked") or "")}]
+            + [{"role": "user", "content": str(p)} for p in parts]),
+        "checksum_algo": "sha256",
+        "messages_checksum": "",
+        "correlation_id": "",
+        "model": "", "provider": "", "module": "", "step": "",
+        "channel": "", "status": "no_actual_request", "error": "",
+        "recorded_at": "",
+        "roles": ["system"] + ["user" for _ in parts],
+        "chars_total": len(system) + sum(len(p) for p in parts),
+        "system": system,
+        "messages": [{"role": "system", "chars": len(system), "sha256": "",
+                      "truncated": False, "text": system}]
+        + [{"role": "user", "chars": len(str(p)), "sha256": "",
+            "truncated": False, "text": str(p)} for p in parts],
+        "chat_id_redacted": "",
+    }
+
+
 async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
     """Предпросмотр vs фактически отправленный payload + провенанс слоёв.
 
@@ -1635,6 +1922,17 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
     except Exception:
         logger.warning("[speech] inspector core failed", exc_info=True)
     sent: dict = {}
+    # INS-CONFLICT: типизированные правила формы (global vs chat) — только
+    # чтение, те же документы, что видит редактор стиля.
+    style_global = _read_global_doc(cache, "style.policy")
+    style_global = style_global if isinstance(style_global, dict) else None
+    style_chat = None
+    try:
+        _ovr = await _chat_overrides(chat_id)
+        _cand = _ovr.get("style.policy")
+        style_chat = _cand if isinstance(_cand, dict) else None
+    except Exception:
+        logger.warning("[speech] inspector style docs failed", exc_info=True)
     if manifest is not None:
         layers = composer.render_effective_layers(manifest)
         sent = {
@@ -1646,7 +1944,7 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
             "tokens_total": manifest.tokens_total,
             "versions": dict(manifest.versions or {}),
             "flags": dict(manifest.flags or {}),
-            "layers": layers.get("layers", []),
+            "layers": _inspector_layer_rows(layers.get("layers", [])),
             "layer_order": layers.get("layer_order", []),
             "order_matches_canonical": layers.get("order_matches_canonical"),
             "conflicts": layers.get("conflicts", []),
@@ -1660,6 +1958,44 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
             # сам блок подсказки (маскирован как весь payload).
             "style": _style_sent_summary(manifest),
         }
+        layer_texts = composer.render_layer_texts(manifest)
+        sent["layer_texts"] = [
+            {**row, "text": _mask_text(row.get("text"))}
+            for row in (layer_texts.get("layers") or ())]
+        sent["hierarchy"] = _inspector_hierarchy(sent["layers"],
+                                                 layer_texts)
+        sent["skip_reasons"] = [
+            {"layer": row["layer"], "label": row["label"],
+             "code": row["skip_reason_code"], "text": row["skip_reason_human"]}
+            for row in sent["layers"] if not row["rendered"]]
+        sent["conflicts_detail"] = _inspector_conflicts(
+            sent["layers"], sent["conflicts"], style_global, style_chat)
+    # Реальный вызов провайдера (INS-TRACE/INS-EXACT): ищем сначала по
+    # correlation_id снимка хода, затем — самый свежий вызов этого чата.
+    provider_call = None
+    try:
+        calls = composer.provider_calls(chat_id=chat_key, limit=24)
+        if manifest is not None and manifest.run_id:
+            provider_call = next(
+                (c for c in calls
+                 if str(c.get("correlation_id") or "") ==
+                 str(manifest.run_id)), None)
+        if provider_call is None:
+            provider_call = calls[0] if calls else None
+    except Exception:
+        logger.warning("[speech] inspector provider trace failed",
+                       exc_info=True)
+    exact = _inspector_exact(provider_call, preview)
+    preview_layers = _inspector_layer_rows(preview.get("layers") or [])
+    preview = dict(preview)
+    preview["layers"] = preview_layers
+    preview["skip_reasons"] = [
+        {"layer": row["layer"], "label": row["label"],
+         "code": row["skip_reason_code"], "text": row["skip_reason_human"]}
+        for row in preview_layers if not row["rendered"]]
+    preview["hierarchy"] = _inspector_hierarchy(preview_layers)
+    preview["conflicts_detail"] = _inspector_conflicts(
+        preview_layers, preview.get("conflicts") or [], style_global, style_chat)
     return {
         "chat_id": chat_id,
         "last_run_present": manifest is not None,
@@ -1679,9 +2015,21 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
         "sent_writers": list(REAL_TURN_WRITERS),
         "preview": preview,
         "core": core,
+        # INS-EXACT: «полный итоговый промпт» — реальный запрос провайдера
+        # (system+user, порядок, checksum), а не превью настройки.
+        "exact": exact,
+        "last_call": ({k: v for k, v in exact.items() if k != "messages"})
+        if provider_call else {},
+        "hierarchy": (sent["hierarchy"] if sent
+                      else preview.get("hierarchy") or []),
+        "skip_reasons": (sent["skip_reasons"] if sent
+                         else preview.get("skip_reasons") or []),
+        "conflicts_detail": (sent["conflicts_detail"] if sent
+                             else preview.get("conflicts_detail") or {}),
         "masked": True,
-        "retention": ("манифест живёт в in-memory bounded кэше композера "
-                      "(процесс/ход); тексты маскируются (секреты, длинные ID)"),
+        "retention": ("манифест и снимок вызова живут в in-memory bounded "
+                      "кэше композера (процесс/ход); тексты маскируются "
+                      "(секреты, длинные ID)"),
         "gates": _gate_state(),
     }
 
