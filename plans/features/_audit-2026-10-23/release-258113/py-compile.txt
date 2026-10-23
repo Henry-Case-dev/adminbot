@@ -1,0 +1,4 @@
+﻿py_compile: 47 changed py files / 0 bad
+command: python -m py_compile <git diff --name-only origin/master -- '*.py'>
+interpreter: C:\Code\Python\adminbot\.venv\Scripts\python.exe (3.12.0)
+EXIT=0

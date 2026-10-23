@@ -3,7 +3,7 @@
   "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
   "source_sha256": "429a986838d5f7539f89517bb2c33e77b9e2007c4bcfeea30264a86b49ff66fb",
   "candidate_commit": "e4ee54f3",
-  "deployed_commit": "",
+  "deployed_commit": "e4ee54f3",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -419,7 +419,7 @@
       "acceptance": "Критерий результата: после смены API-провайдера без смены пространства память работает на существующем индексе без полной перевекторизации (prod-наблюдение)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -444,10 +444,18 @@
           "observation": "resolve на прод-данных: insufficient -> probe -> compatible, mean/min/hit5 = 1.0, перестройка не запускалась; прод не изменён (read-only). A0 также: compatible, checked=12, cosine 42/42, top-1 KNN 42/42.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/resolver-pre/report.md",
           "artifact_sha256": "e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "прод 2.58.113: adopt graph_facts_vec + canary + реальный поиск",
+          "observation": "DEPLOY-258113 23.10.2026: рестарт 2.58.113, EMBEDDING_COMPAT_ADMITTED checked=12 mean=1.0 min=1.0 hit5=1.0; generation.graph_facts_vec state=active, serviceable=true, reindex_required=false, config_revision adopt1:...; EMBEDDING_GENERATION_BUILD_START=0 (полной перевекторизации не было); KNN top-5 по старым фактам cosine 0.832-0.795; backlog 4234->3619. Детали и отклонения — deploy.md.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy-frozen-b92226cf.md",
+          "artifact_sha256": "11667c19a8c000201431333b00c9f8b2f5e758359653e6feaeec6519bcd47209"
         }
       ],
       "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
-      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3; ACC-10/ACC-11 -> VERIFIED по production-evidence (замороженный deploy-снимок коммита b92226cf, sha256 11667c19...); release-gate EXIT 0 (59/59 VERIFIED)."
     },
     {
       "source_id": "M00007",
@@ -1015,7 +1023,7 @@
           "ref": "gaps-closure §1 (IDENT-02)",
           "observation": "Лог закрытия: код model_space_identity (services/embedding_control_plane.py L2495) не менялся, добавлено покрытие всех полей; -q -x без сети/e2e, 26->27 passed.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
-          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
+          "artifact_sha256": "3345a14df259d3dccdd4741a23f40cdf9582e30ff6fb047d9bb2eae64e715714"
         }
       ],
       "next_check": "Unit-тест model_space_identity: поочерёдное изменение revision / task_mode / normalization / preprocessing_version / material_params должно менять MSI (model и dims уже покрыты).",
@@ -1112,7 +1120,7 @@
           "ref": "gaps-closure §2 + Дополнение 4 (CANARY-03)",
           "observation": "Лог: _split_probe_response/_probe_metadata_block/_compat_probe_once пишут фактическую мету и дают model_mismatch/dim_mismatch до числовых метрик; остаточный риск (снапшот-имя модели) описан и лечится конфигом модели.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
-          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
+          "artifact_sha256": "3345a14df259d3dccdd4741a23f40cdf9582e30ff6fb047d9bb2eae64e715714"
         }
       ],
       "next_check": "Решить и покрыть тестом: проба фиксирует фактическую model/доступную revision из ответа провайдера либо явно возвращает insufficient_data при недоступности ревизии (plan.md §Внешний факт); сейчас сверяется только dims.",
@@ -1625,7 +1633,7 @@
           "ref": "gaps-closure §3 (DEC-09)",
           "observation": "Лог закрытия DEC-09: откат существующим UPDATE реестра + резолвером, без правок кода.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
-          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
+          "artifact_sha256": "3345a14df259d3dccdd4741a23f40cdf9582e30ff6fb047d9bb2eae64e715714"
         }
       ],
       "next_check": "Добавить тест откатa: adopt → status='building', config_revision=NULL → _index_generation_ok=false (vec-поиск закрыт), FTS возвращает непустую выдачу, live/source counters неизменны.",
@@ -2368,7 +2376,7 @@
       "acceptance": "Сценарий 10: поиск по старым фактам новым API даёт реальную семантическую выдачу, а не только совпадение размерности (production-проверка)",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -2393,10 +2401,18 @@
           "observation": "resolve на прод-данных: insufficient -> probe -> compatible, mean/min/hit5 = 1.0, перестройка не запускалась; прод не изменён (read-only). A0 также: compatible, checked=12, cosine 42/42, top-1 KNN 42/42.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/resolver-pre/report.md",
           "artifact_sha256": "e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "production",
+          "ref": "прод 2.58.113: adopt graph_facts_vec + canary + реальный поиск",
+          "observation": "DEPLOY-258113 23.10.2026: рестарт 2.58.113, EMBEDDING_COMPAT_ADMITTED checked=12 mean=1.0 min=1.0 hit5=1.0; generation.graph_facts_vec state=active, serviceable=true, reindex_required=false, config_revision adopt1:...; EMBEDDING_GENERATION_BUILD_START=0 (полной перевекторизации не было); KNN top-5 по старым фактам cosine 0.832-0.795; backlog 4234->3619. Детали и отклонения — deploy.md.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy-frozen-b92226cf.md",
+          "artifact_sha256": "11667c19a8c000201431333b00c9f8b2f5e758359653e6feaeec6519bcd47209"
         }
       ],
       "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
-      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3; ACC-10/ACC-11 -> VERIFIED по production-evidence (замороженный deploy-снимок коммита b92226cf, sha256 11667c19...); release-gate EXIT 0 (59/59 VERIFIED)."
     }
   ]
 }

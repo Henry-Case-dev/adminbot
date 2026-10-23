@@ -1,0 +1,4 @@
+﻿ADDED_PY_LINES 6750
+PROD_ADDED_PY_LINES 3446
+PROD_DDL []
+ALL_DDL [('plans/features/embed-identity-compat/evidence/a0-probe/raw/runner.py', '+        "CREATE TABLE graph_facts (id INTEGER PRIMARY KEY, chat_id INTEGER, "'), ('plans/features/embed-identity-compat/evidence/a0-probe/raw/runner.py', '+    con.execute("CREATE TABLE graph_facts (id INTEGER PRIMARY KEY, chat_id INTEGER, "')]

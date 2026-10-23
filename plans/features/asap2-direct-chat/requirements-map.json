@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap2-direct-chat\\source-2026-10-22.md",
   "source_sha256": "8f600767e06877ac45ed9bd9768922459a052dfc7b344f8b793c1e41f8531de7",
-  "candidate_commit": "34af90ff",
-  "deployed_commit": "",
+  "candidate_commit": "e4ee54f3",
+  "deployed_commit": "e4ee54f3",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -22,7 +22,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §1",
           "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
@@ -30,7 +30,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §3",
           "observation": "Четыре существующих места: L1 schema/needs_clarification (strict is True, схема не менялась), build_l2_plan_block (единственный plan-hint), clarify_action/render_speech_block ({none,assume}, без ask), _l1_speech_hints (short_dependency в L1 не уходит); секция §4.1 вставлена, канон корректен.",
@@ -54,7 +54,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -62,7 +62,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §5",
           "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
@@ -86,7 +86,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -94,7 +94,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -121,7 +121,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -129,7 +129,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -156,7 +156,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:774-805",
           "observation": "В prompts.direct_l1_planner_system_prompt заменено только правило 5: вместо прежнего «needs_clarification=true — только если задача неразрешима…» стоит отсылка к контракту §4.1; правила 1-4/6-7 и требование «ровно одна JSON-строка» сохранены; секция «ВЫБОР УЧАСТИЯ» (W1) не тронута; JSON-схема не менялась.",
@@ -164,7 +164,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/tests-final.txt",
           "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
@@ -188,7 +188,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:337-341",
           "observation": "normalize_l1_plan: plan.needs_clarification = data.get('needs_clarification') is True — «false»/null/«true»/1/[]/{} не становятся запросом уточнения; нового LLM-вызова нет.",
@@ -196,7 +196,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -220,7 +220,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §1",
           "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
@@ -228,7 +228,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:891-955",
           "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
@@ -252,7 +252,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/claim_envelope.py:409-431",
           "observation": "clarify_action возвращает только none/assume (ветка ask удалена); CLARIFY_ASK остаётся неиспользуемым значением enum, не новым классом; рендер кладёт «не переспрашивай».",
@@ -260,7 +260,7 @@
           "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B2",
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
@@ -284,7 +284,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/claim_envelope.py:489-524",
           "observation": "render_speech_block содержит только анти-переспрос; директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели.",
@@ -292,7 +292,7 @@
           "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -300,7 +300,7 @@
           "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:129-159",
           "observation": "test_32_speech_hints_never_suggest_clarify: hints не содержат clarify=ask и не подсказывают вывод «уточни» по длине/reply.",
@@ -324,7 +324,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_chat_service.py:4424-4427",
           "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
@@ -332,7 +332,7 @@
           "artifact_sha256": "096a46aef6fb00f380648bfd15aeb241284162fadf0dcc9fb94679a07dc00c6f"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §1",
           "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
@@ -356,7 +356,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §6.3 (частично)",
           "observation": "В 14 L2-текстах нет вопросительного знака; два уточнения — узкая просьба об объекте, не меню.",
@@ -383,7 +383,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/tests-broad.txt (14 файлов)",
           "observation": "response_extent.py/direct_capabilities.py не сломаны: широкий набор, включая direct_execution/payload/fallback, 432 passed; arch-audit §5 фиксирует переиспользование существующих средств без новых правил.",
@@ -407,7 +407,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "probe/protocol.md §5 (ограничения)",
           "observation": "Причина прод-ответа нигде не утверждается без trace/effective: protocol.md и results.md §5–§6 явно фиксируют границы, arch-audit §2 отмечает, что хеши прода не снимались.",
@@ -431,7 +431,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:513-546",
           "observation": "test_24_second_turn_sees_original_request_bot_question_answer: в L1 payload второго хода есть исходная просьба, вопрос бота и «сегодня»; рестарт (новый сервис + повторная загрузка истории) даёт тот же payload.",
@@ -439,7 +439,7 @@
           "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
           "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
@@ -463,7 +463,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -471,7 +471,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
           "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
@@ -498,7 +498,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:552-597 (частично)",
           "observation": "test_24_truncated_window_and_branch_are_honest: усечённое окно не выдумывает исходную просьбу; branch доносит вопрос бота.",
@@ -525,7 +525,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -533,7 +533,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:530-539",
           "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
@@ -541,7 +541,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:891-955",
           "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
@@ -565,7 +565,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §2",
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
@@ -573,7 +573,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -600,7 +600,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §2",
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
@@ -608,7 +608,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -635,7 +635,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T01 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Бот, что происходит?» после живой дискуссии: summarization/compact, clarify=false → пересказ дискуссии, без вопроса (PASS).",
@@ -659,7 +659,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T02 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Что за движ здесь?» (перефраз T01): тот же класс — пересказ спора без вопроса (PASS).",
@@ -683,7 +683,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T03 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«О чём спорили сегодня?»: summarization/compact/caps=chat_history, clarify=false → обзор обсуждений, без вопроса о периоде (PASS).",
@@ -707,7 +707,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T04 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Расскажи обо всём важном за последнее время»: охват выбран сам (ремонт+поездка), вопроса об интервале нет (PASS).",
@@ -731,7 +731,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T05 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "Длинный технический вопрос (nginx/websocket/letsencrypt): 9197 симв. ответа по всем заданным частям, без уточнения (PASS).",
@@ -755,7 +755,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T06 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "Сложная тема с равноправными объяснениями: начал объяснять существенное, без «выберите ракурс» (PASS).",
@@ -779,7 +779,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T07 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Почему?» без Telegram-reply: объясняет смысл предыдущей реплики бота, clarify=false (PASS).",
@@ -803,7 +803,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T08 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«А он правда это говорил?»: предмет установлен по ветке (chat_history+historical_search), clarify=false (PASS).",
@@ -827,7 +827,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T09 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«А что насчёт второго?» после перечисления: понято по ветке («второй вариант — автобус в 9:00»), без уточнения (PASS).",
@@ -887,7 +887,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T12 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Разбей план на 5 пунктов, каждый ≤ 2 строк»: формат соблюдён, повторного вопроса о формате нет (PASS).",
@@ -911,7 +911,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T13 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Бот, скачай это» без объекта: clarification=true, target=«ссылка или вложение отсутствуют» → один узкий вопрос «что именно скачать» (PASS, one_reasonable_clarification).",
@@ -953,7 +953,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T15 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Бот, расшифруй» без объекта: clarification=true, target=media_target → короткий вопрос об объекте, не меню (PASS).",
@@ -977,7 +977,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T16 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«Бот, удали это сообщение» без указания: безопасный отказ (возможности нет), без угадывания (PASS).",
@@ -1037,7 +1037,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 T19",
           "observation": "T13 → Маша присылает pdf → «тот pdf, который Маша скинула»: L1 turn2 clarify=false, caps=media_download → использует найденную цель, tool_use (PASS).",
@@ -1045,7 +1045,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/raw/raw-T19.turn2.json",
           "observation": "T19: сырой turn2-вызов содержит контекст второго хода и план с clarify=false.",
@@ -1087,7 +1087,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 T21",
           "observation": "T13 → «вот ссылка: https://example.com/report.zip»: L1 turn2 clarify=false, caps=fetch_url → продолжает исходную операцию с присланным URL, tool_use (PASS).",
@@ -1095,7 +1095,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/raw/raw-T21.turn2.json",
           "observation": "T21: сырой turn2-вызов содержит контекст второго хода и план с clarify=false.",
@@ -1137,7 +1137,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 T23",
           "observation": "T15 → Кирилл присылает voice → «вот это» без reply: L1 turn2 clarify=false, caps=transcription+media_download → учитывает вопрос бота и медиа, tool_use (PASS).",
@@ -1145,7 +1145,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/raw/raw-T23.turn2.json",
           "observation": "T23: сырой turn2-вызов содержит контекст второго хода и план с clarify=false.",
@@ -1187,7 +1187,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T25 (прогон на 5ad73933, код services/ идентичен кандидату; B1 меняет только невалидную ветку act-строки)",
           "observation": "«а как?» при L1=false, Speech видит короткую фразу: объясняет, НЕ переспрашивает (PASS).",
@@ -1229,7 +1229,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json T27",
           "observation": "JSON needs_clarification:false → False; plan-блок без директивы (PASS).",
@@ -1253,7 +1253,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json T28",
           "observation": "Строка «false» (и «true», 1, [], {}) → False, не True; помечено как некорректная структура (PASS).",
@@ -1277,7 +1277,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json T29",
           "observation": "null → False (PASS).",
@@ -1301,7 +1301,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json T30",
           "observation": "true + пустой clarification_target: флаг True, но generic-директивы и fixed-question ветки нет (PASS).",
@@ -1325,7 +1325,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:94-124",
           "observation": "test_31_response_act_does_not_force_clarification: act=clarification + needs_clarification=false не включает уточнение — в plan-блоке нет подстроки 'clarification' в любом регистре, директивы §4.3 нет; положительная ветка (true+target) сохраняет act-строку и директиву.",
@@ -1333,7 +1333,7 @@
           "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B1",
           "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
@@ -1357,7 +1357,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:129-159",
           "observation": "test_32_speech_hints_never_suggest_clarify: Speech-сигналы не блокируют tool-путь и не подсказывают вывод «уточни».",
@@ -1365,7 +1365,7 @@
           "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_chat_service.py:4424-4427",
           "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
@@ -1389,7 +1389,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B2",
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
@@ -1397,7 +1397,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:436-496",
           "observation": "test_33_composer_on_off_payload_identical_and_clean + test_33_l1_off_and_prev_fallback_payload_clean: Composer ON/OFF payload побайтово равен, второго скрытого приказа нет; L1 OFF/fallback чист.",
@@ -1421,7 +1421,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -1429,7 +1429,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:245-315",
           "observation": "test_34_migrate_rollback_idempotent_hot_resolve_custom_kept: Factory/global PG/hot/custom — действует корректный effective prompt; per-chat для этих ключей N/A с причиной.",
@@ -1453,7 +1453,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:317-330",
           "observation": "test_35_initiative_delivery_contracts_unchanged: контракты инициативы/транспорта не изменены.",
@@ -1477,7 +1477,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:331-356",
           "observation": "test_36_character_expression_style_untouched: Personality Core/Expression/Style Policy не тронуты.",
@@ -1516,7 +1516,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -1524,7 +1524,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §3",
           "observation": "Четыре существующих места: L1 schema/needs_clarification (strict is True, схема не менялась), build_l2_plan_block (единственный plan-hint), clarify_action/render_speech_block ({none,assume}, без ask), _l1_speech_hints (short_dependency в L1 не уходит); секция §4.1 вставлена, канон корректен.",
@@ -1532,7 +1532,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -1556,7 +1556,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:530-539",
           "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
@@ -1564,7 +1564,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -1591,7 +1591,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §1",
           "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
@@ -1599,7 +1599,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_chat_service.py:4424-4427",
           "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
@@ -1623,7 +1623,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:774-805",
           "observation": "В prompts.direct_l1_planner_system_prompt заменено только правило 5: вместо прежнего «needs_clarification=true — только если задача неразрешима…» стоит отсылка к контракту §4.1; правила 1-4/6-7 и требование «ровно одна JSON-строка» сохранены; секция «ВЫБОР УЧАСТИЯ» (W1) не тронута; JSON-схема не менялась.",
@@ -1647,7 +1647,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -1671,7 +1671,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:813-827",
           "observation": "В model-facing тексте L1 нет примеров фраз тестовой матрицы, частот уточнений и числовых порогов; PM-поиск фраз матрицы по services/*.py не находит совпадений в каноне (единственный legacy-regex — response_extent.py:261, вне диффа).",
@@ -1695,7 +1695,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:530-539",
           "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
@@ -1719,7 +1719,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:530-539",
           "observation": "Абзацы §4.2 вставлены в раздел «КАК ПИСАТЬ» ровно один раз через _VERBALIZER_CLAR_PARAGRAPHS (def + 1 use; уникальный якорь-хвост раздела); второй system prompt не создан; текст содержит «один конкретный уточняющий вопрос только когда действующий план L1 явно требует» и разрешает естественные/риторические вопросы.",
@@ -1727,7 +1727,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:160-182",
           "observation": "test_33_fallback_speech_and_canons_clean: каноны L1/L2 чисты от второго приказа, fallback и speech не добавляют clarify-директиву.",
@@ -1751,7 +1751,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:891-955",
           "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
@@ -1759,7 +1759,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B1",
           "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
@@ -1783,7 +1783,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:939-954 vs source §4.3",
           "observation": "Фраза §4.3 присутствует дословно: «Для выполнения этого запроса действительно не хватает обязательного предмета, указанного в плане уточнения. Спроси только о нём одним понятным вопросом. Не предлагай человеку выбирать необязательные варианты формата, объёма, интервала или способа объяснения. После ответа следует продолжить исходную задачу.» — совпадает с source-2026-10-22.md §4.3 (сверка PM).",
@@ -1807,7 +1807,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:891-955",
           "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
@@ -1815,7 +1815,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B1",
           "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
@@ -1823,7 +1823,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -1847,7 +1847,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/claim_envelope.py:489-524",
           "observation": "render_speech_block содержит только анти-переспрос; директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели.",
@@ -1855,7 +1855,7 @@
           "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B2",
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
@@ -1879,7 +1879,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -1887,7 +1887,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -1911,7 +1911,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "reconciliation.md §Вердикт/§Таблица пересечений",
           "observation": "Реестр ограничен этим багом: дубликатов с ASAP Speech Architecture нет, пересечения только в общих файлах-носителях; внутри источника дедупликация зафиксирована (duplicate/context с причинами).",
@@ -1935,7 +1935,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "review",
           "ref": "arch-audit.md (весь файл)",
           "observation": "Architect-аудит actual effective L1/L2 и четырёх мест выполнен: вердикт ARCH_REUSE_CONFIRMED, замороженные контракты перечислены, остаточный сигнал act=clarification подтверждён независимым исполнением и закрыт в 40389f55.",
@@ -1959,7 +1959,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "review",
           "ref": "review-r2.md (независимое повторное ревью)",
           "observation": "Независимое ревью кандидата 34af90ff: блокеры 1–4 закрыты и подтверждены отдельными RED/GREEN, service-level тестами; целевой набор 205 passed ×3; остаётся только B5 (эта привязка) и условие поезда по SOUL-1-фикстурам (коммит 4bd2f3c6).",
@@ -1983,7 +1983,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §2",
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
@@ -2010,7 +2010,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/tests-final.txt",
           "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
@@ -2054,7 +2054,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -2062,7 +2062,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §5",
           "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
@@ -2086,7 +2086,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -2094,7 +2094,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §5",
           "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
@@ -2118,7 +2118,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -2126,7 +2126,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §1",
           "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
@@ -2150,7 +2150,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -2174,7 +2174,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/chat_prompts.py:807-827",
           "observation": "§4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует байт-в-байт: 4 ключевые фразы владельца встречаются ровно по 1 разу в source-2026-10-22.md и в каноне; _DIRECT_L1_CLARIFICATION_CONTRACT вставлен один раз (def + 1 use); правило 5 (строки 801-803) — отсылка к секции, старое смысловое правило удалено.",
@@ -2182,7 +2182,7 @@
           "artifact_sha256": "2f2e8a22ac536d2731bf87870e6ac41b33cbd3f04616cd1a62b4788a1f419e5e"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §5",
           "observation": "Вердикт ARCH_REUSE_CONFIRMED: новых подсистем/схем/квот/LLM-вызовов нет; заморожены L1Plan.needs_clarification, сигнатура build_l2_plan_block, Speech.clarify {none,assume}, ключи промптов, PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS/factory-fingerprint, состав build_l1_context.",
@@ -2206,7 +2206,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп + PM grep services/",
           "observation": "Сценарии §6 не превращены в ветки кода: в diff нет новых def/class/re.compile; поиск фраз матрицы («что происходит», «что за движ», «Скачай это», «а как?») в services/*.py даёт единственное совпадение — legacy-regex response_extent.py:261 «расшифруй видео|транскрипц», введённый в 2.58.70 (bbfd8fba), вне диффа asap2 и не являющийся веткой матрицы.",
@@ -2245,7 +2245,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T04/T05/T06",
           "observation": "Понятное намерение + широкая тема → содержательный ответ с самостоятельно выбранным охватом: T04 «обо всём важном» — сводка без вопроса об интервале; T05 длинный технический вопрос — 9197 симв. по всем частям; T06 несколько равноправных причин — начал объяснять существенное, без «выберите ракурс».",
@@ -2269,7 +2269,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T04 (частично)",
           "observation": "Частично: недостаток необязательного интервала не вызвал переспроса (T04), инструменты/память использованы в T03/T04/T08.",
@@ -2296,7 +2296,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T13/T15/T16 (частично)",
           "observation": "Частично: T13/T15 — ровно один узкий вопрос о недостающем объекте; T16 — безопасный отказ без угадывания.",
@@ -2323,7 +2323,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
           "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
@@ -2331,7 +2331,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/tests-final.txt (test_24_*)",
           "observation": "Service-level: второй ход после вопроса бота несёт исходную просьбу и вопрос бота; рестарт даёт тот же payload; усечённое окно просьбу не выдумывает.",
@@ -2358,7 +2358,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/claim_envelope.py:409-431",
           "observation": "clarify_action возвращает только none/assume (ветка ask удалена); CLARIFY_ASK остаётся неиспользуемым значением enum, не новым классом; рендер кладёт «не переспрашивай».",
@@ -2366,7 +2366,7 @@
           "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/claim_envelope.py:489-524",
           "observation": "render_speech_block содержит только анти-переспрос; директива «Если без уточнения ответ может быть не о том — задай…» не отправляется модели.",
@@ -2374,7 +2374,7 @@
           "artifact_sha256": "db9ecc0137ba8431289e362bd1ce8107da8e8fd339190e0c346f8068188553f3"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T25 (частично)",
           "observation": "Частично: «а как?» при L1=false не переспрашивается, Speech-сигнал не навязывает вопрос.",
@@ -2476,7 +2476,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B2",
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
@@ -2484,7 +2484,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -2508,7 +2508,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B4",
           "observation": "B4/T19–T24: второй ход через реальный handle видит исходную просьбу, вопрос бота и «сегодня»; рестарт с повторной загрузкой истории даёт тот же payload; усечённое окно не выдумывает просьбу; бюджет 140 токенов сохраняет [СООБЩЕНИЕ]; branch доносит вопрос бота; первый ход — ровно одна адресная директива §4.3.",
@@ -2516,7 +2516,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -2543,7 +2543,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -2551,7 +2551,7 @@
           "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:337-341",
           "observation": "normalize_l1_plan: plan.needs_clarification = data.get('needs_clarification') is True — «false»/null/«true»/1/[]/{} не становятся запросом уточнения; нового LLM-вызова нет.",
@@ -2559,7 +2559,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:41-61",
           "observation": "test_27_29_needs_clarification_strict_boolean + test_27_real_true_is_only_truthy_path: только реальный JSON true даёт True; строка/число/список/объект/null → False, fallback_plan не создаёт опросник.",
@@ -2583,7 +2583,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -2591,7 +2591,7 @@
           "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:891-955",
           "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
@@ -2599,7 +2599,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B1",
           "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
@@ -2623,7 +2623,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -2631,7 +2631,7 @@
           "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:891-955",
           "observation": "build_l2_plan_block: act_ok исключает строку 'смысловой акт ответа: clarification' вне валидной ветки (bool(clarification) ∧ needs_clarification is True ∧ непустой target); директива §4.3 выводится только при непустом target, старой фразы «Ничего кроме вопроса не пиши» нет; текст §4.3 совпадает с source §4.3.",
@@ -2639,7 +2639,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:62-93",
           "observation": "test_30_empty_target_never_generic_clarify: true + пустой target → нет generic-директивы и нет fixed-question ветки.",
@@ -2858,7 +2858,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §2",
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
@@ -2885,7 +2885,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/prompt_registry.py FACTORY_SET_SHA256_12 + git 5ad73933",
           "observation": "Factory revision бампнута точечно: FACTORY_SET_SHA256_12 fd4e88754749 → 24ae494ac422, изменены ровно 2 ключа (direct.base.l1_planner, direct.base.l2_writer); в HEAD factory_set_fingerprint() == 24ae494ac422 (измерено); прежние байты сохранены как PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31 (ступень лестницы).",
@@ -2893,7 +2893,7 @@
           "artifact_sha256": "61b7bc35bea98709f4d2313b4a6025e7953388426de43e39a16837ad896e8e65"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -2917,7 +2917,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -2925,7 +2925,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py:245-315",
           "observation": "test_34_migrate_rollback_idempotent_hot_resolve_custom_kept: миграция по точному hash/step, кастом владельца (не точное совпадение) не перетирается ни миграцией, ни rollback.",
@@ -2949,7 +2949,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -2957,7 +2957,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -2981,7 +2981,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B2",
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
@@ -3008,7 +3008,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -3016,7 +3016,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §2",
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
@@ -3130,7 +3130,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/tests-final.txt",
           "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
@@ -3138,7 +3138,7 @@
           "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -3146,7 +3146,7 @@
           "artifact_sha256": "b0e2740ed098d8aef1e908df472ec2b81cbc4507f401c00dc3bcd91107039391"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "tests/test_asap2_clar_contract.py (24 теста)",
           "observation": "Unit/integration покрывают структуру, передачу контекста, отсутствие дублирующих директив, fallback и Composer/L1 ON-OFF; прогон PM на HEAD: 24 passed (3.37 s, без сети).",
@@ -3170,7 +3170,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -3197,7 +3197,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2 T01/T02 (частично)",
           "observation": "Для одного класса есть 2 формулировки (T01/T02), для остальных — по одной.",
@@ -3224,7 +3224,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B1",
           "observation": "Фикс B1: строка act=clarification выводится только в валидной ветке; RED (1 failed) на откатанном коде, GREEN (1 passed) на кандидате; старые утверждения теста не ослаблены; положительная ветка (true+target) сохраняет act-строку и директиву §4.3.",
@@ -3232,7 +3232,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -3256,7 +3256,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "probe/protocol.md §5 (ограничения выборки)",
           "observation": "Протокол фиксирует границы: 38/45 вызовов, по одной формулировке на сценарий, tool-маршруты не исполнялись, приватная трассировка недоступна — причина прод-ответа не утверждается.",
@@ -3313,7 +3313,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B4",
           "observation": "B4/T19–T24: второй ход через реальный handle видит исходную просьбу, вопрос бота и «сегодня»; рестарт с повторной загрузкой истории даёт тот же payload; усечённое окно не выдумывает просьбу; бюджет 140 токенов сохраняет [СООБЩЕНИЕ]; branch доносит вопрос бота; первый ход — ровно одна адресная директива §4.3.",
@@ -3321,7 +3321,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
           "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
@@ -3348,7 +3348,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B2",
           "observation": "B2/T33: service-level через реальный DirectChatService.handle (фейковые LLM/память, 0 сети): Composer ON payload побайтово равен OFF, канон L1 и [СООБЩЕНИЕ] есть, маркеров второго приказа нет; L1 OFF и аварийный fallback-plan без clarification.",
@@ -3356,7 +3356,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §1",
           "observation": "Единственный интерпретатор: handle → _plan_direct_l1 → parse/normalize_l1_plan — только там needs_clarification получает значение (direct_l1.py:341 is True). Потребители: tool-гейт direct_chat_service.py:4426, Writer-директива :3643-3644→direct_l1.py:942-951, L2-отказ :3674-3687. Второго решателя нет: claim_envelope.clarify_action = {none, assume}; response_act не гейт; legacy media-уточнение недостижимо при direct_l1_on.",
@@ -3380,7 +3380,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_l1.py:337-341",
           "observation": "normalize_l1_plan: plan.needs_clarification = data.get('needs_clarification') is True — «false»/null/«true»/1/[]/{} не становятся запросом уточнения; нового LLM-вызова нет.",
@@ -3388,7 +3388,7 @@
           "artifact_sha256": "b4d0865fcec24e6a0b473be4268babf8fffd8f02481142938ef41624b3e89237"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "probe/structural.json (T27–T31, speech_T25)",
           "observation": "Исполнение normalize_l1_plan/build_l2_plan_block: false/«false»/«true»/1/[]/{} /null → False; true+пустой target → generic-директивы и fixed-question нет; response_act=clarification+false → act-строка без приказа уточнять (на кандидате тест 31 ловит этот класс строже); speech_T25: short_dependency=True, clarify=none, ask_branch_exists=false.",
@@ -3412,7 +3412,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "arch-audit.md §2",
           "observation": "Effective-резолв: L1 (speech=False) effective = PG-значение; L2 (speech=True, legacy_persona=True) удерживает значение без провенанса → effective = factory (withheld, stored_sha=be03964322aa); per-chat override для этих stage-ключей read-path не читает (у resolve_prompt нет chat_id). Следствие: обновлять factory И global PG; PG-only rollback для L2 — no-op.",
@@ -3420,7 +3420,7 @@
           "artifact_sha256": "1696072974d95a1c4afde91435f311475b041cd3319423773090274b350e5025"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B3",
           "observation": "B3/T34: migrate_prompt_canons W1→новые каноны ровно 2 записи в порядке PROMPT_MIGRATIONS; повтор — no-op; rollback возвращает прежние байты, повтор — no-op; кастом владельца не перетирается; hot resolve_prompt отдаёт новые каноны; FACTORY_SET_SHA256_12 == factory_set_fingerprint() == 24ae494ac422; per-chat для stage-ключей N/A (read-path без chat_id).",
@@ -3447,7 +3447,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "code",
           "ref": "services/direct_chat_service.py:4424-4427",
           "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет.",
@@ -3455,7 +3455,7 @@
           "artifact_sha256": "096a46aef6fb00f380648bfd15aeb241284162fadf0dcc9fb94679a07dc00c6f"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -3482,7 +3482,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §2–§4",
           "observation": "Реальные L1/L2 deepseek-v4-flash, 38/45 платных вызовов, 0 ложных/повторных уточнений, 2 узких уточнения, 3 продолжения; покрыты T01–T09, T12, T13, T15, T16, T19, T21, T23, T25 и структурные T27–T31; ограничения выборки — §5 protocol.md и §5–§6 results.md.",
@@ -3509,7 +3509,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "audit",
           "ref": "review-r2.md §Скоуп (кандидат 34af90ff)",
           "observation": "Независимое ревью подтверждает: 40389f55 меняет только services/direct_l1.py (+22/−6), tests/test_asap2_clar_contract.py (+375/−1) и evidence/fix-r1/*; новых def/class/re.compile/CREATE TABLE/квот/порогов в runtime нет; chat_prompts.py в этом коммите не менялся. PM сверил git diff 5ad73933..34af90ff: совпадений '^+.*(class |def |re.compile|CREATE TABLE)' в services/ нет.",
@@ -3533,7 +3533,7 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "semantic",
           "ref": "probe/results.md §3 + raw/raw-T19,T21,T23.turn2.json",
           "observation": "Три цепочки на фактическом вопросе бота: ответ применяет параметр/URL/медиа и продолжает исходную операцию (tool_use), повторного уточнения нет; L1 turn2 clarify=false.",
@@ -3541,7 +3541,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/report.md §B4",
           "observation": "B4/T19–T24: второй ход через реальный handle видит исходную просьбу, вопрос бота и «сегодня»; рестарт с повторной загрузкой истории даёт тот же payload; усечённое окно не выдумывает просьбу; бюджет 140 токенов сохраняет [СООБЩЕНИЕ]; branch доносит вопрос бота; первый ход — ровно одна адресная директива §4.3.",
@@ -3568,7 +3568,7 @@
       "status": "READY_FOR_LIVE",
       "evidence": [
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "review",
           "ref": "review-r2.md §«Поезд 2.58.112» (pre-deploy состояние)",
           "observation": "На момент привязки есть код-кандидат 34af90ff, целевой набор 205 passed ×3, чистый scope и согласие ревьюера включать код в поезд; деплой/rollback/health и демонстрация payload ещё не выполнены — это postdeploy-проверка.",
@@ -3576,7 +3576,7 @@
           "artifact_sha256": "73efead112df6e62ae8528ce80f459f011cd4f0fb3e3ea02bc9a042d923e666d"
         },
         {
-          "candidate_commit": "34af90ff",
+          "candidate_commit": "e4ee54f3",
           "type": "test",
           "ref": "fix-r1/tests-final.txt",
           "observation": "Целевой набор (7 файлов): 205 passed ×3 подряд (8.73/8.78/9.21 s), база до фикса 199 passed; в набор входит test_asap2_clar_contract.py (после фикса 24 теста).",
@@ -3694,5 +3694,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit."
+  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit. | 23.10.2026 PM-BIND-DEPLOYED-258113: candidate_commit=e4ee54f3, deployed_commit=e4ee54f3; git diff 34af90ff..e4ee54f3 по коду asap2 пуст — evidence перепривязано. Деплой 2.58.113 подтверждён (healthz/active/NRestarts=0), но deploy.md не содержит Factory/active PG/effective, payload и статистики уточнений (pg_available=false): MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 остаются PENDING, DONE-D9 — READY_FOR_LIVE. Release-gate EXIT 1 (34 PENDING + DONE-D9), DONE не ставится."
 }
