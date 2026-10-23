@@ -450,12 +450,12 @@
           "type": "production",
           "ref": "прод 2.58.113: adopt graph_facts_vec + canary + реальный поиск",
           "observation": "DEPLOY-258113 23.10.2026: рестарт 2.58.113, EMBEDDING_COMPAT_ADMITTED checked=12 mean=1.0 min=1.0 hit5=1.0; generation.graph_facts_vec state=active, serviceable=true, reindex_required=false, config_revision adopt1:...; EMBEDDING_GENERATION_BUILD_START=0 (полной перевекторизации не было); KNN top-5 по старым фактам cosine 0.832-0.795; backlog 4234->3619. Детали и отклонения — deploy.md.",
-          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy.md",
-          "artifact_sha256": "19fc2653a471beb92301668fc999f9e326b48156df0ff764429953e662ada7d6"
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy-frozen-b92226cf.md",
+          "artifact_sha256": "11667c19a8c000201431333b00c9f8b2f5e758359653e6feaeec6519bcd47209"
         }
       ],
       "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
-      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3; ACC-10/ACC-11 -> VERIFIED по production-evidence (замороженный deploy-снимок коммита b92226cf, sha256 11667c19...); release-gate EXIT 0 (59/59 VERIFIED)."
     },
     {
       "source_id": "M00007",
@@ -2407,12 +2407,12 @@
           "type": "production",
           "ref": "прод 2.58.113: adopt graph_facts_vec + canary + реальный поиск",
           "observation": "DEPLOY-258113 23.10.2026: рестарт 2.58.113, EMBEDDING_COMPAT_ADMITTED checked=12 mean=1.0 min=1.0 hit5=1.0; generation.graph_facts_vec state=active, serviceable=true, reindex_required=false, config_revision adopt1:...; EMBEDDING_GENERATION_BUILD_START=0 (полной перевекторизации не было); KNN top-5 по старым фактам cosine 0.832-0.795; backlog 4234->3619. Детали и отклонения — deploy.md.",
-          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy.md",
-          "artifact_sha256": "19fc2653a471beb92301668fc999f9e326b48156df0ff764429953e662ada7d6"
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/deploy-frozen-b92226cf.md",
+          "artifact_sha256": "11667c19a8c000201431333b00c9f8b2f5e758359653e6feaeec6519bcd47209"
         }
       ],
       "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
-      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3; ACC-10/ACC-11 -> VERIFIED по production-evidence (замороженный deploy-снимок коммита b92226cf, sha256 11667c19...); release-gate EXIT 0 (59/59 VERIFIED)."
     }
   ]
 }

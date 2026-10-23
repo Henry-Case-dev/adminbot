@@ -19,18 +19,18 @@
 | `IDENT-02` | PENDING | **VERIFIED** | `test_ident_02_msi_changes_with_every_identity_field` (L861), `..._stable_...` (L882): все 7 полей identity по отдельности меняют `model_space_identity()`; 27 passed в `test_embed_identity_compat.py` + 9 restart-legacy на `69da031c` (`d62e9720`), повтор `128abcab` |
 | `CANARY-03` | PENDING | **VERIFIED** | `test_canary_03_probe_records_actual_metadata` (L922), `..._explicit_model_mismatch_is_incompatible` (L960), `..._missing_revision_or_params_not_insufficient` (L987); мета эмбеддинга доезжает из ответа (`test_embed_meta_wire.py` 4 passed, `test_llm_client.py` 115, `test_embedding_control_plane_asap4.py` 69) |
 | `DEC-09` | PENDING | **VERIFIED** | `test_dec_09_rollback_after_adopt_keeps_data_and_is_reversible` (L1025): adopt → откат → vec закрыт, факты/векторы целы, FTS работает, повторный adopt успешен |
-| `ACC-10` | READY_FOR_LIVE | **READY_FOR_LIVE** (без изменений) | Post-deploy проверка 2.58.113; evidence перепривязан к `e4ee54f3` (resolver-pre) |
-| `ACC-11` | READY_FOR_LIVE | **READY_FOR_LIVE** (без изменений) | То же |
+| `ACC-10` | READY_FOR_LIVE | **VERIFIED** | Production-evidence 2.58.113: adopt + canary + реальный поиск (`deploy-frozen-b92226cf.md`, sha `11667c19…`) |
+| `ACC-11` | READY_FOR_LIVE | **VERIFIED** | То же |
 | остальные 54 required-строки | VERIFIED на `570e1eee` | VERIFIED + запись, привязанная к `e4ee54f3` | Агрегированный guards-прогон поезда (`release-258113/guards.txt`); код строк не менялся, кроме gap-фиксов/meta-wire |
 
-**Счётчики карты (required-строки, 59):** VERIFIED — **57**, READY_FOR_LIVE — **2**
-(`ACC-10`, `ACC-11`), PENDING — **0**. Всего строк инвентаря 72 (13 `context`).
+**Счётчики карты (required-строки, 59):** VERIFIED — **59**, READY_FOR_LIVE — **0**,
+PENDING — **0**. Всего строк инвентаря 72 (13 `context`).
 
 ## 2. Evidence, привязанный к `e4ee54f3`
 
 | Артефакт (repo-relative) | SHA-256 | Для чего |
 |---|---|---|
-| `plans/features/embed-identity-compat/evidence/gaps-closure.md` | `6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b` | §1 IDENT-02, §2 CANARY-03, §3 DEC-09, Дополнение 4 |
+| `plans/features/embed-identity-compat/evidence/gaps-closure.md` | `3345a14df259d3dccdd4741a23f40cdf9582e30ff6fb047d9bb2eae64e715714` | §1 IDENT-02, §2 CANARY-03, §3 DEC-09, Дополнение 4 (master-версия с пином `60789cff`) |
 | `tests/test_embed_identity_compat.py` | `b90c6f9afac617259d024592102eb646183bef8c9c489fd613ca0df1b7401e70` | тесты IDENT-02/CANARY-03/DEC-09 |
 | `tests/test_embed_meta_wire.py` | `41e2f4ff4a6976842545f01e4f7580188571b29df195cd8ba5d381b7919448e7` | CANARY-03 (мета из ответа) |
 | `plans/features/embed-identity-compat/evidence/resolver-pre/report.md` | `e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b` | ACC-10/ACC-11 pre-deploy |
@@ -51,26 +51,21 @@ master-чекауте).
 | `DECISION` | 15 | 0 | **0** |
 | `ACCEPT` | 14 | 0 | **0** |
 
-`candidate mismatch` отсутствует. Stage `release` пока не запускался: нет
-`deployed_commit` и postdeploy-доказательств.
+**Release-gate после деплоя (23.10.2026, PM-BIND-DEPLOYED-258113):**
+`check --stage release --candidate e4ee54f3 --deployed-commit e4ee54f3 --repo .`
+→ `stage=release inventory=43 manual=29 scoped=59 errors=0`, **EXIT 0**.
 
 ## 4. Честные ограничения
 
 - Строки, доказанные на `570e1eee`, сохраняют файловое доказательство того прогона;
   привязка к `e4ee54f3` для них — агрегированный guards-прогон поезда, а не новый
   пофайловый прогон. Полный repository-wide suite в brief поезда не входил.
-- `gaps-closure.md` и `tests/test_embed_meta_wire.py` отсутствуют в текущем
-  master-чекауте (только в релизной линии); при локальном прогоне гейта из main-дерева
-  strict-проверка артефактов даст «artifact missing» — это дефект синхронизации ветвей,
-  не карты.
-- `ACC-10`/`ACC-11` **не** закрыты и не могут быть закрыты до деплоя 2.58.113.
+- Production-evidence указывает на замороженный снимок `deploy-frozen-b92226cf.md`
+  (sha `11667c19…`): живой `deploy.md` продолжает дописываться VERIFY-лейном.
+- Агрегированный `compat` в API пуст из-за legacy `graphrag_rebuild.payload` без `index`;
+  совместимость подтверждена блоком `generation` и журналом — отдельная находка панели.
 
 ## 5. Что осталось до DONE
 
-1. DevOps: деплой `e4ee54f3` → `deployed_commit` в карте.
-2. Post-deploy (ACC-10/ACC-11): `GET /api/memory/embeddings` → `compat.serviceable=true`,
-   `compat.canary.verdict=compatible`, `hit5≥0.8`; реальный семантический запрос по
-   старому факту с top-1 в выдаче; лог `EMBEDDING_COMPAT_ADMITTED`; счётчики поколений
-   не растут (нет новой перевекторизации).
-3. `requirements_gate.py check --stage release --candidate e4ee54f3 --deployed-commit <sha>`
-   после postdeploy-доказательств.
+Ничего: `ACC-10`/`ACC-11` закрыты production-evidence, release-gate EXIT 0.
+Задача `embed-identity-compat` — **VERIFIED** (59/59).

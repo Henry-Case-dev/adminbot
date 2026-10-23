@@ -3,7 +3,7 @@
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap-speech-arch\\source-2026-10-22.md",
  "source_sha256": "3657b41ea80419536eb9821f6e7878e4bbc71bd39c53c78245d46a7fc14a556c",
  "candidate_commit": "e4ee54f3",
- "deployed_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+ "deployed_commit": "e4ee54f3",
  "strict_evidence": true,
  "slice_graph_path": "slice-graph.json",
  "additional_requirements": [
