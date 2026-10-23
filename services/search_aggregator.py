@@ -71,17 +71,83 @@ def content_terms(text: str, *, limit: int = 10) -> list[str]:
     return seen
 
 
-def is_relevant_result(text: str, relevance_terms) -> bool:
-    """Overlap-эвристика «запрос ↔ выдача»: достаточно ли выдача говорит
-    о терминах запроса. Нет терминов → True (поведение прежнее). Порог
-    консервативный: ≥2 совпадений И ≥20% терминов — мусорная выдача по
-    неродственной теме отсекается, смежная тема проходит."""
-    terms = [str(t) for t in (relevance_terms or ()) if t]
+#: P0-FACTCHECK (owner 24.10.2026 §3.3/§3.4): лёгкая морфология без
+#: зависимостей — русские словоизменения и английские окончания. Сравнение
+#: идёт по «ключу» слова (основа), поэтому «заболеваемости» и «заболевших»
+#: считаются одним термином, а «Claude» не становится доказательством
+#: темы «агенты Telegram».
+_RU_SUFFIXES = (
+    "иями", "ями", "ами", "ого", "его", "ому", "ему", "ыми", "ими",
+    "ать", "ять", "ить", "еть", "ешь", "ете", "иях", "ией", "ов", "ев",
+    "ий", "ый", "ой", "ая", "яя", "ое", "ее", "ые", "ие", "ам", "ям",
+    "ах", "ях", "ом", "ем", "ую", "юю", "ут", "ют", "ал", "ял", "ил",
+    "ел", "ла", "ло", "ли", "их", "ых", "а", "я", "о", "е", "ы", "и",
+    "у", "ю", "ь",
+)
+_EN_SUFFIXES = ("ations", "ation", "ings", "ing", "ers", "er", "ed", "es",
+                "s")
+
+
+def term_key(word: str) -> str:
+    """Ключ сравнения термина: срезать словоизменение и взять основу.
+
+    Детерминированно, без внешних зависимостей. Числа и короткие токены
+    (≤5 символов) не усекаются — иначе «2019» и «2024» стали бы одним
+    термином."""
+    low = str(word or "").lower()
+    if not low:
+        return ""
+    suffix = ""
+    for cand in _RU_SUFFIXES:
+        if len(low) - len(cand) >= 4 and low.endswith(cand):
+            suffix = cand
+            break
+    if not suffix:
+        for cand in _EN_SUFFIXES:
+            if len(low) - len(cand) >= 4 and low.endswith(cand):
+                suffix = cand
+                break
+    stem = low[: len(low) - len(suffix)] if suffix else low
+    if len(stem) <= 5:
+        return stem
+    return stem[:6]
+
+
+def _term_keys(text: str) -> set[str]:
+    low = str(text or "").lower()
+    keys = {term_key(w) for w in _RELEVANCE_WORD_RE.findall(low) if w}
+    # числа любой длины (цены/версии/сборки) — значимые термины, но их
+    # нельзя усекать основой (иначе 2019 == 2024)
+    keys.update(n for n in re.findall(r"\d+(?:[.,]\d+)?", low) if n)
+    return keys
+
+
+def is_relevant_result(text: str, relevance_terms,
+                       *, min_distinct: int | None = None) -> bool:
+    """Overlap-эвристика «запрос ↔ выдача» с морфологией (P0-FACTCHECK).
+
+    Нет терминов → True (поведение прежнее). Совпадение ОДНОГО слова не
+    считается релевантностью при многотомном запросе: нужно ≥2 разных
+    терминов (по основе) И ≥20% терминов. Это отсекает чужую тему, где
+    случайно совпало одно имя («Claude Code» вместо «агентов Telegram»), и
+    при этом пропускает пересказ другими словами («заболеваемости» ↔
+    «заболевших»)."""
+    terms = [str(t) for t in (relevance_terms or ()) if str(t or "").strip()]
     if not terms:
         return True
-    haystack = str(text or "").lower()
-    matched = sum(1 for t in terms if t in haystack)
-    return matched >= min(2, len(terms)) and matched >= 0.2 * len(terms)
+    haystack_keys = _term_keys(text)
+    matched = 0
+    seen: set[str] = set()
+    for term in terms:
+        for word in _RELEVANCE_WORD_RE.findall(term.lower()) or [term.lower()]:
+            key = term_key(word)
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            if key in haystack_keys:
+                matched += 1
+    floor = 2 if min_distinct is None else max(1, int(min_distinct))
+    return matched >= min(floor, len(seen)) and matched >= 0.2 * len(seen)
 
 
 _PRIMARY_HOST_RE = re.compile(r"\.(?:gov(?:\.[a-z]{2})?|edu|mil)(?:/|:|$)",
@@ -146,27 +212,51 @@ class SearchAggregator:
         return self._client
 
     async def search(self, query: str, max_symbols: int,
-                     relevance_terms: list[str] | None = None) -> str:
+                     relevance_terms: list[str] | None = None,
+                     timeout_budget: float | None = None) -> str:
         """Каскад: Tavily → Exa → DDG. Возвращает агрегированный текст
         (обрезка до max_symbols). Raises AllSearchEnginesFailedException.
 
         ``relevance_terms`` (FC-EVIDQ, §3.4): опциональные термины запроса —
         непустая, но содержательно нерелевантная выдача уровня (overlap-
         эвристика без ранжировщика) не останавливает каскад, поиск
-        продолжается следующими провайдерами. None → прежнее поведение."""
+        продолжается следующими провайдерами. None → прежнее поведение.
+
+        ``timeout_budget`` (P0-FACTCHECK §3.3): остаток общего бюджета
+        запроса в секундах — per-engine таймауты урезаются до остатка,
+        чтобы один медленный провайдер не съедал бюджет следующих запросов.
+        None → прежние таймауты."""
         levels: list[tuple[str, Callable[[str], Awaitable[str]], str | None]] = [
             ("tavily", self._search_tavily, self._tavily_api_key),
             ("exa", self._search_exa, self._exa_api_key),
             ("ddg", self._search_ddg, None),
         ]
+        started_budget = time.monotonic()
+
+        def _left() -> float | None:
+            if timeout_budget is None:
+                return None
+            return float(timeout_budget) - (time.monotonic() - started_budget)
+
         for name, fn, key in levels:
             if key is not None and not key.strip():
                 # D104: пустой ключ — уровень каскада отключён
                 logger.info("SearchAggregator: level skipped (no api key) | provider=%s", name)
                 continue
+            left = _left()
+            if left is not None and left <= 0.2:
+                raise AllSearchEnginesFailedException(
+                    f"search budget exhausted (tavily → exa → ddg) | "
+                    f"query={query!r}")
             started = time.monotonic()
             try:
-                text = await fn(query)
+                # бюджет есть → передаём остаток (реальный агрегатор
+                # урезает per-engine таймаут); бюджета нет → прежний
+                # одноаргументный вызов (совместимость с обёртками/фейками)
+                if left is not None:
+                    text = await fn(query, timeout_budget=left)
+                else:
+                    text = await fn(query)
                 if not text.strip():
                     raise ValueError("empty result")
                 if relevance_terms and not is_relevant_result(
@@ -191,13 +281,15 @@ class SearchAggregator:
         )
 
     async def search_relevant(self, query: str, max_symbols: int,
-                              relevance_terms: list[str] | None = None
+                              relevance_terms: list[str] | None = None,
+                              timeout_budget: float | None = None
                               ) -> str:
         """Явный relevance-вход контура фактчека (FC-EVIDQ): тот же каскад
         с проверкой содержательной релевантности выдачи. Существующие
         вызовы `search()` (сводки и пр.) не меняются."""
         return await self.search(query, max_symbols,
-                                 relevance_terms=relevance_terms)
+                                 relevance_terms=relevance_terms,
+                                 timeout_budget=timeout_budget)
 
 
     async def close(self) -> None:
@@ -215,9 +307,13 @@ class SearchAggregator:
 
     # ── Уровни каскада ────────────────────────────────────────
 
-    async def _search_tavily(self, query: str) -> str:
+    async def _search_tavily(self, query: str,
+                             timeout_budget: float | None = None) -> str:
         """POST api.tavily.com/search (Bearer); raises on failure."""
         client = self._get_client()
+        timeout = self._tavily_timeout
+        if timeout_budget is not None:
+            timeout = max(0.5, min(timeout, float(timeout_budget)))
         response = await client.post(
             TAVILY_URL,
             headers={"Authorization": f"Bearer {self._tavily_api_key}"},
@@ -226,7 +322,7 @@ class SearchAggregator:
                 "max_results": self._max_results,
                 "search_depth": "basic",
             },
-            timeout=httpx.Timeout(self._tavily_timeout),
+            timeout=httpx.Timeout(timeout),
         )
         response.raise_for_status()
         data = response.json()

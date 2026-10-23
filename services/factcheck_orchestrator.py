@@ -63,7 +63,9 @@ from services.summary_cleanup import cleanup_llm_text
 
 logger = logging.getLogger(__name__)
 
-PIPELINE_VERSION = "fcv3"      # fcv3: единый retrieval в envelope-ветке (FC-UNIFY)
+PIPELINE_VERSION = "fcv4"      # fcv4: P0-FACTCHECK — per-part запросы fp3,
+                               # классы исхода retrieval, image-материал,
+                               # кеш старого вердикта не скрывает новую проверку
 
 # ── Фриз-схемы (join-barrier; изменение полей = bump + review W4/W5) ────────
 
@@ -153,6 +155,10 @@ class FactcheckPresentation:
     parse_mode: str | None = None    # W5: renderer; W3 — plain (None)
     notice: str = ""                 # честное ограничение (не служебное)
 
+
+_RETRIEVAL_NO_CITABLE_NOTICE = (
+    "Первоисточники открыть не удалось — вывод сделан по выдержкам без "
+    "проверяемых ссылок.")
 
 # Служебные латиница-маркеры, которые не должны появляться в публичном тексте
 # (негативный тест W3; полная фильтрация контента — renderer W5).
@@ -366,6 +372,22 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     from services import factcheck_context as fcx
     from services import factcheck_suitability as fsg
 
+    # 0. P0-FACTCHECK (§3.3, owner 24.10.2026): материал изображения целевого
+    # сообщения. Текст с картинки (OCR готового Vision-анализа) ДОБАВЛЯЕТСЯ к
+    # тезису, поэтому попадает и в поисковые запросы, и в промпт аналитика —
+    # версия/сборка/платформа больше не теряются. Новый OCR не создаётся;
+    # анализ ещё не готов → честная пометка image_not_analyzed, подпись
+    # сохраняется. Любой сбой Vision → прежний путь только по тексту.
+    from services.factcheck_service import load_claim_media
+    media = await load_claim_media(db, req.chat_id, req.target_tg_message_id)
+    claim_text = req.target_text
+    if media.text_suffix:
+        claim_text = f"{claim_text}\n\n{media.text_suffix}"
+    if media.image_present:
+        logger.info("[factcheck_v2] media claim | chat=%s | analyzed=%s | "
+                    "ocr_chars=%d | caption=%d", req.chat_id,
+                    media.image_analyzed, media.ocr_chars, len(media.caption))
+
     # 1. ResolveTimeAndProvenance — ВСЕГДА, дёшево (06H.3); unknown честно.
     envelope = None
     if db is not None and req.target_tg_message_id not in (None, "", 0):
@@ -375,7 +397,10 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                 db, InputRef(kind=req.kind, chat_id=req.chat_id,
                              target_tg_message_id=req.target_tg_message_id,
                              trigger_tg_message_id=req.trigger_tg_message_id,
-                             hint=req.user_hint),
+                             hint=req.user_hint,
+                             # §3.3: OCR идёт в claim только когда он есть —
+                             # иначе прежний путь «текст из БД» байт-в-байт.
+                             claim_text=claim_text if media.text_suffix else None),
                 default_mode=str(req.default_mode or "contextual"))
         except Exception:
             logger.warning("[factcheck_v2] envelope build failed", exc_info=True)
@@ -383,7 +408,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
 
     # 2. Контекст + suitability (внутри v2 подразумеваются — консолидация).
     decision, ctx = await fsg.evaluate_with_expansion(
-        db, req.chat_id, claim_text=req.target_text, user_hint=req.user_hint,
+        db, req.chat_id, claim_text=claim_text, user_hint=req.user_hint,
         target_tg_message_id=req.target_tg_message_id,
         trigger_tg_message_id=req.trigger_tg_message_id, cache=cache)
     feed = ctx.render_feed() if ctx is not None else ""
@@ -420,7 +445,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     # (privacy-клейм), атрибуция идёт в EvidenceMap (source_kind=chat).
     attribution = None
     attribution_match = None
-    external_claim = req.target_text
+    external_claim = claim_text
     try:
         from services import factcheck_attribution as fat
         attribution = fat.detect_attribution_claim(req.target_text)
@@ -505,7 +530,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                           and retrieval_outcome.search_text else None)
         verdict = await _run_legacy_branch(req, service, cache, feed,
                                            search_results=search_results,
-                                           target_text=external_claim)
+                                           target_text=external_claim,
+                                           cache_input_text=claim_text)
 
     # 6. Presentation (egress-whitelist) → 7. Delivery.
     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
@@ -524,8 +550,18 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     if attribution_match is not None:
         verdict = fat.attach_attribution_evidence(verdict,
                                                   attribution_match)
+    _notice = media.notice()
+    if (not _notice and retrieval_outcome is not None
+            and not getattr(retrieval_outcome, "refs_collected", 0)
+            and getattr(retrieval_outcome, "search_text", "")
+            and verdict.reason_code is None):
+        # P0-FACTCHECK (§3.6): материалы найдены, но проверяемых ссылок нет —
+        # вывод нельзя подавать как подтверждённый источниками. Технический
+        # класс уже назван заголовком, когда reason_code есть.
+        _notice = _RETRIEVAL_NO_CITABLE_NOTICE
     presentation = build_presentation(
-        verdict, reply_to_message_id=req.target_tg_message_id)
+        verdict, reply_to_message_id=req.target_tg_message_id,
+        notice=_notice)
     # CFG-07C-G-хвост (07C.1): egress-guard на outbound-payload — после
     # Writer (check_claim*/кеш-хит), ДО сериализации renderer'ом. Renderer
     # при этом добавляет enum-заголовок из того же (обновлённого) вердикта,
@@ -549,7 +585,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     # 8. Идемпотентность (59.2): legacy-кеш — после успешной доставки,
     # сырой текст вердикта (байт-паритет содержимого прод-пути).
     if verdict.route == "legacy_single" and not verdict.cache_hit:
-        await write_legacy_cache(req, verdict.verdict_text, cache)
+        await write_legacy_cache(req, verdict.verdict_text, cache,
+                                 text=claim_text)
 
 
 async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
@@ -627,7 +664,8 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
 
 async def _run_legacy_branch(req: FactcheckRequest, service, cache,
                              feed, *, search_results: str | None = None,
-                             target_text: str | None = None
+                             target_text: str | None = None,
+                             cache_input_text: str | None = None
                              ) -> CheckedVerdict:
     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
     же аргументами, что прод-путь 2.58.98 (байт-паритет ветки), slug
@@ -638,7 +676,8 @@ async def _run_legacy_branch(req: FactcheckRequest, service, cache,
     в этом случае план не выполнен и EvidenceMap не наполняется.
     06G.3: ``target_text`` — privacy-клейм (тезис без участников чата);
     None → req.target_text (байт-паритет неатрибуционных прогонов)."""
-    cache_key = cache.build_key("factcheck", _v2_cache_input(req))
+    cache_key = cache.build_key("factcheck",
+                                _v2_cache_input(req, cache_input_text))
     cached = await cache.get(cache_key)
     if cached is not None:
         return CheckedVerdict(verdict_text=str(cached), route="legacy_single",
@@ -652,24 +691,28 @@ async def _run_legacy_branch(req: FactcheckRequest, service, cache,
     return CheckedVerdict(verdict_text=verdict, route="legacy_single")
 
 
-def _v2_cache_input(req: FactcheckRequest) -> str:
-    """W6: кеш legacy-ветки под версией контура v2 (`fcv3`+`fp2`, 06H.6) —
+def _v2_cache_input(req: FactcheckRequest, text: str | None = None) -> str:
+    """W6: кеш legacy-ветки под версией контура v2 (`fcv4`+`fp3`, 06H.6) —
     записи прод-пути 2.58.98 и v2 не пересекаются в обе стороны; bump
-    fcv2→fcv3 (FC-UNIFY) старые записи естественно выпадают."""
+    fcv3→fcv4 (P0-FACTCHECK: классы исхода/части/изображение) старые
+    записи естественно выпадают. `text` — фактический материал проверки
+    (claim + OCR изображения): старый вердикт по одному тексту не может
+    скрыть новую проверку с распознанным изображением."""
     try:
         from services import factcheck_planner as fsp
         planner_version = fsp.PLANNER_VERSION
     except Exception:      # pragma: no cover
         planner_version = "fp0"
-    return f"fcv3\x00{PIPELINE_VERSION}\x00{planner_version}\x00{req.target_text}"
+    claim_material = req.target_text if text is None else str(text)
+    return f"fcv4\x00{PIPELINE_VERSION}\x00{planner_version}\x00{claim_material}"
 
 
 async def write_legacy_cache(req: FactcheckRequest, verdict_text: str,
-                             cache) -> bool:
+                             cache, *, text: str | None = None) -> bool:
     """Запись legacy-кеша после успешной доставки (59.2) — отдельный шаг
     оркестратора; ключ под версией контура v2 (см. `_v2_cache_input`)."""
     try:
-        cache_key = cache.build_key("factcheck", _v2_cache_input(req))
+        cache_key = cache.build_key("factcheck", _v2_cache_input(req, text))
         await cache.set(cache_key, verdict_text)
         return True
     except Exception:
@@ -683,9 +726,11 @@ def _log_retrieval_metrics(chat_id: int, outcome) -> None:
         return
     logger.info(
         "[factcheck_v2] retrieval | chat=%s | attempted=%d | used=%d | "
-        "refs=%d | fetch_errors=%d | budget_exhausted=%s | version=%s",
+        "refs=%d | fetch_errors=%d | provider_failures=%d | "
+        "budget_exhausted=%s | version=%s",
         chat_id, outcome.queries_attempted, outcome.queries_used,
         outcome.refs_collected, outcome.fetch_errors,
+        getattr(outcome, "provider_failures", 0),
         outcome.budget_exhausted, outcome.planner_version)
     try:
         from services import mca_events
