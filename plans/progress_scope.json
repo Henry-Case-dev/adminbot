@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-23T21:00:00+12:00",
+  "updated": "2026-10-24T00:00:00+13:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -156,6 +156,17 @@
       ],
       "coverage_complete": true,
       "source_note": "P0 23.10 (дословный снимок, 557 строк): Style Policy без скрытой потери инструкций (лимиты OFF по умолчанию + UI + Inspector), инвентаризация скрытых лимитов, строгое правило «—»→«-», единая идентификация по user_id с merge global/chat по каждому ID и live-apply без рестарта, память/GraphRAG без новой личности, factory/active/global/chat миграция. Инвентаризация PM-ASAP3: 162 строки → 119 required + 43 context; manual 115 required + 4 context; 171 уникальный req_id, 0 неклассифицированных; S1-S10, A1-A16, ACC-01..ACC-10 отдельными req_id; strict_evidence + slice-graph, plan-гейт EXIT 0. ARCHITECT_REQUIRED по контракту имён (IDENTITY), остальное ARCH_REUSE_CONFIRMED. Реализация не начиналась."
+    },
+    {
+      "id": "p0-factcheck-speech",
+      "status": "PENDING",
+      "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
+      "source_sha256": "07D944EA761A50A16C42AB4076B6F51E6D3A775EA1A36A37E380A17C78A7ECFD",
+      "maps": [
+        "plans/features/p0-corrective-factcheck-speech/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 24.10 (корректировка действующих ASAP Speech Architecture + Factcheck, 639 строк): фактчек по существу (отдельные вердикты по утверждениям, различение недостатка доказательств и технического сбоя, честный renderer), восстановление сохранённых промптов при provenance_missing (Prompt Registry + Inspector), полная интеграция Checkup в модульную речь с сохранением жанрового характера, дополнение подробного Personality Core без замены, фактическая работа FREQUENT (без квот/постпроцессора), Vision sweep и Betterstack отдельно. Классификация PM: 168 инвентарных строк (107 required / 46 context / 15 duplicate) + 137 прозаических и сценарных требований = 225 required-строк, 223 уникальных req_id; сценарии FC-01..FC-09, PR-01..PR-03, SP-01..SP-06, EX-01..EX-03, OPS-01..OPS-02 отдельными req_id; слайсы FORENSIC/PROMPTS/FACTCHECK/CHECKUP/CORE/EXPRESSION/OPS/ACCEPT, strict_evidence + slice-graph, plan-gate EXIT 0; ARCH_REUSE_CONFIRMED. | 24.10: добавлен ASAP 4/P0 addendum (карта распределения Checkup-промпта, «СУТЬ АНАЛИЗА» дословно, provenance без массовой активации) — интегрирован в эту же задачу, не новый эпик. | 24.10 PM-P0-ADDENDUM: аддендум ASAP 4/P0 reconciled в существующую карту — 34 новых инвентарных строки + 40 прозаических/табличных записей, 70 новых required (`REQ-A4-*`), новых слайсов 0; распределение CHECKUP 27 / CORE 17 / PROMPTS 10 / ACCEPT 16; итог 379 строк (295 required, 68 context, 16 duplicate, 0 unclassified), 293 уникальных req_id; порядок Architect freeze §1 -> Builder -> Reviewer; provenance user-custom/old factory/intermediate без массовой активации; plan-gate EXIT 0."
     }
   ]
 }
