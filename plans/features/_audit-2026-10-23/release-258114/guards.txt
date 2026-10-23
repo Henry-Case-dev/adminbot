@@ -1,0 +1,29 @@
+# REL-258114 guards — детерминированные проверки (23.10.2026)
+
+Интерпретатор: `C:\Code\Python\adminbot\.venv\Scripts\python.exe` (Python 3.12.0, aiogram 3.31.0).
+Worktree: `C:\Code\Python\adminbot-wt258114` (база `eb3abd63`, pre-bump HEAD `667dc434`), версия 2.58.114.
+
+[PASS] bump-verify .............................. files=31 pairs=33 (+33/-33), non-token NONE (bump-verify.txt)
+[PASS] SET EQUAL vs bump 113 .................... ref 31 == 31, only-in: none (delta-vs-bump113.txt)
+[PASS] ΔDDL ..................................... 0 (no CREATE/ALTER/DROP TABLE, no user_version bump) (ddl-check.txt)
+[PASS] F8 generator --check ..................... реестр 582 == REGISTRY, карта полна, R17-чисто (gen-param-check.txt)
+[PASS] F8 frozen fingerprint .................... constant == runtime == 0163a686c401 (frozen-fingerprint.txt)
+[PASS] Frozen UI assets ......................... FROZEN-ASSETS-OK (frozen-assets.txt)
+[PASS] pins24 (24 py пин-файла) ................. 868 passed / 0 failed (64.93s) (pins24-full.txt)
+[PASS] help-sync (6 файлов справки) ............. 154 passed (focused-help-sync.txt)
+[PASS] JS-unit .................................. 39 passed (focused-js-unit.txt)
+[PASS] node-пины (hotfix 7/8/9/10) .............. 4/4 rc=0
+[PASS] py_compile изменённых py ................. 55 файлов / 0 bad
+[PASS] целевой набор (11 файлов) ................ 242 passed (focused-targeted.txt)
+[PASS] UI e2e ASAP3 hint (style+Inspector) ...... PASS: 10 проверок, rc=0 (ui-asap3-hint.txt)
+[PASS] UI e2e P0A-UX compact .................... failures=0, POST=22, rc=0 (ui-compact.txt)
+[PASS] UI e2e speech mobile entry (W4) .......... failures=0 (320/390/1280), rc=0 (ui-w4-entry.txt)
+
+Итог по guards: 15/15 PASS, 0 failed.
+
+RED (воспроизведение до фикса): до интеграционного шва
+`tests/test_asap_speech_i_matrix.py::test_i07_bot_reply_older_than_600s_reaches_initiative_l1`
+падал с `AttributeError: 'DirectChatService' object has no attribute 'aliases'`
+(services/direct_chat_service.py:8808). После фикса — 25 passed по файлу, 242 passed по целевому набору.
+
+Не запускалось (вне рамок лейна): repository-wide suite, deploy/restart, live/e2e на проде, SSH.

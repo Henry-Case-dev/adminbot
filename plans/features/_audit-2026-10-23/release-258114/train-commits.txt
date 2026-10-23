@@ -1,0 +1,11 @@
+﻿667dc434 fix(integration): fail-open alias resolver on initiative L1 site + sanctioned summary_aliases bound (ASAP3 accept intent)
+a8d047a7 fix(asap-speech): R3b canon - continuation after clarification answer (L1 4.1) + honest history boundary (L2); ladder PREV_R3/PREV_CLAR + one-step rollback
+af7de4e9 fix(asap-speech): R3 L1 initiative delivery/addressee - semantic chat-vs-reply criteria, addressee-bound reply target, react target required, wider bot_replies window; canon ladder PREV_CLAR + rollback
+6a86d352 fix(asap2): honest history-boundary marker in L1/L2 + T20 live probe evidence
+45fe1b54 ASAP2 telemetry: durable needs_clar/clar_target_present flags in plan_meta
+0d57ec24 ASAP3 accept: S4-S10 gap tests + initiative fail-open for partial DI
+81cdaa28 ASAP3 ui fix: partial hint limits keep inheritance, effective state in controls, coherent budget_excluded
+92056406 ASAP3 ui: two independent hint limits + honest two-layer Style Policy Inspector
+d8af77c3 ASAP3 identity rework: resolve L1/initiative window names, uid-aware dossier
+5ac005ab ASAP3 identity: merge aliases by user_id, live per-turn resolver, merged diag
+673d142c ASAP3 style phase1: honest hint limits, document-owned limits, dash rule
