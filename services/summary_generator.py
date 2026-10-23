@@ -716,6 +716,15 @@ class SummaryGenerator:
                 # Очередь, как раньше async with lock (без таймаута).
                 permit = await self._pool.acquire(chat_id)
         try:
+            # ASAP 3 Corrective §4.4: summary-маршрут видит сохранённый
+            # alias уже в следующем прогоне (per-run, без рестарта).
+            from services import summary_aliases as _sa
+            try:
+                await _sa.bind_turn_aliases(int(chat_id))
+            except Exception:
+                logger.warning(
+                    "summary: alias refresh failed — previous resolver | "
+                    "chat_id=%s", chat_id, exc_info=True)
             await self._run(chat_id, manual, focus, trigger_message_id,
                             permit_started_at=permit_started_at)
         finally:

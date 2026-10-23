@@ -803,6 +803,10 @@ def build_parser() -> argparse.ArgumentParser:
     d_alias.add_argument("--chat-id", type=int, action="append", default=None,
                          help="целевой chat_id для проверки per-chat override "
                               "(можно несколько раз)")
+    d_alias.add_argument("--show-names", action="store_true",
+                         help="ASAP3: показать merged-вид (user_id, chat/global "
+                              "alias, эффективное имя, источник). Локальный "
+                              "вывод; по умолчанию значения не печатаются (R17)")
     return parser
 
 
@@ -1780,11 +1784,13 @@ def _aliases_shape(value) -> dict:
     }
 
 
-async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
+async def _collect_aliases_diag(pg, *, chat_ids=None, include_names=False) -> dict:
     """Read-only сбор фактов (только SELECT).
 
     global (bot_settings) + per-chat override (chat_profiles.chat_params) +
-    API-эффект (widget/value/global_value/chat_source). Без значений (R17)."""
+    API-эффект (widget/value/global_value/chat_source). Без значений (R17)
+    по умолчанию; `include_names=True` (CLI `--show-names`) добавляет
+    merged-вид по каждому Telegram ID — только локальный вывод, не лог."""
     from services.param_catalog import get_by_pg_key
     from web.api.routes import _ensure_keyvalue_object
 
@@ -1804,6 +1810,32 @@ async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
     report["widget"] = spec.widget if spec is not None else ""
     is_per_chat = bool(spec.per_chat) if spec is not None else False
 
+    from services.summary_aliases import merge_alias_maps, parse_alias_map
+
+    def _merged_rows(global_raw, chat_raw, chat_scope: int | None = None):
+        """ASAP3 §4.3: строки merge по user_id (только для --show-names)."""
+        gmap = parse_alias_map(global_raw)
+        cmap = parse_alias_map(chat_raw)
+        merged = merge_alias_maps(global_raw, chat_raw)
+        rows = []
+        for uid in sorted(merged, key=lambda value: int(value)):
+            rows.append({
+                "user_id": int(uid),
+                "chat_alias": cmap.get(uid) or None,
+                "global_alias": gmap.get(uid) or None,
+                "effective": merged[uid],
+                "source": ("chat" if uid in cmap
+                           else ("global" if uid in gmap else "factory")),
+            })
+        collisions: dict[str, list[int]] = {}
+        for row in rows:
+            collisions.setdefault(str(row["effective"]).casefold(),
+                                  []).append(row["user_id"])
+        return rows, sorted(
+            ({"name": name, "user_ids": sorted(uids)}
+             for name, uids in collisions.items() if len(uids) > 1),
+            key=lambda item: item["name"])
+
     async with pool.acquire() as conn:
         row = _as_dict(await conn.fetchrow(_ALIASES_SETTING_SQL,
                                            _ALIASES_PG_KEY))
@@ -1812,6 +1844,10 @@ async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
         report["global"] = _aliases_shape(global_value)
         effective_global = _ensure_keyvalue_object(
             global_value, pg_key=_ALIASES_PG_KEY)
+        if include_names:
+            g_rows, g_collisions = _merged_rows(global_value, None)
+            report["global_merged"] = g_rows
+            report["global_display_collisions"] = g_collisions
 
         for chat_id in (chat_ids or []):
             profile = _as_dict(await conn.fetchrow(_ALIASES_PROFILE_SQL,
@@ -1833,7 +1869,7 @@ async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
             else:
                 effective = effective_global
                 chat_source = ""
-            report["chats"].append({
+            chat_entry = {
                 "chat_id": int(chat_id),
                 "profile_present": bool(profile),
                 "override_present": override_present,
@@ -1844,8 +1880,27 @@ async def _collect_aliases_diag(pg, *, chat_ids=None) -> dict:
                                           if isinstance(global_out, dict)
                                           else None),
                 "api_chat_source": chat_source,
-            })
+            }
+            if include_names:
+                rows, collisions = _merged_rows(
+                    global_value, override_value if override_present else None)
+                chat_entry["merged_view"] = rows
+                chat_entry["display_collisions"] = collisions
+            report["chats"].append(chat_entry)
     return report
+
+
+def _print_alias_merged_rows(scope: str, rows: list) -> None:
+    """ASAP3 §4.3/§5: merged-вид по каждому Telegram ID (--show-names)."""
+    if not rows:
+        print(f"  {scope}: merged-вид пуст")
+        return
+    print(f"  {scope}: merged={len(rows)}")
+    for row in rows:
+        print(f"    uid={row['user_id']} chat_alias="
+              f"'{row['chat_alias'] or ''}' global_alias="
+              f"'{row['global_alias'] or ''}' effective="
+              f"'{row['effective']}' source={row['source']}")
 
 
 def _cmd_diag(args) -> int:
@@ -1858,6 +1913,7 @@ def _cmd_diag(args) -> int:
     from services.pg_db import PgDatabase
 
     chat_ids = list(getattr(args, "chat_id", None) or [])
+    show_names = bool(getattr(args, "show_names", False))
 
     async def _run():
         pg = PgDatabase()
@@ -1875,7 +1931,8 @@ def _cmd_diag(args) -> int:
             await _safe_close(pg)
             return None
         try:
-            return await _collect_aliases_diag(pg, chat_ids=chat_ids)
+            return await _collect_aliases_diag(
+                pg, chat_ids=chat_ids, include_names=show_names)
         finally:
             await _safe_close(pg)
 
@@ -1904,8 +1961,21 @@ def _cmd_diag(args) -> int:
               f"api_value_keys={chat['api_value_keys']} "
               f"api_global_value_keys={chat['api_global_value_keys']} "
               f"api_chat_source='{chat['api_chat_source']}'")
-    print("  вывод data: только форма/число ключей (R17), значения не "
-          "печатаются; restore из бэкапа запрещён")
+    if show_names:
+        _print_alias_merged_rows("global", report.get("global_merged") or [])
+        for chat in report["chats"]:
+            _print_alias_merged_rows(
+                f"chat={chat['chat_id']}",
+                chat.get("merged_view") or [])
+            for collision in chat.get("display_collisions") or []:
+                print(f"  WARNING chat={chat['chat_id']} "
+                      f"display='{collision['name']}' → uids="
+                      f"{collision['user_ids']} (не сливаем по имени)")
+        print("  merged: chat alias → global alias → nickname → username → "
+              "verified memory name → user_id")
+    print("  вывод data: по умолчанию только форма/число ключей (R17); "
+          "--show-names печатает merged-вид локально, значения в лог не "
+          "пишутся; restore из бэкапа запрещён")
     return 0
 
 
