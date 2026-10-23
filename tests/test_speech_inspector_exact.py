@@ -20,6 +20,7 @@ TEST-LIFECYCLE: CONTRACT owner=ASAP-SPEECH/INSPECTOR (source-2026-10-22 §6).
 """
 import asyncio
 import json
+import json as json_lib
 import sys
 from pathlib import Path
 
@@ -42,23 +43,67 @@ class _FakeResponse:
                 "usage": {"prompt_tokens": 10, "completion_tokens": 3}}
 
 
-class _TraceClient(llm_client.LLMClient):
-    """Клиент без сети: транспорт подменён, всё остальное — реальный код."""
+class _FakeHTTPResponse:
+    def __init__(self, status=200, body=None):
+        self.status_code = status
+        self._body = body if body is not None else {
+            "choices": [{"message": {"content": "готовый ответ"}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 3},
+        }
+        self.content = json_lib.dumps(self._body).encode("utf-8")
+        self.text = self.content.decode("utf-8")
 
-    def __init__(self, captured):
+    def json(self):
+        return self._body
+
+
+class _FakeHTTP:
+    """Транспорт-двойник: фиксирует РОВНО тот json=, что ушёл бы в HTTP."""
+
+    def __init__(self, owner, status=200):
+        self.owner = owner
+        self.status = status
+
+    async def post(self, url, json=None, **kwargs):
+        # Глубокая копия как снимок тела на проводе (httpx сериализует json).
+        self.owner.bodies.append(
+            {"url": url, "body": json_lib.loads(json_lib.dumps(json))})
+        return _FakeHTTPResponse(self.status)
+
+
+class _TraceClient(llm_client.LLMClient):
+    """Клиент без сети: подменён ТОЛЬКО транспорт, весь путь отправки реальный.
+
+    ``_post``/``_post_with_key``/``_post_fallback``/``_fallback_with_retries``
+    исполняются как в проде — поэтому тест видит фактическое HTTP-тело
+    (включая подмену ``model`` на fallback), а не аргумент ``generate``.
+    """
+
+    def __init__(self, bodies, *, primary_status=200, fallback_active=False):
         self._chat_model = "trace-model-1"
         self._fallback_model = "trace-fallback-1"
-        self._fallback_active = False
+        self._fallback_active = fallback_active
         self._base_url = "https://provider.example/v1"
         self._fallback_base_url = "https://fallback.example/v1"
-        self.captured = captured
+        self._budget = 5.0
+        self._max_retries = 0
+        self._timeout = 5.0
+        self._fallback_max_retries = 0
+        self._fallback_timeout = 5.0
+        self.backoff_base = 0
+        self._backoff_cap = 0
+        self.bodies = bodies
+        self._primary_http = _FakeHTTP(self, status=primary_status)
+        self._fallback_http = _FakeHTTP(self, status=200)
+
+    def _get_client(self, key=None):
+        return self._primary_http
+
+    def _get_fallback_client(self):
+        return self._fallback_http
 
     async def _resolve_api_key_and_source(self, chat_id=None):
         return "test-key", "global"
-
-    async def _post_with_key(self, path, payload, chat_id=None, key=None):
-        self.captured.append(json.loads(json.dumps(payload)))
-        return _FakeResponse()
 
     async def _record_global_usage(self, *args, **kwargs):
         return None
@@ -67,27 +112,31 @@ class _TraceClient(llm_client.LLMClient):
         return None
 
 
-def _generate(captured, messages, *, correlation_id="cid-exact-1",
-              chat_id=-100500):
-    client = _TraceClient(captured)
-    out = asyncio.run(client.generate(
+def _generate(bodies, messages, *, correlation_id="cid-exact-1",
+              chat_id=-100500, client=None):
+    client = client or _TraceClient(bodies)
+    return asyncio.run(client.generate(
         messages, temperature=0.3, chat_id=chat_id, module="direct_chat",
         step="single", correlation_id=correlation_id))
-    return out
+
+
+def _last_body(bodies):
+    return bodies[-1]["body"]
 
 
 def test_trace_checksum_matches_actually_sent_payload():
     """INS-EXACT/INS-TRACE: checksum в Inspector == тело запроса в транспорте."""
     composer.reset_state()
-    captured: list = []
+    bodies: list = []
     messages = [
         {"role": "system", "content": "СИСТЕМНАЯ РОЛЬ: контракт канала\n\nCore"},
         {"role": "user", "content": "Вопрос пользователя"},
         {"role": "user", "content": "<dig_result>факт</dig_result>"},
     ]
-    assert _generate(captured, messages) == "готовый ответ"
-    assert len(captured) == 1
-    sent = captured[0]
+    assert _generate(bodies, messages) == "готовый ответ"
+    assert len(bodies) == 1
+    sent = _last_body(bodies)
+    assert sent["messages"] == messages      # ровно тело запроса
 
     call = composer.last_provider_call(chat_id=-100500)
     assert call is not None, "реальный вызов обязан попасть в журнал"
@@ -112,10 +161,79 @@ def test_trace_checksum_matches_actually_sent_payload():
 
     # Другой payload → другой checksum (хеш не «пустой» и не константа).
     composer.reset_state()
-    captured2: list = []
-    _generate(captured2, messages[:2], correlation_id="cid-exact-2")
+    bodies2: list = []
+    _generate(bodies2, messages[:2], correlation_id="cid-exact-2")
     other = composer.last_provider_call(chat_id=-100500)
     assert other["manifest_checksum"] != call["manifest_checksum"]
+    composer.reset_state()
+
+
+def test_fallback_trace_is_the_body_that_went_on_the_wire():
+    """INS-EXACT (review F1): при fallback журнал == HTTP-тело, не payload до
+    подмены model и не исходные messages.
+
+    Репро ревью: primary 500 → адаптер сокращает user-блок; фактическое тело
+    `model=fallback-model`, `user="Q-cut"`. До фикса журнал показывал
+    `user="Q"` и другой checksum.
+    """
+    composer.reset_state()
+    bodies: list = []
+    client = _TraceClient(bodies, primary_status=500, fallback_active=True)
+
+    def _adapter(payload):
+        adapted = dict(payload)
+        adapted["messages"] = [
+            {"role": "system", "content": payload["messages"][0]["content"]},
+            {"role": "user", "content": "Q-cut"},
+        ]
+        return adapted
+
+    out = asyncio.run(client.generate(
+        [{"role": "system", "content": "S"}, {"role": "user", "content": "Q"}],
+        temperature=0.2, chat_id=-100500, module="direct_chat", step="single",
+        correlation_id="cid-fallback-1", fallback_payload_adapter=_adapter))
+    assert out == "готовый ответ"
+    assert len(bodies) == 2, "primary-попытка и fallback-попытка"
+
+    wire = _last_body(bodies)
+    assert wire["model"] == "trace-fallback-1"
+    assert wire["messages"][-1]["content"] == "Q-cut"
+
+    call = composer.last_provider_call(chat_id=-100500)
+    assert call is not None
+    assert call["channel"] == "fallback"
+    assert call["model"] == "trace-fallback-1"
+    # Главное: checksum и сообщения описывают ИМЕННО отправленное тело.
+    assert call["manifest_checksum"] == composer.payload_checksum(wire)
+    assert call["messages"][-1]["text"] == "Q-cut"
+    assert call["provider"] == "fallback.example"
+    assert call["status"] == "ok"
+    # Неудачная primary-попытка не подменяет финальный снимок.
+    assert all(m["text"] != "Q-cut" for m in call["messages"][:-1])
+    composer.reset_state()
+
+
+def test_generate_chat_is_traced_with_tools():
+    """INS-TRACE (review F3): реальный tool-calling вызов тоже в журнале."""
+    composer.reset_state()
+    bodies: list = []
+    client = _TraceClient(bodies)
+    tools = [{"type": "function",
+              "function": {"name": "search", "parameters": {}}}]
+    result = asyncio.run(client.generate_chat(
+        [{"role": "system", "content": "S"}, {"role": "user", "content": "Q"}],
+        tools=tools, chat_id=-100500, module="direct_chat", step="stage1",
+        correlation_id="cid-chat-1"))
+    assert result.content == "готовый ответ"
+    wire = _last_body(bodies)
+    assert wire["tools"] == tools
+
+    call = composer.last_provider_call(chat_id=-100500)
+    assert call is not None
+    assert call["module"] == "direct_chat" and call["step"] == "stage1"
+    assert call["correlation_id"] == "cid-chat-1"
+    assert call["manifest_checksum"] == composer.payload_checksum(wire)
+    assert call["roles"] == ["system", "user"]
     composer.reset_state()
 
 
@@ -165,7 +283,7 @@ def test_inspector_exact_is_the_actual_request(api_env, monkeypatch):
     assert exact["label"] == "last actual request"
     assert exact["is_actual"] is True
     assert exact["correlation_id"] == run_id
-    assert exact["checksum"] == composer.payload_checksum(captured[0])
+    assert exact["checksum"] == composer.payload_checksum(_last_body(captured))
     assert exact["roles"] == ["system", "user"]
     assert exact["system"] == manifest.system      # точный system, не masked
     assert exact["messages"][0]["role"] == "system"
@@ -281,6 +399,62 @@ def test_composer_reports_soul_legacy_label_as_conflict():
     record = next(c for c in manifest.conflicts
                   if c.conflict_id == "soul_legacy_label_in_payload")
     assert "SOUL-16.5.0" in record.detail
+    composer.reset_state()
+
+
+def test_inspector_hierarchy_is_masked_but_keeps_provenance(api_env,
+                                                            monkeypatch):
+    """INS-PRIVACY (review F2): иерархия отдаёт МАСКИРОВАННЫЙ текст.
+
+    Секрет и длинный Telegram-ID не должны попадать ни в JSON ответа, ни в DOM
+    (проверяется здесь на уровне API; DOM — e2e). Структура и редакции
+    сохраняются: маскировка не ломает клик-сквозную диагностику.
+    """
+    from services import prompt_factory as pf
+    env = api_env
+    monkeypatch.setattr(pf, "_default_cache", lambda: env.cache)
+    composer.reset_state()
+    secret = "sk-live-abcdef0123456789"
+    long_id = "123456789012"
+    manifest = composer.compose_prompt(composer.PromptPlan(
+        profile=composer.PROFILE_SPEECH_PLAIN, writer="l2_writer",
+        chat_id=0, run_id="cid-mask-1", base_prompt="РОЛЬ: контракт",
+        identity=composer.IdentityRef(
+            text="Правило личности. api_key=%s; участник %s" % (secret,
+                                                                 long_id),
+            source="global"),
+        gates=composer.gates_from_config()))
+
+    insp = _run(S.get_inspector(None, env.user, None))
+    blob = json.dumps(insp, ensure_ascii=False)
+    assert secret not in blob, "секрет попал в JSON/DOM Inspector"
+    assert long_id not in blob, "полный Telegram-ID попал в JSON/DOM"
+    assert "***" in blob and "[id]" in blob
+
+    items = [i for g in insp["hierarchy"] for i in g["items"]]
+    identity = next(i for i in items if i["layer"] == "identity")
+    assert identity["rendered"] is True
+    assert identity["revision"] and identity["source"] == "global"
+    assert "Правило личности" in identity["text"]     # структура сохранена
+    assert identity["text"] != next(t.text for t in manifest.layers
+                                    if t.layer == "identity")
+    composer.reset_state()
+
+
+def test_inspector_declares_trace_coverage(api_env, monkeypatch):
+    """INS-TRACE (review F3): покрытие каналов объявлено, а не молчит."""
+    from services import prompt_factory as pf
+    env = api_env
+    monkeypatch.setattr(pf, "_default_cache", lambda: env.cache)
+    composer.reset_state()
+    insp = _run(S.get_inspector(None, env.user, None))
+    coverage = {row["channel"]: row for row in insp["trace_coverage"]}
+    for channel in ("generate", "generate_chat", "generate_background",
+                    "generate_worker"):
+        assert coverage[channel]["covered"] is True, channel
+        assert coverage[channel]["reason"]
+    assert coverage["embed"]["covered"] is False
+    assert "эмбеддинг" in coverage["embed"]["reason"]
     composer.reset_state()
 
 

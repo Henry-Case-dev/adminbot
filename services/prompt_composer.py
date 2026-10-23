@@ -2084,6 +2084,32 @@ def render_layer_texts(manifest: PromptManifest) -> dict:
     return {"manifest_id": manifest.manifest_id, "layers": rows}
 
 
+#: INS-TRACE: какие реальные каналы попадают в bounded-журнал, а какие — нет
+#: (с причиной). Отсутствие канала не выдаётся за «покрыто всё».
+PROVIDER_TRACE_COVERAGE: tuple[Mapping[str, Any], ...] = (
+    {"channel": "generate", "covered": True,
+     "reason": "LLMClient.generate: чат-ответы, L1/L2, Stage-1/2, tool-phase"},
+    {"channel": "generate_chat", "covered": True,
+     "reason": "LLMClient.generate_chat: реальные tool-calling вызовы"},
+    {"channel": "generate_background", "covered": True,
+     "reason": "LLMClient.generate_background: фоновые батчи"},
+    {"channel": "generate_worker", "covered": True,
+     "reason": "LLMClient.generate_worker: выделенные роли воркеров"},
+    {"channel": "stream_chat_completion", "covered": True,
+     "reason": ("SSE-стрим фиксируется при успешном завершении; ошибки "
+                "стрима классифицируются существующими LLM*-исключениями")},
+    {"channel": "embed", "covered": False,
+     "reason": ("эмбеддинги не формируют «итоговый промпт» (контракт "
+                "input/vectors, без messages) — в журнал вызовов модели "
+                "не входят")},
+)
+
+
+def trace_coverage() -> list[dict]:
+    """Что реально трассируется (INS-TRACE), без молчаливых пропусков."""
+    return [dict(row) for row in PROVIDER_TRACE_COVERAGE]
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # «Покажи effective layers» + R17-safe события
 # ═════════════════════════════════════════════════════════════════════════════

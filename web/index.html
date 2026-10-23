@@ -9393,6 +9393,18 @@
                         Это превью сборки, а НЕ фактический запрос провайдера:
                         снимка реального вызова в памяти процесса ещё нет.
                       </div>
+                      <!-- INS-TRACE: какие каналы реально попадают в журнал. -->
+                      <details v-if="(speechInspector.trace_coverage || []).length"
+                               class="text-xs text-gray-500" data-speech-trace-coverage>
+                        <summary>Что журнал покрывает</summary>
+                        <div v-for="(c, ci) in speechInspector.trace_coverage"
+                             :key="'tc-' + ci">
+                          {{ c.channel }} —
+                          <span :class="c.covered ? '' : 'text-gray-400'">
+                            {{ c.covered ? 'пишется' : 'НЕ пишется' }}</span>:
+                          {{ c.reason }}
+                        </div>
+                      </details>
                       <div class="speech-adv-title">system</div>
                       <pre class="speech-pre" data-speech-exact-system>{{ (speechInspector.exact && speechInspector.exact.system) || '(пусто)' }}</pre>
                       <div class="speech-adv-title">user-блоки (по порядку)</div>

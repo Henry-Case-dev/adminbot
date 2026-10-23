@@ -55,6 +55,7 @@ from test_p0_persistfix_speech_chat_scope import (  # noqa: E402
 
 import web.api.speech as S  # noqa: E402
 from services import chat_params  # noqa: E402
+from services import llm_client  # noqa: E402
 from services import prompt_factory as pf  # noqa: E402
 from services import prompt_composer as composer  # noqa: E402
 
@@ -64,15 +65,9 @@ VIEWPORTS = ((320, 720), (360, 780), (390, 844), (430, 932),
              (1280, 900), (1440, 900), (667, 375))
 LONG_WORD = "сверхдлинноесловобезпробеловкотороенедолжнообрезатьсянаузкомэкране"
 URL = "https://example.test/very/long/path?query=1&token_hint=not-a-secret"
-
-
-def _cache():
-    db = sqlite3.connect(":memory:", isolation_level=None,
-                         check_same_thread=False)
-    create_schema(db)
-    seed_profile(db, -100500)
-    chat_params.set_chat_params_cache(chat_params.ChatParamsCache(SqlitePg(db)))
-    return W6 and db
+#: INS-PRIVACY (review F2): секрет и длинный Telegram-ID не должны попасть в DOM.
+SECRET = "sk-live-e2e0123456789abcdef"
+LONG_ID = "987654321012"
 
 
 def build_payload() -> dict:
@@ -105,7 +100,8 @@ def build_payload() -> dict:
             chat_id=CHAT_ID, run_id=run_id,
             base_prompt="СИСТЕМНАЯ РОЛЬ: контракт канала Direct.",
             identity=composer.IdentityRef(
-                text="Ты участник чата. Правило: %s" % LONG_WORD,
+                text=("Ты участник чата. Правило: %s\napi_key=%s; участник %s"
+                      % (LONG_WORD, SECRET, LONG_ID)),
                 source="global"),
             user_parts=("Пользователь: %s" % URL,),
             gates=composer.gates_from_config()))
@@ -115,8 +111,12 @@ def build_payload() -> dict:
                     {"role": "user", "content": "Пользователь: %s" % URL}]
         payload = {"model": "e2e-trace-model", "messages": messages,
                    "temperature": 0.4}
+        # Как в проде: журнал получает уже санитизированные тексты (R17).
+        masked = [{"role": m["role"],
+                   "content": llm_client._mask_secrets(m["content"])}
+                  for m in messages]
         composer.record_provider_call(
-            payload=payload, messages=messages, model="e2e-trace-model",
+            payload=payload, messages=masked, model="e2e-trace-model",
             provider="provider.example", module="direct_chat", step="single",
             correlation_id=run_id, chat_id=CHAT_ID, status="ok")
         insp = asyncio.run(S._inspector_payload(cache, user, ctx, CHAT_ID))
@@ -246,6 +246,14 @@ def main() -> int:
                        label + ": текст не выходит за карточку")
                     ok(box["doc"] <= box["win"] + 1,
                        label + ": нет второй горизонтальной прокрутки")
+
+                    # INS-PRIVACY (review F2): в DOM нет секрета/полного ID.
+                    html = page.content()
+                    ok(SECRET not in html, label + ": секрет не в DOM")
+                    ok(LONG_ID not in html, label + ": полный ID не в DOM")
+                    # INS-TRACE: покрытие каналов видно владельцу.
+                    ok(page.query_selector("[data-speech-trace-coverage]")
+                       is not None, label + ": покрытие журнала показано")
 
                     # INS-SKIPREASON: русский текст + машинный код в title.
                     if not args.no_shots and width in (390, 1280):

@@ -1833,12 +1833,12 @@ def _inspector_exact(provider_call, preview: dict) -> dict:
             "recorded_at": provider_call.get("recorded_at") or "",
             "roles": provider_call.get("roles") or [],
             "chars_total": provider_call.get("chars_total") or 0,
-            "system": system,
+            "system": _mask_text(system),
             "messages": [{"role": m.get("role") or "",
                           "chars": m.get("chars") or 0,
                           "sha256": m.get("sha256") or "",
                           "truncated": bool(m.get("truncated")),
-                          "text": m.get("text") or ""} for m in messages],
+                          "text": _mask_text(m.get("text"))} for m in messages],
             "chat_id_redacted": provider_call.get("chat_id_redacted") or "",
         }
     # Снимка реального вызова нет: показываем сборку, но это ПРЕВЬЮ.
@@ -1959,11 +1959,13 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
             "style": _style_sent_summary(manifest),
         }
         layer_texts = composer.render_layer_texts(manifest)
+        # INS-PRIVACY (review F2): иерархия строится ТОЛЬКО по маскированным
+        # текстам — сырой слой в JSON/DOM не попадает.
         sent["layer_texts"] = [
             {**row, "text": _mask_text(row.get("text"))}
             for row in (layer_texts.get("layers") or ())]
-        sent["hierarchy"] = _inspector_hierarchy(sent["layers"],
-                                                 layer_texts)
+        sent["hierarchy"] = _inspector_hierarchy(
+            sent["layers"], {"layers": sent["layer_texts"]})
         sent["skip_reasons"] = [
             {"layer": row["layer"], "label": row["label"],
              "code": row["skip_reason_code"], "text": row["skip_reason_human"]}
@@ -1993,7 +1995,9 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
         {"layer": row["layer"], "label": row["label"],
          "code": row["skip_reason_code"], "text": row["skip_reason_human"]}
         for row in preview_layers if not row["rendered"]]
-    preview["hierarchy"] = _inspector_hierarchy(preview_layers)
+    preview["hierarchy"] = _inspector_hierarchy(
+        preview_layers,
+        {"layers": preview.get("layer_texts") or preview_layers})
     preview["conflicts_detail"] = _inspector_conflicts(
         preview_layers, preview.get("conflicts") or [], style_global, style_chat)
     return {
@@ -2027,6 +2031,9 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
         "conflicts_detail": (sent["conflicts_detail"] if sent
                              else preview.get("conflicts_detail") or {}),
         "masked": True,
+        # INS-TRACE (review F3): какие каналы реально трассируются и почему
+        # что-то не покрыто — без молчаливых пробелов.
+        "trace_coverage": composer.trace_coverage(),
         "retention": ("манифест и снимок вызова живут в in-memory bounded "
                       "кэше композера (процесс/ход); тексты маскируются "
                       "(секреты, длинные ID)"),
@@ -2141,12 +2148,18 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
     style_summary = _style_build_summary(policy, layers)
     style_summary["documents"] = _style_documents_summary(style_global,
                                                           style_chat)
+    # INS-HIERARCHY (review: preview-only показывал «текст недоступен»):
+    # тексты блоков отдаются и для предпросмотра — маскированными.
+    layer_texts = composer.render_layer_texts(manifest)
     return {
         "manifest_id": manifest.manifest_id,
         "writer": manifest.writer,
         "profile": manifest.profile,
         "tokens_total": manifest.tokens_total,
         "layers": layers,
+        "layer_texts": [
+            {**row, "text": _mask_text(row.get("text"))}
+            for row in (layer_texts.get("layers") or ())],
         "layer_order": [t.layer for t in manifest.layers],
         "versions": dict(manifest.versions or {}),
         "flags": dict(manifest.flags or {}),

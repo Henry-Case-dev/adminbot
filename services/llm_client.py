@@ -506,6 +506,30 @@ class LLMClient:
         """Канал trace: 'fallback' только когда реально ушёл fallback-модели."""
         return "fallback" if model == self._fallback_model else "primary"
 
+    def _record_sent_call(self, sent, *, payload: dict, messages, module,
+                          step, correlation_id, chat_id, status: str = "ok",
+                          error: str = ""):
+        """INS-EXACT/INS-TRACE: журнал = ПОСЛЕДНЕЕ фактически отправленное тело.
+
+        ``sent`` заполняют точки отправки (`_post_with_key` — primary,
+        `_post_fallback` — тело с подменённой model). Поэтому checksum и
+        сообщения в журнале совпадают с HTTP-телом даже при fallback, а не
+        описывают payload до адаптера/подмены модели.
+        """
+        channel, body = ("primary", payload)
+        if sent:
+            channel, body = sent[-1]
+        try:
+            body_messages = body.get("messages") or messages
+            model = str(body.get("model") or self._chat_model)
+        except Exception:       # pragma: no cover — защитная ветка
+            body_messages, model = messages, self._chat_model
+        _record_provider_call(
+            payload=body, messages=body_messages, model=model,
+            provider=self._provider_label(model), module=module, step=step,
+            correlation_id=correlation_id, chat_id=chat_id,
+            channel=channel, status=status, error=error)
+
     def _current_embed_api_key(self) -> str:
         """OD-1 (раунд 10.12): ключ primary-эмбеддингов из горячего конфига
         (keys.embedding_api_key). Пусто → keys.llm_api_key (обратная
@@ -1125,21 +1149,38 @@ class LLMClient:
         content = "".join(parts)
         if not content.strip():
             raise LLMBadResponseError("LLM stream: empty content")
+        # INS-TRACE: успешный SSE-стрим — тоже реальный вызов провайдера.
+        # Ошибки стрима классифицируются существующими LLM*-исключениями и в
+        # журнал не пишутся (это отражено в `trace_coverage` Inspector).
+        _record_provider_call(
+            payload=payload, messages=messages,
+            model=str(payload.get("model") or ""),
+            provider=_provider_host(base), module="summary_stream",
+            step="chat_stream", correlation_id="", chat_id=None,
+            status="ok")
         return content, usage
 
     async def _post_with_key(self, path: str, payload: dict,
                              chat_id: int | None = None,
-                             key: str | None = None) -> httpx.Response:
+                             key: str | None = None,
+                             sent: list | None = None) -> httpx.Response:
         """Раунд 10 (F-7 §5.2): резолв ключа чата + _post с этим ключом.
         `key` — уже решённый per-call источник (фикс R6); None → резолв
-        здесь (легаси-путь)."""
+        здесь (легаси-путь).
+
+        ``sent`` — INS-EXACT: per-call список фактически отправленных тел
+        (``(channel, body)``); дописывается ТОТ ЖЕ объект, что уходит в HTTP.
+        """
         if key is None:
             key, _source = await self._resolve_api_key_and_source(chat_id)
+        if sent is not None:
+            sent.append(("primary", payload))
         return await self._post(path, payload, api_key=key)
 
     async def _post_fallback(self, payload: dict, path: str = "/chat/completions",
                              model: str | None = None,
-                             timeout: float | None = None) -> httpx.Response:
+                             timeout: float | None = None,
+                             sent: list | None = None) -> httpx.Response:
         """Epic 53 (62.4): РОВНО одна попытка на фоллбэке, БЕЗ ретраев.
 
         Тот же payload, model заменён на LLM_FALLBACK_MODEL (или переданную —
@@ -1156,12 +1197,18 @@ class LLMClient:
         url = f"{self._fallback_base_url.rstrip('/')}{path}"
         fallback_payload = dict(payload)
         fallback_payload["model"] = model or self._fallback_model
+        # INS-EXACT: журнал получает РОВНО это тело (с подменённой model),
+        # а не payload до fallback-подмены.
+        if sent is not None:
+            sent.append(("fallback", fallback_payload))
         post_kwargs: dict = {}
         if timeout is not None:
             post_kwargs["timeout"] = httpx.Timeout(timeout, connect=10.0)
         return await client.post(url, json=fallback_payload, **post_kwargs)
 
-    async def _fallback_with_retries(self, payload: dict) -> httpx.Response | None:
+    async def _fallback_with_retries(self, payload: dict,
+                                     sent: list | None = None
+                                     ) -> httpx.Response | None:
         """Epic 64: фоллбэк с ретраями транзиентных отказов (429/5xx/транспорт).
 
         Детерминированные не-200 (400/401/403/404…) НЕ ретраятся. По исчерпании
@@ -1183,7 +1230,7 @@ class LLMClient:
                 )
             try:
                 async with asyncio.timeout(self._fallback_timeout):
-                    fb_resp = await self._post_fallback(payload)
+                    fb_resp = await self._post_fallback(payload, sent=sent)
             except Exception as fb_exc:
                 # T-2467: содержательный R17-safe текст (repr при пустом
                 # str) вместо `Type: ` у ReadTimeout/TimeoutError.
@@ -1326,11 +1373,15 @@ class LLMClient:
         # F7 (review iter1): фактически использованная модель — при срабатывании
         # фоллбэка цена/токены атрибутируются правильной модели.
         used_model = self._chat_model
+        # INS-EXACT/INS-TRACE: per-call список фактически отправленных тел
+        # (канал, тело). Журнал берёт ПОСЛЕДНЕЕ — то, что реально ушло.
+        sent: list = []
         try:
             if supervised_transport is not None:
                 # ASAP 4.1 волна 4: supervised Summary-канал — per-call
                 # transport-контракт Supervisor'а (ADR-1028-8 D5.2); ключ
                 # уже резолвнут выше (тот же BYOK-слой).
+                sent.append(("primary", payload))
                 response = await self._post(
                     "/chat/completions", payload, api_key=key,
                     budget=supervised_transport.get("budget"),
@@ -1343,17 +1394,17 @@ class LLMClient:
                 )
             else:
                 response = await self._post_with_key(
-                    "/chat/completions", payload, chat_id=chat_id, key=key)
+                    "/chat/completions", payload, chat_id=chat_id, key=key,
+                    sent=sent)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
             # INS-TRACE: неудачная попытка тоже реальный вызов провайдера —
-            # фиксируем payload этой попытки (checksum до fallback-recompose).
-            _record_provider_call(
-                payload=payload, messages=messages, model=self._chat_model,
-                provider=self._provider_label(self._chat_model), module=module,
-                step=step, correlation_id=correlation_id, chat_id=chat_id,
-                status="error", error=type(exc).__name__)
+            # фиксируем ровно отправленное тело этой попытки.
+            self._record_sent_call(
+                sent, payload=payload, messages=messages,
+                module=module, step=step, correlation_id=correlation_id,
+                chat_id=chat_id, status="error", error=type(exc).__name__)
             if supervised_transport is not None:
                 # Supervisor — единственный владелец fallback-решения
                 # (ADR-1028-8 D5.3: no retry multiplication) — внутренний
@@ -1389,7 +1440,7 @@ class LLMClient:
                         "LLM fallback recompose FAILED — primary payload "
                         "SENT AS-IS | oversized_risk=1 | fallback_window=%s",
                         self._fallback_model, exc_info=True)
-            fb_response = await self._fallback_with_retries(payload)
+            fb_response = await self._fallback_with_retries(payload, sent=sent)
             if fb_response is None:
                 raise exc from None
             response = fb_response
@@ -1398,43 +1449,35 @@ class LLMClient:
         try:
             data = response.json()
         except ValueError as exc:
-            _record_provider_call(
-                payload=payload, messages=messages, model=used_model,
-                provider=self._provider_label(used_model), module=module,
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
-                channel=self._channel_label(used_model), status="error",
-                error="LLMBadResponseError")
+                status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: invalid JSON response") from exc
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            _record_provider_call(
-                payload=payload, messages=messages, model=used_model,
-                provider=self._provider_label(used_model), module=module,
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
-                channel=self._channel_label(used_model), status="error",
-                error="LLMBadResponseError")
+                status="error", error="LLMBadResponseError")
             raise LLMBadResponseError(
                 "chat/completions: no choices[0].message.content in response"
             ) from exc
         if not isinstance(content, str) or not content.strip():
-            _record_provider_call(
-                payload=payload, messages=messages, model=used_model,
-                provider=self._provider_label(used_model), module=module,
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
-                channel=self._channel_label(used_model), status="error",
-                error="LLMBadResponseError")
+                status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: empty content")
         logger.info(
             "LLM generate OK | model=%s | out_chars=%d", self._chat_model, len(content)
         )
-        # INS-TRACE/INS-EXACT: снимок ровно того payload, что ушёл провайдеру
+        # INS-TRACE/INS-EXACT: снимок ровно того тела, что ушло провайдеру
         # (после adapt/fallback-recompose): checksum считается по этому телу.
-        _record_provider_call(
-            payload=payload, messages=messages, model=used_model,
-            provider=self._provider_label(used_model), module=module,
-            step=step, correlation_id=correlation_id, chat_id=chat_id,
-            channel=self._channel_label(used_model))
+        self._record_sent_call(
+            sent, payload=payload, messages=messages, module=module,
+            step=step, correlation_id=correlation_id, chat_id=chat_id)
         await self._record_global_usage(chat_id, content, source=source)
         usage = data.get("usage") if isinstance(data, dict) else None
         await self._record_analytics(usage, messages, content, source=source,
@@ -1457,10 +1500,22 @@ class LLMClient:
         """
         key = self._current_api_key()
         payload = {"model": self._chat_model, "messages": messages}
-        response = await self._post(
-            "/chat/completions", payload, api_key=key,
-            budget=float(deadline),
-            max_retries=max(0, int(max_attempts) - 1))
+        sent: list = [("primary", payload)]
+        try:
+            response = await self._post(
+                "/chat/completions", payload, api_key=key,
+                budget=float(deadline),
+                max_retries=max(0, int(max_attempts) - 1))
+        except Exception as exc:
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module="background",
+                step=str(purpose or "background"), correlation_id=None,
+                chat_id=None, status="error", error=type(exc).__name__)
+            raise
+        # INS-TRACE: фоновый канал фиксируется тем же bounded-журналом.
+        self._record_sent_call(
+            sent, payload=payload, messages=messages, module="background",
+            step=str(purpose or "background"), correlation_id=None, chat_id=None)
         try:
             data = response.json()
         except ValueError as exc:
@@ -1531,6 +1586,7 @@ class LLMClient:
         payload: dict = {"model": model, "messages": messages}
         if temperature is not None:
             payload["temperature"] = temperature
+        sent: list = [("primary", payload)]
         try:
             response = await self._post(
                 "/chat/completions", payload, api_key=key,
@@ -1543,8 +1599,16 @@ class LLMClient:
             logger.warning(
                 "[worker_llm] dedicated failed → main | role=%s | error=%s",
                 role, type(exc).__name__)
+            self._record_sent_call(
+                sent, payload=payload, messages=messages,
+                module="worker", step=str(role or "worker"),
+                correlation_id=None, chat_id=chat_id, status="error",
+                error=type(exc).__name__)
             return await self.generate(messages, temperature=temperature,
                                        chat_id=chat_id)
+        self._record_sent_call(
+            sent, payload=payload, messages=messages, module="worker",
+            step=str(role or "worker"), correlation_id=None, chat_id=chat_id)
         logger.info(
             "[worker_llm] dedicated OK | role=%s | model=%s | out_chars=%d",
             role, model, len(content))
@@ -1606,12 +1670,19 @@ class LLMClient:
                 payload["max_tokens"] = _max_out
         # F7 (review iter1): фактически использованная модель (фоллбэк).
         used_model = self._chat_model
+        # INS-EXACT/INS-TRACE: тот же bounded-журнал, что у generate().
+        sent: list = []
         try:
             response = await self._post_with_key(
-                "/chat/completions", payload, chat_id=chat_id, key=key)
+                "/chat/completions", payload, chat_id=chat_id, key=key,
+                sent=sent)
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error=type(exc).__name__)
             if not self._fallback_active or isinstance(exc, LLMBadResponseError):
                 raise
             _LLM_STATS["fallbacks"] += 1
@@ -1639,7 +1710,7 @@ class LLMClient:
                         "LLM fallback recompose FAILED — primary payload "
                         "SENT AS-IS | oversized_risk=1 | tools_in_payload=%s",
                         bool(payload.get("tools")), exc_info=True)
-            fb_response = await self._fallback_with_retries(payload)
+            fb_response = await self._fallback_with_retries(payload, sent=sent)
             if fb_response is None:
                 raise exc from None
             response = fb_response
@@ -1648,10 +1719,18 @@ class LLMClient:
         try:
             data = response.json()
         except ValueError as exc:
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: invalid JSON response") from exc
         try:
             choice = data["choices"][0]
         except (KeyError, IndexError, TypeError) as exc:
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error="LLMBadResponseError")
             raise LLMBadResponseError(
                 "chat/completions: no choices[0] in response"
             ) from exc
@@ -1707,6 +1786,12 @@ class LLMClient:
                 "LLM generate_chat reasoning-only | model=%s | reasoning_chars=%d",
                 self._chat_model, len(reasoning_text))
         content_text = content if (isinstance(content, str) and content.strip()) else None
+        # INS-TRACE: tool-calling вызов фиксируется тем же журналом (реальный
+        # Stage-1/tool вызов — не только generate()).
+        self._record_sent_call(
+            sent, payload=payload, messages=messages, module=module,
+            step=step or "tool_call", correlation_id=correlation_id,
+            chat_id=chat_id)
         await self._record_global_usage(chat_id, content_text, source=source)
         usage = data.get("usage") if isinstance(data, dict) else None
         await self._record_analytics(usage, messages, content, source=source,
