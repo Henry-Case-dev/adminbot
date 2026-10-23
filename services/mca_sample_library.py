@@ -562,13 +562,29 @@ def parse_tags(raw: Any) -> list[str]:
     return [str(t) for t in parsed] if isinstance(parsed, list) else []
 
 
+def _clip_field(name: str, value: Any, cap: int) -> str:
+    """Обрезка поля примера до cap с честным WARN (ASAP3 §2).
+
+    Владелец может вставить текст длиннее технического потолка; сохранение
+    раньше резало его молча. R17-safe: в лог идут только имя поля и числа.
+    """
+    text = str(value or "").strip()
+    if len(text) <= cap:
+        return text
+    logger.warning("[humor-samples] field clipped | field=%s | chars=%d -> %d",
+                   name, len(text), cap)
+    return text[:cap]
+
+
 def normalize_fields(fields: Mapping[str, Any]) -> dict:
     """Нормализовать входные поля (fail-closed по закрытым наборам)."""
     out: dict[str, Any] = {}
     if "input_text" in fields:
-        out["input_text"] = str(fields.get("input_text") or "").strip()[:2000]
+        out["input_text"] = _clip_field(
+            "input_text", fields.get("input_text"), 2000)
     if "reply_text" in fields:
-        out["reply_text"] = str(fields.get("reply_text") or "").strip()[:4000]
+        out["reply_text"] = _clip_field(
+            "reply_text", fields.get("reply_text"), 4000)
     if "technique" in fields:
         technique = str(fields.get("technique") or "other")
         out["technique"] = technique if technique in SAMPLE_TECHNIQUES else "other"

@@ -376,27 +376,60 @@ def build_expression_settings(chat_doc: Any, global_doc: Any):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def render_expression_examples_block(mode: str, rows: Any) -> str:
+class ExampleRender(str):
+    """Блок примеров + фактический состав (ASAP3 §2: без скрытой потери).
+
+    ``str``-совместим: существующие потребители читают значение как текст
+    блока (``sha12``/``_estimate_tokens``/``startswith``), а состав доступен
+    полями — сколько строк было у владельца и сколько реально вошло.
+    """
+
+    __slots__ = ("mode", "total_items", "included_items", "dropped",
+                 "limited_by")
+
+    def __new__(cls, block: str = "", *, mode: str = "", total_items: int = 0,
+                included_items: int = 0, limited_by: str = "") -> "ExampleRender":
+        obj = str.__new__(cls, block)
+        obj.mode = str(mode or "")
+        obj.total_items = int(total_items)
+        obj.included_items = int(included_items)
+        obj.dropped = max(0, obj.total_items - obj.included_items)
+        obj.limited_by = str(limited_by or "")
+        return obj
+
+    def as_dict(self) -> dict:
+        """R17-safe диагностика: только числа и коды, без текста реплик."""
+        return {"mode": self.mode, "total_items": self.total_items,
+                "included_items": self.included_items,
+                "dropped": self.dropped, "limited_by": self.limited_by,
+                "chars": len(self)}
+
+
+def render_expression_examples_block(mode: str, rows: Any) -> ExampleRender:
     """Блок ``<Expression_Examples mode="…">`` из строк библиотеки (§3.2).
 
     Бюджет ≤140 токенов: при перерасходе отбрасываются последние строки
     (блок всегда остаётся корректно закрытым); пустой результат → ``""``.
+    ASAP3 §2: отбор/бюджет не молчат — фактический состав едет в
+    :class:`ExampleRender` (``total_items``/``included_items``/``limited_by``).
     """
     mode = normalize_mode(mode)
     if mode not in ("off", "occasional", "frequent"):
-        return ""
-    lines: list[str] = []
+        return ExampleRender("")
+    candidates: list[str] = []
     for row in (rows or ()):
         theme = str(row.get("context_note") or "").strip() or "реплика"
         user_line = str(row.get("input_text") or "").strip()
         reply = str(row.get("reply_text") or "").strip()
         if not user_line or not reply:
             continue
-        lines.append(f"- {theme}: {user_line} -> {reply}")
-        if len(lines) >= EXPRESSION_EXAMPLES_MAX_ITEMS:
-            break
-    if not lines:
-        return ""
+        candidates.append(f"- {theme}: {user_line} -> {reply}")
+    if not candidates:
+        return ExampleRender("")
+    lines = candidates[:EXPRESSION_EXAMPLES_MAX_ITEMS]
+    reasons: list[str] = []
+    if len(candidates) > len(lines):
+        reasons.append("items")
 
     def _assemble(kept: list[str]) -> str:
         return "\n".join((
@@ -404,11 +437,20 @@ def render_expression_examples_block(mode: str, rows: Any) -> str:
             EXPRESSION_EXAMPLES_CLOSE))
 
     block = _assemble(lines)
-    while lines and (_estimate_tokens(block) > EXPRESSION_EXAMPLES_MAX_TOKENS
-                     or len(block) > EXPRESSION_EXAMPLES_MAX_CHARS):
+    while lines:
+        over_tokens = _estimate_tokens(block) > EXPRESSION_EXAMPLES_MAX_TOKENS
+        over_chars = len(block) > EXPRESSION_EXAMPLES_MAX_CHARS
+        if not (over_tokens or over_chars):
+            break
+        if over_tokens:
+            reasons.append("tokens")
+        if over_chars:
+            reasons.append("chars")
         lines.pop()
         block = _assemble(lines) if lines else ""
-    return block
+    return ExampleRender(
+        block, mode=mode, total_items=len(candidates),
+        included_items=len(lines), limited_by="+".join(dict.fromkeys(reasons)))
 
 
 def _estimate_tokens(text: str) -> int:
@@ -447,8 +489,31 @@ async def build_expression_examples_refs(chat_id: int, mode: str, *,
                     source="global", technique="expression_register",
                     enabled=False,
                     skip_reason="not_owner_approved"),)
+            if rows:
+                # ASAP3 §2: одобренные строки ЕСТЬ, но технический бюджет
+                # §3.2 (≤4 строки / 140 токенов / 700 симв.) не оставил ни
+                # одной. Молчаливое «absent» выдавало бы потерю за пустой
+                # набор: причина — budget_excluded (не лимит владельца).
+                logger.warning(
+                    "[expression] examples fit budget=0 | mode=%s | "
+                    "rows=%d | by=%s", mode, len(rows),
+                    getattr(text, "limited_by", ""))
+                from services.prompt_composer import SampleRef
+                return (SampleRef(
+                    block_id="expression_examples", text="", revision="",
+                    source="global", technique="expression_register",
+                    enabled=False, skip_reason="budget_excluded"),)
             return ()
         from services.prompt_composer import SampleRef
+        dropped = int(getattr(text, "dropped", 0) or 0)
+        if dropped > 0:
+            # ASAP3 §2: частичное исключение одобренных строк — не молча:
+            # R17-safe числа в WARN (текст реплик не логируется).
+            logger.warning(
+                "[expression] examples capped | mode=%s | kept=%d/%d | by=%s",
+                mode, int(getattr(text, "included_items", 0)),
+                int(getattr(text, "total_items", 0)),
+                getattr(text, "limited_by", ""))
         return (SampleRef(
             block_id="expression_examples",
             text=text,

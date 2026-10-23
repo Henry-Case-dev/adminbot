@@ -583,16 +583,26 @@ def _clean_confidence(raw) -> float:
 
 def format_dossier_block(facts: list[str] | tuple[str, ...],
                          memes: list[str] | tuple[str, ...],
-                         cap_chars: int) -> str:
+                         cap_chars: int,
+                         stats: dict | None = None) -> str:
     """Рендер досье двумя блоками (spec §6): `[Факты]` и
     `[Локальные мемы/Ярлыки]`.
 
     - пустой блок НЕ рендерится (старое досье без memes → только `[Факты]`);
     - общий бюджет `cap_chars`; при переполнении первыми урезаются МЕМЫ,
       затем факты; cap_chars <= 0 — без ограничения;
-    - при нехватке места под сами заголовки возвращается ""."""
+    - при нехватке места под сами заголовки возвращается "".
+    - ``stats`` (ASAP3 §2, необязательный out-параметр): фактические числа
+      ``facts_total``/``facts_kept``/``memes_total``/``memes_kept``/
+      ``truncated`` — чтобы вызывающий код не терял факт усечения молча."""
     fact_items = [str(x).strip() for x in (facts or []) if str(x).strip()]
     meme_items = [str(x).strip() for x in (memes or []) if str(x).strip()]
+    if stats is not None:
+        stats.update({"facts_total": len(fact_items),
+                      "memes_total": len(meme_items),
+                      "facts_kept": len(fact_items),
+                      "memes_kept": len(meme_items),
+                      "truncated": False})
     if not fact_items and not meme_items:
         return ""
     cap = int(cap_chars or 0)
@@ -605,17 +615,28 @@ def format_dossier_block(facts: list[str] | tuple[str, ...],
             parts.append(_MEMES_HEADER + "\n" + "\n".join(m))
         return "\n".join(parts)
 
+    def _stats() -> None:
+        if stats is not None:
+            stats["facts_kept"] = len(fact_items)
+            stats["memes_kept"] = len(meme_items)
+            stats["truncated"] = (
+                len(fact_items) < int(stats["facts_total"])
+                or len(meme_items) < int(stats["memes_total"]))
+
     text = rendered(fact_items, meme_items)
     if cap <= 0 or len(text) <= cap:
+        _stats()
         return text
     while meme_items and len(rendered(fact_items, meme_items)) > cap:
         meme_items.pop()
     text = rendered(fact_items, meme_items)
     if len(text) <= cap:
+        _stats()
         return text
     while fact_items and len(rendered(fact_items, meme_items)) > cap:
         fact_items.pop()
     text = rendered(fact_items, meme_items)
+    _stats()
     return text if len(text) <= cap else ""
 
 
