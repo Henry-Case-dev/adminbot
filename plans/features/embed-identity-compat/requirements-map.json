@@ -665,6 +665,14 @@
         {
           "candidate_commit": "570e1eee",
           "type": "test",
+          "ref": "запись в очереди",
+          "observation": "Снимок entry из plans/progress_scope.json: status=BUILDING, coverage_complete=true, source_note содержит факт привязки к 570e1eee и остаток; зафиксирован source_sha256_at_capture.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/progress-scope-entry-2026-10-23.json",
+          "artifact_sha256": "53f0ce6a64b3752fd1b9c8367b8e3c7762cfb8a810304acb2c8824197425a165"
+        },
+        {
+          "candidate_commit": "570e1eee",
+          "type": "test",
           "ref": "машинный граф",
           "observation": "slice-graph.json: 6 слайсов, зависимости и write-scope без циклов; plan-гейт EXIT 0.",
           "artifact_path": "plans/features/embed-identity-compat/slice-graph.json",

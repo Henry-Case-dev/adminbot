@@ -1,0 +1,18 @@
+{
+  "schema": "openworkflow-progress-entry-v1",
+  "captured_at": "2026-10-23T14:46:00+12:00",
+  "captured_by": "PM-BIND-EMBED-IDENTITY",
+  "source_file": "plans/progress_scope.json",
+  "source_sha256_at_capture": "5e3369236113ae4fcd26bc622d82c07120df553997e01f7fcdddbe3b800f6f0e",
+  "task": {
+    "id": "embed-identity-compat",
+    "status": "BUILDING",
+    "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
+    "source_sha256": "429A986838D5F7539F89517BB2C33E77B9E2007C4BCFEEA30264A86B49FF66FB",
+    "maps": [
+      "plans/features/embed-identity-compat/requirements-map.json"
+    ],
+    "coverage_complete": true,
+    "source_note": "P0 23.10 (дословный снимок, 109 строк): разделить Embedding Model Identity и Provider Connection Identity; смена API-шлюза при той же модели не повод для полной перевекторизации; canary по СТАРЫМ сохранённым векторам (запрет new-vs-new); три исхода compatible/divergent/insufficient_data; rebuild только по доказанной несовместимости; согласование summary_memory/control plane/graphrag/generations/MiniApp; 10 сценариев приёмки отдельными req_id; без новых сервисов/таблиц/реестров/хардкода. 59 required / 13 context / 0 unclassified, plan-гейт EXIT 0; ARCHITECT_REQUIRED (контракт identity/fingerprint и legacy-отпечатков). | BIND 23.10 (PM-BIND-EMBED-IDENTITY): candidate_commit=570e1eee; 59 required → 54 VERIFIED, 2 READY_FOR_LIVE (ACC-10/11, postdeploy), 3 PENDING (IDENT-02 MSI-поля, CANARY-03 revision, DEC-09 откат допуска) с next_check; evidence с artifact_sha256; A0-probe compatible (mean/min/hit5=1.0, KNN top-1 42/42) на 30a2f868, проба байт-идентична 570e1eee; resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK; деплой не выполнен. docs-коммиты 21114cf8/8d716351."
+  }
+}
