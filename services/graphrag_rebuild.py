@@ -101,6 +101,13 @@ FAILED_BUILD_JOB_STATUSES = frozenset({ST_FAILED, ST_VALIDATION_FAILED,
                                        ST_CANCELLED})
 # Паузы по quota/provider — авто-resume (AM-1); операторская `paused` — нет.
 AUTO_RESUME_STATUSES = frozenset({ST_PAUSED_RATE_LIMIT, ST_PAUSED_PROVIDER})
+# B1 (review 23.10.2026): пауза «до вердикта совместимости» отличается от
+# операторской durable `reason_code` (статус `paused` у обеих). Маркер в
+# `task_jobs.reason_code` переживает рестарт, поэтому доказанная
+# несовместимость снова возобновляет сборку, а process-set — больше не
+# единственный авторитет. Операторскую `paused` (`reason_code='paused'`)
+# этот маркер не задевает никогда.
+COMPAT_PAUSE_REASON = "paused_compat_insufficient"
 # Статусы, из которых failure-классификатор (_handle_build_failure) имеет
 # право переводить джобу (M-ASAP4-3): expect берётся от ФАКТИЧЕСКОГО статуса —
 # исключение на пост-checkpoint стадии (validate/emit) больше не молчит как
@@ -621,6 +628,15 @@ def _payload_generation(job: dict | None) -> int:
         return int(payload.get("generation") or 0)
     except (ValueError, TypeError):
         return 0
+
+
+def _payload_fingerprint(job: dict | None) -> str:
+    """`fingerprint` из payload джобы ('' — нет/битый payload)."""
+    try:
+        payload = json.loads(str((job or {}).get("payload") or "{}"))
+        return str(payload.get("fingerprint") or "")
+    except (ValueError, TypeError):
+        return ""
 
 
 async def _repoint_job_to_generation(db, job_id: str, index_name: str, fp: str,
@@ -1930,6 +1946,12 @@ async def _build_state_from_job(db, index_name: str, fp: str,
     job_gen = int(job.get("generation") or 0)
     if status in FAILED_BUILD_JOB_STATUSES:
         return "build_failed", (str(job.get("reason_code") or "") or status)
+    if status == ST_PAUSED and \
+            str(job.get("reason_code") or "") == COMPAT_PAUSE_REASON:
+        # B1: пауза «до вердикта совместимости» — это НЕ «сборка идёт»:
+        # перестройка не запущена, индекс ждёт пробы/старых векторов (панель
+        # больше не рапортует build_in_progress при замороженной сборке).
+        return "compat_insufficient", COMPAT_PAUSE_REASON
     if generation > 0 and job_gen > 0 and job_gen < generation:
         # джоба описывает СТАРОЕ поколение того же fp (A→B→A до/без B1-фикса)
         return "build_pending", "job_stale_generation"
@@ -2008,6 +2030,12 @@ async def maybe_schedule_rebuilds(memory, *, include_failed: bool = True
                             current_dims=getattr(memory, "_vec_dim", None),
                             embed_fn=getattr(memory, "_embed", None))
                         state = str(compat.get("state") or "")
+                    if state == ecp.STATE_INCOMPATIBLE:
+                        # B1 (review 23.10.2026): пауза «до вердикта» (в т.ч.
+                        # пережившая рестарт — durable reason_code) больше не
+                        # нужна: доказанная несовместимость должна вести к
+                        # контролируемой миграции, а не в вечный FTS-only.
+                        await resume_compat_paused(db, index_name)
                     if state in (ecp.STATE_COMPATIBLE, ecp.STATE_INSUFFICIENT,
                                  ecp.STATE_SOURCE_EMPTY):
                         continue
@@ -2248,13 +2276,85 @@ async def _ensure_job(db, index_name: str, fp: str, generation: int
 
 # ── §64: pause/resume/cancel + статус (для health/Analytics T-4216) ─────────
 
-async def pause_rebuild(db, index_name: str) -> bool:
+async def pause_rebuild(db, index_name: str, *,
+                        reason_code: str = "paused") -> bool:
+    """Пауза сборки индекса. `reason_code` отличает ПРИЧИНУ паузы:
+    `paused` — операторская (не авто-возобновляется никогда),
+    `COMPAT_PAUSE_REASON` — ожидание вердикта совместимости (снимается
+    резолвером при incompatible/adopt, в т.ч. после рестарта)."""
     job = await _find_active_job(db, index_name,
                                  await _current_fp_async(db, index_name) or "")
     if job is None:
         return False
     return await _job_cas(db, str(job["job_id"]), expect=ST_RUNNING,
-                          set_status=ST_PAUSED, reason_code="paused")
+                          set_status=ST_PAUSED,
+                          reason_code=str(reason_code or ST_PAUSED))
+
+
+async def _compat_paused_jobs(db, index_name: str, *,
+                              fp: str | None = None) -> list[dict]:
+    """Durable-джобы индекса в compat-паузе (`status=paused`,
+    `reason_code=COMPAT_PAUSE_REASON`). `fp` — только этот fingerprint,
+    иначе — самые свежие по индексу. Операторские `paused` не попадают сюда
+    никогда (другой reason_code)."""
+    coalesce = (_coalesce_key(index_name, str(fp))
+                if fp else _coalesce_key(index_name, ""))
+    try:
+        if fp:
+            sql = ("SELECT * FROM task_jobs WHERE kind = ? AND coalesce_key = ? "
+                   "AND status = ? AND reason_code = ? LIMIT 4")
+            params = (_KIND, coalesce, ST_PAUSED, COMPAT_PAUSE_REASON)
+        else:
+            # `%`/`_` экранируются: имя индекса не должно работать как шаблон.
+            prefix = (coalesce.replace("\\", "\\\\")
+                      .replace("%", "\\%").replace("_", "\\_"))
+            sql = ("SELECT * FROM task_jobs WHERE kind = ? "
+                   "AND coalesce_key LIKE ? ESCAPE '\\' AND status = ? "
+                   "AND reason_code = ? ORDER BY created_at DESC LIMIT 4")
+            params = (_KIND, f"{prefix}%", ST_PAUSED, COMPAT_PAUSE_REASON)
+        cursor = await db.db.execute(sql, params)
+        return [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        logger.warning("graphrag rebuild: compat pause lookup failed | "
+                       "index=%s", index_name, exc_info=True)
+        return []
+
+
+async def _release_compat_pause(db, index_name: str, *, fp: str | None,
+                                set_status: str, reason_code: str,
+                                terminal: bool = False,
+                                resume_registry: bool = False) -> int:
+    """CAS-перевод compat-пауз (`paused` + `COMPAT_PAUSE_REASON`) в целевой
+    статус. Операторские `paused` не матчатся по reason_code и не меняются."""
+    released = 0
+    for job in await _compat_paused_jobs(db, index_name, fp=fp):
+        job_fp = _payload_fingerprint(job)
+        if await _job_cas(db, str(job["job_id"]), expect=ST_PAUSED,
+                          set_status=set_status, reason_code=reason_code,
+                          terminal=terminal):
+            released += 1
+            if resume_registry and job_fp:
+                await _registry_resume(db, index_name, job_fp)
+    return released
+
+
+async def resume_compat_paused(db, index_name: str, *,
+                               fp: str | None = None) -> int:
+    """B1: снять ТОЛЬКО compat-паузу → `queued` (durable reason_code, не
+    process-set: работает и после рестарта). Возвращает число возобновлённых."""
+    return await _release_compat_pause(db, index_name, fp=fp,
+                                       set_status=ST_QUEUED,
+                                       reason_code="compat_resume",
+                                       resume_registry=True)
+
+
+async def cancel_compat_paused(db, index_name: str, *,
+                               fp: str | None = None) -> int:
+    """B1: отменить compat-паузу (`queued`-цель больше не нужна после adopt)."""
+    return await _release_compat_pause(db, index_name, fp=fp,
+                                       set_status=ST_CANCELLED,
+                                       reason_code="compat_cancelled",
+                                       terminal=True)
 
 
 async def resume_rebuild(db, index_name: str, *, fp: str | None = None
@@ -2332,5 +2432,6 @@ __all__ = [
     "graphrag_rebuild_enabled", "maybe_schedule_rebuilds", "run_job",
     "ensure_current_generation", "generation_status",
     "pause_rebuild", "resume_rebuild", "cancel_rebuild", "rebuild_status",
+    "resume_compat_paused", "cancel_compat_paused", "COMPAT_PAUSE_REASON",
     "RESUME_TICK_SECONDS", "start_resume_ticker", "resume_tick_once",
 ]
