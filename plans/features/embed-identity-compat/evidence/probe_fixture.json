@@ -1,0 +1,66 @@
+{
+  "fixture": "tests/test_embed_identity_compat.py",
+  "dims": 8,
+  "model": "gemini-embedding-001",
+  "facts": 20,
+  "outcomes": {
+    "identical_vectors_new_gateway": {
+      "verdict": "compatible",
+      "reason_code": "",
+      "checked": 12,
+      "mean": 1.0,
+      "min": 1.0,
+      "hit5": 1.0,
+      "runs": 1,
+      "band": null,
+      "sampled_facts": 12
+    },
+    "band_mean_0_99": {
+      "verdict": "compatible",
+      "reason_code": "",
+      "checked": 12,
+      "mean": 1.0,
+      "min": 1.0,
+      "hit5": 1.0,
+      "runs": 2,
+      "band": {
+        "mean": 0.99,
+        "min": 0.99,
+        "hit5": 1.0,
+        "reason_code": "weak_numeric"
+      },
+      "sampled_facts": 12
+    },
+    "same_model_name_other_space": {
+      "verdict": "incompatible",
+      "reason_code": "low_hit5",
+      "checked": 12,
+      "mean": 0.151428,
+      "min": -0.217498,
+      "hit5": 0.25,
+      "runs": 1,
+      "band": null,
+      "sampled_facts": 12
+    },
+    "api_unavailable": {
+      "verdict": "insufficient",
+      "reason_code": "api_unavailable",
+      "checked": 0,
+      "mean": null,
+      "min": null,
+      "hit5": null,
+      "runs": 1,
+      "band": null,
+      "sampled_facts": 0
+    }
+  },
+  "live_rows_after_probes": 20,
+  "source_rows_after_probes": 20,
+  "generations": [
+    {
+      "generation": 1,
+      "status": "building",
+      "fingerprint": "84e3019891e8"
+    }
+  ]
+}
