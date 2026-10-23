@@ -34,12 +34,14 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_R1023,
     PREV_CHAT_VERBALIZER_W1,
     PREV_CHAT_VERBALIZER_W1_31,
+    PREV_CHAT_VERBALIZER_CLAR,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
     PREV_DIRECT_L1_PLANNER_1022,
     PREV_DIRECT_L1_PLANNER_L1D,
     PREV_DIRECT_L1_PLANNER_CLAR,
+    PREV_DIRECT_L1_PLANNER_R3,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -270,14 +272,18 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # ASAP W1 (22.10.2026): откат → прод-канон 2.58.110 (d0ef0d376fc3).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 §3.1 (прод 2.58.111, be03964322aa); стек ступеней цел.
+    # SPEECH-CANON R3b (23.10.2026): откат снимает ТОЛЬКО ступень R3b →
+    # канон 2.58.113 (§3.1 + абзацы §4.2).
     "prompts.direct_chat_verbalizer_system_prompt":
-        PREV_CHAT_VERBALIZER_W1_31,
+        PREV_CHAT_VERBALIZER_CLAR,
     # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 (прод 2.58.111, f8ab20121c02); стек ступеней цел.
     # SPEECH-INIT-FIX R3 (23.10.2026): откат снимает ТОЛЬКО ступень R3 →
     # непосредственный прод-канон 2.58.113 (канон W1 + контракт уточнений).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_CLAR,
+    # SPEECH-CANON R3b (23.10.2026): откат снимает ТОЛЬКО ступень R3b →
+    # канон R3 (база R3 + контракт §4.1 + правила).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_R3,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -681,7 +687,10 @@ class TestMca23Migration:
             (PREV_CHAT_VERBALIZER_W1, DIRECT_VERBALIZER_SYSTEM_PROMPT),
             # ASAP 2 (23.10.2026, §4.2): канон W1 §3.1 (прод 2.58.111)
             # → канон с абзацами уточнений в «КАК ПИСАТЬ».
-            (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
+            (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+            # SPEECH-CANON R3b (23.10.2026): канон 2.58.113 → канон с одной
+            # узкой инструкцией о честной границе истории.
+            (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_mca23_snapshots_differ_from_new(self):
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
@@ -699,10 +708,12 @@ class TestMca23Migration:
         ASAP W1: откат — на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон 2.58.110
         (PREV_CHAT_VERBALIZER_W1, d0ef0d376fc3).
         ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
-        канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31)."""
+        канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31).
+        SPEECH-CANON R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113
+        (§3.1 + абзацы §4.2, PREV_CHAT_VERBALIZER_CLAR)."""
         assert ROLLBACK_MIGRATIONS[
             "prompts.direct_chat_verbalizer_system_prompt"] == (
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1_31)
+            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR)
 
     @pytest.mark.asyncio
     async def test_pre_mca23_canon_migrates_to_new(self):
@@ -790,13 +801,14 @@ class TestMca23Migration:
         # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3)
         # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
         # канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31).
+        # R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113.
         assert cache.set_calls == [(
             "prompts.direct_chat_verbalizer_system_prompt",
-            PREV_CHAT_VERBALIZER_W1_31, "prompts")]
+            PREV_CHAT_VERBALIZER_CLAR, "prompts")]
         # обратная миграция возвращает новый канон (идемпотентность стека)
         back = FakeCache(values={
             "prompts.direct_chat_verbalizer_system_prompt":
-                PREV_CHAT_VERBALIZER_W1_31})
+                PREV_CHAT_VERBALIZER_CLAR})
         report2 = await migrate_prompt_canons(back)
         assert report2 == {
             "prompts.direct_chat_verbalizer_system_prompt": "updated"}

@@ -86,11 +86,12 @@ def test_p0a_verbalizer_is_owner_text_with_documented_adaptation():
     # байты канона W1 §3.1 (прод 2.58.111) заморожены как ступень ASAP 2
     assert cp.PREV_CHAT_VERBALIZER_W1_31 == expected
     assert expected.count("Если вход передан JSON-пакетом") == 1
-    # активный канон = W1-канон + единственная вставка §4.2 в «КАК ПИСАТЬ»
+    # активный канон = W1-канон + вставка §4.2 (и R3b-граница) в «КАК ПИСАТЬ»
     assert cp.DIRECT_VERBALIZER_SYSTEM_PROMPT == expected.replace(
         "обычная болтовня не требует длинного текста.",
         "обычная болтовня не требует длинного текста.\n\n"
-        + cp._VERBALIZER_CLAR_PARAGRAPHS, 1)
+        + cp._VERBALIZER_CLAR_PARAGRAPHS + "\n\n"
+        + cp._VERBALIZER_HISTORY_BOUNDARY_R3B, 1)
     canon = cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     # вставка ровно одна, в разделе «КАК ПИСАТЬ», до «ВЫХОД»
     assert canon.count("Если намерение пользователя понятно") == 1
@@ -122,9 +123,9 @@ def test_p0a_verbalizer_registered_editable_resettable_and_used_in_l2():
     assert spec.ui == "catalog" and spec.speech is True
     assert pr.factory_text(block_id) == \
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
-    # ASAP 2: метка ревизии бампнута (l2-writer-clar)
+    # ASAP 2: метка ревизии бампнута (l2-writer-clar); R3b: граница истории
     assert pr.factory_revision(block_id).startswith("fac:") and \
-        "l2-writer-clar" in pr.factory_revision(block_id)
+        "l2-writer-clar-boundary" in pr.factory_revision(block_id)
     # L2-сборка (каналы композера) сохраняет канон головой payload
     composed = psb.compose_verbalizer_system(
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, "", "plain",
@@ -396,7 +397,7 @@ def test_p0g_parser_contract_unchanged_and_validator_never_assigns():
 
 def test_91_factory_and_active_revisions_distinguishable():
     rev = pr.factory_revision("direct.base.l2_writer")
-    assert rev.startswith("fac:") and "l2-writer-clar" in rev
+    assert rev.startswith("fac:") and "l2-writer-clar-boundary" in rev
     eff = pr.effective_prompt("direct.base.l2_writer")
     assert eff.factory_revision.startswith("fac:")
     assert eff.revision.startswith("act:") or eff.revision == ""

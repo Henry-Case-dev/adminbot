@@ -33,6 +33,7 @@ from services.chat_prompts import (  # noqa: E402
     PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_W1,
     _DIRECT_L1_CLARIFICATION_CONTRACT,
+    _DIRECT_L1_CONTINUATION_R3B,
     _DIRECT_L1_PLANNER_BASE,
     _DIRECT_L1_PLANNER_BASE_L1D,
     _DIRECT_L1_PLANNER_BASE_R1022,
@@ -61,6 +62,7 @@ def test_canon_schema_has_delivery_fields():
     canon = DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert canon == (_DIRECT_L1_PLANNER_BASE_R3
                      + _DIRECT_L1_CLARIFICATION_CONTRACT
+                     + _DIRECT_L1_CONTINUATION_R3B
                      + _DIRECT_L1_PLANNER_RULES)
     assert '"action": "reply|react|silent"' in canon
     assert '"delivery": "chat|reply|null"' in canon
@@ -161,15 +163,24 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert "УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА" not in PREV_DIRECT_L1_PLANNER_W1
     # SPEECH-INIT-FIX R3: прод-канон 2.58.113 (W1 + контракт уточнений)
-    # ведёт на усиленную секцию участия; слепок точен, откат на него.
+    # ведёт на усиленную секцию участия; слепок точен.
+    # SPEECH-CANON R3b: R3-канон ведёт на канон с усилением продолжения;
+    # откат снимает только ступень R3b (на слепок R3).
+    from services.chat_prompts import PREV_DIRECT_L1_PLANNER_R3
     assert targets[PREV_DIRECT_L1_PLANNER_CLAR] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert PREV_DIRECT_L1_PLANNER_CLAR == (
         _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_CLARIFICATION_CONTRACT
         + _DIRECT_L1_PLANNER_RULES)
+    assert targets[PREV_DIRECT_L1_PLANNER_R3] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert PREV_DIRECT_L1_PLANNER_R3 == (
+        _DIRECT_L1_PLANNER_BASE_R3 + _DIRECT_L1_CLARIFICATION_CONTRACT
+        + _DIRECT_L1_PLANNER_RULES)
+    assert PREV_DIRECT_L1_PLANNER_R3 not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == \
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_CLAR)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3)
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
 
 

@@ -125,9 +125,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # ASAP 2 (23.10.2026, §4.1/§4.2 asap2 source): канон уточнений вставлен
     # (L1 контракт + правило 5-отсылка; L2 абзацы «КАК ПИСАТЬ»); прежние
     # байты — PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31.
-    "direct.base.l2_writer": "l2-writer-clar",
+    "direct.base.l2_writer": "l2-writer-clar-boundary",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-participation-r3",
+    "direct.base.l1_planner": "l1-planner-continuation-r3b",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -1672,7 +1672,20 @@ def factory_set_fingerprint() -> str:
 #: байты 2.58.113 — PREV_DIRECT_L1_PLANNER_CLAR (лестница + откат).
 #: Было ``24ae494ac422``, стало ``c531f7b289d1``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "c531f7b289d1"
+#: SPEECH-CANON R3b (23.10.2026, T10-BOUNDARY + T20 / §4.1 продолжение):
+#: ``direct.base.l1_planner`` — после контракта §4.1 добавлено узкое
+#: смысловое усиление продолжения (ответ на собственный уточняющий вопрос
+#: считается полученным; уточнение по одному намерению задаётся один раз);
+#: текст владельца §4.1, правила и секция участия не менялись.
+#: ``direct.base.l2_writer`` — одна узкая инструкция о честной границе
+#: истории (назвать ограничение один раз обычными словами, служебную метку
+#: не публиковать); абзацы §4.2 владельца не пересказаны. Метки
+#: ``l1-planner-continuation-r3b`` / ``l2-writer-clar-boundary``; прежние
+#: байты 2.58.113 — PREV_DIRECT_L1_PLANNER_R3 и PREV_CHAT_VERBALIZER_CLAR
+#: (ступени лестницы + откат). changed = 2.
+#: Было ``c531f7b289d1``, стало ``0163a686c401``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "0163a686c401"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

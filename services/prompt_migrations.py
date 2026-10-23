@@ -42,6 +42,7 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_R1023,
     PREV_CHAT_VERBALIZER_W1,
     PREV_CHAT_VERBALIZER_W1_31,
+    PREV_CHAT_VERBALIZER_CLAR,
     PREV_CHAT_W1_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
@@ -49,6 +50,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_L1D,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_DIRECT_L1_PLANNER_CLAR,
+    PREV_DIRECT_L1_PLANNER_R3,
     PREV_PERSONALITY_CORE_FULL_TEXT,
     PREV_PERSONALITY_CORE_FULL_V2_TEXT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -179,7 +181,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # 2.58.111) ведёт на канон с абзацами уточнений в «КАК ПИСАТЬ»
         # (вставка §4.2, единственная правка; подлинные кастомы владельца
         # лестницей не трогаются — только точное совпадение байт).
-        (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+        (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        # SPEECH-CANON R3b (23.10.2026, T10-BOUNDARY / CLAR-CTX-HONEST):
+        # канон 2.58.113 (W1 §3.1 + абзацы §4.2) ведёт на канон с одной
+        # узкой инструкцией о честной границе истории. Только точное
+        # совпадение байт; абзацы владельца не пересказаны.
+        (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
     # Planner Direct. Ступень — база канона без правил (слепок
     # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
@@ -211,7 +218,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # прод-канон 2.58.113 (канон W1 + контракт уточнений) ведёт на
         # канон с усиленными смысловыми критериями доставки/адресата и
         # target для реакции. Только точное совпадение байт.
-        (PREV_DIRECT_L1_PLANNER_CLAR, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
+        (PREV_DIRECT_L1_PLANNER_CLAR, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        # SPEECH-CANON R3b (23.10.2026, T20 / §4.1 продолжение): канон R3
+        # (база R3 + контракт §4.1 + правила) ведёт на канон с узким
+        # усилением продолжения после ответа на уточнение. Только точное
+        # совпадение байт; правила и секция участия не менялись.
+        (PREV_DIRECT_L1_PLANNER_R3, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -366,8 +378,10 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3).
     # ASAP 2 (23.10.2026): откат снимает только ступень уточнений —
     # на канон W1 §3.1 (прод 2.58.111).
+    # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
+    # канон 2.58.113 (PREV_CHAT_VERBALIZER_CLAR: §3.1 + абзацы §4.2).
     "prompts.direct_chat_verbalizer_system_prompt":
-        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_W1_31),
+        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR),
     # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,
     # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
     # ASAP 2 (23.10.2026): откат снимает ступень уточнений — на канон W1
@@ -375,8 +389,10 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # SPEECH-INIT-FIX R3 (23.10.2026): откат снимает только ступень R3 —
     # на непосредственный прежний прод-канон 2.58.113 (PREV_..._CLAR:
     # канон W1 + контракт уточнений); стек ступеней цел.
+    # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
+    # канон R3 (PREV_DIRECT_L1_PLANNER_R3: база R3 + контракт §4.1 + правила).
     "prompts.direct_l1_planner_system_prompt":
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_CLAR),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3),
     # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         (FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1),
