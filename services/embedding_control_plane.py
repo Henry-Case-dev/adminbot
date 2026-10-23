@@ -1366,6 +1366,14 @@ class EmbeddingExecutor:
                 adapter = self.adapter_for(credential.base_url)
                 vectors = await self._call_with_segmentation(
                     adapter, credential, texts, stats)
+                # CANARY-03: фактическая модель генерации — тот credential,
+                # который реально обслужил батч (fallback-слот может быть
+                # настроен на другую модель, чем primary). Читает проба
+                # совместимости; R17: только модель/provider/alias, без ключа.
+                _LAST_EMBED_META.set({"model": credential.model,
+                                      "provider": credential.provider,
+                                      "alias": credential.alias,
+                                      "source": MODEL_SOURCE_REQUEST})
                 self._on_success(credential, len(texts))
                 return vectors
             except EmbeddingControlPlaneError:
@@ -2457,6 +2465,29 @@ COMPAT_PROBE_HIT5_FLOOR = 0.40
 COMPAT_PROBE_BAND_MIN = 0.970          # 0.970 <= mean < 0.995 → один повтор
 COMPAT_PROBE_REPEAT_COOLDOWN_S = 900.0  # insufficient перепроверяется раз за тик
 
+# ── CANARY-03 (source §2 шаг 1): ФАКТИЧЕСКИЕ метаданные генерации ────────────
+# Проба обязана фиксировать не только размерность, но и фактическую модель,
+# доступную ревизию и параметры генерации. Каналы (там, где доступны):
+#   1) embed-вызываемый объект вернул `(vectors, meta)` — ответ провайдера/
+#      адаптера (`model_source='response'`);
+#   2) контрол-плейн запомнил модель ФАКТИЧЕСКИ выбранного credential'а
+#      (`_LAST_EMBED_META`, `model_source='request'`): fallback-слот может быть
+#      настроен на другую модель, чем primary, — это и есть реальная генерация.
+# Решает по-прежнему векторная проверка + KNN-hit: у OpenAI-совместимых
+# ответов revision/params обычно отсутствуют, и требовать их значило бы
+# блокировать ровно тот сценарий смены шлюза, ради которого сделана фича
+# (`revision_unknown`/`params_unknown` — честная фиксация, НЕ insufficient).
+MODEL_SOURCE_RESPONSE = "response"     # явный ответ провайдера/адаптера
+MODEL_SOURCE_REQUEST = "request"       # модель фактически выбранного слота
+MODEL_SOURCE_UNKNOWN = "unknown"
+META_AVAILABLE = "available"
+META_MODEL_UNKNOWN = "model_unknown"
+META_REVISION_UNKNOWN = "revision_unknown"
+META_PARAMS_UNKNOWN = "params_unknown"
+
+_LAST_EMBED_META: contextvars.ContextVar[dict] = contextvars.ContextVar(
+    "embedding_control_plane.last_embed_meta", default={})
+
 # Process-level: незавершённый вердикт (гейт фоновой drift-canary), троттлинг
 # повторных проб и последний вердикт пробы (негативные не персистятся —
 # перепроверяются раз за старт/тик, §6). Ключ вердикта — (space, conn).
@@ -2778,17 +2809,82 @@ def _current_conn() -> str:
         return ""
 
 
+def _split_embed_result(raw) -> tuple[list, dict]:
+    """Результат embed-вызова: `list` (метаданные недоступны) либо
+    `(vectors, meta)` — фактическая модель/ревизия/параметры от провайдера."""
+    if (isinstance(raw, tuple) and len(raw) == 2
+            and isinstance(raw[1], dict)):
+        return list(raw[0] or []), dict(raw[1])
+    return list(raw or []), {}
+
+
+def _normalized_model(value) -> str:
+    """Имя модели для сравнения: провайдеры отдают `models/gemini-…`, конфиг —
+    `gemini-…` (одно пространство), регистр/пробелы не значимы."""
+    text = str(value or "").strip().casefold()
+    return text[len("models/"):] if text.startswith("models/") else text
+
+
+def _generation_metadata(meta: dict | None, *,
+                         default_source: str) -> dict:
+    """R17-safe блок ФАКТИЧЕСКИХ метаданных генерации (CANARY-03).
+
+    Отсутствующие поля честно помечаются `model_unknown`/`revision_unknown`/
+    `params_unknown` — это НЕ повод объявлять совместимость недоказанной:
+    решает сравнение старых векторов + KNN-hit."""
+    meta = dict(meta or {})
+    model = str(meta.get("model") or "").strip()
+    revision = str(meta.get("revision") or "").strip()
+    raw_params = meta.get("params")
+    params = ({str(k): str(v) for k, v in sorted(raw_params.items())}
+              if isinstance(raw_params, dict) else {})
+    source = str(meta.get("source") or "").strip() or (
+        default_source if meta else MODEL_SOURCE_UNKNOWN)
+    return {
+        "model": model,
+        "model_source": source if model else MODEL_SOURCE_UNKNOWN,
+        "model_status": META_AVAILABLE if model else META_MODEL_UNKNOWN,
+        "revision": revision,
+        "revision_status": (META_AVAILABLE if revision
+                            else META_REVISION_UNKNOWN),
+        "params": params,
+        "params_status": META_AVAILABLE if params else META_PARAMS_UNKNOWN,
+    }
+
+
+_METADATA_FIELDS = ("model", "model_source", "model_status", "revision",
+                    "revision_status", "params", "params_status")
+
+
+def _apply_metadata(out: dict, metadata: dict | None) -> None:
+    """Вложенный блок + плоские поля вердикта (панель/evidence читают оба)."""
+    metadata = dict(metadata or _generation_metadata(
+        None, default_source=MODEL_SOURCE_UNKNOWN))
+    out["metadata"] = metadata
+    for name in _METADATA_FIELDS:
+        out[name] = metadata.get(name)
+
+
 def _admission_canary(admission: dict | None) -> dict:
-    """Блок `canary` из durable-допуска (панель/резолвер)."""
+    """Блок `canary` из durable-допуска (панель/резолвер).
+
+    CANARY-03: durable-допуск — frozen формат §6 (`adopt1:...`), метаданные
+    генерации в него не входят, поэтому честный `model_unknown`/
+    `revision_unknown`/`params_unknown` (а не выдуманное «совпало»); решает
+    допуск, доказанный пробой на старых векторах."""
     if not admission:
         return {"verdict": None, "source": None, "checked": 0,
                 "mean": None, "min": None, "hit5": None, "at": None,
-                "reason_code": None, "runs": 0}
+                "reason_code": None, "runs": 0, "dims": None,
+                "metadata": _generation_metadata(
+                    None, default_source=MODEL_SOURCE_UNKNOWN)}
     return {"verdict": "compatible", "source": "admission",
             "checked": int(admission.get("checked") or 0),
             "mean": admission.get("mean"), "min": admission.get("min"),
             "hit5": admission.get("hit5"), "at": admission.get("at"),
-            "reason_code": None, "runs": 1}
+            "reason_code": None, "runs": 1, "dims": None,
+            "metadata": _generation_metadata(None,
+                                             default_source=MODEL_SOURCE_UNKNOWN)}
 
 
 def _bucket_of(length: int) -> str:
@@ -2942,12 +3038,20 @@ async def _knn_top_ids(db, live: str, vector: list[float],
 
 
 async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
-                             sample_offset: int = 0) -> dict:
-    """Один прогон: новые векторы тех же текстов против СТАРЫХ строк индекса."""
+                             sample_offset: int = 0,
+                             expected_model: str | None = None) -> dict:
+    """Один прогон: новые векторы тех же текстов против СТАРЫХ строк индекса.
+
+    CANARY-03: фиксирует фактические метаданные генерации, если они доступны
+    (ответ провайдера/адаптера либо фактически выбранный credential). Явное
+    несовпадение модели — доказанная несовместимость (решает не имя из
+    конфига, а факт); недоступные revision/params — только фиксация."""
     out: dict = {"verdict": STATE_INSUFFICIENT, "reason_code": "no_old_vectors",
                  "checked": 0, "mean": None, "min": None, "hit5": None,
                  "dims": None, "sampled": 0, "sample_offset": sample_offset,
                  "sample_ids": []}
+    _apply_metadata(out, _generation_metadata(None,
+                                              default_source=MODEL_SOURCE_UNKNOWN))
     meta = _index_meta(index_name)
     if meta is None:
         out["reason_code"] = "index_unknown"
@@ -2978,13 +3082,21 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
         pairs_in.append((row, text))
     if not pairs_in:
         return out
+    # CANARY-03: сбрасываем канал «фактический credential» перед вызовом —
+    # остаток предыдущего вызова не должен выдаваться за метаданные пробы.
+    _LAST_EMBED_META.set({})
     try:
-        vectors = (list(await embed_fn([t for _r, t in pairs_in]))
-                   if embed_fn is not None
-                   else list(await llm.embed([t for _r, t in pairs_in])))
+        raw = (await embed_fn([t for _r, t in pairs_in])
+               if embed_fn is not None
+               else await llm.embed([t for _r, t in pairs_in]))
     except Exception:
         out["reason_code"] = "api_unavailable"
         return out
+    vectors, explicit_meta = _split_embed_result(raw)
+    _apply_metadata(out, _generation_metadata(
+        explicit_meta or _LAST_EMBED_META.get(),
+        default_source=(MODEL_SOURCE_RESPONSE if explicit_meta
+                        else MODEL_SOURCE_REQUEST)))
     if not vectors or len(vectors) != len(pairs_in) or \
             not all(v for v in vectors):
         out["reason_code"] = "api_unavailable"
@@ -2994,6 +3106,16 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
     if any(len(v) != dims for v in vectors):
         out["verdict"] = STATE_INCOMPATIBLE
         out["reason_code"] = "dim_mismatch"
+        return out
+    # CANARY-03: явное расхождение ФАКТИЧЕСКОЙ модели с заявленной — это
+    # другое векторное пространство (fail-safe), даже если численно похоже.
+    expected = str(expected_model if expected_model is not None
+                   else _current_model()).strip()
+    actual = str(out.get("model") or "")
+    if actual and expected and \
+            _normalized_model(actual) != _normalized_model(expected):
+        out["verdict"] = STATE_INCOMPATIBLE
+        out["reason_code"] = "model_mismatch"
         return out
     # Эталоны — ТОЛЬКО сохранённые векторы старого индекса.
     pairs: list[tuple[dict, list[float], list[float]]] = []
@@ -3050,16 +3172,21 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
 
 
 async def compat_probe(db, index_name: str, *, embed_fn=None, llm=None,
-                       sample_offset: int = 0) -> dict:
+                       sample_offset: int = 0,
+                       expected_model: str | None = None) -> dict:
     """Доказательство совместимости на СТАРЫХ векторах (frozen §3).
 
     Порядок: совпадение размерности → косинус по float-колонке → KNN-выдача
     новым вектором к старому индексу. Полоса 0.970≤mean<0.995 требует ОДНОГО
     независимого повтора на другой выборке; compatible — только если оба
     прогона compatible. Недоступность API/мало данных → insufficient
-    (никогда incompatible). Никогда не бросает."""
+    (никогда incompatible). Никогда не бросает.
+
+    CANARY-03: `expected_model` — заявленная identity (по умолчанию текущая
+    конфиг-модель) для сверки с фактической моделью генерации."""
     first = await _compat_probe_once(db, index_name, embed_fn=embed_fn,
-                                     llm=llm, sample_offset=sample_offset)
+                                     llm=llm, sample_offset=sample_offset,
+                                     expected_model=expected_model)
     first.setdefault("runs", 1)
     try:
         mean = first.get("mean")
@@ -3071,9 +3198,18 @@ async def compat_probe(db, index_name: str, *, embed_fn=None, llm=None,
             return first
         second = await _compat_probe_once(
             db, index_name, embed_fn=embed_fn, llm=llm,
-            sample_offset=int(sample_offset) + 1)
+            sample_offset=int(sample_offset) + 1,
+            expected_model=expected_model)
         first["runs"] = 2
         first["repeat"] = second
+        if second.get("verdict") == STATE_INCOMPATIBLE and \
+                second.get("reason_code") == "model_mismatch":
+            # Фактическая модель разошлась между прогонами — это доказанная
+            # несовместимость, а не «недоказанность».
+            _apply_metadata(first, second.get("metadata"))
+            first["verdict"] = STATE_INCOMPATIBLE
+            first["reason_code"] = "model_mismatch"
+            return first
         if set(first.get("sample_ids") or []) == \
                 set(second.get("sample_ids") or []):
             first["verdict"] = STATE_INSUFFICIENT
@@ -3088,7 +3224,9 @@ async def compat_probe(db, index_name: str, *, embed_fn=None, llm=None,
         # слабую полосу сохраняем отдельно (прозрачность, не «лучший из двух»).
         first["band"] = {"mean": first.get("mean"), "min": first.get("min"),
                          "hit5": first.get("hit5"),
-                         "reason_code": first.get("reason_code")}
+                         "reason_code": first.get("reason_code"),
+                         "metadata": first.get("metadata")}
+        _apply_metadata(first, second.get("metadata"))
         first["verdict"] = STATE_COMPATIBLE
         first["reason_code"] = ""
         first["checked"] = min(int(first.get("checked") or 0),
@@ -3597,7 +3735,9 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
                 (now - prev) < COMPAT_PROBE_REPEAT_COOLDOWN_S:
             return compat
         _PROBE_LAST[key] = now
-        probe = await compat_probe(db, index_name, embed_fn=embed_fn, llm=llm)
+        expected_model = str((compat.get("candidate") or {}).get("model") or "")
+        probe = await compat_probe(db, index_name, embed_fn=embed_fn, llm=llm,
+                                   expected_model=expected_model or None)
         note_compat_verdict(index_name, str(probe.get("verdict") or ""),
                             space=str(compat.get("space") or ""),
                             conn=str(compat.get("conn") or ""),
@@ -3611,7 +3751,11 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
                             "at": int(time.time()),
                             "reason_code": probe.get("reason_code"),
                             "runs": int(probe.get("runs") or 1),
-                            "band": probe.get("band")}
+                            "band": probe.get("band"),
+                            # CANARY-03: фактические model/revision/params
+                            # генерации (или честный *_unknown).
+                            "dims": probe.get("dims"),
+                            "metadata": probe.get("metadata")}
         if probe.get("verdict") != STATE_COMPATIBLE:
             verdict = str(probe.get("verdict") or STATE_INSUFFICIENT)
             compat["state"] = verdict

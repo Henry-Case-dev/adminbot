@@ -130,14 +130,19 @@ def _rotated_vectors(texts, space: str, cos: float) -> list[list[float]]:
 class _Embedder:
     """Мок ТОЛЬКО HTTP: считает вызовы и отдаёт векторы выбранного пространства.
 
-    `cos_sequence` — косинус по номеру вызова (полоса повторной пробы)."""
+    `cos_sequence` — косинус по номеру вызова (полоса повторной пробы).
+    `meta` — фактические метаданные ответа провайдера (CANARY-03): при
+    наличии embed возвращает `(vectors, meta)`, как это делает адаптер,
+    которому провайдер отдал `model`/`revision`/`params`."""
 
     def __init__(self, *, space: str = "space-a", dim: int = DIMS,
-                 cos_sequence=None, fail: bool = False):
+                 cos_sequence=None, fail: bool = False,
+                 meta: dict | None = None):
         self.space = space
         self.dim = dim
         self.cos_sequence = list(cos_sequence or [])
         self.fail = fail
+        self.meta = dict(meta or {})
         self.calls: list[list[str]] = []
 
     async def __call__(self, texts):
@@ -146,11 +151,36 @@ class _Embedder:
         if self.fail:
             raise RuntimeError("embedding API unavailable")
         if self.dim != DIMS:
-            return [_unit(f"{self.space}|{t}", self.dim) for t in texts]
-        if self.cos_sequence:
+            vectors = [_unit(f"{self.space}|{t}", self.dim) for t in texts]
+        elif self.cos_sequence:
             idx = min(len(self.calls) - 1, len(self.cos_sequence) - 1)
-            return _rotated_vectors(texts, self.space, self.cos_sequence[idx])
+            vectors = _rotated_vectors(texts, self.space, self.cos_sequence[idx])
+        else:
+            vectors = _space_vectors(texts, self.space)
+        return (vectors, dict(self.meta)) if self.meta else vectors
+
+
+class _ControlPlaneLLM:
+    """Мок ТОЛЬКО сети: `LLMClient.embed_once` для `EmbeddingExecutor`
+    (CANARY-03: модель фактического слота фиксируется контрол-плейном)."""
+
+    def __init__(self, *, space: str = "space-a"):
+        self.space = space
+        self.calls: list[dict] = []
+
+    async def embed_once(self, texts, *, api_key, base_url=None, model=None,
+                         max_retries=0, retry_statuses=()):
+        texts = list(texts)
+        self.calls.append({"texts": texts, "model": model,
+                           "base_url": base_url})
         return _space_vectors(texts, self.space)
+
+
+def _credential(model: str = MODEL) -> ecp.EmbeddingCredential:
+    return ecp.EmbeddingCredential(
+        alias="fallback_1", api_key="k-test", base_url=OLD_HOST, model=model,
+        provider=OLD_PROVIDER, quota_group_id="qg-f1", quota_group_known=True,
+        quota_group_source=ecp.GROUP_SOURCE_EXPLICIT)
 
 
 def _docs(n: int = 20) -> list[tuple[int, str]]:
@@ -846,3 +876,353 @@ async def test_generation_status_and_panel_share_verdict(ctx):
     assert entry["compat"]["serviceable"] is True
     assert entry["compat_class"] == ecp.COMPAT_ADMITTED
     assert entry["compat"]["canary"]["checked"] >= 8
+
+
+# ── IDENT-02: MSI чувствителен к КАЖДОМУ полю identity ─────────────────────
+# source §1: «фактическая модель, её версия, размерность, режим формирования,
+# нормализация и параметры, влияющие на значения векторов». Одного model+dims
+# недостаточно: каждое поле по отдельности меняет MSI; одинаковые значения —
+# одинаковый MSI; порядок/формат не дают ЛОЖНЫХ различий.
+
+_IDENTITY = {
+    "model": MODEL,
+    "revision": "rev-2026-09",
+    "dimension": DIMS,
+    "task_mode": "document_retrieval",
+    "normalization": "unit_norm",
+    "preprocessing_version": "casefold-strip-v1",
+    "material_params": {"dimensions": DIMS, "truncate": "false"},
+}
+
+
+def test_msi_changes_with_every_identity_field():
+    """Каждое поле identity по отдельности меняет MSI (иначе значение поля
+    не участвует в критерии совместимости)."""
+    base = ecp.model_space_identity(**_IDENTITY)
+    assert isinstance(base, str) and len(base) == 16
+    variants = {
+        "model": {"model": OTHER_MODEL},
+        "revision": {"revision": "rev-2026-10"},
+        "dimension": {"dimension": DIMS * 2},
+        "task_mode": {"task_mode": "symmetric"},
+        "normalization": {"normalization": "none"},
+        "preprocessing_version": {
+            "preprocessing_version": "casefold-strip-v2"},
+        "material_param_value": {
+            "material_params": {"dimensions": DIMS, "truncate": "true"}},
+        "material_param_key": {
+            "material_params": {"dimensions": DIMS, "truncate": "false",
+                                "drop_header": "true"}},
+    }
+    digests = {}
+    for name, patch in variants.items():
+        digest = ecp.model_space_identity(**{**_IDENTITY, **patch})
+        assert digest != base, f"поле {name} не влияет на MSI"
+        digests[name] = digest
+    assert len(set(digests.values())) == len(variants), \
+        "разные поля не должны схлопываться в один MSI"
+
+
+def test_msi_same_values_same_digest_regardless_of_format():
+    """Одинаковые значения → одинаковый MSI: порядок материальных параметров
+    и формат (пробелы, str/int, `models/`-префикс не входит в MSI) не дают
+    ложных различий."""
+    first = ecp.model_space_identity(**_IDENTITY)
+    second = ecp.model_space_identity(
+        model=f"  {MODEL}  ", revision=" rev-2026-09 ",
+        dimension=str(DIMS), task_mode="document_retrieval",
+        normalization="unit_norm",
+        preprocessing_version="casefold-strip-v1",
+        material_params={"truncate": "false", "dimensions": str(DIMS)})
+    assert first == second
+    # Детерминизм: повторный вызов на тех же данных — тот же digest.
+    assert ecp.model_space_identity(**_IDENTITY) == first
+
+
+def test_msi_default_preprocessing_version_is_factual():
+    """`preprocessing_version` по умолчанию — ФАКТИЧЕСКАЯ версия предобработки
+    (единый источник summary_memory), а не пустая строка: смена версии
+    предобработки обязана менять MSI."""
+    implicit = ecp.model_space_identity(model=MODEL, dimension=DIMS)
+    explicit = ecp.model_space_identity(
+        model=MODEL, dimension=DIMS,
+        preprocessing_version=sm.EMBEDDING_PREPROCESSING_VERSION)
+    assert implicit == explicit
+    assert ecp.model_space_identity(
+        model=MODEL, dimension=DIMS,
+        preprocessing_version=f"{sm.EMBEDDING_PREPROCESSING_VERSION}-next"
+    ) != implicit
+
+
+# ── CANARY-03: фактические model/revision/params генерации ─────────────────
+# source §2 шаг 1: «сверить фактическую размерность, модель, доступную
+# информацию о версии и параметры генерации». Решает векторная проверка +
+# KNN-hit (совпадение имени модели доказательством НЕ является), поэтому:
+#   * явное несовпадение ФАКТИЧЕСКОЙ модели → incompatible (даже при
+#     численно совпавших векторах);
+#   * dims mismatch → incompatible;
+#   * недоступные revision/params → revision_unknown/params_unknown, НЕ
+#     insufficient, если векторы прошли пороги (иначе блокировался бы ровно
+#     сценарий смены шлюза);
+#   * все метаданные недоступны + слабая векторная проверка → insufficient.
+
+@pytest.mark.asyncio
+async def test_canary03_response_model_mismatch_is_incompatible(ctx):
+    """Провайдер вернул ДРУГУЮ модель: векторы численно совпали, но это
+    доказанная несовместимость — adopt/запись запрещены, штатная миграция."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    embedder = _Embedder(space="space-a", meta={"model": OTHER_MODEL})
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=embedder,
+                                   expected_model=MODEL)
+    assert probe["verdict"] == ecp.STATE_INCOMPATIBLE
+    assert probe["reason_code"] == "model_mismatch"
+    assert probe["model"] == OTHER_MODEL
+    assert probe["model_source"] == ecp.MODEL_SOURCE_RESPONSE
+    assert probe["hit5"] is None, "численное сравнение не выдаётся за доказательство"
+
+    result = await _ensure(ctx, new_fp,
+                           _Embedder(space="space-a",
+                                     meta={"model": OTHER_MODEL}))
+    assert result["state"] == ecp.STATE_INCOMPATIBLE
+    assert result["reason_code"] == "model_mismatch"
+    assert result["canary"]["metadata"]["model"] == OTHER_MODEL
+    assert result["canary"]["metadata"]["model_status"] == ecp.META_AVAILABLE
+    assert await ctx.db.get_active_embedding_generation(INDEX) is None
+    assert await gr.maybe_schedule_rebuilds(ctx.mm) == [INDEX]
+    target = await ctx.db.get_generation_by_fingerprint(INDEX, new_fp)
+    assert target is not None and target["status"] == "building"
+    assert await _count(ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") \
+        == len(docs)
+
+
+@pytest.mark.asyncio
+async def test_canary03_unknown_revision_params_do_not_block_compatible(ctx):
+    """Провайдер вернул модель, но НЕ вернул revision/params (обычный
+    OpenAI-совместимый ответ): поля честно `*_unknown`, вердикт — compatible
+    по векторной проверке. Это защита сценария смены шлюза ради которого
+    сделана фича."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    embedder = _Embedder(space="space-a", meta={"model": MODEL})
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=embedder,
+                                   expected_model=MODEL)
+    assert probe["verdict"] == ecp.STATE_COMPATIBLE
+    assert probe["metadata"]["model"] == MODEL
+    assert probe["metadata"]["model_source"] == ecp.MODEL_SOURCE_RESPONSE
+    assert probe["metadata"]["revision_status"] == ecp.META_REVISION_UNKNOWN
+    assert probe["metadata"]["params_status"] == ecp.META_PARAMS_UNKNOWN
+    assert probe["checked"] >= ecp.COMPAT_PROBE_MIN_SAMPLE
+
+    result = await _ensure(ctx, new_fp, _Embedder(space="space-a",
+                                                  meta={"model": MODEL}))
+    assert result["state"] == ecp.STATE_COMPATIBLE
+    canary = result["canary"]
+    assert canary["metadata"]["model"] == MODEL
+    assert canary["metadata"]["revision_status"] == ecp.META_REVISION_UNKNOWN
+    assert result["class"] == ecp.COMPAT_ADMITTED
+    active = await ctx.db.get_active_embedding_generation(INDEX)
+    assert active["fingerprint"] == old_fp
+    assert str(active["config_revision"]).startswith("adopt1:")
+
+
+@pytest.mark.asyncio
+async def test_canary03_available_metadata_is_recorded(ctx):
+    """Доступные revision/params попадают в вердикт как есть; `models/…` —
+    та же модель (нормализация без ложного mismatch)."""
+    await _seed(ctx, _docs())
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+    meta = {"model": f"models/{MODEL}", "revision": "001",
+            "params": {"task_mode": "document_retrieval",
+                       "dimensionality": DIMS}}
+    probe = await ecp.compat_probe(ctx.db, INDEX,
+                                   embed_fn=_Embedder(space="space-a",
+                                                      meta=meta),
+                                   expected_model=MODEL)
+    assert probe["verdict"] == ecp.STATE_COMPATIBLE, \
+        "models/gemini-… — то же пространство, что gemini-…"
+    assert probe["metadata"]["model"] == f"models/{MODEL}"
+    assert probe["metadata"]["revision"] == "001"
+    assert probe["metadata"]["revision_status"] == ecp.META_AVAILABLE
+    assert probe["metadata"]["params"]["task_mode"] == "document_retrieval"
+    assert probe["metadata"]["params"]["dimensionality"] == str(DIMS)
+    assert probe["metadata"]["params_status"] == ecp.META_AVAILABLE
+    assert probe["metadata"]["model_source"] == ecp.MODEL_SOURCE_RESPONSE
+
+
+@pytest.mark.asyncio
+async def test_canary03_all_metadata_unknown_with_weak_vectors_is_insufficient(
+        ctx):
+    """Все метаданные недоступны + слабая векторная проверка (полоса, повтор
+    не подтвердил) → insufficient: ничего не активируется, данные целы."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+    embedder = _Embedder(space="space-a", cos_sequence=[0.99, 0.95])
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=embedder)
+    assert probe["verdict"] == ecp.STATE_INSUFFICIENT
+    assert probe["runs"] == 2
+    assert probe["model_status"] == ecp.META_MODEL_UNKNOWN
+    assert probe["model_source"] == ecp.MODEL_SOURCE_UNKNOWN
+    assert probe["revision_status"] == ecp.META_REVISION_UNKNOWN
+    assert probe["params_status"] == ecp.META_PARAMS_UNKNOWN
+
+    result = await _ensure(ctx, new_fp, _Embedder(fail=True))
+    assert result["state"] == ecp.STATE_INSUFFICIENT
+    assert await ctx.db.get_active_embedding_generation(INDEX) is None
+    assert await ctx.mm._vec_write_allowed(INDEX) is False
+    assert await _count(ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") \
+        == len(docs)
+
+
+@pytest.mark.asyncio
+async def test_canary03_control_plane_records_actual_routed_model(
+        ctx, monkeypatch):
+    """Фактическая модель берётся у credential'а, РЕАЛЬНО обслужившего батч
+    (request-level канал контрол-плейна), даже если embed-функция возвращает
+    только векторы. Fallback-слот с другой моделью — доказанная
+    несовместимость: пространство определяется генерацией, не конфигом."""
+    await _seed(ctx, _docs())
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    good_llm = _ControlPlaneLLM(space="space-a")
+    monkeypatch.setattr(ecp, "build_credential_pool",
+                        lambda: [_credential(MODEL)])
+    good_executor = ecp.EmbeddingExecutor(good_llm)
+
+    async def _embed_good(texts):
+        return await good_executor.embed(list(texts),
+                                         priority=ecp.Priority.P2_REPAIR)
+
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=_embed_good,
+                                   expected_model=MODEL)
+    assert probe["verdict"] == ecp.STATE_COMPATIBLE
+    assert probe["model"] == MODEL
+    assert probe["model_source"] == ecp.MODEL_SOURCE_REQUEST
+    assert probe["revision_status"] == ecp.META_REVISION_UNKNOWN
+    assert good_llm.calls and good_llm.calls[0]["model"] == MODEL
+
+    # «Кривой» fallback-слот: настроен на другую модель, векторы при этом
+    # отдаёт из старого пространства (провайдер проксирует) — adopt запрещён.
+    bad_llm = _ControlPlaneLLM(space="space-a")
+    monkeypatch.setattr(ecp, "build_credential_pool",
+                        lambda: [_credential(OTHER_MODEL)])
+    bad_executor = ecp.EmbeddingExecutor(bad_llm)
+
+    async def _embed_bad(texts):
+        return await bad_executor.embed(list(texts),
+                                        priority=ecp.Priority.P2_REPAIR)
+
+    bad = await ecp.compat_probe(ctx.db, INDEX, embed_fn=_embed_bad,
+                                 expected_model=MODEL)
+    assert bad["verdict"] == ecp.STATE_INCOMPATIBLE
+    assert bad["reason_code"] == "model_mismatch"
+    assert bad["model"] == OTHER_MODEL
+    assert bad["model_source"] == ecp.MODEL_SOURCE_REQUEST
+
+
+# ── DEC-09: откат допуска сохраняет индекс/факты/FTS и обратим ─────────────
+# source §5: «Сохранить существующий индекс, факты и возможность отката».
+
+async def _seed_with_fts(ctx, docs) -> list[int]:
+    """Старые факты через штатный `insert_graph_fact` (+FTS) и СТАРЫЕ векторы
+    в live-индексе (space-a) — чтобы проверить и vec, и FTS-путь."""
+    await ctx.db.db.execute(_live_sql(ctx.mm))
+    await ctx.db.db.commit()
+    vectors = _space_vectors([t for _c, t in docs], "space-a")
+    fact_ids: list[int] = []
+    for (chat_id, text), vec in zip(docs, vectors):
+        fact_id = await ctx.db.insert_graph_fact(chat_id, text, "chat_history",
+                                                 None)
+        assert fact_id
+        fact_ids.append(int(fact_id))
+        await ctx.db.db.execute(
+            "INSERT INTO graph_facts_vec(rowid, fact_id, chat_id, origin, "
+            "expires_at, embedding) VALUES (?, ?, ?, 'chat_history', NULL, ?)",
+            (fact_id, fact_id, chat_id, json.dumps(vec)))
+    await ctx.db.db.commit()
+    return fact_ids
+
+
+async def _vec_snapshot(ctx) -> list[dict]:
+    cursor = await ctx.db.db.execute(
+        "SELECT rowid, fact_id, chat_id, embedding FROM graph_facts_vec "
+        "ORDER BY rowid")
+    return [dict(r) for r in await cursor.fetchall()]
+
+
+@pytest.mark.asyncio
+async def test_dec09_admission_rollback_keeps_index_and_facts(ctx):
+    """Откат допуска (status='building', config_revision=NULL): vec-запись
+    закрыта (FTS-only), индекс/факты целы, повторный adopt снова работает."""
+    docs = _docs()
+    await _seed_with_fts(ctx, docs)
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    result = await _ensure(ctx, new_fp, _Embedder(space="space-a"))
+    assert result["state"] == ecp.STATE_COMPATIBLE
+    assert await ctx.mm._vec_write_allowed(INDEX) is True
+    assert await ctx.mm._index_generation_ok(INDEX) is True
+    before_rows = await _vec_snapshot(ctx)
+    assert len(before_rows) == len(docs)
+    fts_before = await ctx.db.search_graph_facts_fts(
+        101, "память", 5, int(time.time()))
+    assert fts_before, "FTS-путь доступен и до отката"
+
+    # Откат допуска — ровно две колонки (документированная процедура).
+    await ctx.db.db.execute(
+        "UPDATE mca_embedding_index_generations SET status = 'building', "
+        "config_revision = NULL WHERE index_name = ? AND status = 'active'",
+        (INDEX,))
+    await ctx.db.db.commit()
+    assert await ctx.db.get_active_embedding_generation(INDEX) is None
+    row = (await _generation_rows(ctx.db))[0]
+    assert row["status"] == "building" and row["config_revision"] is None
+
+    compat = await _resolve(ctx, new_fp)
+    assert compat["state"] == ecp.STATE_INSUFFICIENT
+    assert compat["reason_code"] == "compat_not_proven"
+    assert compat["serviceable"] is False
+    assert await ctx.mm._index_generation_ok(INDEX) is False
+    assert await ctx.mm._vec_write_allowed(INDEX) is False, \
+        "без допуска смешивать пространства в ACTIVE нельзя"
+    # Никакого автоматического rebuild по откату не запущено.
+    assert await gr._find_active_job(ctx.db, INDEX, new_fp) is None
+    assert await gr.ensure_current_generation(ctx.mm, INDEX,
+                                              current_fp=new_fp) is None
+
+    # Индекс (векторы), факты, поколение и FTS-путь целы.
+    assert await _vec_snapshot(ctx) == before_rows
+    assert len(before_rows) == len(docs)
+    assert await _count(ctx.db, "SELECT COUNT(*) AS c FROM graph_facts") == \
+        len(docs)
+    rows = await _generation_rows(ctx.db)
+    assert len(rows) == 1
+    fts_after = await ctx.db.search_graph_facts_fts(
+        101, "память", 5, int(time.time()))
+    assert fts_after, "FTS возвращает непустую выдачу при закрытом vec"
+
+    # Возможность отката = обратимость: повторный adopt снова работает.
+    again = await _ensure(ctx, new_fp, _Embedder(space="space-a"))
+    assert again["state"] == ecp.STATE_COMPATIBLE
+    active = await ctx.db.get_active_embedding_generation(INDEX)
+    assert active["fingerprint"] == old_fp
+    assert str(active["config_revision"]).startswith("adopt1:")
+    assert await ctx.mm._vec_write_allowed(INDEX) is True
+    assert await ctx.mm._index_generation_ok(INDEX) is True
+    assert await _vec_snapshot(ctx) == before_rows
+    assert len(await _generation_rows(ctx.db)) == 1, \
+        "повторный adopt не создаёт новое поколение"
+    assert await _count(ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") \
+        == len(docs)
+
