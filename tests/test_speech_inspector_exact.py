@@ -24,6 +24,8 @@ import json as json_lib
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tests"))
 
@@ -44,31 +46,37 @@ class _FakeResponse:
 
 
 class _FakeHTTPResponse:
-    def __init__(self, status=200, body=None):
+    def __init__(self, status=200, body=None, invalid_json=False):
         self.status_code = status
+        self._invalid = bool(invalid_json)
         self._body = body if body is not None else {
             "choices": [{"message": {"content": "готовый ответ"}}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 3},
         }
         self.content = json_lib.dumps(self._body).encode("utf-8")
         self.text = self.content.decode("utf-8")
+        self.headers = {}
 
     def json(self):
+        if self._invalid:
+            raise ValueError("not json")
         return self._body
 
 
 class _FakeHTTP:
     """Транспорт-двойник: фиксирует РОВНО тот json=, что ушёл бы в HTTP."""
 
-    def __init__(self, owner, status=200):
+    def __init__(self, owner, status=200, body=None, invalid_json=False):
         self.owner = owner
         self.status = status
+        self.body = body
+        self.invalid_json = invalid_json
 
     async def post(self, url, json=None, **kwargs):
         # Глубокая копия как снимок тела на проводе (httpx сериализует json).
         self.owner.bodies.append(
             {"url": url, "body": json_lib.loads(json_lib.dumps(json))})
-        return _FakeHTTPResponse(self.status)
+        return _FakeHTTPResponse(self.status, self.body, self.invalid_json)
 
 
 class _TraceClient(llm_client.LLMClient):
@@ -79,22 +87,27 @@ class _TraceClient(llm_client.LLMClient):
     (включая подмену ``model`` на fallback), а не аргумент ``generate``.
     """
 
-    def __init__(self, bodies, *, primary_status=200, fallback_active=False):
+    def __init__(self, bodies, *, primary_status=200, fallback_active=False,
+                 primary_retries=0, fallback_retries=0, fallback_status=200,
+                 primary_body=None, invalid_json=False):
         self._chat_model = "trace-model-1"
         self._fallback_model = "trace-fallback-1"
+        self._api_key = "test-key"
         self._fallback_active = fallback_active
         self._base_url = "https://provider.example/v1"
         self._fallback_base_url = "https://fallback.example/v1"
         self._budget = 5.0
-        self._max_retries = 0
+        self._max_retries = primary_retries
         self._timeout = 5.0
-        self._fallback_max_retries = 0
+        self._fallback_max_retries = fallback_retries
         self._fallback_timeout = 5.0
         self.backoff_base = 0
         self._backoff_cap = 0
         self.bodies = bodies
-        self._primary_http = _FakeHTTP(self, status=primary_status)
-        self._fallback_http = _FakeHTTP(self, status=200)
+        self._primary_http = _FakeHTTP(
+            self, status=primary_status, body=primary_body,
+            invalid_json=invalid_json)
+        self._fallback_http = _FakeHTTP(self, status=fallback_status)
 
     def _get_client(self, key=None):
         return self._primary_http
@@ -255,6 +268,106 @@ def test_trace_is_r17_safe_and_redacts_chat_id():
     # Хеш по-прежнему доказывает фактическое содержимое (до маскировки).
     assert call["messages_checksum"]
     composer.reset_state()
+
+
+def test_total_fallback_failure_logs_every_attempt():
+    """review r2 F2: primary 500 + fallback 500 → в журнале ВСЕ попытки.
+
+    Реально было 4 HTTP-запроса (2 primary + 2 fallback) и одна запись. Теперь
+    каждая попытка пишется со `status=error`; `last actual request` — последняя
+    fallback-попытка (её тело и checksum).
+    """
+    composer.reset_state()
+    bodies: list = []
+    client = _TraceClient(bodies, primary_status=500, fallback_active=True,
+                          primary_retries=1, fallback_retries=1,
+                          fallback_status=500)
+    with pytest.raises(llm_client.LLMError):
+        asyncio.run(client.generate(
+            [{"role": "system", "content": "S"}, {"role": "user", "content": "Q"}],
+            chat_id=-100500, module="direct_chat", step="single",
+            correlation_id="cid-both-fail"))
+    assert len(bodies) == 4, "2 primary + 2 fallback HTTP-попытки"
+
+    calls = composer.provider_calls(chat_id=-100500, limit=10)
+    assert len(calls) == 4, "каждая фактическая попытка в журнале"
+    assert [c["channel"] for c in reversed(calls)] == \
+        ["primary", "primary", "fallback", "fallback"]
+    assert all(c["status"] == "error" for c in calls)
+    last = composer.last_provider_call(chat_id=-100500)
+    assert last["channel"] == "fallback"
+    assert last["manifest_checksum"] == composer.payload_checksum(
+        _last_body(bodies))
+    assert last["error"] == "LLMServerError"
+    composer.reset_state()
+
+
+def test_generate_chat_empty_content_is_logged_as_error():
+    """review r2 F3: 200 + content=null — попытка не теряется, статус error."""
+    composer.reset_state()
+    bodies: list = []
+    client = _TraceClient(bodies, primary_body={"choices": [{"message": {}}]})
+    with pytest.raises(llm_client.LLMBadResponseError):
+        asyncio.run(client.generate_chat(
+            [{"role": "user", "content": "Q"}], chat_id=-100500,
+            module="direct_chat", step="stage1", correlation_id="cid-empty"))
+    assert len(bodies) == 1
+    call = composer.last_provider_call(chat_id=-100500)
+    assert call is not None
+    assert call["status"] == "error"
+    assert call["error"] == "LLMBadResponseError"
+    assert call["manifest_checksum"] == composer.payload_checksum(
+        _last_body(bodies))
+    composer.reset_state()
+
+
+def test_background_invalid_json_is_not_logged_as_ok():
+    """review r2 F4: невалидный JSON фонового канала — status=error, не ok."""
+    composer.reset_state()
+    bodies: list = []
+    client = _TraceClient(bodies, invalid_json=True)
+    with pytest.raises(llm_client.LLMBadResponseError):
+        asyncio.run(client.generate_background(
+            [{"role": "user", "content": "Q"}], purpose="summary_batch",
+            deadline=5.0, max_attempts=1))
+    assert len(bodies) == 1
+    call = composer.last_provider_call()
+    assert call is not None
+    assert call["module"] == "background"
+    assert call["status"] == "error"
+    assert call["error"] == "LLMBadResponseError"
+    composer.reset_state()
+def test_inspector_masks_style_hint_text(api_env, monkeypatch):
+    """review r2 F1: hint_text/исключённые инструкции маскируются на границе."""
+    from services import prompt_factory as pf
+    env = api_env
+    monkeypatch.setattr(pf, "_default_cache", lambda: env.cache)
+    composer.reset_state()
+    secret = "sk-live-styletest0123456789"
+    long_id = "555666777888"
+    env.cache.set("style.policy", {
+        "revision": 1,
+        "rules": [],
+        "soft_instructions": [
+            {"text": "Пиши короче. ключ api_key=%s, id %s" % (secret, long_id),
+             "scope": "global"},
+        ],
+    })
+    try:
+        insp = _run(S.get_inspector(None, env.user, None))
+        blob = json.dumps(insp, ensure_ascii=False)
+        assert secret not in blob, "секрет в style.hint_text утёк в Inspector"
+        assert long_id not in blob, "длинный ID в style-слое утёк"
+        assert "***" in blob and "[id]" in blob
+        style = insp["preview"]["style"]
+        assert style["hint_text"] == S._mask_text(style["hint_text"])
+        for row in style.get("excluded") or ():
+            assert secret not in str(row.get("text") or "")
+        # Структура среза сохраняется: счётчики и лимиты не обнулены.
+        assert "hint_chars" in style and "excluded" in style
+    finally:
+        env.cache.data.pop("style.policy", None)
+        composer.reset_state()
 
 
 def test_inspector_exact_is_the_actual_request(api_env, monkeypatch):

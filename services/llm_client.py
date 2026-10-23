@@ -467,6 +467,33 @@ class LLMClient:
         """Канал trace: 'fallback' только когда реально ушёл fallback-модели."""
         return "fallback" if model == self._fallback_model else "primary"
 
+    def _record_sent_attempts(self, sent, *, payload: dict, messages, module,
+                              step, correlation_id, chat_id,
+                              status: str = "error", error: str = "",
+                              limit: int = 8, channel: str = ""):
+        """Записать ВСЕ фактические попытки вызова (ретраи не схлопываются).
+
+        «last actual request» в Inspector = последняя запись журнала, поэтому
+        неудачные попытки пишутся по порядку ДО финального результата.
+        ``channel`` ограничивает выборку (fallback-провал не дублирует уже
+        записанные primary-попытки).
+        """
+        rows = list(sent or ())
+        if channel:
+            rows = [r for r in rows if r[0] == channel]
+        rows = rows[-max(1, int(limit)):]
+        if not rows:
+            self._record_sent_call(
+                [], payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status=status, error=error)
+            return
+        for channel, body in rows:
+            self._record_sent_call(
+                [(channel, body)], payload=payload, messages=messages,
+                module=module, step=step, correlation_id=correlation_id,
+                chat_id=chat_id, status=status, error=error)
+
     def _record_sent_call(self, sent, *, payload: dict, messages, module,
                           step, correlation_id, chat_id, status: str = "ok",
                           error: str = ""):
@@ -791,7 +818,8 @@ class LLMClient:
                     max_retries: int | None = None,
                     retry_statuses: tuple[int, ...] | None = None,
                     timeout: float | None = None,
-                    budget_reason_label: str | None = None) -> httpx.Response:
+                    budget_reason_label: str | None = None,
+                    sent: list | None = None) -> httpx.Response:
         """POST with retry on all transient errors; auth errors raised immediately.
 
         Единственный владелец LLM-ретраев (56.4, D187). Жёсткий дедлайн всей
@@ -864,6 +892,10 @@ class LLMClient:
                         break                   # попытка не стартует (56.4)
                     started = time.monotonic()
                     try:
+                        # INS-TRACE: каждая фактическая HTTP-попытка — в
+                        # per-call список (ретраи не схлопываются в одну).
+                        if sent is not None:
+                            sent.append(("primary", payload))
                         response = await client.post(url, json=payload,
                                                      **post_kwargs)
                     except httpx.TransportError as exc:
@@ -1134,9 +1166,7 @@ class LLMClient:
         """
         if key is None:
             key, _source = await self._resolve_api_key_and_source(chat_id)
-        if sent is not None:
-            sent.append(("primary", payload))
-        return await self._post(path, payload, api_key=key)
+        return await self._post(path, payload, api_key=key, sent=sent)
 
     async def _post_fallback(self, payload: dict, path: str = "/chat/completions",
                              model: str | None = None,
@@ -1342,7 +1372,6 @@ class LLMClient:
                 # ASAP 4.1 волна 4: supervised Summary-канал — per-call
                 # transport-контракт Supervisor'а (ADR-1028-8 D5.2); ключ
                 # уже резолвнут выше (тот же BYOK-слой).
-                sent.append(("primary", payload))
                 response = await self._post(
                     "/chat/completions", payload, api_key=key,
                     budget=supervised_transport.get("budget"),
@@ -1352,6 +1381,7 @@ class LLMClient:
                     timeout=supervised_transport.get("timeout"),
                     budget_reason_label=str(
                         supervised_transport.get("budget_reason_label") or ""),
+                    sent=sent,
                 )
             else:
                 response = await self._post_with_key(
@@ -1361,8 +1391,8 @@ class LLMClient:
             raise
         except LLMError as exc:
             # INS-TRACE: неудачная попытка тоже реальный вызов провайдера —
-            # фиксируем ровно отправленное тело этой попытки.
-            self._record_sent_call(
+            # фиксируем ВСЕ отправленные тела этой попытки (ретраи видны).
+            self._record_sent_attempts(
                 sent, payload=payload, messages=messages,
                 module=module, step=step, correlation_id=correlation_id,
                 chat_id=chat_id, status="error", error=type(exc).__name__)
@@ -1403,6 +1433,12 @@ class LLMClient:
                         self._fallback_model, exc_info=True)
             fb_response = await self._fallback_with_retries(payload, sent=sent)
             if fb_response is None:
+                # review r2 F2: общий провал — в журнал пишутся ВСЕ фактические
+                # fallback-попытки (status=error), последняя = last actual.
+                self._record_sent_attempts(
+                    sent, payload=payload, messages=messages, module=module,
+                    step=step, correlation_id=correlation_id, chat_id=chat_id,
+                    status="error", error=type(exc).__name__, channel="fallback")
                 raise exc from None
             response = fb_response
             used_model = self._fallback_model
@@ -1473,23 +1509,36 @@ class LLMClient:
                 step=str(purpose or "background"), correlation_id=None,
                 chat_id=None, status="error", error=type(exc).__name__)
             raise
-        # INS-TRACE: фоновый канал фиксируется тем же bounded-журналом.
-        self._record_sent_call(
-            sent, payload=payload, messages=messages, module="background",
-            step=str(purpose or "background"), correlation_id=None, chat_id=None)
         try:
             data = response.json()
         except ValueError as exc:
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module="background",
+                step=str(purpose or "background"), correlation_id=None,
+                chat_id=None, status="error", error="LLMBadResponseError")
             raise LLMBadResponseError(
                 "chat/completions background: invalid JSON response") from exc
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module="background",
+                step=str(purpose or "background"), correlation_id=None,
+                chat_id=None, status="error", error="LLMBadResponseError")
             raise LLMBadResponseError(
                 "chat/completions background: no choices[0].message.content"
             ) from exc
         if not isinstance(content, str) or not content.strip():
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module="background",
+                step=str(purpose or "background"), correlation_id=None,
+                chat_id=None, status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions background: empty content")
+        # INS-TRACE: фоновый канал фиксируется тем же bounded-журналом — и
+        # только после валидного ответа (review r2 F4: не «ok» перед падением).
+        self._record_sent_call(
+            sent, payload=payload, messages=messages, module="background",
+            step=str(purpose or "background"), correlation_id=None, chat_id=None)
         logger.info(
             "LLM background OK | purpose=%s | model=%s | out_chars=%d",
             purpose, self._chat_model, len(content))
@@ -1673,6 +1722,12 @@ class LLMClient:
                         bool(payload.get("tools")), exc_info=True)
             fb_response = await self._fallback_with_retries(payload, sent=sent)
             if fb_response is None:
+                # review r2 F2: общий провал — в журнал пишутся ВСЕ фактические
+                # fallback-попытки (status=error), последняя = last actual.
+                self._record_sent_attempts(
+                    sent, payload=payload, messages=messages, module=module,
+                    step=step, correlation_id=correlation_id, chat_id=chat_id,
+                    status="error", error=type(exc).__name__, channel="fallback")
                 raise exc from None
             response = fb_response
             used_model = self._fallback_model
@@ -1732,6 +1787,12 @@ class LLMClient:
             if parsed:
                 tool_calls = parsed
         if content is None and not tool_calls and not reasoning_text:
+            # review r2 F3: HTTP 200 с пустым content — реальный вызов, но
+            # ответ невалиден: журнал не должен молча терять эту попытку.
+            self._record_sent_call(
+                sent, payload=payload, messages=messages, module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: empty content (no tool_calls)")
         logger.info(
             "LLM generate_chat OK | model=%s | out_chars=%s | tool_calls=%d",
