@@ -863,7 +863,7 @@ async def _dossier_payload(db, chat_id: int, user_id: int,
     if name:
         try:
             card = await db.get_persona_card(
-                chat_id, name, _DOSSIER_MAX_ITEMS, now_ts)
+                chat_id, name, _DOSSIER_MAX_ITEMS, now_ts, user_id=user_id)
             facts = list(card.get("facts") or [])
             links = [
                 {"source_name": link.get("source_name"),

@@ -6,6 +6,7 @@ TEST-LIFECYCLE: CONTRACT/REGRESSION/INTEGRATION owner=ASAP3-IDENTITY
 """
 import asyncio
 import json
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -87,14 +88,37 @@ def _set_chat(chat_id, aliases):
 class FakeDB:
     def __init__(self, participants=None):
         self.participants = list(participants or [])
+        self.db = self
+
+    async def execute(self, *args, **kwargs):
+        return _EmptyCursor()
 
     async def get_active_participants(self, chat_id, since, cap):
         return list(self.participants)[:cap]
 
 
-class FakeMemory:
-    async def get_window_messages(self, chat_id):
+class _EmptyCursor:
+    async def fetchall(self):
         return []
+
+
+class FakeMemory:
+    def __init__(self, window=None):
+        self.window = list(window or [])
+
+    async def get_window_messages(self, chat_id):
+        return list(self.window)
+
+
+class CaptureLLM:
+    """L1 fake: запоминает payload, возвращает пустой план."""
+
+    def __init__(self):
+        self.messages = None
+
+    async def generate(self, messages, **kwargs):
+        self.messages = messages
+        return "{}"
 
 
 def _user(uid=UID, first="Игорь", last=None, username="igor"):
@@ -351,6 +375,76 @@ def test_diag_aliases_merged_view_only_with_show_names():
     assert rows[UID]["source"] == "chat"
     assert rows[OTHER]["source"] == "global"
     assert shown["global_merged"]
+
+
+@pytest.mark.asyncio
+async def test_a13_initiative_l1_and_l2_use_alias_not_author_name():
+    """A13 (инициатива): адресат + L1-контекст + L2-окно — одно имя по uid."""
+    from services import direct_l1 as _l1
+
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+    llm = CaptureLLM()
+    row = dict(_row(author="Игорь (имя из клиента)"), id=5, reply_to_id=None)
+    service = DirectChatService(
+        FakeMemory([row]), FakeDB(), llm, view,
+        bot_id=999, bot_username="bot")
+    await bind_turn_aliases(CHAT_A)
+
+    await service.plan_initiative_decision(
+        CHAT_A,
+        {"addressee_user_id": UID, "kind": "reply", "origin": "observer",
+         "goal": "ответить на свежую реплику"},
+        correlation_id="a13-init")
+
+    user_text = llm.messages[1]["content"]
+    assert "[user:1001] Гипербореец:" in user_text
+    assert "участник Гипербореец [user:1001]" in user_text
+    assert "Игорь (имя из клиента)" not in user_text
+
+    # L2 Writer получает то же окно тем же рендером.
+    l2_lines = _l1.render_window_lines(
+        [row], 12, with_ids=True, alias_resolver=view)
+    assert l2_lines and "Гипербореец:" in l2_lines[0]
+    assert "Игорь (имя из клиента)" not in "\n".join(l2_lines)
+
+
+@pytest.mark.asyncio
+async def test_dossier_keeps_fact_with_stable_uid_after_rename(tmp_path):
+    """BLOCKER-2: /dossier читает факты по subject_ref_id, а не только по
+    старому target_user; legacy-строки без uid автоматически не привязываются."""
+    from services.database import DatabaseService
+    from services import provenance
+    from web.api import chat_lore
+
+    db = DatabaseService(str(tmp_path / "dossier.db"))
+    await db.initialize()
+    try:
+        ref = await provenance.resolve_source_ref(
+            db, provenance.user_source_ref(CHAT_A, UID))
+        assert ref is not None
+        await db.insert_graph_fact(
+            CHAT_A, "Игорь любит кофе", "user_memory", None,
+            target_user="Игорь", subject_ref_id=int(ref),
+            attribution_method="self_report", assertion_kind="personal")
+        # Legacy-строка без uid: не должна привязаться к uid по имени.
+        await db.insert_graph_fact(
+            CHAT_A, "Легаси без uid", "user_memory", None,
+            target_user="Игорь")
+
+        payload = await chat_lore._dossier_payload(
+            db, CHAT_A, UID, "Гипербореец")
+        facts = list(payload.get("facts") or [])
+        assert "Игорь любит кофе" in facts
+        assert "Легаси без uid" not in facts
+
+        # RED-контракт: без user_id (старый web-путь) факт с устойчивым
+        # subject_ref_id не находится по новому имени.
+        name_only = await db.get_persona_card(
+            CHAT_A, "Гипербореец", 10, int(time.time()))
+        assert "Игорь любит кофе" not in (name_only.get("facts") or [])
+    finally:
+        await db.close()
 
 
 @pytest.mark.asyncio
