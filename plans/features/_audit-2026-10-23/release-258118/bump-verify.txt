@@ -1,0 +1,7 @@
+﻿REL-258118 bump verify (pre-bump 47ed033e -> bump 9ed68ee8)
+range: 47ed033e..9ed68ee8
+files=31 pairs=33 (expected 31 files / 33 pairs)
+  - 32 version pairs: 31 plain "2.58.117" + 1 escaped JS-regex form "2\.58\.117" (polygon carries 2 plain pins, 4 JS escaped)
+  - 1 F8-meta HEAD token pairs: d10fd151 -> 47ed033e
+non-token deltas: NONE
+CHECK OK

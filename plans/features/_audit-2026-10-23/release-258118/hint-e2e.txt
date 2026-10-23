@@ -1,0 +1,2 @@
+﻿[asap3-hint-e2e] webroot = C:\Code\Python\adminbot-wt258115\web
+[asap3-hint-e2e] PASS: 10 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║

@@ -1,0 +1,2 @@
+﻿REL-258118 frozen UI assets (web/index.html, web/app.js, web/static/)
+changed: 0

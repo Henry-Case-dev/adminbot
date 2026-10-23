@@ -1,0 +1,3 @@
+﻿9ed68ee8 chore(release-258118): bump 2.58.117 -> 2.58.118 (31-file proc set SET EQUAL proc-117, F8-meta HEAD=47ed033e, deltaDDL=0)
+47ed033e fix(asap3): close limits review r2 - flat links WARN, honest memes cap, inventory arithmetic
+9dfd6db6 docs(evidence): REL-258117 train evidence - bump 724b77ac, guards (pins24 868/0, parity 13, inspector 17, llm_client 115, e2e 142/0, W4 0), deltaDDL=0, rollback e9f7595b
