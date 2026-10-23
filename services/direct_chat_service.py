@@ -8086,8 +8086,12 @@ class DirectChatService:
             # отдельным блоком; при OFF list_chat_memes не вызывается.
             irony_on = bool(hot.get("flags.irony_filter_enabled",
                                     settings.IRONY_FILTER_ENABLED))
+            # ASAP3 §2 (#12): cap+1 — детект переполнения без второго COUNT;
+            # `list_chat_memes` режет SQL-ом (`LIMIT ?`), поэтому запрос ровно
+            # на cap вернул бы cap и «потеря 11..N» была бы неизмерима.
             memes = (await self.db.list_chat_memes(
-                chat_id, canon, limit=_PERSONA_MAX_ITEMS) if irony_on else [])
+                chat_id, canon,
+                limit=_PERSONA_MAX_ITEMS + 1) if irony_on else [])
             # F1 (spec §3.2.1): сгенерированный портрет Слоя Б (производная
             # graph_facts.status='dossier_portrait'). Отдельный try — сбой
             # чтения портрета НЕ ломает карточку (fail-open).
@@ -8111,14 +8115,17 @@ class DirectChatService:
             lines += [f"{link['source_name']} ({link['relation_type']}) "
                       f"{link['target_name']}" for link in links]
             lines = lines[:_PERSONA_MAX_ITEMS]
-            if n > _PERSONA_MAX_ITEMS:
-                # ASAP3 §2 (#12): 10-элементный cap режет и плоский список —
-                # потеря не молчит (R17: только числа). Заголовок уже несёт
-                # настоящее n (до срезки), как и в досье-ветке.
+            # ASAP3 §2 (#12): срез `[:10]` применяется к фактам И связям
+            # вместе, поэтому условие — по сумме строк, а не по `n`: при
+            # facts=10/links=5 или facts=5/links=10 связи теряются так же
+            # молча. R17: в лог идут только числа.
+            if n + m > _PERSONA_MAX_ITEMS:
                 logger.warning(
                     "direct: persona dossier capped | chat=%s | mode=flat | "
-                    "facts_kept=%d/%d | memes_kept=0/0 | cap_items=%d",
-                    chat_id, _PERSONA_MAX_ITEMS, n, _PERSONA_MAX_ITEMS)
+                    "facts_kept=%d/%d | links_kept=%d/%d | cap_items=%d",
+                    chat_id, min(n, _PERSONA_MAX_ITEMS), n,
+                    max(0, min(m, _PERSONA_MAX_ITEMS - n)), m,
+                    _PERSONA_MAX_ITEMS)
             if n == 0 and m == 0 and not generated_block:
                 return None
             body = "\n".join(f"{i}. {text}" for i, text in enumerate(lines, 1))
@@ -8135,7 +8142,12 @@ class DirectChatService:
                       for item in (memes or [])]
         meme_lines = [t for t in meme_lines if t.strip()]
         facts_total = len(fact_all)
-        memes_total = len(meme_lines)
+        # Мемы пришли с limit=cap+1: точное число известно только до cap.
+        # Больше cap строк — честная метка `>10` (COUNT не добавляем).
+        memes_observed = len(meme_lines)
+        memes_capped = memes_observed > _PERSONA_MAX_ITEMS
+        memes_total_label = (f">{_PERSONA_MAX_ITEMS}" if memes_capped
+                             else str(memes_observed))
         meme_lines = meme_lines[:_PERSONA_MAX_ITEMS]
         n = facts_total
         m = len(links)
@@ -8149,18 +8161,20 @@ class DirectChatService:
         # totals до 10-элементной срезки: форматтер видит только вошедшие
         # строки, поэтому истинные числа возвращаем ему здесь.
         dossier_stats["facts_total"] = facts_total
-        dossier_stats["memes_total"] = memes_total
+        dossier_stats["memes_total"] = memes_observed
+        dossier_stats["memes_capped"] = memes_capped
         dossier_stats["truncated"] = (
             int(dossier_stats.get("facts_kept", 0)) < facts_total
-            or int(dossier_stats.get("memes_kept", 0)) < memes_total)
+            or int(dossier_stats.get("memes_kept", 0)) < memes_observed)
         if dossier_stats.get("truncated"):
             # ASAP3 §2: бюджет досье не режет факты/мемы молча — числа в WARN
-            # (R17: без текстов фактов).
+            # (R17: без текстов фактов); `memes_kept=10/>10` вместо ложного
+            # «всего 11».
             logger.warning(
                 "direct: persona dossier capped | chat=%s | mode=dossier | "
-                "facts_kept=%d/%d | memes_kept=%d/%d | cap_chars=%d", chat_id,
+                "facts_kept=%d/%d | memes_kept=%d/%s | cap_chars=%d", chat_id,
                 dossier_stats.get("facts_kept", 0), facts_total,
-                dossier_stats.get("memes_kept", 0), memes_total,
+                dossier_stats.get("memes_kept", 0), memes_total_label,
                 _PERSONA_DOSSIER_MAX_CHARS)
         if dossier:
             body_parts.append(dossier)

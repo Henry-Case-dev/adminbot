@@ -175,23 +175,33 @@ def test_dossier_without_cap_reports_no_truncation():
 
 
 class _PersonaDB:
-    """Фейк чтения карточки: 30 фактов + 5 защищённых + 15 мемов."""
+    """Фейк чтения карточки, повторяющий прод-контракт `database.py`:
+    факты читаются БЕЗ LIMIT, связи и мемы — с `LIMIT ?` (соблюдается)."""
 
-    def __init__(self, facts: int = 30, memes: int = 15) -> None:
+    def __init__(self, facts: int = 30, memes: int = 15, protected: int = 5,
+                 links: int = 0) -> None:
         self._facts = facts
         self._memes = memes
+        self._protected = protected
+        self._links = links
+        self.meme_limits: list[int] = []
 
     async def get_persona_card(self, chat_id, canon, limit, now):
         # Реальный SQL факты НЕ лимитирует (LIMIT только у связей).
         return {"facts": [f"факт {i}" for i in range(self._facts)],
-                "links": []}
+                "links": [{"source_name": f"связь {i}",
+                           "relation_type": "друг",
+                           "target_name": "вася"}
+                          for i in range(min(self._links, limit))]}
 
     async def get_protected_facts(self, chat_id, canon,
                                   include_chat_level=True):
-        return [f"защищённый {i}" for i in range(5)]
+        return [f"защищённый {i}" for i in range(self._protected)]
 
-    async def list_chat_memes(self, chat_id, canon, limit=10):
-        return [{"fact": f"мем {i}"} for i in range(self._memes)]
+    async def list_chat_memes(self, chat_id, canon, limit=50):
+        # Прод: `... ORDER BY created_at DESC, id DESC LIMIT ?`
+        self.meme_limits.append(limit)
+        return [{"fact": f"мем {i}"} for i in range(self._memes)][:limit]
 
     async def get_generated_dossier(self, chat_id, canon):
         return None
@@ -224,6 +234,7 @@ async def test_persona_card_counts_items_before_ten_item_cap(
         lambda key, default=None: True if key == "flags.irony_filter_enabled"
         else default)
     svc = _persona_service(_PersonaDB())
+    db = svc.db
 
     with caplog.at_level(logging.WARNING,
                          logger="services.direct_chat_service"):
@@ -232,7 +243,10 @@ async def test_persona_card_counts_items_before_ten_item_cap(
     assert "persona dossier capped" in caplog.text
     # 30 фактов + 5 защищённых = 35 владельческих строк, вошло 10
     assert "facts_kept=10/35" in caplog.text
-    assert "memes_kept=10/15" in caplog.text
+    # мемы запрошены cap+1 (прод режет SQL-ом), поэтому потолок честный `>10`;
+    # `10/15` было недостижимо: `LIMIT 10` не отдаёт 15 строк
+    assert db.meme_limits == [dcs._PERSONA_MAX_ITEMS + 1]
+    assert "memes_kept=10/>10" in caplog.text
     # заголовок больше не выдаёт усечённое число за полное
     assert "знаю о тебе: 35 фактов" in card
     assert "защищённый 4" in card and "факт 4" in card
@@ -257,6 +271,82 @@ async def test_persona_card_flat_branch_logs_item_cap(monkeypatch, caplog):
     assert "mode=flat" in caplog.text
     assert "facts_kept=10/35" in caplog.text
     assert "знаю о тебе: 35 фактов" in card
+
+
+@pytest.mark.asyncio
+async def test_persona_card_meme_total_is_exact_without_overflow(
+        monkeypatch, caplog):
+    """F2-R: без переполнения мемов метка точная (`10/10`), не `>10`."""
+    from services import direct_chat_service as dcs
+
+    monkeypatch.setattr(
+        dcs.hot, "get",
+        lambda key, default=None: True if key == "flags.irony_filter_enabled"
+        else default)
+    db = _PersonaDB(facts=20, memes=10, protected=0)
+    svc = _persona_service(db)
+
+    with caplog.at_level(logging.WARNING,
+                         logger="services.direct_chat_service"):
+        card = await svc.build_persona_card(1, "Вася")
+
+    # WARN вызван фактами, но мемы показаны точным числом
+    assert "facts_kept=10/20" in caplog.text
+    assert "memes_kept=10/10" in caplog.text
+    assert ">10" not in caplog.text
+    assert db.meme_limits == [dcs._PERSONA_MAX_ITEMS + 1]
+    assert "мем 9" in card
+
+
+@pytest.mark.asyncio
+async def test_persona_card_flat_branch_warns_when_facts_fill_cap(
+        monkeypatch, caplog):
+    """F1-R: facts=10 + links=5 → срез режет ВСЕ связи, WARN обязан быть."""
+    from services import direct_chat_service as dcs
+
+    monkeypatch.setattr(dcs.hot, "get", lambda key, default=None: default)
+    svc = _persona_service(_PersonaDB(facts=10, memes=0, protected=0,
+                                      links=5))
+
+    with caplog.at_level(logging.WARNING,
+                         logger="services.direct_chat_service"):
+        card = await svc.build_persona_card(1, "Вася")
+
+    assert "persona dossier capped" in caplog.text
+    assert "mode=flat" in caplog.text
+    assert "facts_kept=10/10" in caplog.text
+    assert "links_kept=0/5" in caplog.text
+    # заголовок по-прежнему обещает 5 связей, которых в теле нет
+    assert "знаю о тебе: 10 фактов, 5 связей" in card
+    body_lines = card.split("\n")[2:]
+    assert len(body_lines) == dcs._PERSONA_MAX_ITEMS
+    assert card.count("(друг)") == 0
+    # R17: текста фактов в логе нет
+    assert "факт 9" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_persona_card_flat_branch_warns_when_links_are_cut(
+        monkeypatch, caplog):
+    """F1-R: facts=5 + links=10 → 5 связей теряются молча до правки."""
+    from services import direct_chat_service as dcs
+
+    monkeypatch.setattr(dcs.hot, "get", lambda key, default=None: default)
+    svc = _persona_service(_PersonaDB(facts=5, memes=0, protected=0,
+                                      links=10))
+
+    with caplog.at_level(logging.WARNING,
+                         logger="services.direct_chat_service"):
+        card = await svc.build_persona_card(1, "Вася")
+
+    assert "persona dossier capped" in caplog.text
+    assert "mode=flat" in caplog.text
+    assert "facts_kept=5/5" in caplog.text
+    assert "links_kept=5/10" in caplog.text
+    assert "знаю о тебе: 5 фактов, 10 связей" in card
+    body_lines = card.split("\n")[2:]
+    assert len(body_lines) == dcs._PERSONA_MAX_ITEMS
+    assert card.count("(друг)") == 5
 
 
 @pytest.mark.asyncio
