@@ -1,0 +1,40 @@
+{
+ "query_only_src": 1,
+ "vec_version": "v0.1.9",
+ "tables": {
+  "mca_embedding_index_generations": {
+   "ddl": "CREATE TABLE mca_embedding_index_generations (generation_id         INTEGER PRIMARY KEY AUTOINCREMENT, index_name            TEXT NOT NULL, generation            INTEGER NOT NULL, fingerprint           TEXT NOT NULL, provider              TEXT, model                 TEXT, dims                  INTEGER, preprocessing_version TEXT, endpoint_fingerprint  TEXT, status                TEXT NOT NULL, created_at            INTEGER NOT NULL, activated_at          INTEGER, superseded_at         INTEGER, pause_reason TEXT, next_allowed_at INTEGER, attempts_total INTEGER NOT NULL DEFAULT 0, namespace TEXT NOT NULL DEFAULT 'default', config_revision TEXT)",
+   "src_rows": 2,
+   "dst_rows": 2
+  },
+  "graph_facts": {
+   "ddl": "CREATE TABLE graph_facts (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id INTEGER NOT NULL, fact TEXT NOT NULL, origin TEXT NOT NULL DEFAULT 'chat_history' CHECK (origin IN ('chat_history', 'search_fact', 'youtube_content', 'web_content', 'bot_direct_reply', 'voice_transcript', 'video_transcript', 'user_memory', 'history_import', 'derived_belief', 'bot_self_reply')), expires_at INTEGER, created_at INTEGER NOT NULL, target_user TEXT, weight REAL NOT NULL DEFAULT 0.5, status TEXT NOT NULL DEFAULT 'confirmed', last_confirmed_at INTEGER, supersedes INTEGER, message_timestamp INTEGER, importance INTEGER NOT NULL DEFAULT 0, source_ids TEXT, kind TEXT NOT NULL DEFAULT 'fact' CHECK (kind IN ('fact','belief')), belief_meta TEXT, tg_message_id INTEGER, forward_from TEXT NOT NULL DEFAULT '', subject_ref_id INTEGER, attribution_method TEXT, assertion_kind TEXT, speaker_author_id INTEGER, extractor_version TEXT, provenance_channel TEXT, dossier_generation_id TEXT, subject_entity_id TEXT, speaker_entity_id TEXT, perspective TEXT CHECK (perspective IS NULL OR perspective IN ('self','other','quoted','third_party','ambiguous')), memory_kind TEXT CHECK (memory_kind IS NULL OR memory_kind IN ('world_fact','self_event','self_trait','opinion','belief','paradigm','mood','lesson')), scope TEXT CHECK (scope IS NULL OR scope IN ('global','chat')), valid_from INTEGER, valid_to INTEGER, confidence_basis TEXT, revision INTEGER NOT NULL DEFAULT 1)",
+   "src_rows": 20108,
+   "dst_rows": 20108
+  },
+  "graph_facts_vec": {
+   "ddl": "CREATE VIRTUAL TABLE graph_facts_vec USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)",
+   "src_rows": 16003,
+   "dst_rows": 16003
+  },
+  "smart_archive_facts": {
+   "ddl": "CREATE TABLE smart_archive_facts (\n            id        INTEGER PRIMARY KEY AUTOINCREMENT,\n            chat_id   INTEGER NOT NULL,\n            fact      TEXT NOT NULL,\n            timestamp INTEGER NOT NULL\n        )",
+   "src_rows": 0,
+   "dst_rows": 0
+  },
+  "smart_archive": {
+   "ddl": "CREATE VIRTUAL TABLE smart_archive USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER)",
+   "src_rows": 0,
+   "dst_rows": 0
+  }
+ },
+ "task_jobs_err": "OperationalError: no such column: id",
+ "counts_src": {
+  "mca_embedding_index_generations": 2,
+  "graph_facts": 20119,
+  "graph_facts_vec": 16003,
+  "smart_archive_facts": 0,
+  "smart_archive": 0
+ },
+ "dst_size": 207798272
+}
