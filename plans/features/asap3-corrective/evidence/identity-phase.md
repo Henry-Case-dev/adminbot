@@ -223,3 +223,23 @@ Code commit: `f398cb7199205ce5ee1579b6aa0a18c720e5fa6c`
 (ASAP3 identity: merge aliases by user_id, live per-turn resolver, merged
 diag). Evidence-файл коммитится отдельным docs-коммитом поверх него.
 Rework-коммит: `bfc1236682e3e4e1b6f494c00d1cb5142b36a377`.
+
+## 8. Пост-фикс: тестовые стенды после `804b68b1` (lane TEST-STUB-FIX)
+
+Широкий фильтр `pytest -k "prompt or speech or registry or provenance or core"`
+давал **1426 passed / 2 failed** — оба падения в тестовых стендах, прод-код
+корректен (новые вызовы read-path появились в `804b68b1`):
+
+- `test_soul1_w5_observer_gates.py::test_initiative_writer_shares_core_style_and_persona`
+  — `_StubService` без `_refresh_turn_aliases`;
+- `test_soul1_machine_profile_no_core.py::test_direct_l1_planner_stage_has_no_core_and_no_extra_calls`
+  — `Stub` без `_history_partial` и без `aliases` (per-chat резолвер L1).
+
+Минимальная правка только в тестах, прод-код и утверждения не менялись:
+`_refresh_turn_aliases` — no-op у стенда без alias-кэша; `_history_partial`
+возвращает `False` (окно стенда = вся история, как в `test_soul1_composer_parity_off`);
+`aliases` — реальный `AliasResolver({})` с пустым payload.
+
+- GREEN файловый: `test_soul1_machine_profile_no_core.py` + `test_soul1_w5_observer_gates.py`
+  — **23 passed**.
+- GREEN широкий (тот же фильтр): **1428 passed, 0 failed, 14074 deselected** (exit 0).
