@@ -9454,7 +9454,8 @@ async def _execute_initiative_react(bot, db, chat_id: int, decision,
         try:
             _mca_intents.note_delivery_manifest(
                 chat_id=chat_id, correlation_id=str(correlation_id or ""),
-                reply_to=target_tg, delivery="react", delivery_form="react")
+                reaction_target=target_tg, delivery="react",
+                delivery_form="react")
         except Exception:
             logger.warning("[mca09] initiative react delivery event failed",
                            exc_info=True)
@@ -9814,6 +9815,10 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
             _mca_intents.note_writer_generated(chat_id=chat_id,
                                                intent_id=decision.intent_id,
                                                chars=len(prepared_text))
+        plan_target_id = (_plan_target_message_id(l1_plan)
+                          if l1_plan is not None else None)
+        chosen_delivery = (str(getattr(l1_plan, "delivery", "") or "")
+                           if l1_plan is not None else "")
         if not plan.outcome.proceed:
             # Устаревшее/закрытое: A15-закрытие либо серверное планирование
             # (re-evaluate позже, bounded expiry); попыткой НЕ считается.
@@ -9822,10 +9827,12 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                     db, decision.intent_id, plan.outcome,
                     context_version=getattr(context, "context_version",
                                             None))
-            _mca_intents.note_decision(decision, chat_id=chat_id,
-                                       outcome="cancelled",
-                                       reason_code=(plan.outcome.reason_code
-                                                    or None))
+            _mca_intents.note_decision(
+                decision, chat_id=chat_id, outcome="cancelled",
+                reason_code=(plan.outcome.reason_code or None),
+                action="reply", delivery=chosen_delivery,
+                delivery_kind="text", target_message_id=plan_target_id,
+                correlation_id=correlation_id)
             logger.info("[mca09] initiative cancelled | chat=%s | reason=%s",
                         chat_id, plan.outcome.reason_code or "-")
             return {"status": "cancelled",
@@ -9848,12 +9855,8 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
         reply_target_id = None
         binding_code = ""
         semantic_addressee = None
-        # G1 (аудит 24.10.2026): выбранная L1 форма и цель — в событие решения;
-        # G7: фактическая форма — в событие доставки. Только ID/enum, без текста.
-        plan_target_id = (_plan_target_message_id(l1_plan)
-                          if l1_plan is not None else None)
-        chosen_delivery = (str(getattr(l1_plan, "delivery", "") or "")
-                           if l1_plan is not None else "")
+        # G7: фактическая форма — в событии доставки. G1: выбранная L1 форма и
+        # цель — в событии решения (`chosen_delivery` выше). Только ID/enum.
         actual_reply_id = None
         if l1_plan is not None:
             semantic_addressee = _plan_semantic_addressee(l1_plan)
@@ -10020,7 +10023,7 @@ async def handle_initiative(*, bot, chat_id: int, situation, candidates,
                            exc_info=True)
         _mca_intents.note_decision(
             decision, chat_id=chat_id, outcome="ok", action="reply",
-            delivery=(chosen_delivery or None), delivery_kind="text",
+            delivery=(chosen_delivery or ""), delivery_kind="text",
             target_message_id=plan_target_id,
             target_user_id=semantic_addressee,
             addressee_user_id=(opportunity_addressee

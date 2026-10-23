@@ -778,6 +778,7 @@ def note_delivery_manifest(*, chat_id: int, correlation_id: str,
                            manifest_id: str = "",
                            composer_state: str = "",
                            reply_to: int | None = None,
+                           reaction_target: int | None = None,
                            delivery: str = "",
                            delivery_form: str = "",
                            mismatch: str = "") -> None:
@@ -792,7 +793,8 @@ def note_delivery_manifest(*, chat_id: int, correlation_id: str,
     ФАКТИЧЕСКАЯ форма доставки (`form:chat|reply|react`), фактический
     Telegram-reply (`reply:<tg_id>`), выбранная L1 форма (`delivery:`) и
     причина расхождения (`mismatch:<code|none>`) — нового события/таблицы
-    нет.
+    нет. Для реакции используется отдельный токен `react_target:<tg_id>`
+    (это цель реакции, а НЕ Telegram-reply; `reply:-` остаётся пустым).
 
     Транспорт — существующие колонки события: `entity_ids` (JSON-список
     machine-токенов; колонок `entity_id`/`message_id`/`delivery` в
@@ -807,6 +809,8 @@ def note_delivery_manifest(*, chat_id: int, correlation_id: str,
         "manifest:%s" % (_safe_token(manifest_id) or "-"),
         "composer:%s" % (_safe_token(composer_state) or "unknown"),
         _token("reply", int(reply_to) if reply_to is not None else ""),
+        _token("react_target",
+               int(reaction_target) if reaction_target is not None else ""),
         _token("delivery", _delivery_form(delivery)),
         _token("form", _delivery_form(delivery_form)),
         _token("mismatch", mismatch or "none"),
@@ -864,8 +868,10 @@ def note_decision(decision, *, chat_id: int, outcome: str = "ok",
     if getattr(decision, "intent_id", None):
         tokens.append("intent:%s" % _safe_token(decision.intent_id))
     form = _delivery_form(delivery)
-    if form:
-        tokens.append("delivery:%s" % form)
+    if delivery is not None:
+        # G1-остаток (ревью): пустая форма от L1 — не молчание, а честный
+        # `unknown` (факт всё равно виден в `form:` манифеста).
+        tokens.append("delivery:%s" % (form or "unknown"))
     if target_message_id is not None:
         tokens.append("tgt:%s" % _safe_token(target_message_id))
     if target_user_id is not None:
