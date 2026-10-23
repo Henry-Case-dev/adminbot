@@ -173,5 +173,6 @@ tests/test_direct_context_composer_asap3.py
 
 ## 6. Кандидат
 
-Code commit: `<SHA>` (будет указан в отчёте Orchestrator; evidence
-коммитится отдельно).
+Code commit: `f398cb7199205ce5ee1579b6aa0a18c720e5fa6c`
+(ASAP3 identity: merge aliases by user_id, live per-turn resolver, merged
+diag). Evidence-файл коммитится отдельным docs-коммитом поверх него.
