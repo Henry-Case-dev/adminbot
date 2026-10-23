@@ -596,6 +596,11 @@ class _StubService:
     async def _initiative_persona_block(self, chat_id):
         return PERSONA
 
+    async def _refresh_turn_aliases(self, chat_id: int) -> None:
+        # ASAP 3 Corrective §4.4: у стенда нет alias-кэша/БД — резолвер
+        # остаётся прежним; проверяются байты Core/Style, не имена.
+        return None
+
 
 @pytest.mark.asyncio
 async def test_initiative_writer_shares_core_style_and_persona(tmp_path,

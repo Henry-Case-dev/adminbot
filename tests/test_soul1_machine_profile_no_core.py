@@ -21,6 +21,7 @@ from services import chat_params
 from services import hot_config as hot
 from services import mca_gates
 from services import prompt_composer as pc
+from services.summary_aliases import AliasResolver
 
 CORE = "ЯДРО_ХАРАКТЕРА_ВЕСЁЛОЕ"
 HUMOR = "<Humor_Craft>\nбуквализм\n</Humor_Craft>"
@@ -102,11 +103,20 @@ def build_service():
         _attach_l1_plan_meta = D._attach_l1_plan_meta
         _compose_speech_system = D._compose_speech_system
 
+        async def _history_partial(self, chat_id, window):
+            # ASAP2 T10-BOUNDARY: у стенда окно = вся сохранённая история
+            # (старше ничего нет) → пометки «ГРАНИЦА ИСТОРИИ» нет; проверяются
+            # профили машинных стадий, не граница.
+            return False
+
         def __init__(self, llm):
             self.llm = llm
             self.memory = StubMemory()
             self.db = None
             self.bot_id = 999
+            # ASAP 3 Corrective §4.4: read-path L1 берёт per-chat резолвер —
+            # тот же реальный тип с пустым payload (окно стенда пустое).
+            self.aliases = AliasResolver({})
 
     return Stub, D
 
