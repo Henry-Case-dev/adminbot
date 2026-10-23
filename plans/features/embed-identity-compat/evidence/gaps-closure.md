@@ -88,8 +88,8 @@
 
 | Файл | Результат | Время |
 |---|---|---|
-| `tests/test_embed_identity_compat.py` | **26 passed** (было 20; +6) | 21.1 с (25.4 с с запуском) |
-| `tests/test_embed_identity_compat_restart_legacy.py` | **9 passed** | 3.6 с (4.4 с с запуском) |
+| `tests/test_embed_identity_compat.py` | **26 passed** (было 20; +6) | 21.1 с первый прогон; 5.2 с повтор на `69da031c` |
+| `tests/test_embed_identity_compat_restart_legacy.py` | **9 passed** | 3.6 с; 3.5 с повтор на `69da031c` |
 
 `test_graphrag_identity_reindex.py` не запускался: `services/graphrag_rebuild.py`
 не изменялся.
