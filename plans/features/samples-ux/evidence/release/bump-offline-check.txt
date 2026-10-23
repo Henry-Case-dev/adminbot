@@ -1,0 +1,19 @@
+REL-258100 bump offline check (procedure of pkg99; bump-scope)
+  [PASS] settings APP_VERSION == 2.58.100
+  [PASS] settings no stale 2.58.99 pin
+  [PASS] README has v2.58.100
+  [PASS] README no stale v2.58.99
+  [PASS] F8-meta APP_VERSION 2.58.100
+  [PASS] F8-meta HEAD 27b1165a
+  [PASS] F8-meta no stale 2.58.99/8f220b60
+  [PASS] F8-meta catalog counters unchanged 582/171 (REGISTRY untouched by samples-ux)
+  [PASS] delta set == 31 expected
+  [PASS] bump set == procedure-99 set
+  [PASS] bump set disjoint from factcheck/06G.3
+  [PASS] changed-line-pairs == 33 (version+HEAD only, no resanctions/catalog deltas)
+  [PASS] delta DDL of bump set == 0
+  [PASS] import config.settings -> 2.58.100
+candidate HEAD (pre-bump, docs ledger): 532a2d24e9398d8e16472a767555618117716db9
+candidate code line: 27b1165aced5c54faf83845160509b1ad2307318
+bump files: 31; line pairs: 33; foreign uncommitted: 9
+OFFLINE CHECK: EXIT 0

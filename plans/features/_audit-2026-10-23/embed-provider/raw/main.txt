@@ -1,0 +1,337 @@
+DATE_UTC=2026-10-22T16:52:56Z
+DATE_LOCAL=2026-10-22 16:52:56 UTC +0000
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== ENV (masked) =====
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+===== PY: config/pool =====
+PG_DSN set
+===== PG bot_settings (masked) =====
+PG | keys.embedding_api_key                     | <set len=51>             | keys
+     updated_at=2026-10-22 16:40:20.375861+00:00
+PG | keys.embedding_fallback_api_key            | <set len=53>             | keys
+     updated_at=2026-09-12 09:42:20.116043+00:00
+PG | keys.embedding_fallback_api_key_2          | <set len=53>             | keys
+     updated_at=2026-09-12 09:42:20.122069+00:00
+PG | models.embedding_base_url                  | https://apinet.cloud/v1  | models
+     updated_at=2026-10-22 16:40:20.753016+00:00
+PG | models.embedding_dim                       | 3072                     | models
+     updated_at=2026-08-29 17:04:33.758472+00:00
+PG | models.embedding_display_name              |                          | models
+     updated_at=2026-09-11 17:46:13.789136+00:00
+PG | models.embedding_fallback1_base_url        | https://generativelanguage.googleapis.com/v1beta/openai | models
+     updated_at=2026-10-22 16:41:12.740508+00:00
+PG | models.embedding_fallback1_model           | gemini-embedding-001     | models
+     updated_at=2026-10-22 16:41:12.740508+00:00
+PG | models.embedding_fallback2_base_url        | https://generativelanguage.googleapis.com/v1beta/openai | models
+     updated_at=2026-10-22 16:41:34.179202+00:00
+PG | models.embedding_fallback2_display_name    |                          | models
+     updated_at=2026-09-11 17:46:13.794517+00:00
+PG | models.embedding_fallback2_model           | gemini-embedding-001     | models
+     updated_at=2026-10-22 16:41:34.179202+00:00
+PG | models.embedding_fallback_base_url         | https://generativelanguage.googleapis.com/v1beta/openai | models
+     updated_at=2026-09-12 09:42:20.138259+00:00
+PG | models.embedding_fallback_display_name     |                          | models
+     updated_at=2026-09-11 17:46:13.792631+00:00
+PG | models.embedding_fallback_model            | gemini-embedding-001     | models
+     updated_at=2026-10-06 17:10:03.688833+00:00
+PG | models.embedding_model_name                | gemini-embedding-001     | models
+     updated_at=2026-08-29 17:04:33.757641+00:00
+===== effective settings fields (env/default layer) =====
+ENV/default | EMBEDDING_BASE_URL                   | https://apinet.cloud/v1
+ENV/default | EMBEDDING_MODEL_NAME                 | gemini-embedding-001
+ENV/default | EMBEDDING_FALLBACK_BASE_URL          | https://generativelanguage.googleapis.com/v1beta/openai
+ENV/default | EMBEDDING_FALLBACK_MODEL             | 
+ENV/default | EMBEDDING_QUOTA_GROUP_LABELS         | 
+ENV/default | EMBEDDING_DIM                        | 3072
+ENV/default | EMBED_CONTROL_PLANE_ENABLED          | True
+ENV/default | EMBED_QUOTA_GROUP_COOLDOWN_ENABLED   | True
+ENV/default | EMBED_QUOTA_KIND_PARKING_ENABLED     | True
+ENV/default | EMBED_ADAPTIVE_CONCURRENCY_ENABLED   | True
+ENV/default | EMBEDDING_API_KEY                    | <empty>
+ENV/default | EMBEDDING_FALLBACK_API_KEY           | <set len=53>
+ENV/default | EMBEDDING_FALLBACK_API_KEY_2         | <set len=53>
+ENV/default | EMBEDDING_EXTRA_API_KEYS             | <empty>
+===== pool =====
+POOL_DIAG {"degenerate": false, "degraded": false, "groups": ["fallback_1", "fallback_2", "primary"], "keys": 3, "known": true, "primary_present": true, "primary_source": "hot"}
+CRED | alias=primary    | provider=apinet.cloud             | model=gemini-embedding-001     | base=https://apinet.cloud/v1 | group=primary | known=True | gsource=auto | ksource=hot | key=<set len=51>
+CRED | alias=fallback_1 | provider=apinet.cloud             | model=gemini-embedding-001     | base=https://apinet.cloud/v1 | group=fallback_1 | known=True | gsource=auto | ksource=hot | key=<set len=53>
+CRED | alias=fallback_2 | provider=apinet.cloud             | model=gemini-embedding-001     | base=https://apinet.cloud/v1 | group=fallback_2 | known=True | gsource=auto | ksource=hot | key=<set len=53>
+===== provider_panel =====
+{"adapter": null, "async_batch_enabled": false, "batch_size": 50, "concurrency": 1, "credential_aliases": ["primary", "fallback_1", "fallback_2"], "credential_rows": [{"alias": "primary", "cooldown_until": 0, "health": "healthy", "key_source": "hot", "model": "gemini-embedding-001", "provider": "apinet.cloud", "quota_group": "primary", "quota_group_known": true, "quota_group_source": "auto"}, {"alias": "fallback_1", "cooldown_until": 0, "health": "healthy", "key_source": "hot", "model": "gemini-embedding-001", "provider": "apinet.cloud", "quota_group": "fallback_1", "quota_group_known": true, "quota_group_source": "auto"}, {"alias": "fallback_2", "cooldown_until": 0, "health": "healthy", "key_source": "hot", "model": "gemini-embedding-001", "provider": "apinet.cloud", "quota_group": "fallback_2", "quota_group_known": true, "quota_group_source": "auto"}], "credentials": 3, "groups": [{"aliases": ["fallback_1"], "health": "ok", "keys": 1, "last_429_at": 0, "next_allowed_at": 0, "note": "", "quota_group": "fallback_1", "state": "healthy"}, {"aliases": ["fallback_2"], "health": "ok", "keys": 1, "last_429_at": 0, "next_allowed_at": 0, "note": "", "quota_group": "fallback_2", "state": "healthy"}, {"aliases": ["primary"], "health": "ok", "keys": 1, "last_429_at": 0, "next_allowed_at": 0, "note": "", "quota_group": "primary", "state": "healthy"}], "model": "gemini-embedding-001", "provider": "apinet.cloud", "quota_group_display": "3", "quota_groups_known": 3, "quota_groups_total": 3, "quota_groups_unknown": 0, "rate_limits_10m": 0, "rotation": {"degenerate": false, "degraded": false, "groups": ["fallback_1", "fallback_2", "primary"], "hint": "", "keys": 3, "primary_hint": "", "primary_present": true, "primary_source": "hot", "primary_state": "primary_from_hot", "primary_warn": false, "reason": "", "status": "grouped", "warn": false}}
+===== profiles (per-slot base/model/group) =====
+PROFILE | primary    | base=https://apinet.cloud/v1                    | model=gemini-embedding-001     | group=primary    | inherited=False
+PROFILE | fallback_1 | base=https://generativelanguage.googleapis.com/v1beta/openai | model=gemini-embedding-001     | group=fallback_1 | inherited=False
+PROFILE | fallback_2 | base=https://generativelanguage.googleapis.com/v1beta/openai | model=gemini-embedding-001     | group=fallback_2 | inherited=False
+===== PY: sqlite state =====
+NOW_EPOCH 1792687977
+===== embedding_quota_state =====
+--- quota_state (n=4) ---
+{'quota_group_id': 'fallback_1', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628099}
+{'quota_group_id': 'fallback_2', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628106}
+{'quota_group_id': 'primary', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628095}
+{'quota_group_id': 'unknown', 'state': 'exhausted', 'next_allowed_at': 1791849900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1791763508}
+===== vector tables (live + generations) =====
+--- vec_objects (n=34) ---
+{'name': 'graph_facts_vec', 'sql': 'CREATE VIRTUAL TABLE graph_facts_vec USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)'}
+{'name': 'graph_facts_vec_auxiliary', 'sql': 'CREATE TABLE "graph_facts_vec_auxiliary"( rowid integer PRIMARY KEY , value00, value01, value02, value03)'}
+{'name': 'graph_facts_vec_chunks', 'sql': 'CREATE TABLE "graph_facts_vec_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_g1', 'sql': 'CREATE VIRTUAL TABLE graph_facts_vec_g1 USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)'}
+{'name': 'graph_facts_vec_g1_auxiliary', 'sql': 'CREATE TABLE "graph_facts_vec_g1_auxiliary"( rowid integer PRIMARY KEY , value00, value01, value02, value03)'}
+{'name': 'graph_facts_vec_g1_chunks', 'sql': 'CREATE TABLE "graph_facts_vec_g1_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_g1_info', 'sql': 'CREATE TABLE "graph_facts_vec_g1_info" (key text primary key, value any)'}
+{'name': 'graph_facts_vec_g1_rowids', 'sql': 'CREATE TABLE "graph_facts_vec_g1_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'graph_facts_vec_g1_vector_chunks00', 'sql': 'CREATE TABLE "graph_facts_vec_g1_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_g1_vector_chunks01', 'sql': 'CREATE TABLE "graph_facts_vec_g1_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_info', 'sql': 'CREATE TABLE "graph_facts_vec_info" (key text primary key, value any)'}
+{'name': 'graph_facts_vec_rowids', 'sql': 'CREATE TABLE "graph_facts_vec_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'graph_facts_vec_vector_chunks00', 'sql': 'CREATE TABLE "graph_facts_vec_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_vector_chunks01', 'sql': 'CREATE TABLE "graph_facts_vec_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive', 'sql': 'CREATE VIRTUAL TABLE smart_archive USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER)'}
+{'name': 'smart_archive_auxiliary', 'sql': 'CREATE TABLE "smart_archive_auxiliary"( rowid integer PRIMARY KEY , value00, value01)'}
+{'name': 'smart_archive_chunks', 'sql': 'CREATE TABLE "smart_archive_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'smart_archive_facts', 'sql': 'CREATE TABLE smart_archive_facts (\n            id        INTEGER PRIMARY KEY AUTOINCREMENT,\n            chat_id   INTEGER NOT NULL,\n            fact      TEXT NOT NULL,\n            timestamp INTEGER NOT NULL\n        )'}
+{'name': 'smart_archive_facts_fts', 'sql': "CREATE VIRTUAL TABLE smart_archive_facts_fts USING fts5(\n            fact, content='smart_archive_facts', content_rowid='id', tokenize='unicode61'\n        )"}
+{'name': 'smart_archive_facts_fts_config', 'sql': "CREATE TABLE 'smart_archive_facts_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"}
+{'name': 'smart_archive_facts_fts_data', 'sql': "CREATE TABLE 'smart_archive_facts_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"}
+{'name': 'smart_archive_facts_fts_docsize', 'sql': "CREATE TABLE 'smart_archive_facts_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"}
+{'name': 'smart_archive_facts_fts_idx', 'sql': "CREATE TABLE 'smart_archive_facts_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"}
+{'name': 'smart_archive_g1', 'sql': 'CREATE VIRTUAL TABLE smart_archive_g1 USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER)'}
+{'name': 'smart_archive_g1_auxiliary', 'sql': 'CREATE TABLE "smart_archive_g1_auxiliary"( rowid integer PRIMARY KEY , value00, value01)'}
+{'name': 'smart_archive_g1_chunks', 'sql': 'CREATE TABLE "smart_archive_g1_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'smart_archive_g1_info', 'sql': 'CREATE TABLE "smart_archive_g1_info" (key text primary key, value any)'}
+{'name': 'smart_archive_g1_rowids', 'sql': 'CREATE TABLE "smart_archive_g1_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'smart_archive_g1_vector_chunks00', 'sql': 'CREATE TABLE "smart_archive_g1_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive_g1_vector_chunks01', 'sql': 'CREATE TABLE "smart_archive_g1_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive_info', 'sql': 'CREATE TABLE "smart_archive_info" (key text primary key, value any)'}
+{'name': 'smart_archive_rowids', 'sql': 'CREATE TABLE "smart_archive_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'smart_archive_vector_chunks00', 'sql': 'CREATE TABLE "smart_archive_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive_vector_chunks01', 'sql': 'CREATE TABLE "smart_archive_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+DIM | graph_facts_vec                    | 3072
+DIM | graph_facts_vec_auxiliary          | NO_FLOAT_DIM
+DIM | graph_facts_vec_chunks             | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1                 | 3072
+DIM | graph_facts_vec_g1_auxiliary       | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_chunks          | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_info            | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_rowids          | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_vector_chunks00 | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_vector_chunks01 | NO_FLOAT_DIM
+DIM | graph_facts_vec_info               | NO_FLOAT_DIM
+DIM | graph_facts_vec_rowids             | NO_FLOAT_DIM
+DIM | graph_facts_vec_vector_chunks00    | NO_FLOAT_DIM
+DIM | graph_facts_vec_vector_chunks01    | NO_FLOAT_DIM
+DIM | smart_archive                      | 3072
+DIM | smart_archive_auxiliary            | NO_FLOAT_DIM
+DIM | smart_archive_chunks               | NO_FLOAT_DIM
+DIM | smart_archive_facts                | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts            | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_config     | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_data       | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_docsize    | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_idx        | NO_FLOAT_DIM
+DIM | smart_archive_g1                   | 3072
+DIM | smart_archive_g1_auxiliary         | NO_FLOAT_DIM
+DIM | smart_archive_g1_chunks            | NO_FLOAT_DIM
+DIM | smart_archive_g1_info              | NO_FLOAT_DIM
+DIM | smart_archive_g1_rowids            | NO_FLOAT_DIM
+DIM | smart_archive_g1_vector_chunks00   | NO_FLOAT_DIM
+DIM | smart_archive_g1_vector_chunks01   | NO_FLOAT_DIM
+DIM | smart_archive_info                 | NO_FLOAT_DIM
+DIM | smart_archive_rowids               | NO_FLOAT_DIM
+DIM | smart_archive_vector_chunks00      | NO_FLOAT_DIM
+DIM | smart_archive_vector_chunks01      | NO_FLOAT_DIM
+--- vec_counts (n=34) ---
+{'name': 'smart_archive_facts'}
+{'name': 'smart_archive_facts_fts_data'}
+{'name': 'smart_archive_facts_fts_idx'}
+{'name': 'smart_archive_facts_fts_docsize'}
+{'name': 'smart_archive_facts_fts_config'}
+{'name': 'smart_archive_info'}
+{'name': 'smart_archive_chunks'}
+{'name': 'smart_archive_rowids'}
+{'name': 'smart_archive_vector_chunks00'}
+{'name': 'smart_archive_vector_chunks01'}
+{'name': 'smart_archive_auxiliary'}
+{'name': 'graph_facts_vec_info'}
+{'name': 'graph_facts_vec_chunks'}
+{'name': 'graph_facts_vec_rowids'}
+{'name': 'graph_facts_vec_vector_chunks00'}
+{'name': 'graph_facts_vec_vector_chunks01'}
+{'name': 'graph_facts_vec_auxiliary'}
+{'name': 'smart_archive_facts_fts'}
+{'name': 'smart_archive'}
+{'name': 'graph_facts_vec'}
+{'name': 'graph_facts_vec_g1'}
+{'name': 'graph_facts_vec_g1_info'}
+{'name': 'graph_facts_vec_g1_chunks'}
+{'name': 'graph_facts_vec_g1_rowids'}
+{'name': 'graph_facts_vec_g1_vector_chunks00'}
+{'name': 'graph_facts_vec_g1_vector_chunks01'}
+{'name': 'graph_facts_vec_g1_auxiliary'}
+{'name': 'smart_archive_g1'}
+{'name': 'smart_archive_g1_info'}
+{'name': 'smart_archive_g1_chunks'}
+{'name': 'smart_archive_g1_rowids'}
+{'name': 'smart_archive_g1_vector_chunks00'}
+{'name': 'smart_archive_g1_vector_chunks01'}
+{'name': 'smart_archive_g1_auxiliary'}
+COUNT | smart_archive_facts                | 0
+COUNT | smart_archive_facts_fts_data       | 2
+COUNT | smart_archive_facts_fts_idx        | 0
+COUNT | smart_archive_facts_fts_docsize    | 0
+COUNT | smart_archive_facts_fts_config     | 1
+COUNT | smart_archive_info                 | 4
+COUNT | smart_archive_chunks               | 0
+COUNT | smart_archive_rowids               | 0
+COUNT | smart_archive_vector_chunks00      | 0
+COUNT | smart_archive_vector_chunks01      | 0
+COUNT | smart_archive_auxiliary            | 0
+COUNT | graph_facts_vec_info               | 4
+COUNT | graph_facts_vec_chunks             | 16
+COUNT | graph_facts_vec_rowids             | 16003
+COUNT | graph_facts_vec_vector_chunks00    | 16
+COUNT | graph_facts_vec_vector_chunks01    | 16
+COUNT | graph_facts_vec_auxiliary          | 16003
+COUNT | smart_archive_facts_fts            | 0
+COUNT | smart_archive                      | ERROR no such module: vec0
+COUNT | graph_facts_vec                    | ERROR no such module: vec0
+COUNT | graph_facts_vec_g1                 | ERROR no such module: vec0
+COUNT | graph_facts_vec_g1_info            | 4
+COUNT | graph_facts_vec_g1_chunks          | 10
+COUNT | graph_facts_vec_g1_rowids          | 9797
+COUNT | graph_facts_vec_g1_vector_chunks00 | 10
+COUNT | graph_facts_vec_g1_vector_chunks01 | 10
+COUNT | graph_facts_vec_g1_auxiliary       | 9797
+COUNT | smart_archive_g1                   | ERROR no such module: vec0
+COUNT | smart_archive_g1_info              | 4
+COUNT | smart_archive_g1_chunks            | 0
+COUNT | smart_archive_g1_rowids            | 0
+COUNT | smart_archive_g1_vector_chunks00   | 0
+COUNT | smart_archive_g1_vector_chunks01   | 0
+COUNT | smart_archive_g1_auxiliary         | 0
+===== index generations =====
+--- mca_embedding_index_generations (n=2) ---
+{'generation_id': 2, 'index_name': 'graph_facts_vec', 'generation': 1, 'fingerprint': '96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d', 'provider': 'generativelanguage.googleapis.com', 'model': 'gemini-embedding-001', 'dims': 3072, 'preprocessing_version': 'casefold-strip-v1', 'endpoint_fingerprint': 'e42d6fd4c65855c2', 'status': 'building', 'created_at': 1790678362, 'activated_at': None, 'superseded_at': None, 'pause_reason': 'rate_limit:quota_group', 'next_allowed_at': 1792713900, 'attempts_total': 592, 'namespace': 'default', 'config_revision': None}
+{'generation_id': 1, 'index_name': 'smart_archive', 'generation': 1, 'fingerprint': '96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d', 'provider': 'generativelanguage.googleapis.com', 'model': 'gemini-embedding-001', 'dims': 3072, 'preprocessing_version': 'casefold-strip-v1', 'endpoint_fingerprint': 'e42d6fd4c65855c2', 'status': 'building', 'created_at': 1790678362, 'activated_at': None, 'superseded_at': None, 'pause_reason': None, 'next_allowed_at': None, 'attempts_total': 0, 'namespace': 'default', 'config_revision': None}
+===== embedding_cache =====
+{'c': 11656, 'dmin': 3072, 'dmax': 3072, 'newest': 1792628105.3930376, 'used': 1792674893.9879022}
+--- cache_dims (n=1) ---
+{'dim': 3072, 'c': 11656}
+===== backlog =====
+{'total': 20051}
+{'eligible': 15819}
+{'archive_facts': 0}
+===== daily throughput (smart_messages, UTC days) =====
+--- messages_per_day --- ERROR OperationalError: no such column: created_at
+--- summary_runs_recent --- ERROR OperationalError: no such column: status
+===== last rebuild jobs =====
+--- rebuild_jobs (n=2) ---
+{'job_id': '7ed322e68a0d433b89f03ef66117c367', 'status': 'paused_rate_limit', 'reason_code': 'rate_limit:quota_group', 'attempt': 0, 'updated_at': 1792628106, 'payload': '{"cursor": "{\\"last_id\\": 11953, \\"processed\\": 9797}", "processed": 9797}'}
+{'job_id': '168adb23141648248ad25f08c8036432', 'status': 'validation_failed', 'reason_code': 'knn_source_empty', 'attempt': 0, 'updated_at': 1791329331, 'payload': '{"cursor": "{\\"last_id\\": 0, \\"processed\\": 0}", "processed": 0}'}
+===== PY: live probe =====
+===== runtime-mirrored parking check =====
+GROUP | fallback_1   | state=exhausted  | note=parked kind=spend est=utc_day_end | next_allowed_at=2026-10-23T00:05:00Z | blocked_now=True | in=25920s
+GROUP | fallback_2   | state=exhausted  | note=parked kind=spend est=utc_day_end | next_allowed_at=2026-10-23T00:05:00Z | blocked_now=True | in=25920s
+GROUP | primary      | state=exhausted  | note=parked kind=spend est=utc_day_end | next_allowed_at=2026-10-23T00:05:00Z | blocked_now=True | in=25920s
+Traceback (most recent call last):
+  File "<stdin>", line 120, in <module>
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 687, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "<stdin>", line 64, in main
+AttributeError: 'Settings' object has no attribute 'LLM_MODEL'
+===== journal (masked, 6h) =====
+Oct 22 15:04:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:04:54,839 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:14:54 +05)" executed successfully
+Oct 22 15:13:32 racknerd-f4e3456 python[516119]: 2026-10-22 15:13:32,920 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:13:32 racknerd-f4e3456 python[516119]: 2026-10-22 15:13:32,921 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792682012 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:13:44 racknerd-f4e3456 python[516119]: 2026-10-22 15:13:44,015 - services.mca_events - INFO - mca_event=mca07_bundle | ts=1792682024 | event_name=mca07_bundle | outcome=success | level=INFO | component=retrieval_context | stage=bundle | chat_id=-1002661910336 | config_version=3efc31b34e79bb5761c62ae744ae5e78 | entity_ids=["3efc31b34e79bb5761c62ae744ae5e78"]
+Oct 22 15:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:14:54,098 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:24:54 +05)" (scheduled at 2026-10-22 20:14:54.089833+05:00)
+Oct 22 15:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:14:54,507 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:14:54,509 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792682094 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:14:54,535 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:24:54 +05)" executed successfully
+Oct 22 15:24:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:24:54,094 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:34:54 +05)" (scheduled at 2026-10-22 20:24:54.089833+05:00)
+Oct 22 15:24:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:24:54,095 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:34:54 +05)" executed successfully
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,093 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:44:54 +05)" (scheduled at 2026-10-22 20:34:54.089833+05:00)
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,620 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,621 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792683294 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,647 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,647 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792683294 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,647 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:44:54 +05)" executed successfully
+Oct 22 15:44:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:44:54,094 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:54:54 +05)" (scheduled at 2026-10-22 20:44:54.089833+05:00)
+Oct 22 15:44:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:44:54,095 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:54:54 +05)" executed successfully
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,094 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:04:54 +05)" (scheduled at 2026-10-22 20:54:54.089833+05:00)
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,677 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,680 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792684494 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,705 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,705 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792684494 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,706 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:04:54 +05)" executed successfully
+Oct 22 16:04:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:04:54,092 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:14:54 +05)" (scheduled at 2026-10-22 21:04:54.089833+05:00)
+Oct 22 16:04:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:04:54,093 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:14:54 +05)" executed successfully
+Oct 22 16:14:30 racknerd-f4e3456 python[516119]: 2026-10-22 16:14:30,394 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 16:14:30 racknerd-f4e3456 python[516119]: 2026-10-22 16:14:30,398 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792685670 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 16:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:14:54,098 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:24:54 +05)" (scheduled at 2026-10-22 21:14:54.089833+05:00)
+Oct 22 16:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:14:54,640 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 16:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:14:54,641 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792685694 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 16:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:14:54,656 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:24:54 +05)" executed successfully
+Oct 22 16:16:14 racknerd-f4e3456 python[516119]: 2026-10-22 16:16:14,221 - services.mca_events - INFO - mca_event=mca07_bundle | ts=1792685774 | event_name=mca07_bundle | outcome=success | level=INFO | component=retrieval_context | stage=bundle | chat_id=-1002661910336 | config_version=2fd5ae3dd8d9be4b6bb1d870d0542f00 | entity_ids=["2fd5ae3dd8d9be4b6bb1d870d0542f00"]
+Oct 22 16:16:48 racknerd-f4e3456 python[516119]: 2026-10-22 16:16:48,162 - services.mca_events - INFO - mca_event=mca07_bundle | ts=1792685808 | event_name=mca07_bundle | outcome=success | level=INFO | component=retrieval_context | stage=bundle | chat_id=-1002661910336 | config_version=d2805602e6d5de8757f3ce6d3c07f242 | entity_ids=["d2805602e6d5de8757f3ce6d3c07f242"]
+Oct 22 16:22:24 racknerd-f4e3456 python[516119]: 2026-10-22 16:22:24,996 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 16:22:24 racknerd-f4e3456 python[516119]: 2026-10-22 16:22:24,996 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792686144 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 16:22:39 racknerd-f4e3456 python[516119]: 2026-10-22 16:22:39,544 - services.mca_events - INFO - mca_event=mca07_bundle | ts=1792686159 | event_name=mca07_bundle | outcome=success | level=INFO | component=retrieval_context | stage=bundle | chat_id=-1002661910336 | config_version=d15476ce05d52550438730cca1d0fc4f | entity_ids=["d15476ce05d52550438730cca1d0fc4f"]
+Oct 22 16:24:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:24:54,093 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:34:54 +05)" (scheduled at 2026-10-22 21:24:54.089833+05:00)
+Oct 22 16:24:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:24:54,095 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:34:54 +05)" executed successfully
+Oct 22 16:25:48 racknerd-f4e3456 python[516119]: 2026-10-22 16:25:48,938 - services.mca_events - INFO - mca_event=capability_check | ts=1792686348 | event_name=capability_check | outcome=failed | level=INFO | component=capability_registry | status=not_configured | entity_id=video_summary | chat_id=-1002661910336 | trace_id=1a9a876496994d87a1fecef2251e52f8 | reason_code=provider_unconfigured
+Oct 22 16:25:55 racknerd-f4e3456 python[516119]: 2026-10-22 16:25:55,544 - services.mca_events - INFO - mca_event=mca07_bundle | ts=1792686355 | event_name=mca07_bundle | outcome=success | level=INFO | component=retrieval_context | stage=bundle | chat_id=-1002661910336 | config_version=1ebace1a1c21d31bb5cf8a4f07c553a3 | entity_ids=["1ebace1a1c21d31bb5cf8a4f07c553a3"]
+Oct 22 16:25:56 racknerd-f4e3456 python[516119]: 2026-10-22 16:25:56,615 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+Oct 22 16:25:56 racknerd-f4e3456 python[516119]: 2026-10-22 16:25:56,668 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=0 | dedup_vector_skipped=0
+Oct 22 16:25:56 racknerd-f4e3456 python[516119]: 2026-10-22 16:25:56,669 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792686356 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 0, "dedup_vector_skipped": 0}
+Oct 22 16:27:06 racknerd-f4e3456 python[516119]: 2026-10-22 16:27:06,363 - services.mca_events - INFO - mca_event=mca07_bundle | ts=1792686426 | event_name=mca07_bundle | outcome=success | level=INFO | component=retrieval_context | stage=bundle | chat_id=-1002661910336 | config_version=88fe949ac9df8a1313a055576f2c62f2 | entity_ids=["88fe949ac9df8a1313a055576f2c62f2"]
+Oct 22 16:27:08 racknerd-f4e3456 python[516119]: 2026-10-22 16:27:08,115 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+Oct 22 16:27:08 racknerd-f4e3456 python[516119]: 2026-10-22 16:27:08,198 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=3 | dedup_vector_skipped=2
+Oct 22 16:27:08 racknerd-f4e3456 python[516119]: 2026-10-22 16:27:08,199 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792686428 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 3, "dedup_vector_skipped": 2}
+Oct 22 16:27:08 racknerd-f4e3456 python[516119]: 2026-10-22 16:27:08,200 - services.mca_events - WARNING - mca_event=FACTS_EXTRACT | ts=1792686428 | event_name=FACTS_EXTRACT | outcome=success | level=WARN | component=facts | chat_id=-1002661910336 | stage=extract | duration_ms=1802 | reason_code=embed_deferred | usage_json={"saved": 3, "skipped": 0, "deduped": 0, "superseded": 0, "text_only": 3, "outcome": "text_only_vector_deferred"}
+Oct 22 16:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:34:54,103 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:44:54 +05)" (scheduled at 2026-10-22 21:34:54.089833+05:00)
+Oct 22 16:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:34:54,740 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 16:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:34:54,741 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792686894 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 16:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:34:54,793 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 16:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:34:54,795 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792686894 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 16:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:34:54,795 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:44:54 +05)" executed successfully
+Oct 22 16:40:20 racknerd-f4e3456 python[516119]: 2026-10-22 16:40:20,462 - services.config_cache - INFO - [config_cache] set_many | keys=1
+Oct 22 16:40:20 racknerd-f4e3456 python[516119]: 2026-10-22 16:40:20,464 - web.api.routes - INFO - [api] config updated | key=keys.embedding_api_key | by=5885953495
+Oct 22 16:40:20 racknerd-f4e3456 python[516119]: 2026-10-22 16:40:20,761 - services.config_cache - INFO - [config_cache] set_many | keys=1
+Oct 22 16:40:20 racknerd-f4e3456 python[516119]: 2026-10-22 16:40:20,763 - web.api.routes - INFO - [api] config updated | key=models.embedding_base_url | by=5885953495
+Oct 22 16:41:12 racknerd-f4e3456 python[516119]: 2026-10-22 16:41:12,752 - services.config_cache - INFO - [config_cache] set_many | keys=2
+Oct 22 16:41:12 racknerd-f4e3456 python[516119]: 2026-10-22 16:41:12,753 - web.api.routes - INFO - [api] config updated | key=models.embedding_fallback1_base_url | by=5885953495
+Oct 22 16:41:12 racknerd-f4e3456 python[516119]: 2026-10-22 16:41:12,753 - web.api.routes - INFO - [api] config updated | key=models.embedding_fallback1_model | by=5885953495
+Oct 22 16:41:34 racknerd-f4e3456 python[516119]: 2026-10-22 16:41:34,186 - services.config_cache - INFO - [config_cache] set_many | keys=2
+Oct 22 16:41:34 racknerd-f4e3456 python[516119]: 2026-10-22 16:41:34,187 - web.api.routes - INFO - [api] config updated | key=models.embedding_fallback2_base_url | by=5885953495
+Oct 22 16:41:34 racknerd-f4e3456 python[516119]: 2026-10-22 16:41:34,187 - web.api.routes - INFO - [api] config updated | key=models.embedding_fallback2_model | by=5885953495
+Oct 22 16:42:36 racknerd-f4e3456 python[516119]: 2026-10-22 16:42:36,663 - services.summary_memory - INFO - embed cache | hits=0 misses=1
+Oct 22 16:42:36 racknerd-f4e3456 python[516119]: 2026-10-22 16:42:36,732 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=0 | dedup_vector_skipped=0
+Oct 22 16:42:36 racknerd-f4e3456 python[516119]: 2026-10-22 16:42:36,734 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792687356 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 0, "dedup_vector_skipped": 0}
+Oct 22 16:44:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:44:54,095 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:54:54 +05)" (scheduled at 2026-10-22 21:44:54.089833+05:00)
+Oct 22 16:44:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:44:54,097 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:54:54 +05)" executed successfully
+===== END =====
+
+[rc=0]

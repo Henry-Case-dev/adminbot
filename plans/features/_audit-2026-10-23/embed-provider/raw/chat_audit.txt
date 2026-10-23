@@ -1,0 +1,140 @@
+DATE_UTC=2026-10-22T17:31:33Z
+DATE_LOCAL=2026-10-22 17:31:33 UTC +0000
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== ENV (masked) =====
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+===== HZ =====
+{"status":"ok","version":"2.58.111"}
+===== JOURNAL RETENTION =====
+Archived and active journals take up 185.3M in the file system.
+2026-10-18T05:15:32+00:00 racknerd-f4e3456 python[3275019]: 2026-10-18 05:15:32,316 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 10:15:37 +05)" (scheduled at 2026-10-18 10:15:32.314377+05:00)
+2026-10-22T17:31:34+00:00 racknerd-f4e3456 python[516119]: 2026-10-22 17:31:34,239 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-22 22:31:39 +05)" executed successfully
+===== PY: chat audit =====
+===== ENV chat =====
+ENV | LLM_BASE_URL             | https://nano-gpt.com/api/v1
+ENV | LLM_FALLBACK_BASE_URL    | https://api.deepseek.com
+ENV | LLM_FALLBACK_MODEL       | deepseek-v4-flash
+ENV | LLM_MODEL_NAME           | deepseek-v4-flash
+ENV | LLM_FALLBACK_API_KEY     | <set>
+===== PG chat =====
+PG | keys.llm_api_key                   | <set len=44>
+PG | keys.llm_fallback_api_key          | <set len=35>
+PG | models.llm_base_url                | https://nano-gpt.com/api/v1
+PG | models.llm_cb_cooldown_seconds     | 300.0
+PG | models.llm_cb_failure_threshold    | 3
+PG | models.llm_display_name            | NanoGPT Deepseek
+PG | models.llm_fallback_base_url       | https://api.deepseek.com
+PG | models.llm_fallback_display_name   | Deepseek 
+PG | models.llm_fallback_max_retries    | 2
+PG | models.llm_fallback_model          | deepseek-flash
+PG | models.llm_fallback_timeout_seconds | 120.0
+PG | models.llm_max_retries             | 2
+PG | models.llm_model_name              | deepseek/deepseek-v4.1-flash
+PG | models.llm_retry_backoff_base      | 1.0
+PG | models.llm_retry_backoff_cap       | 8.0
+PG | models.llm_retry_jitter_max        | 2.0
+PG | models.llm_timeout                 | 30.0
+PG | models.llm_total_budget            | 60.0
+PG_APINET | models.embedding_base_url | "https://apinet.cloud/v1"
+USAGE7D | model=deepseek/deepseek-v4.1-flash | source=global     | c=2567   | 2026-10-15 17:47:40.704866+00:00..2026-10-22 16:55:21.174171+00:00
+USAGE7D | model=                         | source=image      | c=107    | 2026-10-15 19:18:33.953821+00:00..2026-10-22 16:26:58.460671+00:00
+USAGE7D | model=deepseek-flash           | source=global     | c=33     | 2026-10-16 06:48:08.921198+00:00..2026-10-18 21:04:04.931766+00:00
+USAGE7D_TOTAL | {'c': 2707, 't0': datetime.datetime(2026, 10, 15, 17, 47, 40, 704866, tzinfo=datetime.timezone.utc), 't1': datetime.datetime(2026, 10, 22, 16, 55, 21, 174171, tzinfo=datetime.timezone.utc)}
+===== LIVE /api/config (chat keys) =====
+CONFIG_STATUS 200
+LIVE | keys.llm_fallback_api_key          | <set len=37>
+LIVE | keys.llm_api_key                   | <set len=37>
+LIVE | models.llm_base_url                | https://nano-gpt.com/api/v1
+LIVE | models.llm_model_name              | deepseek/deepseek-v4.1-flash
+LIVE | models.llm_display_name            | NanoGPT Deepseek
+LIVE | models.llm_fallback_base_url       | https://api.deepseek.com
+LIVE | models.llm_fallback_model          | deepseek-flash
+LIVE | models.llm_fallback_display_name   | Deepseek 
+LIVE | models.llm_fallback_max_retries    | 2
+LIVE | models.llm_fallback_timeout_seconds | 120.0
+LIVE | models.llm_retry_backoff_cap       | 8.0
+LIVE | models.llm_retry_backoff_base      | 1.0
+LIVE | models.llm_retry_jitter_max        | 2.0
+LIVE | models.llm_timeout                 | 30.0
+LIVE | models.llm_max_retries             | 2
+LIVE | models.llm_total_budget            | 60.0
+LIVE | models.llm_cb_cooldown_seconds     | 300.0
+LIVE | models.llm_cb_failure_threshold    | 3
+===== JOURNAL =====
+JOURNAL | since=-7 days | rc=0 | lines=234613 | range=2026-10-18T05:15:32..2026-10-22T17:31:49
+HOSTS_ALL(200 OK requests) | {"generativelanguage.googleapis.com": 40, "nano-gpt.com": 1395}
+HOSTS_CHAT(200 OK, non-embed) | {"nano-gpt.com": 1395}
+HOSTS_EMBED(200 OK, /embeddings) | {"generativelanguage.googleapis.com": 40}
+HOSTS_HTTP_ERRORS | {"nano-gpt.com": 33}
+CHAT_MODELS_OK | {"deepseek/deepseek-v4.1-flash": 1208}
+FALLBACK_PROVIDERS | {"api.deepseek.com": 30}
+FALLBACK_OK_MODELS | {"deepseek-flash": 28}
+APINET_LINES_COUNT(showing up to 40) 0
+===== PROCESSES =====
+    728       1  1-22:49:16 /usr/bin/python3 /usr/share/unattended-upgrades/unattended-upgrade-shutdown --wait-for-signal
+ 433830       1    11:11:46 /opt/headroom/venv/bin/python3 /opt/headroom/venv/bin/headroom proxy --host 0.0.0.0 --port 8787 --provider-name deepseek --openai-api-url https://api.deepseek.com --mode cache --log-file /var/log/headroom/headroom.jsonl
+ 433849       1    11:11:45 /usr/bin/python3 /usr/bin/fail2ban-server -xf start
+ 516119       1    04:17:20 /var/www/admin_bot/venv/bin/python /var/www/admin_bot/bot.py
+===== TIMERS =====
+NEXT                             LEFT LAST                              PASSED UNIT                           ACTIVATES
+Thu 2026-10-22 17:40:00 UTC      8min Thu 2026-10-22 17:30:09 UTC 1min 42s ago sysstat-collect.timer          sysstat-collect.service
+Thu 2026-10-22 17:41:06 UTC      9min Thu 2026-10-22 16:09:02 UTC 1h 22min ago fwupd-refresh.timer            fwupd-refresh.service
+Thu 2026-10-22 18:47:30 UTC  1h 15min Wed 2026-10-21 18:47:30 UTC      22h ago update-notifier-download.timer update-notifier-download.service
+Thu 2026-10-22 18:57:14 UTC  1h 25min Wed 2026-10-21 18:57:14 UTC      22h ago systemd-tmpfiles-clean.timer   systemd-tmpfiles-clean.service
+Fri 2026-10-23 00:00:00 UTC        6h Thu 2026-10-22 00:00:02 UTC      17h ago dpkg-db-backup.timer           dpkg-db-backup.service
+Fri 2026-10-23 00:00:00 UTC        6h Thu 2026-10-22 00:00:02 UTC      17h ago logrotate.timer                logrotate.service
+Fri 2026-10-23 00:07:00 UTC        6h Thu 2026-10-22 00:07:10 UTC      17h ago sysstat-summary.timer          sysstat-summary.service
+Fri 2026-10-23 02:29:48 UTC        8h Thu 2026-10-22 00:20:20 UTC      17h ago man-db.timer                   man-db.service
+Fri 2026-10-23 05:39:25 UTC       12h Thu 2026-10-22 14:37:50 UTC 2h 54min ago apt-daily.timer                apt-daily.service
+Fri 2026-10-23 06:41:05 UTC       13h Thu 2026-10-22 13:16:50 UTC 4h 15min ago motd-news.timer                motd-news.service
+Fri 2026-10-23 06:43:24 UTC       13h Thu 2026-10-22 06:19:10 UTC      11h ago apt-daily-upgrade.timer        apt-daily-upgrade.service
+Sat 2026-10-24 03:59:48 UTC 1 day 10h Tue 2026-10-13 14:53:27 UTC            - update-notifier-motd.timer     update-notifier-motd.service
+Sun 2026-10-25 03:10:59 UTC    2 days Sun 2026-10-18 03:10:47 UTC            - e2scrub_all.timer              e2scrub_all.service
+Mon 2026-10-26 01:35:58 UTC    3 days Mon 2026-10-19 00:59:55 UTC            - fstrim.timer                   fstrim.service
+-                                   - -                                      - apport-autoreport.timer        apport-autoreport.service
+-                                   - -                                      - snapd.snap-repair.timer        snapd.snap-repair.service
+-                                   - -                                      - ua-timer.timer                 ua-timer.service
+
+17 timers listed.
+===== CRON =====
+30 6 * * 1 cd /var/www/admin_bot && venv/bin/python tools/disk_retention.py >> /home/nik/adminbot-disk-rete***.log 2>&1
+/etc/cron.d:
+total 8
+-rw-r--r-- 1 root root 201 Apr  8  2024 e2scrub_all
+-rw-r--r-- 1 root root 396 Apr 23  2024 sysstat
+
+/etc/cron.daily:
+total 24
+-rwxr-xr-x 1 root root  376 Apr 18  2024 apport
+-rwxr-xr-x 1 root root 1478 Mar 22  2024 apt-compat
+-rwxr-xr-x 1 root root  123 Feb  5  2024 dpkg
+-rwxr-xr-x 1 root root  377 Apr 23  2024 logrotate
+-rwxr-xr-x 1 root root 1395 Apr 23  2024 man-db
+-rwxr-xr-x 1 root root  518 Apr 23  2024 sysstat
+
+/etc/cron.hourly:
+total 0
+ls: cannot open directory '/var/spool/cron/crontabs': Permission denied
+===== CODE GREP apinet =====
+services/param_catalog.py:891:    # адреса direct-чата (models.llm_base_url). Дефолт apinet.cloud/v1.
+services/param_catalog.py:3577:        # строкой JSON-текста В КАВЫЧКАХ ('"https://apinet.cloud/v1"').
+config/settings.py:365:    #   * EMBEDDING_BASE_URL — primary-эмбеддинги (apinet.cloud по умолчанию);
+config/settings.py:374:    EMBEDDING_BASE_URL: str = os.getenv("EMBEDDING_BASE_URL", "https://apinet.cloud/v1")
+===== END =====
+
+[rc=0]

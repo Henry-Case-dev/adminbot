@@ -1,0 +1,5 @@
+PKG-SU bump set vs procedure-99 (pkg99/bump_25899.py) set
+ref(99) files=31; bump(100) files=31
+ONLY IN 99: none
+ONLY IN 100: none
+SET EQUAL: YES

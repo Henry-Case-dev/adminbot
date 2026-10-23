@@ -1,0 +1,200 @@
+DATE_UTC=2026-10-22T16:12:09Z
+PYBIN=venv/bin/python
+===== T1 sqlite + vec extension =====
+VEC_SO_CANDIDATES ['venv/lib/python3.12/site-packages/sqlite_vec/vec0.so', 'venv/lib64/python3.12/site-packages/sqlite_vec/vec0.so']
+VEC_LOADED venv/lib/python3.12/site-packages/sqlite_vec/vec0.so
+VEC_LOADED_FINAL True
+--- vec_count_graph_facts_vec (n=1) ---
+{'COUNT(*)': 16003}
+--- vec_count_smart_archive (n=1) ---
+{'COUNT(*)': 0}
+--- backlog_archive (n=1) ---
+{'COUNT(*)': 0}
+--- backlog_graph (n=1) ---
+{'COUNT(*)': 4162}
+--- vec_by_chat_graph (n=4) ---
+{'chat_id': -1002661910336, 'n': 15745}
+{'chat_id': 5885953495, 'n': 255}
+{'chat_id': 1313107079, 'n': 2}
+{'chat_id': 529151103, 'n': 1}
+--- has_chat_migration_backup (n=1) ---
+{'COUNT(*)': 0}
+chat_migration_backup: ABSENT
+--- embed_gen_events (n=2) ---
+{'event_name': 'EMBEDDING_GENERATION_PAUSED', 'outcome': 'silent', 'n': 592, 'last_ts': 1792628106}
+{'event_name': 'EMBEDDING_GENERATION_FAILED', 'outcome': 'failed', 'n': 50, 'last_ts': 1791329331}
+--- embed_gen_samples (n=4) ---
+{'ts': 1792628106, 'event_name': 'EMBEDDING_GENERATION_PAUSED', 'outcome': 'silent', 'chat_id': None, 'usage_json': None}
+{'ts': 1792541775, 'event_name': 'EMBEDDING_GENERATION_PAUSED', 'outcome': 'silent', 'chat_id': None, 'usage_json': None}
+{'ts': 1792455273, 'event_name': 'EMBEDDING_GENERATION_PAUSED', 'outcome': 'silent', 'chat_id': None, 'usage_json': None}
+{'ts': 1792368721, 'event_name': 'EMBEDDING_GENERATION_PAUSED', 'outcome': 'silent', 'chat_id': None, 'usage_json': None}
+--- embed_deferred_by_day (n=12) ---
+{'d': '2026-10-22', 'n': 40}
+{'d': '2026-10-21', 'n': 17}
+{'d': '2026-10-20', 'n': 50}
+{'d': '2026-10-19', 'n': 118}
+{'d': '2026-10-18', 'n': 31}
+{'d': '2026-10-17', 'n': 15}
+{'d': '2026-10-16', 'n': 71}
+{'d': '2026-10-15', 'n': 45}
+{'d': '2026-10-14', 'n': 39}
+{'d': '2026-10-13', 'n': 10}
+{'d': '2026-10-12', 'n': 17}
+{'d': '2026-10-11', 'n': 27}
+--- embed_failed (n=2) ---
+{'event_name': 'EMBEDDING_GENERATION_FAILED', 'outcome': 'failed', 'reason_code': 'knn_source_empty', 'n': 38, 'MAX(ts)': 1791329331}
+{'event_name': 'EMBEDDING_GENERATION_FAILED', 'outcome': 'failed', 'reason_code': None, 'n': 12, 'MAX(ts)': 1790871748}
+Traceback (most recent call last):
+  File "<stdin>", line 62, in <module>
+ValueError: unsupported format character ''' (0x27) at index 107
+===== T2 journal: summary failure window =====
+Oct 22 13:12:15 racknerd-f4e3456 python[455943]: 2026-10-22 13:12:15,319 - services.mca_events - INFO - mca_event=COVER_STYLE_SELECTION | ts=1792674735 | event_name=COVER_STYLE_SELECTION | outcome=start | level=INFO | component=cover | stage=start | usage_json={"style_id": "medved_press", "style_revision": 7, "selection_source": "chat", "enabled": true, "pipeline_mode": "generate_then_edit"} | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover
+Oct 22 13:12:16 racknerd-f4e3456 python[455943]: 2026-10-22 13:12:16,154 - services.mca_events - INFO - mca_event=COVER_LIMIT_UNKNOWN | ts=1792674736 | event_name=COVER_LIMIT_UNKNOWN | outcome=start | level=INFO | component=cover | stage=limit_unknown | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover
+Oct 22 13:12:16 racknerd-f4e3456 python[455943]: 2026-10-22 13:12:16,168 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=193 | context_len=395 | final_len=700 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+Oct 22 13:12:16 racknerd-f4e3456 python[455943]: 2026-10-22 13:12:16,171 - services.summary_run_log - INFO - COVER_START | run_id=718e9ea64810446399970ed4ea01a2f1 | chat_id=-1002661910336 | provider=nano-gpt.com
+Oct 22 13:13:45 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:45,999 - services.summary_run_log - INFO - COVER_COMPLETE | run_id=718e9ea64810446399970ed4ea01a2f1 | chat_id=-1002661910336 | status=ok | duration_ms=89828 | code=-
+Oct 22 13:13:46 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:46,001 - services.mca_events - INFO - mca_event=COVER_BASE_SUCCEEDED | ts=1792674826 | event_name=COVER_BASE_SUCCEEDED | outcome=success | level=INFO | component=cover | stage=success | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover
+Oct 22 13:13:46 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:46,215 - services.mca_events - INFO - mca_event=COVER_STYLE_RESOLVE | ts=1792674826 | event_name=COVER_STYLE_RESOLVE | outcome=start | level=INFO | component=cover | stage=start | model=qwen-image-3-pro | provider=nano-gpt.com | usage_json={"style_id": "medved_press", "resolve_source": "global_image_slot"} | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover | job_id=cov_8c8ababb7c36b0845e60ef64
+Oct 22 13:13:46 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:46,217 - services.mca_events - INFO - mca_event=COVER_STYLE_START | ts=1792674826 | event_name=COVER_STYLE_START | outcome=start | level=INFO | component=cover | stage=start | model=qwen-image-3-pro | provider=nano-gpt.com | usage_json={"style_id": "medved_press", "style_revision": 7} | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover | job_id=cov_8c8ababb7c36b0845e60ef64
+Oct 22 13:13:46 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:46,314 - services.mca_events - INFO - mca_event=COVER_STYLE_SUBMITTED | ts=1792674826 | event_name=COVER_STYLE_SUBMITTED | outcome=start | level=INFO | component=cover | stage=start | model=qwen-image-3-pro | provider=nano-gpt.com | usage_json={"prompt_len": 997, "reference_count": 1, "issue_number": 81, "reference_bytes_total": 475189, "capability_state": "unknown", "instruction_chars": 392, "brief_chars": 303, "compiled_chars": 997, "limit_unit": "unknown:unknown", "issue_present": true, "edit_route": "image_api", "limit_source": "unknown", "limit_source_taxonomy": "unknown", "capability_source": "unknown"} | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover | job_id=cov_8c8ababb7c36b0845e60ef64
+Oct 22 13:13:48 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:48,428 - services.cover_style_edit - WARNING - [cover_style_edit] provider 400 | status=400 | route=image_api | model=qwen-image-3-pro | reason_code=Your prompt is too long for Qwen Image 3 Pro. Please shorten | request_id=- | classified=prompt_limit
+Oct 22 13:13:48 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:48,430 - services.cover_style_edit - WARNING - [cover_style_edit] edit failed | provider=nano-gpt.com | model=qwen-image-3-pro | reason_class=error | reason=prompt_limit | latency_ms=2069
+Oct 22 13:13:48 racknerd-f4e3456 python[455943]: 2026-10-22 13:13:48,449 - services.mca_events - INFO - mca_event=COVER_STYLE_SUBMITTED | ts=1792674828 | event_name=COVER_STYLE_SUBMITTED | outcome=success | level=INFO | component=cover | stage=retry | model=qwen-image-3-pro | provider=nano-gpt.com | usage_json={"prompt_len": 788} | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover | job_id=cov_8c8ababb7c36b0845e60ef64
+Oct 22 13:14:03 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:03,698 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=8.86s
+Oct 22 13:14:18 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:18,024 - services.mca_vision - WARNING - [vision] claim sweep slow | dur=13.18s
+Oct 22 13:14:18 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:18,462 - services.mca_events - INFO - mca_event=COVER_STYLE_RUNNING | ts=1792674858 | event_name=COVER_STYLE_RUNNING | outcome=pending_external | level=INFO | component=cover | stage=style_running | model=qwen-image-3-pro | provider=nano-gpt.com | duration_ms=30008 | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary.cover | job_id=cov_8c8ababb7c36b0845e60ef64
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:20,344 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:20,351 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=718e9ea64810446399970ed4ea01a2f1 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=860061 | source_count=566 | threads=12 | paragraphs=- | cover_status=ok | code=- | fallback=none | coverage=0.0 | publication_status=- | health=degraded | package_grade=semantic
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:20,356 - services.mca_events - INFO - mca_event=SUMMARY_RUN_DONE | ts=1792674860 | event_name=SUMMARY_RUN_DONE | outcome=success | level=INFO | component=summary | stage=done | status=degraded | chat_id=-1002661910336 | duration_ms=860066 | usage_json={"coverage": 0.0, "source_total": 566, "source_considered": 0, "fallback": "none", "package_grade": "semantic", "pipeline_health": "degraded"} | pipeline_run_id=718e9ea64810446399970ed4ea01a2f1 | pipeline_type=summary
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:20,477 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-23 00:00:00 +05)" raised an exception
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: Traceback (most recent call last):
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_scheduler.py", line 204, in _tick
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 690, in generate_and_send
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 928, in _run
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 2678, in _run_hybrid_l2
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 2178, in _legacy_fallback
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 1931, in _run_legacy_pipeline
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 4352, in _deliver_rich
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:     return await self._publish_rich_document(
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 3135, in _publish_rich_document
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:     published = await self._publish_rich_document_impl(
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 3485, in _publish_rich_document_impl
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]:   File "/var/www/admin_bot/services/summary_generator.py", line 3761, in _maybe_apply_cover_style
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: asyncio.exceptions.CancelledError
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:20,985 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=draining | in_flight=0 | cancelled=0 | timeout_s=20.0
+Oct 22 13:14:21 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:21,004 - services.summary_generator - INFO - SUMMARY_SHUTDOWN_DRAIN | phase=finalized | finalized=0 | left=0 | elapsed_ms=19
+Oct 22 13:14:21 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:21,005 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=20
+Oct 22 13:14:21 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:21,265 - services.summary_scheduler - INFO - SmartModule scheduler stopped
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,235 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_system_prompt | chars=3558
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,238 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.checkup_system_prompt | chars=2312
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,240 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.factcheck_system_prompt | chars=4666
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,241 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.search_system_prompt | chars=2622
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,243 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.youtube_system_prompt | chars=2252
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,244 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.youtube_video_system_prompt | chars=2248
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,247 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.webpage_system_prompt | chars=2071
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,249 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_editor_system_prompt | chars=2023
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,250 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.factcheck_verbalizer_system_prompt | chars=1712
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,250 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_l1_clusterizer_system_prompt
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,251 - services.prompt_migrations - WARNING - [prompt_migration] кастом юзера — НЕ трогаем | key=prompts.summary_l2_writer_system_prompt | chars=8388
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,255 - services.prompt_migrations - INFO - [prompt_migration] уже новый канон | key=prompts.summary_narrator_system_prompt
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,191 - services.summary_memory - INFO - embed cache | hits=1 misses=0
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,203 - services.summary_memory - INFO - SmartModule: sqlite-vec loaded (dim=3072, int8=True)
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,239 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,251 - apscheduler.scheduler - INFO - Added job "SummarySchedulerService._tick" to job store "default"
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,252 - services.summary_scheduler - INFO - SmartModule scheduler started (cron 0,6,12,18 Asia/Yekaterinburg)
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,253 - __main__ - INFO - SmartModule Summary (Epic 24) initialized (TZ=Asia/Yekaterinburg)
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,730 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,732 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 13:14:53 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:53,743 - services.summary_memory - INFO - embed cache | hits=3 misses=0
+Oct 22 13:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:54,353 - services.bot_commands - INFO - Bot commands registered (set_my_commands ok): ['summary', 'info', 'menu']
+Oct 22 13:15:54 racknerd-f4e3456 python[516119]: 2026-10-22 13:15:54,306 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792674954 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_9b7b2d37fac24d45871f856708b1035a"] | pipeline_type=summary
+===== T3 journal: 06:18-06:22 DB incident =====
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 137, in _conn
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:     raise ValueError("no active connection")
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: ValueError: no active connection
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 137, in _conn
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:     raise ValueError("no active connection")
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: ValueError: no active connection
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,312 - services.database - ERROR - database: connection unrecoverable | event=database_connection_unrecoverable | op=b01_observe_checkpoint
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,351 - services.database - WARNING - database: rollback failed | event=database_rollback_failed | op=b01_observe_checkpoint | phase=op-error
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,357 - services.database - ERROR - database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=b01_observe_checkpoint
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: asyncio.exceptions.CancelledError
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 137, in _conn
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:     raise ValueError("no active connection")
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: ValueError: no active connection
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: asyncio.exceptions.CancelledError
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 137, in _conn
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:     raise ValueError("no active connection")
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: ValueError: no active connection
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:   File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 137, in _conn
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]:     raise ValueError("no active connection")
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: ValueError: no active connection
+Oct 22 06:21:10 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:10,112 - services.summary_memory - INFO - SmartModule: sqlite-vec loaded (dim=3072, int8=True)
+Oct 22 06:21:10 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:10,115 - __main__ - INFO - SmartModule: sqlite-vec available
+Oct 22 06:21:11 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:11,105 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792650071 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_4627f4bd625945b6b330f33bb7f47184"] | pipeline_type=asap8b01
+Oct 22 06:21:11 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:11,161 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792650071 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_4627f4bd625945b6b330f33bb7f47184"] | pipeline_type=asap8b01
+Oct 22 06:21:16 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:16,869 - services.mca_events - INFO - mca_event=vision_capability_probe | ts=1792650076 | event_name=vision_capability_probe | outcome=success | level=INFO | stage=dedicated | component=vision.media | model=nvidia/nemotron-3.5-super-vl:free | error_json={"capability": "ok", "detail": ""}
+Oct 22 06:21:29 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:29,464 - services.mca_events - INFO - mca_event=vision_adapt | ts=1792650089 | event_name=vision_adapt | outcome=success | level=INFO | component=vision.media | stage=optimize | chat_id=-1002661910336 | error_json={"strategy": "optimize", "reason": "pixels_over", "calls": 1, "error": ""}
+===== T4 journal: embedding failures 3d =====
+Oct 22 12:54:12 racknerd-f4e3456 python[455943]: 2026-10-22 12:54:12,403 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:02:46 racknerd-f4e3456 python[455943]: 2026-10-22 13:02:46,699 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:05:43 racknerd-f4e3456 python[455943]: 2026-10-22 13:05:43,451 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=chat_history | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=10 | dedup_vector_skipped=9
+Oct 22 13:28:27 racknerd-f4e3456 python[516119]: 2026-10-22 13:28:27,612 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:28:33 racknerd-f4e3456 python[516119]: 2026-10-22 13:28:33,797 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=9 | dedup_vector_skipped=8
+Oct 22 13:28:35 racknerd-f4e3456 python[516119]: 2026-10-22 13:28:35,279 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:30:12 racknerd-f4e3456 python[516119]: 2026-10-22 13:30:12,295 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:32:06 racknerd-f4e3456 python[516119]: 2026-10-22 13:32:06,254 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=5 | dedup_vector_skipped=4
+Oct 22 13:33:12 racknerd-f4e3456 python[516119]: 2026-10-22 13:33:12,646 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:35:29 racknerd-f4e3456 python[516119]: 2026-10-22 13:35:29,340 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=10 | dedup_vector_skipped=9
+Oct 22 13:36:48 racknerd-f4e3456 python[516119]: 2026-10-22 13:36:48,278 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=5 | dedup_vector_skipped=4
+Oct 22 13:37:03 racknerd-f4e3456 python[516119]: 2026-10-22 13:37:03,285 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=4 | dedup_vector_skipped=3
+Oct 22 13:59:09 racknerd-f4e3456 python[516119]: 2026-10-22 13:59:09,976 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 13:59:32 racknerd-f4e3456 python[516119]: 2026-10-22 13:59:32,248 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 14:00:31 racknerd-f4e3456 python[516119]: 2026-10-22 14:00:31,928 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=3 | dedup_vector_skipped=2
+Oct 22 14:01:07 racknerd-f4e3456 python[516119]: 2026-10-22 14:01:07,039 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1004482340693 | source=bot_direct_reply | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 14:31:19 racknerd-f4e3456 python[516119]: 2026-10-22 14:31:19,460 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 14:32:29 racknerd-f4e3456 python[516119]: 2026-10-22 14:32:29,964 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=2 | dedup_vector_skipped=1
+Oct 22 14:33:51 racknerd-f4e3456 python[516119]: 2026-10-22 14:33:51,409 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=3 | dedup_vector_skipped=2
+Oct 22 14:34:13 racknerd-f4e3456 python[516119]: 2026-10-22 14:34:13,348 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=3 | dedup_vector_skipped=2
+===== T5 postgres: profiles/keys/admins =====
+--- pg_chat_keys_names (n=0) ---
+--- pg_admins (n=3) ---
+{'telegram_id': 5885953495, 'role_name': 'admin'}
+{'telegram_id': 1313107079, 'role_name': 'moderator'}
+{'telegram_id': 134812796, 'role_name': 'moderator'}
+--- pg_roles_count (n=1) ---
+{'n': 4}
+--- pg_profile_param_keys (n=18) ---
+{'chat_id': -1004482340693, 'k': 'v'}
+{'chat_id': -1004482340693, 'k': 'keys'}
+{'chat_id': -1004482340693, 'k': 'meta'}
+{'chat_id': -1004482340693, 'k': 'gates'}
+{'chat_id': -1004482340693, 'k': 'overrides'}
+{'chat_id': -1004482340693, 'k': 'perm_overrides'}
+{'chat_id': -1002661910336, 'k': 'v'}
+{'chat_id': -1002661910336, 'k': 'keys'}
+{'chat_id': -1002661910336, 'k': 'meta'}
+{'chat_id': -1002661910336, 'k': 'gates'}
+{'chat_id': -1002661910336, 'k': 'overrides'}
+{'chat_id': -1002661910336, 'k': 'perm_overrides'}
+{'chat_id': 5885953495, 'k': 'v'}
+{'chat_id': 5885953495, 'k': 'keys'}
+{'chat_id': 5885953495, 'k': 'meta'}
+{'chat_id': 5885953495, 'k': 'gates'}
+{'chat_id': 5885953495, 'k': 'overrides'}
+{'chat_id': 5885953495, 'k': 'perm_overrides'}
+===== T6_DONE =====

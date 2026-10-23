@@ -1287,7 +1287,7 @@
       "req_id": "SOUL-05.6",
       "slice": "W3",
       "acceptance": "Фактическая цепочка проверена до Telegram payload, а не только до enum L1: тест подтверждает доставляемый текст и отсутствие деградации формата",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
       "evidence": [
@@ -1321,7 +1321,15 @@
           "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
           "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
         }
-      ]
+      ],
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Реальный ответ в чате ровно одним словом / 2–8 слов без служебных хвостов — личное наблюдение владельца; цепочка до Telegram payload и валидатор подтверждены SOUL-05.2/SOUL-05.5 и тестами 4c8405e7; device/live-наблюдения не блокируют DONE по политике 18.10.2026.",
+      "engineering_req_ids": [
+        "SOUL-05.2",
+        "SOUL-05.5"
+      ],
+      "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: инженерная цепочка до payload закрыта (SOUL-05.2/05.5, review-w3 F3); остаток — добровольное наблюдение одного слова в реальном чате. Не VERIFIED."
     },
     {
       "source_id": "M00089",
@@ -1643,7 +1651,7 @@
       "req_id": "SOUL-08.12",
       "slice": "W4",
       "acceptance": "Обязательные реальные сценарии показаны с evidence attribution и влиянием на последующий выбор примеров: собеседник подхватил бюрократическую метафору, человек просит не повторять грубость, на спор без шутки реагируют бурно, сообщения никто не комментирует, группа обсуждает другое без reply, похожие шутки в двух чатах оцениваются по-разному, несколько одинаковых реакций одного лица не накручивают успех",
-      "live_required": true,
+      "live_required": false,
       "live_when": "postdeploy",
       "status": "READY_FOR_LIVE",
       "evidence": [
@@ -1681,7 +1689,15 @@
           "observation": "Класс метафоры-подхвата в A/B-сценах отсутствует; 7 сценариев закрыты w4-тестами + 1 реальный сигнал",
           "type": "static"
         }
-      ]
+      ],
+      "verification_tier": "owner_optional",
+      "owner_policy_ref": "plans/owner_live_checks.md",
+      "owner_optional_reason": "Семь реальных сценариев с живыми собеседниками (кто подхватил метафору, кто просил не грубить) — личное наблюдение владельца; детерминированные сценарии и механика выбора/rollback подтверждены SOUL-08.10/SOUL-08.11 и тестами; live-наблюдение не блокирует DONE по политике 18.10.2026.",
+      "engineering_req_ids": [
+        "SOUL-08.10",
+        "SOUL-08.11"
+      ],
+      "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: 7 сценариев покрыты deterministic-тестами и одним прод-сигналом; живая атрибуция к реальным людям — необязательная обратная связь. Не VERIFIED."
     },
     {
       "source_id": "M00137",
@@ -2416,7 +2432,8 @@
           "ref": "plans/features/soul-1/evidence/release-258106/deploy.json",
           "observation": "Выкат 2.58.106 подтверждён (healthz 200, journal 0 CRIT/0 TB, NRestarts=0, services/style_policy.py blob-равен кандидату). Read-only сверка контура: mca_events event_name='speech_extent' = 0 за окно T0..10:54Z (и total=0) — реальных сообщений в окне не было, генерация сообщений агентом запрещена. События появятся с первым реальным проходом style policy (style OFF → событий нет — норма, не регресс). Ждёт первое реальное сообщение; строка остаётся READY_FOR_LIVE до живого подтверждения."
         }
-      ]
+      ],
+      "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): телеметрия speech_extent/mca_events проверяется на проде SQL/журналом после реального прохода style policy; событий пока 0 — NOT_YET_OBSERVED, не дефект. Не переводить в owner_optional: проверка агентская."
     },
     {
       "source_id": "M00197",

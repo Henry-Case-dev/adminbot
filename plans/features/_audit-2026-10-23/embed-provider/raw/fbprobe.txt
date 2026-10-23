@@ -1,0 +1,30 @@
+DATE_UTC=2026-10-22T16:56:49Z
+DATE_LOCAL=2026-10-22 16:56:49 UTC +0000
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== ENV (masked) =====
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+===== PY: fallback keys probe =====
+PROBE | alias=fallback_1 | base=https://generativelanguage.googleapis.com/v1beta/openai | model=gemini-embedding-001 | group=fallback_1
+FB_OK | alias=fallback_1 | dim=3072
+PROBE | alias=fallback_2 | base=https://generativelanguage.googleapis.com/v1beta/openai | model=gemini-embedding-001 | group=fallback_2
+FB_OK | alias=fallback_2 | dim=3072
+CALL | {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai", "dim": 3072, "headers": {"date": "Thu, 22 Oct 2026 16:56:50 GMT"}, "latency_ms": 454.2, "resp_model": "gemini-embedding-001", "status": 200}
+CALL | {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai", "dim": 3072, "headers": {"date": "Thu, 22 Oct 2026 16:56:51 GMT"}, "latency_ms": 470.5, "resp_model": "gemini-embedding-001", "status": 200}
+===== END =====
+
+[rc=0]

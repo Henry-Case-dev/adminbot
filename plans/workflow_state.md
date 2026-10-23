@@ -1,46 +1,33 @@
 # Workflow State
 
-Task: Полная очередь `plans/current_task.md` — SOUL-1 + ASAP8 v6.3 + инцидент + fullscreen + CFG-01…07 + P0×3 + ADD-TR + ADD-EXP + SAMPLES-UX (реестр `plans/progress_scope.json`: 10 задач; 1 VERIFIED)
-Task source: current_task.md (+ снапшоты `plans/features/*/source-*.md`; КОРРЕКТИВЫ владельца 21.10: `plans/features/owner-corrective-2026-10-21.md` + `owner-corrective-followup-2026-10-21.md` — исполнены, прод 2.58.107)
-Status: in_progress — КВОТА ПРОВАЙДЕРА: субагенты (Builder/Reviewer/DevOps) недоступны до 2026-10-26 14:05 (недельный лимит); механические хвосты доделаны оркестратором-fallback, независимое ревью/поезда/пробы — в очереди на восстановление
-Primary phase: select_next → (квота) PKG-112 (FactView fix 138330c0+10f3a2a0, review-условие B-1 выполнено) → REV-REL-112 → deploy → REV ASAP2 (5ad73933) → поезд 2.58.113 → W4 UI (asap-speech-arch) 
-Active features: asap2-direct-chat (код+tests готовы 5ad73933; семантика PENDING quota) · asap-speech-arch (W3 done e5774789; остались W4 UI U-01..U-09, full-matrix/48h PENDING_LIVE) · summary found-fix (готов к поезду 2.58.112)
-Progress sources: карты soul-main/amend, cfg, win-glass, p0 A+B, p0-vision, add-tr, add-exp, samples-ux, asap-speech-arch, asap2-direct-chat; реестр plans/progress_scope.json (12 задач)
-
-Продакшн: **2.58.110 @ `a8d2a45a`** (T0 07:26:20Z UTC; PID 447331 NRestarts=0; healthz 200; journal 0 CRIT/0 ERR; ΔDDL=0; канонная лестница L1-планера прошла — PG-канон == новому байт-в-байт, 7 кастомов EQ_BASELINE, fingerprint runtime==3507bd6f92eb). Рубеж отката: **`release/fix-2.58.109`=`a1d8bd62`** (запушен). master=origin/master=`553400bc` (docs-хвост; прод на a8d2a45a). Живое: первый L1D-реакт (💀 → Telegram REACTION_INVALID → fail-soft unavailable, INC-258110 low — в наблюдение/бэклог).
-
-CORRECTIVE-ЦИКЛ (21–22.10, закрыт): три первопричины → три минимальных фикса → офлайн-верификация → ревью 3/3 Approved → прод 2.58.107.
-- DIRECT-L1: правила 2–3 без позитивных критериев молчания + L1 не видел ответов бота (bot_replies) → правила переписаны (смысловые критерии, без списков слов), секция «ОТВЕТЫ БОТА» + allowed-реакции в существующем контексте. Офлайн: тривиальные 4/4 react, содержательные reply.
-- EXPRESSION: шапка-«настройки» нейтрализовала директиву + разбавление огромным system; модель НЕ виновата (минимал 4/4) → Core очищен от мат-темы полностью (full+compact+гвард superseded-core против воскрешения из PG), Expression = единственный регулятор, директивы OFF/EPISODIC/FREQUENT дословно владельца; мат-разрешения вычищены из 9 активных канонов. Офлайн: OFF 4/4 чисто, EPISODIC 3/4, FREQUENT 3/4, контроль 0/4.
-- NOSTALGIA: дата вместо ценности + императивы промпта → право отказа в обоих канонах (отказ — норма), сняты императивы, полный пул в лог, target_user; БЕЗ фильтра длины (запрещён владельцем). Офлайн-реплей: слабый класс 4/4 → UNCHANGED.
-- FACTCHECK (вейпинг-кейс): временная ветка не использовала смысловой планировщик (дословный слайс 200 символов) + all-or-nothing вердикт + snippet-only → envelope подключён к единому VERIFIED retrieval, запросы из claim-parts, overlap-релевантность + SafeFetcher, per-claim mixed-вердикт, рендерер привязывает ссылки. Replay: «Недостаточно данных» → «Подтверждается частично» с CDC-первоисточником. 22 CONTRACT, 502 регресс green.
-- NOSTALGIA-no-candidates-efficiency: закрыт как проверенная (пустые проходы дешёвые, доказано аудитом).
-Живое подтверждение: 48ч наблюдение L1_PLAN/expression_diag/factcheck по существующей телеметрии (не гейт); 14.2 — первое реальное сообщение.
+Task: Полная очередь `plans/current_task.md` + новая P0 `embed-identity-compat` (реестр `plans/progress_scope.json`: 13 задач)
+Task source: current_task.md + `plans/features/embed-identity-compat/source-2026-10-23.md` (дословный снимок ТЗ владельца 23.10)
+Status: in_progress — ДЕПЛОЙ 2.58.112 ПРИДЕРЖАН: рестарт запустил бы полную перевекторизацию, что запрещено новым ТЗ
+Primary phase: build → review → delivery
 
 Active lanes:
-- SOUL1-FINAL-RECON | Builder | writer(биндинг) | soul-1 | bg:ses_e9e29dce9ffeCQd2LK531uftWn | построчная реконсиляция 48+12 инженерных строк (EXEC/BOUND/03/04/05/08/09/10/11/12/15/16/19/21/AMD); REAL_WORK фиксировать, не реализовывать
-- TAILS-ASAP8-CFG-P0B | Builder | writer+harness | asap8/cfg/p0b | bg:ses_e9e29dce8ffe4NvKe8DiVOc1MY | 27+4+2 строк: bind/context + harness (V02/V03/B02/B03/R12/R14/R15/R19, CFG-02A квоты, P0B сценарии); ≤18 платных вызовов
-- FIX-INITIATIVE-L1D | Builder | writer(код) | asap8/initiative | bg:ses_e9e2377d9ffea8z519sT2V1Kdd | CORRECTIVE 22.10: выбор формы участия (say/react/silent × chat/reply) переносится в L1 Decision; хардкод-резолвер 2.58.109 устраняется; транспорт — только исполнение + техпроверки; 8 тест-кейсов §8 + офлайн-пробы L1
+- W4-UI | Builder | writer web/ | asap-speech-arch W4 | bg:ses_e9bb38830ffeB8BTAG4JgtGXYA | U-01…U-09
+- PM-EMBED-IDENTITY | PM | writer plans/ | embed-identity-compat | bg:ses_e9ac3f982ffeJoPCeR5Yx5c7YF | карта + реестр
+- ARCH-EMBED-IDENTITY | Architect | read-only + design | embed-identity-compat | bg:ses_e9ac3f982ffdL6qbsCUyNrIC1i | разделение identity + canary
 
-Join barriers:
-- 48ч наблюдение 2.58.107–109 (L1_PLAN/expression_diag/factcheck/strip-fence/init-reply) — read-only сверка при следующем заходе; не гейт.
-- Живые проверки боевого потока (asap8 13 RFL, CFG-02A 4 RFL, P0B SCEN-B, 14.2 first real message) — owner_optional/WAITING_EXTERNAL.
+Поезд 2.58.112 (СОБРАН, НЕ ЗАДЕПЛОЕН):
+- bump `678c0616` в origin/master (база `924b3b51`), версия 2.58.112, 57 файлов, ΔDDL=0, `FACTORY_SET=24ae494ac422`.
+- Guard'ы: offline 18/18, pins24 868/0, F8 582==REGISTRY, help-sync 24, JS-unit 39, ASAP-2 155, summary 179, embed 74, B11 24; суммарно 1507 passed / 0 failed.
+- Состав: asap2 Direct Chat, factview+B-1, embed-fallback slots, summary multi-paragraph revision + фикстура, B11 честная диагностика, embed-rebuild identity.
+- Точка отката: `fbf9013d` (прод 2.58.111).
 
-Last verified (≤5):
-- DEVOPS-DEPLOY-258109 VERIFIED: 2.58.109 @ a1d8bd62 (reply-биндинг инициатив активен с выката; journal 0 CRIT/0 ERR; blob == кандидату; откат release/fix-2.58.108; хвост `0e55d830` запушен).
-- REV-REL-258109 + REV-INITREPLY Approved (последний подтверждённый инженерный дефект закрыт).
-- DEVOPS-DEPLOY-258108 VERIFIED (12/12 postdeploy-позитивов; strip-fence ready, heavy GT 3/3; ADD-TR/Vision закрыты).
-- Реестр обновлён 22.10: 5/10 задач VERIFIED (add-tr, p0-vision, win-glass, samples-ux присоединились к p0-save-init-ux); `a7702559` запушен.
-- NOSTALGIA-no-candidates-efficiency закрыт как проверенная (пустые проходы дешёвые — nostalgia-audit).
+ПОЧЕМУ ПРИДЕРЖАН: текущий код (`5877810d`) при рестарте регистрирует поколение под новый fp и запускает полную перестройку ~15 819 фактов (~316 вызовов). Kill-switch OFF не спасает: OFF-путь «backfill-fill-missing» может писать новые векторы в старый индекс. Новое ТЗ запрещает перевекторизацию при смене только шлюза.
 
-Next unlocks (≤3):
-1. Следующий заход: read-only сверка 48ч телеметрии 2.58.107–109 (L1_PLAN react/silent доля, expression_diag, factcheck traces, init-reply) — по факту реального использования.
-2. Backlog-селекция с владельцем: мелкие улучшения (F2-типы, narrator-фраза, app.css, «Характер»→«Личности», anti-flood, C7, C15, ADD-EXP N1–N4/P7) — не мандатные, по приоритету владельца.
-3. WAITING_EXTERNAL: VIDEO not_configured; P0B SCEN-B (затишье); живые просмотры — добровольно.
+Прод-факты: 2.58.111 @ fbf9013d, healthz 200. Эмбеддинги apinet работают (200, dim 3072), квоты разведены (`apinet_paid`/`google_free_1`/`google_free_2`). Векторная память FTS-only: поколения `building` с 29.09 без активации; 4 048 фактов без векторов; 16 003 старых Google-векторов.
 
-Review: approved (corrective, factcheck, harness/fence, initreply, поезда 105–109)
-Deployment: verified (**2.58.109 @ `a1d8bd62`**, ΔDDL=0, откат `release/fix-2.58.108`)
-Human gate: none (0 блокирующих; owner_live_checks §2/7/8/9 + OQ-15 — добровольные)
-Backlog (сжато): DIRECT-L1/EXPRESSION/NOSTALGIA-SEMANTICS/FACTCHECK-UNIFY — ИСПРАВЛЕНЫ (2.58.107); ADD-TR/Vision хвосты + non-JSON heavy frames — ИСПРАВЛЕНЫ (2.58.108); INITIATIVE-REPLY — фикс идёт (2.58.109); NOSTALGIA-no-candidates-efficiency — закрыт проверенной; asap8 PROBE-остатки (13 RFL, боевой поток); F2-типы CFG-03; «Характер»→«Личности»; anti-flood; fixture-дрейф; VIDEO not_configured (WAITING_EXTERNAL); T-1764; l1_unavailable; L1 cold-start; постген-бюджет 20с; ADD-EXP N1–N4, P7; C7 humor; C15-хвост; narrator-канон identity-фраза; app.css content-length; nano-gpt баланс (owner); SSH-паузы ≥90с; git: без reset/amend поверх чужих.
-Progress scope: plans/progress_scope.json | fresh (91% — 896/975; поручения 5/10 @08:05 22.10)
-Updated: 2026-10-22 08:10 local (UTC+12)
+Одобрено и готово к поезду: asap2 (74 VERIFIED), factview B-1, embed-fallback, summary-revision, B11, SOUL-1 фикстуры, embed-rebuild B1/B2.
+Итоги 23.10: прогресс 1113/1198 (92%); исправлены ложный «ok» диагностики, ревизия сводок по всем абзацам, per-slot адреса embedding, A→B→A и честный build_failed.
+
+Next unlocks:
+1. ARCH-EMBED-IDENTITY дизайн → Builder реализует canary/identity-split → Reviewer.
+2. Затем объединённый поезд 2.58.113 (2.58.112 + compat) и ОДИН деплой с рестартом: canary решает «старый индекс / insufficient / миграция».
+3. W4-UI → в тот же или следующий поезд после ревью.
+
+Human gate: none
+Progress scope: plans/progress_scope.json | fresh (13 задач после регистрации)
+Updated: 2026-10-23 06:40 local (UTC+12)

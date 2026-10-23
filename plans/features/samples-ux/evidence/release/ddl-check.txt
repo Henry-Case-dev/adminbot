@@ -1,0 +1,20 @@
+REL-258100 delta-DDL-check
+
+A) Bump-set DDL perimeter (strict: services/database.py, scripts/,
+   services/chat_migration.py, services/config_migrations.py, services/prompt_migrations.py):
+   Bump files in perimeter: NONE (0 files)
+   Verdict A: delta DDL of the bump package = 0 (bump touches only version pins/README/F8-meta).
+
+B) Release-to-release DDL (2.58.99 -> 2.58.100) - EXPECTED for this release:
+   samples-ux candidate 27b1165a carries SQLite migration v36 -> v37
+   (services/database.py, ADD-SAMPLES-UX, _SCHEMA_VERSION_HUMOR_SAMPLES = 37):
+   [ PASS ] v37 constant present in committed candidate line
+   [ PASS ] v36 base step preserved (_SCHEMA_VERSION_HUMOR_SAMPLES_V36 = 36)
+   [ PASS ] services/database.py NOT in bump delta (already committed in candidate; not in package)
+   Migration properties: additive (ALTER TABLE humor_samples +6 columns),
+   idempotent (backfill_categories_v37 re-run safe), data-preserving
+   (category backfill, legacy rows kept for owner reclassify).
+   Migration test on the real path v36+data -> v37: tests/test_samples_categories.py
+   ::test_v37_migration_maps_categories_and_preserves_data + ::test_v37_migration_is_idempotent
+   (green in samples-ux composite; re-run in pkg-su guards: see focused-samples-migration.txt).
+   Deploy applies the migration at service start; DevOps notified separately (brief PKG-SU).

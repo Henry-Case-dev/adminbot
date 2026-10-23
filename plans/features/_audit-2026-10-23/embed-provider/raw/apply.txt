@@ -1,0 +1,71 @@
+DATE_UTC=2026-10-22T17:14:55Z
+DATE_LOCAL=2026-10-22 17:14:55 UTC +0000
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== ENV (masked) =====
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+===== HZ BEFORE =====
+{"status":"ok","version":"2.58.111"}
+===== PY: apply labels + verify =====
+INITDATA minted for owner id 5885953495
+ADMIN_ROW {'telegram_id': 5885953495, 'role_name': 'admin'}
+--- BEFORE @ 2026-10-22T17:14:57Z ---
+QUOTA | {'quota_group_id': 'fallback_1', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628099}
+QUOTA | {'quota_group_id': 'fallback_2', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628106}
+QUOTA | {'quota_group_id': 'primary', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628095}
+QUOTA | {'quota_group_id': 'unknown', 'state': 'exhausted', 'next_allowed_at': 1791849900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1791763508}
+BACKLOG_GRAPH 4170
+CACHE {'c': 11656, 'newest': 1792628105.3930376}
+JOB | {'status': 'paused_rate_limit', 'reason_code': 'rate_limit:quota_group', 'attempt': 0, 'updated_at': 1792628106, 'payload': '{"cursor": "{\\"last_id\\": 11953, \\"processed\\": 9797}", "processed": 9797}'}
+QUEUE_TABLES []
+LIVE_BEFORE | keys.embedding_quota_group_labels=None
+POST_STATUS 200
+POST_BODY {"updated": ["keys.embedding_quota_group_labels"]}
+LIVE_AFTER | keys.embedding_quota_group_labels='primary:apinet_paid,fallback_1:google_free_1,fallback_2:google_free_2'
+PG_AFTER | 'primary:apinet_paid,fallback_1:google_free_1,fallback_2:google_free_2'
+PANEL_STATUS 200
+PANEL_ROTATION {"status": "grouped", "keys": 3, "groups": ["apinet_paid", "google_free_1", "google_free_2"], "degenerate": false, "warn": false, "reason": "", "hint": "", "primary_present": true, "primary_source": "hot", "primary_state": "primary_from_hot", "degraded": false, "primary_warn": false, "primary_hint": ""}
+PANEL_GROUPS [{"quota_group": "apinet_paid", "state": "healthy", "health": "ok", "next_allowed_at": 0, "note": "", "last_429_at": 0, "keys": 1, "aliases": ["primary"]}, {"quota_group": "fallback_1", "state": "exhausted", "health": "exhausted", "next_allowed_at": 1792713900, "note": "parked kind=spend est=utc_day_end", "last_429_at": 0, "keys": 0, "aliases": []}, {"quota_group": "fallback_2", "state": "exhausted", "health": "exhausted", "next_allowed_at": 1792713900, "note": "parked kind=spend est=utc_day_end", "last_429_at": 0, "keys": 0, "aliases": []}, {"quota_group": "google_free_1", "state": "healthy", "health": "ok", "next_allowed_at": 0, "note": "", "last_429_at": 0, "keys": 1, "aliases": ["fallback_1"]}, {"quota_group": "google_free_2", "state": "healthy", "health": "ok", "next_allowed_at": 0, "note": "", "last_429_at": 0, "keys": 1, "aliases": ["fallback_2"]}, {"quota_group": "primary", "state": "exhausted", "health": "exhausted", "next_allowed_at": 1792713900, "note": "parked kind=spend est=utc_day_end", "last_429_at": 0, "keys": 0, "aliases": []}]
+PANEL_CREDS [{"alias": "primary", "quota_group": "apinet_paid", "quota_group_source": "explicit", "health": "healthy", "key_source": "hot"}, {"alias": "fallback_1", "quota_group": "google_free_1", "quota_group_source": "explicit", "health": "healthy", "key_source": "hot"}, {"alias": "fallback_2", "quota_group": "google_free_2", "quota_group_source": "explicit", "health": "healthy", "key_source": "hot"}]
+PANEL_BACKLOG {"last_reprobe_ts": 1792689295, "last_recovery_ts": 0, "last_backfill_ts": 0, "last_processed_archive": 0, "last_processed_graph": 0, "backlog_archive": 0, "backlog_graph": 4170}
+POOL_GROUPS [('primary', 'apinet_paid'), ('fallback_1', 'google_free_1'), ('fallback_2', 'google_free_2')]
+EXECUTOR_OK | dim=3072 | vectors=1
+CALL | {"base_url": "https://apinet.cloud/v1", "headers": {"date": "Thu, 22 Oct 2026 17:15:19 GMT"}, "latency_ms": 4356.6, "model": "gemini-embedding-001", "status": 200}
+WAIT 45s for ticker/queue observation ...
+--- AFTER_45S @ 2026-10-22T17:16:04Z ---
+QUOTA | {'quota_group_id': 'fallback_1', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628099}
+QUOTA | {'quota_group_id': 'fallback_2', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628106}
+QUOTA | {'quota_group_id': 'primary', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628095}
+QUOTA | {'quota_group_id': 'unknown', 'state': 'exhausted', 'next_allowed_at': 1791849900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1791763508}
+BACKLOG_GRAPH 4170
+CACHE {'c': 11656, 'newest': 1792628105.3930376}
+JOB | {'status': 'paused_rate_limit', 'reason_code': 'rate_limit:quota_group', 'attempt': 0, 'updated_at': 1792628106, 'payload': '{"cursor": "{\\"last_id\\": 11953, \\"processed\\": 9797}", "processed": 9797}'}
+QUEUE_TABLES []
+===== HZ AFTER =====
+{"status":"ok","version":"2.58.111"}
+===== journal (4m, masked) =====
+Oct 22 17:14:54 racknerd-f4e3456 python[516119]: 2026-10-22 17:14:54,103 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 22:24:54 +05)" (scheduled at 2026-10-22 22:14:54.089833+05:00)
+Oct 22 17:14:55 racknerd-f4e3456 python[516119]: 2026-10-22 17:14:55,318 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=2d0efab0e817 — FTS-only (A06)
+Oct 22 17:14:55 racknerd-f4e3456 python[516119]: 2026-10-22 17:14:55,318 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792689295 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 17:14:55 racknerd-f4e3456 python[516119]: 2026-10-22 17:14:55,321 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=2d0efab0e817 — FTS-only (A06)
+Oct 22 17:14:55 racknerd-f4e3456 python[516119]: 2026-10-22 17:14:55,322 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792689295 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 17:14:55 racknerd-f4e3456 python[516119]: 2026-10-22 17:14:55,322 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 22:24:54 +05)" executed successfully
+Oct 22 17:15:00 racknerd-f4e3456 python[516119]: 2026-10-22 17:15:00,264 - services.config_cache - INFO - [config_cache] set_many | keys=1
+Oct 22 17:15:00 racknerd-f4e3456 python[516119]: 2026-10-22 17:15:00,265 - web.api.routes - INFO - [api] config updated | key=keys.embedding_quota_group_labels | by=5885953495
+===== END =====
+
+[rc=0]
