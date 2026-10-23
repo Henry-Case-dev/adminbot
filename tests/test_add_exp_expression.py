@@ -322,16 +322,29 @@ def test_header_has_no_false_l1_delegation():
 
 def test_design_canonical_strings_match_module():
     """Канон §2.1 → ASAP W1 §3.4 (новый первоисточник header); §2.2 (тексты
-    режимов) по-прежнему сверяется с дизайном ADD-EXP (анти-дрейф F1)."""
+    режимов) по-прежнему сверяется с дизайном ADD-EXP (анти-дрейф F1).
+
+    FREQUENT переписан владельцем ПОЗЖЕ дизайна ADD-EXP — P0-E §6.3
+    (source-2026-10-24, 24.10.2026), поэтому в дизайне законно лежит его
+    прежняя ступень (прод-текст 23.10 = ``PREV_PROFANITY_FREQUENT_TEXT``), а
+    действующий текст байт-в-байт пинят test_samples_fewshot::
+    test_section2_texts_are_byte_exact и test_owner_exact_texts_are_canon.
+    """
     source = (ROOT / "plans" / "features" / "asap-speech-arch" /
               "source-2026-10-22.md").read_text(encoding="utf-8")
     assert ex.EXPRESSION_HEADER in source, (
         "header §3.4 рассинхронизирован с текстом владельца")
     design = (ROOT / "plans" / "features" / "add-exp" /
               "design-add-exp.md").read_text(encoding="utf-8")
-    for mode in ("off", "occasional", "frequent"):
-        line = "- Мат: " + ex.PROFANITY_INSTRUCTIONS[mode]
+    expected = {"off": ex.PROFANITY_INSTRUCTIONS["off"],
+                "occasional": ex.PROFANITY_INSTRUCTIONS["occasional"],
+                "frequent": ex.PREV_PROFANITY_FREQUENT_TEXT}
+    for mode, text in expected.items():
+        line = "- Мат: " + text
         assert line in design, mode + ": строка §2.2 рассинхронизирована"
+    # действующий FREQUENT — новая формулировка, её в старом дизайне быть не
+    # должно (иначе дельта не применена)
+    assert "- Мат: " + ex.PROFANITY_INSTRUCTIONS["frequent"] not in design
 
 
 # ═══ 5. wiring ══════════════════════════════════════════════════════════════
