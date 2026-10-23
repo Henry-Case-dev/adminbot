@@ -1,5 +1,5 @@
 == web/index.html
-   HEAD sha256_12 8d86cd1a0a0f | current 9e0b761104ff
+   HEAD sha256_12 1f60003d4101 | current 1f60003d4101
    'id="lg-lens"': 1 -> 1 [same]
    'lg-lens-map': 1 -> 1 [same]
    'feDisplacementMap': 2 -> 2 [same]
@@ -9,7 +9,7 @@
    'glass-card': 0 -> 0 [same]
    'lg-lens': 4 -> 4 [same]
 == web/app.js
-   HEAD sha256_12 401a40a5322a | current 11215e3a4d10
+   HEAD sha256_12 0e1f0c029941 | current 0e1f0c029941
    'id="lg-lens"': 0 -> 0 [same]
    'lg-lens-map': 2 -> 2 [same]
    'feDisplacementMap': 0 -> 0 [same]
@@ -19,7 +19,7 @@
    'glass-card': 0 -> 0 [same]
    'lg-lens': 7 -> 7 [same]
 == web/static/app.css
-   HEAD sha256_12 761274ceaed1 | current 4d860466a659
+   HEAD sha256_12 f6f3dc5aadf4 | current 538198ea7c03
    'id="lg-lens"': 0 -> 0 [same]
    'lg-lens-map': 0 -> 0 [same]
    'feDisplacementMap': 0 -> 0 [same]
@@ -28,5 +28,5 @@
    '--lg-blur': 0 -> 0 [same]
    'glass-card': 0 -> 0 [same]
    'lg-lens': 11 -> 11 [same]
-== web/index.html: CRLF=0 bytes=816147
-== web/app.js: CRLF=0 bytes=1171878
+== web/index.html: CRLF=0 bytes=896534
+== web/app.js: CRLF=0 bytes=1310868
