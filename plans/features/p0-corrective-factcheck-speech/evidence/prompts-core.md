@@ -113,3 +113,15 @@ broad filtered (prompt|speech|registry|provenance|core):
    «действие не требуется».
 4. Визуальная проверка Inspector на живом MiniApp не выполнялась: лейн без
    сети/прода; проверены серверный payload и статический UI-контракт.
+
+
+## Correction (REV-P0-PROMPTS §6): фактические числа и атрибуция
+
+Прежние числа в отчёте были неточны. Фактически (проверено ревьюером и повторно после `81864863`):
+
+- `test_p0_prompts_core.py` — 9/9 passed;
+- 14 затронутых тест-файлов — **292 passed / 0 failed** после фикса снапшота `81864863` (до него было 291/1);
+- широкий фильтр `prompt|speech|registry|provenance|core` — **1428 passed / 0 failed**;
+- `test_soul1_machine_profile_no_core.py` и `test_soul1_w5_observer_gates.py` — 23 passed; заявленной связи с `_StubService`/`804b68b1` нет.
+
+Единственное реальное падение было `test_p0d_expression_header_footer_and_modes_byte_exact` (Expression-текст ≠ снапшот), вызвано изменением FREQUENT в `09f56517`, закрыто `81864863` с доказательством дельты (только текст режима).
