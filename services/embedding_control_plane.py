@@ -2054,32 +2054,40 @@ async def vector_memory_panel(db) -> dict:
                 entry["attempts_total"] = int(gen.get("attempts_total") or 0)
                 if entry["next_allowed_at"]:
                     entry["next_attempt_at"] = int(entry["next_allowed_at"])
-            # ASAP 6 §8/13J: additive-поля — ACTIVE-поколение и честный класс
-            # совместимости текущего конфига с ним (backend-часть; UI уже
-            # предупреждает). Fail-open: нет реестра/поколения → поля None.
+            # ASAP 6 §8/13J + EMBED-IDENTITY-COMPAT: additive-поля — ACTIVE-
+            # поколение и честный класс совместимости. Решение принимает
+            # ЕДИНЫЙ резолвер (MSI + durable-допуск), а НЕ сравнение 16-hex PCI
+            # с 64-hex fingerprint'ом (прежний баг давал ложный
+            # REINDEX_REQUIRED при смене только API-шлюза). Fail-open: нет
+            # реестра/поколения → поля None/пусто.
             entry["namespace"] = None
             entry["active_generation"] = None
             entry["compat_class"] = None
+            entry["compat"] = None
             try:
                 active = await db.get_active_embedding_generation(index)
+                compat = await resolve_index_compat(db, index)
+                if active is not None:
+                    entry["namespace"] = str(
+                        active.get("namespace") or "default")
+                    entry["active_generation"] = int(
+                        active.get("generation") or 0)
+                entry["compat_class"] = compat.get("class")
+                entry["compat"] = {
+                    "state": compat.get("state"),
+                    "reason_code": compat.get("reason_code"),
+                    "serviceable": bool(compat.get("serviceable")),
+                    "class": compat.get("class"),
+                    "action": compat.get("action"),
+                    "space": compat.get("space"),
+                    "conn": compat.get("conn"),
+                    "admission": compat.get("admission"),
+                    "canary": compat.get("canary"),
+                    "needs_probe": bool(compat.get("needs_probe")),
+                }
             except Exception:
-                active = None
-            if active is not None:
-                entry["namespace"] = str(active.get("namespace") or "default")
-                entry["active_generation"] = int(
-                    active.get("generation") or 0)
-                try:
-                    fp_now = profile_identity(
-                        resolve_embedding_profiles()["primary"])
-                    entry["compat_class"] = classify_identity_compatibility(
-                        current_identity=fp_now,
-                        stored_identity=str(
-                            active.get("fingerprint") or ""),
-                        stored_dim=active.get("dims"),
-                        canary_verdict=(canary_verdict_cached(fp_now)
-                                        or None))
-                except Exception:
-                    entry["compat_class"] = None
+                entry["compat_class"] = None
+                entry["compat"] = None
             out["indexes"].append(entry)
     except Exception:
         logger.warning("vector memory panel failed", exc_info=True)
@@ -2245,40 +2253,47 @@ def embedding_identity_v2(*, provider_family: str, endpoint_host: str,
 
 def profile_identity(profile: EmbeddingProfile,
                      dimension: int | None = None) -> str:
-    """Identity-отпечаток профиля (канонический JSON D11)."""
-    host = ""
-    try:
-        from urllib.parse import urlsplit
-        host = urlsplit(profile.base_url or "").hostname or ""
-    except Exception:      # pragma: no cover
-        host = ""
-    return embedding_identity_v2(
-        provider_family=_provider_of(profile.base_url) if profile.base_url
-        else "",
-        endpoint_host=host,
-        model=profile.model,
-        dimension=dimension,
-    )
+    """PCI профиля (провенанс соединения), НЕ identity пространства.
+
+    EMBED-IDENTITY-COMPAT (23.10.2026): смена URL/ключа/квоты — не смена
+    векторного пространства. Совместимость доказывается MSI
+    (`profile_space_identity`/`model_space_identity`) + пробой на старых
+    векторах. `dimension` сохранён в сигнатуре для обратной совместимости
+    вызовов: размерность входит в MSI, не в PCI."""
+    return connection_identity(profile)
 
 
 def classify_identity_compatibility(*, current_identity: str,
                                     stored_identity: str | None,
                                     current_dim: int | None = None,
                                     stored_dim: int | None = None,
-                                    canary_verdict: str | None = None) -> str:
-    """13C.4/§8.2 (ASAP 6): одна server-side классификация (backend +
-    MiniApp). Семантика спеки:
-    - dimension расходится → INCOMPATIBLE_DIMENSION;
-    - identity-отпечатки РАЗНЫЕ (другой model/host/revision — это ДОКАЗАННО
-      другое пространство) → REINDEX_REQUIRED, canary не требуется;
-    - identity совпала: canary STABLE → INSTANT_COMPATIBLE (провайдер
-      доказал то же пространство); canary нет/unknown → fail-safe
-      COMPATIBILITY_UNKNOWN (floating-alias риск — не «наверное совместимо»);
-    - canary DRIFT при той же identity → REINDEX_REQUIRED (§8.6).
-    same dimension сам по себе НИКОГДА не даёт INSTANT."""
+                                    canary_verdict: str | None = None,
+                                    current_space: str | None = None,
+                                    stored_space: str | None = None,
+                                    admission: dict | None = None) -> str:
+    """13C.4/§8.2 (ASAP 6) + EMBED-IDENTITY-COMPAT (23.10.2026): одна
+    server-side классификация. Семантика:
+    - dimension расходится → INCOMPATIBLE_DIMENSION (индексы не смешиваются);
+    - canary DRIFT → REINDEX_REQUIRED (§8.6);
+    - валидный durable-допуск (MSI==MSI + доказанная проба) →
+      ADMITTED_COMPATIBLE (смена только шлюза/ключа);
+    - MSI-пространства переданы и совпадают: canary STABLE → INSTANT,
+      иначе COMPATIBILITY_UNKNOWN (без доказательства — fail-safe);
+    - MSI-пространства РАЗНЫЕ (другая модель/revision/dims/preprocessing) →
+      REINDEX_REQUIRED;
+    - без MSI (legacy-вызовы) — прежнее сравнение отпечатков.
+    Совпадение размерности само по себе НИКОГДА не даёт INSTANT, а PCI
+    (`current_identity` здесь = provenанс) сам по себе НЕ закрывает индекс."""
     if current_dim and stored_dim and int(current_dim) != int(stored_dim):
         return COMPAT_DIMENSION
     if canary_verdict == CANARY_DRIFT:
+        return COMPAT_REINDEX
+    if admission:
+        return COMPAT_ADMITTED
+    if current_space and stored_space:
+        if str(current_space) == str(stored_space):
+            return (COMPAT_INSTANT if canary_verdict == CANARY_STABLE
+                    else COMPAT_UNKNOWN)
         return COMPAT_REINDEX
     if not stored_identity:
         return COMPAT_UNKNOWN
@@ -2396,6 +2411,1174 @@ async def embedding_canary_check(llm, db, identity_fp: str, *,
     except Exception:
         logger.warning("embedding canary check failed — unknown", exc_info=True)
         return out
+
+
+# ── EMBED-IDENTITY-COMPAT (23.10.2026, P0): смена шлюза ≠ смена пространства ─
+# Смена API-провайдера при ТОЙ ЖЕ модели не доказывает смену векторного
+# пространства и не является основанием для полной перевекторизации.
+# Две идентичности (дизайн `plans/features/embed-identity-compat/arch-design.md`):
+#   * MSI (Model Space Identity) — ЕДИНСТВЕННЫЙ критерий совместимости
+#     векторов: model/revision/dims/task_mode/normalization/preprocessing/
+#     материальные параметры генерации. URL/ключ/квота/маршрут НЕ входят.
+#   * PCI (Provider Connection Identity) — провенанс, диагностика и
+#     инвалидация допуска: provider_family/host/path/credential alias/
+#     quota group. PCI сам по себе НИКОГДА не закрывает индекс.
+# Совместимость со СТАРЫМ индексом доказывается пробой на сохранённых векторах
+# (сравнение «новое против нового» доказательством не является), вердикт
+# durable в `config_revision` ACTIVE-строки (`adopt1:...`) — ΔDDL=0.
+
+COMPAT_ADMITTED = "ADMITTED_COMPATIBLE"      # MSI==MSI + доказанный допуск
+
+# Состояния единого резолвера (`resolve_index_compat`).
+STATE_COMPATIBLE = "compatible"
+STATE_INSUFFICIENT = "insufficient"
+STATE_INCOMPATIBLE = "incompatible"
+STATE_SOURCE_EMPTY = "source_empty"
+STATE_NO_GENERATION = "no_generation"
+
+# Формат допуска (frozen §6): adopt1:<space16>:<conn16>:<checked>:<mean>:<min>:<hit5>:<at>
+ADMISSION_PREFIX = "adopt1"
+_ADMISSION_RE = re.compile(
+    r"^adopt1:([0-9a-f]{16}):([0-9a-f]{16}):(\d{1,4}):"
+    r"(-?\d{1,3}(?:\.\d{1,8})?):(-?\d{1,3}(?:\.\d{1,8})?):"
+    r"(-?\d{1,3}(?:\.\d{1,8})?):(\d{1,12})$")
+
+# Пороги пробы (frozen §3.5; НЕ hot-config: доказательство не «настраивается»).
+COMPAT_PROBE_SAMPLE = 12
+COMPAT_PROBE_MIN_SAMPLE = 8
+COMPAT_PROBE_PER_CHAT = 6
+COMPAT_PROBE_MAX_TOKENS = 2000
+COMPAT_PROBE_MEAN_MIN = 0.995
+COMPAT_PROBE_MIN_MIN = 0.990
+COMPAT_PROBE_HIT5_MIN = 0.80
+COMPAT_PROBE_MEAN_FLOOR = 0.970
+COMPAT_PROBE_MIN_FLOOR = 0.940
+COMPAT_PROBE_HIT5_FLOOR = 0.40
+COMPAT_PROBE_BAND_MIN = 0.970          # 0.970 <= mean < 0.995 → один повтор
+COMPAT_PROBE_REPEAT_COOLDOWN_S = 900.0  # insufficient перепроверяется раз за тик
+
+# Process-level: незавершённый вердикт (гейт фоновой drift-canary), троттлинг
+# повторных проб и последний вердикт пробы (негативные не персистятся —
+# перепроверяются раз за старт/тик, §6). Ключ вердикта — (space, conn).
+_COMPAT_PENDING: dict[str, float] = {}
+_PROBE_LAST: dict[tuple, float] = {}
+_COMPAT_VERDICTS: dict[str, tuple[str, str, str, str, float]] = {}
+_COMPAT_VERDICT_TTL_S = 6 * 3600
+_PAUSED_BY_COMPAT: set[str] = set()
+_COMPAT_PROBE_LOCK: asyncio.Lock | None = None
+
+
+def adoption_enabled() -> bool:
+    """Kill-switch `EMBED_COMPAT_ADOPTION_ENABLED` (env-only, default ON).
+
+    OFF → прежнее поведение (смена fingerprint = rebuild, допуск не читается).
+    Env читается напрямую: настройка не требует релиза схемы/каталога."""
+    try:
+        import os
+        raw = os.getenv("EMBED_COMPAT_ADOPTION_ENABLED")
+        if raw is None:
+            return True
+        return str(raw).strip().lower() not in ("0", "false", "no", "off", "")
+    except Exception:      # pragma: no cover — защитная ветка
+        return True
+
+
+def _current_preprocessing_version() -> str:
+    """Версия предобработки текста (единый источник — summary_memory)."""
+    try:
+        from services.summary_memory import EMBEDDING_PREPROCESSING_VERSION
+        return str(EMBEDDING_PREPROCESSING_VERSION)
+    except Exception:      # pragma: no cover — циклический импорт невозможен
+        return ""
+
+
+def model_space_identity(*, model: str, revision: str | None = None,
+                         dimension: int | None = None,
+                         task_mode: str = EMBEDDING_TASK_MODE,
+                         normalization: str = EMBEDDING_NORMALIZATION,
+                         preprocessing_version: str | None = None,
+                         material_params: dict | None = None) -> str:
+    """MSI: sha256[:16] канонического JSON БЕЗ host/provider.
+
+    Это единственный критерий совместимости векторов. `preprocessing_version`
+    по умолчанию — фактическая версия предобработки (summary_memory)."""
+    payload = {
+        "model": str(model or "").strip(),
+        "revision": str(revision or "").strip(),
+        "dimension": int(dimension) if dimension else None,
+        "task_mode": str(task_mode),
+        "normalization": str(normalization),
+        "preprocessing_version": (
+            str(preprocessing_version) if preprocessing_version is not None
+            else _current_preprocessing_version()),
+        "params": {str(k): str(v) for k, v in
+                   sorted((material_params or {}).items())},
+    }
+    canon = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
+
+
+def generation_space_identity(row: dict | None) -> str:
+    """MSI уже записанного поколения (колонки реестра + текущие константы).
+
+    Revision/params в реестре не хранятся — берутся текущие (сейчас `{}`).
+    NULL-размерность → пустой MSI (провенанс неизвестен, fail-closed)."""
+    row = row or {}
+    dims = row.get("dims")
+    model = str(row.get("model") or "")
+    if not model or not dims:
+        return ""
+    return model_space_identity(
+        model=model, dimension=int(dims),
+        preprocessing_version=str(row.get("preprocessing_version") or ""))
+
+
+def _provider_family(base_url: str) -> str:
+    """Семейство провайдера (PCI-поле; ключ/секрет не читаются)."""
+    try:
+        host = _provider_of(base_url)
+    except Exception:      # pragma: no cover
+        host = ""
+    if not host:
+        return ""
+    if "generativelanguage" in host or "googleapis" in host:
+        return "google"
+    return "openai-compatible"
+
+
+def connection_identity(profile: EmbeddingProfile | None) -> str:
+    """PCI: sha256[:16] канонического JSON {family, host, path, alias, group}.
+
+    PCI — провенанс и инвалидация допуска. Сам по себе НЕ закрывает индекс:
+    совместимость доказывается MSI + пробой на старых векторах."""
+    if profile is None:
+        return ""
+    host, path = "", ""
+    try:
+        from urllib.parse import urlsplit
+        parts = urlsplit(profile.base_url or "")
+        host = (parts.hostname or "").lower()
+        path = (parts.path or "").rstrip("/")
+    except Exception:      # pragma: no cover
+        host, path = "", ""
+    payload = {
+        "provider_family": _provider_family(profile.base_url),
+        "endpoint_host": host,
+        "endpoint_path": path,
+        "credential_alias": str(profile.alias or ""),
+        "quota_group": str(profile.quota_group or ""),
+    }
+    canon = json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                       ensure_ascii=False)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
+
+
+def profile_space_identity(profile: EmbeddingProfile | None,
+                           dimension: int | None = None) -> str:
+    """MSI профиля (model + фактическая размерность) — без host."""
+    if profile is None:
+        return ""
+    return model_space_identity(model=profile.model, dimension=dimension)
+
+
+def format_admission(space: str, conn: str, checked: int, mean: float,
+                     low: float, hit5: float, at: int) -> str:
+    """Строгий формат допуска (frozen §6). Невалидные числа → ``""``."""
+    try:
+        space = str(space or "")
+        conn = str(conn or "")
+        if len(space) != 16 or len(conn) != 16:
+            return ""
+        return (f"{ADMISSION_PREFIX}:{space}:{conn}:{int(checked)}:"
+                f"{float(mean):.6f}:{float(low):.6f}:{float(hit5):.4f}:"
+                f"{int(at)}")
+    except Exception:
+        return ""
+
+
+def parse_admission(value) -> dict | None:
+    """Разобрать допуск. Мусор/иной формат → None (fail-closed)."""
+    if value is None:
+        return None
+    try:
+        match = _ADMISSION_RE.match(str(value).strip())
+        if match is None:
+            return None
+        return {"space": match.group(1), "conn": match.group(2),
+                "checked": int(match.group(3)),
+                "mean": float(match.group(4)),
+                "min": float(match.group(5)),
+                "hit5": float(match.group(6)),
+                "at": int(match.group(7))}
+    except Exception:
+        return None
+
+
+def admission_valid(admission: dict | None, *, space_now: str,
+                    conn_now: str) -> bool:
+    """Допуск валиден только для ТЕКУЩИХ MSI/PCI и только с доказательством.
+
+    Смена модели/размерности/preprocessing → новый MSI → инвалидация
+    (fail-safe). Смена шлюза/квоты → новый PCI → нужна одна повторная проба."""
+    if not admission:
+        return False
+    if not space_now or not conn_now:
+        return False
+    if str(admission.get("space")) != str(space_now):
+        return False
+    if str(admission.get("conn")) != str(conn_now):
+        return False
+    return int(admission.get("checked") or 0) >= COMPAT_PROBE_MIN_SAMPLE
+
+
+# ── проба на СТАРЫХ векторах (сеть только здесь) ────────────────────────────
+
+def _index_meta(index_name: str) -> dict | None:
+    """(live-table, source-table, eligible_ts) из существующих спек graphrag."""
+    try:
+        from services.graphrag_rebuild import _INDEX_SPECS
+        spec = _INDEX_SPECS[str(index_name)]
+        return {"live": str(spec["live"]), "source": str(spec["source"]),
+                "eligible_ts": bool(spec.get("eligible_ts"))}
+    except Exception:
+        return None
+
+
+async def _live_table_dim(db, index_name: str) -> int | None:
+    """Фактическая размерность live-таблицы (physical truth)."""
+    meta = _index_meta(index_name)
+    if meta is None:
+        return None
+    try:
+        cursor = await db.db.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name = ?",
+            (meta["live"],))
+        row = await cursor.fetchone()
+        if row is None or not row["sql"]:
+            return None
+        match = re.search(r"float\[(\d+)\]", str(row["sql"]))
+        return int(match.group(1)) if match else None
+    except Exception:
+        return None
+
+
+def _current_model() -> str:
+    try:
+        return str(_profile_hot(
+            "models.embedding_model_name",
+            _settings_default("EMBEDDING_MODEL_NAME")) or "")
+    except Exception:      # pragma: no cover
+        return ""
+
+
+async def _current_dim(db=None, index_name: str | None = None) -> int | None:
+    """Фактическая текущая размерность: live-DDL → hot/env."""
+    if db is not None and index_name:
+        live_dim = await _live_table_dim(db, index_name)
+        if live_dim:
+            return int(live_dim)
+    try:
+        from services import hot_config as hot
+        from config.settings import settings
+        value = hot.get("models.embedding_dim",
+                        getattr(settings, "EMBEDDING_DIM", 0))
+        return int(value) if value else None
+    except Exception:      # pragma: no cover
+        return None
+
+
+async def _current_space(db=None, index_name: str | None = None,
+                         dims: int | None = None) -> str:
+    if not dims:
+        dims = await _current_dim(db, index_name)
+    return model_space_identity(model=_current_model(), dimension=dims)
+
+
+def _current_conn() -> str:
+    try:
+        return connection_identity(resolve_embedding_profiles()["primary"])
+    except Exception:      # pragma: no cover
+        return ""
+
+
+def _admission_canary(admission: dict | None) -> dict:
+    """Блок `canary` из durable-допуска (панель/резолвер)."""
+    if not admission:
+        return {"verdict": None, "source": None, "checked": 0,
+                "mean": None, "min": None, "hit5": None, "at": None,
+                "reason_code": None, "runs": 0}
+    return {"verdict": "compatible", "source": "admission",
+            "checked": int(admission.get("checked") or 0),
+            "mean": admission.get("mean"), "min": admission.get("min"),
+            "hit5": admission.get("hit5"), "at": admission.get("at"),
+            "reason_code": None, "runs": 1}
+
+
+def _bucket_of(length: int) -> str:
+    if int(length or 0) < 200:
+        return "short"
+    if int(length or 0) < 2000:
+        return "mid"
+    return "long"
+
+
+def _select_sample(sample_pool: list[dict], *,
+                   sample_size: int = COMPAT_PROBE_SAMPLE,
+                   per_chat: int = COMPAT_PROBE_PER_CHAT,
+                   offset: int = 0) -> list[dict]:
+    """Детерминированная выборка: по каждому chat_id каждая ceil(n/6)-я
+    строка (≤6), приоритет бакетам длин (≥3 short, ≥3 mid, ≥2 long), ≤12."""
+    by_chat: dict = {}
+    for row in sample_pool:
+        by_chat.setdefault(row.get("chat_id"), []).append(row)
+    picked: list[dict] = []
+    picked_ids: set = set()
+    for _chat_id, items in sorted(by_chat.items(),
+                                  key=lambda kv: (kv[0] is None, kv[0])):
+        n = len(items)
+        if n == 0:
+            continue
+        stride = max(1, -(-n // max(1, per_chat)))
+        start = int(offset) % n
+        order = [(start + k) % n for k in range(n)]
+        for idx in order[::stride][:per_chat]:
+            row = items[idx]
+            if row.get("id") in picked_ids:
+                continue
+            picked.append(row)
+            picked_ids.add(row.get("id"))
+    # Добор до sample_size: при неравномерных чатах (≤6 на чат) выборка может
+    # не достичь min 8. Детерминированно (без RANDOM) и без дублей.
+    if len(picked) < sample_size:
+        flat = [row for items in by_chat.values() for row in items]
+        need = sample_size - len(picked)
+        step = max(1, len(flat) // max(1, need))
+        # Сначала «разреженные» кандидаты, затем остальные (детерминированно).
+        for row in flat[::step] + flat:
+            if len(picked) >= sample_size:
+                break
+            if row.get("id") in picked_ids:
+                continue
+            picked.append(row)
+            picked_ids.add(row.get("id"))
+    # Бакеты: сначала покрыть длины, затем добить до sample_size.
+    quotas = {"short": 3, "mid": 3, "long": 2}
+    chosen: list[dict] = []
+    chosen_ids: set = set()
+    for bucket, want in quotas.items():
+        for row in picked:
+            if len(chosen) >= sample_size:
+                break
+            key = row.get("id")
+            if key in chosen_ids or _bucket_of(row.get("n") or 0) != bucket:
+                continue
+            chosen.append(row)
+            chosen_ids.add(key)
+            want -= 1
+            if want <= 0:
+                break
+    for row in picked:
+        if len(chosen) >= sample_size:
+            break
+        key = row.get("id")
+        if key in chosen_ids:
+            continue
+        chosen.append(row)
+        chosen_ids.add(key)
+    return chosen
+
+
+async def _fetch_sample_pool(db, index_name: str, meta: dict) -> list[dict]:
+    """Только id/chat_id/длина текста — без загрузки 20k текстов фактов."""
+    live, source = meta["live"], meta["source"]
+    sql = (f"SELECT v.rowid AS rowid, f.id AS id, f.chat_id AS chat_id, "
+           f"length(f.fact) AS n FROM {live} v "
+           f"JOIN {source} f ON f.id = v.fact_id")
+    params: tuple = ()
+    if meta["eligible_ts"]:
+        sql += " WHERE (f.expires_at IS NULL OR f.expires_at > ?)"
+        params = (int(time.time()),)
+    sql += " ORDER BY f.chat_id ASC, f.id ASC"
+    cursor = await db.db.execute(sql, params)
+    rows = [dict(r) for r in await cursor.fetchall()]
+    limit_chars = COMPAT_PROBE_MAX_TOKENS * 4
+    return [r for r in rows if 0 < int(r.get("n") or 0) <= limit_chars]
+
+
+async def _fetch_fact_texts(db, index_name: str, meta: dict,
+                            ids: list) -> dict:
+    if not ids:
+        return {}
+    placeholders = ",".join("?" for _ in ids)
+    cursor = await db.db.execute(
+        f"SELECT id, fact FROM {meta['source']} WHERE id IN ({placeholders})",
+        tuple(ids))
+    return {int(r["id"]): str(r["fact"] or "") for r in await cursor.fetchall()}
+
+
+async def _read_live_vector(db, live: str, rowid: int) -> list[float] | None:
+    """Старый вектор из float-колонки (не int8): существующий _read_vector."""
+    try:
+        cursor = await db.db.execute(
+            f"SELECT rowid, embedding FROM {live} WHERE rowid = ?", (int(rowid),))
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        from services.graphrag_rebuild import _read_vector
+        return _read_vector(row["embedding"])
+    except Exception:
+        return None
+
+
+async def _knn_top_ids(db, live: str, vector: list[float],
+                       k: int = 5) -> set | None:
+    """KNN новым вектором к СТАРОМУ индексу. None — индекс недоступен."""
+    try:
+        blob = json.dumps([float(x) for x in vector])
+    except Exception:
+        return None
+    try:
+        cursor = await db.db.execute(
+            f"SELECT rowid, fact_id FROM {live} WHERE embedding MATCH ? "
+            "AND k = ?", (blob, int(k)))
+        rows = await cursor.fetchall()
+        ids = set()
+        for row in rows:
+            try:
+                ids.add(int(row["rowid"]))
+            except Exception:
+                pass
+            try:
+                if row["fact_id"] is not None:
+                    ids.add(int(row["fact_id"]))
+            except Exception:
+                pass
+        return ids
+    except Exception:
+        try:
+            cursor = await db.db.execute(
+                f"SELECT rowid FROM {live} WHERE embedding MATCH ? AND k = ?",
+                (blob, int(k)))
+            return {int(r["rowid"]) for r in await cursor.fetchall()}
+        except Exception:
+            return None
+
+
+async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
+                             sample_offset: int = 0) -> dict:
+    """Один прогон: новые векторы тех же текстов против СТАРЫХ строк индекса."""
+    out: dict = {"verdict": STATE_INSUFFICIENT, "reason_code": "no_old_vectors",
+                 "checked": 0, "mean": None, "min": None, "hit5": None,
+                 "dims": None, "sampled": 0, "sample_offset": sample_offset,
+                 "sample_ids": []}
+    meta = _index_meta(index_name)
+    if meta is None:
+        out["reason_code"] = "index_unknown"
+        return out
+    try:
+        pool = await _fetch_sample_pool(db, index_name, meta)
+    except Exception:
+        live_rows = await _live_row_count(db, index_name)
+        out["reason_code"] = ("no_old_vectors" if not live_rows
+                              else "index_unreadable")
+        return out
+    sample = _select_sample(pool, offset=sample_offset)
+    out["sampled"] = len(sample)
+    if not sample:
+        return out
+    texts_map = await _fetch_fact_texts(
+        db, index_name, meta, [r["id"] for r in sample])
+    pairs_in: list[tuple[dict, str]] = []
+    seen: set[str] = set()
+    for row in sample:
+        text = texts_map.get(int(row["id"]), "")
+        key = text.casefold().strip()
+        if not key or key in seen:
+            continue
+        if estimate_tokens(text) > COMPAT_PROBE_MAX_TOKENS:
+            continue
+        seen.add(key)
+        pairs_in.append((row, text))
+    if not pairs_in:
+        return out
+    try:
+        vectors = (list(await embed_fn([t for _r, t in pairs_in]))
+                   if embed_fn is not None
+                   else list(await llm.embed([t for _r, t in pairs_in])))
+    except Exception:
+        out["reason_code"] = "api_unavailable"
+        return out
+    if not vectors or len(vectors) != len(pairs_in) or \
+            not all(v for v in vectors):
+        out["reason_code"] = "api_unavailable"
+        return out
+    dims = len(vectors[0])
+    out["dims"] = dims
+    if any(len(v) != dims for v in vectors):
+        out["verdict"] = STATE_INCOMPATIBLE
+        out["reason_code"] = "dim_mismatch"
+        return out
+    # Эталоны — ТОЛЬКО сохранённые векторы старого индекса.
+    pairs: list[tuple[dict, list[float], list[float]]] = []
+    for (row, _text), vec in zip(pairs_in, vectors):
+        old = await _read_live_vector(db, meta["live"], int(row["id"]))
+        if not old:
+            continue
+        if len(old) != dims:
+            out["verdict"] = STATE_INCOMPATIBLE
+            out["reason_code"] = "dim_mismatch"
+            out["checked"] = len(pairs)
+            return out
+        pairs.append((row, [float(x) for x in vec], old))
+    out["checked"] = len(pairs)
+    out["sample_ids"] = sorted(int(r["id"]) for r, _v, _o in pairs)
+    if not pairs:
+        return out
+    sims = [_cosine(vec, old) for _r, vec, old in pairs]
+    mean = sum(sims) / len(sims)
+    low = min(sims)
+    # Обязательная проверка ПОИСКА: новый вектор как запрос к старому индексу.
+    hits, queried = 0, 0
+    for row, vec, _old in pairs:
+        ids = await _knn_top_ids(db, meta["live"], vec, k=5)
+        if ids is None:
+            out["reason_code"] = "knn_unavailable"
+            out["mean"] = round(float(mean), 6)
+            out["min"] = round(float(low), 6)
+            return out
+        queried += 1
+        if int(row["id"]) in ids:
+            hits += 1
+    hit5 = (hits / queried) if queried else 0.0
+    out["hit5"] = round(float(hit5), 4)
+    out["mean"] = round(float(mean), 6)
+    out["min"] = round(float(low), 6)
+    if len(pairs) < COMPAT_PROBE_MIN_SAMPLE:
+        out["reason_code"] = "too_few_vectors"
+        return out
+    if (mean < COMPAT_PROBE_MEAN_FLOOR or low < COMPAT_PROBE_MIN_FLOOR
+            or hit5 < COMPAT_PROBE_HIT5_FLOOR):
+        out["verdict"] = STATE_INCOMPATIBLE
+        out["reason_code"] = ("low_hit5" if hit5 < COMPAT_PROBE_HIT5_FLOOR
+                              else "numeric_divergence")
+        return out
+    if (mean >= COMPAT_PROBE_MEAN_MIN and low >= COMPAT_PROBE_MIN_MIN
+            and hit5 >= COMPAT_PROBE_HIT5_MIN):
+        out["verdict"] = STATE_COMPATIBLE
+        out["reason_code"] = ""
+        return out
+    out["reason_code"] = ("low_hit5" if hit5 < COMPAT_PROBE_HIT5_MIN
+                          else "weak_numeric")
+    return out
+
+
+async def compat_probe(db, index_name: str, *, embed_fn=None, llm=None,
+                       sample_offset: int = 0) -> dict:
+    """Доказательство совместимости на СТАРЫХ векторах (frozen §3).
+
+    Порядок: совпадение размерности → косинус по float-колонке → KNN-выдача
+    новым вектором к старому индексу. Полоса 0.970≤mean<0.995 требует ОДНОГО
+    независимого повтора на другой выборке; compatible — только если оба
+    прогона compatible. Недоступность API/мало данных → insufficient
+    (никогда incompatible). Никогда не бросает."""
+    first = await _compat_probe_once(db, index_name, embed_fn=embed_fn,
+                                     llm=llm, sample_offset=sample_offset)
+    first.setdefault("runs", 1)
+    try:
+        mean = first.get("mean")
+        repeat_band = (first.get("reason_code") == "weak_numeric"
+                       and mean is not None
+                       and COMPAT_PROBE_BAND_MIN <= float(mean)
+                       < COMPAT_PROBE_MEAN_MIN)
+        if not repeat_band:
+            return first
+        second = await _compat_probe_once(
+            db, index_name, embed_fn=embed_fn, llm=llm,
+            sample_offset=int(sample_offset) + 1)
+        first["runs"] = 2
+        first["repeat"] = second
+        if set(first.get("sample_ids") or []) == \
+                set(second.get("sample_ids") or []):
+            first["verdict"] = STATE_INSUFFICIENT
+            first["reason_code"] = "independent_sample_unavailable"
+            return first
+        if second.get("verdict") != STATE_COMPATIBLE:
+            first["verdict"] = STATE_INSUFFICIENT
+            first["reason_code"] = (second.get("reason_code")
+                                    or "repeat_not_compatible")
+            return first
+        # Оба прогона подтверждают: метрики берём из ПОДТВЕРЖДАЮЩЕГО прогона,
+        # слабую полосу сохраняем отдельно (прозрачность, не «лучший из двух»).
+        first["band"] = {"mean": first.get("mean"), "min": first.get("min"),
+                         "hit5": first.get("hit5"),
+                         "reason_code": first.get("reason_code")}
+        first["verdict"] = STATE_COMPATIBLE
+        first["reason_code"] = ""
+        first["checked"] = min(int(first.get("checked") or 0),
+                               int(second.get("checked") or 0))
+        first["mean"] = second.get("mean")
+        first["min"] = second.get("min")
+        first["hit5"] = second.get("hit5")
+        return first
+    except Exception:
+        logger.warning("embedding compat probe repeat failed — insufficient",
+                       exc_info=True)
+        first["verdict"] = STATE_INSUFFICIENT
+        first["reason_code"] = "probe_error"
+        return first
+
+
+# ── единый резолвер: одно решение читается всеми точками ────────────────────
+
+async def _generation_rows(db, index_name: str,
+                           namespace: str) -> list[dict]:
+    try:
+        cursor = await db.db.execute(
+            "SELECT * FROM mca_embedding_index_generations "
+            "WHERE index_name = ? AND namespace = ? "
+            "ORDER BY generation DESC LIMIT 32",
+            (str(index_name), str(namespace or DEFAULT_NAMESPACE)))
+        return [dict(r) for r in await cursor.fetchall()]
+    except Exception:
+        return []
+
+
+def _pick_active(rows: list[dict]) -> dict | None:
+    for row in rows:
+        if str(row.get("status") or "") == "active":
+            return row
+    return None
+
+
+def _pick_space_candidate(rows: list[dict], space_now: str) -> dict | None:
+    """Строка-провенанс live-векторов при отсутствии ACTIVE.
+
+    Векторы target-поколения строятся в SHADOW (`{live}_g{gen}`), в live не
+    попадают никогда — поэтому живые векторы описывает САМАЯ РАННЯЯ
+    space-совместимая строка, а не свежий target (иначе adopt приписал бы
+    провенанс новому шлюзу). `rows` — по убыванию generation."""
+    for row in reversed(rows):
+        if str(row.get("status") or "") not in ("active", "building",
+                                                "building_target",
+                                                "catching_up", "ready"):
+            continue
+        if generation_space_identity(row) == space_now:
+            return row
+    return None
+
+
+def _base_compat(index_name: str, *, space: str, conn: str, dims) -> dict:
+    return {"index": index_name, "state": STATE_NO_GENERATION,
+            "reason_code": "no_generation", "serviceable": False,
+            "space": space, "conn": conn,
+            "dims": int(dims) if dims else None,
+            "admission": None, "canary": _admission_canary(None),
+            "source_empty": False, "needs_probe": False,
+            "class": COMPAT_UNKNOWN, "action": "register_generation",
+            "active": None, "candidate": None, "current_fp": ""}
+
+
+async def resolve_index_compat(db, index_name: str, *,
+                               namespace: str | None = None,
+                               current_fp: str | None = None,
+                               current_dims: int | None = None) -> dict:
+    """Единое решение о совместимости индекса (read-only, БЕЗ сети).
+
+    Возвращает frozen-поля `{state, reason_code, serviceable, space, conn,
+    admission, canary, source_empty, needs_probe}` (+ диагностика).
+    `state`: compatible | insufficient | incompatible | source_empty |
+    no_generation. Совместимость НЕ объявляется без MSI-доказательства или
+    валидного durable-допуска. Никогда не бросает."""
+    dims_now = (int(current_dims) if current_dims
+                else await _current_dim(db, index_name))
+    space_now = await _current_space(db, index_name, dims=dims_now)
+    conn_now = _current_conn()
+    namespace = str(namespace or DEFAULT_NAMESPACE)
+    fp_hint = str(current_fp or "") or await _current_fingerprint(db,
+                                                                 index_name)
+    out = _base_compat(index_name, space=space_now, conn=conn_now,
+                       dims=dims_now)
+    if not space_now or not dims_now:
+        # Конфиг не прочитан (пустая модель/размерность) — доказать нечего,
+        # разрушительных действий не предпринимаем (fail-safe, не rebuild).
+        out["state"] = STATE_INSUFFICIENT
+        out["reason_code"] = "config_unavailable"
+        out["action"] = "retry_canary"
+        return out
+    try:
+        rows = await _generation_rows(db, index_name, namespace)
+    except Exception:
+        rows = []
+    active = _pick_active(rows)
+    out["rows"] = len(rows)
+    if not adoption_enabled():
+        # Прежнее поведение: авторитет только точное совпадение fingerprint.
+        out["adoption_enabled"] = False
+        if active is None:
+            out["state"] = (STATE_INCOMPATIBLE if rows
+                            else STATE_NO_GENERATION)
+            out["reason_code"] = ("identity_changed" if rows
+                                  else "no_generation")
+            out["action"] = "rebuild"
+            return out
+        current_fp = fp_hint
+        out["current_fp"] = str(current_fp or "")
+        out["active"] = _generation_brief_row(active)
+        if current_fp and str(active.get("fingerprint") or "") == current_fp:
+            out["state"] = STATE_COMPATIBLE
+            out["reason_code"] = ""
+            out["serviceable"] = True
+            out["class"] = COMPAT_INSTANT
+            out["action"] = "none"
+            out["admission"] = parse_admission(active.get("config_revision"))
+        else:
+            out["state"] = STATE_INCOMPATIBLE
+            out["reason_code"] = "identity_changed"
+            out["class"] = COMPAT_REINDEX
+            out["action"] = "rebuild"
+        return out
+    out["adoption_enabled"] = True
+    if active is not None:
+        out["active"] = _generation_brief_row(active)
+        admission = parse_admission(active.get("config_revision"))
+        out["admission"] = admission
+        out["canary"] = _admission_canary(admission)
+        active_fp = str(active.get("fingerprint") or "")
+        current_fp = fp_hint
+        out["current_fp"] = str(current_fp or "")
+        if current_fp and active_fp == current_fp:
+            out["state"] = STATE_COMPATIBLE
+            out["reason_code"] = ""
+            out["serviceable"] = True
+            out["class"] = COMPAT_INSTANT
+            out["action"] = "none"
+            return out
+        if admission_valid(admission, space_now=space_now,
+                           conn_now=conn_now):
+            out["state"] = STATE_COMPATIBLE
+            out["reason_code"] = ""
+            out["serviceable"] = True
+            out["class"] = COMPAT_ADMITTED
+            out["action"] = "none"
+            return out
+        cached = compat_verdict(index_name, space=space_now, conn=conn_now)
+        if cached is not None and cached["verdict"] == STATE_INCOMPATIBLE:
+            # Проба уже ДОКАЗАЛА расхождение для этих MSI/PCI (process-level;
+            # негатив не персистится) — идём существующим путём миграции.
+            out["state"] = STATE_INCOMPATIBLE
+            out["reason_code"] = cached["reason_code"] or "identity_changed"
+            out["class"] = COMPAT_REINDEX
+            out["action"] = "controlled_migration"
+            return out
+        active_space = generation_space_identity(active)
+        if not active_space:
+            out["state"] = STATE_INSUFFICIENT
+            out["reason_code"] = "provenance_unknown"
+            out["action"] = "need_old_vectors"
+            return out
+        if active_space != space_now:
+            out["state"] = STATE_INCOMPATIBLE
+            out["reason_code"] = ("dimension_changed"
+                                  if _dims_differ(active.get("dims"), dims_now)
+                                  else "identity_changed")
+            out["class"] = COMPAT_DIMENSION if _dims_differ(
+                active.get("dims"), dims_now) else COMPAT_REINDEX
+            out["action"] = "controlled_migration"
+            return out
+        # MSI совпал, допуска нет → нужна проба на старых векторах.
+        out["candidate"] = _generation_brief_row(active)
+        out["needs_probe"] = True
+        out["state"] = STATE_INSUFFICIENT
+        out["reason_code"] = "compat_not_proven"
+        out["class"] = COMPAT_UNKNOWN
+        out["action"] = "retry_canary"
+        if await _source_is_empty(db, index_name):
+            out["state"] = STATE_SOURCE_EMPTY
+            out["reason_code"] = "source_empty"
+            out["source_empty"] = True
+            out["needs_probe"] = False
+            out["action"] = "none"
+        return out
+    # ACTIVE нет: провенанс live-векторов — по строкам реестра.
+    candidate = _pick_space_candidate(rows, space_now)
+    source_empty = await _source_is_empty(db, index_name)
+    live_rows = await _live_row_count(db, index_name)
+    out["live_rows"] = live_rows
+    if candidate is not None:
+        out["candidate"] = _generation_brief_row(candidate)
+    if source_empty:
+        out["state"] = STATE_SOURCE_EMPTY
+        out["reason_code"] = "source_empty"
+        out["source_empty"] = True
+        out["action"] = "none"
+        return out
+    if live_rows is None or live_rows == 0:
+        # Живого индекса нет — перестраивать нечего терять: обычная сборка.
+        out["state"] = STATE_NO_GENERATION
+        out["reason_code"] = ("rows_with_other_space"
+                              if (rows and candidate is None)
+                              else "empty_index")
+        out["action"] = "register_generation"
+        return out
+    if candidate is not None:
+        cached = compat_verdict(index_name, space=space_now, conn=conn_now)
+        if cached is not None and cached["verdict"] == STATE_INCOMPATIBLE:
+            out["state"] = STATE_INCOMPATIBLE
+            out["reason_code"] = cached["reason_code"] or "identity_changed"
+            out["class"] = COMPAT_REINDEX
+            out["action"] = "controlled_migration"
+            return out
+        out["needs_probe"] = True
+        out["state"] = STATE_INSUFFICIENT
+        out["reason_code"] = "compat_not_proven"
+        out["action"] = "retry_canary"
+        return out
+    out["state"] = STATE_INCOMPATIBLE
+    best = rows[0] if rows else {}
+    dims_changed = _dims_differ(best.get("dims"), dims_now)
+    out["reason_code"] = ("provenance_unknown" if not rows
+                          else ("dimension_changed" if dims_changed
+                                else "identity_changed"))
+    out["class"] = (COMPAT_DIMENSION if dims_changed else COMPAT_REINDEX)
+    out["action"] = "controlled_migration"
+    return out
+
+
+def _dims_differ(a, b) -> bool:
+    try:
+        return bool(a) and bool(b) and int(a) != int(b)
+    except Exception:
+        return False
+
+
+def _generation_brief_row(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    return {"generation": int(row.get("generation") or 0) or None,
+            "status": str(row.get("status") or ""),
+            "fingerprint": str(row.get("fingerprint") or ""),
+            "dims": int(row.get("dims") or 0) or None,
+            "model": str(row.get("model") or ""),
+            "provider": str(row.get("provider") or ""),
+            "config_revision": str(row.get("config_revision") or "")}
+
+
+async def _current_fingerprint(db, index_name: str) -> str:
+    """Текущий legacy-fingerprint (та же формула, что summary_memory).
+
+    Размерность — фактическая live-таблица (`_vec_dim` в MemoryManager),
+    иначе hot/env. Используется как fallback, если вызывающий не передал
+    свой fingerprint (`current_fp`)."""
+    try:
+        from services.summary_memory import (embedding_identity_fingerprint)
+        return str(embedding_identity_fingerprint(
+            dims=await _current_dim(db, index_name)) or "")
+    except Exception:      # pragma: no cover
+        return ""
+
+
+async def _source_is_empty(db, index_name: str) -> bool:
+    try:
+        from services.graphrag_rebuild import _source_empty
+        return bool(await _source_empty(db, index_name))
+    except Exception:
+        return False
+
+
+async def _live_row_count(db, index_name: str) -> int | None:
+    meta = _index_meta(index_name)
+    if meta is None:
+        return None
+    try:
+        cursor = await db.db.execute(f"SELECT COUNT(*) AS c FROM {meta['live']}")
+        row = await cursor.fetchone()
+        return int(row["c"]) if row is not None else 0
+    except Exception:
+        return None
+
+
+def compat_pending() -> bool:
+    """Есть незавершённый вердикт совместимости (гейт фоновой drift-canary)."""
+    try:
+        now = time.time()
+        return any((now - ts) < 6 * 3600 for ts in _COMPAT_PENDING.values())
+    except Exception:      # pragma: no cover
+        return False
+
+
+def note_compat_pending(index_name: str, *, pending: bool,
+                        now: float | None = None) -> None:
+    try:
+        key = str(index_name or "")
+        if pending:
+            _COMPAT_PENDING[key] = float(now if now is not None else time.time())
+        else:
+            _COMPAT_PENDING.pop(key, None)
+    except Exception:
+        pass
+
+
+def note_compat_verdict(index_name: str, verdict: str, *, space: str,
+                        conn: str, reason_code: str = "",
+                        now: float | None = None) -> None:
+    """Запомнить вердикт пробы (process-level). Негативные вердикты НЕ
+    персистятся: они инвалидируются сменой MSI/PCI и перепроверяются."""
+    try:
+        _COMPAT_VERDICTS[str(index_name or "")] = (
+            str(verdict or ""), str(space or ""), str(conn or ""),
+            str(reason_code or ""),
+            float(now if now is not None else time.time()))
+    except Exception:
+        pass
+
+
+def compat_verdict(index_name: str, *, space: str, conn: str,
+                   now: float | None = None) -> dict | None:
+    """Свежий вердикт для ТЕКУЩИХ MSI/PCI (иначе None — нужна новая проба)."""
+    try:
+        entry = _COMPAT_VERDICTS.get(str(index_name or ""))
+        if entry is None:
+            return None
+        verdict, v_space, v_conn, reason, ts = entry
+        age = float(now if now is not None else time.time()) - float(ts)
+        if age < 0 or age > _COMPAT_VERDICT_TTL_S:
+            return None
+        if str(v_space) != str(space or "") or str(v_conn) != str(conn or ""):
+            return None
+        return {"verdict": verdict, "reason_code": reason, "at": int(ts)}
+    except Exception:
+        return None
+
+
+def reset_compat_state() -> None:
+    """Сброс process-level состояния (тесты/рестарт в одном процессе)."""
+    _COMPAT_PENDING.clear()
+    _PROBE_LAST.clear()
+    _COMPAT_VERDICTS.clear()
+    _PAUSED_BY_COMPAT.clear()
+
+
+def _emit_compat_event(name: str, outcome: str, *, level: str = "info",
+                       **fields) -> None:
+    """Fail-open событие (REUSE mca_events); R17-safe — без ключей/текстов."""
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event(name, outcome=outcome, level=level,
+                       component="embedding_control_plane", **fields)
+    except Exception:
+        pass
+
+
+async def _pause_rebuild_under(db, index_name: str) -> bool:
+    """Поставить текущую сборку индекса на паузу (обратимо, §3.7)."""
+    try:
+        from services import graphrag_rebuild as gr
+        ok = bool(await gr.pause_rebuild(db, index_name))
+        if ok:
+            _PAUSED_BY_COMPAT.add(str(index_name))
+        return ok
+    except Exception:
+        return False
+
+
+async def _resume_rebuild_under(db, index_name: str) -> bool:
+    """Снять паузу, поставленную ТОЛЬКО ради ожидания вердикта (§3.7)."""
+    try:
+        if str(index_name) not in _PAUSED_BY_COMPAT:
+            return False
+        from services import graphrag_rebuild as gr
+        ok = bool(await gr.resume_rebuild(db, index_name))
+        if ok:
+            _PAUSED_BY_COMPAT.discard(str(index_name))
+        return ok
+    except Exception:
+        return False
+
+
+async def _cancel_rebuild_for(db, index_name: str, fp: str) -> bool:
+    try:
+        from services import graphrag_rebuild as gr
+        return bool(await gr.cancel_rebuild(db, index_name, fp=fp))
+    except Exception:
+        return False
+
+
+async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
+                              namespace: str | None = None,
+                              current_fp: str | None = None,
+                              current_dims: int | None = None,
+                              force_probe: bool = False) -> dict:
+    """Резолвер + (при необходимости) проба + adopt/миграция (frozen §3/§4).
+
+    Вызывается из `MemoryManager.initialize()` (после регистрации поколений,
+    ДО recovery/backfill) и из тика. Пока вердикта нет — уже запущенная
+    сборка под новый fp ставится на ПАУЗУ (обратимо). При compatible —
+    adopt + отмена ненужной сборки; при incompatible — resume (существующий
+    контролируемый путь миграции). Никогда не бросает."""
+    namespace = str(namespace or DEFAULT_NAMESPACE)
+    try:
+        compat = await resolve_index_compat(db, index_name,
+                                            namespace=namespace,
+                                            current_fp=current_fp,
+                                            current_dims=current_dims)
+    except Exception:
+        logger.warning("compat resolve failed | index=%s", index_name,
+                       exc_info=True)
+        return {"index": index_name, "state": STATE_INSUFFICIENT,
+                "reason_code": "resolve_failed", "serviceable": False,
+                "action": "retry_canary"}
+    if not compat.get("adoption_enabled", True):
+        return compat
+    if compat.get("state") == STATE_COMPATIBLE:
+        note_compat_pending(index_name, pending=False)
+        return compat
+    if not compat.get("needs_probe"):
+        # incompatible / source_empty / no_generation — поведение существующих
+        # путей (миграция через target-generation, пустой источник и т.д.).
+        note_compat_pending(index_name, pending=False)
+        if compat.get("state") == STATE_INCOMPATIBLE:
+            _emit_compat_event("EMBEDDING_COMPAT_INCOMPATIBLE", "failed",
+                               level="error", index=index_name,
+                               reason_code=str(compat.get("reason_code")))
+        return compat
+    key = (str(index_name), str(compat.get("space")), str(compat.get("conn")))
+    now = time.time()
+    if not force_probe:
+        prev = _PROBE_LAST.get(key)
+        if prev is not None and (now - prev) < COMPAT_PROBE_REPEAT_COOLDOWN_S:
+            return compat
+    global _COMPAT_PROBE_LOCK
+    if _COMPAT_PROBE_LOCK is None:
+        _COMPAT_PROBE_LOCK = asyncio.Lock()
+    lock = _COMPAT_PROBE_LOCK
+    async with lock:
+        prev = _PROBE_LAST.get(key)
+        if not force_probe and prev is not None and \
+                (now - prev) < COMPAT_PROBE_REPEAT_COOLDOWN_S:
+            return compat
+        _PROBE_LAST[key] = now
+        probe = await compat_probe(db, index_name, embed_fn=embed_fn, llm=llm)
+        note_compat_verdict(index_name, str(probe.get("verdict") or ""),
+                            space=str(compat.get("space") or ""),
+                            conn=str(compat.get("conn") or ""),
+                            reason_code=str(probe.get("reason_code") or ""))
+        compat["canary"] = {"verdict": probe.get("verdict"),
+                            "source": "probe",
+                            "checked": int(probe.get("checked") or 0),
+                            "mean": probe.get("mean"),
+                            "min": probe.get("min"),
+                            "hit5": probe.get("hit5"),
+                            "at": int(time.time()),
+                            "reason_code": probe.get("reason_code"),
+                            "runs": int(probe.get("runs") or 1),
+                            "band": probe.get("band")}
+        if probe.get("verdict") != STATE_COMPATIBLE:
+            verdict = str(probe.get("verdict") or STATE_INSUFFICIENT)
+            compat["state"] = verdict
+            compat["reason_code"] = (str(probe.get("reason_code")
+                                         or "probe_insufficient"))
+            compat["serviceable"] = False
+            compat["needs_probe"] = verdict != STATE_INCOMPATIBLE
+            if verdict == STATE_INCOMPATIBLE:
+                compat["class"] = (
+                    COMPAT_DIMENSION
+                    if compat["reason_code"] == "dim_mismatch"
+                    else COMPAT_REINDEX)
+                compat["action"] = "controlled_migration"
+                note_compat_pending(index_name, pending=False)
+                # Существующая контролируемая миграция: снимаем паузу,
+                # поставленную только ради ожидания этого вердикта.
+                await _resume_rebuild_under(db, index_name)
+                _emit_compat_event("EMBEDDING_COMPAT_INCOMPATIBLE", "failed",
+                                   level="error", index=index_name,
+                                   reason_code=str(compat["reason_code"]),
+                                   checked=int(probe.get("checked") or 0))
+                return compat
+            compat["action"] = ("need_old_vectors"
+                                if compat["reason_code"] in
+                                ("no_old_vectors", "too_few_vectors",
+                                 "provenance_unknown")
+                                else "retry_canary")
+            note_compat_pending(index_name, pending=True)
+            # Пока вердикта нет — не сжигаем 316 вызовов rebuild'а.
+            await _pause_rebuild_under(db, index_name)
+            _emit_compat_event("EMBEDDING_COMPAT_INSUFFICIENT", "degraded",
+                               level="warning", index=index_name,
+                               reason_code=str(compat.get("reason_code")),
+                               checked=int(probe.get("checked") or 0))
+            return compat
+        # ── compatible: adopt в одной транзакции + отмена ненужной сборки ──
+        candidate = compat.get("candidate") or {}
+        fp = str(candidate.get("fingerprint") or "")
+        admission = format_admission(
+            str(compat.get("space") or ""), str(compat.get("conn") or ""),
+            int(probe.get("checked") or 0), float(probe.get("mean") or 0.0),
+            float(probe.get("min") or 0.0), float(probe.get("hit5") or 0.0),
+            int(time.time()))
+        adopt = getattr(db, "adopt_embedding_generation", None)
+        if not fp or adopt is None or not admission:
+            compat["state"] = STATE_INSUFFICIENT
+            compat["reason_code"] = "adopt_unavailable"
+            compat["serviceable"] = False
+            compat["action"] = "retry_canary"
+            note_compat_pending(index_name, pending=True)
+            return compat
+        try:
+            rows = await _generation_rows(db, index_name, namespace)
+        except Exception:
+            rows = []
+        building_fps = {str(r.get("fingerprint") or "") for r in rows
+                        if str(r.get("status") or "") in
+                        ("building", "building_target", "catching_up",
+                         "ready")}
+        adopted = await adopt(index_name, fp, admission=admission,
+                              namespace=namespace)
+        if not adopted:
+            compat["state"] = STATE_INSUFFICIENT
+            compat["reason_code"] = "adopt_refused"
+            compat["serviceable"] = False
+            compat["action"] = "retry_canary"
+            note_compat_pending(index_name, pending=True)
+            return compat
+        # 2) Отмена ненужной сборки (CAS в cancelled; shadow удаляет run_job).
+        cancelled = 0
+        for other_fp in sorted(building_fps | {fp}):
+            if await _cancel_rebuild_for(db, index_name, other_fp):
+                cancelled += 1
+        # 3) Прочие незавершённые targets — superseded (stale worker).
+        supersede = getattr(db, "supersede_building_generations", None)
+        if supersede is not None:
+            try:
+                await supersede(index_name, namespace=namespace,
+                                keep_fingerprint=fp)
+            except Exception:
+                pass
+        # 4) Событие/статус.
+        note_compat_pending(index_name, pending=False)
+        _PAUSED_BY_COMPAT.discard(str(index_name))
+        _emit_compat_event("EMBEDDING_COMPAT_ADMITTED", "ok", index=index_name,
+                           generation=int(candidate.get("generation") or 0),
+                           checked=int(probe.get("checked") or 0),
+                           mean=probe.get("mean"), min=probe.get("min"),
+                           hit5=probe.get("hit5"))
+        if cancelled:
+            _emit_compat_event("EMBEDDING_COMPAT_REBUILD_CANCELLED", "ok",
+                               index=index_name, cancelled=int(cancelled))
+        logger.warning(
+            "EMBEDDING_COMPAT_ADMITTED | index=%s | gen=%s | checked=%d | "
+            "mean=%s min=%s hit5=%s | fingerprint сохранён (провенанс)",
+            index_name, candidate.get("generation"),
+            int(probe.get("checked") or 0), probe.get("mean"),
+            probe.get("min"), probe.get("hit5"))
+        final = await resolve_index_compat(db, index_name, namespace=namespace,
+                                           current_fp=current_fp,
+                                           current_dims=current_dims)
+        # Доказательство (метрики пробы, включая повтор) сохраняем в ответе:
+        # канарный блок из допуска не несёт числа прогонов.
+        final["canary"] = compat.get("canary") or final.get("canary")
+        return final
+    return compat
 
 
 # ── D12 (asap5-final-fixes, T-5258, 13D/13E/13H): migration jobs ────────────
@@ -3055,4 +4238,17 @@ __all__ = [
     "DEFAULT_NAMESPACE", "resolve_active_generation", "plan_embedding_change",
     "begin_embedding_migration", "note_canary_verdict",
     "canary_verdict_cached", "canary_blocks_writes",
+    # EMBED-IDENTITY-COMPAT (23.10.2026): MSI/PCI + проба + единый резолвер
+    "COMPAT_ADMITTED", "adoption_enabled",
+    "model_space_identity", "generation_space_identity",
+    "connection_identity", "profile_space_identity",
+    "format_admission", "parse_admission", "admission_valid",
+    "compat_probe", "resolve_index_compat", "ensure_index_compat",
+    "compat_pending", "note_compat_pending", "reset_compat_state",
+    "note_compat_verdict", "compat_verdict",
+    "STATE_COMPATIBLE", "STATE_INSUFFICIENT", "STATE_INCOMPATIBLE",
+    "STATE_SOURCE_EMPTY", "STATE_NO_GENERATION",
+    "COMPAT_PROBE_MEAN_MIN", "COMPAT_PROBE_MIN_MIN", "COMPAT_PROBE_HIT5_MIN",
+    "COMPAT_PROBE_MEAN_FLOOR", "COMPAT_PROBE_MIN_FLOOR",
+    "COMPAT_PROBE_HIT5_FLOOR", "COMPAT_PROBE_MIN_SAMPLE",
 ]

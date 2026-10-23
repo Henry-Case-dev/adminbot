@@ -1728,6 +1728,23 @@ async def ensure_current_generation(memory, index_name: str, *,
     by_fp = getattr(db, "get_generation_by_fingerprint", None)
     if by_fp is None:
         return None
+    # EMBED-IDENTITY-COMPAT (23.10.2026): сначала ЕДИНЫЙ резолвер. Смена только
+    # API-шлюза (MSI тот же) не должна регистрировать target-поколение и
+    # запускать полную перевекторизацию. Пока совместимость не доказана —
+    # ничего не регистрируем (проба на старых векторах идёт в initialize/тике).
+    compat: dict | None = None
+    try:
+        from services import embedding_control_plane as ecp
+        if ecp.adoption_enabled():
+            compat = await ecp.resolve_index_compat(
+                db, index_name, current_fp=fp,
+                current_dims=getattr(memory, "_vec_dim", None))
+            state = str(compat.get("state") or "")
+            if state in (ecp.STATE_COMPATIBLE, ecp.STATE_INSUFFICIENT,
+                         ecp.STATE_SOURCE_EMPTY):
+                return None
+    except Exception:
+        compat = None
     row = await by_fp(index_name, fp)
     status = str((row or {}).get("status") or "")
     if row is not None and status in TARGET_GENERATION_STATUSES:
@@ -1813,13 +1830,30 @@ async def generation_status(db, *, current_fp: str | None = None,
         get_active = getattr(db, "get_active_embedding_generation", None)
         if get_latest is None:
             return out                # реестра нет (тест-двойник/БД) — честно пусто
+        # EMBED-IDENTITY-COMPAT: единое решение (MSI + durable-допуск) вместо
+        # сравнения URL/fingerprint. Смена только API-шлюза больше не выглядит
+        # как «identity changed → rebuild required».
+        compat_enabled, ecp = False, None
+        try:
+            from services import embedding_control_plane as ecp
+            compat_enabled = ecp.adoption_enabled()
+        except Exception:
+            ecp = None
         for index_name in _INDEX_SPECS:
             latest = await get_latest(index_name)
             active = await get_active(index_name) if get_active else None
+            compat = None
+            if compat_enabled:
+                try:
+                    compat = await ecp.resolve_index_compat(
+                        db, index_name, current_fp=fp, current_dims=dims)
+                except Exception:
+                    compat = None
             state, reason = "no_generation", "no_generation"
             latest_fp = str((latest or {}).get("fingerprint") or "")
             active_fp = str((active or {}).get("fingerprint") or "")
-            if active is not None and active_fp == fp:
+            compat_state = str((compat or {}).get("state") or "")
+            if compat_state == ecp.STATE_COMPATIBLE:
                 state, reason = "active", ""
             elif latest is not None and latest_fp == fp:
                 status = str(latest.get("status") or "")
@@ -1828,6 +1862,18 @@ async def generation_status(db, *, current_fp: str | None = None,
                         db, index_name, fp, int(latest.get("generation") or 0))
                 else:
                     state, reason = "build_failed", (status or "build_failed")
+            elif compat_state == ecp.STATE_INSUFFICIENT:
+                # Совместимость не доказана: сборка НЕ требуется, индекс живёт
+                # проверяемым чтением (FTS/старый срез), ждём пробу.
+                state = "compat_insufficient"
+                reason = str((compat or {}).get("reason_code")
+                             or "compat_insufficient")
+            elif compat_state == ecp.STATE_INCOMPATIBLE:
+                state = "identity_changed"
+                reason = str((compat or {}).get("reason_code")
+                             or "identity_changed")
+            elif active is not None and active_fp == fp:
+                state, reason = "active", ""
             elif latest is not None or active is not None:
                 state, reason = "identity_changed", "identity_changed"
             latest_dims = int((latest or active or {}).get("dims") or 0)
@@ -1841,11 +1887,24 @@ async def generation_status(db, *, current_fp: str | None = None,
                 "reason_code": reason,
                 # Пустой источник (прод: `smart_archive_facts=0`) не требует
                 # перестройки — иначе панель вечно предлагала бы reindex пустого
-                # индекса (nonblocking review B-nb2).
+                # индекса (nonblocking review B-nb2). `compat_insufficient` —
+                # тоже НЕ повод перестраивать: ждём пробу/старые векторы.
                 "reindex_required": (
-                    state != "active"
+                    state not in ("active", "compat_insufficient")
                     and not (source_empty
                              and state in ("no_generation", "build_pending"))),
+                "serviceable": state == "active",
+                "compat_class": (compat or {}).get("class"),
+                "action": (compat or {}).get("action"),
+                "needs_probe": bool((compat or {}).get("needs_probe")),
+                "compat": ({
+                    "state": compat.get("state"),
+                    "reason_code": compat.get("reason_code"),
+                    "space": compat.get("space"),
+                    "conn": compat.get("conn"),
+                    "admission": compat.get("admission"),
+                    "canary": compat.get("canary"),
+                } if compat is not None else None),
                 "current_fp": _fp12(fp),
                 "dim_mismatch": dim_mismatch,
                 "source_empty": source_empty,
@@ -1924,7 +1983,37 @@ async def maybe_schedule_rebuilds(memory, *, include_failed: bool = True
             return []
         current_fp = memory._identity_fingerprint()
         candidates: list[tuple[str, str, int]] = []   # (index, job_id, prio)
+        # EMBED-IDENTITY-COMPAT: одно решение на индекс — compatible (допуск/
+        # instant) и insufficient (проба ещё не доказала) НЕ запускают rebuild;
+        # source_empty — перестраивать нечего. Иначе — прежний D2-путь.
+        try:
+            from services import embedding_control_plane as ecp
+            compat_enabled = ecp.adoption_enabled()
+        except Exception:
+            ecp, compat_enabled = None, False
         for index_name in _INDEX_SPECS:
+            if compat_enabled:
+                try:
+                    compat = await ecp.resolve_index_compat(
+                        db, index_name, current_fp=current_fp,
+                        current_dims=getattr(memory, "_vec_dim", None))
+                    state = str(compat.get("state") or "")
+                    if state == ecp.STATE_INSUFFICIENT and \
+                            compat.get("needs_probe"):
+                        # Тик перепроверяет недоказанный вердикт ОДНИМ батчем
+                        # (cooldown внутри ensure_index_compat); compatible →
+                        # adopt, incompatible → миграция ниже.
+                        compat = await ecp.ensure_index_compat(
+                            db, index_name, current_fp=current_fp,
+                            current_dims=getattr(memory, "_vec_dim", None),
+                            embed_fn=getattr(memory, "_embed", None))
+                        state = str(compat.get("state") or "")
+                    if state in (ecp.STATE_COMPATIBLE, ecp.STATE_INSUFFICIENT,
+                                 ecp.STATE_SOURCE_EMPTY):
+                        continue
+                except Exception:
+                    logger.debug("graphrag rebuild: compat resolve failed | "
+                                 "index=%s", index_name, exc_info=True)
             try:
                 gen = await db.get_latest_embedding_generation(index_name)
             except Exception:
@@ -2178,7 +2267,7 @@ async def resume_rebuild(db, index_name: str, *, fp: str | None = None
     if job is None:
         return False
     status = str(job.get("status") or "")
-    if status not in (ST_PAUSED,) | AUTO_RESUME_STATUSES:
+    if status not in ({ST_PAUSED} | set(AUTO_RESUME_STATUSES)):
         return False
     ok = await _job_cas(db, str(job["job_id"]), expect=status,
                         set_status=ST_QUEUED, reason_code="resumed")

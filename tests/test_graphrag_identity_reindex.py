@@ -28,6 +28,7 @@ from types import SimpleNamespace
 import pytest
 import pytest_asyncio
 
+from services import embedding_control_plane as ecp
 from services import graphrag_rebuild as gr
 from services import summary_memory as sm
 from services.database import DatabaseService
@@ -103,6 +104,36 @@ def _no_background(monkeypatch) -> None:
         coro.close()
 
     monkeypatch.setattr(sm, "fire_and_forget", _fake)
+
+
+class _HotModel:
+    """Mutable hot-конфиг для MSI: A→B→A = РЕАЛЬНАЯ смена модели, а не
+    произвольной строки fingerprint (смена шлюза при той же модели теперь
+    обрабатывается adopt'ом и rebuild не запускает)."""
+
+    def __init__(self, model: str, dim: int = 8):
+        self.model = model
+        self.dim = dim
+
+    def get(self, key, default=None):
+        if key == "models.embedding_model_name":
+            return self.model
+        if key == "models.embedding_dim":
+            return self.dim
+        if key == "models.embedding_base_url":
+            return "https://primary.test/v1"
+        if key == "models.embedding_quota_group":
+            return ""
+        return default
+
+
+def _use_hot(monkeypatch, model: str, dim: int = 8) -> "_HotModel":
+    """Один источник MSI для summary_memory / graphrag / control-plane:
+    патчим сам `services.hot_config.get` (его импортируют все три модуля)."""
+    from services import hot_config
+    hot_fake = _HotModel(model, dim)
+    monkeypatch.setattr(hot_config, "get", hot_fake.get)
+    return hot_fake
 
 
 async def _seed_graph_facts(db, n: int = 4, chat_id: int = 77) -> None:
@@ -294,8 +325,12 @@ async def test_active_old_identity_gets_target_generation(vec_db, monkeypatch):
     await _seed_graph_facts(vec_db, 2)
     await vec_db.db.execute(mm._graph_vec_table_sql(8))
     await vec_db.db.commit()
-    await vec_db.ensure_embedding_generation("graph_facts_vec", OLD_FP,
-                                             dims=8, activate=True)
+    # EMBED-IDENTITY-COMPAT: ACTIVE описывает РЕАЛЬНО другое пространство
+    # (другая модель), а не просто другой URL/ключ — только тогда нужна
+    # контролируемая миграция поколений.
+    await vec_db.ensure_embedding_generation(
+        "graph_facts_vec", OLD_FP, dims=8, activate=True,
+        model="text-embedding-004")
     monkeypatch.setattr(mm, "_identity_fingerprint", lambda **kw: NEW_FP)
 
     assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
@@ -451,16 +486,19 @@ async def test_identity_flipback_a_b_a_rebuilds_again(vec_db, monkeypatch):
     """B1: после A(active) → B(active) → снова A планировщик обязан ПЕРЕОТКРЫТЬ
     завершённую durable-джобу A под новое поколение (payload+checkpoint reset)
     и довести её до `active`. До фикса: `_ensure_job` видел `activated`-джобу
-    того же fp и возвращал None → индекс навсегда в тихом FTS-only."""
+    того же fp и возвращал None → индекс навсегда в тихом FTS-only.
+
+    EMBED-IDENTITY-COMPAT: A→B→A здесь — смена РЕАЛЬНОЙ модели (MSI), иначе
+    это был бы adopt и rebuild не требовался бы вовсе."""
     _no_background(monkeypatch)
     mm = _memory(vec_db)
+    hot_fake = _use_hot(monkeypatch, "model-a")
     await _seed_graph_facts(vec_db, 3)
     await vec_db.db.execute(mm._graph_vec_table_sql(8))
     await vec_db.db.commit()
     monkeypatch.setattr(mm, "_embed", _Embed())
     monkeypatch.setattr(gr, "_adaptive_batch_size", lambda: 2)
     fp_a = mm._identity_fingerprint()
-    fp_b = "b" * 64
 
     # ── A: первичная сборка и активация (реальный путь планировщика)
     gen_a1 = await _register_building(vec_db, "graph_facts_vec", fp_a)
@@ -473,8 +511,10 @@ async def test_identity_flipback_a_b_a_rebuilds_again(vec_db, monkeypatch):
     assert active["fingerprint"] == fp_a
     assert int(active["generation"]) == int(gen_a1["generation"])
 
-    # ── B: identity сменилась → новое поколение → снова active
-    monkeypatch.setattr(mm, "_identity_fingerprint", lambda **kw: fp_b)
+    # ── B: identity сменилась (другая модель) → новое поколение → active
+    hot_fake.model = "model-b"
+    fp_b = mm._identity_fingerprint()
+    assert fp_b != fp_a
     assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
     job_b = await gr._find_active_job(vec_db, "graph_facts_vec", fp_b)
     await gr.run_job(mm, "graph_facts_vec", str(job_b["job_id"]))
@@ -486,7 +526,8 @@ async def test_identity_flipback_a_b_a_rebuilds_again(vec_db, monkeypatch):
     assert await mm._vec_write_allowed("graph_facts_vec") is True
 
     # ── A снова (A→B→A): поколение A пересоздаётся, джоба A переоткрывается
-    monkeypatch.setattr(mm, "_identity_fingerprint", lambda **kw: fp_a)
+    hot_fake.model = "model-a"
+    assert mm._identity_fingerprint() == fp_a
     assert await gr.maybe_schedule_rebuilds(mm) == ["graph_facts_vec"]
     new_a = await vec_db.get_generation_by_fingerprint("graph_facts_vec", fp_a)
     assert new_a["status"] == "building"

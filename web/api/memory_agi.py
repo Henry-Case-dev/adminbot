@@ -537,9 +537,55 @@ async def memory_embeddings_panel(
     except Exception:
         logger.warning("[memory_api] generation status failed", exc_info=True)
         generation = {}
+    # EMBED-IDENTITY-COMPAT (23.10.2026): аддитивный блок — как доказана
+    # совместимость со старым индексом (MSI/допуск/метрики пробы). Никакого
+    # нового роута и дополнительных запросов: данные уже в vector_memory.
+    compat: dict = {}
+    try:
+        from services import embedding_control_plane as ecp
+        per_index: dict = {}
+        for item in (vector_panel.get("indexes") or []):
+            block = item.get("compat") or None
+            if not block:
+                continue
+            per_index[str(item.get("index") or "")] = block
+        order = ("incompatible", "insufficient", "no_generation",
+                 "source_empty", "compatible")
+        # «Обслуживается ли память» считаем по индексам, у которых есть что
+        # обслуживать: пустой источник/нет поколения не делают агрегат ложным
+        # (иначе adopt графа при пустом smart_archive выглядел бы как провал).
+        relevant = [b for b in per_index.values()
+                    if str(b.get("state") or "") not in
+                    ("no_generation", "source_empty")
+                    or b.get("admission")]
+        rel_states = [str(b.get("state") or "") for b in relevant]
+        state = next((s for s in order if s in rel_states), None)
+        worst = next((b for b in relevant
+                      if str(b.get("state") or "") == state), {})
+        canary = None
+        primary = per_index.get("graph_facts_vec") or {}
+        for cand in (primary.get("canary"), *[b.get("canary") for b in
+                                              per_index.values()]):
+            if cand and cand.get("mean") is not None:
+                canary = cand
+                break
+        compat = {
+            "adoption_enabled": bool(ecp.adoption_enabled()),
+            "serviceable": bool(relevant) and all(
+                bool(b.get("serviceable")) for b in relevant),
+            "state": state,
+            "class": worst.get("class"),
+            "reason_code": worst.get("reason_code"),
+            "action": worst.get("action"),
+            "canary": canary,
+            "indexes": per_index,
+        }
+    except Exception:
+        logger.warning("[memory_api] compat block failed", exc_info=True)
+        compat = {}
     return {"vector_memory": vector_panel, "provider": provider,
             "rebuild": rebuild, "backlog": backlog,
-            "generation": generation}
+            "generation": generation, "compat": compat}
 
 
 # ── GET /api/memory/deep-sleep (F3/T-1442, spec §6/§8) ──────────────────────

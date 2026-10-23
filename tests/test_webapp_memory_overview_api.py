@@ -285,3 +285,14 @@ class TestEmbeddingsGenerationStatus:
         assert isinstance(body["generation"], dict)
         # fake-db без методов реестра → честно пустой список индексов.
         assert body["generation"]["indexes"] == []
+
+    def test_compat_block_present_and_fail_open(self, client):
+        """EMBED-IDENTITY-COMPAT: аддитивный блок `compat` в том же read-API
+        (без нового роута); без реестра — честный fail-open, не 500."""
+        resp = client.get("/api/memory/embeddings", headers=_hdr())
+        assert resp.status_code == 200
+        body = resp.json()
+        assert isinstance(body["compat"], dict)
+        assert body["compat"].get("serviceable") is False
+        assert body["compat"].get("indexes") == {}
+        assert "adoption_enabled" in body["compat"]
