@@ -118,9 +118,10 @@ class TestSemanticQueries:
         # смысловые термины из РАЗНЫХ самостоятельных частей
         assert "вейперов" in joined        # часть 1 (тезис о болезнях)
         assert "сигарет" in joined         # часть 2 (электронные сигареты)
-        numeric = [q for q in plan.queries
-                   if q.intent == fsp.INTENT_NUMERIC]
-        assert numeric and "16" in numeric[0].text and "40" in numeric[0].text
+        # F4 (review r1): при трёх частях и бюджете 3 отдельный numeric-интент
+        # не помещается — числа идут УТОЧНЕНИЕМ в запрос своей части, а не
+        # теряются (защищаем именно наличие чисел 16/40 в поиске).
+        assert "16" in joined and "40" in joined
         # НЕ дословный слайс первых 200 символов
         for q in plan.queries:
             assert q.text.lower() != VAPING_CLAIM.lower()[:200]
@@ -634,7 +635,7 @@ class TestVapingReplayOffline:
         # FC-UNIFY: единый retrieval — агрегатор звался планировщиком
         assert agg.search_calls
         run = db.runs[0]
-        assert run["pipeline_version"] == "tf2"
+        assert run["pipeline_version"] == "tf3"
         # FC-PERCLAIM: mixed вместо глобального insufficient_evidence
         # (production было: insufficient/unknown + reason=null)
         assert run["factual_verdict"] == "mixed"

@@ -11,6 +11,7 @@ DDG (уровень 3): duckduckgo-search 8.x — sync-only (AsyncDDGS удал�
 (здесь asyncio.to_thread). Контракт search() остаётся async.
 """
 import asyncio
+import inspect
 import logging
 import re
 import time
@@ -238,6 +239,21 @@ class SearchAggregator:
                 return None
             return float(timeout_budget) - (time.monotonic() - started_budget)
 
+        def _accepts_budget(fn) -> bool:
+            """F1: бюджет передаётся только тем движкам, что его принимают.
+
+            Реальные уровни (`_search_tavily/_search_exa/_search_ddg`)
+            объявляют параметр; сторонние/подменённые callable с одной
+            `query` не должны ломать каскад (прод-инцидент: Tavily упал →
+            Exa/DDG получали TypeError и «поиск недоступен»)."""
+            try:
+                params = inspect.signature(fn).parameters
+            except (TypeError, ValueError):      # pragma: no cover
+                return False
+            return ("timeout_budget" in params
+                    or any(p.kind is inspect.Parameter.VAR_KEYWORD
+                           for p in params.values()))
+
         for name, fn, key in levels:
             if key is not None and not key.strip():
                 # D104: пустой ключ — уровень каскада отключён
@@ -251,9 +267,9 @@ class SearchAggregator:
             started = time.monotonic()
             try:
                 # бюджет есть → передаём остаток (реальный агрегатор
-                # урезает per-engine таймаут); бюджета нет → прежний
-                # одноаргументный вызов (совместимость с обёртками/фейками)
-                if left is not None:
+                # урезает per-engine таймаут); бюджета нет или движок его
+                # не принимает → прежний одноаргументный вызов
+                if left is not None and _accepts_budget(fn):
                     text = await fn(query, timeout_budget=left)
                 else:
                     text = await fn(query)
@@ -339,9 +355,13 @@ class SearchAggregator:
         ]
         return self._format_hits(pairs)
 
-    async def _search_exa(self, query: str) -> str:
+    async def _search_exa(self, query: str,
+                          timeout_budget: float | None = None) -> str:
         """POST api.exa.ai/search (x-api-key); raises on failure."""
         client = self._get_client()
+        timeout = self._exa_timeout
+        if timeout_budget is not None:
+            timeout = max(0.5, min(timeout, float(timeout_budget)))
         response = await client.post(
             EXA_URL,
             headers={"x-api-key": self._exa_api_key},
@@ -351,7 +371,7 @@ class SearchAggregator:
                 "type": "auto",
                 "contents": {"text": {"maxCharacters": 2000}},
             },
-            timeout=httpx.Timeout(self._exa_timeout),
+            timeout=httpx.Timeout(timeout),
         )
         response.raise_for_status()
         data = response.json()
@@ -369,17 +389,23 @@ class SearchAggregator:
             pairs.append((title, str(snippet), url))
         return self._format_hits(pairs)
 
-    def _run_ddg_text(self, query: str) -> list[dict]:
+    def _run_ddg_text(self, query: str,
+                      timeout_budget: float | None = None) -> list[dict]:
         """Sync-блок DDG (библиотека 8.x sync-only) — исполняется в executor."""
         if DDGS is None:  # pragma: no cover
             raise RuntimeError("duckduckgo_search is not installed")
-        with DDGS(timeout=int(self._ddg_timeout)) as ddgs:
+        timeout = self._ddg_timeout
+        if timeout_budget is not None:
+            timeout = max(1.0, min(timeout, float(timeout_budget)))
+        with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
             return ddgs.text(query, max_results=self._max_results)
 
-    async def _search_ddg(self, query: str) -> str:
+    async def _search_ddg(self, query: str,
+                          timeout_budget: float | None = None) -> str:
         """Уровень 3 — DuckDuckGo (без ключа). AsyncDDGS удалён из 8.x (PR#268):
         sync DDGS через asyncio.to_thread (официальная рекомендация)."""
-        results = await asyncio.to_thread(self._run_ddg_text, query)
+        results = await asyncio.to_thread(self._run_ddg_text, query,
+                                          timeout_budget)
         if not results:
             raise ValueError("ddg: empty results")
         pairs = [

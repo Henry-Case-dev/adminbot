@@ -258,6 +258,23 @@ def _claim_units(items, claim: str, *, cap: int = 8) -> list[str]:
     return [u for u in units if u][:cap]
 
 
+_YEAR_ONLY_RE = re.compile(
+    r"^\s*\d{4}\s*(?:г\.?|год[а-я]*|года|году)?\s*$", re.IGNORECASE)
+
+
+def _numeric_refinements(unit: str, years: list[str]) -> list[str]:
+    """Числовые уточнения БЕЗ годов: «2019 г» — временной контекст, а не
+    измеряемая метрика («120 мм»)."""
+    out: list[str] = []
+    for phrase in _numeric_phrases(unit):
+        if _YEAR_ONLY_RE.match(phrase):
+            continue
+        if phrase in years:
+            continue
+        out.append(phrase)
+    return out
+
+
 def _build_plan_inner(decision, ctx, *, claim_text, max_queries
                       ) -> RetrievalPlan | None:
     if decision is None:
@@ -316,28 +333,49 @@ def _build_plan_inner(decision, ctx, *, claim_text, max_queries
     # P0-FACTCHECK (§3.3/§3.5, 24.10.2026): КАЖДАЯ часть получает СВОЙ
     # запрос — прежняя схема «по одному запросу на интент» превращала
     # составную новость в единственный общий запрос (прод: queries=1) и
-    # теряла остальные тезисы. Интент части = её собственный характер
-    # (числа → numeric, годы → temporal, иначе entity_check); общий бюджет
-    # НЕ увеличен, поэтому составная публикация покрывается ≤3 частями.
+    # теряла остальные тезисы. Общий бюджет НЕ увеличен.
+    #
+    # F4 (review r1): бюджет расходуется ДВУМЯ проходами — сначала по
+    # одному базовому запросу на часть (части не голодают), затем
+    # уточнения (числа/годы) на остаток. Раньше первая часть с числом и
+    # годом забирала все 3 запроса, и остальные тезисы не проверялись.
+    units: list[tuple[str, list[str], list[str], list[str]]] = []
     for raw_unit in _claim_units(items, claim):
-        if len(queries) >= max(1, int(max_queries)):
-            break
         unit, _unit_dropped = _strip_privacy(raw_unit, authors)
         if not unit:
             continue
         uterms = _claim_terms(unit, limit=8)
         uents = [e for e in _entities(unit)
                  if e.lower() not in {t.lower() for t in uterms}][:3]
-        base = _expand_terms((uents + uterms)[:10])
-        numeric = _numeric_phrases(unit)
+        units.append((unit, uterms, uents,
+                      _expand_terms((uents + uterms)[:10])))
+    budget = max(1, int(max_queries))
+    # Проход 1: базовая проверка каждой части (≤ бюджет). Сколько слотов
+    # останется на уточнения — зависит от числа частей.
+    base_units = units[:budget]
+    refine_room = budget - len(base_units)
+    for unit, uterms, uents, base in base_units:
+        if refine_room <= 0:
+            # Слотов на отдельные уточнения нет — числа/годы части идут в
+            # ЕЁ ЖЕ запрос, чтобы не потеряться (F4).
+            years = _years(unit)
+            numbers = _numeric_refinements(unit, years)
+            tail = " ".join(numbers + years).strip()
+            _add(_make_query(base, INTENT_ENTITY_CHECK, tail=tail))
+        else:
+            _add(_make_query(base, INTENT_ENTITY_CHECK))
+    # Проход 2: отдельные уточняющие интенты — только остаток бюджета.
+    for unit, uterms, uents, base in units:
+        if len(queries) >= budget:
+            break
         years = _years(unit)
-        # Основной запрос части: её сущности+предмет.
-        _add(_make_query(base, INTENT_ENTITY_CHECK))
-        # Уточнения ЭТОЙ части (числа/годы) — отдельными интентами, пока
-        # есть бюджет; так «120 мм» и «2019» проверяются своими запросами.
+        # год — временной контекст, не «числовая метрика» (120 мм ≠ 2019)
+        numeric = _numeric_refinements(unit, years)
         if numeric:
             _add(_make_query(_expand_terms(uterms), INTENT_NUMERIC,
                              tail=" ".join(numeric)))
+        if len(queries) >= budget:
+            break
         if years:
             _add(_make_query(_expand_terms(uterms), INTENT_TEMPORAL,
                              tail=" ".join(years)))
