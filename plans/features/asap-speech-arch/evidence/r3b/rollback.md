@@ -142,7 +142,8 @@ systemctl restart admin_bot  # плановый рестарт MANDATORY
 Восстановление (без перезаписи вслепую):
 
 ```bash
-git worktree add /tmp/rel114 7ca3c684      # только код 2.58.114 для скрипта
+git worktree add /tmp/rel114 e9f7595b      # только код 2.58.114 для скрипта
+# ожидаемо: вызов 1 -> L1 ab6817a1 (R3), вызов 2 -> L1 c987c03e (2.58.113), вызов 3 -> {} (no-op)
 cd /tmp/rel114
 <APP_DIR>/venv/bin/python -                # тот же скрипт, что в §4 шаге 1
 cd <APP_DIR> && git worktree remove /tmp/rel114
