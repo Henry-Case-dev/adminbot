@@ -2122,9 +2122,10 @@ def known_canon_hashes() -> set[str]:
             for prev, new in steps:
                 hashes.add(sha12(prev))
                 hashes.add(sha12(new))
-        for new, old in pm.ROLLBACK_MIGRATIONS.values():
-            hashes.add(sha12(new))
-            hashes.add(sha12(old))
+        for steps in pm.ROLLBACK_MIGRATIONS.values():
+            for new, old in steps:
+                hashes.add(sha12(new))
+                hashes.add(sha12(old))
     except Exception:          # pragma: no cover — лестница миграций недоступна
         logger.warning("[prompt_registry] лестница миграций недоступна",
                        exc_info=True)

@@ -620,9 +620,9 @@ class TestWebSearchPrompt:
         # UNIFIED-CORE (C13, 20.10.2026): откат снимает ступень C13 (мёртвый
         # tone_hint) — на непосредственный прежний прод-канон (правило
         # веб-поиска в нём СОХРАНЕНО; стек ступеней цел).
-        assert pm.ROLLBACK_MIGRATIONS[key] == (
+        assert pm.ROLLBACK_MIGRATIONS[key] == [(
             FACTCHECK_ANALYST_SYSTEM_PROMPT,
-            pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)
+            pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)]
         assert WEB_SEARCH_INSTRUCTION_BLOCK in \
             pm.PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT
         assert WEB_SEARCH_INSTRUCTION_BLOCK in PREV_FACTCHECK_ANALYST_R1023_F3

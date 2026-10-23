@@ -549,9 +549,9 @@ class TestCanon:
             SUMMARY_L2_WRITER_SYSTEM_PROMPT
         assert "ИСТОЧНИК (оригинал — истина)" in SUMMARY_L2_WRITER_SYSTEM_PROMPT
         assert "ИСТОЧНИК" not in PREV_SUMMARY_L2_WRITER_R1029_ASAP41
-        assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
+        assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == [(
             SUMMARY_L2_WRITER_SYSTEM_PROMPT,
-            PREV_SUMMARY_L2_WRITER_R1029_ASAP41)
+            PREV_SUMMARY_L2_WRITER_R1029_ASAP41)]
 
     def test_catalog_delta_sanctioned(self):
         # ASAP-2.1 (ADR-1028-1 D1, контракт i): санкционированная

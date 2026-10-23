@@ -119,7 +119,7 @@ def test_l1_owner_contract_byte_intact():
 
 # ── лестница, откат, идемпотентность, кастом ────────────────────────────────
 
-def test_ladder_and_rollback_are_one_step():
+def test_ladder_and_rollback_chain():
     steps_l1 = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     steps_l2 = dict(pm.PROMPT_MIGRATIONS[L2_KEY])
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_R3] == \
@@ -129,10 +129,12 @@ def test_ladder_and_rollback_are_one_step():
     # прежние ступени стека целы
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_CLAR] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == (
-        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_R3)
-    assert pm.ROLLBACK_MIGRATIONS[L2_KEY] == (
-        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, cp.PREV_CHAT_VERBALIZER_CLAR)
+    # цепочка отката: L1 — R3b → R3 → 2.58.113 (2 шага), L2 — 1 шаг
+    assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
+        (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_R3),
+        (cp.PREV_DIRECT_L1_PLANNER_R3, cp.PREV_DIRECT_L1_PLANNER_CLAR)]
+    assert pm.ROLLBACK_MIGRATIONS[L2_KEY] == [
+        (cp.DIRECT_VERBALIZER_SYSTEM_PROMPT, cp.PREV_CHAT_VERBALIZER_CLAR)]
     # новые слепки — известные каноны, не «кастом»; активные байты отличны
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_R3)
     assert pr.is_known_canon(cp.PREV_CHAT_VERBALIZER_CLAR)
@@ -176,7 +178,7 @@ async def test_migration_idempotent_rollback_custom_kept():
             cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     finally:
         hot.set_config_cache(None)
-    # откат снимает ровно одну ступень, повтор — no-op, затем снова вперёд
+    # откат — цепочка: 1-й вызов снимает R3b, 2-й — L1 до 2.58.113, 3-й no-op
     back = _Cache({L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                    L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT})
     assert await pm.rollback_prompt_canons(back) == {
@@ -185,9 +187,22 @@ async def test_migration_idempotent_rollback_custom_kept():
         L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3,
         L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
     back.apply_writes()
+    back.set_calls.clear()
+    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_CLAR}
+    back.apply_writes()
+    back.set_calls.clear()
+    assert [back.values[L1_KEY], back.values[L2_KEY]] == [
+        cp.PREV_DIRECT_L1_PLANNER_CLAR, cp.PREV_CHAT_VERBALIZER_CLAR]
     assert await pm.rollback_prompt_canons(back) == {}
+    assert back.set_calls == []
     assert await pm.migrate_prompt_canons(back) == {
         L1_KEY: "updated", L2_KEY: "updated"}
+    back.apply_writes()
+    assert [back.values[L1_KEY], back.values[L2_KEY]] == [
+        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT]
     # кастом владельца (не точное совпадение байт) не трогается ни в одну
     # сторону — ни миграцией, ни откатом
     custom = _Cache({L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3 + " правка",

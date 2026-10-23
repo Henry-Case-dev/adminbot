@@ -1,0 +1,132 @@
+{
+  "lane": "CANON-ROLLBACK-FIX (REL-F1)",
+  "dry_run": "in-memory copy of prod stored values; no DB writes",
+  "steps": [
+    {
+      "step": 0,
+      "action": "initial (prod copy 2.58.114)",
+      "report": {},
+      "stored": {
+        "l1": {
+          "sha12": "6c2ddc17c998",
+          "chars": 8261
+        },
+        "l2": {
+          "sha12": "83ff62bbee40",
+          "chars": 3081
+        },
+        "custom": "051021bba059"
+      }
+    },
+    {
+      "step": 1,
+      "action": "rollback_prompt_canons()",
+      "report": {
+        "prompts.direct_chat_verbalizer_system_prompt": "rolled_back",
+        "prompts.direct_l1_planner_system_prompt": "rolled_back"
+      },
+      "stored": {
+        "l1": {
+          "sha12": "ab6817a18657",
+          "chars": 7691
+        },
+        "l2": {
+          "sha12": "d1b210c156c8",
+          "chars": 2827
+        },
+        "custom": "051021bba059"
+      }
+    },
+    {
+      "step": 2,
+      "action": "rollback_prompt_canons()",
+      "report": {
+        "prompts.direct_l1_planner_system_prompt": "rolled_back"
+      },
+      "stored": {
+        "l1": {
+          "sha12": "c987c03e3ee0",
+          "chars": 6542
+        },
+        "l2": {
+          "sha12": "d1b210c156c8",
+          "chars": 2827
+        },
+        "custom": "051021bba059"
+      }
+    },
+    {
+      "step": 3,
+      "action": "rollback_prompt_canons()",
+      "report": {},
+      "stored": {
+        "l1": {
+          "sha12": "c987c03e3ee0",
+          "chars": 6542
+        },
+        "l2": {
+          "sha12": "d1b210c156c8",
+          "chars": 2827
+        },
+        "custom": "051021bba059"
+      }
+    },
+    {
+      "step": "read",
+      "action": "sha12(prompts.direct_l1_planner_system_prompt)",
+      "report": {},
+      "stored": {
+        "l1": {
+          "sha12": "c987c03e3ee0",
+          "chars": 6542
+        },
+        "l2": {
+          "sha12": "d1b210c156c8",
+          "chars": 2827
+        },
+        "custom": "051021bba059"
+      }
+    },
+    {
+      "step": "read",
+      "action": "sha12(prompts.direct_chat_verbalizer_system_prompt)",
+      "report": {},
+      "stored": {
+        "l1": {
+          "sha12": "c987c03e3ee0",
+          "chars": 6542
+        },
+        "l2": {
+          "sha12": "d1b210c156c8",
+          "chars": 2827
+        },
+        "custom": "051021bba059"
+      }
+    }
+  ],
+  "forward_redeploy": {
+    "report": {
+      "prompts.direct_chat_verbalizer_system_prompt": "updated",
+      "prompts.direct_l1_planner_system_prompt": "updated"
+    },
+    "stored": {
+      "l1": {
+        "sha12": "6c2ddc17c998",
+        "chars": 8261
+      },
+      "l2": {
+        "sha12": "83ff62bbee40",
+        "chars": 3081
+      },
+      "custom": "051021bba059"
+    }
+  },
+  "checks": {
+    "l1_bytes_equal_2_58_113": true,
+    "l2_bytes_equal_2_58_113": true,
+    "third_call_noop": true,
+    "owner_custom_untouched": true,
+    "forward_redeploy_reapplies": true
+  },
+  "all_pass": true
+}

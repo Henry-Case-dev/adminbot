@@ -179,8 +179,10 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
         + _DIRECT_L1_PLANNER_RULES)
     assert PREV_DIRECT_L1_PLANNER_R3 not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
-    assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == \
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3)
+    # REL-F1: цепочка отката L1 — R3b→R3, затем R3→2.58.113 (полный возврат)
+    assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3),
+        (PREV_DIRECT_L1_PLANNER_R3, PREV_DIRECT_L1_PLANNER_CLAR)]
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
 
 

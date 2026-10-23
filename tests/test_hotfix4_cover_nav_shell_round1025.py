@@ -352,8 +352,8 @@ class TestCoverCanonHotfix4:
         key = "prompts.summary_editor_system_prompt"
         assert (PREV_SUMMARY_EDITOR_R1025_HOTFIX4,
                 SUMMARY_EDITOR_SYSTEM_PROMPT) in PROMPT_MIGRATIONS[key]
-        assert ROLLBACK_MIGRATIONS[key] == (
-            SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)
+        assert ROLLBACK_MIGRATIONS[key] == [(
+            SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)]
 
 
 class TestCoverFallbackEmptyDraft:

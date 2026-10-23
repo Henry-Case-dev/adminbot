@@ -358,10 +358,16 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
 # prompts.extract_system_prompt НЕ входит (EXTRACT_PROMPT не трогаем)
 
 # Обратная канон-миграция раунда 10.21 (F3 Д9, ADR-1021-3 §5): key →
-# (новый канон 10.21, прежний прод-канон R1021). Нужна потому, что `git revert`
-# возвращает код-константы, но НЕ откатывает значение в PG. `COMPRESS_PROMPT`
-# и `extract` не входят — в 10.21 не менялись.
-ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
+# цепочка ступеней `(новый канон, прежний канон)`, по ОДНОЙ ступени на вызов.
+# Нужна потому, что `git revert` возвращает код-константы, но НЕ откатывает
+# значение в PG. `COMPRESS_PROMPT` и `extract` не входят — в 10.21 не менялись.
+#
+# Цепочка (REL-F1, 24.10.2026): если ступеней больше одной, повторный вызов
+# `rollback_prompt_canons` снимает следующую — полный откат к прод-канону
+# 2.58.113 требует ровно столько вызовов, сколько ступеней (L1 — 2, L2 — 1),
+# дальше — no-op на последнем `old`. Первая ступень каждой цепочки — это
+# по-прежнему «непосредственно прежний» канон (ADR-1013-3, стек цел).
+ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # F1 (10.23, R1023F1-07): откат чата ведёт на непосредственный прежний
     # канон (снимает только последнюю ступень, сохраняя блоки A/B и правило
     # маркировки; стек ступеней цел, ADR-1013-3).
@@ -372,7 +378,7 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # ASAP W1 (22.10.2026): откат снимает только ступень W1 — на прод-канон
     # 2.58.110 (PREV_*_W1); стек ступеней цел.
     "prompts.direct_chat_system_prompt":
-        (CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT),
+        [(CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
     # 10.23 (с cap-правилом); ключ в PG не удаляется.
     # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3).
@@ -381,7 +387,7 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
     # канон 2.58.113 (PREV_CHAT_VERBALIZER_CLAR: §3.1 + абзацы §4.2).
     "prompts.direct_chat_verbalizer_system_prompt":
-        (DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR),
+        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR)],
     # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,
     # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
     # ASAP 2 (23.10.2026): откат снимает ступень уточнений — на канон W1
@@ -391,33 +397,37 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # канон W1 + контракт уточнений); стек ступеней цел.
     # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
     # канон R3 (PREV_DIRECT_L1_PLANNER_R3: база R3 + контракт §4.1 + правила).
-    "prompts.direct_l1_planner_system_prompt":
+    "prompts.direct_l1_planner_system_prompt": [
+        # ступень 1: R3b → канон R3 (база R3 + контракт §4.1 + правила)
         (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3),
+        # ступень 2: R3 → прод-канон 2.58.113 (контракт уточнений).
+        # Полный откат до 2.58.113 = два вызова rollback_prompt_canons.
+        (PREV_DIRECT_L1_PLANNER_R3, PREV_DIRECT_L1_PLANNER_CLAR)],
     # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
-        (FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1),
+        [(FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1)],
     "prompts.summary_system_prompt":
         # CFG-07A-2: откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний прод-канон
         # 2.58.100 (снимается только ступень CFG-07A; стек ступеней цел).
-        (SYSTEM_PROMPT, PREV_SUMMARY_CFG07A_SYSTEM_PROMPT),
+        [(SYSTEM_PROMPT, PREV_SUMMARY_CFG07A_SYSTEM_PROMPT)],
     "prompts.checkup_system_prompt":
         # CFG-07A-2: откат на непосредственный прежний прод-канон 2.58.100.
-        (CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_CFG07A_SYSTEM_PROMPT),
+        [(CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_CFG07A_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt":
         # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
         # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
         # ступень C14; стек ступеней цел (ADR-1013-3).
-        (FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT),
+        [(FACTCHECK_SYSTEM_PROMPT, PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT)],
     "prompts.search_system_prompt":
         # CFG-07A-2: откат на непосредственный прежний прод-канон 2.58.100
         # (снимается только ступень CFG-07A; ADR-1013-3).
-        (SEARCH_SYSTEM_PROMPT, PREV_SEARCH_CFG07A_SYSTEM_PROMPT),
+        [(SEARCH_SYSTEM_PROMPT, PREV_SEARCH_CFG07A_SYSTEM_PROMPT)],
     "prompts.youtube_system_prompt":
-        (YOUTUBE_SYSTEM_PROMPT, PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT),
+        [(YOUTUBE_SYSTEM_PROMPT, PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT)],
     "prompts.youtube_video_system_prompt":
-        (YOUTUBE_VIDEO_SYSTEM_PROMPT, PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT),
+        [(YOUTUBE_VIDEO_SYSTEM_PROMPT, PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT)],
     "prompts.webpage_system_prompt":
-        (WEBPAGE_SYSTEM_PROMPT, PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT),
+        [(WEBPAGE_SYSTEM_PROMPT, PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT)],
     # 10.23 (F1, ADR-1023-1): обратный шаг для новых PG-ключей F8.
     # 10.23 (F2, ADR-1023-2): правило веб-поиска. После вливания F3 (ступень
     # F2→F3) откат Аналитика ведёт на непосредственный прежний канон —
@@ -430,12 +440,12 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # 10.25 (hotfix4): откат снимает только ступень HOTFIX4 — на слепок
     # канона F6 (жёсткий запрет надписей).
     "prompts.summary_editor_system_prompt":
-        (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4),
+        [(SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)],
     "prompts.factcheck_analyst_system_prompt":
         # UNIFIED-CORE (C13): откат снимает только ступень C13 (мёртвый
         # tone_hint) — на непосредственный прежний прод-канон с полем.
-        (FACTCHECK_ANALYST_SYSTEM_PROMPT,
-         PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT),
+        [(FACTCHECK_ANALYST_SYSTEM_PROMPT,
+         PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)],
     # 10.27 (ASAP-2): откат ступени R1027 ведёт на НЕПОСРЕДСТВЕННО прежний
     # канон PREV_*_R1027 (полный канон R1026 с блоком маркировки) — снимается
     # только шаг many-to-many/смысла, стек ступеней сохраняется (ADR-1013-3).
@@ -444,8 +454,8 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # kill-switch SUMMARY_L1_SEMANTIC_MAP_ENABLED/SUMMARY_WRITER_SOURCE_
     # INPUT_ENABLED=false; read-side смещение через существующую лестницу).
     "prompts.summary_l1_clusterizer_system_prompt":
-        (SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
-         PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41),
+        [(SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
+         PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41)],
     # 10.26 (S5, ADR-1026-7 D4): откат снимает ключ L2 на слепок базы канона S5
     # (без правила маркировки целевого сообщения). L2 врезан за kill-switch
     # (default OFF), поэтому откат значения поведения не меняет; ключ в PG не
@@ -459,14 +469,14 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # ASAP 4.1 волна 3 (T-4609): откат блока источника — на канон R1029
     # (прод 2.58.46; parity с SUMMARY_WRITER_SOURCE_INPUT_ENABLED=false).
     "prompts.summary_l2_writer_system_prompt":
-        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1029_ASAP41),
+        [(SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1029_ASAP41)],
     # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
     # §25); ключ в PG не удаляется.
     # LEGFIX (22.10.2026): откат снимает ТОЛЬКО ступень LEGFIX — на
     # непосредственный прежний канон (слепок PREV_SUMMARY_NARRATOR_LEGFIX);
     # стек ступеней цел (ADR-1013-3).
     "prompts.summary_narrator_system_prompt":
-        (SUMMARY_NARRATOR_SYSTEM_PROMPT, PREV_SUMMARY_NARRATOR_LEGFIX),
+        [(SUMMARY_NARRATOR_SYSTEM_PROMPT, PREV_SUMMARY_NARRATOR_LEGFIX)],
 }
 
 
@@ -580,27 +590,37 @@ async def migrate_prompt_canons(cache) -> dict[str, str]:
 async def rollback_prompt_canons(cache) -> dict[str, str]:
     """Обратная канон-миграция раунда 10.21 (F3 Д9, ADR-1021-3 §5).
 
-    Возвращает PG-значения `prompts.*` с нового канона 10.21 на прежний
-    прод-канон (`PREV_*_R1021`). Идемпотентна: повторный прогон — no-op.
+    Снимает у каждого ключа ровно ОДНУ ступень своей цепочки
+    (`ROLLBACK_MIGRATIONS`): сначала текущий канон → непосредственный прежний,
+    повторный вызов — следующая ступень, пока не достигнут последний `old`
+    (целевой прод-канон отката). Идемпотентна: на последней ступени — no-op.
     Кастом юзера не трогаем (WARNING), ключ отсутствует / PG down — skip.
-    Вызывается вручную (runbook @DevOps) при откате `git revert`."""
+    Вызывается вручную (runbook @DevOps) при откате `git revert` — столько
+    раз, сколько ступеней нужно снять (L1 R3b: 2 вызова до канона 2.58.113,
+    L2 R3b: 1 вызов)."""
     report: dict[str, str] = {}
     if cache is None or not getattr(cache, "pg_available", False):
         logger.info("[prompt_rollback] skip: PG недоступен")
         return report
-    for key, (new, old) in ROLLBACK_MIGRATIONS.items():
+    for key, steps in ROLLBACK_MIGRATIONS.items():
         current = cache.get(key)
         if current is None:
             logger.info("[prompt_rollback] ключ отсутствует | key=%s", key)
             continue
-        if current == old:
-            logger.info("[prompt_rollback] уже прежний канон | key=%s", key)
+        target = None
+        for new, old in steps:
+            if current == new:
+                target = old
+                break
+        if target is None:
+            if current == steps[-1][1]:
+                logger.info("[prompt_rollback] уже прежний канон | key=%s",
+                            key)
+            else:
+                logger.warning("[prompt_rollback] кастом юзера — НЕ трогаем | "
+                               "key=%s | chars=%d", key, len(current))
             continue
-        if current != new:
-            logger.warning("[prompt_rollback] кастом юзера — НЕ трогаем | "
-                           "key=%s | chars=%d", key, len(current))
-            continue
-        await cache.set(key, old, "prompts")
+        await cache.set(key, target, "prompts")
         report[key] = "rolled_back"
         logger.info("[prompt_rollback] канон откачен | key=%s", key)
     return report

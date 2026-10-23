@@ -15,6 +15,7 @@ PREV_R8→new и PREV_R9→new (четыре ступени); current == new →
 cache None → skip; возврат отчёта; prompts.extract_system_prompt НЕ входит;
 фиксированный порядок итерации.
 """
+import hashlib
 import logging
 
 import pytest
@@ -352,6 +353,11 @@ class FakeCache:
     async def set(self, key, value, category):
         self.set_calls.append((key, value, category))
 
+    def apply_writes(self):
+        for key, value, _cat in self.set_calls:
+            self.values[key] = value
+        self.set_calls.clear()
+
 
 class TestPromptMigrationsCatalog:
     def test_all_expected_keys_present(self):
@@ -551,7 +557,8 @@ class TestRound1021Migration:
 
     def test_rollback_map_points_new_to_prev(self):
         for key, target in _ROLLBACK_TARGET_BY_KEY.items():
-            assert ROLLBACK_MIGRATIONS[key] == (_NEW_BY_KEY[key], target)
+            # первая ступень цепочки — по-прежнему непосредственный канон
+            assert ROLLBACK_MIGRATIONS[key][0] == (_NEW_BY_KEY[key], target)
 
     def test_compress_not_in_rollback(self):
         assert "prompts.compress_system_prompt" not in ROLLBACK_MIGRATIONS
@@ -625,21 +632,21 @@ class TestRound1023Migration:
         # hotfix4 (10.25, T-2511): непосредственный прежний канон Редактора —
         # слепок HOTFIX4 (канон F6 с жёстким запретом надписей); каждая
         # обратная ступень снимает ровно одну предыдущую.
-        assert ROLLBACK_MIGRATIONS["prompts.summary_editor_system_prompt"] == \
-            (SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)
+        assert ROLLBACK_MIGRATIONS["prompts.summary_editor_system_prompt"] == [(
+            SUMMARY_EDITOR_SYSTEM_PROMPT, PREV_SUMMARY_EDITOR_R1025_HOTFIX4)]
         # UNIFIED-CORE (C13, 20.10.2026): откат Аналитика снимает ступень C13
         # (мёртвый tone_hint) — на непосредственный прежний прод-канон.
-        assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == \
-            (FACTCHECK_ANALYST_SYSTEM_PROMPT,
-             PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)
+        assert ROLLBACK_MIGRATIONS["prompts.factcheck_analyst_system_prompt"] == [(
+            FACTCHECK_ANALYST_SYSTEM_PROMPT,
+            PREV_FACTCHECK_ANALYST_UNIFIED_CORE_SYSTEM_PROMPT)]
 
     def test_rollback_chat_targets_pre_mca23(self):
         """MCA-23 (Wave 3): откат чата вёл на канон ДО MCA-23.
         CFG-07A-2 (ADR-1013-3): откат — на НЕПОСРЕДСТВЕННО прежний
         прод-канон 2.58.100. ASAP W1: откат — на прод-канон 2.58.110
         (PREV_CHAT_W1; снимается только ступень W1, стек ступеней цел)."""
-        assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == \
-            (CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)
+        assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == [(
+            CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)]
 
     @pytest.mark.asyncio
     async def test_rollback_chat_restores_pre_mca23(self):
@@ -712,8 +719,70 @@ class TestMca23Migration:
         SPEECH-CANON R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113
         (§3.1 + абзацы §4.2, PREV_CHAT_VERBALIZER_CLAR)."""
         assert ROLLBACK_MIGRATIONS[
-            "prompts.direct_chat_verbalizer_system_prompt"] == (
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR)
+            "prompts.direct_chat_verbalizer_system_prompt"] == [(
+                DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR)]
+
+    @pytest.mark.asyncio
+    async def test_r3b_rollback_chain_restores_258113_bytes(self):
+        """REL-F1 (24.10.2026): полный откат канонов R3b до байтов 2.58.113.
+
+        Dry-run на копии прод-значений 2.58.114 (L1 ``6c2ddc17``,
+        L2 ``83ff62bb``): процедура runbook'а «повторный
+        ``rollback_prompt_canons``» обязана вернуть именно БАЙТЫ 2.58.113
+        (L1 ``c987c03e``, L2 ``d1b210c1``), а не только отчёт; третий вызов —
+        no-op; повторный deploy новых канонов снова применяется; кастом
+        владельца не перетирается ни на одном шаге.
+        """
+        l1_key = "prompts.direct_l1_planner_system_prompt"
+        l2_key = "prompts.direct_chat_verbalizer_system_prompt"
+
+        def sha12(text: str) -> str:
+            return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
+
+        # «копия прод-значений» после boot-миграции 2.58.114
+        cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+                                  l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
+        assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
+            ("6c2ddc17c998", "83ff62bbee40")
+
+        # шаг 1: снимается ступень R3b у обоих ключей
+        assert await rollback_prompt_canons(cache) == {
+            l1_key: "rolled_back", l2_key: "rolled_back"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_R3
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+        assert sha12(cache.values[l1_key]) == "ab6817a18657"
+
+        # шаг 2: L1 доходит до канона 2.58.113; L2 уже на нём — no-op
+        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_CLAR
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+        assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
+            ("c987c03e3ee0", "d1b210c156c8")
+        assert (len(cache.values[l1_key]), len(cache.values[l2_key])) == \
+            (6542, 2827)
+
+        # шаг 3: оба на целевом прод-каноне 2.58.113 — полный no-op
+        assert await rollback_prompt_canons(cache) == {}
+        assert cache.set_calls == []
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_CLAR
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+
+        # повторный deploy 2.58.114: boot-миграция снова ставит новые каноны
+        assert await migrate_prompt_canons(cache) == {
+            l1_key: "updated", l2_key: "updated"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == DIRECT_L1_PLANNER_SYSTEM_PROMPT
+        assert cache.values[l2_key] == DIRECT_VERBALIZER_SYSTEM_PROMPT
+
+        # кастом (не точные байты известного канона) не трогается на откате
+        custom = FakeCache(values={
+            l1_key: PREV_DIRECT_L1_PLANNER_R3 + " правка владельца",
+            l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
+        assert await rollback_prompt_canons(custom) == {l2_key: "rolled_back"}
+        assert custom.set_calls == [(l2_key, PREV_CHAT_VERBALIZER_CLAR,
+                                     "prompts")]
 
     @pytest.mark.asyncio
     async def test_pre_mca23_canon_migrates_to_new(self):

@@ -990,9 +990,9 @@ class TestCanon:
         # непосредственный прежний прод-канон 2.58.46
         # (PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41; rollback-паритет
         # kill-switch SUMMARY_L1_SEMANTIC_MAP_ENABLED=false).
-        assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == (
+        assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == [(
             SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
-            PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41)
+            PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41)]
 
 
 class _FakeCache:

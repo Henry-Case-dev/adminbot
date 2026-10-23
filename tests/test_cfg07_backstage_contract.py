@@ -168,7 +168,7 @@ def test_ladder_step_and_rollback_target(name):
     prev = PREV_CANONS[name]
     new = ACTIVE_CANONS[name]
     assert (prev, new) in pm.PROMPT_MIGRATIONS[key], name
-    assert pm.ROLLBACK_MIGRATIONS[key] == (new, prev), name
+    assert pm.ROLLBACK_MIGRATIONS[key] == [(new, prev)], name
     assert pr.is_known_canon(prev), name
     assert pr.is_known_canon(new), name
 

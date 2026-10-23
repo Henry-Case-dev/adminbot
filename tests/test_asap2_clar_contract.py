@@ -214,12 +214,15 @@ def test_34_factory_and_ladder_and_custom_preserved():
     assert pr.is_known_canon(CANON_L1)
     # откат ведёт на непосредственный прежний канон 2.58.113 (канон W1 +
     # контракт уточнений); ступень R3 снимается одна, стек цел.
-    # R3b: откат снимает только ступень R3b — на канон R3 (LEGACY-цепь цела).
+    # R3b: цепочка отката — сначала R3b→R3, вторым вызовом R3→2.58.113
+    # (REL-F1: полный возврат к канонам 2.58.113 за 2 вызова).
     assert pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] \
-        == (CANON_L1, cp.PREV_DIRECT_L1_PLANNER_R3)
+        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_R3),
+            (cp.PREV_DIRECT_L1_PLANNER_R3,
+             cp.PREV_DIRECT_L1_PLANNER_CLAR)]
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_chat_verbalizer_system_prompt"] == \
-        (CANON_L2, cp.PREV_CHAT_VERBALIZER_CLAR)
+        "prompts.direct_chat_verbalizer_system_prompt"] == [(
+            CANON_L2, cp.PREV_CHAT_VERBALIZER_CLAR)]
 
 
 # ── №34 (B3): реальная миграция/rollback/hot для новых L1/L2-ступеней ───────
@@ -291,8 +294,9 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
 
-    # rollback → ровно непосредственные прежние каноны (L1: R3 = база R3 +
-    # контракт §4.1 + правила; L2: §3.1 + абзацы §4.2); повтор — no-op
+    # rollback → цепочка: 1-й вызов снимает R3b (L1: R3 = база R3 + контракт
+    # §4.1 + правила; L2: §3.1 + абзацы §4.2), 2-й — L1 до канона 2.58.113,
+    # 3-й — no-op (REL-F1: полный возврат к 2.58.113)
     back = _ClarCache({_L1_KEY: CANON_L1, _L2_KEY: CANON_L2})
     assert await pm.rollback_prompt_canons(back) == {
         _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
@@ -302,10 +306,22 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
     assert {c for _k, _v, c in back.set_calls} == {"prompts"}
     back.apply_writes()
     assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_R3
+    back.set_calls.clear()
+    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_CLAR}
+    back.apply_writes()
+    back.set_calls.clear()
+    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_CLAR
+    assert back.values[_L2_KEY] == cp.PREV_CHAT_VERBALIZER_CLAR
     assert await pm.rollback_prompt_canons(back) == {}
+    assert back.set_calls == []
     # и ступень снова ведёт вперёд (стек цел)
     assert await pm.migrate_prompt_canons(back) == {
         _L1_KEY: "updated", _L2_KEY: "updated"}
+    back.apply_writes()
+    assert back.values[_L1_KEY] == CANON_L1
+    assert back.values[_L2_KEY] == CANON_L2
 
     # кастом владельца (не точное совпадение байт) не перетирается ни в одну
     # сторону: миграция skip, rollback skip
