@@ -1,5 +1,11 @@
 # INSPECTOR: точный промпт, per-call trace, причины пропуска
 
+> **Rework 2 (после `evidence/inspector-review.md`, Needs Fixes).** Закрыты
+> блокеры F1 (fallback: журнал = фактическое HTTP-тело), F2 (иерархия только
+> по маскированным текстам; preview тоже с текстом), F3 (`generate_chat` +
+> фоновые/воркер/стрим каналы в журнале, явный `trace_coverage`).
+> Привязку карты/графа к кандидату делает PM (не входит в этот лейн).
+
 Лейн `SPEECH-INSPECTOR-EXACT`, writer. 24.10.2026, локальное время UTC+12:00.
 Прод/SSH/сеть/живые чаты не использовались: транспорт провайдера подменён в
 тестах, `Temp`-SQLite вместо PG.
@@ -107,9 +113,9 @@ py -3 -m pytest tests/test_speech_inspector_exact.py \
   tests/test_soul1_core_composer_integration.py \
   tests/test_expression_isolation_followup.py tests/test_soul14_layers_payload.py \
   tests/test_prompt_migrations.py tests/test_soul1_core_version_propagation.py -q
-→ 109 passed
+→ 113 passed
 py -3 -m pytest tests/test_llm_client.py -q          → 115 passed
-py -3 -m pytest tests/test_speech_inspector_exact.py -q → 8 passed
+py -3 -m pytest tests/test_speech_inspector_exact.py -q → 12 passed (было 8)
 ```
 
 `tests/test_speech_inspector_exact.py` (CONTRACT) доказывает:
@@ -138,7 +144,7 @@ Payload строится **настоящим** `_inspector_payload` (temp-SQLit
 
 ```
 .venv/Scripts/python.exe tests/ui_inspector_exact_e2e.py
-→ [inspector-exact-e2e] checks=121 failures=0
+→ [inspector-exact-e2e] checks=142 failures=0
 ```
 
 Viewports: 320×720, 360×780, 390×844, 430×932, 1280×900, 1440×900, 667×375
@@ -166,13 +172,82 @@ checksum ломается по строкам внутри карточки, ш�
 node --check web/app.js → 0
 ```
 
-## 4. Честные ограничения
+## 4. Rework 2 — блокеры ревью
+
+### F1 (INS-EXACT, fallback): журнал = фактическое HTTP-тело
+
+Было: запись брала `payload` до подмены `model` в `_post_fallback` и исходные
+`messages` (не `payload["messages"]` после адаптера) → при fallback владелец
+видел неотправленный текст и checksum ≠ тела.
+
+Стало: точки фактической отправки помечают РОВНО отправленный объект —
+`services/llm_client.py`:
+
+* `_post_with_key(..., sent=…)` → `("primary", payload)`;
+* `_post_fallback(..., sent=…)` → `("fallback", fallback_payload)` с уже
+  подменённым `model`;
+* `_fallback_with_retries(..., sent=…)` — сквозная передача;
+* `_record_sent_call()` берёт `sent[-1]` (последнее отправленное тело) и
+  сообщения ИЗ ЭТОГО тела; `generate`/`generate_chat` пишут из него, включая
+  error-ветки (`status=error`) — неудачная primary-попытка не подменяет
+  финальный снимок.
+
+Repro (тест `test_fallback_trace_is_the_body_that_went_on_the_wire`): primary
+500 → адаптер сокращает user до `Q-cut` → fallback 200. Тест исполняет
+РЕАЛЬНЫЙ `_post`/`_post_fallback` (транспорт-двойник фиксирует `json=`):
+
+| | до фикса | после |
+|---|---|---|
+| `journal.messages[-1]` | `Q` (исходный) | `Q-cut` (как в теле) |
+| `journal.model` | `trace-model-1`/старый объект | `trace-fallback-1` |
+| `journal.checksum == payload_checksum(http_body)` | **False** | **True** |
+| `journal.channel` | `primary` | `fallback` |
+| `journal.provider` | `provider.example` | `fallback.example` |
+
+### F2 (INS-PRIVACY): иерархия только по маскированным текстам
+
+Было: `_inspector_hierarchy` получал сырой `render_layer_texts(manifest)`, а
+маскированная копия `sent["layer_texts"]` в UI не использовалась → секрет и
+длинный ID попадали в JSON/DOM.
+
+Стало: `web/api/speech.py:1961` передаёт в иерархию `{"layers":
+sent["layer_texts"]}` (уже `_mask_text`), плюс `_inspector_exact` маскирует
+`system`/сообщения на отдаче (checksum и per-message `sha256` по-прежнему
+считаются по фактическим байтам). Preview-only тоже получает маскированные
+тексты (`_preview_manifest` → `layer_texts`), поэтому клик больше не показывает
+«текст недоступен».
+
+Тест `test_inspector_hierarchy_is_masked_but_keeps_provenance`: в JSON нет
+`sk-live-…` и полного `123456789012`, есть `***`/`[id]`, при этом слой
+`identity` сохраняет `source=global`, непустую `revision` и структуру текста.
+E2E дополнительно проверяет DOM: `SECRET`/`LONG_ID` не встречаются на всех
+7 viewport'ах (142 проверки, 0 падений).
+
+### F3 (INS-TRACE): покрытие каналов, а не только `generate`
+
+* `generate_chat` (tool-calling Stage-1/tool) — тот же bounded-журнал:
+  model из тела, roles, sha256 сообщений, `module/step`, correlation_id,
+  маскирование; тест `test_generate_chat_is_traced_with_tools` сверяет
+  checksum с телом, где есть `tools`.
+* `generate_background` и `generate_worker` (выделенные роли) — пишутся с
+  `module=background|worker`, ошибки — `status=error`.
+* `stream_chat_completion` — запись при успешном SSE-стриме.
+* `composer.trace_coverage()` (`PROVIDER_TRACE_COVERAGE`) отдаётся в API как
+  `trace_coverage` и показывается в UI: `generate`, `generate_chat`,
+  `generate_background`, `generate_worker`, `stream_chat_completion` —
+  «пишется»; `embed` — «НЕ пишется» с причиной (контракт `input/vectors`, без
+  messages). Молчаливого отсутствия больше нет.
+
+Тест `test_inspector_declares_trace_coverage` проверяет и покрытые каналы, и
+явную причину для `embed`.
+
+## 5. Честные ограничения
 
 * Журнал вызовов — in-memory, bounded (24 записи): после рестарта процесса
   снимка нет, Inspector честно говорит «только превью».
-* Trace покрывает `LLMClient.generate` (Direct L1/L2/Stage-2/tool-phase и др.).
-  Tool-calling `generate_chat` и фоновые каналы в журнал не пишутся — это
-  отдельный путь, для «полного итогового промпта Direct» не требуется.
+* Trace покрывает `generate`, `generate_chat`, `generate_background`,
+  `generate_worker`, успешный `stream_chat_completion`. Ошибки SSE-стрима и
+  эмбеддинги в журнал не пишутся — это отражено в `trace_coverage` с причиной.
 * Класс «мат/регистр» не имеет второго источника правил в сборке → показывается
   как 0 найденных с явной причиной (не выдумывается).
 * `preview`-checksum нельзя сравнивать с `actual`: у превью нет model/
