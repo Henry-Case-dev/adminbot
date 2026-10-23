@@ -1,0 +1,16 @@
+﻿e0f3bfbb chore(soul1): refresh W4 frozen-assets evidence after commit of W4 UI train
+ddf139a1 feat(embed): EMBED-META-WIRE - probe reads actual model from embed response meta
+128abcab docs(embed): gaps-closure evidence - post-commit test rerun on 69da031c
+d62e9720 test(embed): EMBED-IDENTITY-COMPAT close IDENT-02/CANARY-03/DEC-09 gaps
+244a9da4 docs(embed): EMBED-RESOLVER-PREDEPLOY - pin evidence commit in report header
+e4b7c595 docs(embed): EMBED-RESOLVER-PREDEPLOY - resolver on real prod rows (insufficient->probe->compatible, no rebuild)
+4bcd108a docs(embed): EMBED-IDENTITY-COMPAT - pin SHA docs-╨║╨╛╨╝╨╝╨╕╤В╨╛╨▓ ╨▓ binding
+528aee2f docs(embed): EMBED-IDENTITY-COMPAT - GOV-07 ╨┐╤А╨╕╨▓╤П╨╖╨░╨╜ ╨║ ╤Б╨╜╨╕╨╝╨║╤Г ╨╖╨░╨┐╨╕╤Б╨╕ progress_scope
+bc52a0ca docs(embed): EMBED-IDENTITY-COMPAT - pin SHA ╨║╨╛╨╝╨╝╨╕╤В╨░ ╨┐╤А╨╕╨▓╤П╨╖╨║╨╕ ╨▓ binding
+3d5442f2 docs(embed): EMBED-IDENTITY-COMPAT - ╨┐╤А╨╕╨▓╤П╨╖╨║╨░ ╨║╨░╤А╤В╤Л ╨║ 570e1eee (B2), evidence A0/╤Д╨╕╨║╤Б╨╛╨▓, 54 VERIFIED / 2 READY_FOR_LIVE / 3 PENDING
+c2ce72d3 docs(embed): EMBED-IDENTITY-COMPAT - evidence B1/B3 fix (570e1eee): repro ╨┤╨╛/╨┐╨╛╤Б╨╗╨╡, ╤В╨╡╤Б╤В╤Л, legacy-╤Б╨╡╨╝╨░╨╜╤В╨╕╨║╨░
+67c1b509 fix(embed): EMBED-IDENTITY-COMPAT B1/B3 - compat-╨┐╨░╤Г╨╖╨░ ╨┐╨╡╤А╨╡╨╢╨╕╨▓╨░╨╡╤В ╤А╨╡╤Б╤В╨░╤А╤В, legacy-╨╝╨╡╤В╨░╨┤╨░╨╜╨╜╤Л╨╡ ╨╜╨╡ ╨╖╨░╨┐╤Г╤Б╨║╨░╤О╤В ╨┐╨╡╤А╨╡╨▓╨╡╨║╤В╨╛╤А╨╕╨╖╨░╤Ж╨╕╤О
+141333ed fix(ui): W4 rework тАФ U-02 detail ╨┐╨╛╨┤ ╤И╨░╨┐╨║╨╛╨╣, U-07 ╨╛╨┤╨╕╨╜ CTA ╨▒╨╡╨╖ retry ╨▓ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨╡
+0eb61ff1 docs(embed): EMBED-IDENTITY-COMPAT тАФ evidence report, GOV-╨░╤Г╨┤╨╕╤В ╨╕ ╨╝╨╡╤В╤А╨╕╨║╨╕ ╨┐╤А╨╛╨▒╤Л ╨┤╨╗╤П 30a2f868
+4962ad48 fix(embed): EMBED-IDENTITY-COMPAT тАФ ╤Б╨╝╨╡╨╜╨░ API-╤И╨╗╤О╨╖╨░ ╨▒╨╡╨╖ ╨┐╨╛╨╗╨╜╨╛╨╣ ╨┐╨╡╤А╨╡╨▓╨╡╨║╤В╨╛╤А╨╕╨╖╨░╤Ж╨╕╨╕
+0358b593 fix(ui): W4 UI/UX ╨┐╨╛ ┬з8 тАФ ╤Ж╨╡╨╗╤М╨╜╨╛╨╡ ╤Б╤В╨╡╨║╨╗╨╛, ╤З╨╡╤Б╤В╨╜╤Л╨╣ sticky-save, ╨░╨┤╨░╨┐╤В╨╕╨▓╨╜╤Л╨╡ ╤А╨╡╨┤╨░╨║╤В╨╛╤А╤Л

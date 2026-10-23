@@ -1,0 +1,20 @@
+﻿REL-258113 frozen fingerprint / canonical pins
+
+pre-bump HEAD (train head): e0f3bfbb163fa63a36a9c9d9990f9f724e50ad42
+base origin/master (2.58.112): 678c0616287c00e973fdae341354c773563f35a2
+prod/rollback point: fbf9013d89b03e38473ce6824a460fdbb736fff8 (2.58.111)
+
+FACTORY_SET:
+  constant FACTORY_SET_SHA256_12 = 24ae494ac422 (services/prompt_registry.py)
+  runtime factory_set_fingerprint() = 24ae494ac422
+  verdict: runtime == constant (PASS)
+  bump каноны не меняет: services/chat_prompts.py, prompt_migrations.py,
+  prompt_registry.py в bump-наборе отсутствуют.
+
+Frozen UI assets: FROZEN-ASSETS-OK; HEAD sha256 == current sha256 для
+  web/index.html, web/app.js, web/static/app.css; needles не изменились.
+
+post-bump sha256_12:
+  config/settings.py: см. bump commit (version token only)
+  README.md: version token only
+  plans/docs/param-registry-round1025.meta.md: version + HEAD token only

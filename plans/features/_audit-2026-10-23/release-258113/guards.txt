@@ -1,0 +1,26 @@
+# REL-258113 guards — консолидированный журнал (23.10.2026)
+
+Интерпретатор: `C:\Code\Python\adminbot\.venv\Scripts\python.exe` (Python 3.12.0, aiogram 3.31.0).
+Worktree: `C:\Code\Python\adminbot-wt258113` (base `678c0616`, pre-bump HEAD `e0f3bfbb`), версия 2.58.113.
+
+[PASS] offline aggregate ........................ 14/14 PASS, EXIT 0 (bump-offline-check.txt)
+[PASS] bump-verify .............................. files=31 pairs=33 (+33/-33), non-token NONE (bump-verify.txt)
+[PASS] SET EQUAL vs bump 112 .................... ref 31 == 31, only-in: none (delta-vs-111.txt)
+[PASS] F8 generator --check ..................... 582 == REGISTRY, карта полна, R17-чисто
+[PASS] F8 pins .................................. 29 passed
+[PASS] pins24 ................................... 868 passed / 0 failed (67.07s)
+[PASS] help-sync ................................ 24 passed
+[PASS] JS-unit .................................. 39 passed
+[PASS] node pins + mini-lens .................... 5/5 rc=0
+[PASS] JS syntax sweep .......................... 107 files / 0 bad
+[PASS] py_compile changed py .................... 47 files / 0 bad
+[PASS] frozen canon pins ........................ 66 passed
+[PASS] frozen UI assets ......................... FROZEN-ASSETS-OK
+[PASS] write_points single-writer ............... 1 passed, 32 deselected
+[PASS] ASAP-2 target set ........................ 155 passed
+[PASS] Summary target set ....................... 179 passed
+[PASS] Embed target set ......................... 115 passed
+[PASS] B11 target set ........................... 24 passed
+
+Суммарно по прогонам: 1581 passed / 0 failed (наборы пересекаются намеренно).
+Не выполнено (не входит в brief): полный repository-wide suite, deploy/restart, live/e2e/Playwright.
