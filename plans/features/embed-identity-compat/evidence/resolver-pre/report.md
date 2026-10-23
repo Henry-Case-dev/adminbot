@@ -2,7 +2,8 @@
 
 **Дата:** 23.10.2026, 16:2x (UTC+12) = **2026-10-23T03:2x UTC** (прод-сервер живёт в UTC).
 **Кандидат кода:** `570e1eee55dff89450deef27696425a0b87a471b` (HEAD `e48a2506` — docs-only сверху:
-`git diff 570e1eee HEAD -- services config tests` пуст).
+`git diff 570e1eee HEAD -- services config tests` пуст). Сам этот отчёт лежит в коммите `22264e8e`
+(только `plans/features/...`, кода не касается).
 `services/embedding_control_plane.py` sha256 `5319e4aed4d549c33eb7b5e85a7069fb34a6bdc157280af041c8918be92a12a3`,
 `services/graphrag_rebuild.py` sha256 `7c9197f77ee32ccdd2e8e4ad7ebccda249527231bb483489dc1c0fd21d158ecd`.
 **Прод (не менялся):** версия `2.58.111`, коммит `fbf9013d`, активен с `2026-10-22 13:14:31 UTC`, `NRestarts=0`;
