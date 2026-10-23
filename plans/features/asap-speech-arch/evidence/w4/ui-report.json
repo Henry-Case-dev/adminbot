@@ -2639,6 +2639,22 @@
    "opened": true
   },
   {
+   "label": "1280/visible_l1",
+   "visible": {
+    "detail": true,
+    "top": 134,
+    "bottom": 872,
+    "h": 738,
+    "vh": 900,
+    "headerBottom": 109,
+    "inViewport": true,
+    "visibleH": 738,
+    "rows": 1,
+    "scrollTop": 0,
+    "scrollY": 428
+   }
+  },
+  {
    "label": "1280/row=l1",
    "opened": true
   },
@@ -2655,15 +2671,63 @@
    "opened": true
   },
   {
+   "label": "1280/visible_writer",
+   "visible": {
+    "detail": true,
+    "top": 134,
+    "bottom": 872,
+    "h": 738,
+    "vh": 900,
+    "headerBottom": 109,
+    "inViewport": true,
+    "visibleH": 738,
+    "rows": 1,
+    "scrollTop": 0,
+    "scrollY": 428
+   }
+  },
+  {
    "label": "1280/row=writer",
    "opened": true
+  },
+  {
+   "label": "390/visible_l1",
+   "visible": {
+    "detail": true,
+    "top": 248,
+    "bottom": 1122,
+    "h": 874,
+    "vh": 844,
+    "headerBottom": 116,
+    "inViewport": true,
+    "visibleH": 596,
+    "rows": 1,
+    "scrollTop": 437,
+    "scrollY": 0
+   }
+  },
+  {
+   "label": "390/visible_writer",
+   "visible": {
+    "detail": true,
+    "top": 248,
+    "bottom": 1122,
+    "h": 874,
+    "vh": 844,
+    "headerBottom": 116,
+    "inViewport": true,
+    "visibleH": 596,
+    "rows": 1,
+    "scrollTop": 437,
+    "scrollY": 0
+   }
   },
   {
    "label": "prompts",
    "glass": {
     "band_top": {
-     "on": 49.6,
-     "off": 49.6,
+     "on": 49.8,
+     "off": 49.8,
      "delta_pct": 0.0
     },
     "center": {
@@ -2692,9 +2756,9 @@
      "delta_pct": 0.0
     },
     "band_bottom": {
-     "on": 55.0,
+     "on": 56.0,
      "off": 53.8,
-     "delta_pct": 2.3
+     "delta_pct": 4.1
     }
    }
   },
@@ -3494,6 +3558,11 @@
     "text": "Не сохранено: полная редакция (2892 зн.)Сохранить",
     "primary": true,
     "primaryDisabled": false,
+    "retry": false,
+    "refresh": false,
+    "actions": [
+     "Сохранить"
+    ],
     "activeSaves": 1,
     "position": "sticky",
     "rect": {
@@ -3513,6 +3582,11 @@
     "text": "Не сохранено: полная редакция (2892 зн.)Сохранение…",
     "primary": true,
     "primaryDisabled": true,
+    "retry": false,
+    "refresh": false,
+    "actions": [
+     "Сохранение…"
+    ],
     "activeSaves": 1,
     "position": "sticky",
     "rect": {
@@ -3529,9 +3603,12 @@
    "probe": {
     "bar": true,
     "state": "saved",
-    "text": "Сохранено ✓ 07:44",
+    "text": "Сохранено ✓ 12:54",
     "primary": false,
     "primaryDisabled": null,
+    "retry": false,
+    "refresh": false,
+    "actions": [],
     "activeSaves": 0,
     "position": "sticky",
     "rect": {
@@ -3540,7 +3617,7 @@
      "h": 32
     },
     "vh": 844,
-    "savedText": "Сохранено ✓ 07:44"
+    "savedText": "Сохранено ✓ 12:54"
    }
   },
   {
@@ -3548,10 +3625,15 @@
    "probe": {
     "bar": true,
     "state": "error",
-    "text": "Не сохранено: полная редакция (2887 зн.)СохранитьПовторить сохранение",
-    "primary": true,
-    "primaryDisabled": false,
-    "activeSaves": 1,
+    "text": "Сохранить не удалось — ввод сохранёнПовторить сохранение",
+    "primary": false,
+    "primaryDisabled": null,
+    "retry": true,
+    "refresh": false,
+    "actions": [
+     "Повторить сохранение"
+    ],
+    "activeSaves": 0,
     "position": "sticky",
     "rect": {
      "y": 688,
@@ -3567,15 +3649,20 @@
    "probe": {
     "bar": true,
     "state": "conflict",
-    "text": "Конфликт: документ изменено другим путёмОбновить данныеПовторить сохранение",
+    "text": "Конфликт: документ изменено другим путёмОбновить данные",
     "primary": false,
     "primaryDisabled": null,
+    "retry": false,
+    "refresh": true,
+    "actions": [
+     "Обновить данные"
+    ],
     "activeSaves": 0,
     "position": "sticky",
     "rect": {
-     "y": 636,
+     "y": 688,
      "bottom": 772,
-     "h": 136
+     "h": 84
     },
     "vh": 844,
     "savedText": ""
@@ -3589,6 +3676,11 @@
     "text": "Не сохранено: полная редакция (2892 зн.)Сохранить",
     "primary": true,
     "primaryDisabled": false,
+    "retry": false,
+    "refresh": false,
+    "actions": [
+     "Сохранить"
+    ],
     "activeSaves": 1,
     "position": "sticky",
     "rect": {
@@ -3608,6 +3700,11 @@
     "text": "Не сохранено: полная редакция (2892 зн.)Сохранение…",
     "primary": true,
     "primaryDisabled": true,
+    "retry": false,
+    "refresh": false,
+    "actions": [
+     "Сохранение…"
+    ],
     "activeSaves": 1,
     "position": "sticky",
     "rect": {
@@ -3624,9 +3721,12 @@
    "probe": {
     "bar": true,
     "state": "saved",
-    "text": "Сохранено ✓ 07:44",
+    "text": "Сохранено ✓ 12:54",
     "primary": false,
     "primaryDisabled": null,
+    "retry": false,
+    "refresh": false,
+    "actions": [],
     "activeSaves": 0,
     "position": "sticky",
     "rect": {
@@ -3635,7 +3735,7 @@
      "h": 32
     },
     "vh": 800,
-    "savedText": "Сохранено ✓ 07:44"
+    "savedText": "Сохранено ✓ 12:54"
    }
   },
   {
@@ -3643,10 +3743,15 @@
    "probe": {
     "bar": true,
     "state": "error",
-    "text": "Не сохранено: полная редакция (2887 зн.)СохранитьПовторить сохранение",
-    "primary": true,
-    "primaryDisabled": false,
-    "activeSaves": 1,
+    "text": "Сохранить не удалось — ввод сохранёнПовторить сохранение",
+    "primary": false,
+    "primaryDisabled": null,
+    "retry": true,
+    "refresh": false,
+    "actions": [
+     "Повторить сохранение"
+    ],
+    "activeSaves": 0,
     "position": "sticky",
     "rect": {
      "y": 740,
@@ -3662,9 +3767,14 @@
    "probe": {
     "bar": true,
     "state": "conflict",
-    "text": "Конфликт: документ изменено другим путёмОбновить данныеПовторить сохранение",
+    "text": "Конфликт: документ изменено другим путёмОбновить данные",
     "primary": false,
     "primaryDisabled": null,
+    "retry": false,
+    "refresh": true,
+    "actions": [
+     "Обновить данные"
+    ],
     "activeSaves": 0,
     "position": "sticky",
     "rect": {

@@ -67,7 +67,35 @@ M.ME_JSON["ui_flags"]["UI_POLYGON_BG_ENABLED"] = True
 
 EVIDENCE = REPO / "plans" / "features" / "asap-speech-arch" / "evidence" / "w4"
 SHOTS = EVIDENCE / "shots"
-PORT = 8826
+
+
+def _free_port():
+    """Свободный порт для стенда.
+
+    Фиксированный порт — источник ложных зелёных/красных: на Windows
+    SO_REUSEADDR позволяет «занять» порт, который уже слушает прошлый прогон,
+    и запросы уходят к СТАРОМУ процессу (со старым кодом/стабами). Поэтому
+    каждый процесс берёт свободный порт и проверяет, что он реально свободен.
+    """
+    import socket
+    for _ in range(20):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        finally:
+            s.close()
+        probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            busy = probe.connect_ex(("127.0.0.1", port)) == 0
+        finally:
+            probe.close()
+        if not busy:
+            return port
+    raise RuntimeError("не удалось найти свободный порт для стенда")
+
+
+PORT = _free_port()
 BASE = "http://127.0.0.1:%d" % PORT
 
 VIEWPORTS = [
@@ -438,6 +466,34 @@ ROW_PROBE = r"""
 EXPECTED_ROWS = ["core", "self_model", "l1", "lessons", "examples", "humor",
                  "writer"]
 
+# B1 (ревью W4): после клика ряда L1/Writer detail обязан быть В ВИДИМОЙ
+# области и содержать именно запрошенный ключ, а реестр — отфильтрован.
+DETAIL_VISIBLE = r"""
+(() => {
+  const d = document.querySelector('[data-speech-block-detail]');
+  if (!d) return {detail: false};
+  const r = d.getBoundingClientRect();
+  const h = document.querySelector('.main-header');
+  const hb = h ? h.getBoundingClientRect().bottom : 0;
+  const txt = (d.textContent || '');
+  const rows = document.querySelectorAll('.speech-block-row').length;
+  const scroller = document.querySelector('main.scroll-area');
+  return {
+    detail: true,
+    top: Math.round(r.top), bottom: Math.round(r.bottom),
+    h: Math.round(r.height), vh: window.innerHeight,
+    headerBottom: Math.round(hb),
+    inViewport: r.top >= hb - 2 && r.top < window.innerHeight - 40
+      && (Math.min(r.bottom, window.innerHeight) - Math.max(r.top, hb)) >= 160,
+    visibleH: Math.round(Math.max(0, Math.min(r.bottom, window.innerHeight)
+      - Math.max(r.top, hb))),
+    rows: rows,
+    scrollTop: scroller ? Math.round(scroller.scrollTop) : null,
+    scrollY: Math.round(window.scrollY),
+  };
+})()
+"""
+
 
 def check_rows(browser, label, shots):
     ctx, page = new_page(browser, 1280, 900)
@@ -467,7 +523,7 @@ def check_rows(browser, label, shots):
         ctx2, page2 = new_page(browser, 1280, 900)
         goto(page2, "#/ai/speech")
         page2.click("[data-speech-layer='%s']" % r["key"])
-        page2.wait_for_timeout(700)
+        page2.wait_for_timeout(1100)
         opened = page2.evaluate(
             "(() => ({section: !!document.querySelector('.speech-section'),"
             " block: (document.querySelector('[data-speech-block-detail] .tech-key')"
@@ -476,17 +532,53 @@ def check_rows(browser, label, shots):
         if not opened["section"]:
             fail(label, "ряд %s не открыл раздел" % r["key"])
         if r["key"] in ("l1", "writer"):
+            want = ("direct.base.l1_planner" if r["key"] == "l1"
+                    else "direct.base.l2_writer")
             if "все инструкции" not in page2.inner_text(".speech-section").lower():
                 fail(label, "ряд %s не открыл «Все инструкции»" % r["key"])
-            if r["key"] == "l1" and "direct.base.l1_planner" not in opened["block"]:
-                fail(label, "ряд l1 открыл не тот блок: %s" % opened["block"][:80])
-            if r["key"] == "writer" and "direct.base.l2_writer" not in opened["block"]:
-                fail(label, "ряд writer открыл не тот блок: %s" % opened["block"][:80])
+            if want not in opened["block"]:
+                fail(label, "ряд %s открыл не тот блок: %s"
+                     % (r["key"], opened["block"][:80]))
+            # B1: detail реально в видимой области и реестр отфильтрован
+            vis = page2.evaluate(DETAIL_VISIBLE)
+            if not vis.get("detail"):
+                fail(label, "ряд %s: detail-карточка не отрисована" % r["key"])
+            else:
+                if not vis["inViewport"]:
+                    fail(label, "ряд %s: detail не в видимой области "
+                                "(top=%s, visibleH=%s, headerBottom=%s, vh=%s)"
+                         % (r["key"], vis["top"], vis.get("visibleH"),
+                            vis["headerBottom"], vis["vh"]))
+                if vis["rows"] != 1:
+                    fail(label, "ряд %s: реестр не отфильтрован по ключу (%s строк)"
+                         % (r["key"], vis["rows"]))
+                note(label="%s/visible_%s" % (label, r["key"]), visible=vis)
+                if shots:
+                    page2.screenshot(path=str(
+                        SHOTS / ("row_%s_visible_%s.png" % (r["key"], label))))
         if shots:
             page2.screenshot(path=str(SHOTS / ("row_%s_%s.png" % (r["key"], label))))
         note(label="%s/row=%s" % (label, r["key"]), opened=opened["section"])
         ctx2.close()
     ctx.close()
+    # То же на мобильной ширине: detail виден и содержит нужный ключ (B1)
+    for key, want in (("l1", "direct.base.l1_planner"),
+                      ("writer", "direct.base.l2_writer")):
+        ctx3, page3 = new_page(browser, 390, 844)
+        goto(page3, "#/ai/speech")
+        page3.click("[data-speech-layer='%s']" % key)
+        page3.wait_for_timeout(1200)
+        vis = page3.evaluate(DETAIL_VISIBLE)
+        body = page3.inner_text("[data-speech-block-detail]") \
+            if page3.locator("[data-speech-block-detail]").count() else ""
+        if not vis.get("detail") or not vis.get("inViewport"):
+            fail("390", "ряд %s: detail не в видимой области (%s)" % (key, vis))
+        if want not in body:
+            fail("390", "ряд %s: в видимом detail нет ключа %s" % (key, want))
+        note(label="390/visible_%s" % key, visible=vis)
+        if shots:
+            page3.screenshot(path=str(SHOTS / ("row_%s_visible_390.png" % key)))
+        ctx3.close()
 
 
 # ── U-03: сетка библиотеки промптов + подпись Direct ──────────────────────
@@ -729,6 +821,12 @@ SAVE_PROBE = r"""
 (() => {
   const bar = document.querySelector('.speech-section [data-speech-savebar]');
   const primary = bar ? bar.querySelector('[data-speech-save-primary]') : null;
+  const retry = bar ? bar.querySelector('[data-speech-save-retry]') : null;
+  const refresh = bar ? bar.querySelector('[data-speech-save-refresh]') : null;
+  const visible = (el) => !!(el && el.offsetParent !== null);
+  const actions = bar ? Array.from(bar.querySelectorAll('button'))
+    .filter((b) => b.offsetParent !== null)
+    .map((b) => (b.textContent || '').replace(/\s+/g, ' ').trim()) : [];
   const allSaves = Array.from(document.querySelectorAll(
     '.speech-section .btn-accent')).filter((b) => b.offsetParent !== null);
   const st = bar ? getComputedStyle(bar) : null;
@@ -736,9 +834,12 @@ SAVE_PROBE = r"""
   return {
     bar: !!bar,
     state: bar ? bar.getAttribute('data-speech-save-state') : null,
-    text: bar ? bar.textContent.replace(/\s+/g, ' ').trim().slice(0, 140) : '',
-    primary: !!primary,
+    text: bar ? bar.textContent.replace(/\s+/g, ' ').trim().slice(0, 160) : '',
+    primary: visible(primary),
     primaryDisabled: primary ? !!primary.disabled : null,
+    retry: visible(retry),
+    refresh: visible(refresh),
+    actions: actions,
     activeSaves: allSaves.length,
     position: st ? st.position : null,
     rect: r ? {y: Math.round(r.y), bottom: Math.round(r.bottom),
@@ -820,17 +921,32 @@ def check_save_machine(browser, width, height, label, shots):
     p4 = page.evaluate(SAVE_PROBE)
     if p4["state"] != "error":
         fail(label, "error: состояние панели %s" % p4["state"])
-    if "Повторить" not in p4["text"]:
+    if not p4["retry"]:
         fail(label, "error: нет «Повторить сохранение» (%s)" % p4["text"][:80])
+    # B2: в error ровно ОДИН главный CTA — повтор, без второго Save
+    if p4["primary"]:
+        fail(label, "error: рядом с «Повторить» остаётся активный Сохранить")
+    if p4["activeSaves"] != 0:
+        fail(label, "error: активных accent-Save %s (ожидалось 0)"
+             % p4["activeSaves"])
+    if len(p4["actions"]) != 1:
+        fail(label, "error: действий в панели %s (ожидался один CTA): %s"
+             % (len(p4["actions"]), p4["actions"]))
     if "e503" not in page.input_value(".speech-section .speech-editor"):
         fail(label, "error: черновик потерян")
     note(label=label + "/save_error", probe=p4)
-    # conflict 409 → причина видна, основной Save скрыт (нет слепой перезаписи)
+    # conflict 409 — РЕАЛЬНЫЙ путь ревьюера: повтор из error-состояния
+    # (именно эта кнопка раньше обходила защиту). После ответа 409:
+    # retry исчезает, Save скрыт, остаётся только «Обновить данные»,
+    # и никакой POST по бару больше не уходит.
     POST_MODE["mode"] = "conflict"
-    page.evaluate("() => { try { window.__vueApp = null; } catch (e) {} }")
-    page.click("[data-speech-save-primary]")
-    page.wait_for_timeout(900)
+    before_conflict = len(POSTS)
+    page.click("[data-speech-save-retry]")
+    page.wait_for_timeout(1000)
     p5 = page.evaluate(SAVE_PROBE)
+    if len(POSTS) != before_conflict + 1:
+        fail(label, "conflict: повтор из error не отправил запрос (%s → %s)"
+             % (before_conflict, len(POSTS)))
     if p5["state"] != "conflict":
         fail(label, "conflict: состояние панели %s (%s)"
              % (p5["state"], p5["text"][:80]))
@@ -838,13 +954,31 @@ def check_save_machine(browser, width, height, label, shots):
         fail(label, "conflict: нет объяснения конфликта (%s)" % p5["text"][:80])
     if p5["primary"]:
         fail(label, "conflict: активный Save остаётся (возможна слепая перезапись)")
-    if "Обновить данные" not in p5["text"]:
+    if p5["retry"]:
+        fail(label, "conflict: активная «Повторить сохранение» обходит защиту")
+    if not p5["refresh"]:
         fail(label, "conflict: нет действия «Обновить данные»")
+    if len(p5["actions"]) != 1 or "Обновить данные" not in p5["actions"]:
+        fail(label, "conflict: в панели не единственный CTA: %s" % p5["actions"])
+    if p5.get("savedText"):
+        fail(label, "conflict: рядом висит старый статус «%s»"
+             % p5["savedText"].strip())
+    toasts = page.evaluate(
+        "Array.from(document.querySelectorAll('.toast')).map((t) => "
+        "(t.textContent || '').replace(/\\s+/g, ' ').trim())")
+    if any("Сохранено" in t for t in toasts):
+        fail(label, "conflict: живёт старый зелёный тост «Сохранено»: %s"
+             % [t for t in toasts if "Сохранено" in t])
     note(label=label + "/save_conflict", probe=p5)
     if shots:
         page.screenshot(path=str(SHOTS / ("save_conflict_%s.png" % label)))
+    # Клик по единственному действию не порождает POST (это GET-перечитывание).
+    before_click = len(POSTS)
     page.click("[data-speech-save-refresh]")
-    page.wait_for_timeout(900)
+    page.wait_for_timeout(1000)
+    if len(POSTS) != before_click:
+        fail(label, "conflict: клик по единственному CTA отправил POST (%s → %s)"
+             % (before_click, len(POSTS)))
     p6 = page.evaluate(SAVE_PROBE)
     if p6["state"] == "conflict":
         fail(label, "conflict не снят после «Обновить данные»")

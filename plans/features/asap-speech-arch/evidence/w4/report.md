@@ -43,16 +43,27 @@
   подложка самой поверхности;
 - маска пересчитывается при изменении геометрии (`rec.maskW/maskH`).
 
-**Доказательство (пиксельный замер, Chromium):**
+**Доказательство (пиксельный замер, Chromium).** Метрика e2e — средняя яркость
+(Rec.709) в полосе кромки и в центре поверхности **при включённом слое
+преломления против того же кадра с `?glassrefract=off`**:
 
-| Поверхность | полоса сверху | центр | полоса снизу |
+| Поверхность (слой вкл. vs выкл.) | полоса сверху | центр | полоса снизу |
 |---|---|---|---|
-| `[data-prompt-library-modules]`, до | **+33.4 %** | +17.4 % | — |
-| после | **0.0 %** | 0.0 % | +2.2 % |
-| `.speech-head`, после | 0.0 % | 0.0 % | +2.3 % |
+| `[data-prompt-library-modules]` | 0.0 % | 0.0 % | +2.2 % |
+| `.speech-head` | 0.0 % | 0.0 % | +4.1 % |
 
 (допуск в e2e: полоса ≤6 %, центр ≤2 %). Полигональный фон, его геометрия,
 цвета, анимация и число полигонов не менялись — правка только в слое стекла.
+
+**Поправка к первой версии отчёта (N3 ревью).** Числа «+33.4 % (полоса) /
++17.4 % (центр) до» **сняты другим пробником и не воспроизводятся** этой
+метрикой на baseline `924b3b51` — ревьюер получил там 0.0 % в точках
+top/center/bottom (свои замеры он дополнил: на baseline `.speech-head` низ
++109.7 %, центр +40.6 %). Поэтому цифры «до» здесь не приводятся как
+измеримое доказательство: дефект «до» подтверждён **визуально** скриншотами
+`shots/before/*` (жёсткий прямоугольник с кромками на «Промпты по модулям» и
+«Речь и характер»), а измеримое утверждение — только «слой вкл. vs выкл. на
+кандидате» из таблицы выше.
 
 ## U-02. Desktop «Речь и характер»: разрыв/overlay между шапкой и контентом
 
@@ -76,6 +87,17 @@
 - Неинтерактивный ряд не имеет шеврона, `cursor: default`, бейдж «только
   чтение» + текст причины (e2e проверяет шеврон↔действие, высоту ≥44 px и что
   каждый интерактивный ряд действительно открывает раздел/блок).
+- **B1 (rework после ревью).** Ряды `Планировщик (L1)` и `Writer` открывали
+  блок, но пользователь оставался наверху реестра из 77 строк: detail-карточка
+  (`[data-speech-block-detail]`) была ниже экрана (`top≈9081` при `innerHeight=900`),
+  т.е. требование U-02/§6 «не скроллит в пустоту» не выполнялось. Теперь
+  `openSpeechLayerRow` (1) фильтрует реестр по `block_id` выбранного блока
+  (`speechQuery` = ключ, семейство сбрасывается) и (2) после загрузки раздела и
+  detail прокручивает карточку в видимую область (`scrollIntoView` с учётом
+  sticky-шапки; повторный проход после раскладки — только если она ещё не в
+  виду). E2E проверяет не наличие текста в DOM, а `getBoundingClientRect()`
+  карточки: она ниже шапки и в пределах viewport и содержит нужный ключ —
+  на 1280 и на 390.
 
 ## U-03. Desktop: каталог/редактор промптов
 
@@ -148,18 +170,34 @@
   (в режиме «только чтение» там остаётся disabled-кнопка + объяснение).
 - Единый state machine (проверено e2e на 390 и 1280):
 
-| Состояние | Панель | Активных Save |
+| Состояние | Панель | CTA в панели |
 |---|---|---|
 | pristine | нет | 0 |
-| dirty | «Не сохранено: …» + Save | 1 |
-| saving | Save disabled «Сохранение…» (`data-speech-save-state=saving`) | 1 (disabled) |
+| dirty | «Не сохранено: …» + Save | 1: «Сохранить» (accent) |
+| saving | Save disabled «Сохранение…» (`data-speech-save-state=saving`) | 1: «Сохранить» (disabled) |
 | saved | «Сохранено ✓ HH:MM», кнопки нет (10 с, как в §5.5) | 0 |
-| error (503) | причина + «Повторить сохранение» | 1 |
-| conflict (409 «изменено другим путём») | причина + «Обновить данные», основной Save скрыт | 0 |
+| error (503) | «Сохранить не удалось — ввод сохранён» | 1: «Повторить сохранение» |
+| conflict (409 «изменено другим путём») | «Конфликт: …» | 1: «Обновить данные» |
+
+Акцентный (accent) Save в error и conflict: **0** — e2e проверяет
+`activeSaves=0` и что в панели ровно одно действие.
 
 - Конфликт — новое устойчивое состояние (`speechConflict`, снимается
   перечитыванием раздела): нельзя «вслепую» перезаписать чужую редакцию;
   ложного «сохранено» нет (dirty гасится только после `applied`).
+- **B2 (rework после ревью).** В конфликте 409 оставалась активная кнопка
+  «Повторить сохранение»: клик отправлял прежний payload и обходил защиту
+  (ревьюер: `posts 2 → 3`). Теперь `speechSaveFail` на любом 409 снимает
+  `speechRetry`, шаблоны показывают retry только при
+  `speechCanRetry(section) && !speechConflictFor(section)`, а состояния
+  собраны в одну цепочку «конфликт → повтор → сохранить»: в error остаётся
+  ровно один CTA («Повторить сохранение»), в конфликте — ровно один
+  («Обновить данные»), в dirty — ровно один («Сохранить»). E2E проходит
+  реальный путь ревьюера (503 → «Сохранить» → 409), проверяет, что в конфликте
+  нет retry-кнопки, число POST не растёт, и что клик по «Обновить данные»
+  POST не отправляет. Дополнительно (N2 ревью): новая попытка сохранения
+  снимает прежний статус «Сохранено…», поэтому в конфликте не висят рядом
+  зелёный успех и красная ошибка.
 
 ## U-08. Glass/material + доступность
 
@@ -199,10 +237,10 @@ Direct Writer → Назад` пройден кликами для **GLOBAL** и
 | Файл | Что |
 |---|---|
 | `web/static/glass-refraction.js` | `ringBand`, `applyRingMask(w,h)`, `ancestorVeil`, порядок отрисовки (копия фона → подложки предков → подложка поверхности), пересчёт маски на resize |
-| `web/app.js` | `configItemTitle/Description` + `CONFIG_ITEM_UI_OVERRIDE` (U-03), `headerTitle` (U-06), `speechLayerNodes` (`block_id`/`readonly_reason`), `openSpeechLayerRow` (U-02), `openSpeechEditorFull` (фокус, U-05), `speechConflict*` + `clearSpeechConflict` + `loadSpeechSection` (U-07), `:data-speech-save-state=saving` |
-| `web/index.html` | крошка без дубля + `.header-title` (U-06), сетка библиотеки (U-03), `configItemTitle/Description` в группе/дереве/фокусе (U-03), ряды карты сборки (U-02), savebar-состояния и конфликт, один CTA, readonly-пояснение (U-07), fullscreen-редактор на корне + Esc/Закрыть (U-05) |
+| `web/app.js` | `configItemTitle/Description` + `CONFIG_ITEM_UI_OVERRIDE` (U-03), `headerTitle` (U-06), `speechLayerNodes` (`block_id`/`readonly_reason`), `openSpeechLayerRow` + `openSpeechSection` (B1: фильтр реестра по ключу, ожидание загрузки, scrollIntoView detail), `openSpeechEditorFull` (фокус, U-05), `speechConflict*` + `clearSpeechConflict` + `loadSpeechSection` (U-07), снятие `speechRetry` на 409 (B2), `:data-speech-save-state=saving` |
+| `web/index.html` | крошка без дубля + `.header-title` (U-06), сетка библиотеки (U-03), `configItemTitle/Description` в группе/дереве/фокусе (U-03), ряды карты сборки (U-02), savebar-состояния и конфликт, один CTA на состояние и retry только вне конфликта (U-07/B2), readonly-пояснение, fullscreen-редактор на корне + Esc/Закрыть (U-05) |
 | `web/static/app.css` | W4-блок: `.prompt-module-grid`, `.speech-tabs` адаптив, `.speech-pre` перенос, `.speech-layer-card-ro`, `html{scroll-padding-top}`, вторичные токены/контраст (U-03…U-08) |
-| `tools/ui_w4_ui_e2e.py` | новый e2e: геометрия/overflow, 7 рядов, «Развернуть», state machine, конфликт, стекло (пиксельные замеры), контраст, reduced-motion, polling, маршрут GLOBAL/CHAT, скриншоты before/after |
+| `tools/ui_w4_ui_e2e.py` | новый e2e: геометрия/overflow, 7 рядов + B1-видимость detail (bounding rect на 1280/390), «Развернуть», state machine + B2 (503→409: нет retry, POST не растёт), стекло (пиксельные замеры), контраст, reduced-motion, polling, маршрут GLOBAL/CHAT, скриншоты before/after; свободный порт стенда |
 
 ## Честные границы / что не сделано
 
@@ -223,3 +261,38 @@ Direct Writer → Назад` пройден кликами для **GLOBAL** и
    зелёный после правок.
 4. FPS на живом устройстве не измерялся; выводы о материале — по пиксельным
    замерам и существующему glass-контракту, без заявлений о «стало быстрее».
+
+## Rework после ревью (B1/B2)
+
+Кандидат `5e7d986e` получил `Needs Fixes` (`evidence/w4/review.md`). Правки
+точечные, только по двум блокерам + честная формулировка про числа U-01.
+
+- **B1 (U-02).** `openSpeechLayerRow` фильтрует реестр по `block_id` и ждёт
+  загрузку раздела/детали, затем ставит detail-карточку под шапку
+  (`scrollIntoView`). E2E меряет `getBoundingClientRect()`:
+  1280 — `top=134` при `headerBottom=109`, видно 738 из 738 px, строк реестра 1;
+  390 — `top=248` при `headerBottom=116`, видно 596 px, строк 1. Скриншоты:
+  `shots/row_l1_visible_1280.png`, `row_writer_visible_1280.png`,
+  `row_l1_visible_390.png`, `row_writer_visible_390.png`.
+- **B2 (U-07).** 409 снимает `speechRetry`; retry рендерится только при
+  `speechCanRetry(...) && !speechConflictFor(...)`; в состоянии error один CTA,
+  в конфликте — только «Обновить данные». E2E проходит путь ревьюера
+  (503 → «Сохранить» → 409): в конфликте `retry=false`, `actions=["Обновить
+  данные"]`, `activeSaves=0`; клик по retry после 409 невозможен, число POST
+  не растёт, клик по «Обновить данные» POST не отправляет. Скриншоты:
+  `shots/save_conflict_1280.png`, `shots/save_conflict_390.png`.
+- **N3.** Числа «+33.4 %/+17.4 % до» из первой версии отчёта убраны как
+  невоспроизводимые: дефект «до» подтверждается только before-скриншотами,
+  измеримая метрика — «слой вкл. vs выкл.» на кандидате (U-01).
+
+**Прогоны rework-кандидата** (Chromium/Playwright, Windows):
+`tools/ui_w4_ui_e2e.py` — failures=0, POST=8, notes=163;
+`tests/ui_p0a_ux_speech_compact_e2e.py` — failures=0, POST=22;
+`tools/ui_win_glass_refraction_e2e.py` — `WG-REFRACT-E2E-OK`;
+`tools/ui_asap8_w2_shell_e2e.py` — `W2-SHELL-E2E-OK`;
+node `glass_refraction_test` / `glass_probe_test` /
+`round1025_hotfix10_glass_geometry_bg_test` — OK;
+pytest (`test_soul1_w6_speech_ui`, `test_webapp_design_tokens_round1025`,
+`test_webapp_nav_disclosure_ui`, `test_webapp_js_unit`,
+`test_ui_verbilizer_tabs_round1023`, `test_webapp_parity_smoke`,
+`test_web_prompts`) — **171 passed**.
