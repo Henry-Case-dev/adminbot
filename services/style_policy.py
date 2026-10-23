@@ -63,12 +63,15 @@ DOC_KEY = "style.policy"
 DOC_CATEGORY = "content"
 DOC_VERSION = 1
 HISTORY_MAX = 20
-SOFT_INSTRUCTIONS_MAX = 12
+#: L2 (ASAP3 §2): прежний молчаливый потолок 12 резал привычки при save.
+#: 64 = тот же потолок, что у правил; превышение — БЛОКИРУЮЩАЯ диагностика
+#: (``soft_truncated`` в fatal), а не тихая потеря.
+SOFT_INSTRUCTIONS_MAX = 64
 RULES_MAX = 64
 
 #: Закрытый набор kind (W3 фиксирует значения; расширение = правка + тест).
-RULE_KINDS = ("trailing_period", "quotation_marks", "emoji", "line_breaks",
-              "one_word", "forbidden_chars")
+RULE_KINDS = ("dash", "trailing_period", "quotation_marks", "emoji",
+              "line_breaks", "one_word", "forbidden_chars")
 STRICTNESS = ("hard", "soft")
 #: ``scope`` правила = контекстный пакет (SOUL-16.1.3): обычная речь/инициатива/
 #: редакционная публикация/код-и-структурированный вывод. ``chat`` — правило,
@@ -117,6 +120,15 @@ PRECEDENCE = (
 
 #: Каталог kind для UI/Inspector (W6): назначение простыми словами.
 RULE_KIND_SPECS: dict[str, dict] = {
+    "dash": {
+        "title_ru": "Длинное тире",
+        "purpose": "Заменять длинное тире на короткий дефис в обычной речи; "
+                   "URL, код, JSON, разметка и дословные цитаты защищены.",
+        "params": {},
+        "hard_effect": "U+2014 заменяется на дефис детерминированно в обычном "
+                       "тексте, пробелы и структура предложения сохраняются",
+        "soft_effect": "инструкция Writer",
+    },
     "trailing_period": {
         "title_ru": "Точка в конце сообщения",
         "purpose": "Убирать завершающую точку в обычной речи (не внутри "
@@ -340,6 +352,17 @@ class EffectiveStylePolicy:
     extent: str = ""
     hint: str = ""
     hint_tokens: int = 0
+    #: ASAP3 §1.2: эффективные лимиты hint (0 = без ограничения) и слой,
+    #: из которого пришло каждое значение (global/chat/default).
+    hint_limits: Mapping[str, int] = field(default_factory=dict)
+    hint_limit_sources: Mapping[str, str] = field(default_factory=dict)
+    #: Фактический состав hint: сколько инструкций доступно/включено,
+    #: что исключено и почему (R17: id/kind/коды, без текста ответа).
+    hint_total: int = 0
+    hint_included: int = 0
+    hint_excluded: tuple[dict, ...] = ()
+    hint_limited_by: str = ""
+    hint_truncated: bool = False
 
     @property
     def enabled(self) -> bool:
@@ -369,6 +392,16 @@ class EffectiveStylePolicy:
             value = candidate if value is None else min(value, candidate)
         return value
 
+    @property
+    def owner_rules(self) -> tuple[ResolvedRule, ...]:
+        """Правила из документов владельца (заводские default не в счёт).
+
+        Заводское правило тире действует всегда, но не делает политику
+        «настроенной»: контуры, которым нужен именно owner-контроль (локальная
+        правка повторов SOUL-09), не должны включаться сами по себе."""
+        return tuple(r for r in self.rules
+                     if r.rule.origin != "factory_default")
+
     def rules_for_kind(self, kind: str) -> tuple[ResolvedRule, ...]:
         return tuple(r for r in self.rules
                      if r.kind == kind and r.rule.enabled)
@@ -386,6 +419,14 @@ class EffectiveStylePolicy:
             "hard_kinds": list(self.hard_kinds),
             "soft_kinds": list(self.soft_kinds),
             "hint_chars": len(self.hint), "hint_tokens": self.hint_tokens,
+            "hint_total": self.hint_total,
+            "hint_included": self.hint_included,
+            "hint_excluded": [dict(row) for row in self.hint_excluded],
+            "hint_limits": {str(k): int(v) for k, v in
+                            (self.hint_limits or {}).items()},
+            "hint_limit_sources": dict(self.hint_limit_sources or {}),
+            "hint_limited_by": self.hint_limited_by,
+            "hint_truncated": self.hint_truncated,
         }
 
 
@@ -595,6 +636,37 @@ def normalize_soft(raw: Any, *, index: int = 0) -> SoftInstruction | None:
         revision=revision)
 
 
+def normalize_hint_limits(raw: Any) -> tuple[dict, tuple[str, ...]]:
+    """``hint_limits`` документа → ``({max_chars?, max_items?}, issues)``.
+
+    ``0`` = лимит выключен владельцем; отсутствие поля = не задан (наследует
+    внешний слой). Отрицательное/нечисловое значение — блокирующая
+    диагностика, а не тихая подстановка. Никогда не бросает."""
+    issues: list[str] = []
+    if not isinstance(raw, Mapping):
+        return {}, ("hint_limits_not_object",)
+    limits: dict[str, int] = {}
+    for name in ("max_chars", "max_items"):
+        if name not in raw:
+            continue
+        value = raw.get(name)
+        if isinstance(value, bool):
+            issues.append(f"hint_limit_invalid:{name}")
+            continue
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            issues.append(f"hint_limit_invalid:{name}")
+            continue
+        if number < 0:
+            issues.append(f"hint_limit_negative:{name}")
+            continue
+        limits[name] = number
+    if set(raw) - {"max_chars", "max_items"}:
+        issues.append("hint_limits_unknown_keys")
+    return limits, tuple(issues)
+
+
 def validate_document(raw: Any) -> tuple[dict, tuple[str, ...]]:
     """Нормализовать документ ``style.policy`` и вернуть диагностику.
 
@@ -662,6 +734,13 @@ def validate_document(raw: Any) -> tuple[dict, tuple[str, ...]]:
         "updated_by": doc.get("updated_by"),
         "reason": str(doc.get("reason") or ""),
     }
+    if "hint_limits" in doc:
+        # ASAP3 §1.2: лимиты hint живут В ДОКУМЕНТЕ (один save-поток
+        # ``/api/speech/style`` и уже существующие global/chat overrides).
+        # Поле сохраняется как есть (round-trip), иначе исчезло бы при save.
+        limits, limit_issues = normalize_hint_limits(doc.get("hint_limits"))
+        issues.extend(limit_issues)
+        normalized["hint_limits"] = limits
     return normalized, tuple(issues)
 
 
@@ -673,8 +752,14 @@ def validate_document(raw: Any) -> tuple[dict, tuple[str, ...]]:
 #: теряется незаметно (ввод остаётся у владельца).
 _FATAL_DOCUMENT_ISSUES = (
     "document_unreadable", "rules_not_list", "rule_not_object",
-    "soft_not_list", "soft_not_object",
+    "soft_not_list", "soft_not_object", "hint_limits_not_object",
+    # L2 (ASAP3 §2): потолок привычек/правил больше не режет молча — документ
+    # с превышением не сохраняется (ввод остаётся у владельца).
+    "soft_truncated", "rules_truncated",
 )
+#: Префиксы диагностики, при которых документ НЕ сохраняется.
+_FATAL_ISSUE_PREFIXES = ("rule_kind_unknown:", "hint_limit_negative:",
+                         "hint_limit_invalid:")
 
 
 def fatal_document_issues(issues) -> tuple[str, ...]:
@@ -683,7 +768,7 @@ def fatal_document_issues(issues) -> tuple[str, ...]:
     for issue in issues or ():
         text = str(issue)
         if text in _FATAL_DOCUMENT_ISSUES \
-                or text.startswith("rule_kind_unknown:"):
+                or text.startswith(_FATAL_ISSUE_PREFIXES):
             out.append(text)
     return tuple(out)
 
@@ -691,7 +776,8 @@ def fatal_document_issues(issues) -> tuple[str, ...]:
 def build_document(*, rules: Iterable[Any] = (), soft: Iterable[Any] = (),
                    presets: Iterable[str] = (), revision: int = 1,
                    owner: Any = None, reason: str = "",
-                   updated_at: str = "") -> dict:
+                   updated_at: str = "",
+                   hint_limits: Mapping | None = None) -> dict:
     """Собрать валидный документ политики (UI/тесты/миграция).
 
     Presets разворачиваются в правила/привычки (``origin=preset:<name>``),
@@ -714,6 +800,8 @@ def build_document(*, rules: Iterable[Any] = (), soft: Iterable[Any] = (),
         "updated_at": updated_at or _now_iso(), "updated_by": owner,
         "reason": str(reason or ""), "history": [],
     }
+    if hint_limits is not None:
+        doc["hint_limits"] = dict(hint_limits)
     normalized, _issues = validate_document(doc)
     return normalized
 
@@ -817,11 +905,82 @@ def _soft_of(doc: Mapping) -> tuple[SoftInstruction, ...]:
 # 3. Резолв effective_style_policy (после scope/типа выхода, ДО Writer)
 # ═══════════════════════════════════════════════════════════════════════════
 
-def build_hint(policy: EffectiveStylePolicy, *, max_chars: int = 0) -> str:
-    """Короткий semantic hint активных правил (слой 10 композера)."""
+def _limits_of(doc: Any) -> dict[str, int]:
+    """Поля ``hint_limits`` одного слоя (0 сохраняется как «выключено»)."""
+    if not isinstance(doc, Mapping):
+        return {}
+    raw = doc.get("hint_limits")
+    if not isinstance(raw, Mapping):
+        return {}
+    out: dict[str, int] = {}
+    for name in ("max_chars", "max_items"):
+        if name not in raw:
+            continue
+        value = raw.get(name)
+        if isinstance(value, bool):
+            continue
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            continue
+        if number >= 0:
+            out[name] = number
+    return out
+
+
+def merge_hint_limits(global_doc: Any = None,
+                      chat_doc: Any = None) -> tuple[dict[str, int],
+                                                     dict[str, str]]:
+    """Merge лимитов hint ПО ПОЛЯМ: чатовое перекрывает своё поле, остальное
+    наследует глобальное. Отсутствие поля = наследование, явный ``0`` = OFF.
+
+    Возвращает ``(limits, sources)``; ``sources`` — global/chat/default.
+    Никогда не бросает."""
+    limits = {"max_chars": 0, "max_items": 0}
+    sources = {"max_chars": "default", "max_items": "default"}
+    for doc, tag in ((global_doc, "global"), (chat_doc, "chat")):
+        for name, value in _limits_of(doc).items():
+            limits[name] = int(value)
+            sources[name] = tag
+    return limits, sources
+
+
+#: Заводское правило тире (ASAP3 §3.1): включено по умолчанию БЕЗ миграции
+#: PG. Синтезируется в effective-политике, если ни global, ни чат не содержат
+#: строки с этим id; выключение = явная запись того же id с ``enabled=false``.
+DASH_FACTORY_ID = "dash.hard.factory"
+
+
+def factory_rules() -> tuple[StyleRule, ...]:
+    """Заводские правила, действующие без записи в PG (идемпотентно)."""
+    return (StyleRule(
+        id=DASH_FACTORY_ID, kind="dash", strictness="hard", scope="global",
+        params={}, enabled=True, owner=None, revision=1,
+        reason="заводское правило: короткий дефис вместо длинного тире",
+        conflict_strategy=DEFAULT_CONFLICT_STRATEGY,
+        content_type_exemptions=DEFAULT_EXEMPTIONS,
+        origin="factory_default"),)
+
+
+def _with_factory_rules(rules: Sequence[ResolvedRule]
+                        ) -> tuple[ResolvedRule, ...]:
+    """Добавить заводские правила, если владелец не задал строку с их id."""
+    known = {resolved.rule.id for resolved in rules}
+    extra = tuple(ResolvedRule(rule=rule, source="factory")
+                  for rule in factory_rules() if rule.id not in known)
+    return tuple(rules) + extra
+
+
+def build_hint(policy: EffectiveStylePolicy, *, max_chars: int = 0,
+               max_items: int = 0):
+    """Hint активных правил (слой 10) — структура :class:`HintRender`.
+
+    ``0`` = без ограничения (ASAP3 §1.2). При недоступности рендера —
+    пустая строка-совместимый ``HintRender``."""
     try:
         from services.prompt_style_blocks import render_style_policy_hint
-        return render_style_policy_hint(policy, max_chars=max_chars)
+        return render_style_policy_hint(policy, max_chars=max_chars,
+                                        max_items=max_items)
     except Exception:      # pragma: no cover - hint не роняет резолв
         return ""
 
@@ -858,20 +1017,36 @@ def effective_policy_sync(global_doc: Any = None, chat_doc: Any = None, *,
         source = "global"
     else:
         source = "default"
-    applicable = tuple(r for r in rules if rule_applies(r.rule, pack))
+    applicable = tuple(r for r in _with_factory_rules(rules)
+                       if rule_applies(r.rule, pack))
     soft_rows = tuple(s for s in soft if s.enabled and _soft_applies(s, pack))
+    limits, limit_sources = merge_hint_limits(glob_doc, chat_doc_n)
+    owner_applicable = tuple(r for r in applicable
+                             if r.rule.origin != "factory_default")
     policy = EffectiveStylePolicy(
         rules=applicable, soft_instructions=soft_rows, context=pack,
         source=source,
         revision=_policy_revision(glob_doc, chat_doc_n),
         presets_applied=tuple(chat_doc_n.get("presets_applied")
                               or glob_doc.get("presets_applied") or ()),
-        skip_reason=("style_policy_absent" if not applicable and not soft_rows
-                     else ""),
-        conflicts=conflicts, extent=str(extent or ""))
-    hint = build_hint(policy)
-    policy = dataclasses.replace(policy, hint=hint,
-                                 hint_tokens=_tokens_est(hint) if hint else 0)
+        # «absent» — нет НИЧЕГО из документов владельца. Заводское правило
+        # тире действует всегда, но само по себе не делает политику «заданной».
+        skip_reason=("style_policy_absent"
+                     if not owner_applicable and not soft_rows else ""),
+        conflicts=conflicts, extent=str(extent or ""),
+        hint_limits=limits, hint_limit_sources=limit_sources)
+    render = build_hint(policy, max_chars=limits["max_chars"],
+                        max_items=limits["max_items"])
+    hint = str(render or "")
+    policy = dataclasses.replace(
+        policy, hint=hint,
+        hint_tokens=_tokens_est(hint) if hint else 0,
+        hint_total=int(getattr(render, "total_items", 0) or 0),
+        hint_included=int(getattr(render, "included_items", 0) or 0),
+        hint_excluded=tuple(row.as_dict()
+                            for row in (getattr(render, "excluded", ()) or ())),
+        hint_limited_by=str(getattr(render, "limited_by", "") or ""),
+        hint_truncated=bool(getattr(render, "truncated", False)))
     return policy
 
 
@@ -977,7 +1152,13 @@ async def resolve_style_policy_ref(chat_id: int, *, context: str = "regular",
         rule_count=len(policy.rules),
         soft_count=len(policy.soft_instructions),
         enabled=True,
-        skip_reason=policy.skip_reason)
+        skip_reason=policy.skip_reason,
+        hint_total=policy.hint_total,
+        hint_included=policy.hint_included,
+        hint_excluded=tuple(dict(row) for row in policy.hint_excluded),
+        hint_limits=tuple(sorted((policy.hint_limits or {}).items())),
+        hint_limited_by=policy.hint_limited_by,
+        hint_truncated=policy.hint_truncated)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1275,10 +1456,12 @@ def segment_view(text: Any, **kwargs) -> list[dict]:
 # 5. Детерминированный валидатор/форматтер правил формы (SOUL-16.1.1)
 # ═══════════════════════════════════════════════════════════════════════════
 
-#: Порядок исполнения правил внутри одного прохода. Завершающая точка —
-#: ПОСЛЕДНЕЙ: она решает про финальный символ уже изменённого текста.
-RULE_ORDER = ("emoji", "forbidden_chars", "quotation_marks", "line_breaks",
-              "one_word", "trailing_period")
+#: Порядок исполнения правил внутри одного прохода. Тире — ПЕРВЫМ: иначе
+#: запрещённый символ удалил бы ``—`` вместо замены на дефис (ASAP3 §3.1).
+#: Завершающая точка — ПОСЛЕДНЕЙ: она решает про финальный символ уже
+#: изменённого текста.
+RULE_ORDER = ("dash", "emoji", "forbidden_chars", "quotation_marks",
+              "line_breaks", "one_word", "trailing_period")
 
 #: Unicode-пробелы/невидимые символы (SOUL-16.3.1: последний содержательный знак).
 _TRAILING_WS = " \t\r\n\u00a0\u200b\u200c\u200d\ufeff\u2060\u2028\u2029"
@@ -1355,6 +1538,35 @@ def _apply_emoji(text: str, rule: StyleRule,
         new = new[:start] + cleaned + new[end:]
     return (STATUS_REPAIRED, new, "emoji_removed",
             {"removed": len(found), "protected_kept": len(protected_hits)})
+
+
+#: Длинное тире (U+2014). Замена — только в обычных регионах, по одному
+#: символу: пробелы и структура предложения не меняются (ASAP3 §3.1-3.2).
+_EM_DASH = "\u2014"
+
+
+def _apply_dash(text: str, rule: StyleRule,
+                spans: Sequence[Span]) -> tuple:
+    """``—`` → ``-`` в обычной речи; URL/код/JSON/цитаты/разметка целы.
+
+    Не через ``forbidden_chars``: тот удаляет символ без замены. Повторный
+    проход — no-op (идемпотентность)."""
+    positions = [index for index, char in enumerate(text) if char == _EM_DASH]
+    plain_hits = [index for index in positions if _in_plain(spans, index)]
+    protected_hits = len(positions) - len(plain_hits)
+    if not plain_hits:
+        if protected_hits:
+            return (STATUS_EXEMPTED, None, "protected_verbatim",
+                    {"protected": protected_hits})
+        return (STATUS_PASS, None, "", {})
+    if rule.strictness != "hard":
+        return (STATUS_NA, None, "soft_habit_writer_only",
+                {"observed": len(plain_hits)})
+    plain_set = set(plain_hits)
+    new = "".join("-" if index in plain_set else char
+                  for index, char in enumerate(text))
+    return (STATUS_REPAIRED, new, "dash_replaced",
+            {"replaced": len(plain_hits), "protected_kept": protected_hits})
 
 
 def _apply_forbidden_chars(text: str, rule: StyleRule,
@@ -1654,6 +1866,7 @@ def _apply_trailing_period(text: str, rule: StyleRule,
 
 
 _RULE_HANDLERS = {
+    "dash": _apply_dash,
     "emoji": _apply_emoji,
     "forbidden_chars": _apply_forbidden_chars,
     "quotation_marks": _apply_quotation_marks,
@@ -2206,8 +2419,9 @@ async def apply_style_policy(text: Any, *, chat_id: int = 0, plan=None,
                 # Локальная замена повтора выполняется только когда у слоя
                 # есть владельческая политика (правила/привычки): без неё
                 # повтор ТОЛЬКО наблюдается (никакой тихой потери текста,
-                # SOUL-09.1 «не наказывать повтор без повода»).
-                if policy.rules or policy.soft_instructions:
+                # SOUL-09.1 «не наказывать повтор без повода»). Заводское
+                # правило тире owner-политикой не считается (ASAP3 §3.1).
+                if policy.owner_rules or policy.soft_instructions:
                     trimmed, removed = _local_repetition_repair(
                         current, findings, spans3)
                     if removed:
@@ -2337,6 +2551,12 @@ async def save_policy_document(document: Mapping[str, Any], *,
                 return {"applied": False, "reason": "config_cache_unavailable"}
             previous_doc, _ = validate_document(target.get(DOC_KEY, None))
         revision = int(previous_doc.get("revision", 0) or 0) + 1
+        if "hint_limits" not in (document or {}) \
+                and isinstance(previous_doc.get("hint_limits"), Mapping):
+            # Редактор может не знать о поле (UI-фаза): правка правил не должна
+            # молча стирать сохранённый лимит. Удаление — ЯВНЫЙ hint_limits
+            # в присланном документе ({} или нули).
+            normalized["hint_limits"] = dict(previous_doc["hint_limits"])
         history = list(previous_doc.get("history") or [])
         if previous_doc:
             history.insert(0, {
@@ -2473,6 +2693,26 @@ def style_policy_view(global_doc: Any = None, chat_doc: Any = None, *,
                                 "global" if glob_doc else "factory_default"),
             },
             "hint": policy.hint, "hint_tokens": policy.hint_tokens,
+            # ASAP3 §1.5: Inspector видит фактический лимит/состав, а не
+            # «желаемые» настройки. 0 = «Без ограничения».
+            "hint_limits": {
+                "max_chars": int((policy.hint_limits or {}).get(
+                    "max_chars", 0) or 0),
+                "max_items": int((policy.hint_limits or {}).get(
+                    "max_items", 0) or 0),
+                "sources": dict(policy.hint_limit_sources or {}),
+                "off": not any(int(value or 0) > 0 for value in
+                               (policy.hint_limits or {}).values()),
+                "current_chars": len(policy.hint),
+            },
+            "hint_render": {
+                "total_items": policy.hint_total,
+                "included_items": policy.hint_included,
+                "excluded": [dict(row) for row in policy.hint_excluded],
+                "overflow": bool(policy.hint_excluded),
+                "limited_by": policy.hint_limited_by,
+                "truncated": policy.hint_truncated,
+            },
             "precedence": list(PRECEDENCE),
             "statuses": list(STATUSES),
         }
@@ -2483,4 +2723,9 @@ def style_policy_view(global_doc: Any = None, chat_doc: Any = None, *,
                 "rule_kinds": [], "skip_reason": "view_error",
                 "conflicts": ["view_error"], "document": {},
                 "hint": "", "hint_tokens": 0,
+                "hint_limits": {"max_chars": 0, "max_items": 0, "sources": {},
+                                "off": True, "current_chars": 0},
+                "hint_render": {"total_items": 0, "included_items": 0,
+                                "excluded": [], "overflow": False,
+                                "limited_by": "", "truncated": False},
                 "precedence": list(PRECEDENCE), "statuses": list(STATUSES)}
