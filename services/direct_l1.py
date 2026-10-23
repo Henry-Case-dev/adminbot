@@ -653,7 +653,8 @@ def build_l1_context(*, query, current_question: str = "",
                      persona_frame: str = "",
                      bot_replies: tuple[str, ...] = (),
                      budget_tokens: int | None = None,
-                     with_ids: bool = False) -> str:
+                     with_ids: bool = False,
+                     alias_resolver=None) -> str:
     """§1.5: compact-пакет L1. Полный Writer-контекст L1 НЕ получает.
     Кап бюджета ``limits.direct_l1_context_tokens`` (дефолт 1600):
     дет. деградация — сначала сокращается окно (заголовки/сообщение/
@@ -676,7 +677,8 @@ def build_l1_context(*, query, current_question: str = "",
         if bot_lines:
             sections.append((BOT_REPLIES_SECTION, "\n".join(bot_lines)))
         window_lines = render_window_lines(window, L1_WINDOW_MESSAGES,
-                                           with_ids=with_ids)
+                                           with_ids=with_ids,
+                                           alias_resolver=alias_resolver)
         if window_lines:
             sections.append(("ПОСЛЕДНИЕ СООБЩЕНИЯ", "\n".join(window_lines)))
         speaker = str(speaker or "неизвестно").strip()
@@ -793,7 +795,7 @@ def _cap_context(text: str, *, sections_budget, budget: int) -> str:
 
 
 def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
-                        with_ids: bool = False) -> list[str]:
+                        with_ids: bool = False, alias_resolver=None) -> list[str]:
     """§1.5: последние N сообщений окна → компактные строки
     ``имя: текст`` (кап на строку). Никогда не бросает.
 
@@ -801,12 +803,29 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
     идентификаторами и reply-связями (``[msg:ID] [user:UID] имя: текст
     (ответ на msg:N)``) — L1 выбирает цель reply/реакции ИЗ КОНТЕКСТА сама
     (та же конвенция разметки, что у окна наблюдателя). Прямой L1 (Direct)
-    продолжает получать прежний формат (with_ids=False по умолчанию)."""
+    продолжает получать прежний формат (with_ids=False по умолчанию).
+
+    ASAP 3 Corrective §4.2: ``alias_resolver`` — действующий per-chat
+    резолвер; отображаемое имя строки резолвится по известному user_id
+    (история/``author_name`` не переписываются). Без резолвера — прежний
+    формат (обратная совместимость тестов/вызовов)."""
     lines: list[str] = []
     try:
         rows = [r for r in (window or []) if isinstance(r, dict)]
         for row in rows[-max(0, int(limit)):]:
-            author = str(row.get("author_name") or "?").strip() or "?"
+            raw_author = str(row.get("author_name") or "").strip()
+            author = raw_author or "?"
+            try:
+                row_uid = row.get("user_id")
+                row_uid = int(row_uid) if row_uid is not None else None
+            except (TypeError, ValueError):
+                row_uid = None
+            if alias_resolver is not None and row_uid is not None:
+                try:
+                    author = str(alias_resolver.resolve(
+                        row_uid, raw_author or None, None))
+                except Exception:      # pragma: no cover - fail-open рендера
+                    author = raw_author or "?"
             body = _WS_RE.sub(" ", str(row.get("text") or "")).strip()
             if not body:
                 media = str(row.get("media_type") or "").strip()
@@ -819,11 +838,7 @@ def render_window_lines(window, limit: int = L1_WINDOW_MESSAGES, *,
                     msg_id = int(msg_id) if msg_id is not None else None
                 except (TypeError, ValueError):
                     msg_id = None
-                user_id = row.get("user_id")
-                try:
-                    user_id = int(user_id) if user_id is not None else None
-                except (TypeError, ValueError):
-                    user_id = None
+                user_id = row_uid
                 if msg_id is not None:
                     prefix = f"[msg:{msg_id}] "
                 if user_id is not None:

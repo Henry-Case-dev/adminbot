@@ -4191,7 +4191,8 @@ class DirectChatService:
             capabilities=available_caps,
             force_line="; ".join(p for p in _l1_condition_parts if p),
             persona_frame=str(character_block or ""),
-            bot_replies=tuple(bot_replies or ()))
+            bot_replies=tuple(bot_replies or ()),
+            alias_resolver=self.aliases)
         input_chars = len(context_text)
         messages = [
             {"role": "system", "content": system_prompt_l1},
@@ -8716,8 +8717,15 @@ class DirectChatService:
                         break
                 except (TypeError, ValueError):
                     continue
-            addressee_label = (f"участник {name} [user:{addressee_id}]"
-                               if name else f"участник [user:{addressee_id}]")
+            # ASAP 3 Corrective §4.2: адресат — действующий алиас по uid,
+            # исторический author_name только как nickname-фолбэк.
+            resolved = self.aliases.resolve(
+                addressee_id, name or None, None)
+            if resolved and str(resolved) != str(addressee_id):
+                addressee_label = (f"участник {resolved} "
+                                   f"[user:{addressee_id}]")
+            else:
+                addressee_label = f"участник [user:{addressee_id}]"
         task = (
             "Никто бота не звал: решается уместность ИНИЦИАТИВЫ. "
             f"Предложение наблюдателя (можешь отклонить; kind={kind or 'unknown'}, "
@@ -8740,7 +8748,7 @@ class DirectChatService:
             capabilities=(),
             force_line="; ".join(_init_conditions),
             persona_frame=persona_block, bot_replies=bot_replies,
-            with_ids=True)
+            with_ids=True, alias_resolver=self.aliases)
         messages = [
             {"role": "system",
              "content": resolve_prompt(
@@ -8805,7 +8813,8 @@ class DirectChatService:
             "</Initiative_Context>")
         # L1D: окно Writer с теми же [msg:N]/[user:UID] id, что видел L1, —
         # форма доставки из плана ссылается на конкретное сообщение.
-        window_block = _l1.render_window_lines(window, 12, with_ids=True)
+        window_block = _l1.render_window_lines(
+            window, 12, with_ids=True, alias_resolver=self.aliases)
         user_blocks = [context_block]
         if window_block:
             user_blocks.append("<Fresh_Chat_Window>\n" +
