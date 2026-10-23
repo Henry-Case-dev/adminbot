@@ -7,9 +7,11 @@
     мата и форматных правил; используется в L2 (composition head intact);
   * P0-B/C: Core full/compact = §3.2/§3.3 байт-в-байт; нет мат-регулирования
     и SOUL-* в model-facing; семантика Full↔Compact сверена деривацией;
-  * P0-D: EXPRESSION_HEADER/FOOTER = §3.4; режимы off/occasional/frequent
-    побуквенно прежние; в payload ровно эффективная ветка (не все три);
-    mode-блоки legacy (verbilizer_mode_*) не подтягиваются при плане;
+  * P0-D: EXPRESSION_HEADER/FOOTER = §3.4; режимы off/occasional побуквенно
+    прежние, frequent сверен с §3.4 как ступень PREV и заменён более поздним
+    указанием владельца (P0-E §6.3, 24.10.2026); в payload ровно эффективная
+    ветка (не все три); mode-блоки legacy (verbilizer_mode_*) не
+    подтягиваются при плане;
   * P0-E: альтернативные типографские правила («только дефис», «только ""»,
     «категорически запрещено «»») из Direct-канонов сняты; Style Policy —
     единственный владелец подачи; валидация/нормализация исходящих не
@@ -167,16 +169,35 @@ def test_p0bc_full_compact_semantics_kept():
 def test_p0d_expression_header_footer_and_modes_byte_exact():
     assert ex.EXPRESSION_HEADER == _fence("Новый `EXPRESSION_HEADER`")
     assert ex.EXPRESSION_FOOTER == _fence("Новый `EXPRESSION_FOOTER`")
-    # тексты режимов побуквенно прежние (§3.4: «не менять текст») — сверка
-    # по уникальным префиксам фенсов снапшота
+    # Тексты режимов §3.4: сверка по уникальным префиксам фенсов снапшота.
+    # off/occasional — побуквенно те же («не менять текст»), без изменений.
     fences = re.findall(r"```text\n(.*?)\n```", _src_text(), re.DOTALL)
     by_prefix = {f[:20]: f for f in fences}
     assert ex.PROFANITY_INSTRUCTIONS["off"] == \
         by_prefix[ex.PROFANITY_INSTRUCTIONS["off"][:20]]
     assert ex.PROFANITY_INSTRUCTIONS["occasional"] == \
         by_prefix[ex.PROFANITY_INSTRUCTIONS["occasional"][:20]]
-    assert ex.PROFANITY_INSTRUCTIONS["frequent"] == \
-        by_prefix[ex.PROFANITY_INSTRUCTIONS["frequent"][:20]]
+    # FREQUENT — единственная ветка, перекрытая ПОЗЖЕ: P0-E §6.3
+    # (plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md,
+    # 24.10.2026) требует, чтобы мат был привычной и заметной частью
+    # СОБСТВЕННОЙ речи, а не разрешением «в исключительных случаях».
+    # Поэтому байты §3.4 для этой ветки остаются в силе ровно как ступень
+    # лестницы PREV = прод-текст 23.10; действующий частый текст — замена
+    # владельца, а не «мягкая правка» снапшота.
+    assert ex.PREV_PROFANITY_FREQUENT_TEXT == \
+        by_prefix[ex.PREV_PROFANITY_FREQUENT_TEXT[:20]]
+    assert ex.PROFANITY_INSTRUCTIONS["frequent"] != \
+        ex.PREV_PROFANITY_FREQUENT_TEXT
+    # дельта ограничена одной веткой и одной формулировкой: остальные байты
+    # фенсов §3.4 уже сверены выше, байт-пин нового FREQUENT живёт в
+    # P0-E-тестах (test_samples_fewshot::test_section2_texts_are_byte_exact,
+    # test_add_exp_expression::test_owner_exact_texts_are_canon).
+    assert ex.PROFANITY_INSTRUCTIONS["frequent"].startswith(
+        "Пиши живым разговорным языком, в котором мат — привычная и "
+        "заметная часть твоей собственной речи.")
+    assert "исключительных случаях" not in \
+        ex.PROFANITY_INSTRUCTIONS["frequent"]
+    assert len(by_prefix) == len(fences)  # префиксы фенсов уникальны
     # служебные описания для разработчиков сняты (§1.4)
     assert "Выражение владельца" not in ex.EXPRESSION_HEADER
     assert "ПРАВИЛА МАНЕРЫ РЕЧИ" in ex.EXPRESSION_HEADER

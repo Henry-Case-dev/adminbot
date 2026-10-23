@@ -144,3 +144,63 @@ header (`EXPRESSION_HEADER`: «Прямую цитату передавай бе
    числа/выдержки сохранены в этом отчёте и в выводе прогона (сессия лейна).
 4. `prompt_migrations.py` не менялся: у Expression нет PG-канона текста (см. §4);
    менять его ради «ступени» значило бы создать второй источник настроек.
+
+## 9. Дельта снапшотов тестов после переписывания FREQUENT (2026-10-24)
+
+Причина: P0-E §6.3 — ПОЗДНЕЕ указание владельца, оно перекрывает §3.4 ASAP W1
+именно для ветки `frequent`. Два теста продолжали сверять действующий текст с
+более ранними документами и падали не из-за поведения, а из-за устаревшего
+ожидания. Прод-код, каноны и владельческие снапшоты НЕ правились.
+
+Замер (импорт `services.mca_expression`, снапшот
+`plans/features/asap-speech-arch/source-2026-10-22.md`):
+
+| факт | значение |
+|---|---|
+| фенсов в снапшоте §3.4 | 11, префиксы уникальны (11) |
+| `off` == фенс снапшота | True |
+| `occasional` == фенс снапшота | True |
+| `PREV_PROFANITY_FREQUENT_TEXT` == фенс снапшота | True (208 символов) |
+| действующий `frequent` == `PREV` | False (394 символа) |
+| sha12 | `fcfcf6fcea09` → `4b4100524a22` |
+| строка нового `frequent` в `add-exp/design-add-exp.md` | нет (там строка `PREV`) |
+
+То есть расхождение — ровно текст режима FREQUENT: старая формулировка
+(«выраженным использованием мата… привычная часть твоего словаря…») заменена
+владельческой («мат — привычная и заметная часть твоей собственной речи…
+всегда, а не изредка ради эффекта»). Байты `off`/`occasional`, header, footer и
+все прочие фенсы снапшота совпадают, поэтому дельта ограничена одной веткой и
+одной формулировкой.
+
+Правки (только тесты):
+
+1. `tests/test_asap_w1_semantics.py::test_p0d_expression_header_footer_and_modes_byte_exact`
+   — было: `PROFANITY_INSTRUCTIONS["frequent"] == §3.4-фенс` (`KeyError` по
+   префиксу «Пиши живым разговорн», т.к. в снапшоте «Пиши на живом разговор…»).
+   Стало: `off`/`occasional` — по-прежнему байт-в-байт из §3.4; `frequent` —
+   §3.4-фенс сверяется байт-в-байт как ступень `PREV`, действующий текст
+   отличается от неё и начинается с новой формулировки §6.3, при этом
+   «исключительных случаях» в нём отсутствует; добавлена проверка уникальности
+   префиксов фенсов. Обновлён docstring файла (P0-D).
+2. `tests/test_add_exp_expression.py::test_design_canonical_strings_match_module`
+   — было: строка `- Мат: <текущий frequent>` искалась в `design-add-exp.md`
+   (в дизайне лежит доменный текст до P0-E). Стало: анти-дрейф сохранён для
+   всех трёх режимов, где `frequent` сверяется через `PREV` (дизайн = прежняя
+   ступень), плюс негатив: строки нового `frequent` в старом дизайне быть не
+   должно.
+
+Байт-в-байт пин действующего FREQUENT не потерян и живёт в
+`test_samples_fewshot.py::test_section2_texts_are_byte_exact`,
+`test_add_exp_expression.py::test_owner_exact_texts_are_canon`,
+`test_unified_core_route_coverage.py::FREQ_LINE`.
+
+Прогоны: `test_asap_w1_semantics.py` — 21 passed; `test_p0_prompts_core.py` —
+9 passed; вместе 30 passed. Поддерживающие: `test_add_exp_expression.py` +
+`test_samples_fewshot.py` + `test_unified_core_route_coverage.py` — 70 passed;
+`test_p0e_expression_frequent.py` — 9 passed (в общем прогоне 42 с первыми
+двумя файлами). Сеть/прод/SSH не использовались.
+
+Коммит: test-only — `tests/test_asap_w1_semantics.py`,
+`tests/test_add_exp_expression.py` и этот отчёт (SHA — в handoff лейна,
+`git log -1 -- tests/test_asap_w1_semantics.py`).
+
