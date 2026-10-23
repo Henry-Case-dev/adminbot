@@ -197,6 +197,8 @@ POST содержит ровно `{"max_items": N}` (ключа `max_chars` не
 
 ### Повторные прогоны (кандидат ревью-фикса)
 
+Fix commit: `6c479ad281be13d454b23586366644a495801e0b`.
+
 ```text
 tests/ui_asap3_hint_speech_e2e.py                     PASS, 10 проверок
 tests/ui_p0a_ux_speech_compact_e2e.py                 failures=0, POST=22
