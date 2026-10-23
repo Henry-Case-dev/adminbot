@@ -213,12 +213,13 @@ async def test_react_delivery_event_records_actual_form(tmp_path):
         from services import mca_intents as mi
         mi.note_delivery_manifest(
             chat_id=CHAT, correlation_id="corr-react", message_id=None,
-            reply_to=654, delivery="react", delivery_form="react")
+            reaction_target=654, delivery="react", delivery_form="react")
         await mca_events.flush_events(db)
         row = (await _rows(db, "initiative_delivery_manifest"))[-1]
         tokens = _tokens(row)
         assert "form:react" in tokens
-        assert "reply:654" in tokens
+        assert "react_target:654" in tokens      # цель реакции, НЕ reply
+        assert "reply:-" in tokens
         assert "msg:-" in tokens
     finally:
         await db.close()
@@ -237,6 +238,44 @@ async def test_scalar_entity_id_is_persisted_as_correlation(tmp_path):
         await mca_events.flush_events(db)
         row = (await _rows(db, "initiative_sent"))[-1]
         assert row["trace_id"] == "a1b2c3d4e5f60718"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_non_initiative_entity_id_does_not_become_trace(tmp_path):
+    """Ревью MEDIUM: §17.1 не смещается — intent/capability-id не едет в
+    `trace_id` у неинициативных событий."""
+    db = await _db(tmp_path)
+    try:
+        for name in ("intent_fulfilled", "capability_registry"):
+            mca_events.emit_mca_event(name, outcome="success",
+                                      component="intents", chat_id=CHAT,
+                                      reason_code="intent_fulfilled",
+                                      entity_id="intent-abc123")
+        await mca_events.flush_events(db)
+        for name in ("intent_fulfilled", "capability_registry"):
+            row = (await _rows(db, name))[-1]
+            assert row["trace_id"] is None, name
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_unset_l1_delivery_is_recorded_as_unknown(tmp_path):
+    """G1-остаток ревью: пустая форма от L1 — не молчание, а `unknown`."""
+    db = await _db(tmp_path)
+    try:
+        from services import mca_intents as mi
+        mi.note_decision(
+            _Decision(), chat_id=CHAT, outcome="cancelled",
+            reason_code="direct_pending", action="reply", delivery="",
+            delivery_kind="text", correlation_id="feed1234")
+        await mca_events.flush_events(db)
+        row = (await _rows(db, "initiative_decided"))[-1]
+        assert "delivery:unknown" in _tokens(row)
+        assert row["trace_id"] == "feed1234"
+        assert row["status"] == "reply.text"
     finally:
         await db.close()
 

@@ -14,7 +14,7 @@ enum/числа), текста сообщений в payload нет.
 | G3 | `reply:<tg_id>`, `delivery:`, `form:`, `mismatch:` + заполненный `config_version` | `initiative_delivery_manifest.entity_ids/config_version` | `mca_intents.note_delivery_manifest` |
 | G4 | фактический `parent_message_ref = tg:<id>` | `mca_bot_outputs.parent_message_ref` | ledger-call site инициативы |
 | G5 | `target_invalid/missing/no_tg_id/stale/addressee_mismatch/unavailable/gone` | `mca_events.reason_code` | whitelist `mca_events.REASON_CODES` (+7) |
-| G6 | correlation Observer-событий | `mca_events.trace_id` | `_insert_event` (fallback при пустом `trace_id`) |
+| G6 | correlation Observer-событий **только инициативы** | `mca_events.trace_id` | `_insert_event` (fallback при пустом `trace_id`, ограничен `initiative_decided/sent/reacted`) |
 | G7 | фактическая форма `form:chat|reply|react` в существующем событии доставки | `initiative_delivery_manifest.entity_ids` | send-путь и `_execute_initiative_react` |
 
 Новых таблиц/колонок/событий/LLM-вызовов нет. Чтение старых событий
@@ -41,7 +41,21 @@ enum/числа), текста сообщений в payload нет.
                "reply:1169990","delivery:reply","form:reply","mismatch:none"]}
 ```
 
-Реакция (без текста, тот же слайс): `form:react`, `reply:<tg_id>`, `msg:-`.
+Реакция (без текста, тот же слайс): `form:react`, `react_target:<tg_id>`,
+`reply:-`, `msg:-` — цель реакции не выдаётся за Telegram-reply.
+
+## Правки после ревью `init-delivery-telemetry-review.md`
+
+1. **BLOCKER:** пятый устаревший пин `REASON_CODES` (`test_mca10b_random_
+   applications_block_a_round1041.py:270`) обновлён 302 → 309 — файл целиком
+   17 passed.
+2. **MEDIUM (contract drift):** `entity_id → trace_id` ограничен только
+   `initiative_decided`/`initiative_sent`/`initiative_reacted`; неинициативные
+   события (`intent_fulfilled`, `capability_registry`, эпизоды/опыт) сохраняют
+   §17.1-семантику (`trace_id = NULL`). Закреплено тестом.
+3. **Minor:** пустая `l1_plan.delivery` → `delivery:unknown` (не молчание);
+   cancelled-ветка `proceed == False` пишет `corr:`/`trace_id`; у реакции
+   отдельный токен `react_target:` (reply не подменяется).
 
 ## Ключевые технические решения (и почему не иначе)
 
@@ -59,9 +73,11 @@ enum/числа), текста сообщений в payload нет.
    Компактный формат `core.<rev8>_style.<rev8>_ident.<rev6>_man.<rev8>_c.<on>`
    укладывается в оба предела; полные ревизии остаются в токенах.
 4. **G6: буквальный «`entity_id` в insert-колонки» невозможен без DDL** (колонки
-   `entity_id` в `mca_events` нет). Значение не теряется: при пустом `trace_id`
-   оно пишется в `trace_id` (корреляционная колонка контракта). Это сознательное
-   отступление от буквы пункта в пользу жёсткой рамки «без DDL/новых таблиц».
+   `entity_id` в `mca_events` нет). Значение не теряется: для инициативных
+   событий при пустом `trace_id` оно пишется в `trace_id` (корреляционная
+   колонка контракта). Это сознательное отступление от буквы пункта в пользу
+   жёсткой рамки «без DDL/новых таблиц»; после ревью область сужена до трёх
+   инициативных событий, чтобы не смещать семантику §17.1.
 5. **G7: реакция использует тот же delivery-event** (`form:react`, `msg:-`,
    ревизии пусты) — событие не новое, распределение chat/reply/react считается
    одним запросом по `form:`.
@@ -74,22 +90,25 @@ enum/числа), текста сообщений в payload нет.
 
 ## Тесты (числа)
 
-* Новый `tests/test_initiative_delivery_telemetry.py` — **11 passed**
+* Новый `tests/test_initiative_delivery_telemetry.py` — **13 passed**
   (решение с формой/целями/correlation; react ≠ reply; `target_*` whitelist;
-  `form/reply/mismatch`; заполненный `config_version`; `entity_id → trace_id`;
-  чтение legacy-событий; реальный send-путь: `tg:…` в ledger, mismatch
+  `form/reply/react_target/mismatch`; заполненный `config_version`;
+  `entity_id → trace_id` только для инициативы; чтение legacy-событий;
+  `delivery:unknown`; реальный send-путь: `tg:…` в ledger, mismatch
   «reply → chat»).
-* Обязанный прогон `tests/test_*initiative*` + `test_mca*events*` — **120 passed**.
+* Обязанный прогон `tests/test_*initiative*` + `test_mca*events*` — **122 passed**.
 * Затронутые смежные: `test_asap8_initreply_binding`, `test_mca09_intents_block_c/e`,
-  `test_soul1_w5_observer_gates`, пины словаря `test_mca17c_invariants`,
-  `test_mca19_block_f`, `test_mca20_integration`, `test_mca20_rework1` —
-  **131 passed, 1 pre-existing failure** (`TestValidatorStage.
+  `test_soul1_w5_observer_gates`, пять пинов словаря
+  (`test_mca10b_block_a`, `test_mca17c_invariants`, `test_mca19_block_f`,
+  `test_mca20_integration`, `test_mca20_rework1`) — **147 passed,
+  1 pre-existing failure** (`TestValidatorStage.
   test_evidence_injection_stays_data_not_instructions` — воспроизведён на
   чистом `HEAD` в отдельном worktree, к этой правке не относится).
+  `test_mca17c_invariants` + `test_asap8_initreply_binding` — **22 passed**.
 * `test_asap8_v63_w3_analytics_viz`, `test_asap8_v6_c06a_status_ui`,
   `test_p0_initfix_initiative_observer` — **20 passed**.
 
-Пины `len(REASON_CODES) == 302` обновлены до `309` в четырёх файлах
+Пины `len(REASON_CODES) == 302` обновлены до `309` в пяти файлах
 (санкция — G5 этого аудита, +7 `target_*`; комментарии-санкции не переписаны).
 
 ## Что останется измерить после деплоя

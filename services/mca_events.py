@@ -671,17 +671,29 @@ _MCA_EVENTS_INSERT_SQL = (
     + ") VALUES (" + ",".join("?" * len(_MCA_EVENTS_INSERT_COLS)) + ")")
 
 
+#: G6 (аудит 24.10.2026): у этих событий `entity_id` — correlation инициативы
+#: (Observer передаёт туда correlation_id). Только для них допускается
+#: перенос в `trace_id`; остальные события сохраняют §17.1-семантику
+#: (`trace_id` = run/correlation, intent/episode/capability id туда не едут).
+_ENTITY_ID_CORRELATION_EVENTS = frozenset({
+    "initiative_decided", "initiative_sent", "initiative_reacted",
+})
+
+
 async def _insert_event(conn, ev: dict) -> None:
     """Вставить событие (v19-колонки, nullable=честный unknown).
 
     G6 (аудит 24.10.2026): скалярный `entity_id` — correlation Observer-событий
-    (`initiative_sent`/`initiative_reacted`). Отдельной колонки `entity_id` в
-    `mca_events` нет, нового DDL в этой правке нет, поэтому значение не
+    инициативы. Отдельной колонки `entity_id` в `mca_events` нет, нового DDL в
+    этой правке нет, поэтому для ТОЛЬКО инициативных событий значение не
     теряется: при пустом `trace_id` оно едет в `trace_id` (по контракту §17.1
-    `trace_id` = run_id/correlation_id). Заполненный `trace_id` приоритетнее."""
+    `trace_id` = run_id/correlation_id). Заполненный `trace_id` приоритетнее;
+    прочие события (`intent_*`, `capability_*`, episodes/experience) не
+    переинтерпретируются."""
     row = ev
     entity_id = ev.get("entity_id")
-    if entity_id and not ev.get("trace_id"):
+    if (entity_id and not ev.get("trace_id")
+            and ev.get("event_name") in _ENTITY_ID_CORRELATION_EVENTS):
         row = dict(ev)
         row["trace_id"] = entity_id
     await conn.execute(_MCA_EVENTS_INSERT_SQL,
