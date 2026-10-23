@@ -302,6 +302,32 @@ def test_total_fallback_failure_logs_every_attempt():
     composer.reset_state()
 
 
+def test_generate_chat_total_failure_logs_every_attempt():
+    """review r3: tool-calling fallback-провал — журнал фиксирует ВСЕ попытки."""
+    composer.reset_state()
+    bodies: list = []
+    client = _TraceClient(bodies, primary_status=500, fallback_active=True,
+                          primary_retries=1, fallback_retries=1,
+                          fallback_status=500)
+    with pytest.raises(llm_client.LLMError):
+        asyncio.run(client.generate_chat(
+            [{"role": "system", "content": "S"}, {"role": "user", "content": "Q"}],
+            tools=[{"type": "function", "function": {"name": "search"}}],
+            chat_id=-100500, module="direct_chat", step="stage1",
+            correlation_id="cid-chat-fail"))
+    assert len(bodies) == 4, "2 primary + 2 fallback HTTP-попытки"
+    calls = composer.provider_calls(chat_id=-100500, limit=10)
+    assert len(calls) == 4, "каждая фактическая попытка в журнале"
+    assert [c["channel"] for c in reversed(calls)] == \
+        ["primary", "primary", "fallback", "fallback"]
+    assert all(c["status"] == "error" for c in calls)
+    last = composer.last_provider_call(chat_id=-100500)
+    assert last["channel"] == "fallback"
+    assert last["manifest_checksum"] == composer.payload_checksum(
+        _last_body(bodies))
+    composer.reset_state()
+
+
 def test_generate_chat_empty_content_is_logged_as_error():
     """review r2 F3: 200 + content=null — попытка не теряется, статус error."""
     composer.reset_state()

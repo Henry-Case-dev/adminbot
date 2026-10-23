@@ -1689,7 +1689,9 @@ class LLMClient:
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
-            self._record_sent_call(
+            # INS-TRACE: все фактические попытки primary (ретраи видны),
+            # а не только последнее тело — как в generate().
+            self._record_sent_attempts(
                 sent, payload=payload, messages=messages, module=module,
                 step=step, correlation_id=correlation_id, chat_id=chat_id,
                 status="error", error=type(exc).__name__)
