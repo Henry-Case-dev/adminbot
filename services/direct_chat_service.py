@@ -4166,6 +4166,8 @@ class DirectChatService:
             window = await self.memory.get_window_messages(chat_id)
         except Exception:
             window = []
+        # T10-BOUNDARY: честная граница истории (факт из БД, не эвристика).
+        history_partial = await self._history_partial(chat_id, window)
         # §1.4: список доступных capability (по активному набору tools).
         try:
             announced = {t["function"]["name"] for t in
@@ -4211,6 +4213,7 @@ class DirectChatService:
             force_line="; ".join(p for p in _l1_condition_parts if p),
             persona_frame=str(character_block or ""),
             bot_replies=tuple(bot_replies or ()),
+            history_partial=history_partial,
             alias_resolver=self.aliases)
         input_chars = len(context_text)
         messages = [
@@ -5502,6 +5505,27 @@ class DirectChatService:
 
     # ── ASAP-3 (round 1028, ADR-1028-2 D3–D7): Direct Context Composer ────
 
+    async def _history_partial(self, chat_id: int, window: list) -> bool:
+        """ASAP2 T10-BOUNDARY / CLAR-CTX-HONEST: ФАКТ «в сохранённой истории
+        есть сообщения старше начала видимого окна».
+
+        Источник — существующий read-only `Database.get_smart_raw` (ровно
+        одна строка), без новых анализаторов, порогов и таблиц. Окно уже
+        ограничено вызывающим (`get_window_messages`), поэтому любая строка
+        старше самого раннего видимого сообщения = истории не видно.
+        Fail-open: ошибка/неожиданный тип → False (пометки нет)."""
+        try:
+            window = list(window or ())
+            oldest = min(int(row["timestamp"] or 0) for row in window) \
+                if window else int(time.time()) + 1
+            older = await self.db.get_smart_raw(
+                chat_id, older_than_ts=oldest, limit=1)
+            return isinstance(older, list) and bool(older)
+        except Exception:
+            logger.warning("direct: history boundary check failed | chat=%s",
+                           chat_id, exc_info=True)
+            return False
+
     async def _build_global_context_parts(
             self, chat_id: int, window: list, roster: list | None = None,
             suffix_map: dict[int, str] | None = None,
@@ -5594,8 +5618,12 @@ class DirectChatService:
                     row, suffix_map, trigger_message_id=trigger_message_id)
                 for row in tail_rows]
             if tail_rows:
+                _scope = ""
+                if await self._history_partial(chat_id, window):
+                    _scope = f" ({_l1.HISTORY_PARTIAL_INLINE})"
                 parts["head_lines"].append(
-                    f"фон: дословно последние {len(tail_rows)} сообщений")
+                    f"фон: дословно последние {len(tail_rows)} сообщений"
+                    f"{_scope}")
         return parts
 
     def _composer_truncate(self, piece, limit_tokens: int) -> str:

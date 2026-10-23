@@ -1,0 +1,16 @@
+{
+ "t20_step1_class": "clarification",
+ "t20_step1_target": "какой отчёт нужен",
+ "t20_step1_question": "Какой отчёт нужен?",
+ "t20_step2_class": "clarification",
+ "t20_step2_plan": {
+  "action": "reply",
+  "response_act": "clarification",
+  "capabilities_needed": [],
+  "needs_clarification": true,
+  "clarification_target": "тип отчёта",
+  "confidence": 0.55
+ },
+ "t10_l2_text": "Обсуждали ремонт санузла: Кирилл разобрал его до ремонта за час, а сборка заняла неделю, Маша заметила, что демонтаж всегда быстрый. Взяли серо-голубую плитку под бетон, а Маша сказала, что взяла бы матовую.",
+ "calls": 4
+}
