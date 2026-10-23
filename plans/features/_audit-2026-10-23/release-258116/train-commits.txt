@@ -1,0 +1,19 @@
+﻿5b31d399 chore(release-258116): bump 2.58.115 -> 2.58.116 (31-file proc set SET EQUAL proc-114, F8-meta HEAD=3f0da7c8, deltaDDL=0)
+3f0da7c8 fix(soul1): re-record OFF parity baseline for R3/R3B canons (13 passed)
+d47c2aab fix(inspector): mask style hints, log every failed attempt and chat/background error probes (review r2)
+train code/test/plans files:
+plans/features/_audit-2026-10-23/release-258116/after/raw-sections.json
+plans/features/_audit-2026-10-23/release-258116/diff.md
+plans/features/_audit-2026-10-23/release-258116/parity-after.txt
+plans/features/_audit-2026-10-23/release-258116/parity-base-regen.txt
+plans/features/_audit-2026-10-23/release-258116/parity-before.txt
+plans/features/_audit-2026-10-23/release-258116/rerecord_parity.py
+plans/features/_audit-2026-10-23/release-258116/verify-delta.txt
+plans/features/_audit-2026-10-23/release-258116/verify_delta.py
+plans/features/asap-speech-arch/evidence/inspector-exact.md
+services/llm_client.py
+services/prompt_composer.py
+tests/fixtures/soul1/direct-runtime-assembly-asap2.txt
+tests/test_soul1_composer_parity_off.py
+tests/test_speech_inspector_exact.py
+web/api/speech.py

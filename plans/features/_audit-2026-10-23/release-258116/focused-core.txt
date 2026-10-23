@@ -1,0 +1,15 @@
+﻿REL-258116 focused core (candidate 5b31d399, pre-bump 3f0da7c8)
+tests/test_soul1_composer_parity_off.py :: rc=0 :: 13 passed in 10.44s
+tests/test_speech_inspector_exact.py :: rc=0 :: 16 passed, 1 warning in 4.19s
+tests/test_llm_client.py :: rc=0 :: 115 passed in 4.64s
+tests/test_asap3_hidden_limits.py :: rc=0 :: 13 passed in 3.53s
+tests/test_asap3_identity_aliases.py :: rc=0 :: 22 passed in 4.30s
+tests/test_asap2_boundary_marker.py :: rc=0 :: 8 passed in 3.50s
+tests/test_round1025_f8_registry.py :: rc=0 :: 29 passed in 4.02s
+tests/test_asap7_f9_help_resync.py :: rc=0 :: 21 passed in 3.65s
+tests/test_asap8_v6_d14_help_sync.py :: rc=0 :: 24 passed in 4.27s
+tests/test_prompt_migrations.py :: rc=0 :: 43 passed in 4.01s
+tests/test_asap2_clar_contract.py :: rc=0 :: 24 passed in 3.98s
+tests/test_asap_speech_r3b_canon.py :: rc=0 :: 7 passed in 3.43s
+tests/test_direct_l1_corrective_r1.py :: rc=0 :: 12 passed in 3.86s
+tests/test_expression_isolation_followup.py :: rc=0 :: 4 passed in 3.49s

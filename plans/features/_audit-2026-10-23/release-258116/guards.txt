@@ -1,0 +1,35 @@
+REL-258116 guards — консолидированный журнал (24.10.2026)
+
+Интерпретатор: C:\Code\Python\adminbot\.venv\Scripts\python.exe
+  (Python 3.12.0, aiogram 3.31.0)
+Worktree: C:\Code\Python\adminbot-wt258115
+Base: e5e32179 (release/2.58.115, 2.58.115); pre-bump: 3f0da7c8; bump: 5b31d399.
+Node: v24.16.0.
+
+[PASS] bump-verify ..................... files=31 pairs=33, non-token NONE, CHECK OK (bump-verify.txt)
+[PASS] F8 generator --check ............ 582 == REGISTRY, карта полна, R17-чисто, EXIT 0 (gen-param-check.txt)
+[PASS] factory fingerprint ............. 2.58.116 0163a686c401 0163a686c401 (frozen-fingerprint.txt)
+[PASS] F8 pins ......................... 29 passed (focused-core.txt)
+[PASS] frozen canon pins ............... prompt_migrations 43 + clar_contract 24 + r3b 7 + corrective 12 + expression 4 (focused-core.txt)
+[PASS] pins24 .......................... 868 passed / 0 failed, 72.74s (pins24-full.txt)
+[PASS] help-sync ....................... 21 + 24 passed (focused-core.txt)
+[PASS] JS-unit (node --test) ........... 90 pass / 0 fail (js-pins-node.txt)
+[PASS] node pins + mini-lens ........... 5/5 rc=0 (js-pins-node.txt)
+[PASS] JS syntax sweep ................. 90 files / 0 bad (js-pins-node.txt)
+[PASS] py_compile changed py ........... 32 files / 0 bad (py-compile.txt)
+[PASS] frozen UI assets ................ web/index.html + app.js + static/ — 0 changed (frozen-assets.txt)
+[PASS] delta DDL ....................... 0 hits in prod perimeter e5e32179..5b31d399 (ddl-check.txt)
+[PASS] test_soul1_composer_parity_off .. 13 passed (было 5 failed / 8 passed на базе) (focused-core.txt)
+[PASS] test_speech_inspector_exact ..... 16 passed (focused-core.txt)
+[PASS] test_llm_client ................. 115 passed (focused-core.txt)
+[PASS] test_asap3_hidden_limits ........ 13 passed (focused-core.txt)
+[PASS] test_asap3_identity_aliases ..... 22 passed (focused-core.txt)
+[PASS] test_asap2_boundary_marker ...... 8 passed (focused-core.txt)
+[PASS] UI e2e inspector ................ checks=142 failures=0 (e2e-inspector.txt)
+[PASS] W4 UI e2e ....................... failures=0, POST=8, notes=163 (e2e-w4.txt)
+[PASS] ASAP3 hint e2e .................. PASS: 10 проверок (e2e-asap3-hint.txt)
+[PASS] parity delta proof .............. 30/30 checks, ALL CHECKS PASS (verify-delta.txt, diff.md)
+[PASS] mutation witness ................ 2/2 DETECTED, restored green (mutation-witness.txt)
+
+Не выполнено (не входит в brief): полный repository-wide pytest, deploy/restart,
+live/e2e на проде.

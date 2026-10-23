@@ -1,0 +1,4 @@
+﻿[matrix] config stub: items=580 groups=120
+[matrix] chat-╨▓╨░╤А╨╕╨░╨╜╤В config: override items=119
+[asap3-hint-e2e] webroot = C:\Code\Python\adminbot-wt258115\web
+[asap3-hint-e2e] PASS: 10 ╨┐╤А╨╛╨▓╨╡╤А╨╛╨║

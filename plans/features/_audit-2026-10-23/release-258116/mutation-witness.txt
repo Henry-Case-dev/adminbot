@@ -1,0 +1,4 @@
+﻿baseline P4: rc=0 | 1 passed in 3.28s
+MUT1 P4 SYSTEM body char: rc=1 | 1 failed in 3.39s | DETECTED
+MUT2 P2 SYSTEM sha line: rc=1 | 1 failed in 3.33s | DETECTED
+restored P4: rc=0 | 1 passed in 3.22s
