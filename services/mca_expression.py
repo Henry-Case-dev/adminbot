@@ -405,13 +405,18 @@ class ExampleRender(str):
                 "chars": len(self)}
 
 
-def render_expression_examples_block(mode: str, rows: Any) -> ExampleRender:
+def render_expression_examples_block(mode: str, rows: Any, *,
+                                     available_items: int | None = None
+                                     ) -> ExampleRender:
     """Блок ``<Expression_Examples mode="…">`` из строк библиотеки (§3.2).
 
     Бюджет ≤140 токенов: при перерасходе отбрасываются последние строки
     (блок всегда остаётся корректно закрытым); пустой результат → ``""``.
     ASAP3 §2: отбор/бюджет не молчат — фактический состав едет в
     :class:`ExampleRender` (``total_items``/``included_items``/``limited_by``).
+    ``available_items`` — сколько подходящих одобренных строк было у владельца
+    ДО лимита резолвера (§3.2, 4 строки): без него ``total_items`` описывал бы
+    только остаток после отбора и потеря 5..N снова стала бы невидимой (#13).
     """
     mode = normalize_mode(mode)
     if mode not in ("off", "occasional", "frequent"):
@@ -426,9 +431,10 @@ def render_expression_examples_block(mode: str, rows: Any) -> ExampleRender:
         candidates.append(f"- {theme}: {user_line} -> {reply}")
     if not candidates:
         return ExampleRender("")
+    total_items = max(len(candidates), int(available_items or 0))
     lines = candidates[:EXPRESSION_EXAMPLES_MAX_ITEMS]
     reasons: list[str] = []
-    if len(candidates) > len(lines):
+    if total_items > len(lines):
         reasons.append("items")
 
     def _assemble(kept: list[str]) -> str:
@@ -449,7 +455,7 @@ def render_expression_examples_block(mode: str, rows: Any) -> ExampleRender:
         lines.pop()
         block = _assemble(lines) if lines else ""
     return ExampleRender(
-        block, mode=mode, total_items=len(candidates),
+        block, mode=mode, total_items=total_items,
         included_items=len(lines), limited_by="+".join(dict.fromkeys(reasons)))
 
 
@@ -475,9 +481,14 @@ async def build_expression_examples_refs(chat_id: int, mode: str, *,
         if not mca_gates.expression_examples_enabled():
             return ()
         from services import mca_sample_library as lib
-        rows, reason = await lib.resolve_expression_examples_ex(chat_id, mode,
-                                                                db=db)
-        text = render_expression_examples_block(mode, rows)
+        resolve_stats: dict = {}
+        rows, reason = await lib.resolve_expression_examples_ex(
+            chat_id, mode, db=db, stats=resolve_stats)
+        # ASAP3 §2 (#13): total — из резолвера (до его лимита §3.2), иначе
+        # render видит только ≤4 строки и «kept=4/4» скрывает потерю.
+        text = render_expression_examples_block(
+            mode, rows, available_items=int(resolve_stats.get("eligible", 0)
+                                            or 0))
         if not text.strip():
             if reason == "not_owner_approved":
                 # BLOCK-1/§3.3: строки режима ЕСТЬ, но ни одна не утверждена
