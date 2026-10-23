@@ -97,6 +97,11 @@ def policy_for(*presets, context="regular", extent="", rules=(), soft=()):
                                     None, context=context, extent=extent)
 
 
+def outcome_for(results, kind):
+    """Исход правила конкретного kind: заводское ``dash`` идёт первым."""
+    return next(row for row in results if row.kind == kind)
+
+
 # ═══ модель данных и реестр правил (SOUL-16.1.4/16.1.5) ═════════════════════
 
 REQUIRED_FIELDS = ("id", "kind", "params", "strictness", "scope", "enabled",
@@ -164,17 +169,19 @@ def test_hard_rule_is_executed_and_soft_is_writer_instruction_only():
                               "strictness": "hard", "reason": "r"}])
     text, results = sp.StylePolicyValidator(hard).run("Ну да, логично.")
     assert text == "Ну да, логично"
-    assert results[0].status == sp.STATUS_REPAIRED
+    assert outcome_for(results, "trailing_period").status == sp.STATUS_REPAIRED
 
     soft = policy_for(rules=[{"id": "p.soft", "kind": "trailing_period",
                               "strictness": "soft", "reason": "r"}])
     text2, results2 = sp.StylePolicyValidator(soft).run("Ну да, логично.")
     assert text2 == "Ну да, логично."            # soft не правит байты
-    assert results2[0].status == sp.STATUS_NA
-    assert results2[0].reason == "soft_habit_writer_only"
-    assert dict(results2[0].detail)["observed"] == "trailing_period"
-    # Различие видно в политике: hard_kinds vs soft_kinds.
-    assert soft.hard_kinds == () and soft.soft_kinds == ("trailing_period",)
+    soft_row = outcome_for(results2, "trailing_period")
+    assert soft_row.status == sp.STATUS_NA
+    assert soft_row.reason == "soft_habit_writer_only"
+    assert dict(soft_row.detail)["observed"] == "trailing_period"
+    # Различие видно в политике: hard_kinds vs soft_kinds (dash — заводское).
+    assert soft.soft_kinds == ("trailing_period",)
+    assert "dash" in soft.hard_kinds
 
 
 def test_hint_carries_hard_and_soft_wording_separately():
@@ -199,8 +206,9 @@ def test_quotation_marks_unicode_classes_are_removed_safely(text, expected):
     policy = policy_for("no_quotes")
     out, results = sp.StylePolicyValidator(policy).run(text)
     assert out == expected
-    assert results[0].status == sp.STATUS_REPAIRED
-    assert results[0].reason == "ironic_quotes_removed"
+    row = outcome_for(results, "quotation_marks")
+    assert row.status == sp.STATUS_REPAIRED
+    assert row.reason == "ironic_quotes_removed"
 
 
 def test_apostrophe_and_technical_literals_are_not_quotes():
@@ -211,7 +219,8 @@ def test_apostrophe_and_technical_literals_are_not_quotes():
                  'Код: print("hi")'):
         out, results = validator.run(text)
         assert out == text, text
-        assert results[0].status == sp.STATUS_PASS, (text, results[0])
+        row = outcome_for(results, "quotation_marks")
+        assert row.status == sp.STATUS_PASS, (text, row)
 
 
 def test_multiword_quote_is_not_blindly_removed_and_not_declared_pass():
@@ -220,8 +229,9 @@ def test_multiword_quote_is_not_blindly_removed_and_not_declared_pass():
     text = "Он сказал «база это сила», и все согласились"
     out, results = sp.StylePolicyValidator(policy).run(text)
     assert out == text, "многословная цитата не переписана вслепую"
-    assert results[0].status == sp.STATUS_CONFLICT
-    assert results[0].reason == "quotes_require_rephrase"
+    row = outcome_for(results, "quotation_marks")
+    assert row.status == sp.STATUS_CONFLICT
+    assert row.reason == "quotes_require_rephrase"
 
 
 def test_verbatim_quote_is_exempted_not_broken():
@@ -232,7 +242,8 @@ def test_verbatim_quote_is_exempted_not_broken():
     statuses = {r.kind: r.status for r in results}
     assert statuses["quotation_marks"] == sp.STATUS_EXEMPTED
     assert statuses["trailing_period"] == sp.STATUS_EXEMPTED
-    assert {r.reason for r in results} == {"protected_verbatim"}
+    assert {r.reason for r in results if r.kind != "dash"} == {
+        "protected_verbatim"}
 
 
 # ═══ завершающая точка (SOUL-16.3.1-16.3.3) ════════════════════════════════
@@ -241,14 +252,16 @@ def test_trailing_period_message_final_only():
     policy = policy_for("no_trailing_period")
     validator = sp.StylePolicyValidator(policy)
     out, results = validator.run("Ну да, логично.")
-    assert out == "Ну да, логично" and results[0].status == sp.STATUS_REPAIRED
+    assert out == "Ну да, логично" and outcome_for(
+        results, "trailing_period").status == sp.STATUS_REPAIRED
     out2, results2 = validator.run("Да, конечно. Вот почему")
     assert out2 == "Да, конечно. Вот почему"
-    assert results2[0].status == sp.STATUS_PASS
+    assert outcome_for(results2, "trailing_period").status == sp.STATUS_PASS
     for keep in ("Правда?", "Да!", "Да 🎉", "Текст…", "Текст..."):
         out3, res3 = validator.run(keep)
         assert out3 == keep, keep
-        assert res3[0].status in (sp.STATUS_PASS, sp.STATUS_EXEMPTED), keep
+        assert outcome_for(res3, "trailing_period").status in (
+            sp.STATUS_PASS, sp.STATUS_EXEMPTED), keep
 
 
 def test_protected_spans_are_never_damaged_by_period_rule():
@@ -265,8 +278,8 @@ def test_protected_spans_are_never_damaged_by_period_rule():
     for text, fragment in cases.items():
         out, results = validator.run(text)
         assert fragment in out, (text, out)
-        assert results[0].status in (sp.STATUS_PASS, sp.STATUS_EXEMPTED,
-                                     sp.STATUS_REPAIRED), text
+        assert outcome_for(results, "trailing_period").status in (
+            sp.STATUS_PASS, sp.STATUS_EXEMPTED, sp.STATUS_REPAIRED), text
     # Точка внутри URL/версии/кода не удалена.
     assert "example.org/path" in validator.run(
         "Смотри https://example.org/path.")[0]
@@ -329,7 +342,7 @@ def test_json_payload_is_never_damaged_by_form_rules(raw, fragment):
 def test_only_unprotected_trailing_period_changes_in_mixed_payload():
     """Смешанный payload: не защищена ровно завершающая точка."""
     policy = policy_for("no_quotes", "no_trailing_period")
-    raw = 'Данные: {"note": "ok"} — вот.'
+    raw = 'Данные: {"note": "ok"}, вот.'
     out, results = sp.StylePolicyValidator(policy).run(raw)
     assert out == raw[:-1], (raw, out)          # изменён ТОЛЬКО финальный знак
     by_kind = {r.kind: r.status for r in results}
@@ -347,15 +360,15 @@ def test_unparseable_machine_payload_is_exempted_not_mangled(raw):
     policy = policy_for("no_quotes", "no_trailing_period")
     out, results = sp.StylePolicyValidator(policy).run(raw)
     assert out == raw, (raw, out)
-    assert results[0].status in (sp.STATUS_EXEMPTED, sp.STATUS_CONFLICT), \
-        results[0]
-    assert results[0].reason in ("protected_verbatim",
-                                 "quotes_require_rephrase"), results[0]
+    row = outcome_for(results, "quotation_marks")
+    assert row.status in (sp.STATUS_EXEMPTED, sp.STATUS_CONFLICT), row
+    assert row.reason in ("protected_verbatim",
+                          "quotes_require_rephrase"), row
 
 
 def test_overlapping_spans_merge_to_widest_protection():
     """Перекрытие сегментов расширяет защиту, а не сужает её (F1)."""
-    text = 'Код: print("hi") и данные {"a": {"b": [1, 2]}} — всё.'
+    text = 'Код: print("hi") и данные {"a": {"b": [1, 2]}} и всё.'
     spans = sp.segment(text)
     protected = sp.protected_ranges(spans)
     start = text.index('{"a"')
@@ -374,20 +387,20 @@ def test_emoji_rule_removes_plain_emoji_and_keeps_protected():
     policy = policy_for("no_emoji")
     out, results = sp.StylePolicyValidator(policy).run("Ответ 😀 и точка 🎉")
     assert "😀" not in out and "🎉" not in out
-    assert results[0].status == sp.STATUS_REPAIRED
+    assert outcome_for(results, "emoji").status == sp.STATUS_REPAIRED
     code = sp.StylePolicyValidator(policy).run("Код: `x = '😀'`")
     assert code[0] == "Код: `x = '😀'`"
-    assert code[1][0].status == sp.STATUS_EXEMPTED
+    assert outcome_for(code[1], "emoji").status == sp.STATUS_EXEMPTED
 
 
 def test_forbidden_chars_and_line_breaks_rules():
     policy = policy_for(rules=[
         {"id": "p.chars", "kind": "forbidden_chars", "strictness": "hard",
-         "params": {"chars": ["—"]}, "reason": "r"},
+         "params": {"chars": ["·"]}, "reason": "r"},
         {"id": "p.br", "kind": "line_breaks", "strictness": "hard",
          "params": {"max_breaks": 1}, "reason": "r"}])
-    out, results = sp.StylePolicyValidator(policy).run("Раз — два\n\n\nтри")
-    assert "—" not in out
+    out, results = sp.StylePolicyValidator(policy).run("Раз · два\n\n\nтри")
+    assert "·" not in out
     assert "\n\n\n" not in out, "пустые прогоны должны схлопываться"
     by_kind = {r.kind: r.status for r in results}
     assert by_kind["forbidden_chars"] == sp.STATUS_REPAIRED
@@ -402,8 +415,9 @@ def test_line_breaks_conflict_when_single_breaks_exceed_limit():
     text = "раз\nдва\nтри"
     out, results = sp.StylePolicyValidator(policy).run(text)
     assert out == text, "одиночные переносы вслепую не срезаются"
-    assert results[0].status == sp.STATUS_CONFLICT
-    assert results[0].reason == "line_breaks_exceeded"
+    row = outcome_for(results, "line_breaks")
+    assert row.status == sp.STATUS_CONFLICT
+    assert row.reason == "line_breaks_exceeded"
 
 
 # ═══ стратегии конфликта (SOUL-16.2.3) ══════════════════════════════════════
@@ -424,7 +438,7 @@ def test_conflict_strategies_are_explicit(strategy, expected):
     text = "Он сказал «база это сила» и ушёл"
     out, results = sp.StylePolicyValidator(policy).run(text)
     assert out == text, "байты дословности не портятся ни в одной стратегии"
-    assert results[0].status == expected
+    assert outcome_for(results, "quotation_marks").status == expected
 
 
 def test_exempt_protected_exempts_real_verbatim_content():
@@ -435,8 +449,9 @@ def test_exempt_protected_exempts_real_verbatim_content():
     text = "Цитата: «дословный текст источника»"
     out, results = sp.StylePolicyValidator(policy, verbatim=True).run(text)
     assert out == text
-    assert results[0].status == sp.STATUS_EXEMPTED
-    assert results[0].reason == "protected_verbatim"
+    row = outcome_for(results, "quotation_marks")
+    assert row.status == sp.STATUS_EXEMPTED
+    assert row.reason == "protected_verbatim"
 
 
 def test_denied_is_blocking_and_styled_false():
@@ -461,12 +476,14 @@ async def test_effective_policy_merges_chat_over_global_without_leakage(
     a = await sp.effective_style_policy(CHAT_A)
     b = await sp.effective_style_policy(CHAT_B)
     assert a.source == "chat" and b.source == "global"
-    assert {r.kind for r in a.rules} == {"quotation_marks", "trailing_period"}
-    assert {r.kind for r in b.rules} == {"quotation_marks"}
-    assert {r.source for r in a.rules} == {"chat"}
-    assert {r.source for r in b.rules} == {"preset"}
+    owner_a = {r.kind for r in a.rules if r.source != "factory"}
+    owner_b = {r.kind for r in b.rules if r.source != "factory"}
+    assert owner_a == {"quotation_marks", "trailing_period"}
+    assert owner_b == {"quotation_marks"}
+    assert {r.source for r in a.rules if r.source != "factory"} == {"chat"}
+    assert {r.source for r in b.rules if r.source != "factory"} == {"preset"}
     # Изоляция: правило чата A не появляется у B.
-    assert "trailing_period" not in {r.kind for r in b.rules}
+    assert "trailing_period" not in owner_b
     assert a.revision != b.revision
 
 
@@ -478,9 +495,11 @@ async def test_chat_rule_disables_global_rule_by_id(monkeypatch):
     enable_policy(monkeypatch, global_doc=doc_with("no_quotes"),
                   chat_overrides={CHAT_A: {sp.DOC_KEY: chat_doc}})
     a = await sp.effective_style_policy(CHAT_A)
-    assert [r for r in a.rules if r.rule.enabled] == []
+    assert [r for r in a.rules
+            if r.rule.enabled and r.source != "factory"] == []
     b = await sp.effective_style_policy(CHAT_B)
-    assert [r.kind for r in b.rules] == ["quotation_marks"]
+    assert [r.kind for r in b.rules if r.source != "factory"] == [
+        "quotation_marks"]
 
 
 @pytest.mark.asyncio
@@ -507,7 +526,11 @@ async def test_flag_off_gives_empty_policy_with_reason(monkeypatch):
 async def test_missing_document_is_absent_not_invented(monkeypatch):
     enable_policy(monkeypatch)
     policy = await sp.effective_style_policy(CHAT_A)
-    assert policy.rules == () and policy.skip_reason == "style_policy_absent"
+    # Заводское правило тире действует и без документа (ASAP3 §3.1), но
+    # политику владельца оно не «выдумывает»: источник остаётся default.
+    assert [r.id for r in policy.rules] == [sp.DASH_FACTORY_ID]
+    assert policy.source == "default"
+    assert policy.skip_reason == "style_policy_absent"
     assert policy.hint == ""
 
 
@@ -547,8 +570,9 @@ def test_context_packs_are_separate():
     initiative = sp.effective_policy_sync(doc, None, context="initiative")
     editorial = sp.effective_policy_sync(doc, None, context="editorial")
     code = sp.effective_policy_sync(doc, None, context="code_or_structured")
-    assert {r.id for r in regular.rules} == set()
-    assert {r.id for r in initiative.rules} == {"p.init"}
+    assert {r.id for r in regular.rules if r.source != "factory"} == set()
+    assert {r.id for r in initiative.rules if r.source != "factory"} == {
+        "p.init"}
     assert {r.id for r in editorial.rules} == {"p.ed"}
     assert {r.id for r in code.rules} == {"p.code"}
 
@@ -633,13 +657,17 @@ async def test_bounded_semantic_repair_is_at_most_one_and_only_on_conflict(
 
 
 @pytest.mark.asyncio
-async def test_hint_is_bounded_and_carries_only_active_rules(monkeypatch):
+async def test_hint_carries_all_active_rules_without_hidden_bound(monkeypatch):
+    """ASAP3 §1.2: OFF-лимит = все инструкции в фактической сборке."""
     enable_policy(monkeypatch, global_doc=doc_with("no_quotes",
                                                    "no_trailing_period"))
     policy = await sp.effective_style_policy(CHAT_A, extent="one_word")
     assert policy.hint.startswith("<Style_Policy_Hint>")
     assert policy.hint.endswith("</Style_Policy_Hint>")
-    assert len(policy.hint) <= 400
+    assert policy.hint_limits == {"max_chars": 0, "max_items": 0}
+    assert policy.hint_truncated is False
+    assert policy.hint_included == policy.hint_total
+    assert policy.hint_total >= 4
     assert policy.hint_tokens > 0
     assert "params" not in policy.hint and "conflict_strategy" not in policy.hint
     assert "ровно одно лексическое слово" in policy.hint
@@ -680,7 +708,8 @@ def test_owner_hard_rule_is_not_bypassed_by_incoming_user_message():
     out, results = sp.StylePolicyValidator(policy).run(injection)
     assert "«база»" not in out, "пользовательская попытка отключить правило сработала"
     assert not out.rstrip().endswith(".")
-    assert {r.status for r in results} == {sp.STATUS_REPAIRED}
+    assert {r.status for r in results
+            if r.kind != "dash"} == {sp.STATUS_REPAIRED}
     # Правило берётся только из документа владельца (не из входящего текста).
     assert policy.rules_for_kind("quotation_marks")
     assert policy.hard_kinds

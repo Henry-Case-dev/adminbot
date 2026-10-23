@@ -17,6 +17,9 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+from typing import Any, Mapping
+
 # Блок A — прямой запрет RLHF-тропов (финальный список владельца, UPD стр. 131).
 # Раунд 10.22 (F6, ADR-1022-6 §5): п.7 — запрет шаблонных финалов/канцелярских
 # вводных БЕЗ дословного цитирования клише (иначе grep-тест отсутствия тропов
@@ -417,10 +420,12 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
 # ═══════════════════════════════════════════════════════════════════════════
 # SOUL-1 (W3, SOUL-16.1.2/16.4.1) - короткий semantic hint Speech Style Policy
 # ═══════════════════════════════════════════════════════════════════════════
-# Слой 10 композера (`style_policy_hint`): КОРОТКИЙ семантический hint по
-# активным правилам, а не вся база инструкций (SOUL-16.4.1). Жёсткие правила
+# Слой 10 композера (`style_policy_hint`): семантический hint по активным
+# правилам, а не вся база инструкций (SOUL-16.4.1). Жёсткие правила
 # исполняются детерминированно (`services/style_policy`), мягкие привычки -
 # bounded-инструкции Writer без обещания 100% соблюдения (SOUL-16.1.2).
+# ASAP3 §1.2: по умолчанию лимитов нет - в блок входит КАЖДАЯ активная
+# инструкция целиком (раньше скрытые 400/5 молча выкидывали поздние строки).
 # Тексты - UPPER-константы одного модуля: правка формулировки меняет отпечаток
 # фабричного набора реестра и требует осознанной регистрации (блок реестра
 # `style.policy.hint`, SOUL-AMD.3.2). Языковая дисциплина: без кавычек-елочек,
@@ -428,8 +433,9 @@ def compose_verbalizer_system(base_prompt: str, response_mode: str = "",
 
 STYLE_POLICY_HINT_OPEN = "<Style_Policy_Hint>"
 STYLE_POLICY_HINT_CLOSE = "</Style_Policy_Hint>"
-STYLE_POLICY_HINT_MAX_CHARS = 400
-STYLE_POLICY_HINT_MAX_ITEMS = 5
+#: ASAP3 §1.2: ``0`` (или отсутствие) = лимита НЕТ. Заводских 400/5 больше
+#: нет: скрытая подстановка при ``<=0`` молча выкидывала поздние инструкции.
+HINT_LIMIT_OFF = 0
 HINT_SOFT_PREFIX = "Привычки письма (мягко, не всегда строго):"
 
 HINT_ONE_WORD = ("Полнота: ровно одно лексическое слово. Без второго слова, "
@@ -454,65 +460,225 @@ HINT_VERBATIM_PROTECTED = ("Защищённый текст (ссылки, ко�
                            "версии, данные) не переписывай и не порти.")
 
 
-def render_style_policy_hint(policy=None, *, max_chars: int = 0,
-                             max_items: int = 0) -> str:
-    """Короткий hint активных правил Style Policy для Writer (слой 10).
+@dataclass(frozen=True)
+class HintExclusion:
+    """Честно исключённая инструкция hint (ASAP3 §1.3).
+
+    ``reason``: ``user_limit`` — не поместилась в лимит владельца;
+    ``budget_excluded`` — не поместилась в явно переданный технический бюджет.
+    """
+
+    key: str
+    kind: str
+    reason: str = "user_limit"
+
+    def as_dict(self) -> dict:
+        return {"key": self.key, "kind": self.kind, "reason": self.reason}
+
+
+class HintRender(str):
+    """Результат рендера hint: сам блок + диагностика состава.
+
+    Наследует ``str``: существующие потребители (композер, реестр, тесты)
+    читают значение как строку блока, а фактический состав доступен полями.
+    ``truncated`` всегда ``False``: строки не режутся посередине.
+    """
+
+    __slots__ = ("total_items", "included_items", "included_keys", "excluded",
+                 "max_chars", "max_items", "limited_by", "truncated")
+
+    def __new__(cls, block: str = "", *, total_items: int = 0,
+                included_items: int = 0, included_keys=(),
+                excluded=(), max_chars: int = 0, max_items: int = 0,
+                limited_by: str = "", truncated: bool = False) -> "HintRender":
+        obj = str.__new__(cls, block)
+        obj.total_items = int(total_items)
+        obj.included_items = int(included_items)
+        obj.included_keys = tuple(str(k) for k in (included_keys or ()))
+        obj.excluded = tuple(excluded or ())
+        obj.max_chars = int(max_chars)
+        obj.max_items = int(max_items)
+        obj.limited_by = str(limited_by or "")
+        obj.truncated = bool(truncated)
+        return obj
+
+    @property
+    def block(self) -> str:
+        return str(self)
+
+    @property
+    def chars(self) -> int:
+        return len(self)
+
+    def as_dict(self) -> dict:
+        """R17-safe диагностика (правила/виды/числа, без текста ответа)."""
+        return {
+            "chars": len(self),
+            "total_items": self.total_items,
+            "included_items": self.included_items,
+            "max_chars": self.max_chars,
+            "max_items": self.max_items,
+            "limited_by": self.limited_by,
+            "truncated": self.truncated,
+            "included_keys": list(self.included_keys),
+            "excluded": [row.as_dict() for row in self.excluded],
+        }
+
+
+@dataclass(frozen=True)
+class _HintItem:
+    """Одна атомарная инструкция hint (целая строка, не фрагмент)."""
+
+    text: str
+    kind: str
+    rule_ids: tuple[str, ...] = ()
+    soft: bool = False
+
+
+def _limit_value(value: Any) -> int:
+    """Пользовательский/технический лимит: ``<=0``/мусор = без ограничения."""
+    try:
+        number = int(value or 0)
+    except (TypeError, ValueError):
+        return HINT_LIMIT_OFF
+    return number if number > 0 else HINT_LIMIT_OFF
+
+
+def _hint_candidates(policy) -> list[_HintItem]:
+    """Все инструкции, которые МОГУТ попасть в блок (детерминированный порядок).
+
+    Тире (``dash``) сюда не входит: правило исполняется детерминированно и не
+    требует инструкции Writer. Правила фильтруются по ``enabled`` — в блоке
+    только фактически действующие.
+    """
+    items: list[_HintItem] = []
+    extent = str(getattr(policy, "extent", "") or "")
+    if extent == "one_word":
+        items.append(_HintItem(HINT_ONE_WORD, "extent"))
+    elif extent == "micro":
+        items.append(_HintItem(HINT_MICRO, "extent"))
+    rules = [r for r in (getattr(policy, "rules", ()) or ())
+             if bool(getattr(getattr(r, "rule", r), "enabled", True))]
+
+    def ids(kind: str, strictness: str) -> tuple[str, ...]:
+        return tuple(str(getattr(r, "id", "")) for r in rules
+                     if str(getattr(r, "kind", "")) == kind
+                     and str(getattr(r, "strictness", "")) == strictness)
+
+    for kind, hard_line, soft_line in (
+            ("trailing_period", HINT_TRAILING_PERIOD_HARD,
+             HINT_TRAILING_PERIOD_SOFT),
+            ("quotation_marks", HINT_QUOTES_HARD, HINT_QUOTES_SOFT),
+            ("emoji", HINT_EMOJI_HARD, HINT_EMOJI_SOFT)):
+        hard_ids = ids(kind, "hard")
+        soft_ids = ids(kind, "soft")
+        if hard_ids:
+            items.append(_HintItem(hard_line, kind, hard_ids))
+        elif soft_ids:
+            items.append(_HintItem(soft_line, kind, soft_ids))
+    forbidden_ids = ids("forbidden_chars", "hard") + \
+        ids("forbidden_chars", "soft")
+    if forbidden_ids:
+        items.append(_HintItem(HINT_FORBIDDEN_CHARS, "forbidden_chars",
+                               forbidden_ids))
+    max_breaks = getattr(policy, "line_breaks_max", None)
+    if isinstance(max_breaks, int) and max_breaks >= 0:
+        break_ids = ids("line_breaks", "hard") + ids("line_breaks", "soft")
+        items.append(_HintItem(
+            HINT_LINE_BREAKS_PREFIX + " " + str(max_breaks) + ".",
+            "line_breaks", break_ids))
+    soft_rows: list[_HintItem] = []
+    for item in list(getattr(policy, "soft_instructions", ()) or ()):
+        if not bool(getattr(item, "enabled", True)):
+            continue
+        text = str(getattr(item, "text", "") or "").strip()
+        if text:
+            soft_rows.append(_HintItem(
+                text, "soft_instruction",
+                (str(getattr(item, "id", "") or ""),), soft=True))
+    writer_rules = [r for r in rules
+                    if str(getattr(r, "kind", "")) != "dash"]
+    if writer_rules or soft_rows:
+        items.append(_HintItem(HINT_VERBATIM_PROTECTED, "verbatim_protected"))
+    items.extend(soft_rows)
+    return items
+
+
+def _render_block(items: list[_HintItem]) -> str:
+    if not items:
+        return ""
+    lines: list[str] = []
+    prefix_done = False
+    for item in items:
+        if item.soft and not prefix_done:
+            lines.append("- " + HINT_SOFT_PREFIX)
+            prefix_done = True
+        lines.append("- " + item.text)
+    return (STYLE_POLICY_HINT_OPEN + "\n" + "\n".join(lines) + "\n"
+            + STYLE_POLICY_HINT_CLOSE)
+
+
+def _exclusions(items: list[_HintItem], reason: str) -> list[HintExclusion]:
+    out: list[HintExclusion] = []
+    for item in items:
+        keys = item.rule_ids or (f"meta.{item.kind}",)
+        for key in keys:
+            out.append(HintExclusion(key=key, kind=item.kind, reason=reason))
+    return out
+
+
+def render_style_policy_hint(policy=None, *, limits: Mapping | None = None,
+                             max_chars: int = 0, max_items: int = 0,
+                             budget_chars: int = 0) -> HintRender:
+    """Hint активных правил Style Policy для Writer (слой 10).
 
     Вход - `services.style_policy.EffectiveStylePolicy` (или любой объект с
     полями ``extent``/``hard_kinds``/``soft_kinds``/``soft_instructions``).
-    Выход - блок в обёртке ``<Style_Policy_Hint>`` или пустая строка (нет
-    активных правил либо политика недоступна). Никогда не бросает."""
+    Выход - :class:`HintRender`: блок ``<Style_Policy_Hint>`` и фактический
+    состав. ``0``/отсутствие лимита = без ограничения (ASAP3 §1.2).
+
+    Никакого обрезания строки посередине: инструкция либо входит целиком, либо
+    исключается целиком с причиной (``user_limit``/``budget_excluded``).
+    Никогда не бросает.
+    """
     try:
-        limit_chars = int(max_chars) if int(max_chars or 0) > 0 \
-            else STYLE_POLICY_HINT_MAX_CHARS
-        limit_items = int(max_items) if int(max_items or 0) > 0 \
-            else STYLE_POLICY_HINT_MAX_ITEMS
-        lines: list[str] = []
-        extent = str(getattr(policy, "extent", "") or "")
-        if extent == "one_word":
-            lines.append(HINT_ONE_WORD)
-        elif extent == "micro":
-            lines.append(HINT_MICRO)
-        hard = {str(k) for k in (getattr(policy, "hard_kinds", ()) or ())}
-        soft = {str(k) for k in (getattr(policy, "soft_kinds", ()) or ())}
-        for kind, hard_line, soft_line in (
-                ("trailing_period", HINT_TRAILING_PERIOD_HARD,
-                 HINT_TRAILING_PERIOD_SOFT),
-                ("quotation_marks", HINT_QUOTES_HARD, HINT_QUOTES_SOFT),
-                ("emoji", HINT_EMOJI_HARD, HINT_EMOJI_SOFT)):
-            if kind in hard:
-                lines.append(hard_line)
-            elif kind in soft:
-                lines.append(soft_line)
-        if "forbidden_chars" in hard or "forbidden_chars" in soft:
-            lines.append(HINT_FORBIDDEN_CHARS)
-        max_breaks = getattr(policy, "line_breaks_max", None)
-        if isinstance(max_breaks, int) and max_breaks >= 0:
-            lines.append(HINT_LINE_BREAKS_PREFIX + " " + str(max_breaks) + ".")
-        if hard or soft:
-            lines.append(HINT_VERBATIM_PROTECTED)
-        soft_texts: list[str] = []
-        for item in list(getattr(policy, "soft_instructions", ()) or ()):
-            text = str(getattr(item, "text", "") or "").strip()
-            if text:
-                soft_texts.append(text)
-            if len(soft_texts) >= limit_items:
-                break
-        if soft_texts:
-            lines.append(HINT_SOFT_PREFIX)
-            lines.extend("- " + text for text in soft_texts)
-        if not lines:
-            return ""
-        body = "\n".join("- " + line for line in lines)
-        block = (STYLE_POLICY_HINT_OPEN + "\n" + body + "\n"
-                 + STYLE_POLICY_HINT_CLOSE)
-        while len(block) > limit_chars and len(lines) > 1:
-            lines.pop()
-            body = "\n".join("- " + line for line in lines)
-            block = (STYLE_POLICY_HINT_OPEN + "\n" + body + "\n"
-                     + STYLE_POLICY_HINT_CLOSE)
-        if len(block) > limit_chars:
-            return ""
-        return block
+        if isinstance(limits, Mapping):
+            if "max_chars" in limits:
+                max_chars = limits.get("max_chars")
+            if "max_items" in limits:
+                max_items = limits.get("max_items")
+            if "budget_chars" in limits:
+                budget_chars = limits.get("budget_chars")
+        limit_chars = _limit_value(max_chars)
+        limit_items = _limit_value(max_items)
+        budget = _limit_value(budget_chars)
+        candidates = _hint_candidates(policy)
+        kept = list(candidates)
+        excluded: list[HintExclusion] = []
+        reasons: list[str] = []
+        if limit_items and len(kept) > limit_items:
+            excluded.extend(_exclusions(kept[limit_items:], "user_limit"))
+            kept = kept[:limit_items]
+            reasons.append("items")
+        if limit_chars:
+            while kept and len(_render_block(kept)) > limit_chars:
+                excluded.extend(_exclusions(kept[-1:], "user_limit"))
+                kept.pop()
+                if "chars" not in reasons:
+                    reasons.append("chars")
+        if budget:
+            while kept and len(_render_block(kept)) > budget:
+                excluded.extend(_exclusions(kept[-1:], "budget_excluded"))
+                kept.pop()
+                if "budget" not in reasons:
+                    reasons.append("budget")
+        block = _render_block(kept)
+        return HintRender(
+            block, total_items=len(candidates), included_items=len(kept),
+            included_keys=[key for item in kept
+                           for key in (item.rule_ids or (f"meta.{item.kind}",))],
+            excluded=tuple(excluded), max_chars=limit_chars,
+            max_items=limit_items, limited_by="+".join(reasons),
+            truncated=False)
     except Exception:      # pragma: no cover - hint не роняет сборку
-        return ""
+        return HintRender("")

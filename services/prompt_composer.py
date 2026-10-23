@@ -309,6 +309,14 @@ class StylePolicyRef:
     soft_count: int = 0
     enabled: bool = True
     skip_reason: str = ""
+    #: ASAP3 §1.5: фактический состав hint (всего/включено/исключено) и
+    #: действующий лимит (0 = без ограничения).
+    hint_total: int = 0
+    hint_included: int = 0
+    hint_excluded: tuple = ()
+    hint_limits: tuple = ()
+    hint_limited_by: str = ""
+    hint_truncated: bool = False
 
 
 @dataclass(frozen=True)
@@ -576,13 +584,10 @@ def composer_enabled_now(gates: GateState) -> bool:
 # ═════════════════════════════════════════════════════════════════════════════
 
 CORE_KEY = "character.core"
-STYLE_POLICY_KEY = "style.policy"
 #: Уровни подробности Core. Действующий уровень выбирает
 #: ``prompt_registry.core_selection`` (владелец — реестр: там же закрытый набор
 #: причин ``CORE_DETAIL_REASONS``); здесь оставлено как публичное имя контракта.
 CORE_DETAIL_LEVELS = frozenset({"compact", "full"})
-STYLE_HINT_MAX_ITEMS = 5
-STYLE_HINT_MAX_CHARS = 400
 
 
 def _as_document(raw: Any) -> dict | None:
@@ -832,70 +837,22 @@ async def core_inspection(chat_id: int) -> dict:
     }
 
 
-def _style_hint(doc: Mapping) -> str:
-    """Короткий semantic hint активных soft-правил (НЕ вся база, §3 слой 10).
-
-    W3 заменяет источник на ``effective_style_policy``; в W2 hint строится из
-    собственных ``soft_instructions`` документа и жёстко ограничен.
-    """
-    lines: list[str] = []
-    for item in (doc.get("soft_instructions") or ())[:STYLE_HINT_MAX_ITEMS]:
-        if not isinstance(item, Mapping) or not item.get("enabled", True):
-            continue
-        text = str(item.get("text") or "").strip()
-        if text:
-            lines.append(f"- {text}")
-    hint = "\n".join(lines)[:STYLE_HINT_MAX_CHARS]
-    return hint
-
-
 async def resolve_style_policy_ref(chat_id: int) -> StylePolicyRef:
-    """Снимок effective Style Policy (W2: hint + версия). Не бросает.
+    """Снимок effective Style Policy (единый владелец — ``services.style_policy``).
 
-    SOUL-1 (W3): источник снимка — ``services.style_policy`` (единый владелец
-    типизированных правил и резолва после выбора scope/типа выхода, §16.4.1):
-    hint строится из АКТИВНЫХ hard/soft правил, версия — из ревизий документов
-    ``style.policy`` (global+chat). Прежняя реализация W2 остаётся fallback'ом
-    (если W3-модуль недоступен — поведение не меняется)."""
+    ASAP3 §1: второго сборщика hint нет. Прежний fallback строил свой hint с
+    дублирующими 400/5 и обрезкой посередине строки — он удалён. Если
+    W3-модуль недоступен, снимок честно помечается ``style_policy_unavailable``
+    (манифест не выдаёт частичный hint за полный). Никогда не бросает."""
     try:
         from services import style_policy as _sp
         ref = await _sp.resolve_style_policy_ref(chat_id)
         if ref is not None:
             return ref
     except Exception:          # pragma: no cover — защитная ветка
-        logger.warning("[composer] style policy (W3) недоступна — fallback",
+        logger.warning("[composer] style policy (W3) недоступна",
                        exc_info=True)
-    try:
-        from services import hot_config as hot
-        raw_global = hot.get(STYLE_POLICY_KEY, None)
-    except Exception:
-        raw_global = None
-    raw_chat = None
-    try:
-        raw_chat = await _chat_override(chat_id, STYLE_POLICY_KEY)
-    except Exception:          # pragma: no cover — защитная ветка
-        raw_chat = None
-    try:
-        doc, source = _document_layers(raw_global, raw_chat)
-    except Exception:
-        return StylePolicyRef(skip_reason="style_policy_read_error")
-    if doc is None:
-        return StylePolicyRef(source="default", skip_reason="style_policy_absent")
-    try:
-        revision = str(doc.get("revision", "") or "")
-        hint = _style_hint(doc)
-        return StylePolicyRef(
-            hint=hint,
-            revision=f"r{revision}.{sha12(json.dumps(doc, sort_keys=True, ensure_ascii=False))}",
-            source=source,
-            rule_count=len(doc.get("rules") or ()),
-            soft_count=len(doc.get("soft_instructions") or ()),
-            enabled=True,
-            skip_reason="" if hint else "style_policy_absent")
-    except Exception:
-        logger.warning("[composer] style policy malformed", exc_info=True)
-        return StylePolicyRef(source=source,
-                              skip_reason="style_policy_read_error")
+    return StylePolicyRef(skip_reason="style_policy_unavailable")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
