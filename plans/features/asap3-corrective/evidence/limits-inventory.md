@@ -30,7 +30,7 @@ Feature: `asap3-corrective` · Lane: `ASAP3-LIMITS-INVENTORY` · 24.10.2026
 | 9 | Бюджет треда (tokens/chars) | размер контекста | `:8610-8640` (`limits.chat_thread_*`) | да | да (в бюджете композера) | `TECHNICAL_VISIBLE` | Inspector (слой исключён бюджетом) |
 | 10 | Широкий фон L2 в контексте (символы) | размер контекста | `:8440-8460` (`limits.chat_level2_max_chars`) + WARN `:8454` | да | да, но не молча (WARN) | `TECHNICAL_VISIBLE` | WARN + строка «широкий фон:» |
 | 11 | **Текущий вопрос пользователя (cap 800, срез посередине)** | защита запроса | `:6660-6692` (`limits.chat_current_question_max_chars`) | да (chat params) | **было да и молча** → теперь WARN `current question truncated` с числами (`:6673,6683`) и WARN `current question dropped` при `room=0` (маркеры заняли весь cap, `:6678`) | `HIDDEN_LOSS` → исправлено | WARN + chat params |
-| 12 | **Досье в карточке: 10 фактов/мемов + 1200 символов** | размер блока памяти | `:445,448,8093-8160`; `services/dossier_prompts.py:584-646` (`stats`) | нет (константы модуля) | **было да и молча**: 10-элементная срезка применялась ДО форматтера, `stats` видел ≤10 и WARN не срабатывал → теперь totals считаются до срезки, WARN `persona dossier capped` (`:8113` flat, `:8154` dossier), счётчик в заголовке — настоящий (35, не 10) | `HIDDEN_LOSS` → исправлено | WARN (числа) + будущий счётчик в разделе памяти |
+| 12 | **Досье в карточке: 10 строк (досье — факты/мемы; flat — факты/связи) + 1200 символов** | размер блока памяти | `:445,448,8086-8175`; `services/dossier_prompts.py:584-646` (`stats`) | нет (константы модуля) | **было да и молча**: 10-элементная срезка применялась ДО форматтера, `stats` видел ≤10 и WARN не срабатывал, а flat-WARN считал только факты (`n>10`), поэтому связи резались без сигнала. Теперь totals считаются до срезки, flat-условие — по сумме строк (`facts+links`), мемы запрошены `cap+1` и при переполнении показываются как `10/>10`; счётчик в заголовке — настоящий (35, не 10) | `HIDDEN_LOSS` → исправлено | WARN (числа) + будущий счётчик в разделе памяти |
 | 13 | **Примеры регистра речи: ≤4 строки / 140 токенов / 700 символов** | бюджет few-shot §3.2 | `services/mca_expression.py:160-164, 408-465, 474-505`; отбор `services/mca_sample_library.py:66-71, 1370-1440` | нет (бюджет контракта ADD-EXP) | **было да и молча** (дважды): (а) полная потеря выдавалась за `expression_examples_absent`; (б) резолвер обрывал отбор на 4, поэтому `total_items` никогда не был >4. Теперь резолвер считает ВСЕ подходящие одобренные строки (`stats.eligible/selected/dropped`), `ExampleRender.total_items` берётся из него, WARN `kept=4/20` | `HIDDEN_LOSS` → исправлено (`budget_excluded` + WARN `kept=X/Y`) | Inspector (причина слоя) + библиотека примеров |
 | 14 | **Поля примера при сохранении: input 2000 / reply 4000 символов** | защита БД/rendering | `services/mca_sample_library.py:565-586` (`_clip_field`); API-потолок `web/api/speech.py:3466-3469` (`SampleWrite`) | нет (технический потолок) | через владельческий UI недостижимо (422), но не-UI писатели (tools/import) режутся — теперь WARN `field clipped` с числами (defense-in-depth) | `TECHNICAL_VISIBLE` (WARN) | WARN + счётчик длины в редакторе примеров (UI — отдельная полоса) |
 | 15 | Legacy-саммари: число sendMessage-частей | Telegram/лимит отправки | `services/summary_generator.py:162-169, 223-231` (`limits.max_summary_parts`) | да | да, но WARN `LEGACY_CHUNKS_CAPPED` с числами | `TECHNICAL_VISIBLE` | WARN + chat params |
@@ -47,16 +47,22 @@ Feature: `asap3-corrective` · Lane: `ASAP3-LIMITS-INVENTORY` · 24.10.2026
 
 - Всего проверено ограничений: **23** (класс — по основному действию строки).
 - `USER_VISIBLE`: **5** (№1, 2, 6, 8, 22).
-- `TECHNICAL_VISIBLE`: **7** (№3, 4, 5, 7, 9, 10, 15, 14).
-- `HIDDEN_LOSS` найдено: **5** (№11 текущий вопрос, №12 досье, №13 примеры регистра,
-  №14 поля примера при сохранении, №19 tail экстрактора). **Исправлено: 5/5.**
+- `TECHNICAL_VISIBLE`: **8** (№3, 4, 5, 7, 9, 10, 15, 14).
+- `HIDDEN_LOSS` найдено: **4** (№11 текущий вопрос, №12 досье, №13 примеры регистра,
+  №19 tail экстрактора). **Исправлено: 4/4.** №14 — defense-in-depth в
+  `TECHNICAL_VISIBLE` (владельческий UI отдаёт 422), в HIDDEN_LOSS не входит и здесь
+  не считается.
 - `NOT_RELEVANT`: **6** с обоснованием (№16, 17, 18, 20, 21, 23).
-- 5+7+5+6 = 23.
+- 5+8+4+6 = 23.
 
 Правка после ревью `review-limits.md` (F1–F3, 24.10.2026): строка №19 переклассифицирована
 `TECHNICAL_VISIBLE → HIDDEN_LOSS` (WARN экстрактора фактически отсутствовал), №14 — в
 `TECHNICAL_VISIBLE` как defense-in-depth (владельческий UI отдаёт 422), №11/12/13 усилены
 (см. §3).
+
+Правка после ревью r2 (`review-limits-r2.md`, F1-R/F2-R/F3-R, 24.10.2026): плоская ветка
+предупреждает о срезе связей по сумме строк, мемы считаются через `limit=cap+1`
+(`10/>10`), итоговая арифметика §2 приведена к 5+8+4+6 = 23 без двойного счёта.
 
 ## 3. Что именно было скрытой потерей и чем исправлено
 
@@ -82,16 +88,17 @@ out-параметр `stats` (`facts_total/facts_kept/memes_total/memes_kept/tru
 **Исправление после ревью (F1, было нерабочим).** `_PERSONA_MAX_ITEMS = 10` применялся к
 `facts/protected/lore` и `memes` ДО `format_dossier_block`, поэтому `stats` физически видел ≤10
 строк и `truncated` всегда был `False`: WARN не срабатывал, а заголовок «знаю о тебе: 10 фактов»
-показывал усечённое число как полное. Теперь в `direct_chat_service.build_persona_card:8093-8160`:
+показывал усечённое число как полное. Теперь в `direct_chat_service.build_persona_card:8086-8175`:
 
-- `facts_total = len(lore + protected + facts)`, `memes_total = len(memes)` считаются ДО срезки;
+- `facts_total = len(lore + protected + facts)`, `memes_total` — наблюдённое число мемов
+  (запрос `cap+1`, см. ниже) считаются ДО срезки;
 - форматтеру по-прежнему уходят только 10 строк (бюджет и payload не менялись), но истинные
   totals возвращаются в `stats` после вызова, и `truncated` пересчитывается по ним;
-- WARN один и тот же в обеих ветках: `mode=dossier` (`:8154`) и `mode=flat` (`:8113`, irony OFF
+- WARN один и тот же в обеих ветках: `mode=dossier` (`:8163`) и `mode=flat` (`:8116`, irony OFF
   тоже режет список до 10);
 - счётчик в заголовке = настоящий total (как уже было в flat-ветке), а не число вошедших строк.
 
-Замер на пробе ревью (30 фактов + 5 защищённых + 15 мемов, irony ON):
+Замер первого ревью (30 фактов + 5 защищённых + 15 мемов, irony ON) — до правки r2:
 
 ```text
 до:   знаю о тебе: 10 фактов, 0 связей; 10 строк фактов; WARN нет
@@ -100,8 +107,45 @@ out-параметр `stats` (`facts_total/facts_kept/memes_total/memes_kept/tru
        знаю о тебе: 35 фактов, 0 связей
 ```
 
-Тест: `test_persona_card_counts_items_before_ten_item_cap`, `test_persona_card_flat_branch_logs_item_cap`
-(`tests/test_asap3_hidden_limits.py`).
+Число `memes_kept=10/15` в этой строке было **недостижимо в проде**: мемы запрашивались с
+`limit=10`, SQL отдаёт ≤10 строк (прод-подобный фейк давал `10/10`), а flat-WARN не видел
+потери связей. Это и есть F1-R/F2-R.
+
+**Исправление после ревью r2 (F1-R, F2-R).** Те же числа: `memes_kept=10/15` было
+недостижимо, а flat-WARN не видел потери связей.
+
+- flat-ветка (irony OFF) режет `lines[:10]` по сумме «факты + связи», а WARN проверял
+  только `n > 10`; при facts=10/links=5 и facts=5/links=10 связи исчезали без сигнала.
+  Теперь условие по сумме строк (`n + m > 10`), числа честные:
+  `facts_kept=min(n,10)/n`, `links_kept=max(0,min(m,10-n))/m`; тело карточки и заголовок
+  не изменились (payload байт-в-байт), поле `memes_kept=0/0` заменено на `links_kept`;
+  `services/direct_chat_service.py:8111-8122`;
+- мемы запрашивались с `limit=10`, а SQL (`services/database.py:11237`) отдаёт уже
+  урезанный список — «потеря 11..N» была неизмерима. Теперь `limit=cap+1` (детект
+  переполнения без второго COUNT): при переполнении WARN пишет `memes_kept=10/>10`, без
+  переполнения — точное `10/10`; `stats["memes_total"]` — наблюдённое число (≤11),
+  `stats["memes_capped"]` — флаг (`direct_chat_service.py:8141-8144, 8157-8170`).
+
+Замер на прод-подобном фейке (`list_chat_memes` соблюдает `LIMIT`, как SQL):
+
+```text
+dossier, facts=30+5, memes=15 (запрос limit=11):
+  WARNING direct: persona dossier capped | chat=1 | mode=dossier |
+          facts_kept=10/35 | memes_kept=10/>10 | cap_chars=1200
+dossier, facts=20, memes=10 (без переполнения):
+          facts_kept=10/20 | memes_kept=10/10
+flat, facts=10, links=5:
+  WARNING ... | mode=flat | facts_kept=10/10 | links_kept=0/5 | cap_items=10
+  тело: 10 строк, из них 0 строк связей (заголовок «5 связей» — теперь с WARN)
+flat, facts=5, links=10:
+          facts_kept=5/5 | links_kept=5/10 | cap_items=10   (тело: 5 строк связей)
+```
+
+Тесты: `test_persona_card_counts_items_before_ten_item_cap` (обновлён: `memes_kept=10/>10`
++ проверка `limit=11`), `test_persona_card_meme_total_is_exact_without_overflow`,
+`test_persona_card_flat_branch_logs_item_cap`, `test_persona_card_flat_branch_warns_when_facts_fill_cap`,
+`test_persona_card_flat_branch_warns_when_links_are_cut`
+(`tests/test_asap3_hidden_limits.py`). Фейк `_PersonaDB` соблюдает `limit`, как прод.
 
 ### 3.3 №13 — одобренные примеры речи исчезали как «набор отсутствует»
 
@@ -187,8 +231,11 @@ R17: в лог идут только числа, текст владельца �
 
 ## 5. Прогон
 
+Правка F1-R/F2-R/F3-R поверх `64785490` (база ревью r2 — `e6c9b65b`); только
+`direct_chat_service.py`, `tests/test_asap3_hidden_limits.py`, этот файл.
+
 ```text
-tests/test_asap3_hidden_limits.py (7 старых + 6 новых)  13 passed
+tests/test_asap3_hidden_limits.py (13 + 3 новых)      16 passed
 tests/test_add_exp_expression.py + test_samples_fewshot  52 passed
 tests/test_dossier_irony.py + test_chat_lore.py +
   test_direct_chat.py                                   193 passed
@@ -201,13 +248,13 @@ tests/test_graphrag_memory.py + asap44_batch_breaker +
   asap8_v63_b03 + asap8_v6_p1_d09                       203 passed
 ```
 
-Итого затронутые файлы: **574 passed, 0 failed** (включая `summary_memory`-набор, которого не было
-в первом прогоне ревью). Все прогоны — локальные, целевые файлы (рамка полосы: ≤3 мин на файл,
-без сети/прода).
+Итого затронутые файлы: **590 passed, 0 failed** (16 hidden limits + 371 по досье/примерам/
+direct/стилю/identity + 203 memory). Все прогоны — локальные, целевые файлы (рамка полосы:
+≤3 мин на файл, без сети/прода).
 
-Пробы ревью, перезапущенные на правке: досье `facts_kept=10/35` + честный заголовок; примеры
-`eligible=20 selected=4 dropped=16` + WARN `kept=4/20 | by=items` (`OPENCODE_WORKFLOW_SCRATCH/fx_dossier_probe.py`,
-`.../dbg_expr.py`).
+Пробы ревью r2, перезапущенные на правке: `memes_kept=10/>10` при запросе `limit=11`;
+flat facts=10/links=5 → `links_kept=0/5` + WARN; flat facts=5/links=10 → `links_kept=5/10`
++ WARN (`tests/test_asap3_hidden_limits.py`).
 
 ## 6. Что осталось и почему
 
@@ -218,9 +265,11 @@ tests/test_graphrag_memory.py + asap44_batch_breaker +
    отдельный ключ каталога `limits.*` в разделе памяти, не в этой полосе.
 3. №13 — «настраиваемость» бюджета примеров не вводилась: это защитный бюджет контракта ADD-EXP
    §3.2; сейчас потеря видна кодом `budget_excluded` и числами в WARN.
-4. №12, связи в карточке: `get_persona_card` читает связи с SQL `LIMIT ?`
-   (`services/database.py:11025-11038`), поэтому total связей вызывающему неизвестен и заголовок
-   показывает число вошедших связей. Факты уже честные (30 → «35 фактов»); для связей нужен
-   дополнительный `COUNT` в `database.py` — файл вне write-scope полосы, отдельная микрозадача.
+4. №12, связи: `get_persona_card` читает связи с SQL `LIMIT ?`
+   (`services/database.py:11025-11038`), поэтому total связей вызывающему неизвестен:
+   заголовок и числа показывают только полученные строки. В flat-ветке потеря уже
+   полученного набора теперь видна (`links_kept=5/10` + WARN), но связи сверх SQL-лимита
+   неотличимы от отсутствующих — для точного total нужен `COUNT` в `database.py`, файл
+   вне write-scope полосы, отдельная микрозадача.
 5. Прод-конфигурация (реальные значения chat params/каталога) в полосе не читалась — сеть/прод
    запрещены; проверка эффективных значений остаётся postdeploy (`migration.md` §5).
