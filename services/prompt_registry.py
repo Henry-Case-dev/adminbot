@@ -149,7 +149,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "summary.cover.style": "cover-style-default",
     "summary.cover.style_id": "cover-style-id-default",
     "search.base.system": "search-cfg07a",
-    "checkup.base.system": "checkup-cfg07a",
+    # P0-CHECKUP (24.10.2026, addendum §2): жанровый канон переписан
+    # owner-редакцией; «СУТЬ АНАЛИЗА» — дословно.
+    "checkup.base.system": "checkup-p0-24-10",
     "youtube.base.system": "youtube-cfg07a",
     "youtube.base.video": "youtube-video-cfg07a",
     "web.base.system": "web-cfg07a",
@@ -208,8 +210,8 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # v2 (FIX-CORRECTIVE-FOLLOWUP, мат снят) — PREV_PERSONALITY_CORE_*_V2_TEXT;
     # v1 (авторский SOUL-02) — PREV_PERSONALITY_CORE_*; оба слепка в гварде
     # superseded-core (core_selection) не действуют из PG.
-    "core.personality": "asap-core-full-v3",
-    "core.personality.compact": "asap-core-compact-v3",
+    "core.personality": "asap-core-full-v4",
+    "core.personality.compact": "asap-core-compact-v4",
     # SOUL-1 (W4): приёмы Humor Craft, рамка few-shot и классификатор окна
     "humor.craft.common": "humor-craft-guard-h11",
     "humor.technique.absurd_escalation": "humor-technique-w4",
@@ -655,7 +657,7 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "мониторинга недоступно (пользователь слышит её в отчёте; несёт "
        "оценочную инструкцию в техническом обработчике).",
        "message", "code", "services.checkup_prompts.CHECKUP_FALLBACK_NOTICE",
-       ("checkup_service.py:71", "tests/test_checkup_service.py:55"),
+       ("checkup_service.py:72", "tests/test_checkup_service.py:55"),
        "managed_message/checkup_fallback", owner_lane="W3", speech=True,
        migration="managed_message", ui="catalog_pending",
        note="SOUL-AMD.3.4: шаблонная фраза, которую слышит пользователь, "
@@ -1663,7 +1665,15 @@ def factory_set_fingerprint() -> str:
 #: direct.base.l2_writer).
 #: Было ``fd4e88754749``, стало ``24ae494ac422``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "24ae494ac422"
+#: Бамп P0 (24.10.2026, P0-CHECKUP/CORE + ADDENDUM #2): изменены 4 фабрики —
+#: checkup.base.system (owner-редакция §2 аддендума, «СУТЬ АНАЛИЗА» дословно),
+#: message.checkup_fallback_notice (401 = отказ авторизации, journalctl
+#: прочитан), core.personality и core.personality.compact (абзац «Как говорить
+#: о реальных событиях» + принцип свободы речи на уровне личности; Compact —
+#: одно предложение). Метки: checkup-p0-24-10, asap-core-full-v4,
+#: asap-core-compact-v4. Было ``24ae494ac422``, стало ``071b1f3ec5f9``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "071b1f3ec5f9"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1692,6 +1702,8 @@ class EffectivePrompt:
     withheld_revision: str = ""
     withheld_sha256_12: str = ""
     provenance_reason: str = ""
+    withheld_class: str = ""           # legacy_incompatible | identical_to_factory
+    withheld_reason: str = ""          # человеческая причина класса
     stored_source: str = ""                # слой сохранённого значения
     stored_differs_from_factory: bool = False
 
@@ -1768,7 +1780,9 @@ def suppress_legacy_speech(text: str, *, source: str,
     if source not in ("chat", "global") or not raw:
         return raw, info
     known = sha12(raw) in known_canon_hashes()
-    present = bool(_legacy_persona_marker_re.search(raw))
+    allowed_exact = _exact_rule_allowlist().get(sha12(raw), ())
+    present = (bool(_legacy_persona_marker_re.search(raw))
+               and not allowed_exact)
     info = LegacySuppression(known_canon=known, legacy_present=present)
     if not known and not custom_clean:
         return raw, info
@@ -1781,7 +1795,14 @@ def suppress_legacy_speech(text: str, *, source: str,
     cleaned = raw
     removed = 0
     labels: list[str] = []
+    allowed = _exact_rule_allowlist().get(sha12(raw), ())
     for label, pattern, replacement in LEGACY_PERSONA_RULES:
+        if label in allowed:
+            # P0-PROMPTS (24.10.2026): узкий allowlist ТОЧНЫХ байт новой
+            # owner-редакции Checkup. «человеческо-токсичный» — авторский
+            # жанровый оборот, а не legacy-личность; защита для всех прочих
+            # значений (включая старые редакции) не отключается.
+            continue
         cleaned, n = pattern.subn(replacement, cleaned)
         if n:
             removed += n
@@ -1880,6 +1901,8 @@ def effective_prompt(pg_key_or_id: str, *, pg_value=None,
                            if resolved.withheld else ""),
         withheld_sha256_12=resolved.withheld_sha256_12,
         provenance_reason=resolved.provenance_reason,
+        withheld_class=resolved.withheld_class,
+        withheld_reason=resolved.withheld_reason,
         stored_source=(source if resolved.withheld and
                        source in ("chat", "global") else ""),
         stored_differs_from_factory=stored_differs)
@@ -2079,6 +2102,27 @@ _corpus_extra_marker_re = re.compile(
 
 _BLANK_RUN_RE = re.compile(r"\n{3,}")
 
+#: P0-PROMPTS (24.10.2026): точечный allowlist ПРАВИЛ по точным байтам.
+#: Новая owner-редакция Checkup (аддендум §2) дословно содержит
+#: «человеческо-токсичный»; правило `persona.checkup_language` не должно
+#: вырезать его, если сохранены ровно эти байты. Для любой другой редакции
+#: (старой/кастомной) подавление работает как раньше.
+_EXACT_RULE_ALLOWLIST_CACHE: dict[str, tuple[str, ...]] | None = None
+
+
+def _exact_rule_allowlist() -> dict[str, tuple[str, ...]]:
+    global _EXACT_RULE_ALLOWLIST_CACHE
+    if _EXACT_RULE_ALLOWLIST_CACHE is None:
+        allow: dict[str, tuple[str, ...]] = {}
+        try:
+            from services.checkup_prompts import CHECKUP_SYSTEM_PROMPT
+            allow[sha12(CHECKUP_SYSTEM_PROMPT)] = ("persona.checkup_language",)
+        except Exception:      # pragma: no cover — модуль недоступен
+            logger.warning("[prompt_registry] allowlist Checkup недоступен",
+                           exc_info=True)
+        _EXACT_RULE_ALLOWLIST_CACHE = allow
+    return _EXACT_RULE_ALLOWLIST_CACHE
+
 _KNOWN_CANON_HASHES: set[str] = set()
 
 
@@ -2115,7 +2159,10 @@ def is_known_canon(text: str) -> bool:
 
 
 def legacy_persona_present(text: str) -> bool:
-    return bool(_legacy_persona_marker_re.search(str(text or "")))
+    raw = str(text or "")
+    if sha12(raw) in _exact_rule_allowlist():
+        return False
+    return bool(_legacy_persona_marker_re.search(raw))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2127,6 +2174,86 @@ def legacy_persona_present(text: str) -> bool:
 #: единственный legacy-сегмент («Интегрируй токсичный стиль…») снимается
 #: детерминированной вычисткой канона, а не удержанием всего блока.
 PROVENANCE_EXEMPT_PREFIXES: tuple[str, ...] = ("verbilizer.mode.",)
+
+#: P0-PROMPTS (24.10.2026): классификация известных withheld-редакций по
+#: фактическим байтам (`plans/features/p0-corrective-factcheck-speech/evidence/
+#: withheld/classification.md`, прод 2.58.118). 8 `user_custom` содержат
+#: старую личность / строку обхода ограничений / ослабленный полный разбор.
+#: Они НЕ активируются: остаются в PG и истории, Inspector показывает
+#: сохранённый и действующий текст + причину. `identical_to_factory` — байты
+#: совпадают с зарегистрированной заводской редакцией (2.58.118), поэтому это
+#: не конфликт владельца: WARNING понижен до INFO, активация не нужна.
+WITHHELD_LEGACY_CLASS = "legacy_incompatible"
+WITHHELD_IDENTICAL_CLASS = "identical_to_factory"
+WITHHELD_UNCLASSIFIED_CLASS = "unclassified"
+
+WITHHELD_CLASSIFICATIONS: dict[str, dict[str, dict[str, str]]] = {
+    "checkup.base.system": {
+        "1e8a3c69cf7b": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": ("старая личность Checkup, строка обхода ограничений "
+                       "и ослабленный полный разбор утверждений")},
+    },
+    "factcheck.base.single": {
+        "76c4beb11c63": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": ("строка обхода ограничений и требование сознательно "
+                       "игнорировать часть утверждений — противоречит "
+                       "контракту полного разбора фактчека")},
+    },
+    "factcheck.base.verbalizer": {
+        "5fbf61cea310": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": ("старая личность фактчекера и ослабленный разбор "
+                       "утверждений")},
+    },
+    "search.base.system": {
+        "ba43fb679db6": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": "старая личность и строка обхода ограничений"},
+    },
+    "summary.base.single": {
+        "d697b0745b29": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": "старая личность и строка обхода ограничений"},
+    },
+    "web.base.system": {
+        "7801085b6ef5": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": "старая личность и строка обхода ограничений"},
+    },
+    "youtube.base.system": {
+        "e0a1ffaf18a1": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": "старая личность и строка обхода ограничений"},
+    },
+    "youtube.base.video": {
+        "c8bba06ec6a8": {
+            "class": WITHHELD_LEGACY_CLASS,
+            "reason": "старая личность и строка обхода ограничений"},
+    },
+    "direct.base.l2_writer": {
+        "83ff62bbee40": {
+            "class": WITHHELD_IDENTICAL_CLASS,
+            "reason": ("байты совпадают с заводской редакцией 2.58.118; "
+                       "текущая фабрика новее — активация не требуется, "
+                       "ложный конфликт снят")},
+    },
+}
+
+
+def withheld_classification(block_id: str,
+                            value: str) -> dict[str, str] | None:
+    """Класс известной withheld-редакции по точным байтам (или ``None``)."""
+    entry = (WITHHELD_CLASSIFICATIONS.get(str(block_id)) or {}).get(sha12(value))
+    return dict(entry) if entry else None
+
+
+def is_legacy_incompatible(block_id: str, value: str) -> bool:
+    """Редакция известна как legacy-несовместимая (активация запрещена)."""
+    entry = withheld_classification(block_id, value)
+    return bool(entry and entry.get("class") == WITHHELD_LEGACY_CLASS)
+
 
 
 def withholding_required(spec) -> bool:
@@ -2233,6 +2360,8 @@ class SpeechResolution:
     withheld_sha256_12: str = ""
     provenance_reason: str = ""
     provenance: dict | None = None
+    withheld_class: str = ""
+    withheld_reason: str = ""
 
     @property
     def stored_source(self) -> str:
@@ -2293,21 +2422,40 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
         reason, entry = provenance_state(spec, raw, cache=cache)
         if reason != "attested":
             factory = factory_text(spec.block_id)
+            classification = withheld_classification(spec.block_id, raw)
+            withheld_class = (classification or {}).get(
+                "class", WITHHELD_UNCLASSIFIED_CLASS)
             # Заводская редакция отдаётся ровно в том виде, в каком её
             # отдавал бы persisted-канон: те же вычищенные сегменты.
             text, _info = suppress_legacy_speech(factory, source="global")
             diagnostics = ["persisted_value_withheld", reason]
             if legacy_persona_present(raw):
                 diagnostics.append("persisted_legacy_persona_marker")
-            logger.warning(
-                "[prompt_registry] persisted speech value withheld | key=%s | "
-                "block=%s | reason=%s | stored_sha=%s | stored_chars=%d",
-                pg_key, spec.block_id, reason, sha12(raw), len(raw))
+            if withheld_class == WITHHELD_IDENTICAL_CLASS:
+                # Байты совпадают с ЗАРЕГИСТРИРОВАННОЙ заводской редакцией
+                # (classification.md §2). Текущая фабрика может быть новее,
+                # поэтому старая редакция не активируется, но это не конфликт
+                # владельца: WARNING заменён на INFO (ложный шум снят).
+                diagnostics.append("provenance_factory_equivalent")
+                logger.info(
+                    "[prompt_registry] persisted speech value is a registered "
+                    "factory edition | key=%s | block=%s | reason=%s | "
+                    "stored_sha=%s | stored_chars=%d",
+                    pg_key, spec.block_id, reason, sha12(raw), len(raw))
+            else:
+                logger.warning(
+                    "[prompt_registry] persisted speech value withheld | "
+                    "key=%s | block=%s | reason=%s | class=%s | stored_sha=%s "
+                    "| stored_chars=%d",
+                    pg_key, spec.block_id, reason, withheld_class,
+                    sha12(raw), len(raw))
             return SpeechResolution(
                 text=text if text.strip() else factory, source="default",
                 diagnostics=tuple(diagnostics), withheld=True,
                 withheld_sha256_12=sha12(raw),
-                provenance_reason=reason, provenance=entry)
+                provenance_reason=reason, provenance=entry,
+                withheld_class=withheld_class,
+                withheld_reason=(classification or {}).get("reason", ""))
         text, _info = suppress_legacy_speech(raw, source=source,
                                              custom_clean=custom_clean)
         return SpeechResolution(text=text, source=source,
@@ -2355,6 +2503,11 @@ def withheld_values(*, pg_get=None, cache=None) -> list[dict]:
         reason, entry = provenance_state(spec, value, cache=cache)
         if reason == "attested":
             continue
+        if value == factory_text(spec.block_id):
+            # P0-PROMPTS: сохранённые байты уже равны текущей фабрике —
+            # это не конфликт, ложный WARNING снят (identical_to_factory).
+            continue
+        classification = withheld_classification(spec.block_id, value)
         rows.append({
             "block_id": spec.block_id,
             "pg_key": spec.pg_key,
@@ -2363,6 +2516,9 @@ def withheld_values(*, pg_get=None, cache=None) -> list[dict]:
             "stored_legacy_persona_marker": legacy_persona_present(value),
             "stored_known_canon": is_known_canon(value),
             "withheld_reason": reason,
+            "withheld_class": (classification or {}).get(
+                "class", WITHHELD_UNCLASSIFIED_CLASS),
+            "withheld_class_reason": (classification or {}).get("reason", ""),
             "attested_revision": (str((entry or {}).get("revision") or "")
                                   or None),
             "factory_revision": factory_revision(spec.block_id),

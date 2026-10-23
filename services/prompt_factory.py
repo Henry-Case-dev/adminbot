@@ -447,6 +447,18 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
     if not value.strip():
         return {"applied": False, "reason": "empty_value", "block_id": block_id,
                 "pg_key": spec.pg_key}
+    classification = pr.withheld_classification(block_id, value)
+    if classification and classification.get("class") == \
+            pr.WITHHELD_LEGACY_CLASS:
+        # P0-PROMPTS (24.10.2026): известные legacy-редакции (старая личность /
+        # обход ограничений / ослабленный разбор) не активируются даже явной
+        # перезаписью. Текст остаётся доступен в сохранённой редакции/истории.
+        logger.warning("[prompt_factory] legacy_incompatible edit rejected | "
+                       "block=%s | sha=%s", block_id, pr.sha12(value))
+        return {"applied": False, "reason": "legacy_incompatible",
+                "block_id": block_id, "pg_key": spec.pg_key,
+                "detail": classification.get("reason", ""),
+                "stored_sha256_12": pr.sha12(value)}
     if chat_id is not None:
         return await _write_chat_speech_value(
             spec, value, cache=cache, actor=actor, reason=reason,

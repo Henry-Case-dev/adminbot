@@ -144,4 +144,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     абзацы §4.2 в «КАК ПИСАТЬ» — PREV_DIRECT_L1_PLANNER_W1 /
     PREV_CHAT_VERBALIZER_W1_31, changed = 2)."""
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
-    assert pr.FACTORY_SET_SHA256_12 == "24ae494ac422"
+    assert pr.FACTORY_SET_SHA256_12 == "071b1f3ec5f9"

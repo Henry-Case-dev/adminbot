@@ -152,9 +152,10 @@ def test_p0bc_core_no_mat_regulation_no_soul_meta_full_and_compact():
 
 def test_p0bc_full_compact_semantics_kept():
     """Семантика Full отражена в Compact (деривация: абзац → маркеры).
-    P0-CHECKUP/CORE (24.10.2026): добавлен один owner-абзац (6 абзацев)."""
+    P0-CHECKUP/CORE + ADDENDUM #2 (24.10.2026): добавлены два owner-абзаца
+    (7 абзацев)."""
     full_paras = cp.PERSONALITY_CORE_FULL_TEXT.split("\n\n")
-    assert len(full_paras) == 6
+    assert len(full_paras) == 7
     for para_no, markers in cp.PERSONALITY_CORE_COMPACT_DERIVATION:
         for marker in markers:
             assert marker in full_paras[para_no - 1], (para_no, marker)
@@ -426,16 +427,20 @@ def test_91_ladder_prevents_old_canon_return_and_keeps_customs():
 
 def test_91_owner_preserving_core_patch_removes_only_service_remark():
     """W0-факт: активная правка владельца (rev 6) уже без мата; патч снимает
-    ТОЛЬКО SOUL-16-ремарку и (P0-CHECKUP/CORE 24.10.2026) добавляет один
-    отсутствующий owner-абзац — остальное байт-в-байт."""
+    ТОЛЬКО SOUL-16-ремарку и добавляет два owner-абзаца (P0-CHECKUP/CORE +
+    ADDENDUM #2) — остальное байт-в-байт."""
     v2 = cp.PREV_PERSONALITY_CORE_FULL_V2_TEXT
     owner_edit = v2 + " Дополнение владельца."   # синтетика owner-edit
     patched, changes = pm.owner_preserve_core_full_patch(owner_edit)
-    assert len(changes) == 2
+    assert len(changes) == 3
     assert "Важно" in changes[0]
     assert changes[1] == pm._CORE_REAL_EVENTS_CHANGE
+    assert changes[2] == pm._CORE_FREE_SPEECH_CHANGE
     assert "SOUL-16" not in patched and "**Важно:**" not in patched
     assert cp.CORE_REAL_EVENTS_PARAGRAPH in patched
+    assert cp.CORE_FREE_SPEECH_PARAGRAPH in patched
+    assert patched.index(cp.CORE_REAL_EVENTS_PARAGRAPH) < \
+        patched.index(cp.CORE_FREE_SPEECH_PARAGRAPH)
     assert patched.endswith(" Дополнение владельца.")   # owner-хвост цел
     assert "**Грубость.**" in patched            # владельческий текст цел
     # уже чистый текст → идемпотентный no-op

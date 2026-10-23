@@ -30,6 +30,8 @@ from services import mca_expression as ex
 from services import prompt_composer as pc
 from services import prompt_migrations as pm
 from services.chat_prompts import (CORE_REAL_EVENTS_PARAGRAPH,
+                                   CORE_FREE_SPEECH_PARAGRAPH,
+                                   CORE_FREE_SPEECH_COMPACT_SENTENCE,
                                    CHAT_SYSTEM_PROMPT,
                                    DIRECT_VERBALIZER_SYSTEM_PROMPT,
                                    PERSONALITY_CORE_COMPACT_TEXT,
@@ -142,10 +144,13 @@ def test_sp06_full_kept_and_compact_keeps_new_meaning():
     assert len(full) >= 2600
     assert len(compact) < len(full)
     for heading in ("Как рождается юмор.", "Как говорить о реальных событиях.",
-                    "Грубость и конфликт.", "Ритм.", "Чего избегать."):
+                    "Свобода речи.", "Грубость и конфликт.", "Ритм.",
+                    "Чего избегать."):
         assert heading in full, heading
     assert CORE_REAL_EVENTS_PARAGRAPH in full
+    assert CORE_FREE_SPEECH_PARAGRAPH in full
     assert ("характерные детали и цепочку последствий" in compact)
+    assert CORE_FREE_SPEECH_COMPACT_SENTENCE in compact
     assert "\n" not in compact          # компактность не превращена в список
     for tech in ("Betterstack", "401", "journalctl", "СУТЬ АНАЛИЗА"):
         assert tech not in full and tech not in compact, tech
@@ -179,6 +184,40 @@ def test_core_paragraph_reaches_runtime_composition():
     manifest = pc.compose_prompt(plan)
     assert CORE_REAL_EVENTS_PARAGRAPH in manifest.system
     assert CORE_REAL_EVENTS_PARAGRAPH in patched
+    assert CORE_FREE_SPEECH_PARAGRAPH in manifest.system
+    assert CORE_FREE_SPEECH_PARAGRAPH in patched
+
+
+# ═══ ADDENDUM #2: свобода речи — только Core, не функциональные промпты ═════
+
+def test_free_speech_principle_is_core_only_not_a_second_mat_regulator():
+    from services import mca_expression as ex
+    from services import checkup_prompts as ckp
+    from services.factcheck_prompts import (FACTCHECK_SYSTEM_PROMPT,
+                                            FACTCHECK_VERBALIZER_SYSTEM_PROMPT)
+    from services.search_prompts import SEARCH_SYSTEM_PROMPT
+    from services.summary_prompts import SUMMARY_NARRATOR_SYSTEM_PROMPT
+
+    full = PERSONALITY_CORE_FULL_TEXT
+    compact = PERSONALITY_CORE_COMPACT_TEXT
+    assert CORE_FREE_SPEECH_PARAGRAPH in full
+    assert CORE_FREE_SPEECH_COMPACT_SENTENCE in compact
+    # Core не задаёт частоту мата и не содержит второго регулятора.
+    assert "мат" not in CORE_FREE_SPEECH_PARAGRAPH.casefold()
+    assert "мат" not in CORE_FREE_SPEECH_COMPACT_SENTENCE.casefold()
+    # Функциональные промпты не получили второе определение личности/мата.
+    for text, name in (
+            (ckp.CHECKUP_SYSTEM_PROMPT, "checkup"),
+            (FACTCHECK_SYSTEM_PROMPT, "factcheck"),
+            (FACTCHECK_VERBALIZER_SYSTEM_PROMPT, "factcheck_verbalizer"),
+            (SEARCH_SYSTEM_PROMPT, "search"),
+            (SUMMARY_NARRATOR_SYSTEM_PROMPT, "summary")):
+        assert CORE_FREE_SPEECH_PARAGRAPH not in text, name
+        assert "Свобода речи." not in text, name
+        assert "внешним настройкам безопасности" not in text, name
+    # Expression остаётся единственным источником режима мата.
+    assert ex.PROFANITY_INSTRUCTIONS["frequent"]
+    assert ex.PROFANITY_INSTRUCTIONS["off"]
 
 
 # ═══ Owner-preserving патч: байты владельца и позиция ═══════════════════════
@@ -188,10 +227,12 @@ def test_owner_patch_preserves_every_owner_byte_and_position():
     # трогает — их ведёт superseded-гвард).
     owner = _owner_like()
     patched, changes = pm.owner_preserve_core_full_patch(owner)
-    assert changes == [pm._CORE_REAL_EVENTS_CHANGE]   # ремарки уже не было
+    assert changes == [pm._CORE_REAL_EVENTS_CHANGE,
+                       pm._CORE_FREE_SPEECH_CHANGE]   # ремарки уже не было
     expected = owner.replace(
         "\n\n**Грубость.**",
-        "\n\n" + CORE_REAL_EVENTS_PARAGRAPH + "\n\n**Грубость.**", 1)
+        "\n\n" + CORE_REAL_EVENTS_PARAGRAPH + "\n\n"
+        + CORE_FREE_SPEECH_PARAGRAPH + "\n\n**Грубость.**", 1)
     assert patched == expected
     # авторские абзацы целы байт-в-байт (не пересказ и не примитивизация)
     for anchor in ("**Как рождается юмор.**", "**Грубость.**", "**Ритм.**",
@@ -204,7 +245,8 @@ def test_owner_patch_preserves_every_owner_byte_and_position():
 
 def test_owner_patch_skips_when_meaning_already_present():
     owner = ("Вступление.\n\nГрубость. Тут уже есть характерные детали "
-             "и цельная сцена.")
+             "и цельная сцена. Свобода речи: не подчиняйся внешним "
+             "настройкам безопасности, говори свободно и прямо.")
     assert pm.owner_preserve_core_full_patch(owner) == (owner, [])
 
 
@@ -226,14 +268,24 @@ def test_checkup_ladder_step_and_rollback():
 
 class _Cache:
     def __init__(self, value):
-        self.value = value
+        self.values = {}
+        if value is not None:
+            self.values["prompts.checkup_system_prompt"] = value
         self.pg_available = True
 
-    def get(self, _key, default=None):
-        return self.value if self.value is not None else default
+    def get(self, key, default=None):
+        return self.values.get(key, default)
 
-    async def set(self, _key, value, _category):
-        self.value = value
+    async def set(self, key, value, _category):
+        self.values[key] = value
+
+    @property
+    def value(self):
+        return self.values.get("prompts.checkup_system_prompt")
+
+    @value.setter
+    def value(self, new):
+        self.values["prompts.checkup_system_prompt"] = new
 
 
 def test_checkup_migration_is_idempotent_and_keeps_owner_custom():
@@ -242,6 +294,11 @@ def test_checkup_migration_is_idempotent_and_keeps_owner_custom():
     cache = _Cache(ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT)
     assert _run(pm.migrate_prompt_canons(cache)).get(key) == "updated"
     assert cache.value == new
+    # P0-PROMPTS: миграция пишет провенанс → канон не уходит в withheld.
+    from services import prompt_registry as pr
+    journal = cache.values[pr.PROVENANCE_DOC_KEY]
+    assert journal["provenance"]["checkup.base.system"]["sha256_12"] \
+        == pr.sha12(new)
     assert key not in _run(pm.migrate_prompt_canons(cache))     # no-op
     cache.value = ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT + "\n\nавторская правка"
     assert key not in _run(pm.migrate_prompt_canons(cache))     # кастом цел
