@@ -598,23 +598,25 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "candidate_commit": "e9f7595bad3f56145078ad599edf4b7182d2e1df",
      "type": "test",
-     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
-     "observation": "На fbf9013d: tests/test_direct_l1_l1d_contract.py::test_normalize_is_total_garbage_safe и ::test_fallback_plan_has_no_delivery_binding; tests/test_asap8_initreply_binding.py::test_case4_transport_never_picks_addressee — 126 passed.",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026) [carry-over REL-F1]",
+     "observation": "На fbf9013d: tests/test_direct_l1_l1d_contract.py::test_normalize_is_total_garbage_safe и ::test_fallback_plan_has_no_delivery_binding; tests/test_asap8_initreply_binding.py::test_case4_transport_never_picks_addressee — 126 passed. Прогон выполнен на fbf9013d; на e9f7595b цитируемые тесты (test_normalize_is_total_garbage_safe, test_fallback_plan_has_no_delivery_binding) байт-идентичны, файл изменён аддитивно (R3/R3b canon-лестницы), логика normalize_l1_plan по delivery/target/action не менялась. Повторного прогона на e9f7595b не было.",
      "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md",
-     "artifact_sha256": "fa8539eebe2cefa939b61d33f4b2afeb452fc8884928d7e78d40470b12b417bf"
+     "artifact_sha256": "fa8539eebe2cefa939b61d33f4b2afeb452fc8884928d7e78d40470b12b417bf",
+     "produced_on": "fbf9013d89b03e38473ce6824a460fdbb736fff8"
     },
     {
-     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "candidate_commit": "e9f7595bad3f56145078ad599edf4b7182d2e1df",
      "type": "test",
-     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
-     "observation": "Ревью независимо воспроизвело l1d 15p + initreply 14p: мусорный delivery/malformed target → fail-closed, транспорт не ставит reply_to_message_id.",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d [carry-over REL-F1]",
+     "observation": "Ревью независимо воспроизвело l1d 15p + initreply 14p: мусорный delivery/malformed target → fail-closed, транспорт не ставит reply_to_message_id. Прогон выполнен на fbf9013d; на e9f7595b цитируемые тесты (test_normalize_is_total_garbage_safe, test_fallback_plan_has_no_delivery_binding) байт-идентичны, файл изменён аддитивно (R3/R3b canon-лестницы), логика normalize_l1_plan по delivery/target/action не менялась. Повторного прогона на e9f7595b не было.",
      "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md",
-     "artifact_sha256": "af70124ef5b5221a9d05bb5fcb5665930823b9a8279b8b8e8a0fc2ef124d2138"
+     "artifact_sha256": "af70124ef5b5221a9d05bb5fcb5665930823b9a8279b8b8e8a0fc2ef124d2138",
+     "produced_on": "fbf9013d89b03e38473ce6824a460fdbb736fff8"
     }
    ],
-   "reconciliation_note": "Хрупкий parser fail-closed; транспорт не назначает reply."
+   "reconciliation_note": "Хрупкий parser fail-closed; транспорт не назначает reply. REL-F1 (24.10.2026): evidence перепривязано к e9f7595b; прогон был на fbf9013d (produced_on), файлы/тесты сверены"
   },
   {
    "source_id": "MAN-INIT-I09",
@@ -631,23 +633,25 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "candidate_commit": "e9f7595bad3f56145078ad599edf4b7182d2e1df",
      "type": "test",
-     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
-     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py::test_case6_react_executes_without_text и ::test_case6b_invalid_reaction_is_honest_silence — 126 passed.",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026) [carry-over REL-F1]",
+     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py::test_case6_react_executes_without_text и ::test_case6b_invalid_reaction_is_honest_silence — 126 passed. Прогон выполнен на fbf9013d; tests/test_asap8_initreply_binding.py на e9f7595b байт-идентичен (git diff пуст). Повторного прогона на e9f7595b не было.",
      "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md",
-     "artifact_sha256": "fa8539eebe2cefa939b61d33f4b2afeb452fc8884928d7e78d40470b12b417bf"
+     "artifact_sha256": "fa8539eebe2cefa939b61d33f4b2afeb452fc8884928d7e78d40470b12b417bf",
+     "produced_on": "fbf9013d89b03e38473ce6824a460fdbb736fff8"
     },
     {
-     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "candidate_commit": "e9f7595bad3f56145078ad599edf4b7182d2e1df",
      "type": "test",
-     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
-     "observation": "Ревью независимо воспроизвело initreply 14p, включая reaction/graceful silence.",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d [carry-over REL-F1]",
+     "observation": "Ревью независимо воспроизвело initreply 14p, включая reaction/graceful silence. Прогон выполнен на fbf9013d; tests/test_asap8_initreply_binding.py на e9f7595b байт-идентичен (git diff пуст). Повторного прогона на e9f7595b не было.",
      "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md",
-     "artifact_sha256": "af70124ef5b5221a9d05bb5fcb5665930823b9a8279b8b8e8a0fc2ef124d2138"
+     "artifact_sha256": "af70124ef5b5221a9d05bb5fcb5665930823b9a8279b8b8e8a0fc2ef124d2138",
+     "produced_on": "fbf9013d89b03e38473ce6824a460fdbb736fff8"
     }
    ],
-   "reconciliation_note": "Реакция валидна либо честное молчание, без подмены текстом."
+   "reconciliation_note": "Реакция валидна либо честное молчание, без подмены текстом. REL-F1 (24.10.2026): evidence перепривязано к e9f7595b; прогон был на fbf9013d (produced_on), файлы/тесты сверены"
   },
   {
    "source_id": "MAN-INIT-TESTS",
@@ -664,23 +668,25 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "candidate_commit": "e9f7595bad3f56145078ad599edf4b7182d2e1df",
      "type": "test",
-     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
-     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py (14: chat/reply/react/silent, transport never picks addressee, missing/stale target) + tests/test_direct_l1_l1d_contract.py (15: schema/normalize/garbage/fallback no delivery) — 126 passed.",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026) [carry-over REL-F1]",
+     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py (14: chat/reply/react/silent, transport never picks addressee, missing/stale target) + tests/test_direct_l1_l1d_contract.py (15: schema/normalize/garbage/fallback no delivery) — 126 passed. Прогон выполнен на fbf9013d; initreply-файл байт-идентичен на e9f7595b, l1d-файл изменён аддитивно и цитируемые тесты не тронуты. Повторного прогона на e9f7595b не было.",
      "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md",
-     "artifact_sha256": "fa8539eebe2cefa939b61d33f4b2afeb452fc8884928d7e78d40470b12b417bf"
+     "artifact_sha256": "fa8539eebe2cefa939b61d33f4b2afeb452fc8884928d7e78d40470b12b417bf",
+     "produced_on": "fbf9013d89b03e38473ce6824a460fdbb736fff8"
     },
     {
-     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "candidate_commit": "e9f7595bad3f56145078ad599edf4b7182d2e1df",
      "type": "test",
-     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
-     "observation": "Ревью независимо воспроизвело initreply 14p и l1d 15p.",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d [carry-over REL-F1]",
+     "observation": "Ревью независимо воспроизвело initreply 14p и l1d 15p. Прогон выполнен на fbf9013d; initreply-файл байт-идентичен на e9f7595b, l1d-файл изменён аддитивно и цитируемые тесты не тронуты. Повторного прогона на e9f7595b не было.",
      "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md",
-     "artifact_sha256": "af70124ef5b5221a9d05bb5fcb5665930823b9a8279b8b8e8a0fc2ef124d2138"
+     "artifact_sha256": "af70124ef5b5221a9d05bb5fcb5665930823b9a8279b8b8e8a0fc2ef124d2138",
+     "produced_on": "fbf9013d89b03e38473ce6824a460fdbb736fff8"
     }
    ],
-   "reconciliation_note": "Property/regression-набор покрывает все четыре действия и негативный hardcode-контроль."
+   "reconciliation_note": "Property/regression-набор покрывает все четыре действия и негативный hardcode-контроль. REL-F1 (24.10.2026): evidence перепривязано к e9f7595b; прогон был на fbf9013d (produced_on), файлы/тесты сверены"
   },
   {
    "source_id": "MAN-INIT-48H",
@@ -778,16 +784,20 @@
    "acceptance": "[P0] Ответ сравнён до/после всех постпроцессоров и Telegram serialization: off без мата из-за модели, а не sanitization; frequent доходит до Telegram без вырезания; ограничение провайдера при конфликте со стилем честно зафиксировано с проверкой fallback.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "VERIFIED",
+   "status": "PENDING",
    "evidence": [
     {
      "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
      "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §3-4",
-     "observation": "W3: raw==sent 10/10 (off-pilot s1-s3, occasional s1/s2/s4/s5, frequent s5/s1/s2 вкл. мат); ни один постпроцессор не менял; off чист силой модели, frequent дошёл без вырезания; postprocess_changed/model_ignored_instruction не сработали",
+     "observation": "W3: raw==sent 10/10 (off-pilot s1-s3, occasional s1/s2/s4/s5, frequent s5/s1/s2 вкл. мат); ни один постпроцессор не менял; off чист силой модели, frequent дошёл без вырезания; postprocess_changed/model_ignored_instruction не сработали ОГРАНИЧЕНИЕ: offline-harness (FakeBot/serialization-spy), не production — опора для пост-деплойной проверки, не замена ей.",
      "artifact_path": "plans/features/asap-speech-arch/evidence/w3/analysis.md",
-     "artifact_sha256": "c3c4190591a39281ba8d7f0eb2ed77cbda51eadca5334fb4096200f628d8ced1"
+     "artifact_sha256": "c3c4190591a39281ba8d7f0eb2ed77cbda51eadca5334fb4096200f628d8ced1",
+     "produced_on": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "type": "provider"
     }
-   ]
+   ],
+   "next_check": "postdeploy на развернутом кандидате: снять raw-ответ и финальный Telegram-payload (до/после всех постпроцессоров и serialization) для off/occasional/frequent; W3 offline-harness ec359bb3 — только опора.",
+   "reconciliation_note": "REL-F1 (24.10.2026): снят VERIFIED с чужой привязкой — единственное evidence W3 снято на ec359bb3 offline, production-egress для текущего кандидата не измерялся. Статус PENDING + next_check."
   },
   {
    "source_id": "MAN-GOV-PENDINGLIVE",
