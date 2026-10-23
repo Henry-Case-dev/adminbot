@@ -59,7 +59,7 @@ TEMPORAL_TZ_RESOLUTION_VERSION = "tzr1"
 # tf2 (FC-UNIFY/FC-PERCLAIM/FC-SEMQUERY, owner 21.10.2026 §3.2–3.6):
 # единый retrieval-контур в envelope-ветке, смысловые запросы, per-claim
 # агрегация — старые кеш-ключи/run-записи tf1 естественно выпадают (D13).
-TEMPORAL_PIPELINE_VERSION = "tf2"
+TEMPORAL_PIPELINE_VERSION = "tf3"
 
 SOURCE_TYPES = ("text", "caption", "ocr", "transcript", "url", "free_text")
 DATE_SOURCES = ("telegram_origin", "telegram_message", "publication_metadata",

@@ -77,12 +77,19 @@ class FakeDB:
 class FakeCache:
     def __init__(self):
         self.store = {}
+        self.markers = {}
 
     async def get(self, key):
         return self.store.get(key)
 
     async def set(self, key, value):
         self.store[key] = value
+
+    async def get_update_marker(self, key, *, ttl_seconds):
+        return self.markers.get(key)
+
+    async def set_update_marker(self, key, payload, *, ttl_seconds):
+        self.markers[key] = payload
 
     def build_key(self, slug, raw):
         from services.smart_cache import build_key, normalize_text
@@ -408,8 +415,9 @@ class TestFC08Image:
     @pytest.mark.asyncio
     async def test_not_analyzed_is_honest_and_caption_kept(self):
         async def fake_render(db, *, chat_id, tg_message_id):
-            return {"caption": "Подпись с тезисом",
-                    "untrusted_ocr_texts": [], "lines": []}
+            return {"caption": "Подпись с тезисом", "knowledge_time": None,
+                    "untrusted_ocr_texts": [],
+                    "lines": ["изображение, содержание ещё не распознано"]}
 
         media = await load_claim_media(FakeDB(), CHAT_ID, TARGET_TG,
                                        render_async=fake_render)
@@ -495,3 +503,303 @@ class TestFC09Cache:
             bot=bot, cache=cache)
         assert service.check_claim_calls           # проверка ВЫПОЛНЕНА
         assert bot.sent and "Исправленный вердикт" in bot.sent[-1]["text"]
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Review r1 (F1–F6): интеграционные проверки через ФАКТИЧЕСКИЙ сервисный путь
+# ═══════════════════════════════════════════════════════════════════════════
+
+OFF_TOPIC_BLOCK = (
+    "Утечка исходников Claude Code\n"
+    "Boris Cherny рассказал о расследовании утечки кода\n"
+    "Claude Code source code leak newsletter")
+
+
+class _JsonLLM:
+    """Аналитик/валидатор/вербализатор: JSON по шагу (без сети)."""
+
+    def __init__(self, verdict=None, validator=None, text="Краткий вывод."):
+        self.verdict = verdict or {"factual_verdict": "insufficient_evidence",
+                                   "temporal_status": "unknown"}
+        self.validator = validator or {"agree": True}
+        self.text = text
+        self.steps = []
+
+    async def generate(self, messages, **kw):
+        import json
+        step = kw.get("step")
+        self.steps.append(step)
+        if step == "temporal_verdict":
+            return json.dumps(self.verdict, ensure_ascii=False)
+        if step == "temporal_validator":
+            return json.dumps(self.validator, ensure_ascii=False)
+        return self.text
+
+
+def _service(llm=None, aggregator=None):
+    return FactCheckService(aggregator=aggregator, llm=llm or _JsonLLM())
+
+
+def _presentation_from_run(run):
+    verdict = orch.CheckedVerdict(
+        verdict_text=run.verdict_text or "вывод",
+        route="envelope_temporal",
+        factual_verdict=run.verdict.factual_verdict,
+        reason_code=run.verdict.reason,
+        evidence=orch.EvidenceMap(
+            refs=tuple(
+                orch.EvidenceRef(
+                    evidence_id=str(r.get("evidence_id") or ""),
+                    url=r.get("url"), support=str(r.get("support") or ""),
+                    source_kind=str(r.get("source_kind") or "secondary"))
+                for r in (run.evidence_rows or ())),
+            allowlist=tuple(str(r.get("evidence_id")) for r in
+                            (run.evidence_rows or ()))))
+    return fr.render_factcheck(
+        orch.build_presentation(verdict), verdict).text
+
+
+class TestF1CascadeRealPath:
+    """F1: бюджет не ломает каскад; Tavily упал → Exa реально вызван."""
+
+    @pytest.mark.asyncio
+    async def test_budget_kwarg_does_not_break_one_arg_engines(
+            self, monkeypatch):
+        agg = sa.SearchAggregator(tavily_api_key="t", exa_api_key="e")
+        calls = []
+
+        async def tavily(query):                 # сторонний движок: без kwarg
+            calls.append("tavily")
+            raise RuntimeError("tavily 503")
+
+        async def exa(query):                    # сторонний движок: без kwarg
+            calls.append("exa")
+            return ("Рост заболеваемости среди молодёжи\n"
+                    "Медики подтвердили увеличение случаев\n"
+                    "https://exa.example.org/1")
+
+        monkeypatch.setattr(agg, "_search_tavily", tavily)
+        monkeypatch.setattr(agg, "_search_exa", exa)
+        out = await agg.search_relevant(
+            "рост заболеваемости", 4000,
+            relevance_terms=["рост", "заболеваемости", "медики"],
+            timeout_budget=3.0)                  # продукт всегда передаёт бюджет
+        assert calls == ["tavily", "exa"]        # Exa реально вызван
+        assert "exa.example.org/1" in out
+
+    @pytest.mark.asyncio
+    async def test_retrieval_numbers_after_tavily_failure(self, planner_on):
+        agg = sa.SearchAggregator(tavily_api_key="t", exa_api_key="e")
+
+        async def tavily(query):
+            raise RuntimeError("tavily down")
+
+        async def exa(query):
+            return ("Публикация про Telegram и Claude\n"
+                    "Агенты Telegram подключат Claude, ChatGPT через API\n"
+                    "https://exa.example.org/tg")
+
+        agg._search_tavily = tavily
+        agg._search_exa = exa
+        plan = fsp.build_retrieval_plan(_decision(COMPOSITE),
+                                        claim_text=COMPOSITE)
+        outcome = await fsp.run_retrieval(plan, aggregator=agg)
+        assert outcome.queries_used >= 1 and outcome.refs_collected >= 1
+        assert classify_retrieval(outcome) == RETRIEVAL_OK
+        assert outcome.evidence_map is not None
+        assert all(r.url for r in outcome.evidence_map.refs)
+
+
+class TestF2EnvelopeEvidencePath:
+    """F2: строки без URL не становятся evidence на envelope-пути."""
+
+    @pytest.mark.asyncio
+    async def test_url_less_retrieval_is_processing_failed(self):
+        env, _ = await tf.build_envelope(
+            FakeDB(origin_row=_origin_row(COMPOSITE)),
+            tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                        target_tg_message_id=TARGET_TG,
+                        trigger_tg_message_id=TRIGGER_TG))
+        outcome = fsp.RetrievalOutcome(
+            evidence_map=None, search_text=OFF_TOPIC_BLOCK,
+            queries_attempted=1, queries_used=1, refs_collected=0,
+            fetch_errors=0, budget_exhausted=False)
+        assert classify_retrieval(outcome) == RETRIEVAL_PROCESSING_FAILED
+        run = await _service().check_claim_envelope(env, retrieval=outcome)
+        assert run.evidence_rows == ()                  # url=None не evidence
+        assert run.verdict.factual_verdict == "insufficient_evidence"
+        assert run.verdict.reason == "source_missing"
+        markup = _presentation_from_run(run)
+        assert "материалы не удалось разобрать" in markup.lower()
+        assert "Недостаточно данных для проверки" not in markup
+
+    @pytest.mark.asyncio
+    async def test_model_not_called_without_citable_evidence(self):
+        llm = _JsonLLM(verdict={"factual_verdict": "supported"})
+        env, _ = await tf.build_envelope(
+            FakeDB(origin_row=_origin_row(COMPOSITE)),
+            tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                        target_tg_message_id=TARGET_TG,
+                        trigger_tg_message_id=TRIGGER_TG))
+        outcome = fsp.RetrievalOutcome(
+            evidence_map=None, search_text=OFF_TOPIC_BLOCK,
+            queries_attempted=1, queries_used=1, refs_collected=0,
+            fetch_errors=0, budget_exhausted=False)
+        run = await _service(llm=llm).check_claim_envelope(
+            env, retrieval=outcome)
+        # положительный вердикт без доказательств не проходит
+        assert run.verdict.factual_verdict == "insufficient_evidence"
+        assert "temporal_verdict" not in llm.steps
+
+
+class TestF3TemporalCachePath:
+    """F3: старый `factcheck_temporal` (tf2) не скрывает новую проверку."""
+
+    async def _envelope(self):
+        env, _ = await tf.build_envelope(
+            FakeDB(origin_row=_origin_row(COMPOSITE)),
+            tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                        target_tg_message_id=TARGET_TG,
+                        trigger_tg_message_id=TRIGGER_TG))
+        return env
+
+    @pytest.mark.asyncio
+    async def test_old_tf2_entry_is_not_served(self):
+        env = await self._envelope()
+        scope = f"chat:{CHAT_ID}"
+        cache = FakeCache()
+        verdict = tf.TemporalVerdict(
+            factual_verdict="insufficient_evidence", temporal_status="current",
+            evaluated_period={}, assessment_mode="contextual", as_of=1)
+        old = tf.TEMPORAL_PIPELINE_VERSION
+        try:
+            tf.TEMPORAL_PIPELINE_VERSION = "tf2"
+            old_key = tf.build_temporal_cache_key(env, scope=scope)
+            assert await tf.write_temporal_cache(
+                cache, env, scope=scope, text="Старый вердикт", verdict=verdict)
+        finally:
+            tf.TEMPORAL_PIPELINE_VERSION = old
+        assert tf.TEMPORAL_PIPELINE_VERSION == "tf3"
+        new_key = tf.build_temporal_cache_key(env, scope=scope)
+        assert new_key != old_key
+        _key, _bucket, cached = await tf.read_temporal_cache(
+            cache, env, scope=scope)
+        assert cached is None                    # старый вердикт НЕ отдан
+
+    @pytest.mark.asyncio
+    async def test_new_tf3_entry_is_served(self):
+        env = await self._envelope()
+        scope = f"chat:{CHAT_ID}"
+        cache = FakeCache()
+        verdict = tf.TemporalVerdict(
+            factual_verdict="insufficient_evidence", temporal_status="current",
+            evaluated_period={}, assessment_mode="contextual", as_of=1)
+        assert await tf.write_temporal_cache(
+            cache, env, scope=scope, text="Новый вердикт", verdict=verdict)
+        _key, _bucket, cached = await tf.read_temporal_cache(
+            cache, env, scope=scope)
+        assert cached is not None and cached.get("text") == "Новый вердикт"
+
+
+class TestF4BudgetPerPart:
+    """F4: первая часть с числом/годом не забирает весь бюджет."""
+
+    def test_every_part_gets_a_query(self, planner_on):
+        claim = ("В сборке 283365 от macOS 13.1.0 (2024) добавили агентов. "
+                 "Telegram подключил Claude. "
+                 "Дуров убил Claude Code.")
+        plan = fsp.build_retrieval_plan(_decision(claim), claim_text=claim)
+        assert plan is not None
+        assert len(plan.queries) == 3
+        joined = " ".join(q.text.lower() for q in plan.queries)
+        assert "telegram" in joined            # часть 2 покрыта
+        assert "дуров" in joined or "code" in joined   # часть 3 покрыта
+        assert len({q.text.lower() for q in plan.queries}) == 3
+
+    def test_refinements_use_only_remaining_budget(self, planner_on):
+        claim = ("В 2019 году выпало 120 мм осадков. "
+                 "Урожай погиб. Инженеры признали ошибку.")
+        plan = fsp.build_retrieval_plan(_decision(claim), claim_text=claim)
+        assert plan is not None and len(plan.queries) == 3
+        # при полном бюджете уточнения не вытесняют запросы частей
+        intents = [q.intent for q in plan.queries]
+        assert intents == [fsp.INTENT_ENTITY_CHECK] * 3
+
+
+class TestF5NoContradictoryParts:
+    """F5: положительный топ не сопровождается частями «данных недостаточно»."""
+
+    @pytest.mark.asyncio
+    async def test_positive_top_has_no_synthesized_contradiction(self):
+        env, _ = await tf.build_envelope(
+            FakeDB(origin_row=_origin_row(
+                "Агенты Telegram подключены. Claude доступен. "
+                "Дуров убил Claude Code.")),
+            tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                        target_tg_message_id=TARGET_TG,
+                        trigger_tg_message_id=TRIGGER_TG))
+        ref = orch.EvidenceRef(
+            evidence_id="ev-1", url="https://example.org/a",
+            support="Агенты Telegram подключены к Claude")
+        outcome = fsp.RetrievalOutcome(
+            evidence_map=orch.EvidenceMap(refs=(ref,), allowlist=("ev-1",)),
+            search_text="Агенты Telegram подключены к Claude\n"
+                        "https://example.org/a",
+            queries_attempted=1, queries_used=1, refs_collected=1,
+            fetch_errors=0, budget_exhausted=False)
+        llm = _JsonLLM(verdict={"factual_verdict": "supported",
+                                "temporal_status": "current",
+                                "evidence_refs": ["ev-1"]})
+        run = await _service(llm=llm).check_claim_envelope(
+            env, retrieval=outcome)
+        assert run.verdict.factual_verdict == "supported"
+        assert run.verdict.parts == ()          # нет противоречащего разбора
+        markup = _presentation_from_run(run)
+        assert "данных недостаточно" not in markup
+
+    @pytest.mark.asyncio
+    async def test_insufficient_top_still_gets_parts(self):
+        env, _ = await tf.build_envelope(
+            FakeDB(origin_row=_origin_row(COMPOSITE)),
+            tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                        target_tg_message_id=TARGET_TG,
+                        trigger_tg_message_id=TRIGGER_TG))
+        outcome = fsp.RetrievalOutcome(
+            evidence_map=None, search_text=OFF_TOPIC_BLOCK,
+            queries_attempted=1, queries_used=1, refs_collected=0,
+            fetch_errors=0, budget_exhausted=False)
+        run = await _service().check_claim_envelope(env, retrieval=outcome)
+        assert len(run.verdict.parts) >= 2
+        assert all(p["factual_verdict"] == "insufficient_evidence"
+                   for p in run.verdict.parts)
+
+
+class TestF6ReadyNoText:
+    """F6: «распознано, текста нет» ≠ «не анализировали»."""
+
+    @pytest.mark.asyncio
+    async def test_ready_without_text_is_not_reported_as_pending(self):
+        async def fake_render(db, *, chat_id, tg_message_id):
+            return {"caption": "Подпись", "knowledge_time": 1792200000,
+                    "untrusted_ocr_texts": [],
+                    "lines": ["Визуальное описание: кот на столе"]}
+
+        media = await load_claim_media(FakeDB(), CHAT_ID, TARGET_TG,
+                                       render_async=fake_render)
+        assert media.image_analyzed is True
+        assert media.image_not_analyzed is False
+        assert media.notice() == ""
+        assert media.caption == "Подпись"
+
+    @pytest.mark.asyncio
+    async def test_pending_analysis_is_still_marked(self):
+        async def fake_render(db, *, chat_id, tg_message_id):
+            return {"caption": "Подпись", "knowledge_time": None,
+                    "untrusted_ocr_texts": [],
+                    "lines": ["изображение, содержание ещё не распознано"]}
+
+        media = await load_claim_media(FakeDB(), CHAT_ID, TARGET_TG,
+                                       render_async=fake_render)
+        assert media.image_not_analyzed is True
+        assert media.image_analyzed is False
+        assert "не готово" in media.notice()

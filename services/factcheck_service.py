@@ -230,8 +230,17 @@ async def load_claim_media(db, chat_id: int | None,
                                           or ()) if str(t or "").strip()]
     ocr_text = "\n".join(ocr_texts).strip()[:max_chars]
     if not ocr_text:
-        return ClaimMediaMaterial(image_present=True, image_not_analyzed=True,
-                                  caption=caption)
+        # F6 (review r1): «распознавание не готово» ≠ «на изображении нет
+        # текста». Готовый анализ без текста — честный `analyzed` без
+        # ложной оговорки; `not_analyzed` только когда строка ожидания
+        # Vision реально присутствует.
+        lines = [str(line) for line in (media.get("lines") or ())]
+        pending = any("содержание ещё не распознано" in line
+                      for line in lines)
+        ready = bool(media.get("knowledge_time"))
+        return ClaimMediaMaterial(
+            image_present=True, image_analyzed=ready or not pending,
+            image_not_analyzed=pending, caption=caption)
     suffix = ("Текст с изображения (OCR, не слова автора):\n"
               + ocr_text)
     return ClaimMediaMaterial(text_suffix=suffix, image_present=True,
@@ -797,13 +806,22 @@ class FactCheckService:
             retrieval_refs = tuple(
                 getattr(getattr(retrieval, "evidence_map", None),
                         "refs", ()) or ())
-        if retrieval_refs:
+        if retrieval is not None:
+            # F2 (review r1): веб-прогон даёт evidence ТОЛЬКО из структурных
+            # строк плана. Прежний fallback разбирал `search_text` заново и
+            # возвращал строки с url=None (прод-симптом tfr-6e0ab2db…).
+            # Нет проверяемых ссылок → evidence пуст, класс
+            # `processing_failed` вместо содержательного «нет данных».
             evidence = tf.evidence_rows_from_refs(
                 retrieval_refs, fallback_results=results,
-                max_rows=_temporal_max_evidence())
+                max_rows=_temporal_max_evidence()) if retrieval_refs else ()
         else:
-            evidence = tf.evidence_rows_from_results(
-                results, max_rows=_temporal_max_evidence())
+            # Внутренний поиск ветки: строки без URL тоже не доказательство
+            # (их нельзя открыть и проверить).
+            evidence = tuple(
+                r for r in tf.evidence_rows_from_results(
+                    results, max_rows=_temporal_max_evidence())
+                if r.get("url"))
         date_summary = None
         if evidence and tf.evidence_date_fetch_enabled():
             try:
@@ -827,8 +845,15 @@ class FactCheckService:
         # P0-FACTCHECK (§3.6): технический класс исхода retrieval. Раньше
         # бюджет/недоступность провайдеров/потеря обработки не читались и
         # любой пустой evidence давал «недостаточно доказательств».
-        retrieval_state = classify_retrieval(retrieval) if not evidence \
-            else RETRIEVAL_OK
+        if evidence:
+            retrieval_state = RETRIEVAL_OK
+        elif retrieval is not None:
+            retrieval_state = classify_retrieval(retrieval)
+        elif str(results or "").strip():
+            # F2: внутренний поиск что-то нашёл, но проверяемых ссылок нет.
+            retrieval_state = RETRIEVAL_PROCESSING_FAILED
+        else:
+            retrieval_state = RETRIEVAL_NOT_RUN
         if retrieval_state in _RETRIEVAL_REASON:
             verdict_reason = _RETRIEVAL_REASON[retrieval_state]
 
@@ -925,7 +950,13 @@ class FactCheckService:
         # привязкой evidence к части (в durable evidence раньше было
         # claim_part=null у всех строк). Положительный вердикт части без
         # доказательства запрещён.
-        if not verdict.parts:
+        #
+        # F5 (review r1): синтезированные части не должны противоречить
+        # положительному общему вердикту («Подтверждается» + все части
+        # «данных недостаточно»). Поэтому синтез только для честного
+        # insufficient_evidence; иначе разбора частей нет вовсе.
+        if not verdict.parts and verdict.factual_verdict == \
+                "insufficient_evidence":
             server_parts = _server_parts(env, evidence)
             if server_parts:
                 verdict = dataclasses.replace(verdict, parts=server_parts)

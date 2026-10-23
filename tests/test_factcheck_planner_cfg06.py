@@ -187,9 +187,13 @@ class TestPlanBuilding:
             assert q.text.lower() != claim.lower()[:200]
         joined = " ".join(q.text.lower() for q in plan.queries)
         assert "килякет" in joined               # сущность сохранена
-        assert "2019" in joined                  # временной интент
-        intents = [q.intent for q in plan.queries]
-        assert len(set(intents)) == len(intents)  # цели различаются
+        assert "2019" in joined                  # уточнение в запросе части
+        # F4 (review r1): части не голодают — каждая часть имеет свой
+        # запрос (прежнее требование «уникальные интенты» противоречило
+        # пользовательскому §3.3/§3.5: частей больше, чем интентов).
+        assert sum(1 for q in plan.queries
+                   if q.intent == fsp.INTENT_ENTITY_CHECK) >= 2
+        assert fsp.INTENT_TEMPORAL in [q.intent for q in plan.queries]
 
     def test_numeric_intent_for_numbers(self, planner_on):
         claim = "в Килякете выпало 120 мм осадков за сутки"
