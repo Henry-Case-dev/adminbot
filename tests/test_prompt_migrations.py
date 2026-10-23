@@ -47,6 +47,7 @@ from services.chat_prompts import (
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
     PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    PREV_CHECKUP_P0_SYSTEM_PROMPT,
     PREV_CHECKUP_R1021_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
 )
@@ -294,7 +295,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # CFG-07A-2 (20.10.2026, ADR-1013-3): откаты 6 канонов НЕ-фактчек
     # маршрутов — НЕПОСРЕДСТВЕННО прежний прод-канон 2.58.100
     # (PREV_*_CFG07A; снимается только ступень CFG-07A).
-    "prompts.checkup_system_prompt": PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    # P0-CHECKUP (24.10.2026): откат снимает ТОЛЬКО новую ступень P0 — на
+    # прод-канон 2.58.118 (PREV_CHECKUP_P0, 38d63d86b54d).
+    "prompts.checkup_system_prompt": PREV_CHECKUP_P0_SYSTEM_PROMPT,
     "prompts.search_system_prompt": PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     "prompts.youtube_system_prompt": PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
     "prompts.youtube_video_system_prompt":

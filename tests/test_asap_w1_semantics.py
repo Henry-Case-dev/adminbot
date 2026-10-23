@@ -151,9 +151,10 @@ def test_p0bc_core_no_mat_regulation_no_soul_meta_full_and_compact():
 
 
 def test_p0bc_full_compact_semantics_kept():
-    """Семантика Full отражена в Compact (деривация: абзац §3.2 → маркеры)."""
+    """Семантика Full отражена в Compact (деривация: абзац → маркеры).
+    P0-CHECKUP/CORE (24.10.2026): добавлен один owner-абзац (6 абзацев)."""
     full_paras = cp.PERSONALITY_CORE_FULL_TEXT.split("\n\n")
-    assert len(full_paras) == 5
+    assert len(full_paras) == 6
     for para_no, markers in cp.PERSONALITY_CORE_COMPACT_DERIVATION:
         for marker in markers:
             assert marker in full_paras[para_no - 1], (para_no, marker)
@@ -424,16 +425,18 @@ def test_91_ladder_prevents_old_canon_return_and_keeps_customs():
 
 
 def test_91_owner_preserving_core_patch_removes_only_service_remark():
-    """W0-факт: активная правка владельца (rev 6) уже без мата; осталось
-    снять ТОЛЬКО SOUL-16-ремарку — остальное байт-в-байт (владельческий
-    текст НЕ перетирается фабрикой v3)."""
+    """W0-факт: активная правка владельца (rev 6) уже без мата; патч снимает
+    ТОЛЬКО SOUL-16-ремарку и (P0-CHECKUP/CORE 24.10.2026) добавляет один
+    отсутствующий owner-абзац — остальное байт-в-байт."""
     v2 = cp.PREV_PERSONALITY_CORE_FULL_V2_TEXT
     owner_edit = v2 + " Дополнение владельца."   # синтетика owner-edit
-    patched, removed = pm.owner_preserve_core_full_patch(owner_edit)
-    assert len(removed) == 1 and "Важно" in removed[0]
+    patched, changes = pm.owner_preserve_core_full_patch(owner_edit)
+    assert len(changes) == 2
+    assert "Важно" in changes[0]
+    assert changes[1] == pm._CORE_REAL_EVENTS_CHANGE
     assert "SOUL-16" not in patched and "**Важно:**" not in patched
-    assert patched == (v2.replace(pm._CORE_SERVICE_REMARK_V2, "")
-                       + " Дополнение владельца.")
+    assert cp.CORE_REAL_EVENTS_PARAGRAPH in patched
+    assert patched.endswith(" Дополнение владельца.")   # owner-хвост цел
     assert "**Грубость.**" in patched            # владельческий текст цел
     # уже чистый текст → идемпотентный no-op
     clean = cp.PERSONALITY_CORE_FULL_TEXT + " правка"

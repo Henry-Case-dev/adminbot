@@ -331,13 +331,14 @@ def test_35_initiative_delivery_contracts_unchanged():
 def test_36_character_expression_style_untouched():
     import hashlib
     from services import mca_expression as ex
-    # Core v3 (W1 §3.2/§3.3) — байты прежние
+    # Core v3 (W1 §3.2/§3.3) + owner-абзац §3 аддендума 24.10.2026
+    # (P0-CHECKUP/CORE): байты осознанно обновлены вместе с каноном.
     assert hashlib.sha256(
         cp.PERSONALITY_CORE_FULL_TEXT.encode("utf-8")).hexdigest()[:12] == \
-        "2ab417d11404"
+        "03514adb2b6a"
     assert hashlib.sha256(
         cp.PERSONALITY_CORE_COMPACT_TEXT.encode("utf-8")).hexdigest()[:12] == \
-        "9e6a4ec8b1ea"
+        "8be08a0d547c"
     # Expression §3.4 — байты прежние
     assert ex.EXPRESSION_HEADER.startswith("<Expression_Settings>")
     assert "ПРАВИЛА МАНЕРЫ РЕЧИ" in ex.EXPRESSION_HEADER.splitlines()[1]

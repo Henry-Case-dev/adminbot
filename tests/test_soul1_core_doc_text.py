@@ -32,13 +32,20 @@ import re
 import pytest
 
 from services import prompt_registry as pr
-from services.chat_prompts import (PERSONALITY_CORE_COMPACT_DERIVATION,
+from services.chat_prompts import (CORE_REAL_EVENTS_PARAGRAPH,
+                                   PERSONALITY_CORE_COMPACT_DERIVATION,
                                    PERSONALITY_CORE_COMPACT_TEXT,
                                    PERSONALITY_CORE_FULL_TEXT,
                                    PREV_PERSONALITY_CORE_COMPACT_TEXT,
                                    PREV_PERSONALITY_CORE_COMPACT_V2_TEXT,
                                    PREV_PERSONALITY_CORE_FULL_TEXT,
                                    PREV_PERSONALITY_CORE_FULL_V2_TEXT)
+
+#: P0-CHECKUP/CORE (24.10.2026, addendum §3): минимальное дополнение Compact.
+CORE_REAL_EVENTS_COMPACT = ("Когда есть фактура, рассказывай через характерные "
+                            "детали и цепочку последствий: развивай точное "
+                            "язвительное сравнение вместо набора общих оценок, "
+                            "не подменяя им факты.")
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE_PATH = ROOT / "plans/features/asap-speech-arch/source-2026-10-22.md"
@@ -103,12 +110,19 @@ def _fence(heading: str) -> str:
 
 
 def test_full_factory_text_is_owner_text_32_byte_exact():
-    """v3 = §3.2 снапшота asap-speech-arch БАЙТ-В-БАЙТ; регуляций мата и
-    служебных меток нет; личность (токсичность/цинизм/абсурд) сохранена."""
+    """v3 = §3.2 байт-в-байт; P0-CHECKUP/CORE (24.10.2026) добавляет РОВНО
+    один недостающий абзац владельца §3 аддендума после «Как рождается юмор»
+    и перед «Грубость и конфликт»; остальные байты не меняются. Регуляций
+    мата и служебных меток нет; личность сохранена."""
     factory = pr.factory_text(pr.CORE_FULL_BLOCK_ID)
     assert factory == PERSONALITY_CORE_FULL_TEXT
-    assert factory == _fence("### 3.2. P0-B"), (
-        "заводской Core разошёлся с §3.2 source-2026-10-22.md (байты)")
+    base = _fence("### 3.2. P0-B")
+    anchor = "Грубость и конфликт."
+    pos = base.index(anchor)
+    expected = (base[:pos] + CORE_REAL_EVENTS_PARAGRAPH + "\n\n" + base[pos:])
+    assert factory == expected, (
+        "заводской Core разошёлся с §3.2 + owner-абзацем §3 аддендума (байты)")
+    assert factory.count(CORE_REAL_EVENTS_PARAGRAPH) == 1
     assert not _has_mat_word(factory)
     assert "SOUL-" not in factory and "**Важно:**" not in factory
     for anchor in KEPT_PERSONALITY:
@@ -119,10 +133,18 @@ def test_full_factory_text_is_owner_text_32_byte_exact():
 
 
 def test_compact_factory_text_is_owner_text_33_byte_exact():
-    """v3-компакт = §3.3 байт-в-байт; сокращение Full без иных дозволений."""
+    """v3-компакт = §3.3 байт-в-байт; P0-CHECKUP/CORE дописывает ОДНО
+    предложение того же смысла в существующий абзац, не меняя остального."""
     compact = pr.factory_text(pr.CORE_COMPACT_BLOCK_ID)
     assert compact == PERSONALITY_CORE_COMPACT_TEXT
-    assert compact == _fence("### 3.3. P0-C")
+    base = _fence("### 3.3. P0-C")
+    marker = " Не выдумывай реальные события"
+    assert marker in base
+    expected = base.replace(marker,
+                            " " + CORE_REAL_EVENTS_COMPACT + marker, 1)
+    assert compact == expected
+    assert compact.count(CORE_REAL_EVENTS_COMPACT) == 1
+    assert "\n" not in compact          # остаётся одним связным абзацем
     assert not _has_mat_word(compact)
     assert "SOUL-" not in compact
     for anchor in ("язвительный", "непристойному юмору",
@@ -169,8 +191,9 @@ def test_compact_revision_keeps_documented_meaning_markers():
         for marker in markers:
             assert marker in source_para, (para_no, marker)
             assert marker in compact, ("маркер потерян при сжатии", marker)
-    # деривация покрывает все содержательные абзацы §3.2 (1-5)
-    assert covered == {1, 2, 3, 4, 5}
+    # деривация покрывает все содержательные абзацы §3.2 + добавленный
+    # owner-абзац P0-CHECKUP/CORE (1-6)
+    assert covered == {1, 2, 3, 4, 5, 6}
     # зеркальные якоря есть в обеих редакциях (формулировки изданий разные)
     for anchor in KEPT_FULL_ANCHORS:
         assert anchor in full, anchor

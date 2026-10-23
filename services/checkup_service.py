@@ -31,7 +31,8 @@ _METRICS_MAX_SYMBOLS = 2000
 
 class CheckupService:
     """Канон SmartModule: system.replace({max_symbols}) → llm.generate →
-    cleanup_llm_text (R33-7, ВСЕГДА). LLMError пробрасывается в хендлер.
+    cleanup_llm_text (R33-7, ВСЕГДА) → outbound Style Policy (P0-CHECKUP,
+    только пользовательская команда) → хендлер. LLMError пробрасывается.
     Epic 60 (64.5): метрики памяти подаются ДАННЫМИ в user-контент (без
     db/memory — ровно старое поведение; metrics_enabled=false — рубильник)."""
 
@@ -113,4 +114,28 @@ class CheckupService:
             # Epic 60 (65.1, T-469): пустой ответ → молчание + 🗿 (хендлер
             # ничего не шлёт). Ветка хендлера ДО except LLMError.
             raise LLMBadResponseError("checkup: empty answer")
+        # P0-CHECKUP (24.10.2026, addendum §5): исходящий Checkup-текст
+        # проходит ДЕЙСТВУЮЩИЙ outbound Style Policy (dash.hard.factory,
+        # настройки чата) — тот же единственный проход, что у Direct, без
+        # второго движка/regex. Только пользовательская команда (chat_id);
+        # внутренний tool-loop отдаёт данные Direct Writer, который применит
+        # свой outbound-проход (без двойной обработки).
+        if chat_id is not None:
+            raw = await self._apply_outbound_style(raw, chat_id)
         return raw
+
+    @staticmethod
+    async def _apply_outbound_style(text: str, chat_id: int) -> str:
+        """Один проход существующего Style Policy; fail-open (текст как есть)."""
+        try:
+            from services import style_policy as _style_policy
+            outcome = await _style_policy.apply_style_policy(
+                text, chat_id=int(chat_id), context="regular",
+                emit_events=True, stage="checkup_pre_send")
+        except Exception:      # pragma: no cover - проход не роняет отправку
+            logger.warning("[checkup] style policy pass failed | chat=%s",
+                           chat_id, exc_info=True)
+            return text
+        if outcome.applied and str(outcome.text or ""):
+            return outcome.text
+        return text

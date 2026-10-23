@@ -184,6 +184,17 @@ def test_cleaned_factory_canons_have_no_legacy_markers():
             assert "токсичн" not in raw and "бот-абьюзер" not in raw
             assert "двача" not in raw
             continue
+        if block_id == "checkup.base.system":
+            # P0-CHECKUP (24.10.2026, addendum §2): поздняя owner-редакция
+            # сохраняет слово «человеческо-токсичный» в замороженном блоке
+            # «СУТЬ АНАЛИЗА». Подавление снимает ТОЛЬКО ярлык языка
+            # (persona.checkup_language); identity DevOps-инженера и унижение
+            # разработчика в активном каноне отсутствуют.
+            assert "DevOps-инженер" not in raw
+            assert "унизив разработчика за кривой код" not in raw
+            assert info.labels == ("persona.checkup_language",), info
+            assert "человеческо-токсичный" not in _stripped
+            continue
         assert info.legacy_present is False, block_id
         assert info.applied is False, block_id
 
