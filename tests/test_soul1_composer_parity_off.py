@@ -164,11 +164,20 @@ def build_service():
         _attach_l1_plan_meta = D._attach_l1_plan_meta
         _compose_speech_system = D._compose_speech_system
 
+        async def _history_partial(self, chat_id, window):
+            # ASAP2 T10-BOUNDARY: в стенде окно = вся сохранённая история
+            # (старше ничего нет), поэтому пометка «ГРАНИЦА ИСТОРИИ» не
+            # появляется — ровно условия, в которых снят эталонный дамп.
+            return False
+
         def __init__(self, llm):
             self.llm = llm
             self.memory = StubMemory()
             self.db = None
             self.bot_id = 999
+            # ASAP3 §4.2: строки стенда без user_id — резолвер не влияет
+            # на байты окна (None = дорешение-совместимое поведение дампа).
+            self.aliases = None
 
     return Stub, D
 
