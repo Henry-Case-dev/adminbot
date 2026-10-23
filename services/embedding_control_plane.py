@@ -2941,13 +2941,94 @@ async def _knn_top_ids(db, live: str, vector: list[float],
             return None
 
 
+_PROBE_METADATA_FIELDS = ("model", "revision", "params", "dims")
+
+
+def _split_probe_response(raw, llm=None) -> tuple[list, dict]:
+    """CANARY-03: векторы + ФАКТИЧЕСКИЕ метаданные ответа провайдера.
+
+    `embed_fn` (точка подмены HTTP) и `llm` могут вернуть:
+      * список векторов — метаданные недоступны (`model`/`revision`/`params`
+        фиксируются как unknown, НЕ как несовместимость);
+      * dict `{"vectors": [...], "model": ..., "revision": ..., "params": {...},
+        "dims": N}` — то, что реально ответил провайдер. `model` берётся из
+        ТЕЛА ответа, а не из конфига: ТЗ запрещает полагаться на имя модели.
+    `llm.last_embed_meta` — тот же dict, если клиент сохранил мета последнего
+    ответа. Никогда не бросает."""
+    meta: dict = {}
+    if isinstance(raw, dict):
+        try:
+            vectors = list(raw.get("vectors") or [])
+        except Exception:      # pragma: no cover — защитная ветка
+            vectors = []
+        meta = {key: raw.get(key) for key in _PROBE_METADATA_FIELDS}
+    else:
+        try:
+            vectors = list(raw or [])
+        except Exception:      # pragma: no cover — защитная ветка
+            vectors = []
+    if not any(meta.get(key) is not None for key in meta) and llm is not None:
+        extra = getattr(llm, "last_embed_meta", None)
+        if isinstance(extra, dict):
+            meta = {key: extra.get(key) for key in _PROBE_METADATA_FIELDS}
+    return vectors, meta
+
+
+def _normalized_model_name(value) -> str:
+    """Сравнение имён моделей: регистр/пробелы/префикс `models/` не значимы."""
+    name = str(value or "").strip().lower()
+    if name.startswith("models/"):
+        name = name[len("models/"):]
+    return name
+
+
+def _probe_metadata_block(meta: dict | None, *, dims: int) -> dict:
+    """Фактические model/revision/params + явные признаки известности.
+
+    Отсутствие `revision`/`params` в ответе — НЕ несовместимость и НЕ
+    insufficient: решающее доказательство даёт сравнение старых векторов +
+    KNN-hit5 (ТЗ: имя модели само по себе не доказывает пространство)."""
+    meta = meta or {}
+    model = str(meta.get("model") or "").strip()
+    revision = str(meta.get("revision") or "").strip()
+    params = meta.get("params")
+    params_known = isinstance(params, dict)
+    declared_dims = meta.get("dims")
+    try:
+        declared_dims = int(declared_dims) if declared_dims else None
+    except Exception:      # pragma: no cover — мусор в ответе провайдера
+        declared_dims = None
+    return {"model": model or None,
+            "model_expected": _current_model() or None,
+            "model_known": bool(model),
+            "revision": revision or None,
+            "revision_known": bool(revision),
+            "params": dict(params) if params_known else None,
+            "params_known": params_known,
+            "declared_dims": declared_dims,
+            "dims": int(dims)}
+
+
+def _probe_metadata_reason(block: dict | None) -> str:
+    """reason_code для compatible-вердикта: какие метаданные недоступны.
+
+    `revision_unknown`/`params_unknown` — информационный код рядом с
+    `verdict=compatible`, а не деградация: решение принято по векторам."""
+    block = block or {}
+    if not block.get("revision_known"):
+        return "revision_unknown"
+    if not block.get("params_known"):
+        return "params_unknown"
+    return ""
+
+
 async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
                              sample_offset: int = 0) -> dict:
     """Один прогон: новые векторы тех же текстов против СТАРЫХ строк индекса."""
     out: dict = {"verdict": STATE_INSUFFICIENT, "reason_code": "no_old_vectors",
                  "checked": 0, "mean": None, "min": None, "hit5": None,
                  "dims": None, "sampled": 0, "sample_offset": sample_offset,
-                 "sample_ids": []}
+                 "sample_ids": [], "metadata": None}
     meta = _index_meta(index_name)
     if meta is None:
         out["reason_code"] = "index_unknown"
@@ -2979,12 +3060,13 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
     if not pairs_in:
         return out
     try:
-        vectors = (list(await embed_fn([t for _r, t in pairs_in]))
-                   if embed_fn is not None
-                   else list(await llm.embed([t for _r, t in pairs_in])))
+        texts_in = [t for _r, t in pairs_in]
+        raw = (await embed_fn(texts_in) if embed_fn is not None
+               else await llm.embed(texts_in))
     except Exception:
         out["reason_code"] = "api_unavailable"
         return out
+    vectors, embed_meta = _split_probe_response(raw, llm)
     if not vectors or len(vectors) != len(pairs_in) or \
             not all(v for v in vectors):
         out["reason_code"] = "api_unavailable"
@@ -2992,6 +3074,22 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
     dims = len(vectors[0])
     out["dims"] = dims
     if any(len(v) != dims for v in vectors):
+        out["verdict"] = STATE_INCOMPATIBLE
+        out["reason_code"] = "dim_mismatch"
+        return out
+    # CANARY-03: фактические model/revision/params из ответа. Явное
+    # расхождение модели или заявленной размерности — несовместимость ДО
+    # числовых метрик; недоступность revision/params только фиксируется.
+    meta_block = _probe_metadata_block(embed_meta, dims=dims)
+    out["metadata"] = meta_block
+    if meta_block["model"] and meta_block["model_expected"] and \
+            _normalized_model_name(meta_block["model"]) != \
+            _normalized_model_name(meta_block["model_expected"]):
+        out["verdict"] = STATE_INCOMPATIBLE
+        out["reason_code"] = "model_mismatch"
+        return out
+    if meta_block["declared_dims"] and \
+            int(meta_block["declared_dims"]) != int(dims):
         out["verdict"] = STATE_INCOMPATIBLE
         out["reason_code"] = "dim_mismatch"
         return out
@@ -3042,7 +3140,7 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
     if (mean >= COMPAT_PROBE_MEAN_MIN and low >= COMPAT_PROBE_MIN_MIN
             and hit5 >= COMPAT_PROBE_HIT5_MIN):
         out["verdict"] = STATE_COMPATIBLE
-        out["reason_code"] = ""
+        out["reason_code"] = _probe_metadata_reason(meta_block)
         return out
     out["reason_code"] = ("low_hit5" if hit5 < COMPAT_PROBE_HIT5_MIN
                           else "weak_numeric")
@@ -3090,7 +3188,7 @@ async def compat_probe(db, index_name: str, *, embed_fn=None, llm=None,
                          "hit5": first.get("hit5"),
                          "reason_code": first.get("reason_code")}
         first["verdict"] = STATE_COMPATIBLE
-        first["reason_code"] = ""
+        first["reason_code"] = _probe_metadata_reason(first.get("metadata"))
         first["checked"] = min(int(first.get("checked") or 0),
                                int(second.get("checked") or 0))
         first["mean"] = second.get("mean")
@@ -3611,6 +3709,7 @@ async def ensure_index_compat(db, index_name: str, *, embed_fn=None, llm=None,
                             "at": int(time.time()),
                             "reason_code": probe.get("reason_code"),
                             "runs": int(probe.get("runs") or 1),
+                            "metadata": probe.get("metadata"),
                             "band": probe.get("band")}
         if probe.get("verdict") != STATE_COMPATIBLE:
             verdict = str(probe.get("verdict") or STATE_INSUFFICIENT)

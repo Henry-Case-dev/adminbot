@@ -846,3 +846,235 @@ async def test_generation_status_and_panel_share_verdict(ctx):
     assert entry["compat"]["serviceable"] is True
     assert entry["compat_class"] == ecp.COMPAT_ADMITTED
     assert entry["compat"]["canary"]["checked"] >= 8
+
+
+# ── 11. IDENT-02: MSI реагирует на КАЖДОЕ поле identity ─────────────────────
+# TEST-LIFECYCLE: CONTRACT owner=EMBED-IDENTITY-COMPAT
+
+_MSI_BASE = dict(model=MODEL, revision="rev-1", dimension=DIMS,
+                 task_mode=ecp.EMBEDDING_TASK_MODE,
+                 normalization=ecp.EMBEDDING_NORMALIZATION,
+                 preprocessing_version="prep-1",
+                 material_params={"task": "retrieval", "dimensions": "8"})
+
+
+def test_ident_02_msi_changes_with_every_identity_field():
+    """L13: model/revision/dims/task_mode/normalization/preprocessing/
+    материальные параметры — каждое поле по отдельности меняет MSI."""
+    base = ecp.model_space_identity(**_MSI_BASE)
+    variants = {
+        "model": {"model": OTHER_MODEL},
+        "revision": {"revision": "rev-2"},
+        "dimension": {"dimension": 16},
+        "task_mode": {"task_mode": "text-embedding/query.v1"},
+        "normalization": {"normalization": "l2-normalized-v1"},
+        "preprocessing_version": {"preprocessing_version": "prep-2"},
+        "material_params": {"material_params": {"task": "retrieval",
+                                                "dimensions": "16"}},
+    }
+    for field, change in variants.items():
+        altered = dict(_MSI_BASE)
+        altered.update(change)
+        assert ecp.model_space_identity(**altered) != base, \
+            f"MSI не изменился при изменении {field}"
+
+
+def test_ident_02_msi_stable_for_equal_values_and_param_order():
+    """Одинаковые значения → одинаковый MSI: порядок material_params,
+    None/'', те же явно переданные константы ничего не меняют."""
+    base = ecp.model_space_identity(**_MSI_BASE)
+    reordered = dict(_MSI_BASE, material_params={"dimensions": "8",
+                                                 "task": "retrieval"})
+    assert ecp.model_space_identity(**reordered) == base
+    assert ecp.model_space_identity(**_MSI_BASE) == base
+    assert ecp.model_space_identity(**dict(_MSI_BASE, revision=None)) == \
+        ecp.model_space_identity(**dict(_MSI_BASE, revision=""))
+    assert ecp.model_space_identity(model=MODEL, dimension=DIMS) == \
+        ecp.model_space_identity(
+            model=MODEL, dimension=DIMS, revision="",
+            task_mode=ecp.EMBEDDING_TASK_MODE,
+            normalization=ecp.EMBEDDING_NORMALIZATION,
+            preprocessing_version=ecp._current_preprocessing_version(),
+            material_params={})
+
+
+# ── 12. CANARY-03: проба фиксирует ФАКТИЧЕСКИЕ метаданные ответа ────────────
+
+class _MetaEmbedder(_Embedder):
+    """CANARY-03: мок HTTP, возвращающий метаданные ТЕЛА ответа провайдера."""
+
+    def __init__(self, *, answer_model=MODEL, revision=None, params=None,
+                 dims_meta=None, **kwargs):
+        super().__init__(**kwargs)
+        self.answer_model = answer_model
+        self.answer_revision = revision
+        self.answer_params = params
+        self.dims_meta = dims_meta
+
+    async def __call__(self, texts):
+        vectors = await super().__call__(texts)
+        return {"vectors": vectors, "model": self.answer_model,
+                "revision": self.answer_revision,
+                "params": self.answer_params, "dims": self.dims_meta}
+
+
+@pytest.mark.asyncio
+async def test_canary_03_probe_records_actual_metadata(ctx):
+    """Проба возвращает фактическую model из ответа, доступную revision и
+    параметры генерации; при полном наборе метаданных compatible идёт без
+    информационного reason_code."""
+    await _seed(ctx, _docs())
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    def _answer():
+        return _MetaEmbedder(answer_model=" Models/gemini-embedding-001 ",
+                             revision="2026-09-01",
+                             params={"task": "retrieval", "dimensions": "8"},
+                             dims_meta=DIMS)
+
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=_answer())
+    assert probe["verdict"] == ecp.STATE_COMPATIBLE
+    meta = probe["metadata"]
+    assert meta["model"] == "Models/gemini-embedding-001", \
+        "модель фиксируется из ответа, а не из конфига"
+    assert ecp._normalized_model_name(meta["model"]) == \
+        ecp._normalized_model_name(MODEL)
+    assert meta["model_expected"] == MODEL
+    assert meta["model_known"] is True
+    assert meta["revision"] == "2026-09-01" and meta["revision_known"] is True
+    assert meta["params"] == {"task": "retrieval", "dimensions": "8"}
+    assert meta["params_known"] is True
+    assert meta["declared_dims"] == DIMS and meta["dims"] == DIMS
+    assert probe["reason_code"] == ""
+
+    result = await _ensure(ctx, new_fp, _answer())
+    assert result["state"] == ecp.STATE_COMPATIBLE
+    canary_meta = result["canary"]["metadata"]
+    assert canary_meta["model"] == "Models/gemini-embedding-001"
+    assert canary_meta["revision"] == "2026-09-01"
+    assert canary_meta["params_known"] is True
+
+
+@pytest.mark.asyncio
+async def test_canary_03_explicit_model_mismatch_is_incompatible(ctx):
+    """Явное несовпадение фактической модели с заявленной — incompatible
+    ДО числовых метрик (имя модели не «переспорить» совпадением векторов)."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    def _answer():
+        return _MetaEmbedder(answer_model=OTHER_MODEL, revision="rev-x",
+                             params={})
+
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=_answer())
+    assert probe["verdict"] == ecp.STATE_INCOMPATIBLE
+    assert probe["reason_code"] == "model_mismatch"
+    assert probe["metadata"]["model"] == OTHER_MODEL
+    assert probe["metadata"]["model_expected"] == MODEL
+
+    result = await _ensure(ctx, new_fp, _answer())
+    assert result["state"] == ecp.STATE_INCOMPATIBLE
+    assert result["reason_code"] == "model_mismatch"
+    assert await ctx.db.get_active_embedding_generation(INDEX) is None
+    assert await _count(ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") \
+        == len(docs)
+
+
+@pytest.mark.asyncio
+async def test_canary_03_missing_revision_or_params_not_insufficient(ctx):
+    """Отсутствие revision/params в ответе → revision_unknown/params_unknown,
+    НЕ insufficient: решающее доказательство — старые векторы + KNN-hit5."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    no_revision = _MetaEmbedder(answer_model=MODEL, revision=None, params=None)
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=no_revision)
+    assert probe["verdict"] == ecp.STATE_COMPATIBLE
+    assert probe["reason_code"] == "revision_unknown"
+    assert probe["metadata"]["revision_known"] is False
+    assert probe["metadata"]["params_known"] is False
+    assert probe["metadata"]["model_known"] is True
+
+    no_params = _MetaEmbedder(answer_model=MODEL, revision="rev-9", params=None)
+    probe2 = await ecp.compat_probe(ctx.db, INDEX, embed_fn=no_params)
+    assert probe2["verdict"] == ecp.STATE_COMPATIBLE
+    assert probe2["reason_code"] == "params_unknown"
+    assert probe2["metadata"]["revision_known"] is True
+    assert probe2["metadata"]["params_known"] is False
+
+    result = await _ensure(
+        ctx, new_fp,
+        _MetaEmbedder(answer_model=MODEL, revision=None, params=None))
+    assert result["state"] == ecp.STATE_COMPATIBLE, \
+        "недоступность revision/params не должна закрывать допуск"
+    assert result["serviceable"] is True
+    assert result["canary"]["metadata"]["revision_known"] is False
+    active = await ctx.db.get_active_embedding_generation(INDEX)
+    assert str(active["config_revision"]).startswith("adopt1:")
+    assert await ctx.mm._index_generation_ok(INDEX) is True
+
+
+# ── 13. DEC-09: откат допуска — данные целы, FTS обслуживает, adopt повторяем ─
+
+@pytest.mark.asyncio
+async def test_dec_09_rollback_after_adopt_keeps_data_and_is_reversible(ctx):
+    """adopt → откат (status='building', config_revision=NULL) → vec закрыт,
+    FTS отдаёт факты, векторы/факты целы; повторный adopt восстанавливает
+    допуск без потерь."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    cursor = await ctx.db.db.execute("SELECT id, fact FROM graph_facts")
+    for row in await cursor.fetchall():
+        await ctx.db.db.execute(
+            "INSERT INTO graph_facts_fts(rowid, fact) VALUES (?, ?)",
+            (int(row["id"]), str(row["fact"])))
+    await ctx.db.db.commit()
+
+    old_fp, new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+    assert (await _ensure(ctx, new_fp, _Embedder(space="space-a")))[
+        "state"] == ecp.STATE_COMPATIBLE
+    active = await ctx.db.get_active_embedding_generation(INDEX)
+    assert active["status"] == "active"
+    assert str(active["config_revision"]).startswith("adopt1:")
+    assert await ctx.mm._vec_write_allowed(INDEX) is True
+    vectors_before = await _count(
+        ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec")
+    facts_before = await _count(ctx.db, "SELECT COUNT(*) AS c FROM graph_facts")
+
+    # Откат допуска (снимаем «принятое» состояние поколения).
+    await ctx.db.db.execute(
+        "UPDATE mca_embedding_index_generations SET status='building', "
+        "config_revision=NULL WHERE index_name=? AND fingerprint=?",
+        (INDEX, old_fp))
+    await ctx.db.db.commit()
+
+    assert await ctx.db.get_active_embedding_generation(INDEX) is None
+    assert await ctx.mm._index_generation_ok(INDEX) is False, \
+        "vec-поиск закрыт после отката допуска"
+    assert await ctx.mm._vec_write_allowed(INDEX) is False
+    assert await _count(
+        ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") == vectors_before
+    assert await _count(
+        ctx.db, "SELECT COUNT(*) AS c FROM graph_facts") == facts_before
+
+    fts = await ctx.db.search_graph_facts_fts(
+        101, '"факт"*', 5, int(time.time()))
+    assert fts, "FTS-путь обязан обслуживать факты при закрытом vec"
+
+    again = await _ensure(ctx, new_fp, _Embedder(space="space-a"))
+    assert again["state"] == ecp.STATE_COMPATIBLE, "повторный adopt работает"
+    restored = await ctx.db.get_active_embedding_generation(INDEX)
+    assert restored["fingerprint"] == old_fp
+    assert str(restored["config_revision"]).startswith("adopt1:")
+    assert await ctx.mm._index_generation_ok(INDEX) is True
+    assert await ctx.mm._vec_write_allowed(INDEX) is True
+    assert await _count(
+        ctx.db, "SELECT COUNT(*) AS c FROM graph_facts_vec") == vectors_before
+    assert await _count(
+        ctx.db, "SELECT COUNT(*) AS c FROM graph_facts") == facts_before
