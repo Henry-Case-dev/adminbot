@@ -20382,13 +20382,50 @@
         var n = parseInt(lim[field], 10);
         return (isFinite(n) && n > 0) ? n : 0;
       },
+      // ASAP3 review-ui BLOCKER-2: контрол показывает ЭФФЕКТИВНОЕ состояние.
+      // Отсутствие собственного поля в чате — это не «выключено», а
+      // «действует унаследованный лимит».
+      speechStyleEffectiveLimit: function (field) {
+        var n = parseInt(this.speechStyleHintLimits()[field], 10);
+        return (isFinite(n) && n > 0) ? n : 0;
+      },
+      speechStyleLimitDisplayValue: function (field) {
+        // Собственное (в т.ч. ещё не сохранённое) значение важнее серверного:
+        // иначе «Отключить лимит» визуально не срабатывал бы до Save.
+        if (this.speechStyleLimitOwn(field)) {
+          return this.speechStyleLimitValue(field);
+        }
+        return this.speechStyleEffectiveLimit(field);
+      },
+      speechStyleLimitOwn: function (field) {
+        var lim = this.ensureStyleDraft().hint_limits || {};
+        return Object.prototype.hasOwnProperty.call(lim, field);
+      },
+      speechStyleLimitInherited: function (field) {
+        return !this.speechStyleLimitOwn(field)
+          && this.speechStyleEffectiveLimit(field) > 0;
+      },
       speechStyleLimitOn: function (field) {
-        return this.speechStyleLimitValue(field) > 0;
+        return this.speechStyleLimitDisplayValue(field) > 0;
+      },
+      speechStyleLimitOriginText: function (field) {
+        var src = (this.speechStyleHintLimits().sources || {})[field] || '';
+        var label = { chat: 'этот чат', global: 'все чаты' }[src] || 'не задан';
+        if (this.speechStyleLimitInherited(field)) {
+          return 'унаследовано: ' + label;
+        }
+        if (this.speechStyleLimitOwn(field)) {
+          return 'задано в этом слое (' + label + ')';
+        }
+        return 'источник: ' + label;
       },
       // Включение лимита само по себе ничего не отрезает: стартовое значение —
       // фактический текущий размер блока (сервер), иначе исторические 400/5
-      // только как запасной вариант при пустом блоке.
+      // только как запасной вариант при пустом блоке. Для унаследованного
+      // лимита включение переопределения берёт действующее значение.
       speechStyleLimitDefault: function (field) {
+        var inherited = this.speechStyleEffectiveLimit(field);
+        if (inherited > 0) return inherited;
         if (field === 'max_chars') {
           var chars = parseInt(this.speechStyleHintLimits().current_chars, 10);
           return (isFinite(chars) && chars > 0) ? chars : 400;
@@ -20398,6 +20435,8 @@
       },
       toggleStyleLimit: function (field, on) {
         var draft = this.ensureStyleDraft();
+        // Явное выключение — это `0` ДЛЯ ЭТОГО СЛОЯ (осознанное действие),
+        // а не «поле не задано»; остальные поля не трогаем.
         draft.hint_limits[field] = on
           ? this.speechStyleLimitDefault(field) : 0;
         this.speechDirty.style = true;
@@ -20411,9 +20450,14 @@
         this.clearSpeechSaved('style');
       },
       disableStyleLimits: function () {
+        // Снимаем только ДЕЙСТВУЮЩИЕ ограничения; неактивное поле не получает
+        // явный 0 (иначе отменили бы чужое/унаследованное значение).
         var draft = this.ensureStyleDraft();
-        draft.hint_limits.max_chars = 0;
-        draft.hint_limits.max_items = 0;
+        ['max_chars', 'max_items'].forEach(function (field) {
+          if (this.speechStyleLimitOn(field)) {
+            draft.hint_limits[field] = 0;
+          }
+        }, this);
         this.speechDirty.style = true;
         this.clearSpeechSaved('style');
       },
@@ -20588,15 +20632,18 @@
           rules: JSON.parse(JSON.stringify(draft.rules || [])),
           soft_instructions: JSON.parse(JSON.stringify(draft.soft_instructions || [])),
         };
-        // ASAP3 §1.2: лимиты — часть того же документа. Поле отправляется,
-        // только если слой реально владеет значениями (в т.ч. явный 0 = OFF
-        // для этого слоя); иначе отсутствие ключа = наследование другого слоя.
+        // ASAP3 §1.2 + review-ui BLOCKER-1: лимит живёт в документе слоя.
+        // Отправляем ТОЛЬКО реально заданные поля: отсутствующее поле =
+        // наследование другого слоя. Явное выключение — это `0`, а не
+        // отсутствие ключа; нельзя дописывать второй лимит нулём.
         var limits = draft.hint_limits || {};
-        if (Object.keys(limits).length) {
-          doc.hint_limits = {
-            max_chars: Math.max(0, parseInt(limits.max_chars, 10) || 0),
-            max_items: Math.max(0, parseInt(limits.max_items, 10) || 0),
-          };
+        var own = {};
+        ['max_chars', 'max_items'].forEach(function (field) {
+          if (!Object.prototype.hasOwnProperty.call(limits, field)) return;
+          own[field] = Math.max(0, parseInt(limits[field], 10) || 0);
+        });
+        if (Object.keys(own).length) {
+          doc.hint_limits = own;
         }
         return doc;
       },
@@ -21659,6 +21706,23 @@
       },
       speechStyleBuildExcluded: function (build) {
         return this.speechStyleBuild(build).excluded || [];
+      },
+      speechStyleBuildInPayload: function (build) {
+        // Явный false = слой не попал в payload; отсутствие поля (старый
+        // payload/стаб) не считаем доказательством исключения.
+        return this.speechStyleBuild(build).payload_included !== false;
+      },
+      speechStyleBuildReasonText: function (build) {
+        var layer = this.speechStyleBuild(build).layer || {};
+        var state = layer.state || layer.skip_reason || '';
+        var known = {
+          budget_excluded: 'бюджет композитора (технический лимит модели)',
+          style_policy_absent: 'нет активных инструкций Style Policy',
+          style_policy_disabled: 'слой стиля выключен гейтом',
+          style_policy_unavailable: 'Style Policy недоступна',
+          absent: 'слой отсутствует в сборке',
+        };
+        return known[state] || (state || 'причина не сообщена');
       },
       switchBadgeText: function (sw) {
         if (!sw) return '—';
