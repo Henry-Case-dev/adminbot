@@ -500,9 +500,12 @@ def test_metatext_blocking_does_not_replace_truth():
 
 def test_checkup_admin_genre_intact():
     """07A.5/D2: жанр честного резкого тех-обзора в админ-контексте цел —
-    «логи/сервер» в содержательном контексте не метаречь (PC-12)."""
-    assert "проанализировать предоставленные логи" in CHECKUP_SYSTEM_PROMPT
-    assert "отчет о здоровье системы" in CHECKUP_SYSTEM_PROMPT
+    «логи/сервер» в содержательном контексте не метаречь (PC-12).
+    P0-CHECKUP (24.10.2026): формулировки целевой owner-редакции §2;
+    языковое ядро «СУТЬ АНАЛИЗА» сохранено дословно."""
+    assert "состоянии Adminbot по переданным логам" in CHECKUP_SYSTEM_PROMPT
+    assert "ошибки, предупреждения, успешные обходные пути" \
+        in CHECKUP_SYSTEM_PROMPT
     assert "жестко разъеби их" in CHECKUP_SYSTEM_PROMPT
 
 

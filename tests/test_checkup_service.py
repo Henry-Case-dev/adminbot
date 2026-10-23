@@ -98,6 +98,94 @@ class TestCheckupService:
         assert result == "всё горит"
 
 
+class TestCheckupOutboundStylePolicy:
+    """P0-CHECKUP (24.10.2026, addendum §5): исходящий Checkup проходит
+    ДЕЙСТВУЮЩИЙ Style Policy (тот же проход, что у Direct), fail-open."""
+
+    @pytest.mark.asyncio
+    async def test_factory_dash_rule_applies_to_outbound(
+            self, make_service, monkeypatch):
+        """Заводское `dash.hard.factory` реально меняет исходящий текст.
+
+        `cleanup_llm_text` для изоляции пробы отключён: иначе он сам заменяет
+        тире, и проверка Style Policy ничего бы не доказывала.
+        """
+        from services import mca_gates
+        from services import style_policy as sp
+
+        monkeypatch.setattr(mca_gates, "speech_style_policy_enabled",
+                            lambda: True)
+
+        async def _layers(chat_id):
+            return None, None, True
+
+        monkeypatch.setattr(sp, "_read_layers", _layers)
+        monkeypatch.setattr(svc_mod, "cleanup_llm_text", lambda text: text)
+        service, _llm = make_service(return_value="поломка — тест")
+        result = await service.checkup("logs", used_fallback=False,
+                                       chat_id=777)
+        assert "—" not in result
+        assert result == "поломка - тест"
+
+    @pytest.mark.asyncio
+    async def test_chat_style_setting_overrides_factory(
+            self, make_service, monkeypatch):
+        """Настройка чата действует: отключённый `dash.hard.factory` не
+        переписывает тире (чат-слой перекрывает заводское правило)."""
+        from services import mca_gates
+        from services import style_policy as sp
+
+        monkeypatch.setattr(mca_gates, "speech_style_policy_enabled",
+                            lambda: True)
+        chat_doc = {
+            "revision": 2,
+            "rules": [{
+                "id": sp.DASH_FACTORY_ID, "kind": "dash",
+                "strictness": "hard", "scope": "chat", "enabled": False,
+            }],
+        }
+
+        async def _layers(chat_id):
+            return None, chat_doc, True
+
+        monkeypatch.setattr(sp, "_read_layers", _layers)
+        monkeypatch.setattr(svc_mod, "cleanup_llm_text", lambda text: text)
+        service, _llm = make_service(return_value="поломка — тест")
+        result = await service.checkup("logs", used_fallback=False,
+                                       chat_id=777)
+        assert result == "поломка — тест"
+
+    @pytest.mark.asyncio
+    async def test_style_pass_is_fail_open(self, make_service, monkeypatch):
+        from services import mca_gates
+        from services import style_policy as sp
+
+        monkeypatch.setattr(mca_gates, "speech_style_policy_enabled",
+                            lambda: True)
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("style down")
+
+        monkeypatch.setattr(sp, "apply_style_policy", _boom)
+        service, _llm = make_service(return_value="отчёт без правок")
+        result = await service.checkup("logs", used_fallback=False,
+                                       chat_id=777)
+        assert result == "отчёт без правок"
+
+    @pytest.mark.asyncio
+    async def test_tool_loop_without_chat_id_skips_style(
+            self, make_service, monkeypatch):
+        """Внутренний tool-loop: свой outbound-проход сделает Direct Writer."""
+        from services import style_policy as sp
+
+        async def _boom(*args, **kwargs):   # pragma: no cover - не должен зваться
+            raise AssertionError("style policy called for internal tool-loop")
+
+        monkeypatch.setattr(sp, "apply_style_policy", _boom)
+        service, _llm = make_service(return_value="отчёт")
+        assert await service.checkup("logs", used_fallback=False) == "отчёт"
+
+
 class TestEpic49ScrubAndTruncate:
     """Epic 49 (57.5, D196): scrub C0 (кроме \\n \\t → пробел) + потолок
     CHECKUP_MAX_INPUT_SYMBOLS; кириллица не затрагивается."""

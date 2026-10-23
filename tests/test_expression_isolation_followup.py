@@ -56,6 +56,16 @@ _LEGACY_PERMISSIONS = (
     "без мата» переопределяет",
 )
 
+#: P0-CHECKUP (24.10.2026, addendum §2): фраза-указатель юрисдикции в целевом
+#: жанровом каноне Checkup — «частота мата и резкость — из Expression». Это НЕ
+#: регулирование частоты, а явная передача права слою Expression; прежние
+#: мат-инструкции канона при этом остаются запрещены (см. _LEGACY_PERMISSIONS).
+_EXPRESSION_JURISDICTION = "частота мата и резкость — из Expression"
+
+
+def _without_expression_jurisdiction(text: str) -> str:
+    return str(text or "").replace(_EXPRESSION_JURISDICTION, "")
+
 
 def _active_speech_canons() -> dict[str, str]:
     """Активные пользовательские каноны (effective-слой, код-дефолты)."""
@@ -83,7 +93,8 @@ def test_no_profanity_regulation_outside_expression():
     """В активных канонах нет ни слова о мате; правила частоты — только
     директивы Expression (тексты режимов проверены отдельно байт-в-байт)."""
     for name, text in _active_speech_canons().items():
-        hit = _MAT_WORD_RE.search(text)
+        checked = _without_expression_jurisdiction(text)
+        hit = _MAT_WORD_RE.search(checked)
         assert hit is None, f"{name}: мат-регулирование вернулось: {hit.group(0)!r}"
         for legacy in _LEGACY_PERMISSIONS:
             assert legacy not in text, (name, legacy)
@@ -117,7 +128,7 @@ def test_factory_texts_registered_set_has_no_mat_outside_expression():
     for block_id, text in pr.factory_texts().items():
         if block_id in allowed_blocks:
             continue
-        hit = _MAT_WORD_RE.search(text)
+        hit = _MAT_WORD_RE.search(_without_expression_jurisdiction(text))
         assert hit is None, (block_id, hit.group(0) if hit else "")
         for legacy in _LEGACY_PERMISSIONS:
             assert legacy not in text, (block_id, legacy)

@@ -51,6 +51,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_R3,
+    CORE_REAL_EVENTS_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
     PREV_PERSONALITY_CORE_FULL_V2_TEXT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -60,6 +61,7 @@ from services.chat_prompts import (
 from services.checkup_prompts import (
     CHECKUP_SYSTEM_PROMPT,
     PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    PREV_CHECKUP_P0_SYSTEM_PROMPT,
     PREV_CHECKUP_R1021_SYSTEM_PROMPT,
     PREV_CHECKUP_SYSTEM_PROMPT,
     PREV_R1022_CHECKUP_SYSTEM_PROMPT,
@@ -241,7 +243,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         (PREV_R1022_CHECKUP_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT),
         # CFG-07A-2 (SF-05/07/08/12): прод-канон 2.58.100 ведёт на чистый
         # канон (жанр админ-контекста сохранён).
-        (PREV_CHECKUP_CFG07A_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
+        (PREV_CHECKUP_CFG07A_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT),
+        # P0-CHECKUP (24.10.2026, addendum §2): непосредственный прежний
+        # прод-канон 2.58.118 (2077 c, 38d63d86b54d) ведёт на целевую
+        # функциональную редакцию владельца. Ступень идемпотентна: текущий
+        # канон → no-op, кастом владельца (не точное совпадение байт) не
+        # перезаписывается; старые PREV_* не переписаны.
+        (PREV_CHECKUP_P0_SYSTEM_PROMPT, CHECKUP_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt": [
         (PREV_FACTCHECK_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
         (PREV_FACTCHECK_R2020_SYSTEM_PROMPT, FACTCHECK_SYSTEM_PROMPT),
@@ -412,7 +420,13 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         [(SYSTEM_PROMPT, PREV_SUMMARY_CFG07A_SYSTEM_PROMPT)],
     "prompts.checkup_system_prompt":
         # CFG-07A-2: откат на непосредственный прежний прод-канон 2.58.100.
-        [(CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_CFG07A_SYSTEM_PROMPT)],
+        # P0-CHECKUP (24.10.2026): первый вызов снимает ТОЛЬКО новую ступень
+        # P0 — на прод-канон 2.58.118 (PREV_CHECKUP_P0, 38d63d86b54d);
+        # второй — историческую ступень CFG-07A (2.58.100). Стек цел
+        # (ADR-1013-3: ни одна ступень не теряется).
+        [(CHECKUP_SYSTEM_PROMPT, PREV_CHECKUP_P0_SYSTEM_PROMPT),
+         (PREV_CHECKUP_P0_SYSTEM_PROMPT,
+          PREV_CHECKUP_CFG07A_SYSTEM_PROMPT)],
     "prompts.factcheck_system_prompt":
         # UNIFIED-CORE (C14): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
         # прод-канон (с обходом safety, релиз 2.58.97) — снимается только
@@ -511,15 +525,43 @@ _CORE_SOUL_REF_RE = re.compile(r"\s*см\.\s*SOUL-\d+")
 #: (prompt_registry.core_selection), owner-preserving патч для них не нужен.
 _CORE_SUPERSEDED_NOTE = "см. prompt_registry.core_selection superseded-core"
 
+#: P0-CHECKUP/CORE (24.10.2026, addendum §3): единственный недостающий
+#: универсальный абзац владельца. Патч вставляет его ТОЛЬКО если смысла нет
+#: (якорь/пара смысловых маркеров отсутствует), в позицию после «Как рождается
+#: юмор» и перед «Грубость»/«Ритм»; остальные байты владельца сохраняются.
+_CORE_REAL_EVENTS_ANCHOR = "Как говорить о реальных событиях."
+_CORE_REAL_EVENTS_EQUIVALENT = ("характерные детали", "цельн")
+_CORE_REAL_EVENTS_CHANGE = "added: " + _CORE_REAL_EVENTS_ANCHOR
+#: Заголовки абзацев активной владельческой редакции (v2-стиль и v3-стиль):
+#: первый найденный — точка вставки нового абзаца.
+_CORE_INSERT_ANCHORS = (
+    "\n\nГрубость и конфликт.",
+    "\n\n**Грубость.**",
+    "\n\nГрубость.",
+    "\n\n**Ритм.**",
+    "\n\nРитм.",
+)
+
+
+def _core_has_real_events_meaning(text: str) -> bool:
+    """Смысл «фактура → цельная сцена» уже прямо выражен владельцем?"""
+    if _CORE_REAL_EVENTS_ANCHOR in text:
+        return True
+    return all(marker in text for marker in _CORE_REAL_EVENTS_EQUIVALENT)
+
 
 def owner_preserve_core_full_patch(text: str) -> tuple[str, list[str]]:
     """Минимальный owner-preserving патч активного Full Core (W2-ступень).
 
     Удаляет ТОЛЬКО: (а) точную служебную ремарку v2 (абзац «**Важно:** …»)
     и (б) точечные остатки «см. SOUL-NN». Всё остальное — байт-в-байт
-    владельческий текст. Возврат ``(patched, removed)``: ``removed`` — список
-    удалённых фрагментов (пуст = править нечего, идемпотентно). Никогда не
-    бросает; на пустом/нестроковом входе — ``(вход, [])``.
+    владельческий текст. P0-CHECKUP/CORE (24.10.2026): если универсального
+    смысла «Как говорить о реальных событиях» в редакции нет, абзац владельца
+    (addendum §3) вставляется в позицию после «Как рождается юмор»; уже
+    имеющийся смысл не дублируется. Возврат ``(patched, changes)``: ``changes``
+    — список удалённых фрагментов и, при вставке, маркер ``added: …`` (пусто =
+    править нечего, идемпотентно). Никогда не бросает; на пустом/нестроковом
+    входе — ``(вход, [])``.
 
     НЕ применяется к байтам, равным прежним заводским редакциям (v1/v2) —
     их ведёт на фабрику гвард superseded-core (``_CORE_SUPERSEDED_NOTE``).
@@ -531,21 +573,30 @@ def owner_preserve_core_full_patch(text: str) -> tuple[str, list[str]]:
         if source in (PREV_PERSONALITY_CORE_FULL_TEXT,
                       PREV_PERSONALITY_CORE_FULL_V2_TEXT):
             return source, [_CORE_SUPERSEDED_NOTE]
-        removed: list[str] = []
+        changes: list[str] = []
         patched = source
         if _CORE_SERVICE_REMARK_V2 in patched:
             patched = patched.replace(_CORE_SERVICE_REMARK_V2, "")
-            removed.append(_CORE_SERVICE_REMARK_V2.lstrip("\n"))
+            changes.append(_CORE_SERVICE_REMARK_V2.lstrip("\n"))
         if "SOUL-" in patched:
             refs = _CORE_SOUL_REF_RE.findall(patched)
             patched = _CORE_SOUL_REF_RE.sub("", patched)
             for ref in refs:
                 stripped = ref.strip()
-                if stripped not in removed:
-                    removed.append(stripped)
-        if removed:
+                if stripped not in changes:
+                    changes.append(stripped)
+        if changes:
             patched = patched.rstrip()
-        return patched, removed
+        if not _core_has_real_events_meaning(patched):
+            block = "\n\n" + CORE_REAL_EVENTS_PARAGRAPH
+            for anchor in _CORE_INSERT_ANCHORS:
+                if anchor in patched:
+                    patched = patched.replace(anchor, block + anchor, 1)
+                    break
+            else:
+                patched = patched.rstrip() + block
+            changes.append(_CORE_REAL_EVENTS_CHANGE)
+        return patched, changes
     except Exception:      # pragma: no cover — патч не роняет миграцию
         return str(text or ""), []
 

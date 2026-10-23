@@ -113,6 +113,13 @@ _SOURCE_FIX_MARKERS = (
 def test_active_canon_has_no_source_fix_markers(name):
     prompt = ACTIVE_CANONS[name]
     for marker in _SOURCE_FIX_MARKERS:
+        # P0-CHECKUP (24.10.2026, addendum §2): поздняя owner-редакция
+        # вернула слово «человеческо-токсичный» в ЗАМОРОЖЕННОМ блоке
+        # «СУТЬ АНАЛИЗА» (замещение одного слова, не отмена SF-12): identity
+        # DevOps-инженера и унижение разработчика остаются снятыми. Другим
+        # маршрутам это слово по-прежнему запрещено.
+        if name == "checkup" and marker == "человеческо-токсичный":
+            continue
         assert marker not in prompt, (name, marker)
 
 
@@ -127,6 +134,14 @@ def test_active_canon_keeps_genre_contracts(name):
         assert "ИНСТРУМЕНТЫ:" in prompt
         assert "АНТИ-ГАЛЛЮЦИНАЦИИ:" in prompt
         assert "НАЗНАЧЕНИЕ КАНАЛА DIRECT" in prompt
+        return
+    if name == "checkup":
+        # P0-CHECKUP: жанр отчёта переписан owner-редакцией; торопливое
+        # письмо/строчная убраны, блоки A/B и {max_symbols} сохранены.
+        assert "СИСТЕМНАЯ РОЛЬ И ЗАДАЧА:" in prompt
+        assert "СУТЬ АНАЛИЗА:" in prompt
+        assert "АНТИ-БОТ (СТРОГО ЗАПРЕЩЕНО):" in prompt
+        assert "{max_symbols}" in prompt
         return
     assert "Имитируй торопливое письмо" in prompt, name
     assert "АНТИ-БОТ (СТРОГО ЗАПРЕЩЕНО):" in prompt, name
@@ -160,15 +175,26 @@ def test_direct_canon_honest_concession():
 
 # ═══ 2. Лестница ADR-1013-3: ступени, узнавание байтов, откат ═══════════════
 
+def _latest_step(name: str) -> tuple[str, str]:
+    """Непосредственная прежняя ступень для отката/миграции канона.
+
+    P0-CHECKUP (24.10.2026): у Checkup поверх CFG07A появилась новая ступень
+    (прод-канон 2.58.118 → целевая owner-редакция), поэтому откат снимает
+    именно её, а не более старую ступень CFG07A.
+    """
+    if name == "checkup":
+        return cp.PREV_CHECKUP_P0_SYSTEM_PROMPT, ACTIVE_CANONS[name]
+    return PREV_CANONS[name], ACTIVE_CANONS[name]
+
+
 @pytest.mark.parametrize("name", sorted(PREV_CANONS))
 def test_ladder_step_and_rollback_target(name):
-    """Per canon: ступень PREV_*_CFG07A → новый канон; откат ведёт на
+    """Per canon: ступень новейшего PREV → новый канон; откат ведёт на
     НЕПОСРЕДСТВЕННЫЙ прежний прод-канон; прежние байты — известный канон."""
     key = MIGRATION_KEYS[name]
-    prev = PREV_CANONS[name]
-    new = ACTIVE_CANONS[name]
+    prev, new = _latest_step(name)
     assert (prev, new) in pm.PROMPT_MIGRATIONS[key], name
-    assert pm.ROLLBACK_MIGRATIONS[key] == [(new, prev)], name
+    assert pm.ROLLBACK_MIGRATIONS[key][0] == (new, prev), name
     assert pr.is_known_canon(prev), name
     assert pr.is_known_canon(new), name
 
@@ -189,10 +215,10 @@ def test_prev_canon_is_byte_identical_to_deployed_family(name):
 
 @pytest.mark.parametrize("name", sorted(PREV_CANONS))
 def test_migrate_deployed_value_to_new_canon(name):
-    """Прод-значение 2.58.100 мигрирует на чистый канон; новый канон —
-    no-op; кастом не трогается (идемпотентность лестницы)."""
+    """Прод-значение новейшей прежней ступени мигрирует на чистый канон;
+    новый канон — no-op; кастом не трогается (идемпотентность лестницы)."""
     key = MIGRATION_KEYS[name]
-    prev, new = PREV_CANONS[name], ACTIVE_CANONS[name]
+    prev, new = _latest_step(name)
 
     class _Cache:
         def __init__(self, value):
@@ -232,7 +258,10 @@ _PERSISTED_TO_CLEAN = {
     "youtube": yt.PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
     "youtube_video": yt.PREV_YOUTUBE_VIDEO_CFG07A_SYSTEM_PROMPT,
     "web": wp.PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
-    "checkup": cp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
+    # checkup исключён: P0-CHECKUP (24.10.2026) — активный канон переписан
+    # owner-редакцией, поэтому suppress(persisted) больше не равен ему
+    # байт-в-байт; снятие legacy-маркеров проверяет
+    # test_persisted_prev_cleaned_even_without_byte_parity.
 }
 
 #: FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §2 владельца): suppress-правило 3
