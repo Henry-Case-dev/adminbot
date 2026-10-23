@@ -68,10 +68,13 @@ OCC_LINE = ("- Мат: Пиши разговорным языком с прим�
             "выражения используй как обычные эмоциональные оценки и "
             "междометия, без необходимости специально обосновывать их "
             "появление. Мат не должен доминировать в речи.")
-FREQ_LINE = ("- Мат: Пиши на живом разговорном языке с выраженным "
-             "использованием мата. Нецензурная лексика — привычная часть "
-             "твоего словаря: оценки, междометия, усиления и разговорные "
-             "связки. Не заменяй её цензурными эвфемизмами.")
+FREQ_LINE = ("- Мат: Пиши живым разговорным языком, в котором мат — "
+             "привычная и заметная часть твоей собственной речи. Он обыденно "
+             "звучит в оценках, междометиях, усилениях и связках, как у "
+             "человека, который так разговаривает всегда, а не изредка ради "
+             "эффекта. Не прячь его за цензурными эвфемизмами и не смягчай "
+             "ради приличий. Мат остаётся живой речью, а не механической "
+             "вставкой: смысл и уместность реплики важнее.")
 
 
 def _run(coro):
@@ -203,9 +206,10 @@ def test_instruction_texts_byte_exact_and_distinct():
     assert "разговорным языком с примесью мата" in OCC_LINE
     assert "эмоциональные оценки и междометия" in OCC_LINE
     assert "Мат не должен доминировать в речи" in OCC_LINE
-    assert "с выраженным использованием мата" in FREQ_LINE
-    assert "привычная часть твоего словаря" in FREQ_LINE
-    assert "Не заменяй её цензурными эвфемизмами" in FREQ_LINE
+    assert "мат — привычная и заметная часть" in FREQ_LINE
+    assert "собственной речи" in FREQ_LINE
+    assert "Не прячь его за цензурными эвфемизмами" in FREQ_LINE
+    assert "не изредка ради эффекта" in FREQ_LINE
     # «мат разрешён/естественно/…» — не единственное правило для occ/freq
     low = (OCC_LINE + " " + FREQ_LINE).casefold()
     for banned in ("мат разрешён", "мат допустим", "естественно",
@@ -229,11 +233,14 @@ def test_owner_exact_texts_are_canon():
                        "эмоциональные оценки и междометия, без "
                        "необходимости специально обосновывать их появление. "
                        "Мат не должен доминировать в речи."),
-        "frequent": ("Пиши на живом разговорном языке с выраженным "
-                     "использованием мата. Нецензурная лексика — привычная "
-                     "часть твоего словаря: оценки, междометия, усиления и "
-                     "разговорные связки. Не заменяй её цензурными "
-                     "эвфемизмами."),
+        "frequent": ("Пиши живым разговорным языком, в котором мат — "
+                     "привычная и заметная часть твоей собственной речи. Он "
+                     "обыденно звучит в оценках, междометиях, усилениях и "
+                     "связках, как у человека, который так разговаривает "
+                     "всегда, а не изредка ради эффекта. Не прячь его за "
+                     "цензурными эвфемизмами и не смягчай ради приличий. Мат "
+                     "остаётся живой речью, а не механической вставкой: "
+                     "смысл и уместность реплики важнее."),
     }
 
 
@@ -386,14 +393,29 @@ def test_machine_writers_keep_profile_reason_not_expression_defect():
     assert trace.skip_reason != "expression_absent"
 
 
-def test_expression_budget_excluded_is_honest(monkeypatch):
+def test_expression_budget_is_never_silently_excluded(monkeypatch):
+    """P0-E (§6.2 п.3): Expression не вытесняется аддитивным бюджетом молча.
+
+    Прежний `budget_excluded` скрывал настроенный FREQUENT из system и давал
+    ложный «ноль различий». Теперь слой рендерится всегда, а перерасход
+    виден конфликтом `expression_protected_from_budget`.
+    """
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "40")
+    expr_text = HEADER + "\n" + FREQ_LINE + "\n</Expression_Settings>"
     manifest = pc.compose_prompt(_expression_plan(
         expression=pc.ExpressionSettings(
-            text=HEADER + "\n" + FREQ_LINE + "\n</Expression_Settings>",
-            revision="e1", mode="frequent")))
+            text=expr_text, revision="e1", mode="frequent")))
     trace = [t for t in manifest.layers if t.layer == "expression"][0]
-    assert trace.rendered is False and trace.skip_reason == "budget_excluded"
+    assert trace.rendered is True and trace.skip_reason == ""
+    assert expr_text in manifest.system
+    assert "<Expression_Settings>" in manifest.system
+    conflict = [c for c in manifest.conflicts
+                if c.conflict_id == "expression_protected_from_budget"]
+    assert conflict, "перерасход Expression обязан быть видимым"
+    assert conflict[0].outcome == "exempted_protected"
+    assert conflict[0].layer == "expression"
+    assert conflict[0].provenance.startswith("expression:")
+    assert "budget=40" in conflict[0].detail
     assert "КАНАЛ: факты." in manifest.system, "база канала не вытесняется"
 
 

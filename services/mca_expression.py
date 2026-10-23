@@ -66,10 +66,13 @@ CONTROL_LABELS: dict[str, str] = {
 #: ADD-SAMPLES-UX §2 (20.10.2026, вечер — заменяет F3-формулировки
 #: occasional/frequent): директивы — ТОЧНЫЕ тексты владельца, байт-в-байт.
 #: CORRECTIVE-FOLLOWUP (21.10.2026, §2 владельца): тексты трёх режимов
-#: ЗАФИКСИРОВАНЫ окончательно — Expression единственный источник настроек
-#: мата, менять формулировки без подтверждённой необходимости запрещено.
-#: Новых квот, счётчиков, случайной вставки ругательств и постпроцессора нет
-#: (EXP-INSTR.NOPOST): частота задаётся только инструкцией. ``off`` не менялся.
+#: зафиксированы.
+#: P0-E (24.10.2026, source §6.3): формулировка ``frequent`` перекрыта новым
+#: указанием владельца — мат = привычная и заметная часть СОБСТВЕННОЙ речи,
+#: а не «разрешение в исключительных случаях». Прежний прод-текст сохранён
+#: ступенью ``PREV_PROFANITY_FREQUENT_TEXT``; ``off``/``occasional`` по смыслу
+#: НЕ менялись. Новых квот, счётчиков, случайной вставки ругательств и
+#: постпроцессора нет (EXP-INSTR.NOPOST): частота задаётся только инструкцией.
 
 PROFANITY_INSTRUCTIONS: dict[str, str] = {
     "off": "Не используй мат в собственной речи.",
@@ -80,12 +83,30 @@ PROFANITY_INSTRUCTIONS: dict[str, str] = {
         "доминировать в речи."
     ),
     "frequent": (
-        "Пиши на живом разговорном языке с выраженным использованием мата. "
-        "Нецензурная лексика — привычная часть твоего словаря: оценки, "
-        "междометия, усиления и разговорные связки. Не заменяй её цензурными "
-        "эвфемизмами."
+        "Пиши живым разговорным языком, в котором мат — привычная и заметная "
+        "часть твоей собственной речи. Он обыденно звучит в оценках, "
+        "междометиях, усилениях и связках, как у человека, который так "
+        "разговаривает всегда, а не изредка ради эффекта. Не прячь его за "
+        "цензурными эвфемизмами и не смягчай ради приличий. Мат остаётся "
+        "живой речью, а не механической вставкой: смысл и уместность "
+        "реплики важнее."
     ),
 }
+
+#: P0-E (§6.3, 24.10.2026): прежний ПРОД-текст ``frequent`` (байт-в-байт
+#: прод 23.10, ``http_expression_global.json``) — ступень лестницы.
+#: Только история/распознавание; runtime берёт ``PROFANITY_INSTRUCTIONS``.
+#: Владельческий документ ``character.expression`` хранит РЕЖИМ, а не текст,
+#: поэтому смена текста его не перезаписывает (кастом владельца цел).
+PREV_PROFANITY_FREQUENT_TEXT = (
+    "Пиши на живом разговорном языке с выраженным использованием мата. "
+    "Нецензурная лексика — привычная часть твоего словаря: оценки, "
+    "междометия, усиления и разговорные связки. Не заменяй её цензурными "
+    "эвфемизмами."
+)
+
+#: Ревизия текстов режимов (метка ступени; растёт вместе с лестницей).
+EXPRESSION_TEXT_REVISION = "p0e-2026-10-24"
 
 #: Инструкции прочих контролов = прежние effect-тексты (слой рендерит их
 #: одной строкой; формулировки не менялись этим слайсом).
@@ -343,6 +364,41 @@ def render_expression_text(source: Any) -> str:
 def sha12(text: str) -> str:
     """12-hex sha256 (та же ревизия, что у композера/реестра)."""
     return hashlib.sha256(str(text or "").encode("utf-8")).hexdigest()[:12]
+
+
+# ── P0-E: лестница текста режимов (PREV → factory, откат) ──────────────────
+# Текст слоя НЕ хранится в PG и вне prompt-реестра (см. prompt_registry.py:
+# «EXPRESSION_HEADER = §3.4 (вне реестра, слой mca_expression)»); единственный
+# PG-документ ``character.expression`` содержит режимы и кастом владельца,
+# который эта ступень не перезаписывает. Поэтому ступень идемпотентна по
+# природе (stateless-константы), rollback = вернуть PREV-текст в фабрику
+# (``git revert`` либо ``rollback_profanity_frequent_text()`` в тесте/пробе).
+EXPRESSION_TEXT_LADDER: tuple[dict, ...] = (
+    {
+        "step": "p0e-frequent-habit",
+        "at": "2026-10-24",
+        "revision": EXPRESSION_TEXT_REVISION,
+        "mode": "frequent",
+        "prev_sha12": sha12(PREV_PROFANITY_FREQUENT_TEXT),
+        "next_sha12": sha12(PROFANITY_INSTRUCTIONS["frequent"]),
+        "summary": ("FREQUENT — привычная и заметная часть собственной речи, "
+                    "не разрешение на исключение"),
+    },
+)
+
+
+def expression_text_ladder() -> tuple[dict, ...]:
+    """Ступени текста режимов (копии записей; повторный вызов = те же данные).
+
+    Чистая функция без записи в PG: текст режимов не является PG-каноном,
+    поэтому «active ladder» здесь — пара констант PREV → factory с sha.
+    """
+    return tuple(dict(row) for row in EXPRESSION_TEXT_LADDER)
+
+
+def rollback_profanity_frequent_text() -> str:
+    """Прежний прод-текст ``frequent`` (ступень отката, байт-в-байт)."""
+    return PREV_PROFANITY_FREQUENT_TEXT
 
 
 def build_expression_settings(chat_doc: Any, global_doc: Any):
@@ -637,12 +693,14 @@ __all__ = [
     "EXPRESSION_DOC_KEY", "EXPRESSION_MODES", "EXPRESSION_ALIASES",
     "EXPRESSION_CONTROL_VALUES", "EXPRESSION_FACTORY_DEFAULTS",
     "CONTROL_ORDER", "CONTROL_LABELS", "CONTROL_INSTRUCTIONS",
-    "PROFANITY_INSTRUCTIONS", "EXPRESSION_HEADER", "EXPRESSION_FOOTER",
-    "BANNED_SOLE_RULE_PHRASES", "EXPRESSION_DIAG_CLASSES",
+    "PROFANITY_INSTRUCTIONS", "PREV_PROFANITY_FREQUENT_TEXT",
+    "EXPRESSION_TEXT_REVISION", "EXPRESSION_TEXT_LADDER", "EXPRESSION_HEADER",
+    "EXPRESSION_FOOTER", "BANNED_SOLE_RULE_PHRASES", "EXPRESSION_DIAG_CLASSES",
     "MODEL_IGNORE_PROBES", "PROFANITY_ROOTS",
     "normalize_mode", "normalize_expression", "resolve_effective",
     "expression_migration", "effective_source", "effective_mode",
     "render_expression_text", "build_expression_settings",
+    "expression_text_ladder", "rollback_profanity_frequent_text",
     "render_expression_examples_block", "build_expression_examples_refs",
     "emit_expression_diag", "reset_diag_dedup", "classify_expression_response",
     "count_profanity", "diag_classes", "sha12",
