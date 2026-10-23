@@ -1015,7 +1015,7 @@
           "ref": "gaps-closure §1 (IDENT-02)",
           "observation": "Лог закрытия: код model_space_identity (services/embedding_control_plane.py L2495) не менялся, добавлено покрытие всех полей; -q -x без сети/e2e, 26->27 passed.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
-          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
+          "artifact_sha256": "9f2078598f10a5cfd3cf1e0e9ccdd8c36c62764f3475e91590f748b366733166"
         }
       ],
       "next_check": "Unit-тест model_space_identity: поочерёдное изменение revision / task_mode / normalization / preprocessing_version / material_params должно менять MSI (model и dims уже покрыты).",
@@ -1112,7 +1112,7 @@
           "ref": "gaps-closure §2 + Дополнение 4 (CANARY-03)",
           "observation": "Лог: _split_probe_response/_probe_metadata_block/_compat_probe_once пишут фактическую мету и дают model_mismatch/dim_mismatch до числовых метрик; остаточный риск (снапшот-имя модели) описан и лечится конфигом модели.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
-          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
+          "artifact_sha256": "9f2078598f10a5cfd3cf1e0e9ccdd8c36c62764f3475e91590f748b366733166"
         }
       ],
       "next_check": "Решить и покрыть тестом: проба фиксирует фактическую model/доступную revision из ответа провайдера либо явно возвращает insufficient_data при недоступности ревизии (plan.md §Внешний факт); сейчас сверяется только dims.",
@@ -1625,7 +1625,7 @@
           "ref": "gaps-closure §3 (DEC-09)",
           "observation": "Лог закрытия DEC-09: откат существующим UPDATE реестра + резолвером, без правок кода.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
-          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
+          "artifact_sha256": "9f2078598f10a5cfd3cf1e0e9ccdd8c36c62764f3475e91590f748b366733166"
         }
       ],
       "next_check": "Добавить тест откатa: adopt → status='building', config_revision=NULL → _index_generation_ok=false (vec-поиск закрыт), FTS возвращает непустую выдачу, live/source counters неизменны.",
