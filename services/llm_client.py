@@ -278,6 +278,41 @@ class LLMChatResult:
     reasoning: str | None = None
 
 
+# EMBED-META-WIRE (CANARY-03): метаданные embed-ответа провайдера.
+# Ключи совпадают с контрактом пробы совместимости
+# (`embedding_control_plane._PROBE_METADATA_FIELDS`).
+_EMPTY_EMBED_META: dict = {"model": None, "revision": None,
+                           "params": None, "dims": None}
+
+
+def _embed_response_meta(data, vectors) -> dict:
+    """ФАКТИЧЕСКИЕ model/revision/params/dims из ТЕЛА ответа /embeddings.
+
+    `model` НЕ подставляется из конфига: вопрос пробы — какую модель реально
+    обслужил провайдер. Нет поля → `None` (неизвестность честно фиксируется
+    потребителем как `*_known=False`, а не как несовместимость). Никогда не
+    бросает: метаданные — побочный канал, а не условие успеха embed-вызова.
+    """
+    meta = dict(_EMPTY_EMBED_META)
+    try:
+        if isinstance(data, dict):
+            model = data.get("model")
+            if isinstance(model, str):
+                meta["model"] = model.strip() or None
+            revision = data.get("revision")
+            if isinstance(revision, str):
+                meta["revision"] = revision.strip() or None
+            params = data.get("params")
+            if isinstance(params, dict):
+                meta["params"] = dict(params)
+        first = vectors[0] if vectors else None
+        if isinstance(first, (list, tuple)):
+            meta["dims"] = len(first)
+    except Exception:      # pragma: no cover — защитная ветка
+        return dict(_EMPTY_EMBED_META)
+    return meta
+
+
 class LLMClient:
     """Provider-agnostic async client for chat completions and embeddings."""
 
@@ -418,6 +453,10 @@ class LLMClient:
         # Раунд 10 (F-7 §5.2): последний BYOK-источник (для счётчика).
         self._byok_source: str = "global"      # 'chat' | 'global'
         self._byok_chat_id: int | None = None
+        # EMBED-META-WIRE (CANARY-03): ФАКТИЧЕСКИЕ метаданные последнего
+        # embed-ответа провайдера. Аддитивный побочный канал: возвращаемый
+        # тип `embed()`/`embed_once()` (list[list[float]]) НЕ меняется.
+        self.last_embed_meta: dict = dict(_EMPTY_EMBED_META)
 
     def _current_api_key(self) -> str:
         """T-619 (84.4): ключ читается из ConfigCache на ВЫЗОВ; ключа нет в
@@ -1675,6 +1714,9 @@ class LLMClient:
             vectors = [item["embedding"] for item in data["data"]]
         except (KeyError, TypeError) as exc:
             raise LLMBadResponseError("embeddings: no data[].embedding in response") from exc
+        # EMBED-META-WIRE: фактические метаданные ответа — для пробы
+        # совместимости (возвращаемое значение не меняется).
+        self.last_embed_meta = _embed_response_meta(data, vectors)
         logger.info(
             "LLM embed OK | model=%s | texts=%d", used_model, len(vectors)
         )
@@ -1730,6 +1772,9 @@ class LLMClient:
         if len(vectors) != len(texts):
             raise LLMBadResponseError(
                 f"embeddings: vectors={len(vectors)} != inputs={len(texts)}")
+        # EMBED-META-WIRE: тот же побочный канал, что и в `embed()` —
+        # контрол-плейн читает `client.last_embed_meta` после embed_fn.
+        self.last_embed_meta = _embed_response_meta(data, vectors)
         # R17: сам ключ не логируется НИКОГДА — алиас credential'а пишет
         # контрол-плейн на своём уровне (spec §0.3/§63).
         logger.info(

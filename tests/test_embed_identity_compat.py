@@ -1019,6 +1019,60 @@ async def test_canary_03_missing_revision_or_params_not_insufficient(ctx):
     assert await ctx.mm._index_generation_ok(INDEX) is True
 
 
+class _WireClient:
+    """EMBED-META-WIRE: клиент, чью мету читает проба (`last_embed_meta`)."""
+
+    def __init__(self, *, answer_model=None):
+        self.last_embed_meta: dict = {"model": None, "revision": None,
+                                     "params": None, "dims": None}
+        self._answer_model = answer_model
+
+    async def embed(self, texts):
+        vectors = _space_vectors(list(texts), "space-a")
+        # Ровно как LLMClient.embed(): возвращает ТОЛЬКО векторы, а
+        # метаданные ответа кладёт в атрибут.
+        self.last_embed_meta = {
+            "model": self._answer_model,
+            "revision": "2026-09-01" if self._answer_model else None,
+            "params": None, "dims": DIMS}
+        return vectors
+
+
+class _WireModule:
+    """Продакшн-форма вызова: `embed_fn` — bound-метод модуля с общим llm."""
+
+    def __init__(self, *, answer_model=None):
+        self.llm = _WireClient(answer_model=answer_model)
+
+    async def _embed(self, texts):
+        return await self.llm.embed(list(texts))
+
+
+@pytest.mark.asyncio
+async def test_canary_03_probe_reads_last_embed_meta_from_embed_fn(ctx):
+    """EMBED-META-WIRE: legacy-контракт `embed_fn → list[vectors]` сохраняется,
+    а ФАКТИЧЕСКАЯ model берётся из `llm.last_embed_meta` за callable. Без
+    сохранённой меты — прежнее поведение (`model_known=False`)."""
+    docs = _docs()
+    await _seed(ctx, docs)
+    old_fp, _new_fp = _gateway_swap(ctx)
+    await _register_generation(ctx, old_fp)
+
+    wired = _WireModule(answer_model=f" Models/{MODEL} ")
+    probe = await ecp.compat_probe(ctx.db, INDEX, embed_fn=wired._embed)
+    assert probe["verdict"] == ecp.STATE_COMPATIBLE
+    assert probe["metadata"]["model_known"] is True
+    assert probe["metadata"]["model"] == f"Models/{MODEL}"
+    assert probe["metadata"]["revision_known"] is True
+    assert probe["metadata"]["params_known"] is False
+
+    legacy = _WireModule(answer_model=None)
+    probe2 = await ecp.compat_probe(ctx.db, INDEX, embed_fn=legacy._embed)
+    assert probe2["verdict"] == ecp.STATE_COMPATIBLE
+    assert probe2["metadata"]["model_known"] is False
+    assert probe2["reason_code"] == "revision_unknown"
+
+
 # ── 13. DEC-09: откат допуска — данные целы, FTS обслуживает, adopt повторяем ─
 
 @pytest.mark.asyncio

@@ -2944,7 +2944,37 @@ async def _knn_top_ids(db, live: str, vector: list[float],
 _PROBE_METADATA_FIELDS = ("model", "revision", "params", "dims")
 
 
-def _split_probe_response(raw, llm=None) -> tuple[list, dict]:
+def _probe_meta_owner(embed_fn=None, llm=None):
+    """EMBED-META-WIRE: объект, чей `last_embed_meta` относится к ответу.
+
+    Продакшн-вызов пробы передаёт `embed_fn` (bound-метод модуля памяти,
+    внутри — общий `LLMClient`), а не `llm`; поэтому метаданные ищутся и у
+    владельца callable (`__self__`), и у его атрибута `llm`/`_llm`.
+    Отсутствие атрибута — не ошибка (метаданные остаются unknown)."""
+    candidates = []
+    owner = getattr(embed_fn, "__self__", None)
+    if owner is not None:
+        candidates.append(owner)
+        try:
+            candidates.append(getattr(owner, "llm", None))
+        except Exception:      # pragma: no cover — защитная ветка
+            pass
+    # Явный `llm` — последний кандидат: при наличии `embed_fn` его мета
+    # относится именно к этому вызову (у `llm` она может быть от другого).
+    candidates.append(llm)
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        try:
+            meta = getattr(candidate, "last_embed_meta", None)
+        except Exception:      # pragma: no cover — защитная ветка
+            meta = None
+        if isinstance(meta, dict) and meta:
+            return meta
+    return None
+
+
+def _split_probe_response(raw, llm=None, embed_fn=None) -> tuple[list, dict]:
     """CANARY-03: векторы + ФАКТИЧЕСКИЕ метаданные ответа провайдера.
 
     `embed_fn` (точка подмены HTTP) и `llm` могут вернуть:
@@ -2953,8 +2983,8 @@ def _split_probe_response(raw, llm=None) -> tuple[list, dict]:
       * dict `{"vectors": [...], "model": ..., "revision": ..., "params": {...},
         "dims": N}` — то, что реально ответил провайдер. `model` берётся из
         ТЕЛА ответа, а не из конфига: ТЗ запрещает полагаться на имя модели.
-    `llm.last_embed_meta` — тот же dict, если клиент сохранил мета последнего
-    ответа. Никогда не бросает."""
+    `last_embed_meta` (`llm`, либо клиент за `embed_fn`) — тот же dict, если
+    клиент сохранил мета последнего ответа. Никогда не бросает."""
     meta: dict = {}
     if isinstance(raw, dict):
         try:
@@ -2967,9 +2997,9 @@ def _split_probe_response(raw, llm=None) -> tuple[list, dict]:
             vectors = list(raw or [])
         except Exception:      # pragma: no cover — защитная ветка
             vectors = []
-    if not any(meta.get(key) is not None for key in meta) and llm is not None:
-        extra = getattr(llm, "last_embed_meta", None)
-        if isinstance(extra, dict):
+    if not any(meta.get(key) is not None for key in meta):
+        extra = _probe_meta_owner(embed_fn, llm)
+        if extra is not None:
             meta = {key: extra.get(key) for key in _PROBE_METADATA_FIELDS}
     return vectors, meta
 
@@ -3066,7 +3096,7 @@ async def _compat_probe_once(db, index_name: str, *, embed_fn=None, llm=None,
     except Exception:
         out["reason_code"] = "api_unavailable"
         return out
-    vectors, embed_meta = _split_probe_response(raw, llm)
+    vectors, embed_meta = _split_probe_response(raw, llm, embed_fn=embed_fn)
     if not vectors or len(vectors) != len(pairs_in) or \
             not all(v for v in vectors):
         out["reason_code"] = "api_unavailable"

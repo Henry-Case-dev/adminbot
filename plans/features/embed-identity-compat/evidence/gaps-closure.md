@@ -104,3 +104,57 @@
   (тесты L922/L960/L987).
 - DEC-09: откат допуска не теряет векторы/факты, vec закрыт, FTS работает,
   повторный adopt успешен (тест L1025).
+
+## Дополнение 4 (лейн EMBED-META-WIRE): фактическая модель реально доезжает до пробы
+
+Проблема: `_split_probe_response` читал только `llm.last_embed_meta`, но этого
+атрибута никто не заполнял, а продакшн-вызов пробы (`summary_memory`,
+`graphrag_rebuild`) передаёт `embed_fn` (bound-метод модуля памяти с общим
+`LLMClient`), не `llm`. Итог — `model_known=False` в проде при живом ответе
+провайдера.
+
+Изменено (аддитивно, публичные контракты не тронуты):
+
+- `services/llm_client.py`: новый модульный хелпер `_embed_response_meta(data,
+  vectors)` + `_EMPTY_EMBED_META`; `LLMClient.__init__` заводит
+  `self.last_embed_meta`; `embed()` и `embed_once()` заполняют его после
+  успешного разбора ответа. Состав: `{"model", "revision", "params", "dims"}`.
+  `model` берётся ТОЛЬКО из тела ответа (`/embeddings` → `model`), не из
+  конфига; нет поля → `None`. Возвращаемое значение `embed()`/`embed_once()`
+  осталось `list[list[float]]` — метаданные это побочный канал.
+- `services/embedding_control_plane.py`: `_probe_meta_owner(embed_fn, llm)` —
+  ищет `last_embed_meta` у владельца callable (`__self__`) и у его `llm`,
+  явный `llm` — последний кандидат (при наличии `embed_fn` его мета относится
+  именно к вызову пробы); `_split_probe_response(raw, llm, embed_fn=...)`
+  использует этот резолвер; `_compat_probe_once` передаёт `embed_fn`.
+  Нет атрибута/поля → прежнее поведение (`model_known=False`,
+  `revision_unknown`), без исключений.
+
+Тесты:
+
+- `tests/test_embed_meta_wire.py` (новый, 4): `embed()` с `model` в теле →
+  `last_embed_meta["model"]`; без `model` → `None` и прежний возврат;
+  `embed_once()` → та же мета; до первого ответа атрибут пуст.
+- `tests/test_embed_identity_compat.py`:
+  `test_canary_03_probe_reads_last_embed_meta_from_embed_fn` — `embed_fn`
+  возвращает ТОЛЬКО векторы (legacy-контракт), мета лежит на клиенте за
+  callable: проба получает `model_known=True`, `model="Models/gemini-embedding-001"`,
+  `revision_known=True`, `verdict=compatible`; без меты —
+  `model_known=False` / `reason_code=revision_unknown`.
+
+Прогоны (точечные, `-q`, внешний лимит 180 с на команду):
+
+| Файл | Результат |
+|---|---|
+| `tests/test_embed_meta_wire.py` | **4 passed** |
+| `tests/test_embed_identity_compat.py` | **27 passed** (было 26; +1) |
+| `tests/test_embed_identity_compat_restart_legacy.py` | **9 passed** |
+| `tests/test_llm_client.py` | **115 passed** |
+| `tests/test_embedding_control_plane_asap4.py` | **69 passed** (регресс control plane) |
+
+Остаточный риск: провайдер, вернувший в теле снапшот-имя, отличное от
+`models.embedding_model_name` (например с датой), теперь даст
+`incompatible/model_mismatch` — это заявленное поведение CANARY-03
+(сравнение нормализованных имён), но при ложном срабатывании лечится
+конфигом модели, а не откатом кода.
+
