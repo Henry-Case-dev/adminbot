@@ -124,9 +124,10 @@ def test_identity_canonical_json_sha256_16():
     assert fp1 != fp3
 
 
-def test_identity_ignores_key_quota_timeout_route(monkeypatch):
-    """13N#3 + #21: key/quota/timeout/route identity НЕ меняют →
-    same model + другой key → INSTANT_COMPATIBLE (без reindex)."""
+def test_space_identity_ignores_key_quota_timeout_route(monkeypatch):
+    """13N#3 + #21 + EMBED-IDENTITY-COMPAT (23.10.2026): key/quota/route
+    меняют ТОЛЬКО PCI (провенанс), но НЕ MSI → смена ключа/квоты не требует
+    reindex. PCI сам по себе индекс НЕ закрывает."""
     class _FakeHot:
         def get(self, key, default=None):
             return default
@@ -138,14 +139,27 @@ def test_identity_ignores_key_quota_timeout_route(monkeypatch):
     prof_b = ecp.EmbeddingProfile(
         alias="primary", base_url="https://x.test/v1", model="embed-1",
         quota_group="group-b")           # другая квота-группа
-    assert ecp.profile_identity(prof_a, 3072) == \
-        ecp.profile_identity(prof_b, 3072)
+    # MSI (model+dims, без host/quota) совпадает — это критерий совместимости.
+    space_a = ecp.profile_space_identity(prof_a, 3072)
+    space_b = ecp.profile_space_identity(prof_b, 3072)
+    assert space_a == space_b
+    # PCI различается, но это провенанс, а не «другое пространство».
+    assert ecp.profile_identity(prof_a) != ecp.profile_identity(prof_b)
     verdict = ecp.classify_identity_compatibility(
-        current_identity=ecp.profile_identity(prof_a, 3072),
-        stored_identity=ecp.profile_identity(prof_b, 3072),
+        current_identity=ecp.profile_identity(prof_a),
+        stored_identity=ecp.profile_identity(prof_b),
         current_dim=3072, stored_dim=3072,
+        current_space=space_a, stored_space=space_b,
         canary_verdict=ecp.CANARY_STABLE)
     assert verdict == ecp.COMPAT_INSTANT
+    # Доказанный durable-допуск (проба на старых векторах) — новый класс.
+    admission = ecp.parse_admission(ecp.format_admission(
+        space_a, ecp.profile_identity(prof_b), 12, 0.999, 0.998, 1.0, 1))
+    assert ecp.classify_identity_compatibility(
+        current_identity=ecp.profile_identity(prof_a),
+        stored_identity=ecp.profile_identity(prof_b),
+        current_dim=3072, stored_dim=3072,
+        admission=admission) == ecp.COMPAT_ADMITTED
 
 
 def test_same_dim_different_model_is_reindex_required():

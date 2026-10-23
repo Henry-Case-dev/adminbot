@@ -1511,6 +1511,10 @@ def _unpack_vector(raw) -> list[float] | None:
 # (2 ключа — bounded по построению).
 _GEN_LOG_STATE: dict[str, tuple[tuple[str, str], float]] = {}
 
+# EMBED-IDENTITY-COMPAT: process-level lock inline-пробы на старте (одна
+# проба на процесс; создаётся лениво — не привязывается к import-loop).
+_COMPAT_INIT_LOCK: asyncio.Lock | None = None
+
 
 def _gen_log_cooldown() -> float:
     try:
@@ -1748,6 +1752,10 @@ class MemoryManager:
             await self._register_index_generations(
                 activate=(not vec_preexisting) or dim_mismatch
                 or schema_rebuilt)   # MCA-07 D4/v18 + B-MCA07-1
+            # EMBED-IDENTITY-COMPAT (§3.7): проба совместимости ДО
+            # recovery/backfill — иначе уже запущенная сборка под новый fp
+            # сожжёт ~316 вызовов до вердикта. Под process-lock, fail-open.
+            await self._ensure_index_compat_inline()
             fire_and_forget(self.backfill_archive_vectors(), "backfill")
             fire_and_forget(self.backfill_graph_fact_vectors(), "backfill_graph")
             # ASAP-3.2 (T-4191, ADR-1028-5 D1/D2): building-поколение с
@@ -1857,6 +1865,22 @@ class MemoryManager:
                 if not activate and by_fp is not None:
                     if await by_fp(index_name, fp) is not None:
                         continue
+                # EMBED-IDENTITY-COMPAT: пока совместимость не доказана
+                # (needs probe) или уже принята — новое `building`-поколение
+                # НЕ регистрируется: иначе рестарт создаёт target и запускает
+                # полную перевекторизацию при смене только API-шлюза.
+                if not activate:
+                    try:
+                        from services import embedding_control_plane as _ecp
+                        compat = await _ecp.resolve_index_compat(
+                            self.db, index_name, current_fp=fp,
+                            current_dims=self._vec_dim)
+                        if str(compat.get("state") or "") in (
+                                _ecp.STATE_COMPATIBLE,
+                                _ecp.STATE_INSUFFICIENT):
+                            continue
+                    except Exception:
+                        pass
                 await ensure(
                     index_name, fp,
                     provider=_embedding_provider(),
@@ -1910,6 +1934,26 @@ class MemoryManager:
         is_active = str(latest.get("status") or "") == "active"
         if is_active and str(latest.get("fingerprint") or "") == current:
             return True
+        # EMBED-IDENTITY-COMPAT (23.10.2026): совместимость определяется MSI +
+        # durable-допуском, а не совпадением URL/endpoint. Смена только
+        # API-шлюза при той же модели не закрывает индекс (адаптер/квота/хост —
+        # провенанс, не пространство). Без доказательства — прежний fail-safe.
+        compat: dict | None = None
+        try:
+            from services import embedding_control_plane as _ecp
+            if _ecp.adoption_enabled():
+                compat = await _ecp.resolve_index_compat(
+                    self.db, index_name, current_fp=current,
+                    current_dims=self._vec_dim)
+                if str(compat.get("state") or "") == _ecp.STATE_COMPATIBLE:
+                    _GEN_LOG_STATE.pop(index_name, None)
+                    logger.info(
+                        "SmartModule: embedding index serviceable | index=%s | "
+                        "class=%s | compat=%s", index_name,
+                        compat.get("class"), compat.get("reason_code"))
+                    return True
+        except Exception:
+            compat = None
         # ASAP-3.2 (§8/§67): BUILDING — ожидаемое состояние идущего rebuild,
         # НЕ «новая авария» на каждый вызов: первый WARNING → далее DEBUG
         # (коалесинг); повторный WARNING — при смене состояния или cooldown.
@@ -1934,7 +1978,8 @@ class MemoryManager:
                 str(latest.get("fingerprint"))[:12], current[:12], hint)
             return False
         hint = await self._generation_hint(index_name, latest,
-                                           identity_changed=identity_changed)
+                                           identity_changed=identity_changed,
+                                           compat=compat)
         _GEN_LOG_STATE[index_name] = (state, now_mono, hint)
         logger.warning(
             "SmartModule: embedding generation not serviceable | index=%s | "
@@ -1948,8 +1993,13 @@ class MemoryManager:
         return False
 
     async def _generation_hint(self, index_name: str, latest: dict, *,
-                               identity_changed: bool) -> str:
+                               identity_changed: bool,
+                               compat: dict | None = None) -> str:
         """B2 (review 23.10.2026): честный хвост лога `not serviceable`.
+
+        EMBED-IDENTITY-COMPAT: «сменился шлюз» и «пространство несовместимо» —
+        РАЗНЫЕ состояния. Пока проба не доказала совместимость, писать
+        «identity changed — rebuild required» нельзя (rebuild не нужен).
 
         Реестр не получает терминальный статус при провале сборки
         (`_handle_build_failure`/validation-failed пишут только `task_jobs`),
@@ -1957,6 +2007,13 @@ class MemoryManager:
         durable-джобе. Запрос — только при эмиссии WARNING (раз в cooldown,
         результат кэшируется в `_GEN_LOG_STATE`), не на каждой записи.
         Никогда не бросает."""
+        if compat is not None:
+            state = str(compat.get("state") or "")
+            if state == "insufficient":
+                return (" | API gateway changed — compatibility probe pending "
+                        f"({compat.get('reason_code') or 'insufficient'})")
+            if state == "incompatible":
+                return " | vectors incompatible — controlled migration required"
         if identity_changed:
             return " | identity changed — rebuild required"
         try:
@@ -2005,12 +2062,51 @@ class MemoryManager:
             pass
         return True
 
+    async def _ensure_index_compat_inline(self) -> None:
+        """EMBED-IDENTITY-COMPAT (§3.7): один inline-probe на старте.
+
+        Порядок frozen: резолвер → проба на СТАРЫХ векторах → adopt/cancel.
+        Под process-`asyncio.Lock` (одна проба на процесс), никогда не
+        бросает и не блокирует старт дольше одного embed-батча."""
+        try:
+            from services import embedding_control_plane as ecp
+            if not ecp.adoption_enabled():
+                return
+            if not mca_gates.retrieval_context_enabled():
+                return
+        except Exception:      # pragma: no cover
+            return
+        global _COMPAT_INIT_LOCK
+        if _COMPAT_INIT_LOCK is None:
+            _COMPAT_INIT_LOCK = asyncio.Lock()
+        async with _COMPAT_INIT_LOCK:
+            fp = self._identity_fingerprint()
+            for index_name in ("smart_archive", "graph_facts_vec"):
+                try:
+                    await ecp.ensure_index_compat(
+                        self.db, index_name, current_fp=fp,
+                        current_dims=self._vec_dim,
+                        embed_fn=self._compat_probe_embed)
+                except Exception:
+                    logger.debug(
+                        "SmartModule: compat probe failed | index=%s",
+                        index_name, exc_info=True)
+
+    async def _compat_probe_embed(self, texts) -> list[list[float]]:
+        """Embed для пробы совместимости: штатный serving-путь, приоритет P2."""
+        return await self._embed(list(texts), priority=_PRIO_REPAIR)
+
     def _schedule_canary_probe(self) -> None:
         """§8.6: фоновая canary-проба текущего identity (раз на процесс/TTL);
         DRIFT → блокировка записи в ACTIVE через `canary_blocks_writes`.
         Fire-and-forget, никогда не бросает, не блокирует startup."""
         try:
             from services import embedding_control_plane as ecp
+            # EMBED-IDENTITY-COMPAT: пока вердикт совместимости не получен,
+            # drift-canary по embedding_cache бессмысленна (эталоны нового
+            # fp создаются новым же провайдером — «новое против нового»).
+            if ecp.compat_pending():
+                return
             fp = self._identity_fingerprint()
             if ecp.canary_verdict_cached(fp):
                 return                      # свежий вердикт уже есть

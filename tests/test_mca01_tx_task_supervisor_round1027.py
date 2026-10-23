@@ -972,7 +972,10 @@ def test_write_points_go_through_single_writer():
         # категорий + PRAGMA user_version; раннер до старта писателей;
         # runtime owner-override/tombstone/restore идут через
         # `write_transaction` (`services/mca_sample_library.py`).
-        "database.py": 206,
+        # +1 EMBED-IDENTITY-COMPAT (23.10.2026, L-MCA14-3): `adopt_embedding_generation`
+        # — UPDATE статуса ACTIVE-строки внутри `async with self.serialized()`
+        # (одна транзакция adopt; fingerprint/provider/endpoint не перезаписываются).
+        "database.py": 207,
         "dossier_rebuild_jobs.py": 1,   # внутри `async with db.serialized()`
         # ASAP-3.2 (ADR-1028-5 D1/D2, T-4191): shadow-rebuild — 3 прямых
         # commit внутри `async with memory.db.serialized()` (идемпотентный

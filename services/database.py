@@ -6161,6 +6161,81 @@ class DatabaseService:
                            exc_info=True)
             return None
 
+    async def adopt_embedding_generation(
+            self, index_name: str, fingerprint: str, *, admission: str,
+            namespace: str = "default") -> dict | None:
+        """EMBED-IDENTITY-COMPAT (23.10.2026): принять СУЩЕСТВУЮЩЕЕ
+        поколение как ACTIVE без перестройки (смена только API-шлюза).
+
+        Одна `serialized()`-транзакция: проверяет отсутствие ДРУГОГО ACTIVE
+        (инвариант §8.1/partial UNIQUE `idx_mca_eig_active_ns`), ставит
+        `status='active'` + `activated_at` + `config_revision=<допуск>`.
+        `fingerprint`/`provider`/`endpoint_fingerprint` НЕ перезаписываются —
+        это провенанс: векторы построены прежним подключением.
+
+        Fail-closed: нет строки/чужой непарсимый `config_revision`/ошибка →
+        None. Идемпотентно: повторный adopt с тем же допуском — no-op."""
+        if not fingerprint or not admission:
+            return None
+        namespace = str(namespace or "default")
+        try:
+            from services.embedding_control_plane import parse_admission
+        except Exception:      # pragma: no cover — модуль всегда в комплекте
+            return None
+        try:
+            async with self.serialized():
+                cursor = await self.db.execute(
+                    f"SELECT {self._EGEN_ROW_COLS} FROM "
+                    "mca_embedding_index_generations WHERE index_name = ? "
+                    "AND fingerprint = ? AND namespace = ? "
+                    "ORDER BY generation DESC LIMIT 1",
+                    (str(index_name), str(fingerprint), namespace))
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+                row = dict(row)
+                cursor = await self.db.execute(
+                    "SELECT generation_id, fingerprint FROM "
+                    "mca_embedding_index_generations WHERE index_name = ? "
+                    "AND namespace = ? AND status = 'active'",
+                    (str(index_name), namespace))
+                active = await cursor.fetchone()
+                if active is not None and \
+                        str(active["generation_id"]) != str(row["generation_id"]):
+                    # Другой ACTIVE: adopt не подменяет авторитет сёрвинга.
+                    return None
+                previous = str(row.get("config_revision") or "")
+                if previous and previous != str(admission) and \
+                        parse_admission(previous) is None:
+                    # Чужой (миграционный) revision не перезаписываем.
+                    return None
+                if str(row.get("status") or "") == "active" and \
+                        previous == str(admission):
+                    return row          # идемпотентно
+                now = int(time.time())
+                activated = (row.get("activated_at")
+                             if str(row.get("status") or "") == "active"
+                             else now)
+                await self.db.execute(
+                    "UPDATE mca_embedding_index_generations SET "
+                    "status = 'active', activated_at = ?, config_revision = ?, "
+                    "superseded_at = NULL WHERE generation_id = ?",
+                    (activated or now, str(admission),
+                     str(row["generation_id"])))
+                await self.db.commit()
+                logger.warning(
+                    "[database] embedding generation ADOPTED (gateway compat)"
+                    " | index=%s ns=%s gen=%s fp=%s", index_name, namespace,
+                    row.get("generation"), str(fingerprint)[:12])
+                row.update({"status": "active", "config_revision": str(admission),
+                            "activated_at": activated or now})
+                return row
+        except Exception:
+            await self.db.rollback()
+            logger.warning("[database] adopt_embedding_generation failed",
+                           exc_info=True)
+            return None
+
     async def initialize(self) -> None:
         """Open connection, create tables, enable WAL mode."""
         self.db = await aiosqlite.connect(str(self.db_path))
