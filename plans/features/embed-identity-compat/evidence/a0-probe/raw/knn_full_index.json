@@ -1,0 +1,811 @@
+{
+  "summary": {
+    "queried": 42,
+    "hit1": 1.0,
+    "hit5": 1.0,
+    "hit1_probe_sample": 1.0,
+    "hit5_probe_sample": 1.0,
+    "probe_sample_queried": 12
+  },
+  "per_row": [
+    {
+      "id": 35,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 98,
+      "cosine": 1.0,
+      "top_ids": [
+        35,
+        11628,
+        7465,
+        2664,
+        107
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.3359706699848175
+    },
+    {
+      "id": 36,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 116,
+      "cosine": 1.0,
+      "top_ids": [
+        36,
+        1,
+        3,
+        2,
+        13
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.13434435427188873
+    },
+    {
+      "id": 192,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 217,
+      "cosine": 1.0,
+      "top_ids": [
+        192,
+        191,
+        194,
+        195,
+        193
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.18279020488262177
+    },
+    {
+      "id": 216,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 116,
+      "cosine": 1.0,
+      "top_ids": [
+        216,
+        217,
+        844,
+        1311,
+        13331
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.24902352690696716
+    },
+    {
+      "id": 217,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 126,
+      "cosine": 1.0,
+      "top_ids": [
+        217,
+        13529,
+        13569,
+        786,
+        13162
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.1154567152261734
+    },
+    {
+      "id": 218,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 77,
+      "cosine": 1.0,
+      "top_ids": [
+        218,
+        10787,
+        11746,
+        12300,
+        12314
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.2522069811820984
+    },
+    {
+      "id": 219,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 159,
+      "cosine": 1.0,
+      "top_ids": [
+        219,
+        1153,
+        1623,
+        15069,
+        12474
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.24755291640758514
+    },
+    {
+      "id": 220,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 126,
+      "cosine": 1.0,
+      "top_ids": [
+        220,
+        13756,
+        13473,
+        10792,
+        13641
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.1745699942111969
+    },
+    {
+      "id": 933,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 64,
+      "cosine": 1.0,
+      "top_ids": [
+        933,
+        941,
+        942,
+        937,
+        1014
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.14730800688266754
+    },
+    {
+      "id": 937,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 91,
+      "cosine": 1.0,
+      "top_ids": [
+        937,
+        1013,
+        941,
+        942,
+        1008
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.11807297170162201
+    },
+    {
+      "id": 938,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 100,
+      "cosine": 1.0,
+      "top_ids": [
+        938,
+        1009,
+        1008,
+        1015,
+        1012
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.16481482982635498
+    },
+    {
+      "id": 941,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 88,
+      "cosine": 1.0,
+      "top_ids": [
+        941,
+        942,
+        1014,
+        933,
+        937
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.09486670792102814
+    },
+    {
+      "id": 942,
+      "chat_id": 5885953495,
+      "origin": "chat_history",
+      "n": 95,
+      "cosine": 1.0,
+      "top_ids": [
+        942,
+        941,
+        933,
+        937,
+        1008
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.09486670792102814
+    },
+    {
+      "id": 1059,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 205,
+      "cosine": 1.0,
+      "top_ids": [
+        1059,
+        8535,
+        5537,
+        8221,
+        2559
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.31653037667274475
+    },
+    {
+      "id": 1144,
+      "chat_id": 1313107079,
+      "origin": "chat_history",
+      "n": 44,
+      "cosine": 1.0,
+      "top_ids": [
+        1144,
+        1145,
+        1344,
+        11653,
+        14643
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.15271548926830292
+    },
+    {
+      "id": 1145,
+      "chat_id": 1313107079,
+      "origin": "chat_history",
+      "n": 43,
+      "cosine": 1.0,
+      "top_ids": [
+        1145,
+        1144,
+        11653,
+        11697,
+        1554
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.15271548926830292
+    },
+    {
+      "id": 1268,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 261,
+      "cosine": 1.0,
+      "top_ids": [
+        1268,
+        1255,
+        1267,
+        1266,
+        1257
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.1397681087255478
+    },
+    {
+      "id": 1623,
+      "chat_id": -1002661910336,
+      "origin": "bot_direct_reply",
+      "n": 77,
+      "cosine": 1.0,
+      "top_ids": [
+        1623,
+        12154,
+        219,
+        1622,
+        13756
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.2546103596687317
+    },
+    {
+      "id": 1624,
+      "chat_id": -1002661910336,
+      "origin": "bot_direct_reply",
+      "n": 80,
+      "cosine": 1.0,
+      "top_ids": [
+        1624,
+        1622,
+        14322,
+        14320,
+        14456
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.15187162160873413
+    },
+    {
+      "id": 1653,
+      "chat_id": -1002661910336,
+      "origin": "user_memory",
+      "n": 619,
+      "cosine": 0.99999998,
+      "top_ids": [
+        1653,
+        1551,
+        10647,
+        1559,
+        1545
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 6.85392251398298e-07,
+      "nearest_other_distance": 0.2362579107284546
+    },
+    {
+      "id": 1703,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 227,
+      "cosine": 1.0,
+      "top_ids": [
+        1703,
+        10971,
+        13783,
+        13784,
+        13824
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.12618118524551392
+    },
+    {
+      "id": 1709,
+      "chat_id": -1002661910336,
+      "origin": "history_import",
+      "n": 67,
+      "cosine": 1.0,
+      "top_ids": [
+        1709,
+        3680,
+        4357,
+        5667,
+        5619
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.23426268994808197
+    },
+    {
+      "id": 1710,
+      "chat_id": -1002661910336,
+      "origin": "history_import",
+      "n": 76,
+      "cosine": 1.0,
+      "top_ids": [
+        1710,
+        9942,
+        7964,
+        1887,
+        3112
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.16634534299373627
+    },
+    {
+      "id": 6858,
+      "chat_id": -1002661910336,
+      "origin": "history_import",
+      "n": 204,
+      "cosine": 1.0,
+      "top_ids": [
+        6858,
+        6860,
+        6859,
+        9600,
+        12274
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.13141144812107086
+    },
+    {
+      "id": 10751,
+      "chat_id": -1002661910336,
+      "origin": "chat_history",
+      "n": 252,
+      "cosine": 1.0,
+      "top_ids": [
+        10751,
+        10744,
+        10739,
+        10743,
+        10737
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.13683879375457764
+    },
+    {
+      "id": 10969,
+      "chat_id": -1002661910336,
+      "origin": "derived_belief",
+      "n": 64,
+      "cosine": 1.0,
+      "top_ids": [
+        10969,
+        1420,
+        1411,
+        1410,
+        11878
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.039360929280519485
+    },
+    {
+      "id": 10970,
+      "chat_id": -1002661910336,
+      "origin": "derived_belief",
+      "n": 85,
+      "cosine": 1.0,
+      "top_ids": [
+        10970,
+        1413,
+        1412,
+        1414,
+        14838
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.09391951560974121
+    },
+    {
+      "id": 11048,
+      "chat_id": -1002661910336,
+      "origin": "user_memory",
+      "n": 73,
+      "cosine": 1.0,
+      "top_ids": [
+        11048,
+        1551,
+        1545,
+        13107,
+        15593
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.26162248849868774
+    },
+    {
+      "id": 11744,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 86,
+      "cosine": 1.0,
+      "top_ids": [
+        11744,
+        11747,
+        1517,
+        11768,
+        13335
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.1995849311351776
+    },
+    {
+      "id": 11747,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 82,
+      "cosine": 1.0,
+      "top_ids": [
+        11747,
+        11744,
+        15472,
+        11768,
+        11743
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.1995849311351776
+    },
+    {
+      "id": 13467,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 80,
+      "cosine": 1.0,
+      "top_ids": [
+        13467,
+        13474,
+        13451,
+        13459,
+        13455
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.020483924075961113
+    },
+    {
+      "id": 13469,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 61,
+      "cosine": 1.0,
+      "top_ids": [
+        13469,
+        13460,
+        13478,
+        13452,
+        13457
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.06975099444389343
+    },
+    {
+      "id": 13470,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 59,
+      "cosine": 1.0,
+      "top_ids": [
+        13470,
+        13460,
+        13478,
+        13457,
+        13469
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.0984472781419754
+    },
+    {
+      "id": 13471,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 66,
+      "cosine": 1.0,
+      "top_ids": [
+        13471,
+        13462,
+        13551,
+        13661,
+        13470
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.08757719397544861
+    },
+    {
+      "id": 13473,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 58,
+      "cosine": 1.0,
+      "top_ids": [
+        13473,
+        13756,
+        13641,
+        220,
+        10792
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.07785030454397202
+    },
+    {
+      "id": 13474,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 86,
+      "cosine": 1.0,
+      "top_ids": [
+        13474,
+        13467,
+        13451,
+        13455,
+        13459
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.020483924075961113
+    },
+    {
+      "id": 13475,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 77,
+      "cosine": 1.0,
+      "top_ids": [
+        13475,
+        13456,
+        13459,
+        13474,
+        13467
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.17917193472385406
+    },
+    {
+      "id": 13476,
+      "chat_id": 5885953495,
+      "origin": "bot_direct_reply",
+      "n": 61,
+      "cosine": 1.0,
+      "top_ids": [
+        13476,
+        13459,
+        13456,
+        13467,
+        13474
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.13528455793857574
+    },
+    {
+      "id": 13913,
+      "chat_id": -1002661910336,
+      "origin": "bot_direct_reply",
+      "n": 221,
+      "cosine": 1.0,
+      "top_ids": [
+        13913,
+        13914,
+        8563,
+        7019,
+        3656
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.16886672377586365
+    },
+    {
+      "id": 14760,
+      "chat_id": -1002661910336,
+      "origin": "search_fact",
+      "n": 118,
+      "cosine": 1.0,
+      "top_ids": [
+        14760,
+        1459,
+        1467,
+        9722,
+        14769
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.2722097933292389
+    },
+    {
+      "id": 14771,
+      "chat_id": -1002661910336,
+      "origin": "search_fact",
+      "n": 94,
+      "cosine": 1.0,
+      "top_ids": [
+        14771,
+        12235,
+        639,
+        13325,
+        14763
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.29107239842414856
+    },
+    {
+      "id": 15467,
+      "chat_id": -1002661910336,
+      "origin": "web_content",
+      "n": 148,
+      "cosine": 1.0,
+      "top_ids": [
+        15467,
+        15466,
+        15465,
+        15464,
+        733
+      ],
+      "hit1": 1,
+      "hit5": 1,
+      "error": null,
+      "self_distance": 0.0,
+      "nearest_other_distance": 0.0901244580745697
+    }
+  ],
+  "knn_error": null
+}

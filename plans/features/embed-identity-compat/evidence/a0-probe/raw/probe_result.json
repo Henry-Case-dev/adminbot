@@ -1,0 +1,26 @@
+{
+  "verdict": "compatible",
+  "reason_code": "",
+  "checked": 12,
+  "mean": 1.0,
+  "min": 1.0,
+  "hit5": 1.0,
+  "dims": 3072,
+  "sampled": 12,
+  "sample_offset": 0,
+  "sample_ids": [
+    35,
+    216,
+    220,
+    941,
+    1144,
+    1145,
+    1268,
+    1703,
+    10751,
+    13467,
+    13473,
+    13913
+  ],
+  "runs": 1
+}
