@@ -19544,8 +19544,15 @@
       },
       // P0A-UX §3 (TJ-1): причина выбора редакции — человеческой фразой
       // (коды owner_setting/rN в основном UI не показываются).
-      speechEditionReasonText: function (selection, level) {
-        var reason = String((selection && selection.reason) || '');
+      // P0-PROMPTS §2.3: класс удержанной редакции — человеческой фразой.
+      speechWithheldClassText: function (cls) {
+        return {
+          legacy_incompatible: 'несовместима с текущей архитектурой',
+          identical_to_factory: 'совпадает с заводской редакцией',
+          unclassified: 'требует классификации',
+        }[String(cls || '')] || String(cls || '');
+      },
+      speechEditionReasonText: function (selection, level) {        var reason = String((selection && selection.reason) || '');
         if (reason === 'full_text_missing') {
           return 'Действует: компактная редакция — полной редакции нет';
         }

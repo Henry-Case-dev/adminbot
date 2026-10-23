@@ -52,6 +52,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_R3,
     CORE_REAL_EVENTS_PARAGRAPH,
+    CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
     PREV_PERSONALITY_CORE_FULL_V2_TEXT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -542,6 +543,22 @@ _CORE_INSERT_ANCHORS = (
     "\n\nРитм.",
 )
 
+#: ADDENDUM #2 (24.10.2026): принцип свободы речи на уровне личности. Патч
+#: вставляет ОДИН абзац перед «Грубость»/«Ритм» (после абзаца о реальных
+#: событиях), только если смысла ещё нет; идемпотентно, авторские байты целы.
+_CORE_FREE_SPEECH_ANCHOR = "Свобода речи."
+_CORE_FREE_SPEECH_EQUIVALENT = ("внешним настройкам безопасности",
+                                "свободно и прямо")
+_CORE_FREE_SPEECH_CHANGE = "added: " + _CORE_FREE_SPEECH_ANCHOR
+_CORE_FREE_SPEECH_INSERT_ANCHORS = _CORE_INSERT_ANCHORS
+
+
+def _core_has_free_speech_meaning(text: str) -> bool:
+    """Принцип свободы речи уже прямо выражен владельцем?"""
+    if _CORE_FREE_SPEECH_ANCHOR in text:
+        return True
+    return all(marker in text for marker in _CORE_FREE_SPEECH_EQUIVALENT)
+
 
 def _core_has_real_events_meaning(text: str) -> bool:
     """Смысл «фактура → цельная сцена» уже прямо выражен владельцем?"""
@@ -558,10 +575,11 @@ def owner_preserve_core_full_patch(text: str) -> tuple[str, list[str]]:
     владельческий текст. P0-CHECKUP/CORE (24.10.2026): если универсального
     смысла «Как говорить о реальных событиях» в редакции нет, абзац владельца
     (addendum §3) вставляется в позицию после «Как рождается юмор»; уже
-    имеющийся смысл не дублируется. Возврат ``(patched, changes)``: ``changes``
-    — список удалённых фрагментов и, при вставке, маркер ``added: …`` (пусто =
-    править нечего, идемпотентно). Никогда не бросает; на пустом/нестроковом
-    входе — ``(вход, [])``.
+    имеющийся смысл не дублируется. ADDENDUM #2 (24.10.2026): затем так же
+    вставляется абзац «Свобода речи» перед «Грубость»/«Ритм». Возврат
+    ``(patched, changes)``: ``changes`` — список удалённых фрагментов и, при
+    вставке, маркеры ``added: …`` (пусто = править нечего, идемпотентно).
+    Никогда не бросает; на пустом/нестроковом входе — ``(вход, [])``.
 
     НЕ применяется к байтам, равным прежним заводским редакциям (v1/v2) —
     их ведёт на фабрику гвард superseded-core (``_CORE_SUPERSEDED_NOTE``).
@@ -596,9 +614,45 @@ def owner_preserve_core_full_patch(text: str) -> tuple[str, list[str]]:
             else:
                 patched = patched.rstrip() + block
             changes.append(_CORE_REAL_EVENTS_CHANGE)
+        if not _core_has_free_speech_meaning(patched):
+            block = "\n\n" + CORE_FREE_SPEECH_PARAGRAPH
+            for anchor in _CORE_FREE_SPEECH_INSERT_ANCHORS:
+                if anchor in patched:
+                    patched = patched.replace(anchor, block + anchor, 1)
+                    break
+            else:
+                patched = patched.rstrip() + block
+            changes.append(_CORE_FREE_SPEECH_CHANGE)
         return patched, changes
     except Exception:      # pragma: no cover — патч не роняет миграцию
         return str(text or ""), []
+
+
+async def _attest_migrated_canon(cache, key: str, value: str) -> None:
+    """P0-PROMPTS (24.10.2026): записать канон через провенанс реестра.
+
+    `_mark_provenance` делает мигрированный заводской канон ДЕЙСТВУЮЩИМ слоем
+    (иначе резолвер удерживает его как `provenance_missing`). Идемпотентно:
+    если аттестованная ревизия уже совпадает с байтами — записи нет.
+    Best-effort: сбой журнала не отменяет уже выполненную миграцию значения.
+    """
+    from services import prompt_registry as pr
+    spec = pr.by_pg_key(key)
+    if spec is None or not pr.withholding_required(spec):
+        # Провенанс нужен только блокам, которые иначе удерживаются; остальные
+        # каноны не создают ложного withheld.
+        return
+    entry = pr.attested_revision(spec.block_id, cache=cache)
+    if entry and str(entry.get("sha256_12") or "") == pr.sha12(value):
+        return
+    try:
+        from services.prompt_factory import _mark_provenance
+        await _mark_provenance(cache, spec.block_id, pg_key=key, value=value,
+                               kind="factory_reset",
+                               reason="canon_migration")
+    except Exception:      # pragma: no cover — журнал не роняет миграцию
+        logger.warning("[prompt_migration] провенанс канона не записан | "
+                       "key=%s", key, exc_info=True)
 
 
 async def migrate_prompt_canons(cache) -> dict[str, str]:
@@ -629,10 +683,14 @@ async def migrate_prompt_canons(cache) -> dict[str, str]:
                            "key=%s | chars=%d", key, len(current))
             continue
         if matched[0] == "new":
+            # P0-PROMPTS: значение уже новый канон, но провенанс мог быть
+            # потерян прежней миграцией — аттестуем идемпотентно.
+            await _attest_migrated_canon(cache, key, matched[1])
             logger.info("[prompt_migration] уже новый канон | key=%s", key)
             continue
         new = matched[2]
         await cache.set(key, new, "prompts")
+        await _attest_migrated_canon(cache, key, new)
         report[key] = "updated"
         logger.info("[prompt_migration] канон обновлён | key=%s", key)
     return report

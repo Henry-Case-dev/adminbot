@@ -349,12 +349,22 @@ class FakeCache:
         self.pg_available = pg_available
         self.values = dict(values or {})
         self.set_calls = []
+        self.provenance_sets = []
 
     def get(self, key, default=None):
         return self.values.get(key, default)
 
     async def set(self, key, value, category):
+        # P0-PROMPTS (24.10.2026): миграция дополнительно пишет журнал
+        # провенанса (`character.prompt_history`). Он не является записью
+        # канона: учитываем отдельно, чтобы проверки порядка/набора канонов
+        # оставались точными.
+        if key == "character.prompt_history":
+            self.provenance_sets.append((key, value, category))
+            self.values[key] = value
+            return
         self.set_calls.append((key, value, category))
+        self.values[key] = value
 
     def apply_writes(self):
         for key, value, _cat in self.set_calls:

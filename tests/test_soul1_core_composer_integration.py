@@ -268,7 +268,7 @@ async def test_inspector_view_exposes_core_choice_and_versions(monkeypatch):
     assert str(view["source_provenance"]["path"]).endswith(
         "asap-speech-arch/source-2026-10-22.md")
     assert view["source_provenance"]["factory_rev_label"] == \
-        "asap-core-full-v3"
+        "asap-core-full-v4"
     assert pr.CORE_SOURCE_V1["line_start"] == 43
     assert pr.CORE_SOURCE_V1["line_end"] == 53
     # Заводские редакции видны отдельно (размер/хеш/происхождение поля).

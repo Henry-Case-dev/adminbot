@@ -223,13 +223,20 @@ def test_migrate_deployed_value_to_new_canon(name):
     class _Cache:
         def __init__(self, value):
             self.value = value
+            self.provenance = None
             self.pg_available = True
 
-        def get(self, _key, default=None):
+        def get(self, key, default=None):
+            if key == "character.prompt_history":
+                return self.provenance if self.provenance is not None \
+                    else default
             return self.value if self.value is not None else default
 
-        async def set(self, _key, value, _category):
-            self.value = value
+        async def set(self, key, value, _category):
+            if key == "character.prompt_history":
+                self.provenance = value
+            else:
+                self.value = value
 
     cache = _Cache(prev)
     report = asyncio.run(pm.migrate_prompt_canons(cache))

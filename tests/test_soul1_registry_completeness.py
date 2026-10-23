@@ -260,9 +260,16 @@ def test_effective_prompt_reports_source_and_factory_delta():
     assert custom_row.text == pr.suppress_legacy_speech(factory,
                                                         source="global")[0]
     assert "persisted_value_withheld" in custom_row.diagnostics
+    chat_custom = factory + "\n\nЧатовая правка."
     chat_row = pr.effective_prompt(block_id, pg_value=custom,
-                                   chat_value=factory)
+                                   chat_value=chat_custom)
     assert chat_row.withheld is True          # чат-слой тоже без провенанса
+    assert chat_row.provenance_reason == "provenance_unavailable"
+    # Даже байты, равные текущей фабрике, без провенанса не считаются
+    # действующим слоем: действует заводская редакция, сохранённое видно.
+    identical_row = pr.effective_prompt(block_id, pg_value=factory)
+    assert identical_row.withheld is True
+    assert identical_row.text == factory
     assert chat_row.stored_source == "chat"
     unknown = pr.effective_prompt("no.such.block")
     assert unknown.source == "missing"

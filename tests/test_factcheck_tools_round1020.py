@@ -317,11 +317,17 @@ class TestFactcheckPromptCanon:
             def __init__(self, values):
                 self.values = dict(values)
                 self.set_calls = []
+                self.history = None
 
             def get(self, key, default=None):
+                if key == "character.prompt_history":
+                    return self.history if self.history is not None else default
                 return self.values.get(key, default)
 
             async def set(self, key, value, category):
+                if key == "character.prompt_history":
+                    self.history = value
+                    return
                 self.set_calls.append((key, value, category))
 
         cache = FakeCache({

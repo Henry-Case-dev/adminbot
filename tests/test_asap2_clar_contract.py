@@ -238,16 +238,20 @@ class _ClarCache:
         self.pg_available = pg_available
         self.values = dict(values or {})
         self.set_calls = []
+        self.history_sets = []
 
     def get(self, key, default=None):
         return self.values.get(key, default)
 
     async def set(self, key, value, category):
+        if key == "character.prompt_history":
+            self.history_sets.append((key, value, category))
+            return
         self.set_calls.append((key, value, category))
 
     def apply_writes(self):
         """Запись, которую ConfigCache.set сделал бы в PG."""
-        for key, value, _cat in self.set_calls:
+        for key, value, _cat in self.set_calls + self.history_sets:
             self.values[key] = value
 
 
@@ -359,14 +363,13 @@ def test_35_initiative_delivery_contracts_unchanged():
 def test_36_character_expression_style_untouched():
     import hashlib
     from services import mca_expression as ex
-    # Core v3 (W1 §3.2/§3.3) + owner-абзац §3 аддендума 24.10.2026
-    # (P0-CHECKUP/CORE): байты осознанно обновлены вместе с каноном.
+    # Core v4 (P0 + ADDENDUM #2): байты осознанно обновлены вместе с каноном.
     assert hashlib.sha256(
         cp.PERSONALITY_CORE_FULL_TEXT.encode("utf-8")).hexdigest()[:12] == \
-        "03514adb2b6a"
+        "5597c09dd5f8"
     assert hashlib.sha256(
         cp.PERSONALITY_CORE_COMPACT_TEXT.encode("utf-8")).hexdigest()[:12] == \
-        "8be08a0d547c"
+        "8dbb8c10ddc6"
     # Expression §3.4 — байты прежние
     assert ex.EXPRESSION_HEADER.startswith("<Expression_Settings>")
     assert "ПРАВИЛА МАНЕРЫ РЕЧИ" in ex.EXPRESSION_HEADER.splitlines()[1]

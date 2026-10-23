@@ -579,6 +579,8 @@ def _effective_dict(eff) -> dict:
         "legacy_removed": int(eff.legacy_removed or 0),
         "withheld": bool(eff.withheld),
         "withheld_revision": eff.withheld_revision,
+        "withheld_class": eff.withheld_class,
+        "withheld_reason": eff.withheld_reason,
         "stored_source": eff.stored_source,
         "provenance_reason": eff.provenance_reason,
         "diagnostics": list(eff.diagnostics or ()),
@@ -999,13 +1001,50 @@ async def _block_detail(cache, user: WebAppUser, ctx, chat_id: int | None,
             "detail_level": str((doc or {}).get("detail_level") or ""),
             "document_enabled": (doc or {}).get("enabled"),
         }
+    # P0-PROMPTS §2.3: Inspector обязан показывать СОХРАНЁННУЮ редакцию
+    # отдельно от действующей, даже если реестр её удержал.
+    saved_text = (pr.doc_field_text(chat_value or pg_value,
+                                   spec.pg_doc_field)
+                  if spec.pg_doc_field else None)
+    if not spec.pg_doc_field:
+        saved_raw = chat_value if chat_value is not None else pg_value
+        saved_text = None if saved_raw is None else str(saved_raw)
+    saved_source = ("chat" if chat_value is not None
+                    else "global" if pg_value is not None else "")
+    resolution = ""
+    if eff.withheld:
+        if eff.withheld_class == pr.WITHHELD_LEGACY_CLASS:
+            resolution = ("Несовместима с текущей архитектурой и не "
+                          "активируется. Действующую редакцию можно править "
+                          "и сохранить штатно — новая правка получит провенанс; "
+                          "сохранённый текст остаётся в истории.")
+        elif eff.withheld_class == pr.WITHHELD_IDENTICAL_CLASS:
+            resolution = ("Сохранённые байты — зарегистрированная заводская "
+                          "редакция; текущая фабрика новее, активация не "
+                          "требуется. Действует текущая заводская редакция.")
+        else:
+            resolution = ("Сохранённый текст не потерян. Чтобы сделать его "
+                          "действующим, сохраните нужную редакцию через этот "
+                          "редактор — запись через API реестра даст провенанс.")
+    elif eff.provenance_reason == pr.WITHHELD_IDENTICAL_CLASS:
+        resolution = ("Сохранённые байты совпадают с текущей заводской "
+                      "редакцией — удержание не требуется, действия не нужны.")
     return {
         **_spec_meta(spec),
         "effective": _effective_dict(eff),
         "factory_text": factory,
-        "stored_text": (pr.doc_field_text(chat_value or pg_value,
-                                          spec.pg_doc_field)
-                        if spec.pg_doc_field else None),
+        "stored_text": saved_text,
+        "saved": {
+            "text": saved_text or "",
+            "source": saved_source or "factory",
+            "revision": (pr.ACTIVE_PREFIX + pr.sha12(saved_text)
+                         if saved_text else ""),
+            "present": saved_text is not None,
+            "withheld": bool(eff.withheld),
+            "class": eff.withheld_class,
+            "reason": eff.withheld_reason or eff.provenance_reason,
+            "resolution": resolution,
+        },
         "chat_value_present": chat_value is not None,
         "global_value_present": pg_value is not None,
         "history": [
@@ -1102,6 +1141,8 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
                 "factory_revision": full_eff.factory_revision,
                 "differs_from_factory": bool(full_eff.differs_from_factory),
                 "withheld": bool(full_eff.withheld),
+                "withheld_class": full_eff.withheld_class,
+                "withheld_reason": full_eff.withheld_reason,
                 "diagnostics": list(full_eff.diagnostics or ()),
                 "chars": len(full_eff.text or ""),
             },
@@ -1113,6 +1154,8 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
                 "factory_revision": compact_eff.factory_revision,
                 "differs_from_factory": bool(compact_eff.differs_from_factory),
                 "withheld": bool(compact_eff.withheld),
+                "withheld_class": compact_eff.withheld_class,
+                "withheld_reason": compact_eff.withheld_reason,
                 "diagnostics": list(compact_eff.diagnostics or ()),
                 "chars": len(compact_eff.text or ""),
             },

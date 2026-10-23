@@ -9242,6 +9242,35 @@
                       <button type="button" class="btn-ghost text-xs" @click="speechBlockDetail = null">Закрыть</button>
                     </div>
                     <div class="text-xs text-gray-500">{{ speechBlockDetail.purpose }}</div>
+                    <div v-if="speechBlockDetail.effective.withheld" class="speech-warn" data-speech-withheld>
+                      <div class="text-sm font-bold">Сохранённая редакция не действует</div>
+                      <div class="text-xs">
+                        Действует: {{ speechBlockDetail.effective.scope_label }}
+                        · {{ speechBlockDetail.effective.revision || '—' }}
+                        · сохранено: {{ speechBlockDetail.saved.source }}
+                        {{ speechBlockDetail.saved.revision || '—' }}
+                      </div>
+                      <div class="text-xs">
+                        Причина: {{ speechBlockDetail.effective.provenance_reason || '—' }}
+                        <span v-if="speechBlockDetail.effective.withheld_class">
+                          · {{ speechWithheldClassText(speechBlockDetail.effective.withheld_class) }}
+                        </span>
+                      </div>
+                      <div v-if="speechBlockDetail.effective.withheld_reason" class="text-xs">
+                        {{ speechBlockDetail.effective.withheld_reason }}
+                      </div>
+                      <label class="block mt-2">
+                        <span class="text-xs text-gray-400">Сохранённый текст (не уходит в LLM)</span>
+                        <textarea class="field w-full speech-editor scroll-thin" rows="5"
+                                  spellcheck="false" readonly
+                                  aria-label="Сохранённая редакция блока"
+                                  :value="speechBlockDetail.saved.text"></textarea>
+                      </label>
+                      <div class="text-xs text-gray-500">{{ speechBlockDetail.saved.resolution }}</div>
+                    </div>
+                    <div v-if="speechBlockDetail.effective.provenance_reason === 'identical_to_factory'" class="text-xs text-gray-500" data-speech-identical>
+                      Сохранённые байты совпадают с текущей заводской редакцией: удержание не требуется, ложного конфликта нет.
+                    </div>
                     <div class="text-xs text-gray-500">
                       потребители: {{ (speechBlockDetail.consumers || []).join(', ') || '—' }}
                       · точка сборки: {{ speechBlockDetail.composition_point }}

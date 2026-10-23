@@ -139,7 +139,9 @@ async def test_already_new_canon_noop():
     })
     report = await pm.migrate_prompt_canons(cache)
     assert report == {}
-    assert cache.sets == []
+    # P0-PROMPTS: для provenance-блоков журнал может аттестоваться, но сами
+    # каноны не переписываются.
+    assert [s for s in cache.sets if s[2] == "prompts"] == []
 
 
 # ── снимки байт-в-байт: PREV_*_R1028 == прежний канон (2.58.33) ────────────
