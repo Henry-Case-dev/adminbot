@@ -1,0 +1,224 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "asap3-corrective",
+  "source_path": "plans/features/asap3-corrective/source-2026-10-23.md",
+  "source_sha256": "b6afdb21378b23402447c3771501d49c0064e040474d1b32d5ba7c571b498642",
+  "plan": "plans/features/asap3-corrective/plan.md",
+  "waves": [
+    {"id": "W0", "slices": ["AUDIT", "GOV"], "note": "read-only аудит и нормативные запреты"},
+    {"id": "W1", "slices": ["STYLE-LIMITS", "DASH", "HIDDEN-LIMITS", "IDENTITY"], "note": "независимые бэкенд-писатели, scopes не пересекаются"},
+    {"id": "W2", "slices": ["UI"], "note": "единственный писатель web/app.js — после бэкенд-контрактов и каталога"},
+    {"id": "W3", "slices": ["MIGRATION"], "note": "factory/active/global/chat строго после W1"},
+    {"id": "W4", "slices": ["ACCEPT"], "note": "сценарная матрица S/A/ACC + отчёт"}
+  ],
+  "slices": [
+    {
+      "id": "AUDIT",
+      "title": "Фактический аудит кода, конфига и лимитов",
+      "owner": "Builder (read-only code)",
+      "depends_on": [],
+      "write_scope": ["plans/features/asap3-corrective/audit/"],
+      "acceptance": "audit/ содержит снимок кода prompt_style_blocks/style_policy/summary_aliases, активные значения PostgreSQL, factory-defaults и таблицу reuse/duplicate с SOUL-1 W6 + Prompt Inspector, CFG-каталогом и ASAP-2 Direct",
+      "risk": "R1",
+      "next_role": "Builder",
+      "can_parallel_with": ["GOV"],
+      "join_barrier": "Инвентаризация §2 и список точек правок заморожены до старта W1",
+      "requirements": ["AUD-PROD-VERIFY", "AUD-REUSE-MAP"]
+    },
+    {
+      "id": "GOV",
+      "title": "Нормативные запреты и отчётность",
+      "owner": "Reviewer",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/asap3-corrective/plan.md",
+        "plans/features/asap3-corrective/requirements-map.json",
+        "plans/features/asap3-corrective/slice-graph.json",
+        "plans/features/asap3-corrective/gates/",
+        "plans/progress_scope.json"
+      ],
+      "acceptance": "Диффы и отчёты проверены на отсутствие новых подсистем, хардкодов, новых LLM-вызовов, глобальной замены строк, отключения защитных лимитов и блокирующего Human Gate",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "can_parallel_with": ["AUDIT"],
+      "join_barrier": "Вердикт Reviewer прикладывается к каждому релизному кандидату",
+      "requirements": [
+        "GOV-NO-NEW-SUBSYSTEMS", "GOV-REUSE-EXISTING", "GOV-NO-HARDCODE", "GOV-NO-NEW-LLM",
+        "GOV-KEEP-PROMPTS", "GOV-NO-HISTORY-REWRITE", "GOV-KEEP-SAFETY-LIMITS", "GOV-NO-SIMPLIFY",
+        "GOV-ROOT-CAUSE", "GOV-NO-GLOBAL-REPLACE", "GOV-NO-DENYLIST", "GOV-ROLES-PM-ARCH",
+        "GOV-ROLES-BUILDER", "GOV-ROLES-REVIEWER", "GOV-ROLES-DEVOPS", "GOV-NO-BLOCKING-GATE",
+        "GOV-CORE-PRINCIPLE", "GOV-QUEUE-INTEGRATION"
+      ]
+    },
+    {
+      "id": "STYLE-LIMITS",
+      "title": "Style Policy: пользовательские лимиты OFF по умолчанию, без потери инструкций",
+      "owner": "Builder",
+      "depends_on": ["AUDIT"],
+      "write_scope": [
+        "services/prompt_style_blocks.py",
+        "services/prompt_composer.py",
+        "tests/test_asap3_style_limits.py"
+      ],
+      "acceptance": "При OFF лимитах 600 символов и 7 инструкций попадают в фактическую сборку целиком, порядок детерминирован, при включённом лимите исключённые инструкции перечислены и не обрезаны посередине, scope чатов изолирован",
+      "risk": "R2",
+      "next_role": "Builder",
+      "can_parallel_with": ["DASH", "HIDDEN-LIMITS", "IDENTITY"],
+      "join_barrier": "Контракт параметров лимитов (имена ключей, единицы) фиксируется до MIGRATION и UI",
+      "reuse": "SOUL-16 effective_style_policy и SOUL-10.P3 единый Inspector — расширяются, не пересоздаются",
+      "requirements": [
+        "REQ-PROB-STYLE-LOSS", "STYLE-LEN-OFF", "STYLE-COUNT-OFF", "STYLE-ALL-ACTIVE",
+        "STYLE-DETERMINISTIC-ORDER", "STYLE-NO-SILENT-DROP", "STYLE-NO-PARAPHRASE",
+        "STYLE-LIMIT-LEN-UI-OFF", "STYLE-LIMIT-CNT-UI-OFF", "STYLE-NO-MID-TRUNC",
+        "STYLE-LIMIT-CLASSES", "STYLE-API-LIMITS-REAL", "STYLE-BUDGET-HONEST", "STYLE-SCOPE-ISOLATION"
+      ]
+    },
+    {
+      "id": "DASH",
+      "title": "Длинное тире → дефис: штатное типографическое правило",
+      "owner": "Builder",
+      "depends_on": ["AUDIT"],
+      "write_scope": [
+        "services/style_policy.py",
+        "tests/test_asap3_dash_rule.py"
+      ],
+      "acceptance": "В обычном тексте исходящих сообщений нет «—» при активном правиле, защищённые сегменты байт-идентичны, при OFF для чата текст не меняется, замена детерминирована без LLM",
+      "risk": "R1",
+      "next_role": "Builder",
+      "can_parallel_with": ["STYLE-LIMITS", "HIDDEN-LIMITS", "IDENTITY"],
+      "join_barrier": "Имя правила и его chat-override фиксируются до MIGRATION/UI",
+      "reuse": "Существующее разделение обычного и защищённого текста в services/style_policy.py",
+      "requirements": [
+        "DASH-OWNER-REQUIREMENT", "DASH-DEFAULT-ON", "DASH-CHAT-OVERRIDE", "DASH-OUTBOUND",
+        "DASH-DETERMINISTIC", "DASH-CHECK-REFLECT", "DASH-PROTECTED-SEGMENTS", "DASH-MECHANISM",
+        "DASH-NOT-FORBIDDEN-CHARS", "DASH-READABILITY", "DASH-NO-USER-TEXT", "DASH-CHAIN",
+        "DASH-PER-CHAT-OFF"
+      ]
+    },
+    {
+      "id": "HIDDEN-LIMITS",
+      "title": "Инвентаризация скрытых ограничений и фиксы скрытной потери",
+      "owner": "Builder (read-only code + audit doc)",
+      "depends_on": ["AUDIT"],
+      "write_scope": ["plans/features/asap3-corrective/audit/hidden-limits-inventory.md"],
+      "acceptance": "Инвентаризация перечисляет каждое действующее ограничение с шестью полями и явно помечает те, что скрытно нарушают настройки; фиксы адресно переданы владеющим слайсам",
+      "risk": "R2",
+      "next_role": "Builder",
+      "can_parallel_with": ["STYLE-LIMITS", "DASH", "IDENTITY"],
+      "join_barrier": "Ни один найденный лимит не исправляется внутри этого слайса — только через владельца файла",
+      "reuse": "services/param_catalog.py как существующий каталог параметров (не переписывается здесь)",
+      "requirements": [
+        "HID-SCOPE", "HID-NO-UNIVERSAL-SYSTEM", "HID-USE-CATALOG", "HID-AUDIT-PROMPTS",
+        "HID-AUDIT-INSTR-EXAMPLES", "HID-AUDIT-CONTEXT-RULES", "HID-AUDIT-USER-EDITIONS",
+        "HID-AUDIT-MEMORY", "HID-AUDIT-LENGTH", "HID-AUDIT-OTHER", "HID-FIELDS-6",
+        "HID-USER-SETTINGS", "HID-NO-SILENT-DEFAULT", "HID-TECH-VISIBLE", "HID-NO-BULK-OFF",
+        "HID-NO-GLOBAL-EDITOR", "HID-NO-BUDGET-BREAK", "HID-DELIVERABLE"
+      ]
+    },
+    {
+      "id": "IDENTITY",
+      "title": "Единая идентификация: user_id первичен, слияние алиасов по ID, live-apply",
+      "owner": "Builder",
+      "depends_on": ["AUDIT"],
+      "write_scope": [
+        "services/summary_aliases.py",
+        "services/message_identity.py",
+        "services/summary_memory.py",
+        "services/direct_chat_service.py",
+        "services/canonical_messages.py",
+        "bot.py",
+        "tests/test_asap3_identity_live_apply.py"
+      ],
+      "acceptance": "Глобальные и чатовые алиасы сливаются по каждому ID, чатовый переопределяет только свой чат, смена алиаса действует без рестарта, менее приоритетные источники не переопределяют алиас, память и досье не дробятся",
+      "risk": "R3",
+      "next_role": "Builder",
+      "can_parallel_with": ["STYLE-LIMITS", "DASH", "HIDDEN-LIMITS"],
+      "join_barrier": "Правки prompt_composer.py, если аудит их потребует, выполняются после завершения STYLE-LIMITS (последовательное соединение, тот же файл)",
+      "reuse": "AliasResolver/chat_params/hot_config; SOUL-1 W6 и ASAP-2 Direct используют тот же резолвер, второй каскад не создаётся",
+      "requirements": [
+        "REQ-PROB-ALIAS-PRIORITY", "REQ-PROB-ALIAS-APPLY", "ID-USERID-PRIMARY", "ID-NAME-NOT-IDENTITY",
+        "ID-ORDER", "ID-NO-ALT-CASCADE", "ID-ALIAS-WINS", "ID-NO-OVERRIDE-SOURCES",
+        "ID-MEMORY-TRUSTED-ID", "ID-NO-TEXT-MATCH", "ID-UID-FALLBACK", "ID-MERGE-BY-ID",
+        "ID-INHERIT", "ID-DELETE-CHAT", "ID-DELETE-GLOBAL", "ID-NO-EMPTY-RENAME",
+        "ID-LIVE-APPLY", "ID-FIX-CACHES", "ID-FIX-REVERSE-MAPS", "ID-ROUTES",
+        "ID-NO-NEW-SERVICE", "ID-USE-EXISTING-MECH", "ID-CONCURRENCY", "ID-NO-RESTART-ONLY",
+        "ID-DIAG-PATH", "ID-DIAG-QUESTIONS", "ID-NO-EXPLANATION-ONLY", "ID-CAUSE-REQUIRED",
+        "ID-FALLBACK-HONEST", "ID-MEMORY-TEXT-FACTS", "ID-MEMORY-INTEGRITY", "ID-DISPLAY-ALIAS",
+        "ID-NO-TEXT-ONLY-BIND", "ID-COMPAT-MECH", "ID-IDENTIFICATION-NOT-TEXT", "ID-SCOPE-FULL",
+        "ID-MINIMAL-DIFF"
+      ]
+    },
+    {
+      "id": "MIGRATION",
+      "title": "Factory/active/default/global/chat и идемпотентная миграция",
+      "owner": "Builder + DevOps",
+      "depends_on": ["AUDIT", "STYLE-LIMITS", "DASH"],
+      "write_scope": [
+        "config/settings.py",
+        "services/hot_config.py",
+        "services/prompt_migrations.py",
+        "services/param_catalog.py",
+        "tests/test_asap3_factory_migration.py"
+      ],
+      "acceptance": "Заводские значения обновлены, активная конфигурация PostgreSQL приведена без потери настроек владельца, новые лимиты OFF, правило тире ON, повторный прогон миграции не меняет данные, откат возвращает прежние значения",
+      "risk": "R3",
+      "next_role": "DevOps",
+      "can_parallel_with": [],
+      "join_barrier": "Миграция не считается завершённой по factory-default; нужен снимок активной конфигурации после применения",
+      "reuse": "services/prompt_migrations.py + hot_config — существующий механизм версионирования, новый не вводится",
+      "requirements": [
+        "MIG-FACTORY", "MIG-ACTIVE", "MIG-SCOPES", "MIG-DASH-FACTORY-ON", "MIG-OFF-DEFAULTS",
+        "MIG-INSPECTOR-DESC", "MIG-KEEP-USER-DATA", "MIG-NO-OVERWRITE",
+        "MIG-IDEMPOTENT-REVERSIBLE", "MIG-NO-FALSE-DONE"
+      ]
+    },
+    {
+      "id": "UI",
+      "title": "«Стиль письма» и Effective Prompt Inspector: фактические значения",
+      "owner": "Builder",
+      "depends_on": ["STYLE-LIMITS", "DASH", "HIDDEN-LIMITS", "MIGRATION"],
+      "write_scope": [
+        "web/app.js",
+        "web/api/speech.py",
+        "tests/test_asap3_ui_inspector.py"
+      ],
+      "acceptance": "В существующем разделе «Стиль письма» есть два независимых переключателя с числовыми полями, предупреждение перечисляет не поместившиеся инструкции, Inspector показывает доступное/включённое количество, источник global/chat, лимит или «Без ограничения», причину и точную редакцию",
+      "risk": "R2",
+      "next_role": "Builder",
+      "can_parallel_with": [],
+      "join_barrier": "Единственный писатель web/app.js: после UI никакие другие слайсы файл не трогают",
+      "reuse": "SOUL-16.5.1 карточка «Стиль письма» и SOUL-10.P3 единый Prompt Inspector",
+      "requirements": [
+        "STYLE-UI-SECTION", "STYLE-LIMIT-LEN-FIELD", "STYLE-LIMIT-LEN-VISIBLE", "STYLE-LIMIT-CNT-FIELD",
+        "STYLE-LIMIT-CNT-VISIBLE", "STYLE-WARN-OVER", "STYLE-WARN-LIST", "STYLE-WARN-TRUTH",
+        "STYLE-FIX-LIMIT", "STYLE-INSPECTOR-STATE", "STYLE-INSPECTOR-FIELDS", "STYLE-NO-NEW-PAGE",
+        "DASH-UI-SECTION"
+      ]
+    },
+    {
+      "id": "ACCEPT",
+      "title": "Сценарная матрица S1-S10, A1-A16, ACC-01..ACC-10 и отчёт",
+      "owner": "Builder (tests) + Reviewer",
+      "depends_on": ["AUDIT", "STYLE-LIMITS", "HIDDEN-LIMITS", "DASH", "IDENTITY", "MIGRATION", "UI"],
+      "write_scope": [
+        "tests/test_asap3_accept_matrix.py",
+        "plans/features/asap3-corrective/accept/"
+      ],
+      "acceptance": "Все 36 сценариев имеют исполняемую проверку на фактических маршрутах; живые сообщения в рабочие чаты не отправляются; отчёт содержит причины, исправленные механизмы, лимиты, правила алиасов, доказательство live-apply и остаток",
+      "risk": "R2",
+      "next_role": "Reviewer",
+      "can_parallel_with": [],
+      "join_barrier": "A16 и ACC-09 остаются READY_FOR_LIVE (postdeploy) до деплоя, но не блокируют инженерное завершение",
+      "live_policy": "Живые проверки владельца — отдельно обозначенные ожидания без BLOCKED_REAL_HUMAN_GATE",
+      "requirements": [
+        "S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09", "S10",
+        "A01", "A02", "A03", "A04", "A05", "A06", "A07", "A08", "A09", "A10",
+        "A11", "A12", "A13", "A14", "A15", "A16",
+        "ACC-01", "ACC-02", "ACC-03", "ACC-04", "ACC-05", "ACC-06", "ACC-07", "ACC-08",
+        "ACC-09", "ACC-10", "ACC-TESTS-ROUTES", "ACC-NO-LIVE-CHAT",
+        "REPORT-CAUSE", "REPORT-FIXED-MECHS", "REPORT-LIMITS", "REPORT-ALIAS-RULES",
+        "REPORT-LIVE-APPLY-PROOF", "REPORT-VERIFIED", "REPORT-REMAINING", "REPORT-FORMAT"
+      ]
+    }
+  ]
+}
