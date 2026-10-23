@@ -115,7 +115,7 @@ py -3 -m pytest tests/test_speech_inspector_exact.py \
   tests/test_prompt_migrations.py tests/test_soul1_core_version_propagation.py -q
 → 113 passed
 py -3 -m pytest tests/test_llm_client.py -q          → 115 passed
-py -3 -m pytest tests/test_speech_inspector_exact.py -q → 16 passed
+py -3 -m pytest tests/test_speech_inspector_exact.py -q → 17 passed
 ```
 
 `tests/test_speech_inspector_exact.py` (CONTRACT) доказывает:
@@ -246,7 +246,7 @@ E2E дополнительно проверяет DOM: `SECRET`/`LONG_ID` не �
 | # | Было | Стало |
 |---|---|---|
 | 1 R17 | `preview.style.hint_text` и `excluded[].text` отдавались сырыми и рендерились | `_mask_style_view()` (`web/api/speech.py:1202`) маскирует `hint_text`, `hint_block_masked`, `excluded[].text` на границе Inspector (и для preview, и для снимка хода) |
-| 2 fallback-error | primary 500 + fallback 500 = 4 HTTP-запроса, но 1 запись в журнале | `_post`/`_post_fallback` пишут КАЖДУЮ попытку; при общем провале `_record_sent_attempts(..., channel="fallback")` фиксирует все fallback-попытки со `status=error` перед `raise`. Журнал: 2 primary + 2 fallback; `last actual request` — последняя fallback-попытка |
+| 2 fallback-error | primary 500 + fallback 500 = 4 HTTP-запроса, но 1 запись в журнале | `_post`/`_post_fallback` пишут КАЖДУЮ попытку; при общем провале `_record_sent_attempts(..., channel="fallback")` фиксирует все fallback-попытки со `status=error` перед `raise`. Журнал: 2 primary + 2 fallback; `last actual request` — последняя fallback-попытка. То же в `generate_chat` (review r3): primary-ветка больше не пишет только последнее тело |
 | 3 `generate_chat` empty | 200 + `content:null` → исключение без записи | error-запись (`status=error`, `LLMBadResponseError`) перед `raise` |
 | 4 `generate_background` invalid JSON | запись `status=ok` ДО парсинга, затем падение | запись `ok` перенесена после валидации content; все три ветки (invalid JSON / нет choices / пустой content) пишут `status=error` |
 
@@ -260,6 +260,9 @@ E2E дополнительно проверяет DOM: `SECRET`/`LONG_ID` не �
 * `test_total_fallback_failure_logs_every_attempt` — 4 HTTP-попытки,
   4 записи (2 primary + 2 fallback), все `error`, `last`=fallback,
   `checksum == payload_checksum(http body)`;
+* `test_generate_chat_total_failure_logs_every_attempt` — то же для
+  tool-calling `generate_chat`: 4 HTTP-попытки → 4 записи (2 primary +
+  2 fallback), все `error`, `last`=fallback, checksum по телу;
 * `test_generate_chat_empty_content_is_logged_as_error` — 1 запись `error`;
 * `test_background_invalid_json_is_not_logged_as_ok` — 1 запись `error`, не `ok`.
 
