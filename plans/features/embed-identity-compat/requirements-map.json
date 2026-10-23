@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
   "source_sha256": "429a986838d5f7539f89517bb2c33e77b9e2007c4bcfeea30264a86b49ff66fb",
-  "candidate_commit": "570e1eee",
+  "candidate_commit": "e4ee54f3",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -36,6 +36,14 @@
           "observation": "scenario_01: смена base_url при той же модели даёт adopt, а не rebuild. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -68,6 +76,14 @@
           "observation": "test_space_identity_ignores_key_quota_timeout_route: смена quota group не меняет MSI. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_asap5_embedding_identity.py",
           "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -92,6 +108,14 @@
           "observation": "scenario_01: при совпадении модели и параметров вызывается compat_probe на старых векторах (один батч), а не безусловная перестройка. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -116,6 +140,14 @@
           "observation": "scenario_03: то же имя модели при других векторах → incompatible(low_hit5), допуск не выдаётся. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -148,6 +180,14 @@
           "observation": "test_canary_drift_on_alias_change: дрейф даёт fail-safe вердикт. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_asap5_embedding_identity.py",
           "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -172,6 +212,14 @@
           "observation": "GOV-01/06: ΔDDL=0, новых сервисов/таблиц/реестров/агентов нет; расширены существующие control plane и canary.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
           "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -204,6 +252,14 @@
           "observation": "test_identity_change_registers_generation_and_job: реальная смена модели по-прежнему регистрирует поколение и rebuild. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_graphrag_identity_reindex.py",
           "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -228,6 +284,14 @@
           "observation": "test_antitheorem_new_vs_new_cannot_prove_compatibility: эталоны только из embedding_cache дают insufficient/no_old_vectors, не compatible. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -260,6 +324,14 @@
           "observation": "report.md §1: эталон — graph_facts_vec JOIN graph_facts; embedding_cache эталоном не является.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/report.md",
           "artifact_sha256": "347b05d2ea633dd7f3420e13af19428f1ce1bd2bb5bf2351af1220e9e52e541a"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -292,6 +364,14 @@
           "observation": "GET /api/memory/embeddings отдаёт compat из того же резолвера (fail-open тест). 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_webapp_memory_overview_api.py",
           "artifact_sha256": "46059a8913b1b2f5fa5b90fbefdd6b3b0877389408dcf54cfca3076835bbaa76"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -316,6 +396,14 @@
           "observation": "scenario_01: новый base_url не блокирует поиск после adopt; _index_generation_ok не сравнивает endpoint (review §3). 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -348,9 +436,18 @@
           "observation": "report.md §7 + a0-probe/report.md §7: serviceable/canary/generation/backfill, откат снятием допуска.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/report.md",
           "artifact_sha256": "347b05d2ea633dd7f3420e13af19428f1ce1bd2bb5bf2351af1220e9e52e541a"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "provider",
+          "ref": "резолвер на реальных прод-строках (pre-deploy, read-only)",
+          "observation": "resolve на прод-данных: insufficient -> probe -> compatible, mean/min/hit5 = 1.0, перестройка не запускалась; прод не изменён (read-only). A0 также: compatible, checked=12, cosine 42/42, top-1 KNN 42/42.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/resolver-pre/report.md",
+          "artifact_sha256": "e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b"
         }
       ],
-      "next_check": "postdeploy: /healthz 200; GET /api/memory/embeddings → compat.serviceable=true, generation.state=active, canary.mean/min/hit5; _vec_write_allowed=true; backfill 4048→0; живой поиск; откат status='building', config_revision=NULL."
+      "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
     },
     {
       "source_id": "M00007",
@@ -381,6 +478,14 @@
           "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). Повторная обработка 16 003 векторов не требуется: 2 embed-батча вместо полной перевекторизации.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
           "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -413,6 +518,14 @@
           "observation": "arch-design.md: MSI/PCI, резолвер, canary, adopt, откат.",
           "artifact_path": "plans/features/embed-identity-compat/arch-design.md",
           "artifact_sha256": "700f68128ff78c736d64679a39e4b7a53509747923debaccb7089174fb89ddf7"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -445,6 +558,14 @@
           "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). A0 выполнен на модуле 30a2f868; функции compat_probe/_select_sample/classify_identity_compatibility байт-идентичны 570e1eee (sha256 81d0b55a…/6b54b9a5…/6390ebde…). resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
           "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -469,6 +590,14 @@
           "observation": "GOV-01/06: новых сервисов, таблиц, реестров моделей и агентов нет; ΔDDL=0; переиспользованы control plane/canary/поколения.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
           "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -501,6 +630,14 @@
           "observation": "scenario_01: old-gateway.test → apinet.cloud, тот же код. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -533,6 +670,14 @@
           "observation": "scenario_03: одинаковое имя + другие векторы → incompatible. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -565,6 +710,14 @@
           "observation": "test_garbage_admission_fails_closed + test_kill_switch_off_restores_legacy_rebuild. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -605,6 +758,14 @@
           "observation": "A0: соединение read-only (mode=ro, query_only=1), ни одной записи и ни одного рестарта.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/report.md",
           "artifact_sha256": "44e400a2cb79b068a4e11a44089b1948a23f5fecf830ad0c718fcfe0a64ceaa0"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -637,6 +798,14 @@
           "observation": "ARCH_REUSE_CONFIRMED: существующие сервисы/реестр/ canary, ΔDDL=0.",
           "artifact_path": "plans/features/embed-identity-compat/arch-design.md",
           "artifact_sha256": "700f68128ff78c736d64679a39e4b7a53509747923debaccb7089174fb89ddf7"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -677,6 +846,14 @@
           "observation": "slice-graph.json: 6 слайсов, зависимости и write-scope без циклов; plan-гейт EXIT 0.",
           "artifact_path": "plans/features/embed-identity-compat/slice-graph.json",
           "artifact_sha256": "9e95d15e814b5c2663e71c3cabdb749cca8c6b4d868126cc77caf964c90f243c"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -814,7 +991,7 @@
       "acceptance": "Model identity вычисляется из модели, доступной ревизии/версии, размерности, режима, нормализации и параметров препроцессинга; тест меняет каждое поле и получает другое значение",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -823,9 +1000,26 @@
           "observation": "Покрыты только model и dims (test_same_dim_different_model_is_reindex_required, test_different_dimension_is_incompatible); revision/task_mode/normalization/preprocessing/material_params не проверяются по отдельности. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_asap5_embedding_identity.py",
           "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "MSI по каждому полю identity (L861/L882)",
+          "observation": "test_ident_02_msi_changes_with_every_identity_field (L861): поочерёдная замена model/revision/dimension/task_mode/normalization/preprocessing_version/material_params даёт другой model_space_identity(); test_ident_02_msi_stable_for_equal_values_and_param_order (L882): равные значения/порядок ключей дают тот же MSI. Прогон на 69da031c (master d62e9720): tests/test_embed_identity_compat.py 27 passed, restart_legacy 9 passed; повтор 128abcab.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "b90c6f9afac617259d024592102eb646183bef8c9c489fd613ca0df1b7401e70"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "inspection",
+          "ref": "gaps-closure §1 (IDENT-02)",
+          "observation": "Лог закрытия: код model_space_identity (services/embedding_control_plane.py L2495) не менялся, добавлено покрытие всех полей; -q -x без сети/e2e, 26->27 passed.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
+          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
         }
       ],
-      "next_check": "Unit-тест model_space_identity: поочерёдное изменение revision / task_mode / normalization / preprocessing_version / material_params должно менять MSI (model и dims уже покрыты)."
+      "next_check": "Unit-тест model_space_identity: поочерёдное изменение revision / task_mode / normalization / preprocessing_version / material_params должно менять MSI (model и dims уже покрыты).",
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
     },
     {
       "source_id": "L00014",
@@ -848,6 +1042,14 @@
           "observation": "test_space_identity_ignores_key_quota_timeout_route: profile_identity (PCI) различается, profile_space_identity (MSI) совпадает; PCI не закрывает индекс. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_asap5_embedding_identity.py",
           "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -878,7 +1080,7 @@
       "acceptance": "Probe возвращает фактические model/dim/доступную версию и параметры генерации; тест ловит расхождение заявленных и фактических значений",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -887,9 +1089,34 @@
           "observation": "scenario_04 ловит фактическую размерность (dim_mismatch), но проба не возвращает model/доступную revision и params генерации. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "проба отдаёт фактические model/revision/params; расхождение ловится",
+          "observation": "test_canary_03_probe_records_actual_metadata (L922): model из ответа провайдера, revision, params, declared_dims vs dims, canary.metadata в adopt; test_canary_03_explicit_model_mismatch_is_incompatible (L960): совпадающие векторы при фактической другой model -> incompatible/model_mismatch; test_canary_03_missing_revision_or_params_not_insufficient (L987): revision_unknown/params_unknown при compatible. Meta-wire: tests/test_embed_meta_wire.py 4 passed, test_llm_client.py 115 passed, test_embedding_control_plane_asap4.py 69 passed (регресс control plane).",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "b90c6f9afac617259d024592102eb646183bef8c9c489fd613ca0df1b7401e70"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "мета эмбеддинга доезжает из embed()-ответа (EMBED-META-WIRE)",
+          "observation": "services/llm_client.py: last_embed_meta заполняется из тела /embeddings (model/revision/params/dims), возврат embed() остаётся list[list[float]]; проба читает мету владельца callable. 4 passed.",
+          "artifact_path": "tests/test_embed_meta_wire.py",
+          "artifact_sha256": "41e2f4ff4a6976842545f01e4f7580188571b29df195cd8ba5d381b7919448e7"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "inspection",
+          "ref": "gaps-closure §2 + Дополнение 4 (CANARY-03)",
+          "observation": "Лог: _split_probe_response/_probe_metadata_block/_compat_probe_once пишут фактическую мету и дают model_mismatch/dim_mismatch до числовых метрик; остаточный риск (снапшот-имя модели) описан и лечится конфигом модели.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
+          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
         }
       ],
-      "next_check": "Решить и покрыть тестом: проба фиксирует фактическую model/доступную revision из ответа провайдера либо явно возвращает insufficient_data при недоступности ревизии (plan.md §Внешний факт); сейчас сверяется только dims."
+      "next_check": "Решить и покрыть тестом: проба фиксирует фактическую model/доступную revision из ответа провайдера либо явно возвращает insufficient_data при недоступности ревизии (plan.md §Внешний факт); сейчас сверяется только dims.",
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
     },
     {
       "source_id": "L00029",
@@ -920,6 +1147,14 @@
           "observation": "20 фактов/2 чата: checked=12, выборка непустая; эталоны — live-векторы.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/probe_fixture.json",
           "artifact_sha256": "f51f0934fb3c8ed0a767cbf1a69e59cad8931ef50c93c5b22b3278ad667c5749"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -944,6 +1179,14 @@
           "observation": "scenario_01: ровно один embed-вызов, те же тексты через штатный serving-путь (_embed), т.е. с теми же параметрами генерации; тест проверяет len(embedder.calls)==1. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -968,6 +1211,14 @@
           "observation": "scenario_02a/02b: mean в полосе 0.970–0.995 даёт ровно один повтор; compatible только при подтверждении, иначе insufficient. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1000,6 +1251,14 @@
           "observation": "42 запроса к полному прод-индексу (16 003): top-1 42/42, top-5 42/42; канонные 12/12.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/raw/knn_full_index.json",
           "artifact_sha256": "fdb391c7d3e7d224ad6988283f5fe399e22d2f7aa72fb48c11f03d3fd5bea0d3"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1024,6 +1283,14 @@
           "observation": "scenario_01 compatible, scenario_03 incompatible, scenario_05 insufficient — все три ветки пройдены. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1063,6 +1330,14 @@
           "observation": "scenario_01: live-счётчик неизменен, поколение одно, _index_generation_ok=True после adopt. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1087,6 +1362,14 @@
           "observation": "scenario_01: maybe_schedule_rebuilds()==[] и нового building-поколения нет. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1119,6 +1402,14 @@
           "observation": "GOV-05: adopt — только UPDATE строки реестра, DELETE/DROP отсутствуют; embedding_cache не трогается.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
           "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1143,6 +1434,14 @@
           "observation": "scenario_01: fingerprint/provider/endpoint_fingerprint старые, config_revision=adopt1:…; test_adopt_idempotent_and_never_steals_other_active. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1167,6 +1466,14 @@
           "observation": "test_new_write_after_adopt_is_searchable: после adopt новый факт пишется в тот же индекс и находится KNN. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1199,6 +1506,14 @@
           "observation": "GOV-05/06: дифф не добавляет путей извлечения фактов; adopt не запускает extraction.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/gov-report.md",
           "artifact_sha256": "424aadd4d96b7eca7f6d4877b37342a8c0602fe7fde5103712bb7eb68c4afb97"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1223,6 +1538,14 @@
           "observation": "scenario_02b/05: ACTIVE под новым fp не появляется, serviceable=False. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1255,6 +1578,14 @@
           "observation": "test_b1_restart_then_insufficient_keeps_pause_without_rebuild: job остаётся paused, scheduler==[]. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat_restart_legacy.py",
           "artifact_sha256": "484f442d5300fea16552a6f2532fbe1311cd77737bd82087e2f96c5f5b01df77"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1270,7 +1601,7 @@
       "acceptance": "При insufficient_data сохраняются индекс, факты и возможность отката; тест подтверждает целостность и rollback-путь",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "570e1eee",
@@ -1279,9 +1610,26 @@
           "observation": "scenario_05: live/source/поколение сохранены, ACTIVE нет; но путь отката допуска тестом не проверен. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "откат допуска обратим и не теряет данные (L1025)",
+          "observation": "test_dec_09_rollback_after_adopt_keeps_data_and_is_reversible: adopt -> откат строки поколения (status=building, config_revision=NULL) -> vec-поиск закрыт, graph_facts_vec/graph_facts те же количества, FTS отдаёт непустую выдачу, повторный adopt восстанавливает active и adopt1:...; services/graphrag_rebuild.py не менялся.",
+          "artifact_path": "tests/test_embed_identity_compat.py",
+          "artifact_sha256": "b90c6f9afac617259d024592102eb646183bef8c9c489fd613ca0df1b7401e70"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "inspection",
+          "ref": "gaps-closure §3 (DEC-09)",
+          "observation": "Лог закрытия DEC-09: откат существующим UPDATE реестра + резолвером, без правок кода.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/gaps-closure.md",
+          "artifact_sha256": "6e409050e1352bf7ca32010b0d04c274a0e0d5b43eb0cf93f6a7f73dec64111b"
         }
       ],
-      "next_check": "Добавить тест откатa: adopt → status='building', config_revision=NULL → _index_generation_ok=false (vec-поиск закрыт), FTS возвращает непустую выдачу, live/source counters неизменны."
+      "next_check": "Добавить тест откатa: adopt → status='building', config_revision=NULL → _index_generation_ok=false (vec-поиск закрыт), FTS возвращает непустую выдачу, live/source counters неизменны.",
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
     },
     {
       "source_id": "L00055",
@@ -1312,6 +1660,14 @@
           "observation": "TestVectorSearchFallback: vec unavailable / embed fail / нет vec-таблицы → непустой FTS-результат. 3 passed (TestVectorSearchFallback) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_summary_memory.py",
           "artifact_sha256": "d38dadfcff357a8f4fa489de1ca7bdbc4847cc00f1f4963e78fc4e57349a4aa3"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1344,6 +1700,14 @@
           "observation": "test_compat_block_present_and_fail_open: GET /api/memory/embeddings отдаёт compat и fail-open. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_webapp_memory_overview_api.py",
           "artifact_sha256": "46059a8913b1b2f5fa5b90fbefdd6b3b0877389408dcf54cfca3076835bbaa76"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1368,6 +1732,14 @@
           "observation": "scenario_03/04: live не меняется, _vec_write_allowed=False до миграции, target — отдельное поколение. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1400,6 +1772,14 @@
           "observation": "test_identity_change_rebuild_activates_and_keeps_old_data: после активации старые факты/индекс на месте. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_graphrag_identity_reindex.py",
           "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1432,6 +1812,14 @@
           "observation": "test_identity_change_rebuild_activates_and_keeps_old_data: rebuild читает graph_facts, история не переизвлекается. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_graphrag_identity_reindex.py",
           "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1464,6 +1852,14 @@
           "observation": "test_migration_chunked_resumable_source_intact: прерванная миграция продолжается без потери поколения. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_asap5_embedding_identity.py",
           "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1503,6 +1899,14 @@
           "observation": "scenario_01: _index_generation_ok=True, _vec_write_allowed=True после adopt; legacy fingerprint/keys не менялись (report §3). 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1535,6 +1939,14 @@
           "observation": "test_space_identity_ignores_key_quota_timeout_route: profile_identity=PCI, classify учитывает ADMITTED_COMPATIBLE. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_asap5_embedding_identity.py",
           "artifact_sha256": "6b5ba78e881b7f68ac3fede7e0c0678ac2e2071bb08e3b8c93285d3f49930c2b"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1567,6 +1979,14 @@
           "observation": "test_identity_change_registers_generation_and_job: rebuild только при доказанной смене пространства. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_graphrag_identity_reindex.py",
           "artifact_sha256": "de205a4a0c8eed5d7dbb8cb6f8768af309eb150421bf4502d7d0a9945e61766a"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1599,6 +2019,14 @@
           "observation": "test_compat_block_present_and_fail_open: аддитивный блок compat присутствует и fail-open. 39 passed (asap5 identity + graphrag identity + webapp memory API) на 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_webapp_memory_overview_api.py",
           "artifact_sha256": "46059a8913b1b2f5fa5b90fbefdd6b3b0877389408dcf54cfca3076835bbaa76"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1653,6 +2081,14 @@
           "observation": "смена только провайдера → adopt, rebuild не запускается; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1677,6 +2113,14 @@
           "observation": "малая погрешность в полосе → повтор и обоснованный вердикт; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1701,6 +2145,14 @@
           "observation": "то же имя, другие векторы → incompatible; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1725,6 +2177,14 @@
           "observation": "другая размерность → индексы не смешиваются; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1749,6 +2209,14 @@
           "observation": "API недоступен → insufficient, данные целы; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1773,6 +2241,14 @@
           "observation": "возврат к провайдеру → старый допуск переиспользуется; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1805,6 +2281,14 @@
           "observation": "test_b1_restart_then_incompatible_resumes_migration + insufficient-pause: рестарт не теряет вердикт. 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat_restart_legacy.py",
           "artifact_sha256": "484f442d5300fea16552a6f2532fbe1311cd77737bd82087e2f96c5f5b01df77"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1829,6 +2313,14 @@
           "observation": "два чата → один adopt, изоляция цела; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1853,6 +2345,14 @@
           "observation": "запущенный rebuild отменяется, live цел; 29 passed (20 contract + 9 restart) на коде 570e1eee, прогон PM 23.10.2026.",
           "artifact_path": "tests/test_embed_identity_compat.py",
           "artifact_sha256": "9052c798ecc03ac157be8405afe62f842810b48337002b0824168cbd19d2f74f"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "test",
+          "ref": "агрегированный guards-прогон поезда 2.58.113",
+          "observation": "Поезд e4ee54f3 (база 678c0616, 15 коммитов): суммарно 1581 passed / 0 failed по целевым наборам (write_points, ASAP-2 155, Summary 179, Embed 115, B11 24; наборы пересекаются). Полный repository-wide suite не входил в brief. Строка ранее доказана на 570e1eee; на e4ee54f3 код строки не менялся, кроме gap-фиксов d62e9720/meta-wire ddf139a1.",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258113/guards.txt",
+          "artifact_sha256": "0f353cf3fadcd2a424fc97afceb3481bf2fe0cdc95b07e4fecbfca1171549c73"
         }
       ]
     },
@@ -1885,9 +2385,18 @@
           "observation": "A0 read-only на реальных прод-данных: verdict=compatible, checked=12, mean=1.0, min=1.0, hit5=1.0; расширенно cosine 42/42 и top-1 KNN 42/42 по полному индексу; прод не изменён (mode=ro, query_only=1, без рестарта). A0 выполнен на модуле 30a2f868; функции compat_probe/_select_sample/classify_identity_compatibility байт-идентичны 570e1eee (sha256 81d0b55a…/6b54b9a5…/6390ebde…). resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK.",
           "artifact_path": "plans/features/embed-identity-compat/evidence/a0-probe/raw/knn_full_index.json",
           "artifact_sha256": "fdb391c7d3e7d224ad6988283f5fe399e22d2f7aa72fb48c11f03d3fd5bea0d3"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "provider",
+          "ref": "резолвер на реальных прод-строках (pre-deploy, read-only)",
+          "observation": "resolve на прод-данных: insufficient -> probe -> compatible, mean/min/hit5 = 1.0, перестройка не запускалась; прод не изменён (read-only). A0 также: compatible, checked=12, cosine 42/42, top-1 KNN 42/42.",
+          "artifact_path": "plans/features/embed-identity-compat/evidence/resolver-pre/report.md",
+          "artifact_sha256": "e90d85c2f9b1df873240d52995ef10821704ac63cdc010d47f1786948196449b"
         }
       ],
-      "next_check": "postdeploy: GET /api/memory/embeddings → compat.serviceable=true, compat.canary.hit5≥0.8; затем реальный семантический запрос по старому факту и проверка top-1 в выдаче; лог EMBEDDING_COMPAT_ADMITTED."
+      "next_check": "postdeploy на 2.58.113: (1) GET /api/memory/embeddings -> compat.serviceable=true, compat.canary.verdict=compatible, hit5>=0.8; (2) реальный семантический запрос по старому факту -> top-1 в выдаче; (3) лог EMBEDDING_COMPAT_ADMITTED; (4) отсутствие новой перевекторизации (счётчики generation не растут).",
+      "binding_note": "binding 2.58.113: кандидат e4ee54f3 (поезд 15 коммитов, guards 1581 passed/0 failed, dDDL=0, FACTORY_SET=24ae494ac422). Код идентичности/пробы: 30a2f868 + 570e1eee + gap-фиксы (69da031c -> черри-пик в master d62e9720; повторный прогон 128abcab) + meta-wire ddf139a1."
     }
   ]
 }

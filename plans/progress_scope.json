@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-23T03:35:00+12:00",
+  "updated": "2026-10-23T14:46:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -12,7 +12,7 @@
         "plans/features/soul-1/requirements-map-amendment.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались."
     },
     {
       "id": "asap8-v6.3",
@@ -23,7 +23,7 @@
         "plans/features/asap8-v6-3-live-correction/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён"
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner)."
     },
     {
       "id": "cfg-01-07",
@@ -122,7 +122,7 @@
         "plans/features/asap-speech-arch/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Постановка владельца 22.10 (verbatim-снапшот, 378 строк): P0 речевая архитектура - фабричные тексты (L2 verbalizer/Core full+compact/Expression header/Direct tool phase/L1 участие), активная конфигурация PG + миграции + Inspector, инициатива I-01..I-09, UI U-01..U-09; приоритеты P0/P1/P2; W0-W5. Дедупликация против corrective 2.58.107/110 при инициализации карты"
+      "source_note": "Постановка владельца 22.10 (verbatim-снапшот, 378 строк): P0 речевая архитектура - фабричные тексты (L2 verbalizer/Core full+compact/Expression header/Direct tool phase/L1 участие), активная конфигурация PG + миграции + Inspector, инициатива I-01..I-09, UI U-01..U-09; приоритеты P0/P1/P2; W0-W5. Дедупликация против corrective 2.58.107/110 при инициализации карты | 23.10.2026 PM-RECONCILE: аудит 82 открытых required-строк (74 items + 41 manual - 33 VERIFIED): 38 BIND (artifact+commit), 25 NEEDS_AGENT_CHECK, 2 NEEDS_LIVE_OBSERVATION, 17 NEEDS_IMPLEMENTATION; 44 осталось. REQ-PROOF-EFFECT — owner_optional (инженерно EVAL-MODES/EVAL-EGRESS). Строки-заголовки без req_id: 46 шт., все context/duplicate, в знаменатель не входят — прежний баг «PENDING-заголовки раздувают знаменатель» в текущих картах отсутствует; не повторять. | 23.10.2026 PM-BIND-258113: карта привязана к e4ee54f3 (2.58.113); W4/§8 U-01..U-09+P2 -> VERIFIED (ui-report 9 viewports failures=0, review-r2 Approved, evidence/w4/binding-258113.md), gate по всем W4-слайсам EXIT 0. Реальный WebView/Android — необязательное наблюдение владельца, не гейт. Открытых W4-строк нет; остальные 35 PENDING — другие слайсы."
     },
     {
       "id": "asap2-direct-chat",
@@ -133,7 +133,18 @@
         "plans/features/asap2-direct-chat/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "Постановка владельца 22.10 (verbatim 324 строки): P0 Direct Chat - навязчивые уточнения/бесконечные цепочки; L1 = единственный интерпретатор намерения; строгий boolean needs_clarification; убрать Speech-understanding императив clarify=ask; каноны L1/L2 точечно (4.1/4.2/4.3); миграция factory+active PG; тест-матрица 6.1-6.4; запрещены новые подсистемы/хардкоды/словесные детекторы"
+      "source_note": "Постановка владельца 22.10 (verbatim 324 строки): P0 Direct Chat - навязчивые уточнения/бесконечные цепочки; L1 = единственный интерпретатор намерения; строгий boolean needs_clarification; убрать Speech-understanding императив clarify=ask; каноны L1/L2 точечно (4.1/4.2/4.3); миграция factory+active PG; тест-матрица 6.1-6.4; запрещены новые подсистемы/хардкоды/словесные детекторы | BIND 23.10 (PM-BIND-ASAP2): candidate_commit=34af90ff, 74/109 required VERIFIED (163 evidence, sha256), 34 PENDING — агентские (9 непокрытых сценариев+парафразы, 5 MIGR/DevOps-снимков, review T20/T24), 1 READY_FOR_LIVE (DONE-D9, postdeploy); review-гейт: GOV/CLAR-BOOL/CLAR-SPEECH EXIT 0, остальные слайсы красные только по PENDING, candidate mismatch нет. Деплой не выполнен, статус BUILDING."
+    },
+    {
+      "id": "embed-identity-compat",
+      "status": "BUILDING",
+      "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
+      "source_sha256": "429A986838D5F7539F89517BB2C33E77B9E2007C4BCFEEA30264A86B49FF66FB",
+      "maps": [
+        "plans/features/embed-identity-compat/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 23.10 (дословный снимок, 109 строк): разделить Embedding Model Identity и Provider Connection Identity; смена API-шлюза при той же модели не повод для полной перевекторизации; canary по СТАРЫМ сохранённым векторам (запрет new-vs-new); три исхода compatible/divergent/insufficient_data; rebuild только по доказанной несовместимости; согласование summary_memory/control plane/graphrag/generations/MiniApp; 10 сценариев приёмки отдельными req_id; без новых сервисов/таблиц/реестров/хардкода. 59 required / 13 context / 0 unclassified, plan-гейт EXIT 0; ARCHITECT_REQUIRED (контракт identity/fingerprint и legacy-отпечатков). | BIND 23.10 (PM-BIND-EMBED-IDENTITY): candidate_commit=570e1eee; 59 required → 54 VERIFIED, 2 READY_FOR_LIVE (ACC-10/11, postdeploy), 3 PENDING (IDENT-02 MSI-поля, CANARY-03 revision, DEC-09 откат допуска) с next_check; evidence с artifact_sha256; A0-probe compatible (mean/min/hit5=1.0, KNN top-1 42/42) на 30a2f868, проба байт-идентична 570e1eee; resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK; деплой не выполнен. docs-коммиты 21114cf8/8d716351. | 23.10.2026 PM-BIND-258113: карта привязана к релизному коммиту e4ee54f3 (2.58.113): IDENT-02/CANARY-03/DEC-09 -> VERIFIED (gaps-closure d62e9720/128abcab + meta-wire ddf139a1), ACC-10/ACC-11 READY_FOR_LIVE (postdeploy). Required: 57 VERIFIED / 2 READY_FOR_LIVE / 0 PENDING. Gate review: IDENT-SPLIT/CANARY/DECISION/ACCEPT EXIT 0. Статус остаётся BUILDING до деплоя и postdeploy-проверки. Binding: plans/features/embed-identity-compat/binding-258113.md"
     }
   ]
 }
