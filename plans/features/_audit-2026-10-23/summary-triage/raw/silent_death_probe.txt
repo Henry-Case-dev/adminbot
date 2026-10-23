@@ -1,0 +1,152 @@
+DATE_UTC=2026-10-22T16:47:57Z
+===== I1 incidents for the failed runs =====
+incident_cols= ['incident_id', 'fingerprint', 'process_id', 'pipeline_type', 'stage', 'severity', 'title', 'first_ts', 'last_ts', 'repeat_count', 'jobs_json', 'chats_json', 'impact', 'fallback_used', 'first_trace_id', 'last_trace_id', 'acknowledged_at', 'acknowledged_by', 'resolved_at', 'resolution_evidence', 'created_at', 'updated_at']
+incidents ERROR OperationalError: no such column: pipeline_run_id
+===== I2 journal windows (restart / cancel markers) =====
+----- window 2026-10-19 .. 13:06:30 -----
+2026-10-19 01:06:04,566 - services.summary_generator - INFO - summary cover: fallback path — rich with cover | chat_id=-1002661910336 | reason=stage1_fallback | prompt_len=48
+2026-10-19 01:06:05,680 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=48 | context_len=394 | final_len=554 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-19 01:10:15,532 - services.summary_generator - INFO - summary cover: article sent | chat_id=-1002661910336
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 06:41:08,549 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-19 06:41:08,842 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=290
+2026-10-19 06:41:08,887 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=2
+2026-10-19 06:41:09,240 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-19 06:41:13,132 - __main__ - INFO - [shutdown] bye | elapsed_ms=4598
+2026-10-19 06:41:13,132 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-19 06:41:42,458 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-19 06:41:46,389 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+2026-10-19 07:03:26,540 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=159 | context_len=389 | final_len=660 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-19 07:07:27,920 - services.summary_generator - INFO - summary cover: article sent | chat_id=-1002661910336
+Traceback (most recent call last):
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 08:18:20,542 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-19 08:18:20,825 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=281
+2026-10-19 08:18:20,865 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=3
+2026-10-19 08:18:21,104 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-19 08:18:24,288 - __main__ - INFO - [shutdown] bye | elapsed_ms=3758
+2026-10-19 08:18:24,290 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-19 08:18:51,198 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-19 08:18:54,909 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Traceback (most recent call last):
+2026-10-19 09:14:44,730 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792401284 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_c16332769f7648179ffeb44f57bf3ab3"] | pipeline_type=vision.media
+2026-10-19 10:22:53,145 - services.mca_events - WARNING - mca_event=media_download | ts=1792405373 | event_name=media_download | outcome=failed | level=WARN | component=video_downloader | reason_code=provider_unavailable | duration_ms=1895 | error_json={"type": "DownloadError", "stack": "Traceback (most recent call last):\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 774, in urlopen\n    self._prepare_proxy(conn)\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 1055, in _prepare_proxy\n    conn.connect()\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connection.py\", line 776, in connect\n    self._tunnel()\n  File \"/usr/lib/python3.12/http/client.py\", line 1008, in _tunnel\n    raise OSError(f\"Tunnel connection failed: {code} {message.strip()}\")\nOSError: Tunnel connection failed: 407 Proxy Authentication Required\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/requests/adapters.py\", line 696, in send\n    resp = conn.urlopen(\n           ^^^^^^^^^^^^^\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 842, in urlopen\n    retries = retries.increment(\n              ^^^^^^^^^^^^^^^^^^\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/util/retry.py\", line 473, in increment\n    raise reraise(type(error), error, _stacktrace)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/util/util.py\", line 38, in reraise\n    raise value.with_traceback(tb)\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 774, in urlopen\n    self._prepare_proxy(conn)\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 1055, in _prepare_proxy\n    conn.connect()\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connection.py\", line 776, in connect\n    self._tunnel()\n  File \"/usr/lib/python3.12/http/client.py\", line 1008, in _tunnel\n    rais
+2026-10-19 13:04:53,985 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=115 | context_len=399 | final_len=626 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 13:07:43,864 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+Traceback (most recent call last):
+asyncio.exceptions.CancelledError
+2026-10-19 13:07:44,207 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=340
+2026-10-19 13:07:44,261 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=0
+2026-10-19 13:07:44,521 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-19 13:07:48,512 - __main__ - INFO - [shutdown] bye | elapsed_ms=4652
+----- window 2026-10-19 .. 19:12:30 -----
+2026-10-19 01:06:04,566 - services.summary_generator - INFO - summary cover: fallback path — rich with cover | chat_id=-1002661910336 | reason=stage1_fallback | prompt_len=48
+2026-10-19 01:06:05,680 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=48 | context_len=394 | final_len=554 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-19 01:10:15,532 - services.summary_generator - INFO - summary cover: article sent | chat_id=-1002661910336
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 06:41:08,549 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-19 06:41:08,842 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=290
+2026-10-19 06:41:08,887 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=2
+2026-10-19 06:41:09,240 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-19 06:41:13,132 - __main__ - INFO - [shutdown] bye | elapsed_ms=4598
+2026-10-19 06:41:13,132 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-19 06:41:42,458 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-19 06:41:46,389 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+2026-10-19 07:03:26,540 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=159 | context_len=389 | final_len=660 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-19 07:07:27,920 - services.summary_generator - INFO - summary cover: article sent | chat_id=-1002661910336
+Traceback (most recent call last):
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 08:18:20,542 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-19 08:18:20,825 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=281
+2026-10-19 08:18:20,865 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=3
+2026-10-19 08:18:21,104 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-19 08:18:24,288 - __main__ - INFO - [shutdown] bye | elapsed_ms=3758
+2026-10-19 08:18:24,290 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-19 08:18:51,198 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-19 08:18:54,909 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Traceback (most recent call last):
+2026-10-19 09:14:44,730 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792401284 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_c16332769f7648179ffeb44f57bf3ab3"] | pipeline_type=vision.media
+2026-10-19 10:22:53,145 - services.mca_events - WARNING - mca_event=media_download | ts=1792405373 | event_name=media_download | outcome=failed | level=WARN | component=video_downloader | reason_code=provider_unavailable | duration_ms=1895 | error_json={"type": "DownloadError", "stack": "Traceback (most recent call last):\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 774, in urlopen\n    self._prepare_proxy(conn)\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 1055, in _prepare_proxy\n    conn.connect()\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connection.py\", line 776, in connect\n    self._tunnel()\n  File \"/usr/lib/python3.12/http/client.py\", line 1008, in _tunnel\n    raise OSError(f\"Tunnel connection failed: {code} {message.strip()}\")\nOSError: Tunnel connection failed: 407 Proxy Authentication Required\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/requests/adapters.py\", line 696, in send\n    resp = conn.urlopen(\n           ^^^^^^^^^^^^^\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 842, in urlopen\n    retries = retries.increment(\n              ^^^^^^^^^^^^^^^^^^\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/util/retry.py\", line 473, in increment\n    raise reraise(type(error), error, _stacktrace)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/util/util.py\", line 38, in reraise\n    raise value.with_traceback(tb)\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 774, in urlopen\n    self._prepare_proxy(conn)\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connectionpool.py\", line 1055, in _prepare_proxy\n    conn.connect()\n  File \"/var/www/admin_bot/venv/lib/python3.12/site-packages/urllib3/connection.py\", line 776, in connect\n    self._tunnel()\n  File \"/usr/lib/python3.12/http/client.py\", line 1008, in _tunnel\n    rais
+2026-10-19 13:04:53,985 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=115 | context_len=399 | final_len=626 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 13:07:43,864 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+Traceback (most recent call last):
+asyncio.exceptions.CancelledError
+2026-10-19 13:07:44,207 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=340
+2026-10-19 13:07:44,261 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=0
+2026-10-19 13:07:44,521 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-19 13:07:48,512 - __main__ - INFO - [shutdown] bye | elapsed_ms=4652
+----- window 2026-10-20 .. 19:08:00 -----
+Traceback (most recent call last):
+2026-10-20 01:10:26,781 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=176 | context_len=398 | final_len=686 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-20 01:14:22,586 - services.summary_generator - INFO - summary cover: article sent | chat_id=-1002661910336
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-20 02:38:54,729 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-20 02:38:55,016 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=286
+2026-10-20 02:38:55,076 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=8
+2026-10-20 02:38:55,500 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-20 02:39:00,206 - __main__ - INFO - [shutdown] bye | elapsed_ms=5491
+2026-10-20 02:39:00,209 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-20 02:39:29,210 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-20 02:39:34,074 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+2026-10-20 07:06:35,847 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=187 | context_len=389 | final_len=688 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-20 07:11:12,764 - services.summary_generator - INFO - summary cover: article sent | chat_id=-1002661910336
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-20 09:40:54,261 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-20 09:40:54,547 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=284
+2026-10-20 09:40:54,597 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=1
+2026-10-20 09:40:54,884 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-20 09:40:57,868 - __main__ - INFO - [shutdown] bye | elapsed_ms=3620
+2026-10-20 09:40:57,869 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-20 09:41:26,582 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-20 09:41:29,859 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-20 09:44:08,754 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-20 09:44:09,013 - __main__ - INFO - [shutdown] polling stop | graceful=True | elapsed_ms=258
+2026-10-20 09:44:09,028 - __main__ - INFO - [shutdown] summary drain done | in_flight=0 | cancelled=0 | finalized=0 | left=0 | elapsed_ms=1
+2026-10-20 09:44:09,250 - __main__ - INFO - [shutdown] runtime sqlite closed
+2026-10-20 09:44:09,605 - __main__ - INFO - [shutdown] bye | elapsed_ms=851
+2026-10-20 09:44:09,607 - __main__ - INFO - [betterstack] shutdown flush
+Stopped admin_bot.service - Telegram Admin Bot.
+Started admin_bot.service - Telegram Admin Bot.
+2026-10-20 09:44:31,174 - __main__ - INFO - [shutdown] startup recovery: нетерминальных Summary-ранов без живого владельца нет
+2026-10-20 09:44:34,944 - __main__ - INFO - [shutdown] signal handlers installed | signals=(2, 15)
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-20 11:36:48,647 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+----- service restart history (systemd) -----
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+admin_bot.service: Deactivated successfully.
+===== DONE =====
+
+===STDERR===

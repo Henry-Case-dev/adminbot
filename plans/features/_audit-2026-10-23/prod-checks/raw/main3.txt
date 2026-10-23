@@ -1,0 +1,121 @@
+DATE_UTC=2026-10-22T16:14:59Z
+===== U1 sqlite targeted =====
+--- feedback_signals_30d (n=2) ---
+{'domain': None, 'signal': None, 'n': 4}
+{'domain': 'humor', 'signal': 'unknown', 'n': 2}
+--- feedback_sources_30d (n=2) ---
+{'source_kind': 'participant_correction', 'authority': 'participant', 'reliability': 'verified', 'n': 4}
+{'source_kind': 'social_reaction', 'authority': 'participant', 'reliability': 'weak', 'n': 2}
+--- style_repetition_30d (n=1) ---
+{'n': 41}
+--- style_payload_mismatch_30d (n=1) ---
+{'n': 11}
+--- speech_oneword_30d (n=1) ---
+{'n': 0, 'exact': 0}
+--- speech_words_all (n=36) ---
+{'extent': 'compact', 'words': 48, 'status': 'pass', 'n': 3}
+{'extent': 'micro', 'words': 16, 'status': 'pass', 'n': 3}
+{'extent': 'compact', 'words': 29, 'status': 'pass', 'n': 2}
+{'extent': 'compact', 'words': 36, 'status': 'pass', 'n': 2}
+{'extent': 'compact', 'words': 55, 'status': 'pass', 'n': 2}
+{'extent': 'compact', 'words': 68, 'status': 'pass', 'n': 2}
+{'extent': 'micro', 'words': 12, 'status': 'pass', 'n': 2}
+{'extent': 'compact', 'words': 6, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 9, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 11, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 15, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 23, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 34, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 43, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 45, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 54, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 58, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 62, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 79, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 87, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 89, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 98, 'status': 'pass', 'n': 1}
+{'extent': 'compact', 'words': 152, 'status': 'pass', 'n': 1}
+{'extent': 'micro', 'words': 8, 'status': 'pass', 'n': 1}
+{'extent': 'micro', 'words': 9, 'status': 'pass', 'n': 1}
+...(11 more)
+--- direct_events_7d (n=3) ---
+{'event_name': 'DIRECT_FRESH_GENERATION', 'outcome': 'success', 'n': 350, 'last_ts': 1792682024}
+{'event_name': 'DIRECT_UPDATE_DEDUP_HIT', 'outcome': 'skipped', 'n': 9, 'last_ts': 1792417983}
+{'event_name': 'direct_chat_throttle', 'outcome': 'skipped', 'n': 3, 'last_ts': 1792312752}
+--- direct_fresh_samples (n=3) ---
+{'ts': 1792682024, 'chat_id': -1002661910336, 'outcome': 'success', 'usage_json': None}
+{'ts': 1792678409, 'chat_id': -1004482340693, 'outcome': 'success', 'usage_json': None}
+{'ts': 1792678016, 'chat_id': -1004482340693, 'outcome': 'success', 'usage_json': None}
+--- l1_meta_update (n=1) ---
+{'COUNT(*)': 1}
+--- retrieval_30d (n=7) ---
+{'chat_id': None, 'outcome': 'skipped', 'reason_code': 'embedding_generation_changed', 'n': 2347, 'last_ts': 1792684494}
+{'chat_id': -1002661910336, 'outcome': 'success', 'reason_code': None, 'n': 585, 'last_ts': 1792682016}
+{'chat_id': -1004482340693, 'outcome': 'success', 'reason_code': None, 'n': 72, 'last_ts': 1792678404}
+{'chat_id': -1002661910336, 'outcome': 'success', 'reason_code': 'episodes_used', 'n': 7, 'last_ts': 1792567872}
+{'chat_id': -1002661910336, 'outcome': 'success', 'reason_code': 'exact_match_used', 'n': 6, 'last_ts': 1792526428}
+{'chat_id': -1002661910336, 'outcome': 'silent', 'reason_code': 'retrieval_empty', 'n': 1, 'last_ts': 1791461851}
+{'chat_id': 1313107079, 'outcome': 'success', 'reason_code': None, 'n': 1, 'last_ts': 1792398450}
+--- retrieval_samples (n=3) ---
+{'ts': 1792684494, 'chat_id': None, 'outcome': 'skipped', 'reason_code': 'embedding_generation_changed', 'usage_json': None}
+{'ts': 1792684494, 'chat_id': None, 'outcome': 'skipped', 'reason_code': 'embedding_generation_changed', 'usage_json': None}
+{'ts': 1792683294, 'chat_id': None, 'outcome': 'skipped', 'reason_code': 'embedding_generation_changed', 'usage_json': None}
+--- summary_runs_detail (n=6) ---
+{'run_id': '718e9ea64810446399970ed4ea01a2f1', 'chat_id': -1002661910336, 'state': 'FAILED', 'publication_status': 'failed', 'pipeline_health': 'degraded', 'created_at': 1792674000, 'updated_at': 1792674860}
+{'run_id': '3e10f7b8e96a48e4b745c61a4dc38981', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'publication_status': 'published', 'pipeline_health': 'degraded', 'created_at': 1792652402, 'updated_at': 1792652856}
+{'run_id': 'e175025a1a064dc7a347df909d37f582', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'publication_status': 'published', 'pipeline_health': 'degraded', 'created_at': 1792630801, 'updated_at': 1792631357}
+{'run_id': '9e865ec2afba43c8a40a5a065c028373', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'publication_status': 'published', 'pipeline_health': 'degraded', 'created_at': 1792609202, 'updated_at': 1792609815}
+{'run_id': '6707dc8dee0344b68c89855d836659d6', 'chat_id': -1002661910336, 'state': 'DONE', 'publication_status': 'published', 'pipeline_health': 'ok', 'created_at': 1792587602, 'updated_at': 1792588363}
+{'run_id': 'b8edd2dbf0d7486389779c5732e80a45', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'publication_status': 'published', 'pipeline_health': 'degraded', 'created_at': 1792566002, 'updated_at': 1792566542}
+--- summary_stages_nonok (n=8) ---
+{'run_id': '718e9ea64810446399970ed4ea01a2f1', 'stage': 'l2_review', 'status': 'failed', 'attempt': 0, 'reason_code': 'l2_review_unusable', 'started_at': 1792674680, 'finished_at': 1792674680}
+{'run_id': '3e10f7b8e96a48e4b745c61a4dc38981', 'stage': 'final_policy', 'status': 'LEGACY_FALLBACK', 'attempt': 0, 'reason_code': 'l2_review_rejected', 'started_at': 1792652856, 'finished_at': 1792652856}
+{'run_id': '3e10f7b8e96a48e4b745c61a4dc38981', 'stage': 'l2_review', 'status': 'failed', 'attempt': 0, 'reason_code': 'l2_review_rejected', 'started_at': 1792652555, 'finished_at': 1792652555}
+{'run_id': '3e10f7b8e96a48e4b745c61a4dc38981', 'stage': 'l1', 'status': 'degraded_map_fallback', 'attempt': 0, 'reason_code': 'unknown_field', 'started_at': 1792652487, 'finished_at': 1792652487}
+{'run_id': 'e175025a1a064dc7a347df909d37f582', 'stage': 'final_policy', 'status': 'LEGACY_FALLBACK', 'attempt': 0, 'reason_code': 'l2_review_rejected', 'started_at': 1792631357, 'finished_at': 1792631357}
+{'run_id': 'e175025a1a064dc7a347df909d37f582', 'stage': 'l2_review', 'status': 'failed', 'attempt': 0, 'reason_code': 'l2_review_rejected', 'started_at': 1792631059, 'finished_at': 1792631059}
+{'run_id': '9e865ec2afba43c8a40a5a065c028373', 'stage': 'final_policy', 'status': 'LEGACY_FALLBACK', 'attempt': 0, 'reason_code': 'l2_review_unusable', 'started_at': 1792609815, 'finished_at': 1792609815}
+{'run_id': '9e865ec2afba43c8a40a5a065c028373', 'stage': 'l2_review', 'status': 'failed', 'attempt': 0, 'reason_code': 'l2_review_unusable', 'started_at': 1792609523, 'finished_at': 1792609523}
+--- incidents (n=4) ---
+{'incident_id': 'inc_4627f4bd625945b6b330f33bb7f47184', 'process_id': 'watchdog.jobs', 'pipeline_type': 'asap8b01', 'stage': 'takeover', 'severity': 'ERROR', 'title': 'job 13c7347e0a2445ac90af71d53225abe3: worker_lost', 'first_ts': 1792650071, 'last_ts': 1792650071, 'repeat_count': 2, 'impact': 'задача потеряла владельца/не прогрессирует', 'fallback_used': 0, 'resolved_at': None}
+{'incident_id': 'inc_9b7b2d37fac24d45871f856708b1035a', 'process_id': 'watchdog.jobs', 'pipeline_type': 'summary', 'stage': 'takeover', 'severity': 'ERROR', 'title': 'job cov_28696235df42e0f97994ca0a: worker_lost', 'first_ts': 1792415359, 'last_ts': 1792674954, 'repeat_count': 2, 'impact': 'задача потеряла владельца/не прогрессирует', 'fallback_used': 0, 'resolved_at': None}
+{'incident_id': 'inc_c16332769f7648179ffeb44f57bf3ab3', 'process_id': 'watchdog.jobs', 'pipeline_type': 'vision.media', 'stage': 'takeover', 'severity': 'ERROR', 'title': 'job e75c45b78eca47a4aa6d57e9f2aad0cb: worker_lost', 'first_ts': 1792401284, 'last_ts': 1792515738, 'repeat_count': 4, 'impact': 'задача потеряла владельца/не прогрессирует', 'fallback_used': 0, 'resolved_at': None}
+{'incident_id': 'inc_330e13ec804d43069158a260c724f557', 'process_id': 'watchdog.jobs', 'pipeline_type': 'memory', 'stage': 'takeover', 'severity': 'ERROR', 'title': 'job 7ed322e68a0d433b89f03ef66117c367: worker_lost', 'first_ts': 1790940570, 'last_ts': 1792628090, 'repeat_count': 3, 'impact': 'задача потеряла владельца/не прогрессирует', 'fallback_used': 0, 'resolved_at': None}
+--- events_speech_samples (n=3) ---
+{'ts': 1792682023, 'chat_id': -1002661910336, 'stage': 'direct_pre_send', 'outcome': 'success', 'usage_json': '{"extent": "micro", "status": "pass", "one_word": 0, "one_word_exact": 0, "context": "regular", "words": 12, "reason": "micro_soft_exceeded"}'}
+{'ts': 1792678409, 'chat_id': -1004482340693, 'stage': 'direct_pre_send', 'outcome': 'success', 'usage_json': '{"extent": "micro", "status": "pass", "one_word": 0, "one_word_exact": 0, "context": "regular", "words": 14, "reason": "micro_soft_exceeded"}'}
+{'ts': 1792678016, 'chat_id': -1004482340693, 'stage': 'direct_pre_send', 'outcome': 'success', 'usage_json': '{"extent": "compact", "status": "pass", "one_word": 0, "one_word_exact": 0, "context": "regular", "words": 68}'}
+===== U2 journal: direct/tool/L1 guard =====
+TOOL_PLAN=0
+TOOL_START=16
+TOOL_OK=13
+TOOL_FAIL=3
+Oct 20 19:59:13 racknerd-f4e3456 python[7265]: 2026-10-20 19:59:13,976 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=00b099beb3b64c71988e117f1806fced | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=56 | ts=1792526353.976
+Oct 20 20:00:25 racknerd-f4e3456 python[7265]: 2026-10-20 20:00:25,657 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=30de529a788644a5af69504d8caff2cf | chat_id=-1002661910336 | tool=execute_web_search | round=1 | status=ok | out_chars=4053 | ts=1792526425.658
+Oct 20 20:00:26 racknerd-f4e3456 python[7265]: 2026-10-20 20:00:26,335 - services.agentic_events - INFO - event=TOOL_CALL_FAILED | run_id=30de529a788644a5af69504d8caff2cf | chat_id=-1002661910336 | tool=fact_check | round=1 | status=denied | error_code=no_claim_after_context | ts=1792526426.336
+Oct 20 20:05:27 racknerd-f4e3456 python[7265]: 2026-10-20 20:05:27,941 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=725f526d44e444a5ad779eda88f17a2f | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=56 | ts=1792526727.942
+Oct 21 17:41:42 racknerd-f4e3456 python[240598]: 2026-10-21 17:41:42,993 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=76960ca8ed67436b86fae3448dc42cfb | chat_id=-1002661910336 | tool=recognize_image | round=1 | status=ok | out_chars=161 | ts=1792604502.994
+Oct 21 19:26:45 racknerd-f4e3456 python[285197]: 2026-10-21 19:26:45,129 - services.agentic_events - INFO - event=TOOL_CALL_COMPLETE | run_id=a7aefd46077d431faa4717072f4ef0fe | chat_id=-1002661910336 | tool=get_recent_history | round=1 | status=ok | out_chars=135 | ts=1792610805.13
+NO_KEY_SANDBOX_30D=0
+L1_META_FAIL_30D=0
+L1_LADDER_WARN_7D=0
+===== U3 postgres: L1 plan_meta durability =====
+--- l1_usage_7d (n=1) ---
+{'n': 408, 'runs': 404, 'with_meta': 358, 'last_ts': datetime.datetime(2026, 10, 22, 16, 16, 45, 692374, tzinfo=datetime.timezone.utc), 'in_tok': Decimal('548739'), 'out_tok': Decimal('45104')}
+--- l1_usage_daily (n=8) ---
+{'d': datetime.date(2026, 10, 22), 'n': 45, 'with_meta': 34}
+{'d': datetime.date(2026, 10, 21), 'n': 20, 'with_meta': 9}
+{'d': datetime.date(2026, 10, 20), 'n': 48, 'with_meta': 34}
+{'d': datetime.date(2026, 10, 19), 'n': 158, 'with_meta': 151}
+{'d': datetime.date(2026, 10, 18), 'n': 45, 'with_meta': 39}
+{'d': datetime.date(2026, 10, 17), 'n': 6, 'with_meta': 5}
+{'d': datetime.date(2026, 10, 16), 'n': 77, 'with_meta': 77}
+{'d': datetime.date(2026, 10, 15), 'n': 9, 'with_meta': 9}
+--- l1_plan_meta_samples (n=3) ---
+{'ts': datetime.datetime(2026, 10, 22, 16, 16, 45, 692374, tzinfo=datetime.timezone.utc), 'chat_id': -1002661910336, 'plan_meta': '{"tone": "playful", "action": "reply", "bucket": "medium", "extent": "micro", "source": "main", "inherited": true, "confidence": 0.6, "latency_ms": 1899, "input_chars": 1559, "response_act": "banter", "execution_mode": "none", "credential_source": "global"}'}
+{'ts': datetime.datetime(2026, 10, 22, 16, 16, 10, 783759, tzinfo=datetime.timezone.utc), 'chat_id': -1002661910336, 'plan_meta': '{"tone": "warm", "action": "reply", "bucket": "medium", "extent": "compact", "source": "main", "inherited": true, "confidence": 0.55, "latency_ms": 3266, "input_chars": 1124, "response_act": "answer", "execution_mode": "none", "credential_source": "global"}'}
+{'ts': datetime.datetime(2026, 10, 22, 15, 13, 40, 616990, tzinfo=datetime.timezone.utc), 'chat_id': -1002661910336, 'plan_meta': '{"tone": "playful", "action": "reply", "bucket": "medium", "extent": "micro", "source": "main", "inherited": true, "confidence": 0.6, "latency_ms": 2250, "input_chars": 1052, "response_act": "banter", "execution_mode": "none", "credential_source": "global"}'}
+--- tool_usage_7d (n=1) ---
+{'module': 'image', 'step': 'image', 'tool_name': 'generate_image', 'n': 106}
+===== U4_DONE =====

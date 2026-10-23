@@ -1,0 +1,212 @@
+DATE_UTC=2026-10-22T16:58:05Z
+DATE_LOCAL=2026-10-22 16:58:05 UTC +0000
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== ENV (masked) =====
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+===== PY: sqlite state =====
+NOW_EPOCH 1792688285
+===== embedding_quota_state =====
+--- quota_state (n=4) ---
+{'quota_group_id': 'fallback_1', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628099}
+{'quota_group_id': 'fallback_2', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628106}
+{'quota_group_id': 'primary', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628095}
+{'quota_group_id': 'unknown', 'state': 'exhausted', 'next_allowed_at': 1791849900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1791763508}
+===== vector tables (live + generations) =====
+--- vec_objects (n=34) ---
+{'name': 'graph_facts_vec', 'sql': 'CREATE VIRTUAL TABLE graph_facts_vec USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)'}
+{'name': 'graph_facts_vec_auxiliary', 'sql': 'CREATE TABLE "graph_facts_vec_auxiliary"( rowid integer PRIMARY KEY , value00, value01, value02, value03)'}
+{'name': 'graph_facts_vec_chunks', 'sql': 'CREATE TABLE "graph_facts_vec_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_g1', 'sql': 'CREATE VIRTUAL TABLE graph_facts_vec_g1 USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER, +origin TEXT, +expires_at INTEGER)'}
+{'name': 'graph_facts_vec_g1_auxiliary', 'sql': 'CREATE TABLE "graph_facts_vec_g1_auxiliary"( rowid integer PRIMARY KEY , value00, value01, value02, value03)'}
+{'name': 'graph_facts_vec_g1_chunks', 'sql': 'CREATE TABLE "graph_facts_vec_g1_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_g1_info', 'sql': 'CREATE TABLE "graph_facts_vec_g1_info" (key text primary key, value any)'}
+{'name': 'graph_facts_vec_g1_rowids', 'sql': 'CREATE TABLE "graph_facts_vec_g1_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'graph_facts_vec_g1_vector_chunks00', 'sql': 'CREATE TABLE "graph_facts_vec_g1_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_g1_vector_chunks01', 'sql': 'CREATE TABLE "graph_facts_vec_g1_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_info', 'sql': 'CREATE TABLE "graph_facts_vec_info" (key text primary key, value any)'}
+{'name': 'graph_facts_vec_rowids', 'sql': 'CREATE TABLE "graph_facts_vec_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'graph_facts_vec_vector_chunks00', 'sql': 'CREATE TABLE "graph_facts_vec_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'graph_facts_vec_vector_chunks01', 'sql': 'CREATE TABLE "graph_facts_vec_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive', 'sql': 'CREATE VIRTUAL TABLE smart_archive USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER)'}
+{'name': 'smart_archive_auxiliary', 'sql': 'CREATE TABLE "smart_archive_auxiliary"( rowid integer PRIMARY KEY , value00, value01)'}
+{'name': 'smart_archive_chunks', 'sql': 'CREATE TABLE "smart_archive_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'smart_archive_facts', 'sql': 'CREATE TABLE smart_archive_facts (\n            id        INTEGER PRIMARY KEY AUTOINCREMENT,\n            chat_id   INTEGER NOT NULL,\n            fact      TEXT NOT NULL,\n            timestamp INTEGER NOT NULL\n        )'}
+{'name': 'smart_archive_facts_fts', 'sql': "CREATE VIRTUAL TABLE smart_archive_facts_fts USING fts5(\n            fact, content='smart_archive_facts', content_rowid='id', tokenize='unicode61'\n        )"}
+{'name': 'smart_archive_facts_fts_config', 'sql': "CREATE TABLE 'smart_archive_facts_fts_config'(k PRIMARY KEY, v) WITHOUT ROWID"}
+{'name': 'smart_archive_facts_fts_data', 'sql': "CREATE TABLE 'smart_archive_facts_fts_data'(id INTEGER PRIMARY KEY, block BLOB)"}
+{'name': 'smart_archive_facts_fts_docsize', 'sql': "CREATE TABLE 'smart_archive_facts_fts_docsize'(id INTEGER PRIMARY KEY, sz BLOB)"}
+{'name': 'smart_archive_facts_fts_idx', 'sql': "CREATE TABLE 'smart_archive_facts_fts_idx'(segid, term, pgno, PRIMARY KEY(segid, term)) WITHOUT ROWID"}
+{'name': 'smart_archive_g1', 'sql': 'CREATE VIRTUAL TABLE smart_archive_g1 USING vec0(embedding float[3072] distance_metric=cosine, embedding_i8 int8[3072], +fact_id INTEGER, +chat_id INTEGER)'}
+{'name': 'smart_archive_g1_auxiliary', 'sql': 'CREATE TABLE "smart_archive_g1_auxiliary"( rowid integer PRIMARY KEY , value00, value01)'}
+{'name': 'smart_archive_g1_chunks', 'sql': 'CREATE TABLE "smart_archive_g1_chunks"(chunk_id INTEGER PRIMARY KEY AUTOINCREMENT,size INTEGER NOT NULL,validity BLOB NOT NULL,rowids BLOB NOT NULL)'}
+{'name': 'smart_archive_g1_info', 'sql': 'CREATE TABLE "smart_archive_g1_info" (key text primary key, value any)'}
+{'name': 'smart_archive_g1_rowids', 'sql': 'CREATE TABLE "smart_archive_g1_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'smart_archive_g1_vector_chunks00', 'sql': 'CREATE TABLE "smart_archive_g1_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive_g1_vector_chunks01', 'sql': 'CREATE TABLE "smart_archive_g1_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive_info', 'sql': 'CREATE TABLE "smart_archive_info" (key text primary key, value any)'}
+{'name': 'smart_archive_rowids', 'sql': 'CREATE TABLE "smart_archive_rowids"(rowid INTEGER PRIMARY KEY AUTOINCREMENT,id,chunk_id INTEGER,chunk_offset INTEGER)'}
+{'name': 'smart_archive_vector_chunks00', 'sql': 'CREATE TABLE "smart_archive_vector_chunks00"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+{'name': 'smart_archive_vector_chunks01', 'sql': 'CREATE TABLE "smart_archive_vector_chunks01"(rowid PRIMARY KEY,vectors BLOB NOT NULL)'}
+DIM | graph_facts_vec                    | 3072
+DIM | graph_facts_vec_auxiliary          | NO_FLOAT_DIM
+DIM | graph_facts_vec_chunks             | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1                 | 3072
+DIM | graph_facts_vec_g1_auxiliary       | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_chunks          | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_info            | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_rowids          | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_vector_chunks00 | NO_FLOAT_DIM
+DIM | graph_facts_vec_g1_vector_chunks01 | NO_FLOAT_DIM
+DIM | graph_facts_vec_info               | NO_FLOAT_DIM
+DIM | graph_facts_vec_rowids             | NO_FLOAT_DIM
+DIM | graph_facts_vec_vector_chunks00    | NO_FLOAT_DIM
+DIM | graph_facts_vec_vector_chunks01    | NO_FLOAT_DIM
+DIM | smart_archive                      | 3072
+DIM | smart_archive_auxiliary            | NO_FLOAT_DIM
+DIM | smart_archive_chunks               | NO_FLOAT_DIM
+DIM | smart_archive_facts                | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts            | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_config     | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_data       | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_docsize    | NO_FLOAT_DIM
+DIM | smart_archive_facts_fts_idx        | NO_FLOAT_DIM
+DIM | smart_archive_g1                   | 3072
+DIM | smart_archive_g1_auxiliary         | NO_FLOAT_DIM
+DIM | smart_archive_g1_chunks            | NO_FLOAT_DIM
+DIM | smart_archive_g1_info              | NO_FLOAT_DIM
+DIM | smart_archive_g1_rowids            | NO_FLOAT_DIM
+DIM | smart_archive_g1_vector_chunks00   | NO_FLOAT_DIM
+DIM | smart_archive_g1_vector_chunks01   | NO_FLOAT_DIM
+DIM | smart_archive_info                 | NO_FLOAT_DIM
+DIM | smart_archive_rowids               | NO_FLOAT_DIM
+DIM | smart_archive_vector_chunks00      | NO_FLOAT_DIM
+DIM | smart_archive_vector_chunks01      | NO_FLOAT_DIM
+--- vec_counts (n=34) ---
+{'name': 'smart_archive_facts'}
+{'name': 'smart_archive_facts_fts_data'}
+{'name': 'smart_archive_facts_fts_idx'}
+{'name': 'smart_archive_facts_fts_docsize'}
+{'name': 'smart_archive_facts_fts_config'}
+{'name': 'smart_archive_info'}
+{'name': 'smart_archive_chunks'}
+{'name': 'smart_archive_rowids'}
+{'name': 'smart_archive_vector_chunks00'}
+{'name': 'smart_archive_vector_chunks01'}
+{'name': 'smart_archive_auxiliary'}
+{'name': 'graph_facts_vec_info'}
+{'name': 'graph_facts_vec_chunks'}
+{'name': 'graph_facts_vec_rowids'}
+{'name': 'graph_facts_vec_vector_chunks00'}
+{'name': 'graph_facts_vec_vector_chunks01'}
+{'name': 'graph_facts_vec_auxiliary'}
+{'name': 'smart_archive_facts_fts'}
+{'name': 'smart_archive'}
+{'name': 'graph_facts_vec'}
+{'name': 'graph_facts_vec_g1'}
+{'name': 'graph_facts_vec_g1_info'}
+{'name': 'graph_facts_vec_g1_chunks'}
+{'name': 'graph_facts_vec_g1_rowids'}
+{'name': 'graph_facts_vec_g1_vector_chunks00'}
+{'name': 'graph_facts_vec_g1_vector_chunks01'}
+{'name': 'graph_facts_vec_g1_auxiliary'}
+{'name': 'smart_archive_g1'}
+{'name': 'smart_archive_g1_info'}
+{'name': 'smart_archive_g1_chunks'}
+{'name': 'smart_archive_g1_rowids'}
+{'name': 'smart_archive_g1_vector_chunks00'}
+{'name': 'smart_archive_g1_vector_chunks01'}
+{'name': 'smart_archive_g1_auxiliary'}
+COUNT | smart_archive_facts                | 0
+COUNT | smart_archive_facts_fts_data       | 2
+COUNT | smart_archive_facts_fts_idx        | 0
+COUNT | smart_archive_facts_fts_docsize    | 0
+COUNT | smart_archive_facts_fts_config     | 1
+COUNT | smart_archive_info                 | 4
+COUNT | smart_archive_chunks               | 0
+COUNT | smart_archive_rowids               | 0
+COUNT | smart_archive_vector_chunks00      | 0
+COUNT | smart_archive_vector_chunks01      | 0
+COUNT | smart_archive_auxiliary            | 0
+COUNT | graph_facts_vec_info               | 4
+COUNT | graph_facts_vec_chunks             | 16
+COUNT | graph_facts_vec_rowids             | 16003
+COUNT | graph_facts_vec_vector_chunks00    | 16
+COUNT | graph_facts_vec_vector_chunks01    | 16
+COUNT | graph_facts_vec_auxiliary          | 16003
+COUNT | smart_archive_facts_fts            | 0
+COUNT | smart_archive                      | ERROR no such module: vec0
+COUNT | graph_facts_vec                    | ERROR no such module: vec0
+COUNT | graph_facts_vec_g1                 | ERROR no such module: vec0
+COUNT | graph_facts_vec_g1_info            | 4
+COUNT | graph_facts_vec_g1_chunks          | 10
+COUNT | graph_facts_vec_g1_rowids          | 9797
+COUNT | graph_facts_vec_g1_vector_chunks00 | 10
+COUNT | graph_facts_vec_g1_vector_chunks01 | 10
+COUNT | graph_facts_vec_g1_auxiliary       | 9797
+COUNT | smart_archive_g1                   | ERROR no such module: vec0
+COUNT | smart_archive_g1_info              | 4
+COUNT | smart_archive_g1_chunks            | 0
+COUNT | smart_archive_g1_rowids            | 0
+COUNT | smart_archive_g1_vector_chunks00   | 0
+COUNT | smart_archive_g1_vector_chunks01   | 0
+COUNT | smart_archive_g1_auxiliary         | 0
+===== index generations =====
+--- mca_embedding_index_generations (n=2) ---
+{'generation_id': 2, 'index_name': 'graph_facts_vec', 'generation': 1, 'fingerprint': '96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d', 'provider': 'generativelanguage.googleapis.com', 'model': 'gemini-embedding-001', 'dims': 3072, 'preprocessing_version': 'casefold-strip-v1', 'endpoint_fingerprint': 'e42d6fd4c65855c2', 'status': 'building', 'created_at': 1790678362, 'activated_at': None, 'superseded_at': None, 'pause_reason': 'rate_limit:quota_group', 'next_allowed_at': 1792713900, 'attempts_total': 592, 'namespace': 'default', 'config_revision': None}
+{'generation_id': 1, 'index_name': 'smart_archive', 'generation': 1, 'fingerprint': '96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d', 'provider': 'generativelanguage.googleapis.com', 'model': 'gemini-embedding-001', 'dims': 3072, 'preprocessing_version': 'casefold-strip-v1', 'endpoint_fingerprint': 'e42d6fd4c65855c2', 'status': 'building', 'created_at': 1790678362, 'activated_at': None, 'superseded_at': None, 'pause_reason': None, 'next_allowed_at': None, 'attempts_total': 0, 'namespace': 'default', 'config_revision': None}
+===== embedding_cache =====
+{'c': 11656, 'dmin': 3072, 'dmax': 3072, 'newest': 1792628105.3930376, 'used': 1792674893.9879022}
+--- cache_dims (n=1) ---
+{'dim': 3072, 'c': 11656}
+--- cache_per_day (n=7) ---
+{'d': '2026-10-16', 'c': 256}
+{'d': '2026-10-17', 'c': 256}
+{'d': '2026-10-18', 'c': 256}
+{'d': '2026-10-19', 'c': 256}
+{'d': '2026-10-20', 'c': 256}
+{'d': '2026-10-21', 'c': 256}
+{'d': '2026-10-22', 'c': 256}
+===== backlog =====
+{'total': 20051}
+{'eligible': 15819}
+{'archive_facts': 0}
+===== backlog precise =====
+--- backlog_graph_missing --- ERROR OperationalError: no such module: vec0
+--- backlog_per_chat --- ERROR OperationalError: no such module: vec0
+===== daily throughput (smart_messages, UTC days) =====
+--- messages_per_day (n=8) ---
+{'d': '2026-10-15', 'c': 541}
+{'d': '2026-10-16', 'c': 3328}
+{'d': '2026-10-17', 'c': 1194}
+{'d': '2026-10-18', 'c': 1396}
+{'d': '2026-10-19', 'c': 1270}
+{'d': '2026-10-20', 'c': 1808}
+{'d': '2026-10-21', 'c': 1142}
+{'d': '2026-10-22', 'c': 2602}
+--- facts_per_day --- ERROR OperationalError: no such module: vec0
+--- summary_runs_recent (n=3) ---
+{'state': 'DEGRADED', 'c': 21}
+{'state': 'DONE', 'c': 2}
+{'state': 'FAILED', 'c': 5}
+===== last rebuild jobs =====
+--- rebuild_jobs (n=2) ---
+{'job_id': '7ed322e68a0d433b89f03ef66117c367', 'status': 'paused_rate_limit', 'reason_code': 'rate_limit:quota_group', 'attempt': 0, 'updated_at': 1792628106, 'payload': '{"cursor": "{\\"last_id\\": 11953, \\"processed\\": 9797}", "processed": 9797}'}
+{'job_id': '168adb23141648248ad25f08c8036432', 'status': 'validation_failed', 'reason_code': 'knn_source_empty', 'attempt': 0, 'updated_at': 1791329331, 'payload': '{"cursor": "{\\"last_id\\": 0, \\"processed\\": 0}", "processed": 0}'}
+===== END =====
+
+[rc=0]

@@ -2,7 +2,7 @@
  "schema": "openworkflow-coverage-v1",
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\asap-speech-arch\\source-2026-10-22.md",
  "source_sha256": "3657b41ea80419536eb9821f6e7878e4bbc71bd39c53c78245d46a7fc14a556c",
- "candidate_commit": "0f3ed53a",
+ "candidate_commit": "e4ee54f3",
  "deployed_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
  "strict_evidence": true,
  "slice_graph_path": "slice-graph.json",
@@ -20,7 +20,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): Финальный отчёт ещё не выпущен; проверить формат (время/зона, IMPLEMENTED/TESTED/DEPLOYED/LIVE_VERIFIED/PENDING, коммиты/хеши, без секретов) на closing-report."
   },
   {
    "source_id": "MAN-REP-NOFAKE",
@@ -35,7 +36,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): Проверить closing-report: недоступное = PENDING_LIVE/WAITING_EXTERNAL, не VERIFIED; эта реконсиляция — частичное доказательство, не закрытие."
   },
   {
    "source_id": "MAN-REQ-REALDB",
@@ -49,8 +51,17 @@
    "acceptance": "[P0] Изменения реализованы в репозитории, Factory Defaults обновлены, активная конфигурация безопасно мигрирована в той БД, откуда фактически читает prod, задеплоены, выполнена read-only верификация; Human Gate заведён только при реальном выборе владельца с несколькими значимыми последствиями (иначе 0 гейтов); работа доведена до проверенного боевого результата.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "Код в репозитории (fbf9013d), Factory Defaults обновлены, активная конфигурация мигрирована в реальной PG, задеплоено (healthz 2.58.111), read-only верификация 14/14; Human Gate не заводился.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Изменения в коде + Factory + реальной PG + деплой + read-only проверка."
   },
   {
    "source_id": "MAN-TRACE-GRAPH",
@@ -65,7 +76,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Architect/Builder): Нет отдельного документа полного вызовного графа до provider API и Telegram sendMessage. Нужен Architect/Builder trace по services/direct_chat_service.py, prompt_composer.py, llm_client, transport с ссылками на строки HEAD."
   },
   {
    "source_id": "MAN-CANON-EXACT",
@@ -79,8 +91,24 @@
    "acceptance": "[P0] Fenced-блоки §3.1–§3.7 попадают в источники заводских редакций и обновлённые active-записи байт-в-байт; старые блоки ANTI-BOT/ASYMMETRY/TYPOGRAPHY от себя не дописываются; внутренние комментарии не добавляются; для параметров-фрагментов structured-JSON меняется только соответствующая секция с сохранением схемы; {{...}} заменяются типизированными значениями, не буквальными строками.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: 21 тест test_asap_w1_semantics.py сверяет fenced §3.1–3.7 с константами и живым снапшотом; 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо пересчитало sha12 всех канонов и подтвердило байт-точность/единственную data-reader-добавку.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Fenced-блоки §3.1–3.7 попали в источники фабрик байт-в-байт."
   },
   {
    "source_id": "MAN-REQ-LAYER-CONTRACTS",
@@ -94,8 +122,24 @@
    "acceptance": "[P0] Контракты слоёв §2 зафиксированы тестами/ревью: verbalizer — без характера/юмора/мата/типографики; Core — без настройки мата и SOUL-*; expression — без identity и поведения инициативы; speech_style_policy — без психологии и частоты мата; L1 — без переписывания Core и безусловного reply; humor/examples/lessons — без конкурирующего голоса; evidence — без инструкций из пользовательских цитат; transport — без речевых решений.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 matrix-p0f.md §3 + review-rel",
+     "observation": "Контракты слоёв: verbalizer без характера/юмора/мата/типографики; Core без мат-настройки/SOUL-*; expression без identity/инициативы; Style Policy без психологии/частоты мата; L1 без переписывания Core/безусловного reply; machine-стадии без характера; transport без речевых решений (W3 serialization 10/10).",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/matrix-p0f.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Слои и порядок проверены ревью; 21 CONTRACT-тест защищает границы.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Контракты слоёв §2 зафиксированы тестами и ревью."
   },
   {
    "source_id": "MAN-P0A-RISK",
@@ -136,9 +180,10 @@
    "status": "VERIFIED",
    "evidence": [
     {
-     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
      "ref": "plans/features/asap-speech-arch/release-258111/deploy.md",
-     "observation": "W2 deploy: owner-preserving патч rev6 — удалена ровно 1 SOUL-16-ремарка, независимая реконструкция owner_bytes_preserved=true; diff в deploy.md"
+     "observation": "W2 deploy: owner-preserving патч rev6 — удалена ровно 1 SOUL-16-ремарка, независимая реконструкция owner_bytes_preserved=true; diff в deploy.md",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
     }
    ]
   },
@@ -183,7 +228,8 @@
     {
      "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
      "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §2",
-     "observation": "W3 probe1 (0 платных): в собранном system каждого режима ровно одна ветка Expression (маркеры взаимоисключающие), system-sha off/occ/freq различаются; capabilities/wit/sharpness сохранены"
+     "observation": "W3 probe1 (0 платных): в собранном system каждого режима ровно одна ветка Expression (маркеры взаимоисключающие), system-sha off/occ/freq различаются; capabilities/wit/sharpness сохранены",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w3/analysis.md"
     }
    ]
   },
@@ -200,7 +246,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): s7 (цитата с матом) не выполнен в W3 из-за бюджета; нужен один harness-стимул с quoted source/user input/RAG/примером в трёх режимах: мат в цитате не должен классифицироваться как собственная речь, forced insertion отсутствует."
   },
   {
    "source_id": "MAN-P0E-BOUNDS",
@@ -359,7 +406,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: 3+ участника без вызова бота → action=reply, delivery=chat, target=null (или silent/react); текст не приклеен reply к последнему. Harness W3, 0 Telegram."
   },
   {
    "source_id": "MAN-INIT-I02",
@@ -374,7 +422,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: прямое возражение на [msg:N] → delivery=reply, target=N, не самое свежее ID. Harness W3."
   },
   {
    "source_id": "MAN-INIT-I03",
@@ -389,7 +438,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: мелкое «лол»/флуд → react или silent допустимы; текст не обязан. Harness W3."
   },
   {
    "source_id": "MAN-INIT-I04",
@@ -404,7 +454,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: новая общая тема → chat; reply не выбирается из-за имён. Harness W3."
   },
   {
    "source_id": "MAN-INIT-I05",
@@ -419,7 +470,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Модельный сценарий удалённого reply-target не прогнан (есть только transport-тесты case7b/gone-target). Нужен initiative-прогон с удалённой целью: отмена/bounded reassess, без отправки контекстного текста обычным сообщением."
   },
   {
    "source_id": "MAN-INIT-I06",
@@ -434,7 +486,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Модельный сценарий reply на сообщение вне чата (поддельный/чужой ID) не прогнан; transport-тесты addressee mismatch есть, но fake-ID сценарий нужен в harness."
   },
   {
    "source_id": "MAN-INIT-I07",
@@ -449,7 +502,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: старое сообщение бота → L1 учитывает свои сообщения и может промолчать; повтора из-за отсутствия self-сообщений нет."
   },
   {
    "source_id": "MAN-INIT-I08",
@@ -463,8 +517,24 @@
    "acceptance": "[P0] I-08 хрупкий parser: нет delivery/malformed target_message_id/невалидное action → fail-closed для reply, default reply не назначается; reply_to_message_id не ставится транспортом.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_direct_l1_l1d_contract.py::test_normalize_is_total_garbage_safe и ::test_fallback_plan_has_no_delivery_binding; tests/test_asap8_initreply_binding.py::test_case4_transport_never_picks_addressee — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо воспроизвело l1d 15p + initreply 14p: мусорный delivery/malformed target → fail-closed, транспорт не ставит reply_to_message_id.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Хрупкий parser fail-closed; транспорт не назначает reply."
   },
   {
    "source_id": "MAN-INIT-I09",
@@ -478,8 +548,24 @@
    "acceptance": "[P0] I-09 реакция → валидная Telegram reaction либо безопасный graceful fallback; без подмены инициативным текстом.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py::test_case6_react_executes_without_text и ::test_case6b_invalid_reaction_is_honest_silence — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо воспроизвело initreply 14p, включая reaction/graceful silence.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Реакция валидна либо честное молчание, без подмены текстом."
   },
   {
    "source_id": "MAN-INIT-TESTS",
@@ -493,8 +579,24 @@
    "acceptance": "[P0] Property/regression tests: фабричный L1 промпт и моделируемые структуры проходят случаи chat/reply/react/silent; негативный тест против hardcode (тест только позитивного reply не доказывает отсутствие hardcode).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py (14: chat/reply/react/silent, transport never picks addressee, missing/stale target) + tests/test_direct_l1_l1d_contract.py (15: schema/normalize/garbage/fallback no delivery) — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо воспроизвело initreply 14p и l1d 15p.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Property/regression-набор покрывает все четыре действия и негативный hardcode-контроль."
   },
   {
    "source_id": "MAN-INIT-48H",
@@ -509,7 +611,8 @@
    "live_required": true,
    "live_when": "postdeploy",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_LIVE_OBSERVATION (DevOps (read-only)): 48-часовая наблюдательная проверка распределения действий на проде. Нужен read-only анализ mca_events/journal после окна; earliest 2026-10-25 13:14 UTC (старт 2.58.111 23.10 13:14 UTC). Отсутствие события = NOT_YET_OBSERVED, не дефект."
   },
   {
    "source_id": "MAN-MAN-FACTORY-ACTIVE",
@@ -523,8 +626,17 @@
    "acceptance": "[P0] Новые формулировки одновременно являются заводскими значениями И записаны в текущую реально действующую конфигурацию; коммит новых констант без миграции активной конфигурации не засчитывается.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "SELECT активных PG-значений == новые фабрики: verbalizer be03964322aa/1982c, tool_phase f30c6d73da82/4999c, narrator 5086ba935081/1788c, l1_planner f8ab20121c02/4641c, core full 3de4884f29ce/1995c, compact пусто; runtime fingerprint fd4e88754749.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Формулировки одновременно заводские и активные — подтверждено SELECT."
   },
   {
    "source_id": "MAN-MIGR-TABLE",
@@ -538,8 +650,17 @@
    "acceptance": "[P0] Результирующая таблица block_id | factory old/new SHA | active old/new SHA | scope | provenance | runtime payload SHA | migration result составлена; утечки содержимого частного чата нет.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "§W2 содержит итоговую таблицу block_id | factory old/new SHA | active old/new SHA | scope | provenance | runtime payload SHA | migration result по всем 7 блокам.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Итоговая таблица миграции есть."
   },
   {
    "source_id": "MAN-EVAL-MODES",
@@ -554,7 +675,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Полная матрица 3 режима × 3 жанра × 10 стимулов не выполнена: W3 — 45 вызовов, мини-выборка, s7/инициативный текст не сняты. Нужен полный harness-прогон (~270 вызовов) с фиксацией hash/model/temperature; бюджет/квота провайдера."
   },
   {
    "source_id": "MAN-EVAL-EGRESS",
@@ -573,7 +695,8 @@
     {
      "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
      "ref": "plans/features/asap-speech-arch/evidence/w3/analysis.md §3-4",
-     "observation": "W3: raw==sent 10/10 (off-pilot s1-s3, occasional s1/s2/s4/s5, frequent s5/s1/s2 вкл. мат); ни один постпроцессор не менял; off чист силой модели, frequent дошёл без вырезания; postprocess_changed/model_ignored_instruction не сработали"
+     "observation": "W3: raw==sent 10/10 (off-pilot s1-s3, occasional s1/s2/s4/s5, frequent s5/s1/s2 вкл. мат); ни один постпроцессор не менял; off чист силой модели, frequent дошёл без вырезания; postprocess_changed/model_ignored_instruction не сработали",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w3/analysis.md"
     }
    ]
   },
@@ -590,7 +713,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): Epic остаётся открытым: live-строки помечены PENDING/READY_FOR_LIVE, не VERIFIED; проверить при закрытии."
   },
   {
    "source_id": "MAN-ARCH-ADR",
@@ -605,7 +729,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Architect): ADR «Почему L2 промпт Direct остаётся» отсутствует: plans/features/asap-speech-arch/adr-l2-kept.md (указан в write_scope P0-A) не создан. Нужен Architect: boundaries, DB keys, provider payload route, reverse constraints."
   },
   {
    "source_id": "MAN-DOD-FINAL",
@@ -620,7 +745,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): DoD-финал проверяется только на closing-report после W4-UI/INSPECTOR/48h; сейчас не закрыт."
   },
   {
    "source_id": "MAN-ADD1-PERSONA",
@@ -658,8 +784,24 @@
    "acceptance": "[P0] Распределение по слоям подтверждено тестами/ревью: Personality Core — единственный источник личности (характер, токсичность, цинизм, сарказм, манера мышления и юмора); Style Policy — исключительно письменное оформление; промпты модулей и Direct L1/L2 — функциональные инструкции этапов без собственной конкурирующей личности.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 matrix-p0f.md §3 (распределение по слоям)",
+     "observation": "Personality Core — единственный источник личности; Style Policy — только письменное оформление; модульные/L1/L2 промпты — функциональные инструкции без конкурирующей личности; подтверждено тестами p0bc/p0d/p0e/p0f/p0g.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/matrix-p0f.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью подтвердило сохранность токсичности/цинизма/абсурда и отсутствие примитивизации.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Распределение по слоям подтверждено матрицей и ревью."
   },
   {
    "source_id": "MAN-ADD-IDENTITY-L2",
@@ -721,8 +863,24 @@
    "acceptance": "[P0] Негативные проверки: устранение конфликтующих инструкций не интерпретируется как смягчение характера; в текстах/коде нет скрытых ограничителей токсичности, нейтрализующих формулировок, автоматической цензуры; при этом токсичность не превращена в обязательные оскорбления в каждом ответе — характер проявляется естественно по контексту.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0a_verbalizer_no_identity_no_mat_no_format_rules, ::test_p0bc_full_compact_semantics_kept, test_add_exp_expression.py::test_no_mechanical_counters_or_forced_inserts — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "beb3f272b0fb0a0eed5281dc7f82615b0fcd5d35",
+     "type": "review",
+     "ref": "REV-ASAP-W1 ДОП-2/ДОП-1 verdict",
+     "observation": "Ревью: удаления не смягчили характер; v3 Core — авторский текст владельца, токсичность/цинизм/абсурд/непристойный юмор сохранены; скрытых ограничителей/нейтрализаторов нет.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/review-w1.md"
+    }
+   ],
+   "reconciliation_note": "Смягчения характера и скрытых ограничителей не найдено."
   },
   {
    "source_id": "MAN-ADD2-NO-PRIMITIVE",
@@ -790,10 +948,18 @@
    "req_id": "REQ-PROOF-EFFECT",
    "slice": "INIT-LIVE",
    "acceptance": "[P0] На фактических ответах бота (реальный чат, occasional/frequent) подтверждено применение эффективных model-facing инструкций: inspector exact payload содержит активную ветку Expression, поведение различает режимы; трассировка документирует отсутствие подавления в коде/слоях.",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_LIVE_OBSERVATION (Owner (optional) / Builder for EVAL-MODES): Реальный чат occasional/frequent — личное наблюдение владельца. Инженерная часть (payload/поведение на боевых байтах) закрывается EVAL-MODES/EVAL-EGRESS; строка переводится в owner_optional, не VERIFIED.",
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Реальный чат occasional/frequent — личное наблюдение владельца; инженерная часть (effective Expression branch, поведение на боевых байтах, отсутствие подавления) остаётся обязательной в EVAL-MODES/EVAL-EGRESS. Политика 18.10.2026: device/live-наблюдения не блокируют DONE.",
+   "engineering_req_ids": [
+    "EVAL-MODES",
+    "EVAL-EGRESS"
+   ]
   },
   {
    "source_id": "L00020",
@@ -807,8 +973,17 @@
    "acceptance": "[P0] Задокументирован корневой источник расхождения «устаревший Core в редакторе» (active revision, документ character.core, chat overrides, история миграций, cache/process versions); UI показывает эффективную конфигурацию выбранного scope; владельческий текст не перезаписан вслепую, diff сохранён.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+     "type": "production",
+     "ref": "W0 read-only inventory, §3 root cause (prod 2.58.110 @ a8d2a45a)",
+     "observation": "§3 документирует корень расхождения: UI показывает ACTIVE (editions.full.text = effective_prompt), до 08:04Z в character.core лежали v1-байты 040581a3b4b0 с «Мат и грубость», superseded-core играл фабрику v2 — «UI старый / модель новая»; после owner-edit rev6 f59ba0f42a48 «Мат и грубость» удалён, SOUL-16 остался законной ремаркой.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w0-inventory.md"
+    }
+   ],
+   "reconciliation_note": "Корневая причина расхождения задокументирована в W0 §3; повторно не требуется."
   },
   {
    "source_id": "L00021",
@@ -1044,8 +1219,24 @@
    "acceptance": "[P0] Тест/ревью фиксирует ровно одного авторитетного владельца на каждое model-facing правило: мат — только Expression, типографика — только Style Policy, характер — только Core; совпадающие правила не размазаны по Direct base/вербализатору/Core/примерам.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 matrix-p0f.md §3 (один владелец правила)",
+     "observation": "Таблица «Правило → владелец после W1 → проверка»: характер Core, частота мата Expression, типографика Style Policy, полнота response_plan, доставка L1; тесты p0bc/p0d/p0e/p0g.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/matrix-p0f.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо подтвердило: verbalizer без личности/мата/типографики, tool phase без повторов Core/Expression, L1 без литературного Core.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Один авторитетный владелец на правило зафиксирован матрицей и ревью."
   },
   {
    "source_id": "L00054",
@@ -1060,7 +1251,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Architect/Reviewer): Стабильные префиксы отделены, но exact effective order/bytes и невозможность dynamic content создавать директивы равного приоритета не доказаны. Нужно: Architect/Reviewer сверяет direct-runtime-assembly-w1.txt + prompt_composer порядок слоёв; Inspector exact bytes."
   },
   {
    "source_id": "L00055",
@@ -1098,8 +1290,24 @@
    "acceptance": "[P0] При отключённых пресетах character_core/expression/speech_style_policy путь и inspector честно показывают причину отсутствия блока; отсутствие expression не подменяется старыми запретами/разрешениями в L2 или фильтре (негативный тест).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: test_soul1_composer_layers.py (core_absent/style_policy_absent/samples_absent видны как skip_reason), test_add_exp_expression.py (expression_disabled в diag, no regulation outside expression) — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 test-run related set",
+     "observation": "Inspector/сборка честно показывают причину отсутствия слоя; отсутствие expression не подменяется запретами/разрешениями в L2 (test_no_profanity_regulation_outside_expression).",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Отключённые пресеты дают честный skip reason, L2 не подменяет expression."
   },
   {
    "source_id": "L00057",
@@ -1114,7 +1322,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): Проверен не каждый override-параметр отдельно. Команда: pytest tests/test_add_exp_expression.py::test_chat_scope_inherit_label_isolation_and_reset tests/test_soul1_core_registry_api.py -q; затем Reviewer-матрица chat-explicit>global-explicit>factory по каждому параметру (expression/style/prompts/chat-блоки)."
   },
   {
    "source_id": "L00058",
@@ -1129,7 +1338,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): W3 подтвердил Core/Expression только для Direct L2; полная матрица всех пользовательских выходов (initiative writer, factcheck-финал, summary narrator, search/web/youtube, diagnostics/fallbacks) и негатив для internal JSON не собрана. Команда: pytest tests/test_soul1_composer_layers.py tests/test_soul14_layers_payload.py tests/test_expression_isolation_followup.py -q + Reviewer-матрица writers."
   },
   {
    "source_id": "L00059",
@@ -1143,8 +1353,24 @@
    "acceptance": "[P0] Негативные тесты: отсутствуют forced swear insertion, probabilistic counters, регулярки удаления мата, жёсткий минимум/максимум матерных слов, автоподстановка reply.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_add_exp_expression.py::test_no_mechanical_counters_or_forced_inserts и ::test_no_profanity_postprocessor_exists, tests/test_direct_l1_l1d_contract.py::test_fallback_plan_has_no_delivery_binding — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "ASAP-W1 test-run (candidate 0f3ed53a)",
+     "observation": "W1 related-набор включает add_exp_expression/isolation; негативные проверки отсутствия счётчиков/forced-вставок/постпроцессора зелёные.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Негативные тесты против forced-мата/счётчиков/регулярок/auto-reply есть и зелёные."
   },
   {
    "source_id": "L00060",
@@ -1526,7 +1752,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Reviewer): Нет отдельного артефакта с построчным вердиктом по всем 11 строкам §4. Нужно: Reviewer заполняет матрицу «антипример → проверка/негативный тест → вердикт» (reply всем, forced-мат, только фабрика без active, слияние инструкций, глобальная санитизация, ссылки «куда-нибудь», opacity на весь UI, вторая Save, подгонка теста, заголовок без acceptance)."
   },
   {
    "source_id": "L00226",
@@ -1555,8 +1782,17 @@
    "acceptance": "[P0] До изменений в актуальном проде read-only сняты текст/sha256/revision/source/effective_scope для core.personality (full+compact), verbalizer, direct_chat_system_prompt, character.expression по контролам, Style Policy, L1/direct-initiative prompt и связанных fallback/suppressions; показана связка Global/чат/overrides/effective; хранилища (bot_settings, chat_params и фактические) сверены, не угаданы.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+     "type": "production",
+     "ref": "W0 read-only inventory §1–§2 (prod 2.58.110 @ a8d2a45a)",
+     "observation": "Снят полный pre-change inventory: core full/compact, verbalizer, tool phase, L1, narrator, character.expression, style.policy, withheld/suppressions; для каждого — factory/active sha12, chars, revision, source, effective scope, per-chat overrides и timestamps.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w0-inventory.md"
+    }
+   ],
+   "reconciliation_note": "Inventory до изменений выполнен read-only на проде."
   },
   {
    "source_id": "L00231",
@@ -1570,8 +1806,17 @@
    "acceptance": "[P0] Задокументирован source-of-truth: что выбирают UI/cache/middleware/composer/provider payload; где возможны withheld_factory_governs, implicit fallback, hot-config, устаревшая фабрика; записана причина, почему владелец видел Core с матом при factory v2; без этого фикс не принят.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+     "type": "production",
+     "ref": "W0 read-only inventory §3 source-of-truth trace",
+     "observation": "Записан trace source-of-truth: UI отдаёт active, композер играет effective (superseded/withheld), ConfigCache/NOTIFY, порядок UI→cache→composer→provider; объяснено, почему владелец видел старый Core при фабрике v2.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w0-inventory.md"
+    }
+   ],
+   "reconciliation_note": "Trace UI/cache/composer/provider зафиксирован."
   },
   {
    "source_id": "L00232",
@@ -1585,8 +1830,24 @@
    "acceptance": "[P0] Снапшот точных старых значений, per-chat overrides, заводских ревизий, источников и timestamps сохранён в защищённом служебном журнале (не в публичном git); на каждую запись есть план восстановления.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+     "type": "production",
+     "ref": "W0 pre-change snapshot §1–§2",
+     "observation": "Pre-change снапшот: точные sha12/chars/updated/source/scope всех ключей + per-chat overrides обоих чатов; приватные raw-журналы вынесены в scratch, не в git.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w0-inventory.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "W2-таблица содержит old→new SHA/длины; прежние байты записаны в character.prompt_history через реестр; rollback-план — §Откат.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Снапшот old-значений + history/rollback на каждую запись."
   },
   {
    "source_id": "L00233",
@@ -1600,8 +1861,24 @@
    "acceptance": "[P0] Содержимое констант и реестра обновлено с ревизией/fingerprint, историей old→new и точными известными миграционными парами; старые байты заводских редакций опознаются по точному содержимому/контрольной сумме; поиск/replace по произвольному кастому не применяется.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 migrations.md (candidate 0f3ed53a)",
+     "observation": "FACTORY_SET 553a281fe2fd→fd4e88754749 (changed=6), метки ревизий, PREV_*_W1-слепки, ROLLBACK_MIGRATIONS, superseded-core v1+v2; известные прежние байты опознаются по точному содержимому.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/migrations.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy (factory fingerprint)",
+     "observation": "Runtime fingerprint fd4e88754749 == константа; SELECT активных значений == новые фабрики (core 3de4884f29ce, verbalizer be03964322aa, tool_phase f30c6d73da82, l1 f8ab20121c02).",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Фабрика/реестр/ступени/история old→new обновлены."
   },
   {
    "source_id": "L00234",
@@ -1615,8 +1892,17 @@
    "acceptance": "[P0] Идемпотентный migration/upsert выполнен в реальной runtime PG/SQLite конфигурации: заводские/known-legacy значения переведены на новые фабричные; пользовательский глобальный Core — минимальный owner-preserving patch с сохранением семантики и revision history, diff в отчёте; нерелевантные кастомы сохранены байт-в-байт, их подавляющий эффект честно задокументирован; per-chat редакции без явного разрешения не сброшены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "W2: идемпотентная лестница на старте + write_speech_value/owner_preserve_core_full_patch; журнал 13:14:52 (4 «уже новый канон», 1 «канон обновлён», 10 честных skip кастомов); SELECT == новые фабрики, fingerprint fd4e88754749, ΔDDL=0.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Реальная active PG мигрирована идемпотентно; кастомы не тронуты."
   },
   {
    "source_id": "L00235",
@@ -1630,8 +1916,24 @@
    "acceptance": "[P0] Рестарт, деплой, reset-to-factory, новые чаты и переключение Full/Compact не воскрешают старый промпт; Reset to factory восстанавливает новую фабрику; PREV_* только исторический, никогда runtime fallback (тесты на каждый путь возврата).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "Рестарт 13:14:31 выполнен ПОСЛЕ W2-записей: лестница на старте уже поверх новых значений, активный слой+провенанс загружены в RAM; прежние каноны не вернулись.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "ASAP-W1 test-run (candidate 0f3ed53a)",
+     "observation": "Лестницы PREV_*_W1 + superseded-core: reset-to-factory = новая фабрика, старые байты подавляются; тесты ladder/rollback зелёные (полный related-набор 699 passed).",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Возврат старого Core/L2 после restart/deploy/reset не наблюдался; new chats наследуют фабрику."
   },
   {
    "source_id": "L00236",
@@ -1646,7 +1948,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps/Builder): Hot-apply после записи не прогонялся: W2-записи были до планового рестарта. Команда: pytest tests/test_soul1_core_version_propagation.py tests/test_prompt_migrations.py -q + DevOps read-only проверка NOTIFY/revision и inspector==payload на тестовом ключе."
   },
   {
    "source_id": "L00237",
@@ -1660,8 +1963,24 @@
    "acceptance": "[P0] Global и чаты A/B с разными значениями изолированы: изменение A не затрагивает B; восстановление по умолчанию chat → global → factory по реально принятой схеме (тест + прод-проверка).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На detached worktree fbf9013d: tests/test_add_exp_expression.py::test_chat_scope_inherit_label_isolation_and_reset — A/B scope isolation и reset chat→global→factory; 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "Per-chat overrides чатов -1002661910336 (26) и -1004482340693 (3) == пре-деплой снимку; global-изменения их не затёрли.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "A/B scope isolation подтверждена тестом и прод-снимком."
   },
   {
    "source_id": "L00238",
@@ -1676,7 +1995,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps): SELECT/независимый процесс/runtime payload/blob — подтверждены deploy; inspector==payload байт-в-байт не показан. Команда: DevOps read-only GET /api/speech/inspector на проде, сверить sent.manifest_id/слои/хеш с SELECT активного значения."
   },
   {
    "source_id": "L00239",
@@ -1690,8 +2010,17 @@
    "acceptance": "[P0] Миграция и развёртывание безопасно откатываются; rollback не теряет ручную редакцию владельца (учебный rollback на стенде).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "§Откат: ветка release/fix-2.58.110 = a8d2a45a (origin); ROLLBACK_MIGRATIONS ведёт 4 ключа на непосредственные прежние каноны 2.58.110 байт-в-байт; W2-значения в history; core-правка обратима f59ba0f42a48.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Откат кода и канонов документирован и не теряет owner-редакцию."
   },
   {
    "source_id": "L00243",
@@ -1721,7 +2050,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder): Существующий Inspector отдаёт manifest_id/run_id/layers/versions/conflicts/skipped, но не полный per-call trace (correlation_id, model/provider, checksum после scrub/retry). Реализация — слайс INSPECTOR после W4-UI."
   },
   {
    "source_id": "L00248",
@@ -1736,7 +2066,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder): Режим «полный итоговый промпт» байт-в-байт отсутствует: inspector отдаёт system_masked, а не owner-debug exact assembled system. Реализация — INSPECTOR (owner-only, sanitized)."
   },
   {
    "source_id": "L00249",
@@ -1751,7 +2082,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder): UI показывает машинные коды skip_reason как основной текст; по-русски переведён только style_policy_absent. Нужны человеческие объяснения few_shot/channel_output + коды во всплывающей диагностике. Слайс INSPECTOR."
   },
   {
    "source_id": "L00250",
@@ -1766,7 +2098,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): Иерархия слоёв и source/revision уже видны, но клик по элементу (текст/источник/редакция) и отсутствие пустого скролла не проверены. Команда: Playwright-проход Inspector + pytest tests/test_soul1_composer_layers.py -q; при отсутствии click-through — доработка INSPECTOR."
   },
   {
    "source_id": "L00251",
@@ -1781,7 +2114,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Reviewer/Builder): Список conflicts есть, но покрытие классов (типографика/длина/мат-регистр/роль/chat-global/устаревшие SOUL-*) не доказано. Команда: pytest tests/test_soul1_composer_layers.py::test_no_duplicate_owner_character_conflict tests/test_soul1_composer_layers.py::test_layer_order_ownership_and_provenance -q + Reviewer-матрица классов."
   },
   {
    "source_id": "L00252",
@@ -1795,8 +2129,24 @@
    "acceptance": "[P0] Debug-инспекция модельных запросов не содержит секретов, токенов, сырого приватного контекста за пределами owner-сессии; логируется минимум достаточного evidence.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: test_soul1_w6_speech_ui.py::test_payload_masking_hides_secrets_and_ids — 126 passed; inspector отдаёт masked system/user_parts, TTL-хранение в памяти процесса.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 test-run related set",
+     "observation": "Маскировка секретов/длинных ID в Inspector проверена; R17-коды без сырого контента.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Debug-инспекция не содержит секретов/токенов/приватного контекста."
   },
   {
    "source_id": "L00254",
@@ -1840,8 +2190,27 @@
    "acceptance": "[P1] Карточки «Библиотека промптов» и «Модели и подключения» на карте ИИ — цельная поверхность при наведении и скролле: слои/staking context, border radius, clipping, glass material исправлены; полигональный фон (геометрия, паттерн, цвета, анимация, количество полигонов, начальное положение) не изменён, кроме устранения проверенного бага просвечивания canvas поверх текста.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Карточки «Библиотека промптов»/«Модели и подключения» — цельная поверхность; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00278",
@@ -1855,8 +2224,27 @@
    "acceptance": "[P1] В «Речь и характер» устранён визуальный разрыв/polygon overlay между шапкой и контентом (цельный уровень стекла, без тяжёлой непрозрачной плашки); все 7 рядов (Core, SelfModel, L1, Уроки, Примеры, Юмор, Writer) интерактивны: редактируемые раскрываются/переходят, недоступные — честный disabled/read-only с объяснением; без обманных стрелок и невидимых hitbox.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Разрыв/polygon overlay между шапкой и контентом «Речь и характер»; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00282",
@@ -1870,8 +2258,27 @@
    "acceptance": "[P1] Каталог промптов в единой адаптивной grid-системе без дробящих полупрозрачных прямоугольников: карточки «Сводки чатов», «Ответы в чате», «Фактчек», «Поиск», «Выжимка видео» и др. с одинаковыми отступами; «Открыть»/«Синтезатор»/«Вербализатор» показываются только если этап есть в модуле; карточка вербализатора переименована в «Direct: финальный ответ (Writer)» с описанием «Преобразует план и данные в готовый ответ; характер задаётся отдельно»; ключ и внутренний ID прежние.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Каталог промптов в единой адаптивной grid без дробящих прямоугольников; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00286",
@@ -1885,8 +2292,27 @@
    "acceptance": "[P1] Кодовые области на мобильном читаемы: pre-wrap/overflow-wrap anywhere для просмотра, горизонтальный скролл только где принципиально (diff); textarea не режет текст, caret и клавиатура Android не сломаны; проверено на viewport 320/360/390/430, портрет/ландшафт; нет второй горизонтальной прокрутки страницы и выхода текстов за карточку.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Кодовые области на мобильном: pre-wrap/overflow-wrap, без обрезания; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00290",
@@ -1900,8 +2326,27 @@
    "acceptance": "[P1] Переключатель «Полная редакция / Компактная (runtime)» адаптивен на узких экранах без смены роли кнопок; поле Core с фиксированной высотой имеет внутренний scroll и действие «Развернуть», открывающее крупный редактируемый экран с доступным закрытием; сохранение действует на выбранный scope и редакцию, тихих переключений GLOBAL/chat нет.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Переключатель Full/Compact адаптивен на узких экранах; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00294",
@@ -1915,8 +2360,27 @@
    "acceptance": "[P1] Иерархия шапки согласована на desktop и mobile: главный заголовок, breadcrumb, один selector scope, идентификатор локальной/глобальной настройки, статус сохранения; header не перекрывает контент при скролле/miniapp fullscreen; кнопка раскрытия навигации на мобильном открывает полный набор разделов; fullscreen-кнопка не удалена и не переизобретена, позиция у нативных элементов Telegram сохранена.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Иерархия шапки desktop/mobile: заголовок/breadcrumb/один sticky; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00298",
@@ -1930,8 +2394,27 @@
    "acceptance": "[P1] Единый стейт-менеджмент pristine/dirty/saving/saved/error/conflict: нет ложного «сохранено», одновременного сохранения двух payload, залипания sticky-панели и дублирующего Save; один главный CTA на узком экране, вспомогательный статус без второго активного Save.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Единый state pristine/dirty/saving/saved/error/conflict без ложного «сохранено»; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00302",
@@ -1945,8 +2428,27 @@
    "acceptance": "[P2] Существующая архитектура Liquid Glass используется без нового CSS-overlay; текст, иконки и границы карточек имеют устойчивый контраст на движущемся полигональном фоне; prefers-reduced-motion/отключение blur дают аккуратный fallback; без лагов на Android WebView и GPU-сбоев на Windows; шрифты второстепенных надписей читабельны, особенно 390px; базовые цвета/полигональный рисунок не изменены «для красоты».",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Liquid Glass без нового CSS-overlay, текст/иконки читаемы; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00306",
@@ -1960,8 +2462,27 @@
    "acceptance": "[P1] Маршрут Статус → ИИ → Речь и характер → Core → Expression → Библиотека промптов → Direct Writer → Назад работает отдельно для GLOBAL и CHAT: все действия ведут в нужное место, контекст сохраняется при возвращении, текущий раздел подсвечен, Back и размер окна обрабатываются; список косметики не превращается в полный редизайн админки.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "ui",
+     "ref": "W4 Playwright/Browser Use e2e (9 viewports, failures=0)",
+     "observation": "Прогон W4: viewports 320/360/390/430/768/1024/1280/1440/landscape, failures=0, 27 скриншотов в evidence/w4/shots/ (before/after), 8 постов API; код 5e7d986e + dd4e0522.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/ui-report.json",
+     "artifact_sha256": "1e77955cf13ef451348d0a5f3c97a9d3916122d9aeba2b59d49ff26168480445"
+    },
+    {
+     "candidate_commit": "e4ee54f3",
+     "type": "inspection",
+     "ref": "независимое ревью W4 R2: Approved",
+     "observation": "review-r2: B1/B2 закрыты на кандидате dd4e0522, регрессий по U-01..U-09 нет; остаточные риски pre-existing/косметические.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w4/review-r2.md",
+     "artifact_sha256": "5277478cb2dc90924c478f4143454ad11d037124be96f4934333189fcafe103f"
+    }
+   ],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Маршрут Статус→ИИ→Речь→Core→Expression→Библиотека→Direct→Назад, GLOBAL/CHAT; активный W4-UI.",
+   "binding_note": "Поезд 2.58.113 (e4ee54f3). Инженерная приёмка — Chromium/Playwright; реальный Telegram WebView/Android — необязательное наблюдение владельца (plans/owner_live_checks.md), не гейт и не заявляется как проверенное."
   },
   {
    "source_id": "L00310",
@@ -2005,8 +2526,24 @@
    "acceptance": "[P0] Тесты: core.personality и core.personality.compact не содержат управляющих инструкций о мате и SOUL-* в model-facing тексте; семантика Full vs Compact согласована.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0bc_core_no_mat_regulation_no_soul_meta_full_and_compact и ::test_p0bc_full_compact_semantics_kept — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "ASAP-W1 test-run (candidate 0f3ed53a)",
+     "observation": "21 CONTRACT-тест §9.1 читает живой source-снапшот; Core Full/Compact без мат-регулирования и SOUL-*, семантика v3 сохранена.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Core Full/Compact чист от мат-инструкций и SOUL-*, семантика сохранена."
   },
   {
    "source_id": "L00315",
@@ -2020,8 +2557,24 @@
    "acceptance": "[P0] Тесты: verbalizer остался в каталоге, редактируется, ресетится к новой фабрике, реально используется в L2; собственной личности/мата/форматного правила, конкурирующего с типизированными слоями, нет.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0a_verbalizer_registered_editable_resettable_and_used_in_l2 и ::test_p0a_verbalizer_no_identity_no_mat_no_format_rules — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "ASAP-W1 test-run (candidate 0f3ed53a)",
+     "observation": "Вербализатор в каталоге, редактируется, ресетится к §3.1, реально используется L2; без личности/мата/форматных правил.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Вербализатор сохранён как рабочий редактируемый слой."
   },
   {
    "source_id": "L00316",
@@ -2035,8 +2588,24 @@
    "acceptance": "[P0] Тесты: prompts.direct_chat_system_prompt сохранил tool/context контракт и больше не переопределяет Core/Expression/Style.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0f_tool_phase_keeps_tool_context_contracts и ::test_p0f_tool_phase_does_not_override_core_expression_style — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "ASAP-W1 test-run (candidate 0f3ed53a)",
+     "observation": "Tool/context-контракты (UserResolutionMap, Current_Question, Conversation_Thread/Branch, Protected_Facts, chat_lore, capability policy) сохранены; ролевой блок §3.6 больше не переопределяет Core/Expression/Style.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Tool/context-контракт сохранён, конкурирующий ролевой блок снят."
   },
   {
    "source_id": "L00317",
@@ -2050,8 +2619,24 @@
    "acceptance": "[P0] Тесты: expression off/occasional/frequent читаются из правильного scope; каждый фактический provider request содержит ровно эффективную ветку, не все три.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0d_render_exactly_effective_branch_not_all_three и ::test_p0d_expression_header_footer_and_modes_byte_exact — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "ec359bb3265b46c40081dd60e0654bb8482131e1",
+     "type": "provider",
+     "ref": "W3 payload-level analysis (real provider calls, prod bytes)",
+     "observation": "В каждом режиме в собранном system ровно одна ветка Expression; system-sha различаются (off/occ/freq); L1/L2 модель и temperature не менялись; различия payload = ровно ветка Expression.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w3/analysis.md"
+    }
+   ],
+   "reconciliation_note": "Ровно эффективная ветка Expression доходит до модели (тест + реальные вызовы)."
   },
   {
    "source_id": "L00318",
@@ -2065,8 +2650,24 @@
    "acceptance": "[P0] Тесты: стилевые правила идут из Style Policy; конфликт «никаких кавычек» vs «только \"\"» устранён по эффективному scope.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0e_no_alternative_typography_rules_in_direct_canons и ::test_p0e_style_hint_composition_is_policy_only — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 matrix-p0f.md §2 (P0E-DEDUP)",
+     "observation": "Альтернативные правила «только дефис/только \"\"/запрет «»» сняты из Direct L2 и tool phase; честная пометка W0: в effective-payload конфликта не было, очистка превентивная; валидация/нормализация исходящих не тронуты.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/matrix-p0f.md"
+    }
+   ],
+   "reconciliation_note": "Конфликт типографики устранён на уровне владельца правила (Style Policy)."
   },
   {
    "source_id": "L00319",
@@ -2080,8 +2681,24 @@
    "acceptance": "[P0] Тесты: «Выражение владельца», SOUL-16, SOUL-02, owner_setting отсутствуют в system payload вне пользовательских данных (верификация REQ-NOMETA на всех каналах).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0bc_core_no_mat_regulation_no_soul_meta_full_and_compact и ::test_p0d_expression_header_footer_and_modes_byte_exact — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо подтвердило отсутствие «Выражение владельца», SOUL-16/SOUL-02, owner_setting в model-facing канонах.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Мета-утечки отсутствуют в model-facing payload."
   },
   {
    "source_id": "L00320",
@@ -2095,8 +2712,24 @@
    "acceptance": "[P0] Тесты: factory и active DB проверены отдельно с корректными SHA/revision; повторный deploy/restart не возвращает старый Core и L2.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_91_factory_and_active_revisions_distinguishable и ::test_91_ladder_prevents_old_canon_return_and_keeps_customs — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "SELECT active PG == новые фабрики, factory/active различимы по SHA/revision; повторный рестарт не вернул старый Core/L2.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Factory и active DB проверены раздельно; restart не возвращает старьё."
   },
   {
    "source_id": "L00321",
@@ -2110,8 +2743,24 @@
    "acceptance": "[P0] Тесты: кастомные тексты и per-chat overrides не потеряны; нулевое влияние на другие чаты.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_91_ladder_prevents_old_canon_return_and_keeps_customs — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "7 кастомов и per-chat overrides сохранены байт-в-байт (кроме осознанного tool_phase); другие чаты не затронуты.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Кастомы/per-chat не потеряны, влияние на другие чаты нулевое."
   },
   {
    "source_id": "L00322",
@@ -2126,7 +2775,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): Preview vs sent разделены и проверены (test_soul1_w6_speech_ui), но exact last request после адаптеров/fallback байт-в-байт не доказан: inspector отдаёт system_masked. Команда: pytest tests/test_soul1_w6_speech_ui.py::test_inspector_never_claims_preview_as_sent tests/test_soul1_w6_speech_ui.py::test_inspector_finds_runtime_shaped_turn_snapshot -q + проверка fallback-пути."
   },
   {
    "source_id": "L00323",
@@ -2140,8 +2790,17 @@
    "acceptance": "[P0] Тесты: ON/OFF composer parity для не затронутых системных путей без потери данных; старые каноны не подтягиваются скрытым fallback.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "W1 test-run: composer parity OFF + related suites",
+     "observation": "OFF-паритет сборки по новому дампу (test_soul1_composer_parity_off P1/P2/P3/P4/P5a/P5b) зелёный; старые каноны не подтягиваются скрытым fallback.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "ON/OFF parity и отсутствие скрытого fallback подтверждены."
   },
   {
    "source_id": "L00324",
@@ -2155,8 +2814,24 @@
    "acceptance": "[P0] Тесты: внутренние factcheck/planner JSON-процессы не загрязняются характером; финальные пользовательские тексты получают разрешённые слои, включая fallback.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap_w1_semantics.py::test_p0f_factcheck_verbalizer_identity_removed_genre_kept и ::test_91_composer_parity_machine_stages_clean — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "0f3ed53a50e6afe72d171ab299557cb2716fa018",
+     "type": "test",
+     "ref": "ASAP-W1 test-run (candidate 0f3ed53a)",
+     "observation": "Machine-стадии factcheck/planner собираются без character-слоёв; финальные пользовательские тексты получают разрешённые слои, fallback честный.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/test-run.md"
+    }
+   ],
+   "reconciliation_note": "Внутренние JSON-стадии чисты, финальные тексты — со слоями."
   },
   {
    "source_id": "L00326",
@@ -2201,7 +2876,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): I-01…I-07 требуют реальных initiative-прогонов; W3 дал только silent/react, текстовых ответов не было. Команда: harness как W3, стимулы I-01…I-07, фиксировать action/delivery/target/текст; 0 Telegram."
   },
   {
    "source_id": "L00335",
@@ -2215,8 +2891,24 @@
    "acceptance": "[P0] Ошибка доставки, отсутствующая цель или пересоздание сообщения не переводят ответ на другой адресат (тесты fail-closed доставки).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: tests/test_asap8_initreply_binding.py::test_case7_missing_target_failsoft_no_rebinding, ::test_case7b_stale_target_with_addressee_cancels, ::test_case7c_addressee_mismatch_no_rebinding, ::test_gone_target_* — 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "REV-REL-258111 independent reproduction on fbf9013d",
+     "observation": "Ревью независимо воспроизвело initreply 14p; transport never picks addressee.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/review-rel.md"
+    }
+   ],
+   "reconciliation_note": "Ошибки доставки/цели не переназначают адресата (fail-closed)."
   },
   {
    "source_id": "L00336",
@@ -2231,7 +2923,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Скриншоты/e2e desktop 1280/1440, Windows fullscreen, mobile 320/360/390/430, WebView 390, landscape — активный лейн W4-UI; evidence ещё нет."
   },
   {
    "source_id": "L00337",
@@ -2246,7 +2939,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Длинные русские фразы/code tokens/URL без обрезания во всех редакторах — активный W4-UI."
   },
   {
    "source_id": "L00338",
@@ -2261,7 +2955,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Клики/назад/dirty/save/conflict + сохранение после reload/нового процесса — активный W4-UI."
   },
   {
    "source_id": "L00339",
@@ -2276,7 +2971,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Полигональный фон/Liquid Glass/FPS/контраст — активный W4-UI; Playwright+perf после."
   },
   {
    "source_id": "L00341",
@@ -2305,8 +3001,17 @@
    "acceptance": "[P0] W0 read-only завершён артефактами: trace реальных прод-путей и источников, baseline DB/factory, reproduce на тестовом scope, карта конфликтов по фактическому LLM payload, список видимых UI-дефектов по скриншотам; сбор фактов не выдаётся за исправление.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "a8d2a45a1c4ee96b162c8b798b36b9b574d49ecd",
+     "type": "production",
+     "ref": "W0 evidence: trace + baseline DB/factory + conflict matrix",
+     "observation": "W0 read-only завершён: trace прод-путей/источников, baseline factory/active DB, карта конфликтов по фактическому payload, UI-дефекты по скриншотам; артефакт w0-inventory.md.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w0-inventory.md"
+    }
+   ],
+   "reconciliation_note": "W0 read-only артефакты на месте."
   },
   {
    "source_id": "L00344",
@@ -2555,7 +3260,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): W3 проверил только profanity-режимы; влияние wit/sharpness на речь наблюдаемо не подтверждено. Нужен harness-прогон с разными wit/sharpness при фиксированном profanity: различие регистра/резкости, Core-личность присутствует."
   },
   {
    "source_id": "L00390",
@@ -2665,8 +3371,24 @@
    "acceptance": "[P0] Готовые тексты §3 (ASAP-раздел) использованы как основа реализации; собственные примитивные пересказы подробных инструкций отсутствуют (сверка байт-равенства CANON-EXACT).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "test",
+     "ref": "PM-RECONCILE targeted run on detached worktree fbf9013d (23.10.2026)",
+     "observation": "На fbf9013d: 21 тест tests/test_asap_w1_semantics.py читает source-2026-10-22.md живым файлом и сверяет §3.1–3.7 байт-в-байт; 126 passed.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/reconciliation-2026-10-23.md"
+    },
+    {
+     "candidate_commit": "beb3f272b0fb0a0eed5281dc7f82615b0fcd5d35",
+     "type": "review",
+     "ref": "REV-ASAP-W1 byte-exact reproduction",
+     "observation": "Ревьюер независимо сверил §3.1–3.7 с константами; единственное отклонение §3.1 — разрешённая owner data-reader-строка P0A-RISK; примитивизации нет.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/review-w1.md"
+    }
+   ],
+   "reconciliation_note": "Готовые тексты §3 — основа реализации, байт-сверка живая."
   },
   {
    "source_id": "L00412",
@@ -2704,8 +3426,17 @@
    "acceptance": "[P0] Сохранены редактируемость, активные пользовательские редакции, история изменений и заводские версии; авторские изменения не перезаписаны без корректной миграции (сверка с P0B-OWNER/MIGR-ACTIVE).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "fbf9013d89b03e38473ce6824a460fdbb736fff8",
+     "type": "production",
+     "ref": "REL-258111 deploy + W2 FINAL_VERIFY_OK 14/14 (prod 2.58.111)",
+     "observation": "7 CFG07A-кастомов: 6 байт-в-байт неизменны, tool_phase погашен осознанно; per-chat overrides == пре-деплой снимку; другие чаты не затронуты.",
+     "artifact_path": "plans/features/asap-speech-arch/release-258111/deploy.md"
+    }
+   ],
+   "reconciliation_note": "Кастомы и per-chat редакции сохранены; нулевое влияние на другие чаты подтверждено снимком."
   },
   {
    "source_id": "L00414",
@@ -2719,8 +3450,17 @@
    "acceptance": "[P0] Reviewer-обязательство вошло в чек-листы ревью слайсов P0-A/P0-B/P0-C/P0-F: проверяется не только отсутствие конфликтов, но и сохранность выразительности, глубины и индивидуальности персонажа после рефакторинга; ревью-отчёты содержат явный вердикт по этому критерию.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "beb3f272b0fb0a0eed5281dc7f82615b0fcd5d35",
+     "type": "review",
+     "ref": "REV-ASAP-W1 §ДОП-2 п.4 / ДОП-1",
+     "observation": "В ревью есть явный вердикт по выразительности: семантические таблицы 7 поверхностей, каждый удалённый фрагмент с обоснованием; «примитивизации нет», якоря токсичности/цинизма/абсурда/непристойного юмора подтверждены лично.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/w1/review-w1.md"
+    }
+   ],
+   "reconciliation_note": "Reviewer-обязательство по выразительности выполнено с явным вердиктом."
   }
  ]
 }

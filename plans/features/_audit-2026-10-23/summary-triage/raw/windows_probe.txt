@@ -1,0 +1,217 @@
+DATE_UTC=2026-10-22T16:49:20Z
+===== W1 2026-10-19 19:11:00 .. 19:14:30 =====
+2026-10-19 19:11:02,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:07 +05)" (scheduled at 2026-10-20 00:11:02.675455+05:00)
+2026-10-19 19:11:02,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:07 +05)" executed successfully
+2026-10-19 19:11:07,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:12 +05)" (scheduled at 2026-10-20 00:11:07.675455+05:00)
+2026-10-19 19:11:07,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:12 +05)" executed successfully
+2026-10-19 19:11:12,679 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:17 +05)" (scheduled at 2026-10-20 00:11:12.675455+05:00)
+2026-10-19 19:11:12,683 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:17 +05)" executed successfully
+2026-10-19 19:11:17,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:22 +05)" (scheduled at 2026-10-20 00:11:17.675455+05:00)
+2026-10-19 19:11:17,681 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:22 +05)" executed successfully
+2026-10-19 19:11:22,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:27 +05)" (scheduled at 2026-10-20 00:11:22.675455+05:00)
+2026-10-19 19:11:22,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:27 +05)" executed successfully
+2026-10-19 19:11:27,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:32 +05)" (scheduled at 2026-10-20 00:11:27.675455+05:00)
+2026-10-19 19:11:27,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:32 +05)" executed successfully
+2026-10-19 19:11:32,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:37 +05)" (scheduled at 2026-10-20 00:11:32.675455+05:00)
+2026-10-19 19:11:32,677 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:37 +05)" executed successfully
+2026-10-19 19:11:33,949 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792437093 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-19 19:11:37,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:42 +05)" (scheduled at 2026-10-20 00:11:37.675455+05:00)
+2026-10-19 19:11:37,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:42 +05)" executed successfully
+2026-10-19 19:11:42,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:47 +05)" (scheduled at 2026-10-20 00:11:42.675455+05:00)
+2026-10-19 19:11:42,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:47 +05)" executed successfully
+2026-10-19 19:11:47,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:52 +05)" (scheduled at 2026-10-20 00:11:47.675455+05:00)
+2026-10-19 19:11:47,680 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:52 +05)" executed successfully
+2026-10-19 19:11:52,559 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-10-20 00:16:52 +05)" (scheduled at 2026-10-20 00:11:52.556427+05:00)
+2026-10-19 19:11:52,565 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-20 00:21:52 +05)" (scheduled at 2026-10-20 00:11:52.557787+05:00)
+2026-10-19 19:11:52,567 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-10-20 00:16:52 +05)" (scheduled at 2026-10-20 00:11:52.558345+05:00)
+2026-10-19 19:11:52,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:57 +05)" (scheduled at 2026-10-20 00:11:52.675455+05:00)
+2026-10-19 19:11:52,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:11:57 +05)" executed successfully
+2026-10-19 19:11:52,810 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-19 19:12:52 UTC)" (scheduled at 2026-10-19 19:11:52.807755+00:00)
+2026-10-19 19:11:52,834 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-19 19:12:52 UTC)" executed successfully
+2026-10-19 19:11:53,040 - services.memory_maintenance - INFO - [mca09] intent heartbeat tick ran | due=0 expired=0 archived=0
+2026-10-19 19:11:53,042 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+2026-10-19 19:11:53,044 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792437113 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+2026-10-19 19:11:53,059 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_intent_heartbeat (trigger: interval[0:05:00], next run at: 2026-10-20 00:16:52 +05)" executed successfully
+2026-10-19 19:11:53,062 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+2026-10-19 19:11:53,063 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792437113 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+2026-10-19 19:11:53,064 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-20 00:21:52 +05)" executed successfully
+2026-10-19 19:11:57,680 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:02 +05)" (scheduled at 2026-10-20 00:11:57.675455+05:00)
+2026-10-19 19:11:57,689 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:02 +05)" executed successfully
+2026-10-19 19:11:58,600 - services.mca_events - INFO - mca_event=initiative_observer_scan | ts=1792437118 | event_name=initiative_observer_scan | outcome=success | level=INFO | component=initiative | stage=observed
+2026-10-19 19:12:02,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:07 +05)" (scheduled at 2026-10-20 00:12:02.675455+05:00)
+2026-10-19 19:12:02,682 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:07 +05)" executed successfully
+2026-10-19 19:12:05,426 - services.memory_maintenance - INFO - [b01] initiative observer tick | status=completed observed=0 opportunities=0
+2026-10-19 19:12:05,427 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_initiative_observer (trigger: interval[0:05:00], next run at: 2026-10-20 00:16:52 +05)" executed successfully
+2026-10-19 19:12:07,678 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:12 +05)" (scheduled at 2026-10-20 00:12:07.675455+05:00)
+2026-10-19 19:12:07,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:12 +05)" executed successfully
+2026-10-19 19:12:12,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:17 +05)" (scheduled at 2026-10-20 00:12:12.675455+05:00)
+2026-10-19 19:12:12,677 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:17 +05)" executed successfully
+2026-10-19 19:12:17,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:22 +05)" (scheduled at 2026-10-20 00:12:17.675455+05:00)
+2026-10-19 19:12:17,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:22 +05)" executed successfully
+2026-10-19 19:12:22,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:27 +05)" (scheduled at 2026-10-20 00:12:22.675455+05:00)
+2026-10-19 19:12:22,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:27 +05)" executed successfully
+2026-10-19 19:12:27,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:32 +05)" (scheduled at 2026-10-20 00:12:27.675455+05:00)
+2026-10-19 19:12:27,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:32 +05)" executed successfully
+2026-10-19 19:12:32,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:37 +05)" (scheduled at 2026-10-20 00:12:32.675455+05:00)
+2026-10-19 19:12:32,678 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:37 +05)" executed successfully
+2026-10-19 19:12:33,301 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=224518 | in=88688 chars | out=14735 chars
+2026-10-19 19:12:33,302 - services.llm_client - INFO - LLM usage in=30635 out=3221
+2026-10-19 19:12:33,303 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=8374
+2026-10-19 19:12:33,410 - services.summary_l2_writer - INFO - L2_COMPLETE | run_id=b61e74b53c034f7c83b8d4e891a399a3 | chat_id=-1002661910336 | provider=nano-gpt.com | model=deepseek/deepseek-v4.1-flash | tokens_in=26309 | tokens_out=2919 | chars=5698 | paragraphs=10 | title_len=90 | quote_unverified=6 | ids_stripped=0 | quotes_total=6 | quotes_verified=0 | quotes_repaired=6 | quotes_removed=0 | emphasis_spans=36 | emphasis_dropped=1 | finale_present=1 | status=ok | invalid_reason=- | duration_ms=224698
+2026-10-19 19:12:33,970 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792437153 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-19 19:12:37,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:42 +05)" (scheduled at 2026-10-20 00:12:37.675455+05:00)
+2026-10-19 19:12:37,677 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:42 +05)" executed successfully
+2026-10-19 19:12:42,676 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:47 +05)" (scheduled at 2026-10-20 00:12:42.675455+05:00)
+2026-10-19 19:12:42,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:47 +05)" executed successfully
+2026-10-19 19:12:47,209 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=13739 | in=118163 chars | out=7474 chars
+2026-10-19 19:12:47,211 - services.llm_client - INFO - LLM usage in=40614 out=1640
+2026-10-19 19:12:47,212 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=4228
+2026-10-19 19:12:47,677 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:52 +05)" (scheduled at 2026-10-20 00:12:47.675455+05:00)
+2026-10-19 19:12:47,679 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:52 +05)" executed successfully
+2026-10-19 19:12:49,955 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=2700 | in=3416 chars | out=1751 chars
+2026-10-19 19:12:49,957 - services.llm_client - INFO - LLM usage in=1140 out=173
+2026-10-19 19:12:49,958 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=444
+2026-10-19 19:12:49,972 - services.mca_events - INFO - mca_event=SUMMARY_REVISION_RESULT | ts=1792437169 | event_name=SUMMARY_REVISION_RESULT | outcome=success | level=INFO | component=summary | stage=l2_review | status=ok | chat_id=-1002661910336 | attempt=1 | usage_json={"repair_target": "targeted"} | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary
+2026-10-19 19:12:52,678 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:57 +05)" (scheduled at 2026-10-20 00:12:52.675455+05:00)
+2026-10-19 19:12:52,682 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-20 00:12:57 +05)" executed successfully
+2026-10-19 19:12:52,808 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-19 19:13:52 UTC)" (scheduled at 2026-10-19 19:12:52.807755+00:00)
+2026-10-19 19:12:52,821 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-19 19:13:52 UTC)" executed successfully
+2026-10-19 19:12:52,878 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=2851 | in=117913 chars | out=1087 chars
+2026-10-19 19:12:52,879 - services.llm_client - INFO - LLM usage in=40514 out=13
+2026-10-19 19:12:52,880 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=38
+2026-10-19 19:12:52,892 - services.summary_l2_review - INFO - L2_REVIEW | run_id=b61e74b53c034f7c83b8d4e891a399a3 | chat_id=-1002661910336 | status=approved | first_pass_approved=0 | findings_total=11 | revision_count=1 | revision_fixed=11 | revision_new=0 | final_approved=1 | legacy_after_review=0 | review_calls=2 | revision_calls=1 | degraded=0 | dropped_findings=0 | reason=-
+2026-10-19 19:12:52,894 - services.mca_events - INFO - mca_event=SUMMARY_L2_STAGE | ts=1792437172 | event_name=SUMMARY_L2_STAGE | outcome=success | level=INFO | component=summary | stage=l2 | status=ok | chat_id=-1002661910336 | duration_ms=244181 | usage_json={"output_count": 10} | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary
+2026-10-19 19:12:52,904 - services.mca_events - INFO - mca_event=SUMMARY_TEXT_READY | ts=1792437172 | event_name=SUMMARY_TEXT_READY | outcome=success | level=INFO | component=summary | stage=l2 | chat_id=-1002661910336 | usage_json={"text_ready": 1} | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary
+2026-10-19 19:12:52,929 - services.cover_style_jobs - INFO - COVER_ANOMALY | status=anomaly_recovered | chat_id=-1002661910336
+2026-10-19 19:12:52,930 - services.mca_events - INFO - mca_event=COVER_ANOMALY | ts=1792437172 | event_name=COVER_ANOMALY | outcome=success | level=INFO | component=cover | stage=anomaly_recovered | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary.cover
+2026-10-19 19:12:52,933 - services.mca_events - INFO - mca_event=SUMMARY_PUBLISH | ts=1792437172 | event_name=SUMMARY_PUBLISH | outcome=start | level=INFO | component=publish | chat_id=-1002661910336 | stage=publish
+2026-10-19 19:12:52,936 - services.cover_style_jobs - INFO - COVER_PIPELINE_START | status=start | chat_id=-1002661910336
+2026-10-19 19:12:52,937 - services.mca_events - INFO - mca_event=COVER_PIPELINE_START | ts=1792437172 | event_name=COVER_PIPELINE_START | outcome=start | level=INFO | component=cover | stage=start | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary.cover
+2026-10-19 19:12:53,000 - services.cover_style_jobs - INFO - COVER_STYLE_SELECTION | style_id=medved_press | style_revision=7 | selection_source=chat | enabled=True | pipeline_mode=generate_then_edit | status=start | chat_id=-1002661910336
+2026-10-19 19:12:53,003 - services.mca_events - INFO - mca_event=COVER_STYLE_SELECTION | ts=1792437173 | event_name=COVER_STYLE_SELECTION | outcome=start | level=INFO | component=cover | stage=start | usage_json={"style_id": "medved_press", "style_revision": 7, "selection_source": "chat", "enabled": true, "pipeline_mode": "generate_then_edit"} | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary.cover
+2026-10-19 19:12:53,991 - services.cover_style_jobs - INFO - COVER_LIMIT_UNKNOWN | status=limit_unknown | chat_id=-1002661910336
+===== W2 2026-10-20 19:07:30 .. 19:11:00 =====
+2026-10-20 19:07:31,553 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792523251 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-20 19:07:34,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:39 +05)" (scheduled at 2026-10-21 00:07:34.439333+05:00)
+2026-10-20 19:07:34,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:39 +05)" executed successfully
+2026-10-20 19:07:39,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:44 +05)" (scheduled at 2026-10-21 00:07:39.439333+05:00)
+2026-10-20 19:07:39,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:44 +05)" executed successfully
+2026-10-20 19:07:44,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:49 +05)" (scheduled at 2026-10-21 00:07:44.439333+05:00)
+2026-10-20 19:07:44,444 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:49 +05)" executed successfully
+2026-10-20 19:07:49,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:54 +05)" (scheduled at 2026-10-21 00:07:49.439333+05:00)
+2026-10-20 19:07:49,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:54 +05)" executed successfully
+2026-10-20 19:07:50,862 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=23560 | in=13921 chars | out=21124 chars
+2026-10-20 19:07:50,863 - services.llm_client - INFO - LLM usage in=5017 out=4063
+2026-10-20 19:07:50,864 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=11179
+2026-10-20 19:07:54,442 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:59 +05)" (scheduled at 2026-10-21 00:07:54.439333+05:00)
+2026-10-20 19:07:54,445 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:07:59 +05)" executed successfully
+2026-10-20 19:07:59,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:04 +05)" (scheduled at 2026-10-21 00:07:59.439333+05:00)
+2026-10-20 19:07:59,442 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:04 +05)" executed successfully
+2026-10-20 19:07:59,634 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-20 19:08:59 UTC)" (scheduled at 2026-10-20 19:07:59.633116+00:00)
+2026-10-20 19:07:59,639 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-20 19:08:59 UTC)" executed successfully
+2026-10-20 19:08:04,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:09 +05)" (scheduled at 2026-10-21 00:08:04.439333+05:00)
+2026-10-20 19:08:04,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:09 +05)" executed successfully
+2026-10-20 19:08:09,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:14 +05)" (scheduled at 2026-10-21 00:08:09.439333+05:00)
+2026-10-20 19:08:09,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:14 +05)" executed successfully
+2026-10-20 19:08:12,761 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=21741 | in=14071 chars | out=21612 chars
+2026-10-20 19:08:12,762 - services.llm_client - INFO - LLM usage in=5048 out=4045
+2026-10-20 19:08:12,764 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=11417
+2026-10-20 19:08:14,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:19 +05)" (scheduled at 2026-10-21 00:08:14.439333+05:00)
+2026-10-20 19:08:14,442 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:19 +05)" executed successfully
+2026-10-20 19:08:19,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:24 +05)" (scheduled at 2026-10-21 00:08:19.439333+05:00)
+2026-10-20 19:08:19,441 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:24 +05)" executed successfully
+2026-10-20 19:08:24,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:29 +05)" (scheduled at 2026-10-21 00:08:24.439333+05:00)
+2026-10-20 19:08:24,442 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:29 +05)" executed successfully
+2026-10-20 19:08:27,996 - services.llm_client - INFO - LLM request OK | url=https://nano-gpt.com/api/v1/chat/completions | status=200 | latency_ms=15126 | in=14071 chars | out=16418 chars
+2026-10-20 19:08:27,998 - services.llm_client - INFO - LLM usage in=5048 out=3114
+2026-10-20 19:08:28,000 - services.llm_client - INFO - LLM generate OK | model=deepseek/deepseek-v4.1-flash | out_chars=8448
+2026-10-20 19:08:28,095 - services.summary_generator - INFO - summary system2 narrator | chat_id=-1002661910336 | mode=casual | channel=rich | attempts=3 | retries=2 | hits=0 | fallback=False
+2026-10-20 19:08:28,100 - services.mca_events - INFO - mca_event=SUMMARY_TEXT_READY | ts=1792523308 | event_name=SUMMARY_TEXT_READY | outcome=success | level=INFO | component=summary | stage=legacy | chat_id=-1002661910336 | usage_json={"text_ready": 1} | pipeline_run_id=cff5c18e4e174010837f61a64404a548 | pipeline_type=summary
+2026-10-20 19:08:28,104 - services.mca_events - INFO - mca_event=SUMMARY_PUBLISH | ts=1792523308 | event_name=SUMMARY_PUBLISH | outcome=start | level=INFO | component=publish | chat_id=-1002661910336 | stage=publish
+2026-10-20 19:08:28,105 - services.cover_style_jobs - INFO - COVER_PIPELINE_START | status=start | chat_id=-1002661910336
+2026-10-20 19:08:28,107 - services.mca_events - INFO - mca_event=COVER_PIPELINE_START | ts=1792523308 | event_name=COVER_PIPELINE_START | outcome=start | level=INFO | component=cover | stage=start | pipeline_run_id=cff5c18e4e174010837f61a64404a548 | pipeline_type=summary.cover
+2026-10-20 19:08:28,154 - services.cover_style_jobs - INFO - COVER_STYLE_SELECTION | style_id=medved_press | style_revision=7 | selection_source=chat | enabled=True | pipeline_mode=generate_then_edit | status=start | chat_id=-1002661910336
+2026-10-20 19:08:28,155 - services.mca_events - INFO - mca_event=COVER_STYLE_SELECTION | ts=1792523308 | event_name=COVER_STYLE_SELECTION | outcome=start | level=INFO | component=cover | stage=start | usage_json={"style_id": "medved_press", "style_revision": 7, "selection_source": "chat", "enabled": true, "pipeline_mode": "generate_then_edit"} | pipeline_run_id=cff5c18e4e174010837f61a64404a548 | pipeline_type=summary.cover
+2026-10-20 19:08:29,165 - services.cover_style_jobs - INFO - COVER_LIMIT_UNKNOWN | status=limit_unknown | chat_id=-1002661910336
+2026-10-20 19:08:29,167 - services.mca_events - INFO - mca_event=COVER_LIMIT_UNKNOWN | ts=1792523309 | event_name=COVER_LIMIT_UNKNOWN | outcome=start | level=INFO | component=cover | stage=limit_unknown | pipeline_run_id=cff5c18e4e174010837f61a64404a548 | pipeline_type=summary.cover
+2026-10-20 19:08:29,170 - services.summary_generator - INFO - summary cover: prompt composed | style_present=True | style_len=110 | visual_len=195 | context_len=397 | final_len=704 | style_is_default=False | has_comic=True | has_heading=True | prompt_limit=unknown | limit_source=assembly_cap | chat_id=-1002661910336
+2026-10-20 19:08:29,171 - services.summary_run_log - INFO - COVER_START | run_id=cff5c18e4e174010837f61a64404a548 | chat_id=-1002661910336 | provider=nano-gpt.com
+2026-10-20 19:08:29,207 - services.mca_events - INFO - mca_event=MEDIA_JOB_SUBMITTED | ts=1792523309 | event_name=MEDIA_JOB_SUBMITTED | outcome=start | level=INFO | component=media_execution | provider=nanogpt | model=qwen-image-3-pro | chat_id=-1002661910336
+2026-10-20 19:08:29,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:34 +05)" (scheduled at 2026-10-21 00:08:29.439333+05:00)
+2026-10-20 19:08:29,442 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:34 +05)" executed successfully
+2026-10-20 19:08:31,573 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792523311 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-20 19:08:34,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:39 +05)" (scheduled at 2026-10-21 00:08:34.439333+05:00)
+2026-10-20 19:08:34,445 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:39 +05)" executed successfully
+2026-10-20 19:08:39,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:44 +05)" (scheduled at 2026-10-21 00:08:39.439333+05:00)
+2026-10-20 19:08:39,441 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:44 +05)" executed successfully
+2026-10-20 19:08:44,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:49 +05)" (scheduled at 2026-10-21 00:08:44.439333+05:00)
+2026-10-20 19:08:44,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:49 +05)" executed successfully
+2026-10-20 19:08:49,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:54 +05)" (scheduled at 2026-10-21 00:08:49.439333+05:00)
+2026-10-20 19:08:49,441 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:54 +05)" executed successfully
+2026-10-20 19:08:54,442 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:59 +05)" (scheduled at 2026-10-21 00:08:54.439333+05:00)
+2026-10-20 19:08:54,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:08:59 +05)" executed successfully
+2026-10-20 19:08:59,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:04 +05)" (scheduled at 2026-10-21 00:08:59.439333+05:00)
+2026-10-20 19:08:59,441 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:04 +05)" executed successfully
+2026-10-20 19:08:59,634 - apscheduler.executors.default - INFO - Running job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-20 19:09:59 UTC)" (scheduled at 2026-10-20 19:08:59.633116+00:00)
+2026-10-20 19:08:59,642 - apscheduler.executors.default - INFO - Job "UptimeHeartbeatService._heartbeat (trigger: interval[0:01:00], next run at: 2026-10-20 19:09:59 UTC)" executed successfully
+2026-10-20 19:09:04,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:09 +05)" (scheduled at 2026-10-21 00:09:04.439333+05:00)
+2026-10-20 19:09:04,444 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:09 +05)" executed successfully
+2026-10-20 19:09:09,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:14 +05)" (scheduled at 2026-10-21 00:09:09.439333+05:00)
+2026-10-20 19:09:09,442 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:14 +05)" executed successfully
+2026-10-20 19:09:14,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:19 +05)" (scheduled at 2026-10-21 00:09:14.439333+05:00)
+2026-10-20 19:09:14,444 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:19 +05)" executed successfully
+2026-10-20 19:09:19,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:24 +05)" (scheduled at 2026-10-21 00:09:19.439333+05:00)
+2026-10-20 19:09:19,443 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:24 +05)" executed successfully
+2026-10-20 19:09:24,440 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:29 +05)" (scheduled at 2026-10-21 00:09:24.439333+05:00)
+2026-10-20 19:09:24,442 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:29 +05)" executed successfully
+2026-10-20 19:09:29,441 - apscheduler.executors.default - INFO - Running job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:34 +05)" (scheduled at 2026-10-21 00:09:29.439333+05:00)
+2026-10-20 19:09:29,444 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-21 00:09:34 +05)" executed successfully
+2026-10-20 19:09:31,597 - services.mca_events - INFO - mca_event=WATCHDOG_SWEEP | ts=1792523371 | event_name=WATCHDOG_SWEEP | outcome=success | level=INFO | component=watchdog | stage=sweep
+2026-10-20 19:09:32,412 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792523372 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1002661910336 | message_id=1168371 | duration_ms=15
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-20 19:09:33,793 - web.app - INFO - [webapp] lifespan finished
+2026-10-20 19:09:33,799 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-20 19:09:33,799 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-20 19:09:33,806 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=cff5c18e4e174010837f61a64404a548 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=570656 | source_count=460 | threads=14 | paragraphs=- | cover_status=- | code=- | fallback=none | coverage=0.0 | publication_status=- | health=degraded | package_grade=semantic
+2026-10-20 19:09:33,808 - services.mca_events - INFO - mca_event=SUMMARY_RUN_DONE | ts=1792523373 | event_name=SUMMARY_RUN_DONE | outcome=success | level=INFO | component=summary | stage=done | status=degraded | chat_id=-1002661910336 | duration_ms=570657 | usage_json={"coverage": 0.0, "source_total": 460, "source_considered": 0, "fallback": "none", "package_grade": "semantic", "pipeline_health": "degraded"} | pipeline_run_id=cff5c18e4e174010837f61a64404a548 | pipeline_type=summary
+2026-10-20 19:09:33,814 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+2026-10-20 19:09:33,818 - aiogram.dispatcher - INFO - Polling stopped
+2026-10-20 19:09:33,874 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-21 06:00:00 +05)" raised an exception
+Traceback (most recent call last):
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+===== W3 restart markers 10-18..10-23 =====
+2026-10-20T21:00:24+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-20T21:00:38+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-20T21:00:38+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-21T08:32:15+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-21T08:32:26+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-21T08:32:26+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-21T10:35:33+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-21T10:35:41+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-21T10:35:41+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-21T14:35:51+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-21T14:36:01+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-21T14:36:02+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-21T18:20:08+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-21T18:20:19+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-21T18:20:19+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-21T19:59:11+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-21T19:59:23+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-21T19:59:23+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-22T06:20:01+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-22T06:20:47+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-22T06:20:47+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-22T07:26:20+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-22T07:26:29+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-22T07:26:29+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-22T08:08:07+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-22T08:08:39+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-22T08:08:39+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+2026-10-22T13:14:20+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-22T13:14:31+00:00 racknerd-f4e3456 systemd[1]: admin_bot.service: Deactivated successfully.
+2026-10-22T13:14:31+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.
+===== DONE =====
+
+===STDERR===

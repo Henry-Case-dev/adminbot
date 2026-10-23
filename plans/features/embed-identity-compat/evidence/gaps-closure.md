@@ -1,160 +1,131 @@
-# EMBED-IDENTITY-COMPAT — закрытие трёх PENDING (IDENT-02, CANARY-03, DEC-09)
+# EMBED-IDENTITY-COMPAT — закрытие 3 PENDING (IDENT-02 / CANARY-03 / DEC-09)
 
-Дата: 23.10.2026. Лейн `EMBED-IDENTITY-GAPS2`.
-Ветка: `fix/embed-gaps`, worktree `C:\Code\Python\adminbot-wt-gaps`, база `22cc3c14` (master).
-Основной чекаут не тронут. Пуш/merge не выполнялись.
+**Лейн:** `EMBED-IDENTITY-GAPS` (writer).
+**Дата:** 2026-10-23.
+**Код-кандидат:** `__CODE_SHA__` (коммит этим лейном).
+**Карта требований:** не менялась (владелец карты — PM); статусы `PENDING` снял бы PM после ревью.
+**ΔDDL = 0:** `services/database.py` не изменялся; новых таблиц/колонок/миграций нет.
 
-## Что изменено
+## Что сделано
 
-### 1. IDENT-02 — MSI по каждому полю identity (только тесты)
+### 1. IDENT-02 — MSI чувствителен к каждому полю identity (source L13)
 
-`tests/test_embed_identity_compat.py`:
+Требование: identity = модель, доступная ревизия/версия, размерность, режим,
+нормализация и параметры препроцессинга. Ранее были покрыты только `model`/`dims`.
 
-- `test_ident_02_msi_changes_with_every_identity_field` (L861) — поочерёдная
-  замена `model`, `revision`, `dimension`, `task_mode`, `normalization`,
-  `preprocessing_version`, `material_params` даёт ДРУГОЙ
-  `model_space_identity()` (sha256[:16]).
-- `test_ident_02_msi_stable_for_equal_values_and_param_order` (L882) —
-  одинаковые значения дают одинаковый MSI: порядок ключей
-  `material_params`, `revision=None` ≡ `revision=""`, явные значения
-  по умолчанию (`task_mode`/`normalization`/текущий
-  `preprocessing_version`/пустые `material_params`) совпадают с дефолтным
-  вызовом.
+Добавлены unit-тесты (`tests/test_embed_identity_compat.py`):
 
-Код MSI (`services/embedding_control_plane.py::model_space_identity`, L2495)
-не менялся — он уже включал все поля; добавлено покрытие, а не поведение.
+| Тест | Что доказывает | Строка |
+|---|---|---|
+| `test_msi_changes_with_every_identity_field` | поочерёдное изменение `model` / `revision` / `dimension` / `task_mode` / `normalization` / `preprocessing_version` / значения и ключа `material_params` даёт ДРУГОЙ 16-hex MSI; разные поля не схлопываются в один digest | `tests/test_embed_identity_compat.py:898` |
+| `test_msi_same_values_same_digest_regardless_of_format` | одинаковые значения → одинаковый MSI; порядок `material_params`, пробелы, `str/int` не дают ложных различий; вызов детерминирован | `:926` |
+| `test_msi_default_preprocessing_version_is_factual` | `preprocessing_version=None` резолвится в ФАКТИЧЕСКУЮ версию (`summary_memory.EMBEDDING_PREPROCESSING_VERSION`), смена версии меняет MSI | `:942` |
 
-### 2. CANARY-03 — фактические метаданные ответа провайдера
+Мутационная проверка: при удалении `revision` из payload `model_space_identity`
+(`services/embedding_control_plane.py:2537`) тест падает с
+`AssertionError: поле revision не влияет на MSI`. Код возвращён, дерево чистое.
 
-`services/embedding_control_plane.py`:
+### 2. CANARY-03 — проба фиксирует фактические model/revision/params (source L28)
 
-- `_split_probe_response` (L2947) — эмбеддер (`embed_fn`) или `llm`
-  (`last_embed_meta`) может вернуть `{"vectors", "model", "revision",
-  "params", "dims"}`; legacy список векторов трактуется как «метаданные
-  недоступны», а не как ошибка.
-- `_normalized_model_name` (L2977) — сравнение имён без регистра/пробелов/
-  префикса `models/`.
-- `_probe_metadata_block` (L2985) — фактическая `model` из ответа,
-  `model_expected` (конфиг), `revision`/`params` + флаги известности,
-  `declared_dims` против физических `dims`.
-- `_probe_metadata_reason` (L3012) — `revision_unknown` / `params_unknown`
-  как ИНФОРМАЦИОННЫЙ код при `verdict=compatible` (не `insufficient`).
-- `_compat_probe_once` (L3025): метаданные пишутся в `out["metadata"]`
-  (L3083); явное несовпадение фактической `model` с заявленной →
-  `incompatible` / `model_mismatch` ДО числовых метрик (L3086-3091);
-  заявленная размерность ≠ физической → `incompatible` / `dim_mismatch`
-  (L3092-3095); compatible сохраняет информационный код (L3143).
-- `compat_probe` (L3150): подтверждающий повтор полосы также сохраняет
-  информационный код метаданных (L3191), а не обнуляет его.
-- `ensure_index_compat` (L3635): блок `compat["canary"]["metadata"]`
-  (L3712) — фактическая model/revision/params едут вместе с вердиктом.
+Требование: сверить фактическую размерность, модель, доступную информацию о
+версии и параметры генерации. Решение владельца (в brief): метаданные
+фиксируются там, где доступны; **решает** сравнение старых векторов + KNN-hit.
+
+Реализация (`services/embedding_control_plane.py`):
+
+* `MODEL_SOURCE_RESPONSE|REQUEST|UNKNOWN`, `META_AVAILABLE`,
+  `META_MODEL_UNKNOWN`, `META_REVISION_UNKNOWN`, `META_PARAMS_UNKNOWN`,
+  process-канал `_LAST_EMBED_META` (ContextVar) — `:2468-2490`.
+* Фактическая модель реально выбранного слота записывается в
+  `EmbeddingExecutor.embed` после успешного батча (fallback-слот может быть
+  настроен на другую модель — это и есть фактическая генерация, а не конфиг):
+  `:1373`.
+* `_split_embed_result` — embed-функция может вернуть `(vectors, meta)` (ответ
+  провайдера/адаптера) либо прежний `list` (метаданных нет): `:2812`.
+* `_generation_metadata` / `_apply_metadata` — R17-safe блок
+  `{model, model_source, model_status, revision, revision_status, params,
+  params_status}` в вердикте пробы (вложенно + плоские поля): `:2828`, `:2859`.
+* `_normalized_model` — `models/gemini-…` и `gemini-…` не дают ложного mismatch;
+  регистр/пробелы нормализуются: `:2821`.
+* `_compat_probe_once(expected_model=…)`: порядок решений — `dims` mismatch →
+  `incompatible/dim_mismatch`; **явное несовпадение фактической модели →
+  `incompatible/model_mismatch`** (даже при численно совпавших векторах);
+  недоступные revision/params — только фиксация `*_unknown`: `:3040-3118`.
+* `compat_probe(expected_model=…)` — проброс в оба прогона; mismatch во втором
+  прогоне не деградирует в `insufficient`, а остаётся `incompatible`: `:3174`.
+* `ensure_index_compat` — ожидаемая модель берётся из candidate-строки
+  (провенанс live-векторов), а метаданные попадают в `canary` (`metadata`,
+  `dims`): `:3738`, `:3751`.
+* `_admission_canary` — durable-допуск `adopt1:…` (frozen формат §6) не хранит
+  метаданные, поэтому панель честно получает `*_unknown`, а не выдуманное
+  «совпало»: `:2868`.
 
 Тесты (`tests/test_embed_identity_compat.py`):
 
-- `test_canary_03_probe_records_actual_metadata` (L922) — `model` берётся
-  из ответа (`" Models/gemini-embedding-001 "`), `revision=2026-09-01`,
-  `params`, `declared_dims`/`dims`; `reason_code=""`; adopt отдаёт
-  `canary.metadata`.
-- `test_canary_03_explicit_model_mismatch_is_incompatible` (L960) — векторы
-  совпадают (space-a), но фактическая `model=text-embedding-004` →
-  `incompatible`/`model_mismatch`, активного поколения нет, live-векторы
-  целы.
-- `test_canary_03_missing_revision_or_params_not_insufficient` (L987) —
-  нет revision → `revision_unknown`; revision есть, params нет →
-  `params_unknown`; оба случая `verdict=compatible` и adopt проходит
-  (`config_revision=adopt1:...`), т.е. НЕ `insufficient`.
-
-### 3. DEC-09 — откат допуска (только тест)
-
-`tests/test_embed_identity_compat.py`:
-`test_dec_09_rollback_after_adopt_keeps_data_and_is_reversible` (L1025):
-
-1. adopt (`state=compatible`, `config_revision=adopt1:...`,
-   `_vec_write_allowed=True`);
-2. откат строки поколения: `status='building'`, `config_revision=NULL`;
-3. `_index_generation_ok=False` (vec-поиск закрыт), `_vec_write_allowed=False`;
-4. `graph_facts_vec` и `graph_facts` — те же количества;
-5. FTS-путь отдаёт непустую выдачу (`search_graph_facts_fts`, chat 101);
-6. повторный adopt восстанавливает `active` + `adopt1:...`,
-   `_index_generation_ok=True`, `_vec_write_allowed=True`, счётчики те же.
-
-`services/graphrag_rebuild.py` НЕ менялся: DEC-09 закрывается существующим
-откатом реестра (UPDATE статуса/revision) + резолвером.
-
-## Прогоны (точечные, `-q -x`, без сети/e2e)
-
-`pytest-timeout` в окружении отсутствует (`ModuleNotFoundError`), поэтому
-`--timeout` не добавлялся; каждая команда ограничена внешним лимитом 180 с.
-
-| Файл | Результат | Время |
+| Тест | Что доказывает | Строка |
 |---|---|---|
-| `tests/test_embed_identity_compat.py` | **26 passed** (было 20; +6) | 21.1 с первый прогон; 5.2 с повтор на `69da031c` |
-| `tests/test_embed_identity_compat_restart_legacy.py` | **9 passed** | 3.6 с; 3.5 с повтор на `69da031c` |
+| `test_canary03_response_model_mismatch_is_incompatible` | провайдер вернул `text-embedding-004` при заявленной `gemini-embedding-001`: `incompatible/model_mismatch`, `model_source='response'`, adopt нет, `hit5=None` (численное сравнение не подменяет доказательство), запускается штатная миграция | `:970` |
+| `test_canary03_unknown_revision_params_do_not_block_compatible` | модель есть, `revision`/`params` недоступны → `revision_unknown`/`params_unknown`, вердикт `compatible`, adopt работает (сценарий смены шлюза не блокируется) | `:1003` |
+| `test_canary03_available_metadata_is_recorded` | доступные `revision`/`params` записываются как есть; `models/gemini-…` — та же модель | `:1036` |
+| `test_canary03_all_metadata_unknown_with_weak_vectors_is_insufficient` | все метаданные недоступны + слабая векторная проверка (полоса/повтор не подтвердил) → `insufficient`, vec-запись закрыта, данные целы | `:1061` |
+| `test_canary03_control_plane_records_actual_routed_model` | request-level канал: `EmbeddingExecutor` с fake `LLMClient.embed_once`; модель фактического credential’а попадает в вердикт (`model_source='request'`); credential на другой модели → `incompatible/model_mismatch` | `:1087` |
 
-`test_graphrag_identity_reindex.py` не запускался: `services/graphrag_rebuild.py`
-не изменялся.
+Мутационная проверка: при отключении проверки модели
+(`services/embedding_control_plane.py:3110-3117`) падают
+`test_canary03_response_model_mismatch_is_incompatible` и
+`test_canary03_control_plane_records_actual_routed_model` (2 failed). Код
+возвращён.
 
-## Доказательство по пунктам карты
+### 3. DEC-09 — откат допуска обратим, данные целы (source L54)
 
-- IDENT-02: покрыты все MSI-поля (`revision/task_mode/normalization/
-  preprocessing/material_params` + уже бывшие model/dims), тесты L861/L882.
-- CANARY-03: проба возвращает фактические model/revision/params; явное
-  расхождение model и dims → `incompatible`; отсутствие revision/params →
-  `revision_unknown`/`params_unknown` при `compatible`, не `insufficient`
-  (тесты L922/L960/L987).
-- DEC-09: откат допуска не теряет векторы/факты, vec закрыт, FTS работает,
-  повторный adopt успешен (тест L1025).
+Добавлен тест `test_dec09_admission_rollback_keeps_index_and_facts`
+(`tests/test_embed_identity_compat.py:1164`), фикстура с настоящим FTS —
+`_seed_with_fts` (`:1136`), реальные SQLite + sqlite-vec, мок только HTTP-embed.
 
-## Дополнение 4 (лейн EMBED-META-WIRE): фактическая модель реально доезжает до пробы
+Сценарий (документированная процедура отката — две колонки):
 
-Проблема: `_split_probe_response` читал только `llm.last_embed_meta`, но этого
-атрибута никто не заполнял, а продакшн-вызов пробы (`summary_memory`,
-`graphrag_rebuild`) передаёт `embed_fn` (bound-метод модуля памяти с общим
-`LLMClient`), не `llm`. Итог — `model_known=False` в проде при живом ответе
-провайдера.
+1. adopt при смене шлюза → `compatible`, `_vec_write_allowed=True`,
+   `_index_generation_ok=True`, FTS непустой.
+2. `UPDATE … SET status='building', config_revision=NULL WHERE status='active'`.
+3. Наблюдения: ACTIVE нет; `resolve_index_compat → insufficient/compat_not_proven`,
+   `serviceable=False`; `_index_generation_ok=False`;
+   `_vec_write_allowed=False` (vec закрыт, FTS-only); авто-rebuild не стартует
+   (`_find_active_job is None`, `ensure_current_generation is None`).
+4. Целостность: снимок `graph_facts_vec` (`rowid/fact_id/chat_id/embedding`)
+   побайтно равен, `graph_facts` = 20, поколение одно;
+   `search_graph_facts_fts` возвращает непустую выдачу.
+5. Обратимость: повторный `ensure_index_compat` → `compatible`, ACTIVE снова с
+   `adopt1:…`, `_vec_write_allowed=True`, новых поколений нет, векторы те же.
 
-Изменено (аддитивно, публичные контракты не тронуты):
+## Прогоны (Windows, локальный `.venv`, Python 3.12.0, pytest 9.1.1)
 
-- `services/llm_client.py`: новый модульный хелпер `_embed_response_meta(data,
-  vectors)` + `_EMPTY_EMBED_META`; `LLMClient.__init__` заводит
-  `self.last_embed_meta`; `embed()` и `embed_once()` заполняют его после
-  успешного разбора ответа. Состав: `{"model", "revision", "params", "dims"}`.
-  `model` берётся ТОЛЬКО из тела ответа (`/embeddings` → `model`), не из
-  конфига; нет поля → `None`. Возвращаемое значение `embed()`/`embed_once()`
-  осталось `list[list[float]]` — метаданные это побочный канал.
-- `services/embedding_control_plane.py`: `_probe_meta_owner(embed_fn, llm)` —
-  ищет `last_embed_meta` у владельца callable (`__self__`) и у его `llm`,
-  явный `llm` — последний кандидат (при наличии `embed_fn` его мета относится
-  именно к вызову пробы); `_split_probe_response(raw, llm, embed_fn=...)`
-  использует этот резолвер; `_compat_probe_once` передаёт `embed_fn`.
-  Нет атрибута/поля → прежнее поведение (`model_known=False`,
-  `revision_unknown`), без исключений.
-
-Тесты:
-
-- `tests/test_embed_meta_wire.py` (новый, 4): `embed()` с `model` в теле →
-  `last_embed_meta["model"]`; без `model` → `None` и прежний возврат;
-  `embed_once()` → та же мета; до первого ответа атрибут пуст.
-- `tests/test_embed_identity_compat.py`:
-  `test_canary_03_probe_reads_last_embed_meta_from_embed_fn` — `embed_fn`
-  возвращает ТОЛЬКО векторы (legacy-контракт), мета лежит на клиенте за
-  callable: проба получает `model_known=True`, `model="Models/gemini-embedding-001"`,
-  `revision_known=True`, `verdict=compatible`; без меты —
-  `model_known=False` / `reason_code=revision_unknown`.
-
-Прогоны (точечные, `-q`, внешний лимит 180 с на команду):
-
-| Файл | Результат |
+| Набор | Результат |
 |---|---|
-| `tests/test_embed_meta_wire.py` | **4 passed** |
-| `tests/test_embed_identity_compat.py` | **27 passed** (было 26; +1) |
-| `tests/test_embed_identity_compat_restart_legacy.py` | **9 passed** |
-| `tests/test_llm_client.py` | **115 passed** |
-| `tests/test_embedding_control_plane_asap4.py` | **69 passed** (регресс control plane) |
+| `tests/test_embed_identity_compat*.py` (новые + прежние) | **38 passed** (6.97 s) — 29 прежних + 9 новых |
+| Смежный набор: contract + restart + asap5 identity + asap6 generations + graphrag identity + webapp memory API + mca01 tx supervisor | **125 passed** (22.92 s) — 116 прежних + 9 новых |
+| Контрол-плейн/смежные: `test_embedding_control_plane_asap4` + `test_mca07_retrieval_context_round1027` + `test_graphrag_rebuild_asap32` + `test_summary_memory` | **200 passed** (22.04 s) |
+| Новые тесты отдельно (`-k "msi or canary03 or dec09"`) | **9 passed** (3.66 s) |
 
-Остаточный риск: провайдер, вернувший в теле снапшот-имя, отличное от
-`models.embedding_model_name` (например с датой), теперь даст
-`incompatible/model_mismatch` — это заявленное поведение CANARY-03
-(сравнение нормализованных имён), но при ложном срабатывании лечится
-конфигом модели, а не откатом кода.
+`ΔDDL = 0`: в диффе кандидата только `services/embedding_control_plane.py`,
+`tests/test_embed_identity_compat.py` и этот evidence; `services/database.py`
+не тронут.
 
+## Риски и ограничения
+
+1. Метаданные доступны не всегда: legacy `llm.embed` (пустой пул ключей) и
+   батч, целиком обслуженный `embedding_cache`, не проходят через
+   `EmbeddingExecutor` → `model_unknown`. Это соответствует решению владельца:
+   совместимость доказывают старые векторы + KNN, а не имя модели.
+2. Сравнение модели строгое (после нормализации `models/`/регистр/пробелы):
+   провайдер, отдающий другой alias для тех же весов, будет помечен
+   `incompatible/model_mismatch` — так требует решение «явное несовместимость
+   модели → incompatible»; обход — конфиг/перепроба, не тихий adopt.
+3. Durable-допуск (`adopt1:…`) метаданные не хранит (frozen формат §6):
+   панель после рестарта показывает `*_unknown` до следующей пробы.
+4. `_LAST_EMBED_META` — ContextVar: канал работает, пока embed вызывается в той
+   же задаче (текущий путь `_embed → execute_embed`); вынос embed в отдельную
+   задачу/поток потребует явной передачи `(vectors, meta)` от callable.
+5. DEC-09 проверяет поведение отката, а не новый «revoke»-метод: откат
+   выполняется двумя колонками SQL (как в §8 review R2), отдельного API нет.
+6. Карта требований не редактировалась: строки `IDENT-02/CANARY-03/DEC-09`
+   остаются `PENDING` до решения PM/Reviewer; evidence приложен для привязки.

@@ -1,0 +1,45 @@
+DATE_UTC=2026-10-22T16:50:09Z
+===== 10-19 19:13:15 .. 19:14:10 (all lines, filtered) =====
+Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19 19:13:31,488 - web.app - INFO - [webapp] lifespan finished
+2026-10-19 19:13:31,506 - apscheduler.scheduler - INFO - Scheduler has been shut down
+2026-10-19 19:13:31,507 - services.summary_scheduler - INFO - [shutdown] summary: stopped accepting new work | phase=stopping (scheduler down, new runs refused)
+2026-10-19 19:13:31,513 - services.summary_run_log - INFO - SUMMARY_COMPLETE | run_id=b61e74b53c034f7c83b8d4e891a399a3 | chat_id=-1002661910336 | mode=hybrid_l2 | status=ok | duration_ms=809525 | source_count=335 | threads=15 | paragraphs=10 | cover_status=- | code=- | fallback=none | coverage=0.0 | publication_status=- | health=ok | package_grade=semantic
+2026-10-19 19:13:31,519 - services.mca_events - INFO - mca_event=SUMMARY_RUN_DONE | ts=1792437211 | event_name=SUMMARY_RUN_DONE | outcome=success | level=INFO | component=summary | stage=done | status=ok | chat_id=-1002661910336 | duration_ms=809530 | usage_json={"coverage": 0.0, "source_total": 335, "source_considered": 0, "fallback": "none", "package_grade": "semantic", "pipeline_health": "ok"} | pipeline_run_id=b61e74b53c034f7c83b8d4e891a399a3 | pipeline_type=summary
+2026-10-19 19:13:31,530 - aiogram.dispatcher - INFO - Polling stopped for bot @PERMsoc_bot id=8802473181 - 'Базовичок'
+2026-10-19 19:13:31,536 - aiogram.dispatcher - INFO - Polling stopped
+Traceback (most recent call last):
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/apscheduler/executors/base.py", line 181, in run_coroutine_job
+    retval = await job.func(*job.args, **job.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_scheduler.py", line 204, in _tick
+    await self._generator.generate_and_send(chat_id)
+  File "/var/www/admin_bot/services/summary_generator.py", line 689, in generate_and_send
+    await self._run(chat_id, manual, focus, trigger_message_id,
+  File "/var/www/admin_bot/services/summary_generator.py", line 927, in _run
+    await self._run_hybrid_l2(
+  File "/var/www/admin_bot/services/summary_generator.py", line 2762, in _run_hybrid_l2
+    published = await self._deliver_l2_rich(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_generator.py", line 3107, in _deliver_l2_rich
+    return await self._publish_rich_document(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_generator.py", line 3128, in _publish_rich_document
+    published = await self._publish_rich_document_impl(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_generator.py", line 3392, in _publish_rich_document_impl
+    tmp_path, img_reason = await generate_image_verbose(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/image_generation.py", line 1700, in generate_image_verbose
+    path, reason = await _generate_image_verbose_inner(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/image_generation.py", line 1770, in _generate_image_verbose_inner
+    result = await asyncio.wait_for(
+             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/var/www/admin_bot/services/image_generation.py", line 1555, in generate
+===== restart markers 10-19 18:00 .. 10-19 22:00 =====
+2026-10-19T19:13:31+00:00 racknerd-f4e3456 systemd[1]: Stopping admin_bot.service - Telegram Admin Bot...
+2026-10-19T19:13:43+00:00 racknerd-f4e3456 systemd[1]: Started admin_bot.service - Telegram Admin Bot.

@@ -1,0 +1,1618 @@
+===== S0 identity =====
+DATE_UTC=2026-10-22T16:06:23Z
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+COMMIT=fbf9013d89b03e38473ce6824a460fdbb736fff8 2026-10-23T00:37:33+12:00 chore(release-258111): bump 2.58.110 -> 2.58.111 (31-file proc set SET EQUAL proc-110, F8-meta HEAD=beb3f272, deltaDDL=0; guards: offline aggregate 18/18 EXIT 0, pins24 868p/0f (venv aiogram 3.31.0), help-sync 24p, F8 pins 29p
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+===== S1 env gates (masked) =====
+API_TOKEN=***
+DB_PATH=local_database.db
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+GRAPH_RAG_ENABLED=True
+OPENROUTER_API_KEY=***
+OPENROUTER_TIMEOUT=15
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+SUMMARY_ADMIN_ONLY=False
+SUMMARY_ALIASES=<redacted-personal>
+SUMMARY_MAX_CONTEXT_TOKENS=<set>
+SUMMARY_THROTTLE_SECONDS=300.0
+SUMMARY_TIMEZONE=Asia/Yekaterinburg
+===== S2 python bin =====
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== S3 sqlite read-only snapshot =====
+SQLITE local_database.db
+--- user_version --- (37,)
+--- schema_migrations_last (n=5) ---
+{'version': 37, 'name': 'humor_samples_v37'}
+{'version': 36, 'name': 'humor_samples_v36'}
+{'version': 35, 'name': 'llm_usage_plan_meta_v35'}
+{'version': 34, 'name': 'embedding_generation_namespace_v34'}
+{'version': 33, 'name': 'factcheck_temporal'}
+TABLE_HAS {'chat_id_migrations': ['evidence', 'new_chat_id', 'observed_at', 'old_chat_id'], 'chat_running_summary': ['chat_id', 'created_at', 'expires_at', 'raw_count', 'summary', 'window_end_ts', 'window_start_ts'], 'chat_summary_levels': ['chat_id', 'level', 'msg_count_highwater', 'summary', 'updated_at'], 'smart_messages': ['author_name', 'caption', 'chat_id', 'content_hash', 'current_revision', 'edited_at', 'forward_author_id', 'forward_source', 'history_processed', 'id', 'import_key', 'ingested_at', 'is_forward', 'media_group_id', 'media_ref', 'media_type', 'message_state', 'namespace', 'origin_author_signature', 'origin_chat_id', 'origin_display_name', 'origin_message_id', 'origin_sender_user_id', 'origin_sent_at', 'origin_type', 'quote_author_id', 'quote_text', 'reply_to_author_id', 'reply_to_id', 'reply_to_kind', 'sender_chat_id', 'sent_at', 'sent_at_source', 'source_kind', 'source_record_id', 'state_evidence', 'text', 'tg_message_id', 'thread_id', 'timestamp', 'user_id'], 'smart_archive_facts': ['chat_id', 'fact', 'id', 'timestamp'], 'graph_facts': ['assertion_kind', 'attribution_method', 'belief_meta', 'chat_id', 'confidence_basis', 'created_at', 'dossier_generation_id', 'expires_at', 'extractor_version', 'fact', 'forward_from', 'id', 'importance', 'kind', 'last_confirmed_at', 'memory_kind', 'message_timestamp', 'origin', 'perspective', 'provenance_channel', 'revision', 'scope', 'source_ids', 'speaker_author_id', 'speaker_entity_id', 'status', 'subject_entity_id', 'subject_ref_id', 'supersedes', 'target_user', 'tg_message_id', 'valid_from', 'valid_to', 'weight'], 'nodes': ['chat_id', 'entity_name', 'entity_type', 'expires_at', 'id', 'origin'], 'edges': ['chat_id', 'created_at', 'expires_at', 'fact_id', 'id', 'last_updated', 'origin', 'relation_type', 'source_id', 'target_id', 'weight'], 'protected_facts': ['chat_id', 'created_at', 'fact', 'id', 'user_name'], 'mca_episodes': ['chat_id', 'claims_json', 'discovered_at', 'episode_id', 'event_end_ts', 'event_start_ts', 'extraction_version', 'last_retrieved_at', 'last_used_in_chat_at', 'mapping_status', 'message_keys_json', 'open_questions', 'outcome', 'participants_json', 'recheck_pending', 'segment_key', 'summary', 'title', 'updated_at'], 'graph_fact_compressions': ['chat_id', 'created_at', 'fact_after', 'fact_before', 'fact_id', 'id', 'reason'], 'mca_events': ['attempt', 'attempt_id', 'causation_id', 'chat_id', 'checkpoint_ref', 'component', 'config_version', 'deadline_at', 'duration_ms', 'entity_ids', 'error_json', 'event_name', 'event_sequence', 'heartbeat_at', 'id', 'job_id', 'level', 'linked_span_ids', 'model', 'operation_id', 'outcome', 'parent_operation_id', 'parent_span_id', 'pipeline_run_id', 'pipeline_type', 'pipeline_version', 'progress_at', 'provider', 'reason_code', 'source_ref_json', 'span_id', 'stage', 'status', 'trace_id', 'ts', 'usage_json'], 'task_jobs': ['attempt', 'attempt_id', 'causation_id', 'checkpoint_ref', 'coalesce_key', 'created_at', 'deadline_at', 'error_code', 'fencing_token', 'finished_at', 'generation', 'heartbeat_at', 'job_id', 'kind', 'max_attempts', 'next_retry_at', 'owner', 'parent_span_id', 'payload', 'pipeline_run_id', 'progress_at', 'reason_code', 'result_ref', 'span_id', 'status', 'updated_at'], 'embedding_quota_state': ['next_allowed_at', 'note', 'quota_group_id', 'state', 'updated_at'], 'mca_embedding_index_generations': ['activated_at', 'attempts_total', 'config_revision', 'created_at', 'dims', 'endpoint_fingerprint', 'fingerprint', 'generation', 'generation_id', 'index_name', 'model', 'namespace', 'next_allowed_at', 'pause_reason', 'preprocessing_version', 'provider', 'status', 'superseded_at'], 'embedding_cache': ['created_at', 'dim', 'endpoint_fingerprint', 'identity_fingerprint', 'last_used_at', 'model', 'preprocessing_version', 'provider', 'text', 'text_hash', 'vector']}
+--- b09_chat_id_migrations (n=0) ---
+--- b09_migrations_total --- (0,)
+--- b09_rows_smart_messages (n=8) ---
+{'chat_id': -1002661910336, 'n': 2032115}
+{'chat_id': -1004482340693, 'n': 3980}
+{'chat_id': 5885953495, 'n': 191}
+{'chat_id': 1313107079, 'n': 8}
+{'chat_id': 42115912, 'n': 4}
+{'chat_id': 134812796, 'n': 2}
+{'chat_id': 391148065, 'n': 2}
+{'chat_id': 529151103, 'n': 1}
+--- b09_rows_smart_archive_facts (n=0) ---
+--- b09_rows_graph_facts (n=5) ---
+{'chat_id': -1002661910336, 'n': 19110}
+{'chat_id': -1004482340693, 'n': 666}
+{'chat_id': 5885953495, 'n': 259}
+{'chat_id': 1313107079, 'n': 7}
+{'chat_id': 529151103, 'n': 1}
+--- b09_rows_nodes (n=5) ---
+{'chat_id': -1002661910336, 'n': 24642}
+{'chat_id': -1004482340693, 'n': 845}
+{'chat_id': 5885953495, 'n': 383}
+{'chat_id': 1313107079, 'n': 11}
+{'chat_id': 529151103, 'n': 2}
+--- b09_rows_edges (n=5) ---
+{'chat_id': -1002661910336, 'n': 44040}
+{'chat_id': -1004482340693, 'n': 599}
+{'chat_id': 5885953495, 'n': 315}
+{'chat_id': 1313107079, 'n': 6}
+{'chat_id': 529151103, 'n': 1}
+--- b09_rows_protected_facts (n=1) ---
+{'chat_id': -1002661910336, 'n': 1}
+--- b09_rows_mca_episodes (n=1) ---
+{'chat_id': -1002661910336, 'n': 15}
+--- b09_rows_graph_fact_compressions (n=2) ---
+{'chat_id': -1002661910336, 'n': 209}
+{'chat_id': 5885953495, 'n': 11}
+--- b09_rows_chat_summary_levels (n=0) ---
+--- b09_rows_chat_running_summary (n=1) ---
+{'chat_id': -1002661910336, 'n': 1}
+--- b09_running_summary_meta (n=1) ---
+{'chat_id': -1002661910336, 'window_start_ts': 1788683276, 'window_end_ts': 1788699601, 'raw_count': 500, 'created_at': 1788699677.365463, 'expires_at': 1788703277.365463}
+--- b09_summary_levels_meta --- ERROR OperationalError: no such column: raw_count
+--- events_total --- (94621, 1790660036, 1792685128)
+--- events_top48h (n=45) ---
+{'event_name': 'ingestion_live', 'n': 4047}
+{'event_name': 'WATCHDOG_SWEEP', 'n': 2874}
+{'event_name': 'vision_media', 'n': 1783}
+{'event_name': 'mca07_retrieval', 'n': 478}
+{'event_name': 'self_model', 'n': 449}
+{'event_name': 'vision_adapt', 'n': 389}
+{'event_name': 'initiative_observer_scan', 'n': 379}
+{'event_name': 'prompt_layers', 'n': 354}
+{'event_name': 'lore_compile', 'n': 166}
+{'event_name': 'FACTS_EXTRACT', 'n': 104}
+{'event_name': 'message_revision', 'n': 89}
+{'event_name': 'bot_output_recorded', 'n': 89}
+{'event_name': 'EMBED_API_DEFERRED', 'n': 79}
+{'event_name': 'PIPELINE_START', 'n': 76}
+{'event_name': 'mca07_reranker', 'n': 67}
+{'event_name': 'experience_recorded', 'n': 64}
+{'event_name': 'SUMMARY_WRITER_ACTIVITY', 'n': 64}
+{'event_name': 'quote_resolver_step', 'n': 63}
+{'event_name': 'mca07_bundle', 'n': 63}
+{'event_name': 'humor_send_captured', 'n': 63}
+{'event_name': 'DIRECT_FRESH_GENERATION', 'n': 63}
+{'event_name': 'speech_extent', 'n': 45}
+{'event_name': 'SUMMARY_LLM_SUPERVISOR', 'n': 44}
+{'event_name': 'nostalgia_run', 'n': 39}
+{'event_name': 'sleep_dream', 'n': 38}
+{'event_name': 'random_uses_background', 'n': 38}
+{'event_name': 'initiative_opportunity', 'n': 34}
+{'event_name': 'SUMMARY_L1_ACTIVITY', 'n': 32}
+{'event_name': 'COVER_STYLE_RUNNING', 'n': 29}
+{'event_name': 'random_uses', 'n': 27}
+{'event_name': 'initiative_decided', 'n': 27}
+{'event_name': 'DREAM_DEEP_RUN', 'n': 22}
+{'event_name': 'initiative_delivery_manifest', 'n': 18}
+{'event_name': 'initiative_writer_generated', 'n': 17}
+{'event_name': 'vision_capability_probe', 'n': 16}
+{'event_name': 'style_policy', 'n': 16}
+{'event_name': 'initiative_sent', 'n': 14}
+{'event_name': 'COVER_STYLE_SUBMITTED', 'n': 14}
+{'event_name': 'anticliche_run', 'n': 13}
+{'event_name': 'factcheck_temporal', 'n': 11}
+...(5 more)
+--- events_by_day (n=10) ---
+{'d': '2026-10-22', 'n': 5822}
+{'d': '2026-10-21', 'n': 4692}
+{'d': '2026-10-20', 'n': 6286}
+{'d': '2026-10-19', 'n': 7248}
+{'d': '2026-10-18', 'n': 4714}
+{'d': '2026-10-17', 'n': 3726}
+{'d': '2026-10-16', 'n': 6718}
+{'d': '2026-10-15', 'n': 5805}
+{'d': '2026-10-14', 'n': 5942}
+{'d': '2026-10-13', 'n': 3969}
+--- soul142_extent_total (n=1) ---
+{'n': 45, 'MIN(ts)': 1792595506, 'MAX(ts)': 1792682023}
+--- soul142_extent_by_extent (n=6) ---
+{'extent': 'compact', 'status': 'pass', 'owx': 0, 'ctx': 'regular', 'n': 19}
+{'extent': 'micro', 'status': 'pass', 'owx': 0, 'ctx': 'regular', 'n': 10}
+{'extent': 'compact', 'status': 'pass', 'owx': 0, 'ctx': 'initiative', 'n': 8}
+{'extent': 'micro', 'status': 'conflict', 'owx': 0, 'ctx': 'regular', 'n': 4}
+{'extent': 'normal', 'status': 'pass', 'owx': 0, 'ctx': 'regular', 'n': 3}
+{'extent': 'normal', 'status': 'pass', 'owx': 0, 'ctx': 'initiative', 'n': 1}
+--- soul142_words_hist (n=0) ---
+--- soul142_reasons (n=2) ---
+{'reason': 'micro_soft_exceeded', 'n': 9}
+{'reason': 'micro_extent_exceeded', 'n': 4}
+--- soul142_style_events (n=5) ---
+{'event_name': 'speech_extent', 'outcome': 'failed', 'n': 4}
+{'event_name': 'speech_extent', 'outcome': 'success', 'n': 41}
+{'event_name': 'style_policy', 'outcome': 'failed', 'n': 11}
+{'event_name': 'style_policy', 'outcome': 'skipped', 'n': 18}
+{'event_name': 'style_policy', 'outcome': 'success', 'n': 40}
+--- repetition_events (n=0) ---
+--- b10_quota_state (n=4) ---
+{'quota_group_id': 'fallback_1', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628099}
+{'quota_group_id': 'fallback_2', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628106}
+{'quota_group_id': 'primary', 'state': 'exhausted', 'next_allowed_at': 1792713900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1792628095}
+{'quota_group_id': 'unknown', 'state': 'exhausted', 'next_allowed_at': 1791849900, 'note': 'parked kind=spend est=utc_day_end', 'updated_at': 1791763508}
+--- b10_index_generations (n=2) ---
+{'generation_id': 2, 'index_name': 'graph_facts_vec', 'generation': 1, 'status': 'building', 'provider': 'generativelanguage.googleapis.com', 'model': 'gemini-embedding-001', 'dims': 3072, 'created_at': 1790678362, 'activated_at': None, 'superseded_at': None}
+{'generation_id': 1, 'index_name': 'smart_archive', 'generation': 1, 'status': 'building', 'provider': 'generativelanguage.googleapis.com', 'model': 'gemini-embedding-001', 'dims': 3072, 'created_at': 1790678362, 'activated_at': None, 'superseded_at': None}
+--- b10_embedding_cache_rows --- (11664, 1787537761.1647398, 1792628105.3930376)
+--- b10_veccount_graph_facts_vec --- ERROR OperationalError: no such module: vec0
+--- b10_veccount_smart_archive --- ERROR OperationalError: no such module: vec0
+--- b10_backlog_archive --- ERROR OperationalError: no such module: vec0
+--- b10_backlog_graph --- ERROR OperationalError: no such module: vec0
+--- b10_graph_facts_total --- (20043,)
+--- b10_graph_facts_7d --- (1672,)
+--- jobs_active (n=1) ---
+{'owner': 'memory', 'kind': 'graphrag_rebuild', 'status': 'paused_rate_limit', 'n': 1, 'last_upd': 1792628106}
+--- jobs_kinds_7d (n=20) ---
+{'owner': 'vision.media', 'kind': 'vision.media', 'status': 'completed', 'n': 595, 'last_upd': 1792685174}
+{'owner': 'asap8b01', 'kind': 'initiative.observe', 'status': 'completed', 'n': 1986, 'last_upd': 1792685111}
+{'owner': 'memory_maintenance', 'kind': 'intent_heartbeat_liveness', 'status': 'completed', 'n': 1, 'last_upd': 1792685094}
+{'owner': 'vision.media', 'kind': 'vision.media', 'status': 'failed', 'n': 266, 'last_upd': 1792684599}
+{'owner': 'summary', 'kind': 'cover_style', 'status': 'interrupted', 'n': 2, 'last_upd': 1792674954}
+{'owner': 'image', 'kind': 'media_job', 'status': 'completed', 'n': 27, 'last_upd': 1792674825}
+{'owner': 'summary', 'kind': 'cover_base', 'status': 'completed', 'n': 27, 'last_upd': 1792674825}
+{'owner': 'random.uses', 'kind': 'exploration.belief_review', 'status': 'succeeded', 'n': 4, 'last_upd': 1792672153}
+{'owner': 'mca16', 'kind': 'experience.review', 'status': 'completed', 'n': 7, 'last_upd': 1792658361}
+{'owner': 'vision.media', 'kind': 'vision.media', 'status': 'cancelled', 'n': 8, 'last_upd': 1792653951}
+{'owner': 'summary', 'kind': 'cover_style', 'status': 'completed', 'n': 23, 'last_upd': 1792652854}
+{'owner': 'asap8b01', 'kind': 'initiative.observe', 'status': 'interrupted', 'n': 1, 'last_upd': 1792650070}
+{'owner': 'memory', 'kind': 'embedding_rebuild_lease', 'status': 'finished', 'n': 12, 'last_upd': 1792628106}
+{'owner': 'memory', 'kind': 'graphrag_rebuild', 'status': 'paused_rate_limit', 'n': 1, 'last_upd': 1792628106}
+{'owner': 'vision.tool', 'kind': 'vision.media', 'status': 'completed', 'n': 3, 'last_upd': 1792604469}
+{'owner': 'image', 'kind': 'media_job', 'status': 'failed', 'n': 2, 'last_upd': 1792523395}
+{'owner': 'vision.media', 'kind': 'vision.media', 'status': 'interrupted', 'n': 3, 'last_upd': 1792515738}
+{'owner': 'vision.backfill', 'kind': 'vision.backfill', 'status': 'failed', 'n': 11, 'last_upd': 1792512774}
+{'owner': 'vision.backfill', 'kind': 'vision.backfill', 'status': 'completed', 'n': 1, 'last_upd': 1792512273}
+{'owner': 'vision.tool', 'kind': 'vision.media', 'status': 'failed', 'n': 3, 'last_upd': 1792389105}
+--- jobs_running_age (n=0) ---
+--- jobs_graphrag (n=2) ---
+{'job_id': '7ed322e68a0d433b89f03ef66117c367', 'coalesce_key': 'graphrag_rebuild:graph_facts_vec:96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d', 'status': 'paused_rate_limit', 'reason_code': 'rate_limit:quota_group', 'updated_at': 1792628106}
+{'job_id': '168adb23141648248ad25f08c8036432', 'coalesce_key': 'graphrag_rebuild:smart_archive:96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d', 'status': 'validation_failed', 'reason_code': 'knn_source_empty', 'updated_at': 1791329331}
+--- b11_l1_plan (n=1) ---
+{'n': 0, 'MIN(ts)': None, 'MAX(ts)': None}
+--- b11_l1_dist (n=0) ---
+--- b11_l1_latency (n=1) ---
+{'n': 0, 'avg_ms': None, 'max_ms': None}
+--- b11_l1_rejected (n=0) ---
+--- b11_tool_events --- ERROR ProgrammingError: parameters are of unsupported type
+--- b11_reason_codes --- ERROR ProgrammingError: parameters are of unsupported type
+--- activity_messages_7d (n=3) ---
+{'chat_id': -1002661910336, 'n': 10455, 'last_ts': 1792685174}
+{'chat_id': -1004482340693, 'n': 2800, 'last_ts': 1792684515}
+{'chat_id': 1313107079, 'n': 1, 'last_ts': 1792398366}
+--- activity_messages_total (n=8) ---
+{'chat_id': -1002661910336, 'n': 2032115, 'last_ts': 1792685174}
+{'chat_id': -1004482340693, 'n': 3980, 'last_ts': 1792684515}
+{'chat_id': 5885953495, 'n': 191, 'last_ts': 1791301790}
+{'chat_id': 1313107079, 'n': 8, 'last_ts': 1792398366}
+{'chat_id': 42115912, 'n': 4, 'last_ts': 1788254828}
+{'chat_id': 134812796, 'n': 2, 'last_ts': 1790179579}
+{'chat_id': 391148065, 'n': 2, 'last_ts': 1788772699}
+{'chat_id': 529151103, 'n': 1, 'last_ts': 1788246532}
+--- summary_runs_states (n=3) ---
+{'state': 'DEGRADED', 'n': 21}
+{'state': 'DONE', 'n': 2}
+{'state': 'FAILED', 'n': 5}
+--- summary_runs_recent (n=8) ---
+{'run_id': '718e9ea64810446399970ed4ea01a2f1', 'chat_id': -1002661910336, 'state': 'FAILED', 'created_at': 1792674000, 'updated_at': 1792674860}
+{'run_id': '3e10f7b8e96a48e4b745c61a4dc38981', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'created_at': 1792652402, 'updated_at': 1792652856}
+{'run_id': 'e175025a1a064dc7a347df909d37f582', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'created_at': 1792630801, 'updated_at': 1792631357}
+{'run_id': '9e865ec2afba43c8a40a5a065c028373', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'created_at': 1792609202, 'updated_at': 1792609815}
+{'run_id': '6707dc8dee0344b68c89855d836659d6', 'chat_id': -1002661910336, 'state': 'DONE', 'created_at': 1792587602, 'updated_at': 1792588363}
+{'run_id': 'b8edd2dbf0d7486389779c5732e80a45', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'created_at': 1792566002, 'updated_at': 1792566542}
+{'run_id': '9455c0a6270c4f5f91c0262a72507390', 'chat_id': -1002661910336, 'state': 'DEGRADED', 'created_at': 1792544402, 'updated_at': 1792544797}
+{'run_id': 'cff5c18e4e174010837f61a64404a548', 'chat_id': -1002661910336, 'state': 'FAILED', 'created_at': 1792522803, 'updated_at': 1792523373}
+===== S4 postgres read-only =====
+PG_DSN_PRESENT True
+--- pg_chat_profiles (n=3) ---
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 19, 20, 18, 44, 929605, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1002661910336, 'updated_at': datetime.datetime(2026, 10, 22, 2, 42, 48, 217080, tzinfo=datetime.timezone.utc)}
+{'chat_id': 5885953495, 'updated_at': datetime.datetime(2026, 10, 18, 0, 30, 17, 836651, tzinfo=datetime.timezone.utc)}
+--- pg_chat_keys --- ERROR UndefinedColumnError: column "key" does not exist
+--- pg_chat_admins (n=1) ---
+{'chat_id': -1002661910336, 'n': 1}
+--- pg_roles --- ERROR UndefinedColumnError: column "chat_id" does not exist
+--- pg_chat_usage (n=126) ---
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 20, 17, 11, 36, 422514, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 15, 16, 18, 26, 983438, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 15, 16, 18, 26, 986185, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 11, 14, 56, 33, 874580, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 11, 14, 56, 33, 877698, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 12, 16, 2, 23, 649563, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 12, 16, 2, 23, 659625, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 21, 16, 36, 38, 445371, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 14, 7, 3, 48, 507621, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 14, 7, 3, 48, 512881, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 21, 16, 36, 38, 420758, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 9, 5, 15, 4, 194069, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 9, 5, 15, 4, 199475, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 16, 10, 52, 39, 249990, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 8, 16, 27, 6, 936265, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 16, 10, 52, 39, 246965, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 8, 16, 27, 6, 942854, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 13, 13, 48, 26, 407404, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 18, 18, 5, 16, 748518, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 20, 17, 11, 36, 425270, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 18, 18, 5, 16, 752866, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 13, 13, 48, 26, 411250, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 19, 15, 54, 4, 932388, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 22, 14, 13, 33, 526092, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 19, 15, 54, 4, 947437, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1004482340693, 'updated_at': datetime.datetime(2026, 10, 22, 14, 13, 33, 522665, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1002661910336, 'updated_at': datetime.datetime(2026, 9, 11, 15, 44, 27, 382733, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1002661910336, 'updated_at': datetime.datetime(2026, 9, 13, 17, 16, 41, 76126, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1002661910336, 'updated_at': datetime.datetime(2026, 9, 13, 17, 16, 41, 79810, tzinfo=datetime.timezone.utc)}
+{'chat_id': -1002661910336, 'updated_at': datetime.datetime(2026, 9, 18, 15, 36, 50, 455643, tzinfo=datetime.timezone.utc)}
+...(96 more)
+--- pg_uptime_last (n=5) ---
+{'ts': datetime.datetime(2026, 10, 22, 16, 5, 54, 375784, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 22, 16, 4, 54, 377876, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 22, 16, 3, 54, 375180, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 22, 16, 2, 54, 375578, tzinfo=datetime.timezone.utc), 'status': 'up'}
+{'ts': datetime.datetime(2026, 10, 22, 16, 1, 54, 376016, tzinfo=datetime.timezone.utc), 'status': 'up'}
+--- pg_activity (n=3) ---
+{'state': None, 'n': 5}
+{'state': 'active', 'n': 1}
+{'state': 'idle', 'n': 5}
+===== S5 journal (read-only) =====
+JOURNAL_MODE=journal
+SINCE=2026-10-20 16:06:31
+JLINES_48H=103769
+ERR_48H=42
+WARN_48H=2117
+--- journal error tails ---
+Oct 22 06:20:30 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:30,883 - services.database - ERROR - database: connection unrecoverable | event=database_connection_unrecoverable | op=save_smart_message_identity
+Oct 22 06:20:30 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:30,988 - services.database - ERROR - database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=save_smart_message_identity
+Oct 22 06:20:30 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:31 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:32 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:32,173 - services.database - ERROR - database: connection unrecoverable | event=database_connection_unrecoverable | op=save_smart_message_identity
+Oct 22 06:20:32 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:32,672 - services.database - ERROR - database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=save_smart_message_identity
+Oct 22 06:20:32 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:32 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,012 - services.database - ERROR - database: connection unrecoverable | event=database_connection_unrecoverable | op=save_smart_message_identity
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,176 - services.database - ERROR - database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=save_smart_message_identity
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,312 - services.database - ERROR - database: connection unrecoverable | event=database_connection_unrecoverable | op=b01_observe_checkpoint
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: 2026-10-22 06:20:33,357 - services.database - ERROR - database: rollback failed — connection marked unrecoverable | event=database_connection_unrecoverable | op=b01_observe_checkpoint
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:20:33 racknerd-f4e3456 python[304990]: Traceback (most recent call last):
+Oct 22 06:21:11 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:11,105 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792650071 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_4627f4bd625945b6b330f33bb7f47184"] | pipeline_type=asap8b01
+Oct 22 06:21:11 racknerd-f4e3456 python[434185]: 2026-10-22 06:21:11,161 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792650071 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_4627f4bd625945b6b330f33bb7f47184"] | pipeline_type=asap8b01
+Oct 22 07:28:12 racknerd-f4e3456 python[447331]: Traceback (most recent call last):
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: 2026-10-22 13:14:20,477 - apscheduler.executors.default - ERROR - Job "SummarySchedulerService._tick (trigger: cron[hour='0,6,12,18', minute='0'], next run at: 2026-10-23 00:00:00 +05)" raised an exception
+Oct 22 13:14:20 racknerd-f4e3456 python[455943]: Traceback (most recent call last):
+Oct 22 13:15:54 racknerd-f4e3456 python[516119]: 2026-10-22 13:15:54,306 - services.mca_events - ERROR - mca_event=INCIDENT | ts=1792674954 | event_name=INCIDENT | outcome=success | level=ERROR | component=incidents | stage=takeover | reason_code=incident_opened | entity_ids=["inc_9b7b2d37fac24d45871f856708b1035a"] | pipeline_type=summary
+--- embedding/quota lines 7d (counts) ---
+EMB_QUOTA_LINES=374
+Oct 22 14:01:07 racknerd-f4e3456 python[516119]: 2026-10-22 14:01:07,040 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792677667 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1004482340693 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 1, "dedup_vector_skipped": 0}
+Oct 22 14:06:56 racknerd-f4e3456 python[516119]: 2026-10-22 14:06:56,069 - services.mca_events - WARNING - mca_event=style_policy | ts=1792678016 | event_name=style_policy | outcome=skipped | level=WARN | component=style_policy | stage=direct_pre_send | chat_id=-1004482340693 | duration_ms=3.492 | style_revision=10 | usage_json={"context": "regular", "applied": true, "skip_reason": "", "policy_revision": "g10.91619cc970eb", "policy_source": "global", "styled": false, "denied": false, "counts": {"pass": 2, "repaired": 0, "exempted": 0, "conflict": 1, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": ["quotation_marks.hard.no_graphic"], "failed": [], "exempted": 0, "repaired": 0, "extent": {"extent": "compact", "status": "pass", "words": 68, "reason": ""}, "repetition": [], "payload": false, "payload_status": "", "elapsed_ms": 3.492, "repair_used": 0, "text_chars": 446, "text_sha12": "f307ebaefd5d", "notes": []}
+Oct 22 14:06:56 racknerd-f4e3456 python[516119]: 2026-10-22 14:06:56,072 - services.direct_chat_service - WARNING - [direct] style policy payload mismatch | chat=-1004482340693 | stage=direct_plain | conflicts=quotation_marks.hard.no_graphic
+Oct 22 14:06:56 racknerd-f4e3456 python[516119]: 2026-10-22 14:06:56,073 - services.mca_events - WARNING - mca_event=style_policy | ts=1792678016 | event_name=style_policy | outcome=failed | level=WARN | component=style_policy | stage=direct_plain | chat_id=-1004482340693 | usage_json={"context": "regular", "applied": true, "skip_reason": "", "policy_revision": "g10.91619cc970eb", "policy_source": "global", "styled": false, "denied": false, "counts": {"pass": 2, "repaired": 0, "exempted": 0, "conflict": 1, "failed": 0, "denied": 0, "not_applicable": 0}, "conflicts": ["quotation_marks.hard.no_graphic"], "failed": [], "exempted": 0, "repaired": 0, "extent": {}, "repetition": [], "payload": true, "payload_status": "mismatch", "elapsed_ms": 0.0, "repair_used": 0, "text_chars": 446, "text_sha12": "f307ebaefd5d", "notes": []}
+Oct 22 14:31:19 racknerd-f4e3456 python[516119]: 2026-10-22 14:31:19,460 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=1 | dedup_vector_skipped=0
+Oct 22 14:31:19 racknerd-f4e3456 python[516119]: 2026-10-22 14:31:19,462 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792679479 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 1, "dedup_vector_skipped": 0}
+Oct 22 14:32:29 racknerd-f4e3456 python[516119]: 2026-10-22 14:32:29,964 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=2 | dedup_vector_skipped=1
+Oct 22 14:32:29 racknerd-f4e3456 python[516119]: 2026-10-22 14:32:29,965 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792679549 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 2, "dedup_vector_skipped": 1}
+Oct 22 14:33:51 racknerd-f4e3456 python[516119]: 2026-10-22 14:33:51,409 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=3 | dedup_vector_skipped=2
+Oct 22 14:33:51 racknerd-f4e3456 python[516119]: 2026-10-22 14:33:51,410 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792679631 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 3, "dedup_vector_skipped": 2}
+Oct 22 14:34:13 racknerd-f4e3456 python[516119]: 2026-10-22 14:34:13,348 - services.summary_memory - WARNING - graphrag memorize: embedding unavailable for batch — facts saved text-only | chat_id=-1002661910336 | source=voice_transcript | quota_group=primary | state=EmbeddingGroupCoolingDown | next_allowed_at=1792713900 | facts_text_only=3 | dedup_vector_skipped=2
+Oct 22 14:34:13 racknerd-f4e3456 python[516119]: 2026-10-22 14:34:13,349 - services.mca_events - WARNING - mca_event=EMBED_API_DEFERRED | ts=1792679653 | event_name=EMBED_API_DEFERRED | outcome=skipped | level=WARN | component=embeddings | chat_id=-1002661910336 | stage=embed_batch | reason_code=embed_deferred | usage_json={"facts_text_only": 3, "dedup_vector_skipped": 2}
+--- rate limit / 429 7d ---
+RATELIMIT_LINES=539
+Oct 22 13:36:42 racknerd-f4e3456 python[516119]: 2026-10-22 13:36:42,753 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792676202 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1004482340693 | message_id=4293 | duration_ms=5
+Oct 22 13:36:46 racknerd-f4e3456 python[516119]: 2026-10-22 13:36:46,836 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792676206 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1004482340693 | message_id=4295 | duration_ms=2
+Oct 22 13:36:59 racknerd-f4e3456 python[516119]: 2026-10-22 13:36:59,717 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792676219 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1004482340693 | message_id=4296 | duration_ms=7
+Oct 22 13:37:08 racknerd-f4e3456 python[516119]: 2026-10-22 13:37:08,971 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792676228 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1004482340693 | message_id=4298 | duration_ms=6
+Oct 22 13:37:25 racknerd-f4e3456 python[516119]: 2026-10-22 13:37:25,044 - services.mca_events - INFO - mca_event=ingestion_live | ts=1792676245 | event_name=ingestion_live | outcome=success | level=INFO | component=ingestion | chat_id=-1004482340693 | message_id=4299 | duration_ms=4
+Oct 22 13:59:03 racknerd-f4e3456 python[516119]: 2026-10-22 13:59:03,428 - services.agentic_events - INFO - event=DECISION_START | run_id=6936e537c45c47b8a6fcafc7d30a9b45 | chat_id=-1004482340693 | message_id=4329 | ts=1792677543.429
+Oct 22 14:01:38 racknerd-f4e3456 python[516119]: 2026-10-22 14:01:38,819 - services.mca_events - INFO - mca_event=experience_recorded | ts=1792677698 | event_name=experience_recorded | outcome=success | level=INFO | component=experience | reason_code=experience_recorded | entity_ids=["a510b25eee4849f89b00e4292dd0b7fa"] | chat_id=-1004482340693
+Oct 22 14:20:19 racknerd-f4e3456 python[516119]: 2026-10-22 14:20:19,522 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=cooldown
+Oct 22 14:32:29 racknerd-f4e3456 python[516119]: 2026-10-22 14:32:29,863 - services.llm_client - INFO - LLM usage in=429 out=116
+Oct 22 15:25:13 racknerd-f4e3456 python[516119]: 2026-10-22 15:25:13,790 - services.nostalgia_worker - INFO - [nostalgia] skip | chat=-1002661910336 | reason=cooldown
+--- injected core tokens (composer detail) 7d ---
+CORE_TOKEN_LINES=0
+--- L1 / direct markers 7d ---
+L1_LINES=157
+Oct 22 12:53:53 racknerd-f4e3456 python[455943]: 2026-10-22 12:53:53,558 - services.agentic_events - INFO - event=L1_PLAN | run_id=5ccf7281c023402eaa19031334f5c422 | chat_id=-1004482340693 | message_id=4160 | action=reply | response_act=answer | extent=micro | tone=warm | bucket=medium | inherited=True | fallback= | latency_ms=1342 | input_chars=1834 | confidence=0.6 | source=main | ts=1792673633.559
+Oct 22 13:02:33 racknerd-f4e3456 python[455943]: 2026-10-22 13:02:33,867 - services.agentic_events - INFO - event=L1_PLAN | run_id=b2d8ef792a4148f99b72333ad3ed077d | chat_id=-1004482340693 | message_id=4199 | action=reply | response_act=agreement | extent=micro | tone=warm | bucket=high | inherited=True | fallback= | latency_ms=1657 | input_chars=1354 | confidence=0.75 | source=main | ts=1792674153.867
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,232 - services.config_cache - INFO - [config_cache] set | key=prompts.direct_l1_planner_system_prompt | category=prompts
+Oct 22 13:14:52 racknerd-f4e3456 python[516119]: 2026-10-22 13:14:52,234 - services.prompt_migrations - INFO - [prompt_migration] канон обновлён | key=prompts.direct_l1_planner_system_prompt
+Oct 22 13:59:05 racknerd-f4e3456 python[516119]: 2026-10-22 13:59:05,145 - services.agentic_events - INFO - event=L1_PLAN | run_id=6936e537c45c47b8a6fcafc7d30a9b45 | chat_id=-1004482340693 | message_id=4329 | action=reply | response_act=clarification | extent=compact | tone=playful | bucket=high | inherited=True | fallback= | latency_ms=1646 | input_chars=1053 | confidence=0.8 | source=main | ts=1792677545.145
+Oct 22 13:59:24 racknerd-f4e3456 python[516119]: 2026-10-22 13:59:24,061 - services.agentic_events - INFO - event=L1_PLAN | run_id=cba92577ca0c4daba34eae12321ca40c | chat_id=-1004482340693 | message_id=4331 | action=reply | response_act=clarification | extent=micro | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=2070 | input_chars=1352 | confidence=0.6 | source=main | ts=1792677564.061
+Oct 22 14:00:24 racknerd-f4e3456 python[516119]: 2026-10-22 14:00:24,377 - services.agentic_events - INFO - event=L1_PLAN | run_id=415b79ce1271417482c65ab4cd986ca4 | chat_id=-1004482340693 | message_id=4333 | action=reply | response_act=banter | extent=compact | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=2497 | input_chars=1775 | confidence=0.72 | source=main | ts=1792677624.377
+Oct 22 14:01:02 racknerd-f4e3456 python[516119]: 2026-10-22 14:01:02,806 - services.agentic_events - INFO - event=L1_PLAN | run_id=cf554335418b44a1939adc54dfa41e4f | chat_id=-1004482340693 | message_id=4336 | action=reply | response_act=explanation | extent=normal | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=2497 | input_chars=1456 | confidence=0.6 | source=main | ts=1792677662.807
+Oct 22 14:01:35 racknerd-f4e3456 python[516119]: 2026-10-22 14:01:35,118 - services.agentic_events - INFO - event=L1_PLAN | run_id=1aced72fb94f4a25a46e27186586731f | chat_id=-1004482340693 | message_id=4338 | action=reply | response_act=banter | extent=micro | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=1707 | input_chars=1801 | confidence=0.72 | source=main | ts=1792677695.119
+Oct 22 14:06:51 racknerd-f4e3456 python[516119]: 2026-10-22 14:06:51,524 - services.agentic_events - INFO - event=L1_PLAN | run_id=046f89a2348a4b3ebcaf9a7a94629950 | chat_id=-1004482340693 | message_id=4340 | action=reply | response_act=banter | extent=compact | tone=playful | bucket=high | inherited=True | fallback= | latency_ms=1464 | input_chars=1437 | confidence=0.85 | source=main | ts=1792678011.525
+Oct 22 14:13:27 racknerd-f4e3456 python[516119]: 2026-10-22 14:13:27,186 - services.agentic_events - INFO - event=L1_PLAN | run_id=27c7790dd8f14dbc9ec498e6e46509a7 | chat_id=-1004482340693 | message_id=4344 | action=reply | response_act=banter | extent=micro | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=2495 | input_chars=2077 | confidence=0.7 | source=main | ts=1792678407.187
+Oct 22 15:13:40 racknerd-f4e3456 python[516119]: 2026-10-22 15:13:40,627 - services.agentic_events - INFO - event=L1_PLAN | run_id=e1116fe5b909495bb27368115bb70074 | chat_id=-1002661910336 | message_id=1170929 | action=reply | response_act=banter | extent=micro | tone=playful | bucket=medium | inherited=True | fallback= | latency_ms=2250 | input_chars=1052 | confidence=0.6 | source=main | ts=1792682020.628
+--- summary/graphrag/vector 48h ---
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,621 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792683294 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,647 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,647 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792683294 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:34:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:34:54,647 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:44:54 +05)" executed successfully
+Oct 22 15:43:14 racknerd-f4e3456 python[516119]: 2026-10-22 15:43:14,268 - services.summary_memory - INFO - graphrag memorize: empty valid list (no facts) | chat_id=-1002661910336 | source=voice_transcript | empty_total=3
+Oct 22 15:44:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:44:54,094 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:54:54 +05)" (scheduled at 2026-10-22 20:44:54.089833+05:00)
+Oct 22 15:44:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:44:54,095 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 20:54:54 +05)" executed successfully
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,094 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:04:54 +05)" (scheduled at 2026-10-22 20:54:54.089833+05:00)
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,677 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=smart_archive | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,680 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792684494 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,705 - services.summary_memory - WARNING - SmartModule: embedding generation not serviceable | index=graph_facts_vec | status=building | gen_fp=96f80838f683 new_fp=96f80838f683 — FTS-only (A06)
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,705 - services.mca_events - INFO - mca_event=mca07_retrieval | ts=1792684494 | event_name=mca07_retrieval | outcome=skipped | level=INFO | component=retrieval_context | stage=retrieval | reason_code=embedding_generation_changed | model=gemini-embedding-001
+Oct 22 15:54:54 racknerd-f4e3456 python[516119]: 2026-10-22 15:54:54,706 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:04:54 +05)" executed successfully
+Oct 22 16:04:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:04:54,092 - apscheduler.executors.default - INFO - Running job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:14:54 +05)" (scheduled at 2026-10-22 21:04:54.089833+05:00)
+Oct 22 16:04:54 racknerd-f4e3456 python[516119]: 2026-10-22 16:04:54,093 - apscheduler.executors.default - INFO - Job "MemoryMaintenanceService._tick_embed_recovery (trigger: interval[0:10:00], next run at: 2026-10-22 21:14:54 +05)" executed successfully
+===== S6 B11 mechanisms report (read-only tool) =====
+{
+ "generated_at": 1792685340,
+ "db": "local_database.db",
+ "chat_id": null,
+ "stale_seconds": 1800,
+ "pg_available": true,
+ "pg_reason": null,
+ "db_read_errors": [
+  "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such module: vec0",
+  "SELECT (SELECT COUNT(*) FROM graph_facts) - (SELECT COUNT(*): no such module: vec0"
+ ],
+ "mechanisms": [
+  {
+   "key": "dream",
+   "title": "Сон (dream)",
+   "gate": {
+    "env": {
+     "DREAM_ENABLED": {
+      "value": true,
+      "source": "env",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "memory.dream_enabled": {
+      "global": true,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "env:DREAM_ENABLED=on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "memory_dream_log",
+    "dream_state",
+    "graph_facts",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1792648780,
+    "status": "ok",
+    "kind": "run",
+    "source_table": "memory_dream_log",
+    "detail": "tokens=0"
+   },
+   "real_input": {
+    "available": true,
+    "total": 20043,
+    "fresh_24h": 250,
+    "detail": "по ['memory_dream_log']"
+   },
+   "write_result": {
+    "state": "watermark",
+    "last_run_at": 1792627180,
+    "last_processed_fact_id": 20604
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "graph_facts(kind='belief')",
+    "beliefs_total": 335
+   },
+   "counters_24h": {
+    "distilled": {
+     "ok": 4
+    },
+    "run": {
+     "ok": 15
+    },
+    "skipped": {
+     "budget_skip": 11,
+     "unchanged": 6,
+     "window_skip": 3
+    }
+   },
+   "counters_7d": {
+    "distilled": {
+     "ok": 65
+    },
+    "run": {
+     "ok": 138
+    },
+    "skipped": {
+     "budget_skip": 108,
+     "cluster_deferred": 50,
+     "unchanged": 22,
+     "window_skip": 20
+    }
+   },
+   "events_24h": {},
+   "events_7d": {},
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": 90000,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "deep_sleep",
+   "title": "Глубокий сон (deep sleep)",
+   "gate": {
+    "env": {
+     "DEEP_SLEEP_ENABLED": {
+      "value": true,
+      "source": "env",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "memory.deep_sleep_enabled": {
+      "global": null,
+      "chat": null
+     },
+     "memory.deep_sleep_trigger": {
+      "global": "after_sleep",
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "env:DEEP_SLEEP_ENABLED=on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "memory_dream_log",
+    "graph_facts",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1791594942,
+    "status": "ok",
+    "kind": "deep_run",
+    "source_table": "memory_dream_log",
+    "detail": "tokens=1795"
+   },
+   "real_input": {
+    "available": true,
+    "total": 20043,
+    "fresh_24h": 250,
+    "detail": "по ['memory_dream_log']"
+   },
+   "write_result": {
+    "paradigms_total": 5,
+    "bootstrap_pending": false
+   },
+   "used_in_response": {
+    "tracked": false,
+    "note": "парадигмы входят в retrieval graph_facts; прямой трейс нет"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": {},
+   "events_7d": {},
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "belief_revision",
+   "title": "Пересмотр убеждений (belief revision)",
+   "gate": {
+    "env": {
+     "MCA_DREAM_REVISION_QUEUE_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "memory.dream_revision_queue_enabled": {
+      "global": null,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_belief_reviews",
+    "graph_facts",
+    "memory_dream_log",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1792672153,
+    "status": "kept",
+    "kind": "belief_review",
+    "source_table": "mca_belief_reviews",
+    "detail": "belief=16813, reason=None"
+   },
+   "real_input": {
+    "available": true,
+    "total": 335,
+    "fresh_24h": 5,
+    "detail": "по ['mca_belief_reviews']"
+   },
+   "write_result": {
+    "reviews_total": 8
+   },
+   "used_in_response": {
+    "tracked": false,
+    "note": "пересмотренные убеждения живут в graph_facts; трейс в ответе нет"
+   },
+   "counters_24h": {
+    "kept": 1
+   },
+   "counters_7d": {
+    "kept": 4
+   },
+   "events_24h": {},
+   "events_7d": {},
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "paradigms",
+   "title": "Парадигмы (paradigms)",
+   "gate": {
+    "env": {
+     "DEEP_SLEEP_ENABLED": {
+      "value": true,
+      "source": "env",
+      "default": true
+     },
+     "DEEP_SLEEP_MAX_PARADIGMS": {
+      "value": true,
+      "source": "default",
+      "default": 3
+     }
+    },
+    "pg_catalog": {
+     "memory.deep_sleep_enabled": {
+      "global": null,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "env:DEEP_SLEEP_ENABLED=on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "sleep.dream",
+      "declared": true,
+      "enabled_gate": "DREAM_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "sleep_dream"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "graph_facts",
+    "memory_dream_log",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1791594942,
+    "status": "ok",
+    "kind": "deep_run",
+    "source_table": "memory_dream_log",
+    "detail": "tokens=1795"
+   },
+   "real_input": {
+    "available": true,
+    "total": 5,
+    "fresh_24h": null,
+    "detail": "по ['graph_facts']"
+   },
+   "write_result": {
+    "paradigms_total": 5,
+    "bootstrap_pending": false
+   },
+   "used_in_response": {
+    "tracked": false,
+    "note": "парадигмы входят в retrieval graph_facts; прямой трейс нет"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": {},
+   "events_7d": {},
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "self_model",
+   "title": "Self-model / traits (характер)",
+   "gate": {
+    "env": {
+     "MCA_SELF_MODEL_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "flags.self_model_enabled": {
+      "global": true,
+      "chat": null
+     },
+     "flags.trait_rules_enabled": {
+      "global": true,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "self.model",
+      "declared": true,
+      "enabled_gate": "MCA_SELF_MODEL_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "self_model"
+      ]
+     },
+     {
+      "process_id": "persona.traits",
+      "declared": true,
+      "enabled_gate": "PERSONA_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "persona_traits"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_trait_observations",
+    "mca_self_identity",
+    "mca_behavior_rules",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1792623595,
+    "status": "self",
+    "kind": "",
+    "source_table": "mca_trait_observations",
+    "detail": "dimension=сарказм"
+   },
+   "real_input": {
+    "available": true,
+    "total": 352,
+    "fresh_24h": 14,
+    "detail": "по ['mca_trait_observations']"
+   },
+   "write_result": {
+    "self_identity": {
+     "agent_id": "d47a17b3-d9b2-4b6b-85f3-0389c3f2b274",
+     "bot_user_id": null,
+     "bound_at": 1791235135,
+     "updated_at": 1791235135
+    },
+    "behavior_rules_total": 8
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "persona (bot_persona) читает traits; events component=self_model"
+   },
+   "counters_24h": {
+    "?": {
+     "ambiguous": 7,
+     "self": 7
+    }
+   },
+   "counters_7d": {
+    "?": {
+     "ambiguous": 61,
+     "self": 61
+    }
+   },
+   "events_24h": {},
+   "events_7d": {},
+   "last_event": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "graph_memory",
+   "title": "Graph memory (GraphRAG)",
+   "gate": {
+    "env": {
+     "GRAPHRAG_SHADOW_REBUILD_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "flags.graphrag_rebuild_enabled": {
+      "global": null,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "embeddings.index",
+      "declared": true,
+      "enabled_gate": "MCA_RETRIEVAL_CONTEXT_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "EMBED_API_FAILED",
+       "EMBED_API_DEFERRED",
+       "EMBEDDING_GENERATION_BUILD_START",
+       "EMBEDDING_GENERATION_PROGRESS",
+       "EMBEDDING_GENERATION_VALIDATED",
+       "EMBEDDING_GENERATION_ACTIVATED",
+       "EMBEDDING_GENERATION_FAILED"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "graph_facts",
+    "nodes",
+    "edges",
+    "mca_embedding_index_generations",
+    "task_jobs",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": true,
+    "total": 20043,
+    "fresh_24h": 250,
+    "detail": "по ['graph_facts']"
+   },
+   "write_result": {
+    "recent_generations": [
+     {
+      "index_name": "smart_archive",
+      "generation": 1,
+      "status": "building",
+      "created_at": 1790678362,
+      "activated_at": null
+     },
+     {
+      "index_name": "graph_facts_vec",
+      "generation": 1,
+      "status": "building",
+      "created_at": 1790678362,
+      "activated_at": null
+     }
+    ],
+    "quota_state": [
+     {
+      "quota_group_id": "unknown",
+      "state": "exhausted",
+      "next_allowed_at": 1791849900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1791763508
+     },
+     {
+      "quota_group_id": "primary",
+      "state": "exhausted",
+      "next_allowed_at": 1792713900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1792628095
+     },
+     {
+      "quota_group_id": "fallback_1",
+      "state": "exhausted",
+      "next_allowed_at": 1792713900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1792628099
+     },
+     {
+      "quota_group_id": "fallback_2",
+      "state": "exhausted",
+      "next_allowed_at": 1792713900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1792628106
+     }
+    ],
+    "backlog_missing_embedding": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "GraphRAG retrieval читает graph_facts/nodes/edges"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": {
+    "job_id": "7ed322e68a0d433b89f03ef66117c367",
+    "kind": "graphrag_rebuild",
+    "coalesce_key": "graphrag_rebuild:graph_facts_vec:96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d",
+    "status": "paused_rate_limit",
+    "reason_code": "rate_limit:quota_group",
+    "error_code": null,
+    "attempt": 0,
+    "max_attempts": 1,
+    "payload": "{\"cursor\": \"{\\\"last_id\\\": 11953, \\\"processed\\\": 9797}\", \"processed\": 9797}",
+    "heartbeat_at": 1792628105,
+    "created_at": 1790807059,
+    "updated_at": 1792628106,
+    "finished_at": 1790871748
+   },
+   "job_24h": {},
+   "job_7d": {},
+   "ttl_seconds": null,
+   "extra": {
+    "payload_cursor": {
+     "cursor_ts": null,
+     "cursor_id": null,
+     "counters": null
+    }
+   },
+   "diagnosis": {
+    "code": "never_run",
+    "detail": "включено, но попыток не было (не зелёное)"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "embeddings",
+   "title": "Инкрементальный embedding/backfill",
+   "gate": {
+    "env": {
+     "EMBED_CONTROL_PLANE_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "EMBED_ASYNC_BATCH_ENABLED": {
+      "value": false,
+      "source": "default",
+      "default": false
+     }
+    },
+    "pg_catalog": {
+     "flags.embeddings_enabled": {
+      "global": null,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "embeddings.index",
+      "declared": true,
+      "enabled_gate": "MCA_RETRIEVAL_CONTEXT_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "EMBED_API_FAILED",
+       "EMBED_API_DEFERRED",
+       "EMBEDDING_GENERATION_BUILD_START",
+       "EMBEDDING_GENERATION_PROGRESS",
+       "EMBEDDING_GENERATION_VALIDATED",
+       "EMBEDDING_GENERATION_ACTIVATED",
+       "EMBEDDING_GENERATION_FAILED"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_embedding_index_generations",
+    "embedding_quota_state",
+    "graph_facts",
+    "task_jobs",
+    "mca_events"
+   ],
+   "last_attempt": null,
+   "real_input": {
+    "available": true,
+    "total": 20043,
+    "fresh_24h": 250,
+    "detail": "по ['mca_embedding_index_generations']"
+   },
+   "write_result": {
+    "recent_generations": [
+     {
+      "index_name": "smart_archive",
+      "generation": 1,
+      "status": "building",
+      "created_at": 1790678362,
+      "activated_at": null
+     },
+     {
+      "index_name": "graph_facts_vec",
+      "generation": 1,
+      "status": "building",
+      "created_at": 1790678362,
+      "activated_at": null
+     }
+    ],
+    "quota_state": [
+     {
+      "quota_group_id": "unknown",
+      "state": "exhausted",
+      "next_allowed_at": 1791849900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1791763508
+     },
+     {
+      "quota_group_id": "primary",
+      "state": "exhausted",
+      "next_allowed_at": 1792713900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1792628095
+     },
+     {
+      "quota_group_id": "fallback_1",
+      "state": "exhausted",
+      "next_allowed_at": 1792713900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1792628099
+     },
+     {
+      "quota_group_id": "fallback_2",
+      "state": "exhausted",
+      "next_allowed_at": 1792713900,
+      "note": "parked kind=spend est=utc_day_end",
+      "updated_at": 1792628106
+     }
+    ],
+    "backlog_missing_embedding": null
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "GraphRAG retrieval читает graph_facts/nodes/edges"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": {
+    "job_id": "7ed322e68a0d433b89f03ef66117c367",
+    "kind": "graphrag_rebuild",
+    "coalesce_key": "graphrag_rebuild:graph_facts_vec:96f80838f683e1cbca00fa20a396852952bcc42fdde8b631383f501a6214337d",
+    "status": "paused_rate_limit",
+    "reason_code": "rate_limit:quota_group",
+    "error_code": null,
+    "attempt": 0,
+    "max_attempts": 1,
+    "payload": "{\"cursor\": \"{\\\"last_id\\\": 11953, \\\"processed\\\": 9797}\", \"processed\": 9797}",
+    "heartbeat_at": 1792628105,
+    "created_at": 1790807059,
+    "updated_at": 1792628106,
+    "finished_at": 1790871748
+   },
+   "job_24h": {},
+   "job_7d": {},
+   "ttl_seconds": null,
+   "extra": {
+    "payload_cursor": {
+     "cursor_ts": null,
+     "cursor_id": null,
+     "counters": null
+    }
+   },
+   "diagnosis": {
+    "code": "never_run",
+    "detail": "включено, но попыток не было (не зелёное)"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "experience",
+   "title": "Experience (семантическое обучение)",
+   "gate": {
+    "env": {
+     "MCA_EXPERIENCE_LESSONS_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "MCA_EXPERIENCE_REVIEW_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "memory.experience_learning_enabled": {
+      "global": true,
+      "chat": null
+     },
+     "memory.experience_review_cadence": {
+      "global": "daily",
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "self_learning.run",
+      "declared": true,
+      "enabled_gate": "MCA_EXPERIENCE_LESSONS_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "experience_recorded",
+       "lesson_proposed",
+       "validation_passed",
+       "validation_failed",
+       "activated",
+       "retrieved",
+       "applied",
+       "feedback_linked",
+       "utility_updated",
+       "suspended",
+       "superseded"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_experience_episodes",
+    "mca_experience_feedback",
+    "mca_lessons",
+    "mca_lesson_applications",
+    "task_jobs",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1792682024,
+    "status": "unknown",
+    "kind": "humor_send",
+    "source_table": "mca_experience_episodes",
+    "detail": ""
+   },
+   "real_input": {
+    "available": true,
+    "total": 276,
+    "fresh_24h": 36,
+    "detail": "по ['mca_experience_episodes']"
+   },
+   "write_result": {
+    "lessons_total": 2,
+    "lesson_applications_total": 0
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "mca_lesson_applications (инъекция-гард Direct)"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": {
+    "job_id": "2ada0dd85a344b9ba518f70f583f2933",
+    "kind": "experience.review",
+    "coalesce_key": "experience.review:global",
+    "status": "completed",
+    "reason_code": null,
+    "error_code": null,
+    "attempt": 1,
+    "max_attempts": 3,
+    "payload": "{\"cursor_feedback_rowid\": 6, \"cursor_event_rowid\": 83407, \"cursor_message_rowid\": 900, \"link_scan_application_id\": 0, \"counters\": {\"captured_feedback\": 0, \"captured_events\": 0, \"proposed\": 0, \"skipped_existing\": 2, \"validated\": 0, \"activated\": 0, \"suspended\": 0, \"outcomes_linked\": 0, \"utility_updates\": 0, \"stale_marked\": 0, \"pruned_episodes\": 0, \"pruned_feedback\": 0, \"pruned_applications\": 0, \"errors\": 0, \"batches\": 1, \"detector_scanned\": 100, \"detector_detected\": 0, \"detector_skipped\": 100, \"capture_write_failures\": 0, \"resumed_validated\": 0, \"resumed_activated\": 0, \"resume_rejected\": 0, \"outcomes_unmatchable\": 0, \"preference_superseded_signals\": 0, \"semantic_scanned\": 500, \"semantic_selected\": 9, \"semantic_extracted\": 0, \"semantic_candidates\": 0, \"semantic_rejected\": 0, \"semantic_duplicates\": 0, \"semantic_llm_unavailable\": 0, \"semantic_reject_reasons\": {}, \"humor_sends_scanned\": 0, \"humor_signals\": 0, \"humor_unknown\": 0, \"humor_windows_closed\": 0, \"humor_lessons_applied\": 0, \"humor_hypotheses\": 0, \"humor_skipped_disabled\": 0, \"humor_evaluator_unavailable\": 0, \"humor_write_failures\": 0}, \"semantic_watermark\": 500, \"semantic_pending\": {\"-1002661910336\": 491}, \"semantic_last_ts\": {\"-1002661910336\": 1792658361}, \"semantic_cursor:-1002661910336\": 10}",
+    "heartbeat_at": 1792658335,
+    "created_at": 1792658335,
+    "updated_at": 1792658361,
+    "finished_at": 1792658361
+   },
+   "job_24h": {
+    "completed": 1
+   },
+   "job_7d": {
+    "completed": 7
+   },
+   "ttl_seconds": null,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "initiative",
+   "title": "Initiative (проактивный наблюдатель)",
+   "gate": {
+    "env": {
+     "INITIATIVE_OBSERVER_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "INITIATIVE_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "flags.initiative_enabled": {
+      "global": true,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "intent.initiative",
+      "declared": true,
+      "enabled_gate": "MCA_INTENTS_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "intent_created",
+       "intent_merged",
+       "intent_fulfilled",
+       "intent_abandoned",
+       "intent_archived",
+       "initiative_decided",
+       "recheck_deferred"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "mca_intents",
+    "task_jobs",
+    "smart_messages",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1792685111,
+    "status": "completed",
+    "kind": "initiative.observe",
+    "source_table": "task_jobs",
+    "detail": "reason=None, attempt=1/3"
+   },
+   "real_input": {
+    "available": true,
+    "total": 2788,
+    "fresh_24h": 2788,
+    "detail": "по ['mca_intents']"
+   },
+   "write_result": {
+    "intents_total": 5,
+    "intents_active": 0
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": " Initiative funnel mca_events component=initiative/intents"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": {
+    "job_id": "2b68397516b0431ba53787192d159462",
+    "kind": "initiative.observe",
+    "coalesce_key": "initiative.observe:global",
+    "status": "completed",
+    "reason_code": null,
+    "error_code": null,
+    "attempt": 1,
+    "max_attempts": 3,
+    "payload": "{\"cursor_message_rowid\": 2358525, \"counters\": {\"passes\": 2002, \"observed\": 153045, \"eligible\": 153045, \"scan_skipped\": 22863, \"evals\": 81, \"opportunities\": 49, \"silent_decisions\": 19, \"intents_created\": 0, \"sent\": 27, \"react_decisions\": 3, \"writer_unavailable\": 0, \"eval_unavailable\": 0, \"errors\": 0, \"scan_anchored\": 1, \"eval_skips\": {\"min_gap\": 61, \"eval_not_due\": 1424, \"not_enough_messages\": 983, \"direct_address_seen\": 1, \"no_opportunity\": 31, \"semantic_eval_unavailable\": 1, \"anti_flood\": 7, \"topic_cap\": 1, \"eval_budget\": 2}}, \"chats\": {\"-1002661910336\": {\"pending\": 140, \"last_eval_ts\": 1792682701, \"recent_hashes\": [[\"d4eb8beefb5e02b2\", 1792642186], [\"1d860a07303f782a\", 1792644886], [\"9fcf2d95cc470fc0\", 1792647586], [\"fe2ae9438109336c\", 1792650379], [\"efaedace41a1220e\", 1792658946], [\"1ec2f5f254594d6c\", 1792661944], [\"a20d01764f2952d5\", 1792673942], [\"de84d1ccff82192a\", 1792682701]], \"topics\": {\"male-body-hair\": {\"count\": 1, \"ts\": 1792314761}, \"game-build-test\": {\"count\": 1, \"ts\": 1792328259}, \"krasnoyarsk-meetup\": {\"count\": 1, \"ts\": 1792420724}, \"jade-rs-purchase\": {\"count\": 1, \"ts\": 1792432931}, \"job-offer-sysadmin\": {\"count\": 1, \"ts\": 1792488892}, \"sugar-testosterone-myth\": {\"count\": 1, \"ts\": 1792506035}, \"meetup-plans\": {\"count\": 1, \"ts\": 1792517802}, \"migraine-health\": {\"count\": 1, \"ts\": 1792562471}, \"anonmap\": {\"count\": 1, \"ts\": 1792578484}, \"diablo4\": {\"count\": 1, \"ts\": 1792595498}, \"resident-evil-lore\": {\"count\": 1, \"ts\": 1792650390}, \"moscow-trip\": {\"count\": 1, \"ts\": 1792658969}, \"airports\": {\"count\": 1, \"ts\": 1792673959}}, \"eval_day\": 20748, \"eval_day_count\": 9, \"last_seen_msg_id\": 2358524, \"sent_stamps\": [1792650390, 1792658969, 1792673959], \"last_eval_msg_id\": 2358357}, \"-1004482340693\": {\"pending\": 8, \"last_eval_ts\": 1792682721, \"recent_hashes\": [[\"e439a67b1d1c9eea\", 1792651579], [\"88a2f11338249e45\", 1792657142], [\"b0e1806fe69c16df\", 1792665839], [\"1bcb306d9b97a49b\", 1792677000]], \"topics\": {\"local-llm-ssd-raid\": {\"count\": 1, \"ts\": 1792338308}, \"ssd-wear\": {\"count\": 1, \"ts\": 1792346706}, \"local-llm-ssd-offload\": {\"count\": 1, \"ts\": 1792398244}, \"gpu-farming\": {\"count\": 1, \"ts\": 1792422455}, \"claude-subscription\": {\"count\": 1, \"ts\": 1792470881}, \"local-llm-hardware\": {\"count\": 1, \"ts\": 1792481382}, \"debt-collection\": {\"count\": 1, \"ts\": 1792502417}, \"money-transfer-joke\": {\"count\": 1, \"ts\": 1792516291}, \"copying-ai-products\": {\"count\": 1, \"ts\": 1792525202}, \"nvidia-gpu-supply\": {\"count\": 1, \"ts\": 1792576372}, \"ddr3-server-build\": {\"count\": 1, \"ts\": 1792600591}, \"ai-money-tool\": {\"count\": 1, \"ts\": 1792610451}, \"leha-gpu-business\": {\"count\": 1, \"ts\": 1792657145}, \"gpu-rental\": {\"count\": 1, \"ts\": 1792665841}, \"gpu-mining-vs-ai\": {\"count\": 1, \"ts\": 1792677007}}, \"eval_day\": 20748, \"eval_day_count\": 4, \"last_seen_msg_id\": 2358474, \"sent_stamps\": [1792600591, 1792610451, 1792657145, 1792665841, 1792677007], \"last_eval_msg_id\": 2358057}}, \"day\": {\"stamp\": 20748, \"observed\": 2159, \"opportunities\": 9}, \"last_diag_ts\": 1792640095}",
+    "heartbeat_at": 1792685094,
+    "created_at": 1792685094,
+    "updated_at": 1792685111,
+    "finished_at": 1792685111
+   },
+   "job_24h": {
+    "completed": 283,
+    "interrupted": 1
+   },
+   "job_7d": {
+    "completed": 1986,
+    "interrupted": 1
+   },
+   "ttl_seconds": 21600,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  },
+  {
+   "key": "summary_scheduler",
+   "title": "Summary scheduler (планировщик пересказа)",
+   "gate": {
+    "env": {
+     "SUMMARY_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     },
+     "SYSTEM2_SUMMARY_ENABLED": {
+      "value": true,
+      "source": "default",
+      "default": true
+     }
+    },
+    "pg_catalog": {
+     "memory.summary_enabled": {
+      "global": null,
+      "chat": null
+     }
+    },
+    "pg_available": true,
+    "pg_reason": null,
+    "effective": true,
+    "effective_source": "default_on",
+    "chat_id": null
+   },
+   "producer": {
+    "registered": true,
+    "processes": [
+     {
+      "process_id": "summary.window",
+      "declared": true,
+      "enabled_gate": "",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "SUMMARY_WINDOW_BUILD"
+      ]
+     },
+     {
+      "process_id": "summary.publish",
+      "declared": true,
+      "enabled_gate": "SUMMARY_ENABLED",
+      "enabled": true,
+      "instrumented": true,
+      "event_names": [
+       "SUMMARY_PUBLISH"
+      ]
+     }
+    ]
+   },
+   "sources": [
+    "summary_runs",
+    "summary_run_stages",
+    "chat_running_summary",
+    "smart_messages",
+    "mca_events"
+   ],
+   "last_attempt": {
+    "ts": 1792674000,
+    "status": "FAILED",
+    "kind": "summary_run",
+    "source_table": "summary_runs",
+    "detail": "run=718e9ea64810446399970ed4ea01a2f1, publication=failed, health=degraded"
+   },
+   "real_input": {
+    "available": true,
+    "total": 2788,
+    "fresh_24h": 2788,
+    "detail": "по ['summary_runs']"
+   },
+   "write_result": {
+    "runs_total": 28
+   },
+   "used_in_response": {
+    "tracked": true,
+    "source": "summary публикуется в чат; summary_runs.publication_status"
+   },
+   "counters_24h": {},
+   "counters_7d": {},
+   "events_24h": null,
+   "events_7d": null,
+   "last_job": null,
+   "job_24h": null,
+   "job_7d": null,
+   "ttl_seconds": 43200,
+   "extra": {},
+   "diagnosis": {
+    "code": "ok",
+    "detail": "gate on, вход есть, попытки свежие"
+   },
+   "missing_tables": []
+  }
+ ],
+ "summary": {
+  "diagnoses": {
+   "ok": 8,
+   "never_run": 2
+  },
+  "not_green_rule": "never_run/producer_off/no_input никогда не считаются зелёными (REQ-B11-E2E)"
+ }
+}
+
+B11 — механизмы (2026-10-22 16:09:00)
+DB: local_database.db | chat_id: — | PG: доступен
+Ошибки чтения (fail-soft, до 20): 2
+
+== Сон (dream) — ok — цепочка работает
+  gate: effective=True (env:DREAM_ENABLED=on); env={'DREAM_ENABLED': True}; pg_catalog={'memory.dream_enabled': {'global': True, 'chat': None}}
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: 2026-10-22 05:59:40 kind=run status=ok (tokens=0)
+  вход: available=True total=20043 fresh_24h=250
+  job: —
+  запись: {"state": "watermark", "last_run_at": 1792627180, "last_processed_fact_id": 20604}
+  24h: {"distilled": {"ok": 4}, "run": {"ok": 15}, "skipped": {"budget_skip": 11, "unchanged": 6, "window_skip": 3}} | job: {}
+  7d: {"distilled": {"ok": 65}, "run": {"ok": 138}, "skipped": {"budget_skip": 108, "cluster_deferred": 50, "unchanged": 22, "window_skip": 20}}
+  использовано в ответе: tracked=True graph_facts(kind='belief')
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Глубокий сон (deep sleep) — ok — цепочка работает
+  gate: effective=True (env:DEEP_SLEEP_ENABLED=on); env={'DEEP_SLEEP_ENABLED': True}; pg_catalog={'memory.deep_sleep_enabled': {'global': None, 'chat': None}, 'memory.deep_sleep_trigger': {'global': 'after_sleep', 'chat': None}}
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: 2026-10-10 01:15:42 kind=deep_run status=ok (tokens=1795)
+  вход: available=True total=20043 fresh_24h=250
+  job: —
+  запись: {"paradigms_total": 5, "bootstrap_pending": false}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=False парадигмы входят в retrieval graph_facts; прямой трейс нет
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Пересмотр убеждений (belief revision) — ok — цепочка работает
+  gate: effective=True (default_on); env={'MCA_DREAM_REVISION_QUEUE_ENABLED': True}; pg_catalog={'memory.dream_revision_queue_enabled': {'global': None, 'chat': None}}
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: 2026-10-22 12:29:13 kind=belief_review status=kept (belief=16813, reason=None)
+  вход: available=True total=335 fresh_24h=5
+  job: —
+  запись: {"reviews_total": 8}
+  24h: {"kept": 1} | job: {}
+  7d: {"kept": 4}
+  использовано в ответе: tracked=False пересмотренные убеждения живут в graph_facts; трейс в ответе нет
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Парадигмы (paradigms) — ok — цепочка работает
+  gate: effective=True (env:DEEP_SLEEP_ENABLED=on); env={'DEEP_SLEEP_ENABLED': True, 'DEEP_SLEEP_MAX_PARADIGMS': True}; pg_catalog={'memory.deep_sleep_enabled': {'global': None, 'chat': None}}
+  producer: registered=True processes=['sleep.dream']
+  последняя попытка: 2026-10-10 01:15:42 kind=deep_run status=ok (tokens=1795)
+  вход: available=True total=5 fresh_24h=None
+  job: —
+  запись: {"paradigms_total": 5, "bootstrap_pending": false}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=False парадигмы входят в retrieval graph_facts; прямой трейс нет
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Self-model / traits (характер) — ok — цепочка работает
+  gate: effective=True (default_on); env={'MCA_SELF_MODEL_ENABLED': True}; pg_catalog={'flags.self_model_enabled': {'global': True, 'chat': None}, 'flags.trait_rules_enabled': {'global': True, 'chat': None}}
+  producer: registered=True processes=['self.model', 'persona.traits']
+  последняя попытка: 2026-10-21 22:59:55 kind= status=self (dimension=сарказм)
+  вход: available=True total=352 fresh_24h=14
+  job: —
+  запись: {"self_identity": {"agent_id": "d47a17b3-d9b2-4b6b-85f3-0389c3f2b274", "bot_user_id": null, "bound_at": 1791235135, "updated_at": 1791235135}, "behavior_rules_total": 8}
+  24h: {"?": {"ambiguous": 7, "self": 7}} | job: {}
+  7d: {"?": {"ambiguous": 61, "self": 61}}
+  использовано в ответе: tracked=True persona (bot_persona) читает traits; events component=self_model
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Graph memory (GraphRAG) — включено, но ни одной попытки
+  gate: effective=True (default_on); env={'GRAPHRAG_SHADOW_REBUILD_ENABLED': True}; pg_catalog={'flags.graphrag_rebuild_enabled': {'global': None, 'chat': None}}
+  producer: registered=True processes=['embeddings.index']
+  последняя попытка: НЕТ (never_run)
+  вход: available=True total=20043 fresh_24h=250
+  job: graphrag_rebuild paused_rate_limit updated=2026-10-22 00:15:06 reason=rate_limit:quota_group error=—
+  запись: {"recent_generations": [{"index_name": "smart_archive", "generation": 1, "status": "building", "created_at": 1790678362, "activated_at": null}, {"index_name": "graph_facts_vec", "generation": 1, "stat
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True GraphRAG retrieval читает graph_facts/nodes/edges
+  диагноз: never_run — включено, но попыток не было (не зелёное)
+
+== Инкрементальный embedding/backfill — включено, но ни одной попытки
+  gate: effective=True (default_on); env={'EMBED_CONTROL_PLANE_ENABLED': True, 'EMBED_ASYNC_BATCH_ENABLED': False}; pg_catalog={'flags.embeddings_enabled': {'global': None, 'chat': None}}
+  producer: registered=True processes=['embeddings.index']
+  последняя попытка: НЕТ (never_run)
+  вход: available=True total=20043 fresh_24h=250
+  job: graphrag_rebuild paused_rate_limit updated=2026-10-22 00:15:06 reason=rate_limit:quota_group error=—
+  запись: {"recent_generations": [{"index_name": "smart_archive", "generation": 1, "status": "building", "created_at": 1790678362, "activated_at": null}, {"index_name": "graph_facts_vec", "generation": 1, "stat
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True GraphRAG retrieval читает graph_facts/nodes/edges
+  диагноз: never_run — включено, но попыток не было (не зелёное)
+
+== Experience (семантическое обучение) — ok — цепочка работает
+  gate: effective=True (default_on); env={'MCA_EXPERIENCE_LESSONS_ENABLED': True, 'MCA_EXPERIENCE_REVIEW_ENABLED': True}; pg_catalog={'memory.experience_learning_enabled': {'global': True, 'chat': None}, 'memory.experience_review_cadence': {'global': 'daily', 'chat': None}}
+  producer: registered=True processes=['self_learning.run']
+  последняя попытка: 2026-10-22 15:13:44 kind=humor_send status=unknown ()
+  вход: available=True total=276 fresh_24h=36
+  job: experience.review completed updated=2026-10-22 08:39:21 reason=— error=—
+  запись: {"lessons_total": 2, "lesson_applications_total": 0}
+  24h: {} | job: {"completed": 1}
+  7d: {}
+  использовано в ответе: tracked=True mca_lesson_applications (инъекция-гард Direct)
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Initiative (проактивный наблюдатель) — ok — цепочка работает
+  gate: effective=True (default_on); env={'INITIATIVE_OBSERVER_ENABLED': True, 'INITIATIVE_ENABLED': True}; pg_catalog={'flags.initiative_enabled': {'global': True, 'chat': None}}
+  producer: registered=True processes=['intent.initiative']
+  последняя попытка: 2026-10-22 16:05:11 kind=initiative.observe status=completed (reason=None, attempt=1/3)
+  вход: available=True total=2788 fresh_24h=2788
+  job: initiative.observe completed updated=2026-10-22 16:05:11 reason=— error=—
+  запись: {"intents_total": 5, "intents_active": 0}
+  24h: {} | job: {"completed": 283, "interrupted": 1}
+  7d: {}
+  использовано в ответе: tracked=True  Initiative funnel mca_events component=initiative/intents
+  диагноз: ok — gate on, вход есть, попытки свежие
+
+== Summary scheduler (планировщик пересказа) — ok — цепочка работает
+  gate: effective=True (default_on); env={'SUMMARY_ENABLED': True, 'SYSTEM2_SUMMARY_ENABLED': True}; pg_catalog={'memory.summary_enabled': {'global': None, 'chat': None}}
+  producer: registered=True processes=['summary.window', 'summary.publish']
+  последняя попытка: 2026-10-22 13:00:00 kind=summary_run status=FAILED (run=718e9ea64810446399970ed4ea01a2f1, publication=failed, health=degraded)
+  вход: available=True total=2788 fresh_24h=2788
+  job: —
+  запись: {"runs_total": 28}
+  24h: {} | job: {}
+  7d: {}
+  использовано в ответе: tracked=True summary публикуется в чат; summary_runs.publication_status
+  диагноз: ok — gate on, вход есть, попытки свежие
+===== MAIN_DONE =====

@@ -43,7 +43,7 @@
         {
           "el": "div.hub-card",
           "tier": "a",
-          "filter": "lg-refract-lens-4",
+          "filter": "lg-refract-lens-5",
           "w": 561,
           "h": 150
         }
@@ -52,9 +52,9 @@
       "errors": 0,
       "reducedMotion": false,
       "dprCap": 1.5,
-      "paintMs": 1.03,
-      "paintMsMax": 22.8,
-      "paintCount": 50,
+      "paintMs": 0.65,
+      "paintMsMax": 3.2,
+      "paintCount": 56,
       "renderIntervalMs": 40,
       "layerClass": "lg-refract",
       "filterBase": "lg-lens",
@@ -62,10 +62,12 @@
     },
     "tiers": {
       "a": 16,
+      "b": 1,
       "c": 2
     },
     "reasons": {
       "refract-layer": 16,
+      "nested-in-glass": 1,
       "tier-dense": 2
     },
     "refractOn": 16,
@@ -74,7 +76,7 @@
     "layerPtr": {
       "pointerEvents": "none",
       "zIndex": "-1",
-      "filter": "blur(5px) saturate(1.4) url(\"#lg-refract-lens-4\")",
+      "filter": "blur(5px) saturate(1.4) url(\"#lg-refract-lens-5\")",
       "backdrop": "none"
     },
     "filteredContent": 0,
@@ -101,11 +103,11 @@
     "frames": 89,
     "p50_ms": 16.7,
     "p95_ms": 16.8,
-    "max_ms": 33.4,
+    "max_ms": 16.8,
     "layers": 3,
-    "paintMs": 0.29,
-    "paintMsMax": 22.8,
-    "paintCount": 82,
+    "paintMs": 0.18,
+    "paintMsMax": 3.2,
+    "paintCount": 87,
     "errors": 0,
     "intervalMs": 40
   },
@@ -113,36 +115,25 @@
     "selector": "#wg-measure-target",
     "w": 748,
     "h": 284,
-    "moved_frac": 0.149,
+    "moved_frac": 0.1336,
     "band_ring_px": 132,
-    "ring_luma_b": 61.32,
-    "ring_luma_a": 62.53,
-    "luma_delta_pct": -1.93,
-    "ring_energy": 4.46,
-    "mid_energy": 0.12,
+    "ring_luma_b": 61.28,
+    "ring_luma_a": 62.49,
+    "luma_delta_pct": -1.95,
+    "ring_energy": 3.631,
+    "mid_energy": 0.003,
     "center_energy": 0.0,
-    "edge_inner_ratio": 4460.0
+    "edge_inner_ratio": 3631.0
   },
   "layout_shift": {
     "tagged": 328,
     "hosts": 3,
     "missing": 0,
-    "moved": 2,
+    "moved": 0,
     "host_moved": 0,
     "scrollH_off": 844,
     "scrollH_on": 844,
-    "sample_moved": [
-      [
-        "L298",
-        "L298:0:175:4031:39:39",
-        "L298:0:179:4035:31:31"
-      ],
-      [
-        "L303",
-        "L303:0:175:4146:39:39",
-        "L303:0:179:4150:31:31"
-      ]
-    ]
+    "sample_moved": []
   },
   "surface_mobile": {
     "x": 8,
@@ -158,12 +149,12 @@
     "left": {
       "row": 99,
       "shift_px": -26,
-      "corr": 0.92
+      "corr": 0.919
     },
     "right": {
       "row": 184,
-      "shift_px": 32,
-      "corr": 0.971
+      "shift_px": 33,
+      "corr": 0.954
     },
     "center": {
       "row": 142,
@@ -223,11 +214,12 @@
       "maxLayers": 3
     },
     "tiers": {
-      "b": 17,
+      "b": 18,
       "c": 2
     },
     "reasons": {
       "engine-unproven-backdrop-url": 17,
+      "nested-in-glass": 1,
       "tier-dense": 2
     },
     "refractOn": 0,

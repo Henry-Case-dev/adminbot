@@ -1,0 +1,8 @@
+REL-258100 frozen fingerprint
+pre-bump HEAD (git): 532a2d24e9398d8e16472a767555618117716db9
+candidate code line (brief): 27b1165aced5c54faf83845160509b1ad2307318 (samples-ux v2 + ledger; Approved review; gates EXIT 0)
+post-bump sha256_12:
+  config/settings.py: de8544e10e3e
+  README.md: 3915e16fb87d
+  plans/docs/param-registry-round1025.meta.md: eafa91e9c3d4
+Final candidate fingerprint is fixed by the orchestrator bump commit (--only 31 files).

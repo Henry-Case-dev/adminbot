@@ -2538,7 +2538,8 @@
           "artifact_sha256": "b8e551462d3ddc0c1ef771b570fa2c7c7808ed381ea47ca64024d2f4f26b5c14",
           "type": "test"
         }
-      ]
+      ],
+      "reconciliation_note": "NEEDS_LIVE_OBSERVATION (WAITING_EXTERNAL): поиск и фактчек подтверждены реальными сценариями трижды; видео — not_configured/media_source_unconfigured/cobalt_absent, сценарий невоспроизводим без медиа-источника. Не owner_optional и не VERIFIED; ждёт настройки провайдера."
     },
     {
       "source_id": "L00135",

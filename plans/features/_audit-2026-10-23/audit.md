@@ -1,0 +1,223 @@
+# Аудит остатка требований (2026-10-23)
+
+Всего строк в картах области: 1449
+Открытых обязательных инженерных: 203
+
+## asap2-direct-chat — открыто 109 (live_required=1)
+statuses: {'PENDING': 109}
+slices: {'GOV': 12, 'CLAR-L1': 13, 'CLAR-PLAN': 5, 'CLAR-BOOL': 6, 'MIGR': 9, 'TESTS': 44, 'DONE-CRITERIA': 11, 'CLAR-SPEECH': 3, 'CLAR-L2': 4, 'CLAR-CTX': 2}
+- GOV-NONEWCMP [GOV] PENDING live=False :: - новый `ClarificationService`, `IntentResolver`, `SemanticValidator`, `ClarificationGuard`, граф решений, реестр блокеров, отдельный оркестратор, новая БД/табл
+- GOV-NOREGEX [GOV] PENDING live=False :: - `if "что происходит" in text`, регулярки по формулировкам, словари «понятных запросов», «опасных слов» и «неопределённых местоимений», классификация по числу 
+- GOV-NOPSEUDO [GOV] PENDING live=False :: - псевдо-семантические функции вроде `has_unresolved_referential_dependency()`, `same_intent_classifier()`, `is_question_clear()`, если они требуют нового распо
+- GOV-NOQUOTA [GOV] PENDING live=False :: - принудительные квоты «одно уточнение на чат/пользователя/сутки», счётчики микровопросов и магические пороги уверенности;
+- GOV-NOGAG [GOV] PENDING live=False :: - глобальное `needs_clarification=False`, запрет ботy задавать вопросы, изменение характера, токсичности, юмора, инициативы и выбора reply;
+- GOV-NOEXAMPLES [GOV] PENDING live=False :: - превращение примеров ниже в специальные ветки кода. **Примеры существуют только для тестирования поведения.**
+- CLAR-L1-DIST1 [CLAR-L1] PENDING live=False :: 1. **Понятное намерение и широкая тема.** Ответить, самостоятельно выбрав естественные для контекста охват и полноту; если сведений мало — честно обозначить огр
+- CLAR-L1-DIST2 [CLAR-L1] PENDING live=False :: 2. **Понятное намерение, но недостающие факты.** При необходимости использовать уже предусмотренные инструменты / историю / память или дать честный частичный от
+- CLAR-L1-DIST3 [CLAR-L1] PENDING live=False :: 3. **Действительно неизвестный обязательный объект либо непонятно, какое действие от тебя хотят.** L1 вправе предложить один адресный вопрос, если доступный кон
+- CLAR-L1-DIST4 [CLAR-L1] PENDING live=False :: 4. **Ответ на прежнее уточнение.** Рассматривать сообщение вместе с предыдущим вопросом бота и исходной просьбой, продолжать исходную задачу. Не воспринимать ко
+- CLAR-L1-DIST5 [CLAR-L1] PENDING live=False :: 5. **Обычный разговорный вопрос бота.** Не путать технический режим `clarification` с естественным, риторическим или инициативным вопросом персонажа. Обычные во
+- CLAR-L1-FLAGFALSE [CLAR-L1] PENDING live=False :: - Если L1 выбрал `false`: обычный Direct/Tool/Writer путь. Никакой отдельный слой не должен внезапно объявить «сначала спроси».
+- CLAR-PLAN-ONETARGET [CLAR-PLAN] PENDING live=False :: - Если L1 выбрал `true` с конкретной недостающей целью: существующий Writer формулирует один адресный вопрос. Для обязательного объекта действия сохраняются шта
+- CLAR-BOOL-FALLBACK [CLAR-BOOL] PENDING live=False :: - Если пришла некорректная структура (`"false"`, `null`, `"true"`, список, объект вместо boolean), нормализация не трактует её как запрос уточнения. Следовать д
+- CLAR-BOOL-RESPACT [CLAR-BOOL] PENDING live=False :: - Если `response_act=clarification`, но `needs_clarification=false`, **само имя response_act не включает уточнение**. Нужен единый контракт действий, а не неско
+- CLAR-BOOL-EMPTYTARGET [CLAR-BOOL] PENDING live=False :: - Если L1 указал `true` с пустым `clarification_target`, не создавать generic-опрос «а что именно?». Принимать безопасную нормализацию как недействительное стру
+- MIGR-INSPECT [MIGR] PENDING live=False :: 1. Получить `Factory / active global / per-chat overrides / effective` по ключам L1 и L2, проверить реальный путь к Writer и ссылку на `Speech_Understanding` в 
+- MIGR-REVISION [MIGR] PENDING live=False :: 2. Менять точечно **только** вышеуказанные участки канонов. Бамп Factory revision и сохранение старого snapshot/ступени миграции по существующей процедуре (`pro
+- MIGR-OWNER [MIGR] PENDING live=False :: 3. Известный прежний **заводской** текст можно перевести на новый канон по точному hash/step. **Пользовательские отредактированные значения не перезаписывать це
+- MIGR-NORESET [MIGR] PENDING live=False :: 4. Не производить глобальный `factory-reset` Core, Expression, Style Policy, Direct L2 или всей библиотеки ради одного уточняющего правила. Истории/возможность 
+- MIGR-PAYLOAD [MIGR] PENDING live=False :: 5. Показать эффективный итоговый model payload на допустимом тестовом маршруте (без секретов). Убедиться, что в нём нет второго model-facing `clarify=ask` и что
+- MIGR-HOTAPPLY [MIGR] PENDING live=False :: 6. Поддержать hot apply/cache инвалидирование штатным образом. Избегать миграций схемы базы, потому что новые структуры не нужны.
+- TESTS-METHOD-UNIT [TESTS] PENDING live=False :: - Unit/integration тесты проверяют структуру, передачу данных, отсутствие дублирующих директив, контекст, отсутствие новых сущностей и сохранность существующих 
+- TESTS-METHOD-REAL [TESTS] PENDING live=False :: - Семантику тестировать **реальным L1 и L2** на обезличенных контекстных сценариях, включая парафразы и цепочки продолжений. Не строить тест, где fake L1 заране
+- TESTS-METHOD-PARAPHRASE [TESTS] PENDING live=False :: - Минимум 2–3 разных смысловых формулировки для каждого ключевого класса; оценивать **полезность ответа и факт ненужного переспроса**, не точное совпадение текс
+- TESTS-METHOD-FIX [TESTS] PENDING live=False :: - При обнаружении ложного уточнения исправлять **подачу контекста/канон L1 или конфликтующий prompt source**, а не добавлять в код ещё одну фразу в denylist.
+- TESTS-METHOD-SCREENSHOT [TESTS] PENDING live=False :: - Проверить конкретный кейс с Telegram-скриншота, если доступна приватная трассировка; без неё пометить причину конкретного turn как `UNCONFIRMED`, даже если ар
+- DONE-D1 [DONE-CRITERIA] PENDING live=False :: 1. L1 реально получает релевантную часть существующей истории, включая собственный предыдущий вопрос бота, и не теряет исходную просьбу при ответе на уточнение.
+- DONE-D2 [DONE-CRITERIA] PENDING live=False :: 2. Нет независимого второго приказа от Speech Understanding «уточни» по краткости или отсутствию Telegram-reply.
+- DONE-D3 [DONE-CRITERIA] PENDING live=False :: 3. `needs_clarification` типобезопасен, его отсутствие/неправильный формат не превращает обычный запрос в принудительный вопрос; некорректное `response_act` не 
+- DONE-D4 [DONE-CRITERIA] PENDING live=False :: 4. L1/L2 effective-промпты обновлены, существуют в Factory и действующей конфигурации с честным учётом owner edits и rollback. Core/Expression/Style Policy оста
+- DONE-D5 [DONE-CRITERIA] PENDING live=False :: 5. Стандартный Direct → tool → L2 путь не получает лишнюю команду переспросить; для действительно отсутствующей обязательной цели уточнение остаётся доступным.
+- DONE-D6 [DONE-CRITERIA] PENDING live=False :: 6. Сценарии из §6 пройдены как семантические прогоны действующей модели и интеграционные проверки, без runtime словарей фраз/регулярок для обхода тестов.
+- DONE-D7 [DONE-CRITERIA] PENDING live=False :: 7. В PR/diff не появились новые `clarification_*` подсистемы, базы, классы-анализаторы, периодические проверки, новые LLM-вызовы, magic thresholds и искусственн
+- DONE-D8 [DONE-CRITERIA] PENDING live=False :: 8. Не повторяются длинные цепочки несущественных вопросов. Если остался единичный ложный выбор L1, зафиксировать конкретный пример и причину; **не утверждать га
+- DONE-D9 [DONE-CRITERIA] PENDING live=True :: 9. Есть commit, тестовые результаты, разрешённая демонстрация финального payload, deploy/rollback/health. Не путать `DEPLOYED`, `TESTED` и `LIVE_VERIFIED`.
+- GOV-DIRECTIVE [GOV] PENDING live=False :: Исправить уже существующий поток Direct Chat. Модель L1 остаётся единственным интерпретатором намерения пользователя и решает, нужно ли уточнение. Код может про
+- GOV-MINIMAL-DIFF [GOV] PENDING live=False :: **Не изобретать архитектурное «решение» там, где достаточно правильно составленного действующего L1-промпта, передачи контекста и устранения конфликтующей коман
+- CLAR-L1-PRINCIPLE [CLAR-L1] PENDING live=False :: > **Если можно дать осмысленный ответ в рамках доступного контекста — отвечай. Не превращай существование нескольких возможных хороших ответов в причину требова
+- CLAR-L1-PRIOR [CLAR-L1] PENDING live=False :: **Приоритеты:** понимание исходной просьбы и полезный ответ, а не формальное стремление получить максимально подробное ТЗ от участника чата. Уточнение — исключе
+- CLAR-L1-SCOPE [CLAR-L1] PENDING live=False :: | `services/chat_prompts.py`, `DIRECT_L1_PLANNER_SYSTEM_PROMPT` | L1 выдаёт `needs_clarification`, `clarification_target` и остальные поля плана | Переписать **
+- CLAR-BOOL-STRICT [CLAR-BOOL] PENDING live=False :: | `services/direct_l1.py`, `normalize_l1_plan` | Использует `bool(data.get("needs_clarification"))` | Принимать только реальный JSON boolean; строка `"false"` н
+- CLAR-PLAN-SOURCE [CLAR-PLAN] PENDING live=False :: | `services/direct_l1.py`, `build_l2_plan_block` | По `clarification=True` вставляет приказ «Ничего кроме вопроса не пиши» | Уточнение в Writer включать только 
+- CLAR-SPEECH-CLAIM [CLAR-SPEECH] PENDING live=False :: | `services/claim_envelope.py`, `clarify_action` и `render_speech_block` | «короткая зависимая фраза без Telegram-reply» может стать `clarify=ask` и модельной и
+- CLAR-SPEECH-HINTS [CLAR-SPEECH] PENDING live=False :: | `services/direct_chat_service.py`, `_l1_speech_hints` | Передаёт L1 сигнал `clarify=ask` до семантического решения | Не подсказывать L1 готовый вывод «уточни»
+- CLAR-BOOL-TOOLGATE [CLAR-BOOL] PENDING live=False :: | `services/direct_chat_service.py`, `_l1_tool_phase` | `needs_clarification` пропускает инструменты | Сохранить этот эффект только для корректного финального с
+- CLAR-L2-NOMENU [CLAR-L2] PENDING live=False :: | `services/direct_chat_service.py`, `_l2_write_answer` | L2 формирует итоговый текст по плану и данным | Writer не должен самостоятельно превращать широкий воп
+- GOV-CAPABILITIES [GOV] PENDING live=False :: | `services/response_extent.py` и `services/direct_capabilities.py` | Узкие проверки обязательных целей конкретных действий (например, медиа) | Не ломать; допус
+- TESTS-TRACE [TESTS] PENDING live=False :: Статический код доказывает наличие потенциально конфликтующих управляющих путей. **Не утверждать**, что именно они произвели конкретный ответ, пока не проверен 
+- CLAR-CTX-THREE [CLAR-CTX] PENDING live=False :: Важен **диалог целиком**, а не только последняя реплика. После уточняющего вопроса бота следующий ответ пользователя должен идти в L1 с существующей историей, г
+- CLAR-L1-CONTINUATION [CLAR-L1] PENDING live=False :: Добавить в L1-инструкцию прямой смысловой контракт: «Если предыдущая реплика бота была уточнением, трактуй короткий ответ пользователя как сведения для выполнен
+- CLAR-CTX-HONEST [CLAR-CTX] PENDING live=False :: Если существующая история действительно не содержит необходимый исходный запрос, результат надо честно отражать как **недостаток контекста**; нельзя на пустом м
+- GOV-CANON-EXACT [GOV] PENDING live=False :: Эти фрагменты — **конкретные model-facing инструкции для действующих канонов**. Использовать дословно или с минимальной синтаксической адаптацией к месту вставк
+- MIGR-EFFECTIVE [MIGR] PENDING live=False :: Исправить **не только Python-константы**. На проде effective prompt может браться из активной глобальной записи PostgreSQL или per-chat override. Если править т
+- MIGR-BOTHSIDES [MIGR] PENDING live=False :: **Недопустимое решение:** «заводской текст исправлен, значит задача закончена» при неизменном effective PG. И наоборот — «прод исправлен» при старом Factory Def
+- T01 [TESTS] PENDING live=False :: | 1 | «Бот, что происходит?» после живого обсуждения | Рассказ о доступном разговоре, не выбор диапазона |
+- T02 [TESTS] PENDING live=False :: | 2 | «Что за движ здесь?» с той же смысловой ситуацией | Аналогичный исход; не regexp-патч под фразу №1 |
+- T03 [TESTS] PENDING live=False :: | 3 | «О чём спорили сегодня?» | Обзор доступных обсуждений |
+- T04 [TESTS] PENDING live=False :: | 4 | «Расскажи обо всём важном за последнее время» | Разумный контекстный охват, не вопрос об интервале |
+- T05 [TESTS] PENDING live=False :: | 5 | Большой технический вопрос с несколькими абзацами деталей | Ответ на заданные части, не анкетирование о приоритетах |
+- T06 [TESTS] PENDING live=False :: | 6 | Сложная тема с несколькими равноправными объяснениями | Начать объяснять существенное, а не требовать выбрать подход |
+- T07 [TESTS] PENDING live=False :: | 7 | «Почему?» в понятной текущей беседе без Telegram-reply | Ответ на смысл предыдущей реплики |
+- T08 [TESTS] PENDING live=False :: | 8 | «А он правда это говорил?» после очевидной ветки | Установить предмет по контексту; при нехватке факта честное ограничение |
+- T09 [TESTS] PENDING live=False :: | 9 | «А что насчёт второго?» после перечисления | Понять по ветке или дать оправданное предположение |
+- T10 [TESTS] PENDING live=False :: | 10 | Широкий вопрос при частичном доступе к истории | Ответ из видимой части с честным указанием ограничения |
+- T11 [TESTS] PENDING live=False :: | 11 | Вопрос, для которого нужен уже доступный tool | Использование штатного инструмента; не уточнение только из-за сложности |
+- T12 [TESTS] PENDING live=False :: | 12 | Длинная просьба с указанным форматом | Следовать формату, не спрашивать повторно про формат |
+- T13 [TESTS] PENDING live=False :: | 13 | «Скачай это», объект отсутствует в сообщении и доступном контексте | Один вопрос о самом объекте, не о качестве/формате |
+- T14 [TESTS] PENDING live=False :: | 14 | «Расшифруй» в reply на конкретный ролик | Использовать ролик, не уточнять цель |
+- T15 [TESTS] PENDING live=False :: | 15 | «Расшифруй» без какого-либо доступного объекта | Короткий запрос обязательной цели |
+- T16 [TESTS] PENDING live=False :: | 16 | Команда изменить/удалить объект без указания, какой именно | Не угадывать, получить обязательную цель либо безопасно отказаться |
+- T17 [TESTS] PENDING live=False :: | 17 | Объект действия указан в предшествующей ветке, а не текущем сообщении | Использовать уже найденную цель |
+- T18 [TESTS] PENDING live=False :: | 18 | Невозможность получить актуальный внешний факт из-за отсутствующего инструмента | Честно обозначить предел знания; не спрашивать жанр/период без причины 
+- T19 [TESTS] PENDING live=False :: | 19 | Запрос с подлинно неизвестным предметом → бот уточняет → пользователь называет предмет | Продолжить исходный запрос, не начинать новый опрос |
+- T20 [TESTS] PENDING live=False :: | 20 | Запрос → уточнение → ответ «сегодня» | L1 видит исходную просьбу и применяет параметр |
+- T21 [TESTS] PENDING live=False :: | 21 | Запрос → уточнение → прислан URL | Выполнить первоначальную операцию с присланным URL |
+- T22 [TESTS] PENDING live=False :: | 22 | В одном чате после закрытой задачи начинается новый независимый запрос | Новый запрос не связан искусственным счётчиком с прежним |
+- T23 [TESTS] PENDING live=False :: | 23 | Короткое продолжение без Telegram-reply после собственного вопроса бота | Учитывать предыдущие сообщения бота |
+- T24 [TESTS] PENDING live=False :: | 24 | Уточняющий ответ пользователя после restart и повторной загрузки истории | Тот же контекстный результат, если история доступна |
+- T25 [TESTS] PENDING live=False :: | 25 | L1 сохранил `needs_clarification=false`, но Speech сигнал считает фразу короткой | Speech не имеет права навязать переспрос |
+- T26 [TESTS] PENDING live=False :: | 26 | Ввод пользователя действительно не устраняет критическую неопределённость при опасном действии | Безопасный отказ либо адресное выяснение обязательной це
+- T27 [TESTS] PENDING live=False :: | 27 | JSON `needs_clarification: false` | `False` |
+- T28 [TESTS] PENDING live=False :: | 28 | JSON `needs_clarification: "false"` | **Не** `True`; отмечено как некорректная структура |
+- T29 [TESTS] PENDING live=False :: | 29 | JSON `needs_clarification: null` | **Не** `True` |
+- T30 [TESTS] PENDING live=False :: | 30 | JSON `needs_clarification: true`, пустая `clarification_target` | Не запускать generic «что уточнить?» |
+- T31 [TESTS] PENDING live=False :: | 31 | `response_act=clarification`, `needs_clarification=false` | Ни один второй флаг не включает forced clarification |
+- T32 [TESTS] PENDING live=False :: | 32 | Обычный вопрос не требует уточнения, инструменты доступны | Tool-путь не блокируется Speech-сигналом |
+- T33 [TESTS] PENDING live=False :: | 33 | Composer ON/OFF; L1 ON/OFF и прежний fallback | Нет второго скрытого приказа уточнять, сохраняется intended behavior |
+- T34 [TESTS] PENDING live=False :: | 34 | Factory, global PG, per-chat override, hot cache | Действует корректный effective prompt без уничтожения кастомизаций |
+- T35 [TESTS] PENDING live=False :: | 35 | Initiative reply/chat/react/silent | Не изменились контракты инициативы и транспорта |
+- T36 [TESTS] PENDING live=False :: | 36 | Personality Core/Expression/Style Policy и обычные вопросы персонажа | Характер, токсичность, мат-режимы, юмор и свободный разговор не сломаны |
+- GOV-HEURISTIC-DENY [GOV] PENDING live=False :: Не разрешено: «коротко => непонятно», «вопрос абстрактный => уточнить», «есть слова `как/что/почему` => уточнить», «confidence ниже порога => уточнить», «длинна
+- CLAR-L2-ROLE [CLAR-L2] PENDING live=False :: Writer пишет сообщение по готовому плану, а не устраивает самостоятельное анкетирование. Он не получает повторные управляющие инструкции из Speech Understanding
+- CLAR-BOOL-TOOLROUTE [CLAR-BOOL] PENDING live=False :: Tool routing не менять вне передачи корректно разобранного existing `needs_clarification`. Не выключать инструменты потому, что question широкий или технический
+- CLAR-L1-KEYSCOPE [CLAR-L1] PENDING live=False :: Регистрируемый ключ: `prompts.direct_l1_planner_system_prompt`. Сохранить всю JSON-схему, другие правила L1, ответ/реакцию/молчание, initiative `delivery=chat|r
+- CLAR-L1-CANON [CLAR-L1] PENDING live=False :: УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА
+- CLAR-L1-NEGATIVE [CLAR-L1] PENDING live=False :: **Внимание:** не добавлять в L1 model-facing текст примеры конкретных пользовательских фраз из тестовой матрицы. Не вводить частоту уточнений, количество вопрос
+- CLAR-L2-ONCE [CLAR-L2] PENDING live=False :: Ключ: `prompts.direct_chat_verbalizer_system_prompt`. В текущем каноне раздел «КАК ПИСАТЬ»; вставить в него связный абзац ниже **один раз**, не добавлять второй
+- CLAR-L2-CANON [CLAR-L2] PENDING live=False :: Если намерение пользователя понятно, дай содержательный ответ по доступному контексту и проверенным сведениям. Самостоятельно выбирай разумный охват и форму, ко
+- CLAR-PLAN-NARROW [CLAR-PLAN] PENDING live=False :: В `services/direct_l1.py` в ветке `clarification=True` заменить старую фразу «Ничего кроме вопроса не пиши» более узкой. Если у действующего плана нет конкретно
+- CLAR-PLAN-CANON [CLAR-PLAN] PENDING live=False :: Для выполнения этого запроса действительно не хватает обязательного предмета, указанного в плане уточнения. Спроси только о нём одним понятным вопросом. Не пред
+- CLAR-PLAN-BOUNDS [CLAR-PLAN] PENDING live=False :: Фрагмент передаётся только в случае допустимого структурированного решения L1; **не создавать новый semantic proof или post-L1 validator**. При работе с инструм
+- CLAR-SPEECH-REMOVE [CLAR-SPEECH] PENDING live=False :: В `services/claim_envelope.py` прекратить отправлять в модель директиву «Если без уточнения ответ может быть не о том — задай ...». В `_l1_speech_hints` не отпр
+- TESTS-SCOPE [TESTS] PENDING live=False :: **Тестовая матрица — исключительно сценарии внешней проверки.** Они не превращаются в runtime ключевые слова, исключения, типы запросов или новые if-переходы. И
+- DONE-TWORESULTS [DONE-CRITERIA] PENDING live=False :: **PM:** перенести требования в реестр с границами: именно этот баг; пересечения с ASAP Speech Architecture дедуплицировать, не перезапускать всю программу и не 
+- GOV-ARCH-AUDIT [GOV] PENDING live=False :: **Architect:** короткий аудит actual effective L1/L2 и четырёх существующих мест (L1 schema/rules, Speech Understanding hint, Writer plan, контекст продолжения)
+- TESTS-REVIEWER [TESTS] PENDING live=False :: **Reviewer:** перед принятием проверить diff поиском новых `clarify`-классов/таблиц/регулярок/списков ключевых слов; проверить все сценарии §§6.1–6.4 и негативн
+- MIGR-DEVOPS [MIGR] PENDING live=False :: **DevOps:** штатная owner-preserving миграция/версионирование Factory и active PG, точечный deploy с rollback, сверка effective payload, health/journal и доступ
+- DONE-REPORT [DONE-CRITERIA] PENDING live=False :: **Отчёт:** текущее время с зоной, worktree/prod commit и версия; фактическая причина (код/active config/модель — только доказанная); какие 2–5 точек изменены; с
+
+## asap-speech-arch — открыто 82 (live_required=2)
+statuses: {'PENDING': 82}
+slices: {'INIT-LIVE': 20, 'MIGR': 18, 'TESTS': 20, 'P0-A': 2, 'INSPECTOR': 7, 'P0-B': 1, 'UI-U01': 1, 'UI-U02': 1, 'UI-U03': 1, 'UI-U04': 1, 'UI-U05': 1, 'UI-U06': 1, 'UI-U07': 1, 'UI-P2': 1, 'UI-U09': 1, 'P0-D': 1, 'REPORT': 4}
+- REQ-PROOF-EFFECT [INIT-LIVE] PENDING live=True :: 1. Бот по-прежнему пишет без мата в реальных чатах при выбранном `character.expression.profanity=occasional/frequent`. Пользователь лично убрал абзац о мате из 
+- REQ-STALE-CORE [MIGR] PENDING live=False :: 2. В редакторе Core виден устаревший абзац `**Мат и грубость.**` и внутренняя служебная ремарка `см. SOUL-16`. В исходниках (`services/chat_prompts.py`) уже ест
+- REQ-ONE-OWNER [TESTS] PENDING live=False :: - У каждого model-facing правила ровно один авторитетный владелец. Совпадающие текстовые правила не размазываются по Direct base, вербализатору, Core и примерам
+- REQ-PREFIX-SEP [P0-A] PENDING live=False :: - Стабильные (и сравнительно редко меняющиеся) префиксы отделены от контекстных данных; dynamic content не может создавать директивы равного приоритета. Система
+- REQ-HONEST-OFF [INSPECTOR] PENDING live=False :: - Если пресеты `character_core`, `expression`, `speech_style_policy` отключены, путь честно показывает почему. Отсутствие `expression` не заменяется старыми зап
+- REQ-SCOPE [MIGR] PENDING live=False :: - Scope: **chat-explicit > global-explicit > factory** для каждого допускающего override параметра отдельно. `Весь бот/GLOBAL` не эквивалентен случайно выбранно
+- REQ-EMBED [P0-B] PENDING live=False :: - Встраивание Core/Expression во все **пользовательские текстовые выходы**: Direct, инициативный Writer, фактчек-финал, summary narrator, search/web/youtube и п
+- REQ-NOFORCE [TESTS] PENDING live=False :: - Запрет на «исправление качества» через forced swear insertion, probabilistic counters, регулярки удаления мата, жёсткий минимум/максимум матерных слов или авт
+- ANTIPATTERN-MATRIX [TESTS] PENDING live=False :: ## 4. Матрица запрещённых «очевидных упрощений» (обязательна для Builder/Reviewer)
+- MIGR-INV [MIGR] PENDING live=False :: 1. **Inventory до изменений:** в актуальном проде read-only снять текст/sha256/revision/source/effective_scope для: `core.personality` (full+compact), `prompts.
+- MIGR-TRACE [MIGR] PENDING live=False :: 2. **Trace source-of-truth:** какое значение выбирает UI, cache, middleware, composer, provider payload; где возможен `withheld_factory_governs`, implicit fallb
+- MIGR-BACKUP [MIGR] PENDING live=False :: 3. **Backup/diff:** снапшот точных старых значений и per-chat override, заводских ревизий, источников и timestamps. Приватные значения хранить в защищённом служ
+- MIGR-FACTORY [MIGR] PENDING live=False :: 4. **Factory:** обновить содержимое констант и реестр, ревизию/fingerprint, историю old→new, точные известные миграционные пары. Не применять поиск/replace по п
+- MIGR-ACTIVE [MIGR] PENDING live=False :: 5. **Active update:** выполнить идемпотентный migration/upsert в реальной runtime PG/SQLite конфигурации согласно текущему backend. Для заводских активных или k
+- MIGR-NORETURN [MIGR] PENDING live=False :: 6. **Предотвратить возврат:** ни рестарт, ни деплой, ни reset-to-factory, ни новые чаты, ни переключение Full/Compact не должны воскрешать старый промпт. `Reset
+- MIGR-CACHE [MIGR] PENDING live=False :: 7. **Cache consistency:** после migration очистить/invalidate только задействованные кеши с контролем revision. Сверить приложение с backend и provider request.
+- MIGR-SCOPE-CHECK [MIGR] PENDING live=False :: 8. **Scope-check:** Global и отдельные чаты A/B с разными значениями. Изменение A не затрагивает B. Восстановление по умолчанию chat → global, global → factory,
+- MIGR-VERIFY [MIGR] PENDING live=False :: 9. **Проверка записи:** SELECT после сохранения в той же БД + запрос независимым процессом + инспектор + хеш фактического model payload. Кодовая константа и акт
+- MIGR-ROLLBACK [MIGR] PENDING live=False :: 10. **Rollback:** миграцию и развёртывание можно безопасно отменить, но rollback не должен потерять ручную редакцию владельца.
+- INS-TRACE [INSPECTOR] PENDING live=False :: - На каждый реальный LLM-вызов log/trace: `correlation_id`, `chat_id` (с privacy redaction), модель/провайдер, pipeline/stage, ревизии всех слоёв, effective sco
+- INS-EXACT [INSPECTOR] PENDING live=False :: - Режим просмотра `полный итоговый промпт` должен в точности совпадать с вызовом provider. Превью отдельной настройки не выдавать за фактически исполняемую конф
+- INS-SKIPREASON [INSPECTOR] PENDING live=False :: - UI для пропущенного `few_shot`, `channel_output` объясняет доступным русским, например «Примеры не выбраны: нет подходящих подтверждённых примеров» или «Отдел
+- INS-HIERARCHY [INSPECTOR] PENDING live=False :: - Видна иерархия: `L2 контракт`, `Core`, `Expression`, `Style`, `Response plan`, `Context`, `Few shot`. Клик по элементу показывает его текст, источник и редакц
+- INS-CONFLICT [INSPECTOR] PENDING live=False :: - Включён режим подсветки `конфликт/дубликат`: конкурирующие правила типографики, длины, мат-регистра, роли, конфликт чат/global и устаревшие `SOUL-*` метки. Не
+- INS-PRIVACY [INSPECTOR] PENDING live=False :: - Debug-инспекция модельных запросов не должна содержать секреты, токены, сырой приватный контекст за пределами owner-сессии. Логировать минимум достаточного ev
+- UI-U01 [UI-U01] PENDING live=False :: ### U-01. Desktop: карта ИИ
+- UI-U02 [UI-U02] PENDING live=False :: ### U-02. Desktop: «Речь и характер»
+- UI-U03 [UI-U03] PENDING live=False :: ### U-03. Desktop: каталог/редактор промптов
+- UI-U04 [UI-U04] PENDING live=False :: ### U-04. Mobile: кодовые поля и Inspector
+- UI-U05 [UI-U05] PENDING live=False :: ### U-05. Mobile: редактирование Core
+- UI-U06 [UI-U06] PENDING live=False :: ### U-06. Header / breadcrumb / scope
+- UI-U07 [UI-U07] PENDING live=False :: ### U-07. Sticky Save
+- UI-P2 [UI-P2] PENDING live=False :: ### U-08. Glass/material + доступность
+- UI-U09 [UI-U09] PENDING live=False :: ### U-09. Смежные экраны и взаимодействия
+- T-CORE-CLEAN [TESTS] PENDING live=False :: - [ ] `core.personality` и `core.personality.compact`: нет управляющих инструкций о мате и никаких `SOUL-*` в model-facing тексте. При сравнении Full/Compact се
+- T-VERB-KEEP [TESTS] PENDING live=False :: - [ ] `prompts.direct_chat_verbalizer_system_prompt` остался в каталоге, редактируется, ресетится к новой фабрике и реально используется в L2; нет собственной л
+- T-TOOL-KEEP [TESTS] PENDING live=False :: - [ ] `prompts.direct_chat_system_prompt` сохранил tool/context контракт; больше не переопределяет Core/Expression/Style.
+- T-EXPR-BRANCH [TESTS] PENDING live=False :: - [ ] Expression off/occasional/frequent читаются из правильного scope, и каждый фактический provider request содержит ровно эффективную ветку. Не все три сразу
+- T-STYLE-CONFLICT [TESTS] PENDING live=False :: - [ ] Стилевые правила идут из Style Policy; конфликт `никаких кавычек` vs `только ""` устранён по эффективному scope.
+- T-META-CLEAN [TESTS] PENDING live=False :: - [ ] Нет «Выражение владельца», `SOUL-16`, `SOUL-02`, `owner_setting` в system payload, где это не пользовательские данные.
+- T-FACTORY-ACTIVE [TESTS] PENDING live=False :: - [ ] Factory и active DB проверены отдельно, есть корректные SHA/revision; повторный deploy/restart не возвращает старый Core и L2.
+- T-PRESERVE [TESTS] PENDING live=False :: - [ ] Кастомные тексты и per-chat overrides не потеряны; нулевое влияние на другие чаты.
+- T-PREVIEW [TESTS] PENDING live=False :: - [ ] `Preview` = реальный build при одинаковом snapshot, config revision и stage; inspector показывает exact last request после адаптеров и fallback.
+- T-PARITY [TESTS] PENDING live=False :: - [ ] ON/OFF composer parity для не затронутых системных путей без потери данных; старые каноны не подтягиваются скрытым fallback.
+- T-INTERNAL-CLEAN [TESTS] PENDING live=False :: - [ ] Внутренние factcheck/planner JSON-процессы не загрязняются характером; финальные пользовательские тексты получают разрешённые слои, включая fallback.
+- T-I-COVERAGE [INIT-LIVE] PENDING live=False :: - [ ] `I-01`–`I-09` по таблице инициативы; присутствуют `chat`, `reply`, `react`, `silent` на appropriate inputs (не требовать равных долей).
+- T-DELIVERY-ERR [INIT-LIVE] PENDING live=False :: - [ ] Ошибка доставки, отсутствующая цель или пересоздание сообщения не переводят несоответствующий ответ на другой адресат.
+- T-UI-MATRIX [INIT-LIVE] PENDING live=False :: - [ ] UI screenshots + e2e interaction для desktop 1280/1440, Windows fullscreen, mobile Android 320/360/390/430, Telegram WebView 390, landscape.
+- T-UI-TEXT [INIT-LIVE] PENDING live=False :: - [ ] Во всех редакторах длинные русские фразы, code tokens и URL доступны без обрезания/нарушения viewport.
+- T-UI-STATE [INIT-LIVE] PENDING live=False :: - [ ] Клики/назад/dirty/сохранение/конфликт параллельных изменений реально работают. Сохранённое значение совпадает с загруженным после hard reload и новым проц
+- T-GLASS-PERF [INIT-LIVE] PENDING live=False :: - [ ] Основной полигональный фон визуально не изменился, а Liquid Glass улучшился без заметной деградации FPS/контраста.
+- REQ-W0-MAP [MIGR] PENDING live=False :: 1. **W0 — сбор фактов (read-only):** trace реальных прод-путей и источников, baseline DB/factory; reproduce на тестовом scope; карта конфликтов по фактическому 
+- ADD-EXPR-INTENSITY [P0-D] PENDING live=False :: - **Expression** - регулируемая интенсивность резкости и частота мата. Настройки должны реально влиять на речь, не подменяя характер.
+- ADD2-CANON-BASIS [TESTS] PENDING live=False :: 3. Использовать готовые тексты промптов из нового ASAP-раздела `current_task.md` как основу реализации. Я специально подготовил их заранее, чтобы агенты не заме
+- ADD2-PRESERVE [MIGR] PENDING live=False :: 5. Сохранить редактируемость, активные пользовательские редакции, историю изменений и заводские версии. Не перезаписывать авторские изменения без корректной миг
+- ADD2-REVIEWER [TESTS] PENDING live=False :: 6. Reviewer обязан проверять не только отсутствие конфликтов, но и **сохранность выразительности, глубины и индивидуальности персонажа** после рефакторинга.
+- REP-FORMAT [REPORT] PENDING live=False :: Отчёты: нормальный русский язык, точное текущее локальное время с пояснением зоны, прогресс `выполнено/всего (%)` с разделением `IMPLEMENTED`, `TESTED`, `DEPLOY
+- REP-NOFAKE [REPORT] PENDING live=False :: У каждого требования есть конкретный тест или observable witness. **Запрещена имитация покрытия**: если live-проверка недоступна, статус `PENDING_EXTERNAL`, а н
+- REQ-REALDB [MIGR] PENDING live=False :: Работай по существующему workflow и его гейтам. Не переписывай сам workflow, не создавай новый фреймворк, наблюдателя, самостоятельный self-improvement или допо
+- TRACE-GRAPH [MIGR] PENDING live=False :: Все указанные файлы — подсказки для трассировки, не доказательство единственности пути. Делай вызовный граф вплоть до provider API и `Telegram sendMessage` на а
+- CANON-EXACT [TESTS] PENDING live=False :: **Важно разработчикам:** нижеследующие fenced blocks содержат **точно тот model-facing текст**, который должен оказаться в источниках заводских редакций и в обн
+- REQ-LAYER-CONTRACTS [TESTS] PENDING live=False :: | Слой | За что ОТВЕЧАЕТ | Чего там НЕ должно быть |
+- P0D-QUOTED [INIT-LIVE] PENDING live=False :: **Дополнительный инвариант:** мат в quoted source, user input, RAG и примерах не должен ошибочно классифицироваться как мат в собственной речи бота. Нельзя «вып
+- INIT-I01 [INIT-LIVE] PENDING live=False :: | I-01 Общий спор нескольких людей | 3+ разных участника, никто не зовёт бота | `action=reply`, `delivery=chat`, `target_message_id=null` **или** silent/react п
+- INIT-I02 [INIT-LIVE] PENDING live=False :: | I-02 Прямое содержательное возражение на конкретный пост | Точное сообщение с `[msg:N]`, ясно куда относится возражение | `action=reply`, `delivery=reply`, `t
+- INIT-I03 [INIT-LIVE] PENDING live=False :: | I-03 Мелкое «лол», флуд | Не требует содержания | `react` или `silent` допустимы | Обязать текстовый ответ из-за heartbeat |
+- INIT-I04 [INIT-LIVE] PENDING live=False :: | I-04 Новая общая тема | Мысль адресована комнате, не одному человеку | `chat` | `reply`, потому что есть имена в окне |
+- INIT-I05 [INIT-LIVE] PENDING live=False :: | I-05 Удалённый reply-target | Модель выбрала reply, цель исчезла | отмена / bounded reassess по существующему контракту | отправить контекстно зависимый текст
+- INIT-I06 [INIT-LIVE] PENDING live=False :: | I-06 Reply на сообщение вне текущего чата | Поддельный или чужой ID | отклонить доставку, диагностировать | отослать reply в другой чат |
+- INIT-I07 [INIT-LIVE] PENDING live=False :: | I-07 Старое сообщение бота | Бот уже высказался | L1 учитывает и может промолчать | повторить ответ из-за того, что L1 не получил собственные сообщения |
+- INIT-I08 [INIT-LIVE] PENDING live=False :: | I-08 Хрупкий parser | Нет `delivery`, malformed `target_message_id`, невалидное `action` | fail-closed для reply, не назначать default reply | поставить reply
+- INIT-I09 [INIT-LIVE] PENDING live=False :: | I-09 Реакция | Уместен emoji reaction | валидное Telegram reaction либо безопасный graceful fallback | заменить без спроса инициативным текстом |
+- INIT-TESTS [INIT-LIVE] PENDING live=False :: Нужны property/regression tests, где фабричный prompt L1 и моделируемые структуры проходят случаи как `chat` и `reply` и `react` и `silent`; тест только позитив
+- INIT-48H [INIT-LIVE] PENDING live=True :: Нужны property/regression tests, где фабричный prompt L1 и моделируемые структуры проходят случаи как `chat` и `reply` и `react` и `silent`; тест только позитив
+- MAN-FACTORY-ACTIVE [MIGR] PENDING live=False :: **Нельзя ограничиться коммитом новых констант.** Требование владельца: новые формулировки должны стать **заводскими значениями** И быть **записаны в текущую реа
+- MIGR-TABLE [MIGR] PENDING live=False :: Результат: таблица `block_id | factory old/new SHA | active old/new SHA | scope | provenance | runtime payload SHA | migration result`. Не допускать утечки соде
+- EVAL-MODES [INIT-LIVE] PENDING live=False :: Провести **минимум 3 режима × 3 жанра × 10 разнородных стимулов** на изолированных тестовых контекстах: болтовня, конкретный ответ на факт и инициативное сообще
+- GOV-PENDINGLIVE [REPORT] PENDING live=False :: **Не блокировать всю задачу многочасовым ожиданием cron summary/инициативы.** Инженерный срез закрывается по локальной/стендовой достоверной верификации и deplo
+- ARCH-ADR [P0-A] PENDING live=False :: **Architect:** зафиксировать component boundaries, перечень точных DB keys, целевой маршрут `provider payload` и reverse constraints. В ADR отдельно написать «П
+- DOD-FINAL [REPORT] PENDING live=False :: **Задача считается выполненной только когда:** Direct L2 промпт **остаётся функциональным отдельным компонентом**, его фабричная редакция и current active PG со
+- ADD1-DISTRIB [TESTS] PENDING live=False :: Задача - правильно распределить эти свойства по модульной архитектуре:
+- ADD1-NO-SOFTEN [TESTS] PENDING live=False :: Не интерпретировать устранение конфликтующих инструкций как требование смягчить характер. Не добавлять скрытые ограничители токсичности, нейтрализующие формулир
+
+## asap8-v6.3 — открыто 8 (live_required=8)
+statuses: {'READY_FOR_LIVE': 8}
+slices: {'FE-FULLSCREEN': 3, 'BE-MIGRATION': 1, 'REL-GATE': 3, 'BE-INT-REPORT': 1}
+- U07-SYM-DESKTOP [FE-FULLSCREEN] READY_FOR_LIVE live=True :: - Windows Telegram Desktop: нажатие web-кнопки fullscreen иногда переводит MiniApp в небольшое неудобное окно вместо заполнения монитора; нарушаются ожидаемые в
+- REQ-U07-3 [FE-FULLSCREEN] READY_FOR_LIVE live=True :: ### U07.3. Desktop адаптив и проверки Windows
+- U07.3c [FE-FULLSCREEN] READY_FOR_LIVE live=True :: - Проверить Windows 10/11 Telegram Desktop, Android Telegram portrait/landscape, при доступности iOS, macOS, Web A/K; браузерный stand-alone — отдельный fallbac
+- REQ-B09-BODY [BE-MIGRATION] READY_FOR_LIVE live=True :: В v6 D02 исправлена часть миграции профилей/ролей, но `wa3-report.md` прямо оставил Summary и Memory вне доказанного сквозного переноса. Проверить old/new chat_
+- B10-R06 [REL-GATE] READY_FOR_LIVE live=True :: | C08 | embeddings quota-groups, реальный backfill/recovery | live index/backlog, rate limit/key failover |
+- B10-R10 [REL-GATE] READY_FOR_LIVE live=True :: | D02 | supergroup включая память | old/new chat retrieval |
+- B10-R11 [REL-GATE] READY_FOR_LIVE live=True :: | D03/D04 | Direct L1 auth/budget/execution modes/tools | реальные моды, запрет без ключа, evidence |
+- REQ-B11-E2E [BE-INT-REPORT] READY_FOR_LIVE live=True :: Ничего «включено, но не запускалось» не перекрашивать в зелёное; отличать недостаток входов от отключённого producer, cursor stalled, worker crashed, неправильн
+
+## soul-1 — открыто 4 (live_required=4)
+statuses: {'READY_FOR_LIVE': 4}
+slices: {'W3': 1, 'W4': 1, 'W8': 1, 'W10': 1}
+- SOUL-05.6 [W3] READY_FOR_LIVE live=True :: В `one_word` финальный валидатор проверяет одно слово с учётом русского/латиницы/составных слов/восклицаний; при нарушении — минимальная локальная коррекция или
+- SOUL-08.12 [W4] READY_FOR_LIVE live=True :: **Обязательные реальные сценарии:** собеседник подхватил придуманную бюрократическую метафору; человек явно просит не повторять грубость; на спор без шутки реаг
+- SOUL-14.2 [W8] READY_FOR_LIVE live=True :: Telemetry key metrics: распределение extent including exact one_word compliance, доля фактических и адресных ошибок, повторяемость, фактическое число injected C
+- SOUL-AMD.8.11 [W10] READY_FOR_LIVE live=True :: - Проверить те же принципы как минимум для поиска/фактчека/видео по одному реальному сценарию, а не только для image tool.

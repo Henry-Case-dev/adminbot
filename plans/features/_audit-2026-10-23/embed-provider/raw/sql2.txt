@@ -1,0 +1,73 @@
+DATE_UTC=2026-10-22T17:00:37Z
+DATE_LOCAL=2026-10-22 17:00:37 UTC +0000
+HEAD=fbf9013d89b03e38473ce6824a460fdbb736fff8
+ACTIVE=active
+MainPID=516119
+NRestarts=0
+ExecMainStartTimestamp=Thu 2026-10-22 13:14:31 UTC
+HZ={"status":"ok","version":"2.58.111"}
+PYBIN=venv/bin/python
+DB_PATH=local_database.db
+===== ENV (masked) =====
+EMBEDDING_BASE_URL=<set>
+EMBEDDING_FALLBACK_API_KEY=***
+EMBEDDING_FALLBACK_API_KEY_2=<set>
+EMBEDDING_MODEL_NAME=gemini-embedding-001
+EMBED_CACHE_MAX_ROWS=20000
+POSTGRES_DB=adminbot
+POSTGRES_DSN=<set>
+POSTGRES_PASSWORD=***
+POSTGRES_USER=adminbot
+===== PY: vec + backlog =====
+VEC0_CANDIDATES ['venv/lib/python3.12/site-packages/sqlite_vec/vec0.so']
+VEC0_LOADED venv/lib/python3.12/site-packages/sqlite_vec/vec0.so
+VEC0_OK True
+--- vec_counts_live (n=1) ---
+{'gvec': 16003, 'gvec_g1': 9797, 'svec': 0}
+--- backlog_graph_missing (n=1) ---
+{'c': 4170}
+--- backlog_per_chat (n=3) ---
+{'chat_id': -1004482340693, 'c': 507, 'oldest': 1791476791, 'min_id': 17551}
+{'chat_id': -1002661910336, 'c': 3658, 'oldest': 1790965424, 'min_id': 16176}
+{'chat_id': 1313107079, 'c': 5, 'oldest': 1792398557, 'min_id': 19946}
+--- expired_not_vec (n=1) ---
+{'c': 497}
+--- facts_per_day (n=8) ---
+{'d': '2026-10-15', 'c': 68}
+{'d': '2026-10-16', 'c': 259}
+{'d': '2026-10-17', 'c': 148}
+{'d': '2026-10-18', 'c': 177}
+{'d': '2026-10-19', 'c': 449}
+{'d': '2026-10-20', 'c': 218}
+{'d': '2026-10-21', 'c': 138}
+{'d': '2026-10-22', 'c': 221}
+--- facts_by_origin (n=11) ---
+{'origin': 'history_import', 'c': 8927}
+{'origin': 'chat_history', 'c': 4582}
+{'origin': 'search_fact', 'c': 2064}
+{'origin': 'voice_transcript', 'c': 1664}
+{'origin': 'bot_self_reply', 'c': 1056}
+{'origin': 'bot_direct_reply', 'c': 928}
+{'origin': 'derived_belief', 'c': 335}
+{'origin': 'youtube_content', 'c': 293}
+{'origin': 'video_transcript', 'c': 144}
+{'origin': 'web_content', 'c': 47}
+{'origin': 'user_memory', 'c': 11}
+--- facts_by_chat (n=5) ---
+{'chat_id': -1004482340693, 'c': 666, 'oldest': 1791476718}
+{'chat_id': -1002661910336, 'c': 19118, 'oldest': 1787164802}
+{'chat_id': 529151103, 'c': 1, 'oldest': 1788267740}
+{'chat_id': 1313107079, 'c': 7, 'oldest': 1788080453}
+{'chat_id': 5885953495, 'c': 259, 'oldest': 1787446864}
+--- messages_by_chat (n=8) ---
+{'chat_id': -1004482340693, 'c': 3980}
+{'chat_id': -1002661910336, 'c': 2032314}
+{'chat_id': 42115912, 'c': 4}
+{'chat_id': 134812796, 'c': 2}
+{'chat_id': 391148065, 'c': 2}
+{'chat_id': 529151103, 'c': 1}
+{'chat_id': 1313107079, 'c': 8}
+{'chat_id': 5885953495, 'c': 191}
+===== END =====
+
+[rc=0]

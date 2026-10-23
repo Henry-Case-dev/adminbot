@@ -22,13 +22,13 @@
    "owner_policy_ref": "plans/owner_live_checks.md",
    "owner_optional_reason": "Нативные клиенты Telegram на устройствах владельца агентам недоступны (headless-эмуляция ≠ нативное окно и ≠ Android WebView); device-наблюдение добровольно по правилу 20.10.2026.",
    "engineering_req_ids": [
-    "U07-SYM-DESKTOP",
     "REQ-U07-HARD",
-    "REQ-U07-3",
-    "U07.3c",
-    "V06"
+    "U07.3a",
+    "U07-PLATFORMS",
+    "U07.2e"
    ],
-   "evidence": []
+   "evidence": [],
+   "reconciliation_note": "Owner-optional наблюдение; ссылки перенаправлены на инженерные VERIFIED-строки, т.к. U07-SYM-DESKTOP/REQ-U07-3/U07.3c сами переведены в owner_optional."
   },
   {
    "source_id": "M001-L00001",
@@ -1157,7 +1157,8 @@
      "observation": "B09 chunked backup + hard cap + serialized write; REV-W1 fix applied (services/chat_migration.py:67-68 _BACKUP_CHUNK=5_000 / _BACKUP_HARD_CAP=5_000_000).",
      "type": "live"
     }
-   ]
+   ],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps/Builder, read-only): old/new chat_id проверить SQL по memory/FTS/GraphRAG/episodes/summary/override/historical retrieval с resolve_canonical_chat_id; end-to-end на прод-данных, без записи. Link≠proof; silent truncate искать отдельно."
   },
   {
    "source_id": "M043-L00373",
@@ -1377,7 +1378,8 @@
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
     }
-   ]
+   ],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): live index/backlog, rate limit, key failover quota-groups — журнал/метрики прода + targeted tests; не owner-наблюдение."
   },
   {
    "source_id": "M050-L00383",
@@ -1483,7 +1485,8 @@
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
     }
-   ]
+   ],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): supergroup-перенос и old/new retrieval памяти — SQL/журнал на проде, сверить с REQ-B09-BODY."
   },
   {
    "source_id": "M054-L00387",
@@ -1505,7 +1508,8 @@
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
     }
-   ]
+   ],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): реальные execution modes, запрет без ключа, бюджет/evidence Direct L1 — журнал mca_events/llm_usage + targeted tests."
   },
   {
    "source_id": "M055-L00388",
@@ -1865,7 +1869,8 @@
      "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
      "type": "live"
     }
-   ]
+   ],
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/DevOps): по одному контролируемому реальному E2E на невидимый модуль; различить недостаток входов/выключенный producer/cursor stalled/worker crashed/неверный конфиг. Без dummy-счётчиков; 0 сообщений в реальные чаты."
   },
   {
    "source_id": "M067-L00420",
@@ -2264,7 +2269,7 @@
    "req_id": "U07-SYM-DESKTOP",
    "slice": "FE-FULLSCREEN",
    "acceptance": "На реальном Windows Telegram Desktop нажатие web-кнопки fullscreen не переводит MiniApp в маленькое неудобное окно; сценарий воспроизведён до/после на настоящем клиенте и приложен",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
    "status": "READY_FOR_LIVE",
    "evidence": [
@@ -2286,7 +2291,16 @@
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. Windows-диагностика для владельца/агентов: §8 admin-инструмент (off by default) + dev-API explain()/diagnostics() (launchParams из sessionStorage) для записи фактов на реальном клиенте. Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
     }
-   ]
+   ],
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Нативное окно Windows Telegram Desktop недоступно агентам (headless-эмуляция ≠ нативное окно); инженерная матрица fullscreen/tdesktop-hidden/float-gating/single-ACK и Playwright-адаптив доставлены (REQ-U07-HARD/U07.3a/U07-PLATFORMS); device-наблюдение добровольно по политике 18.10.2026.",
+   "engineering_req_ids": [
+    "REQ-U07-HARD",
+    "U07.3a",
+    "U07-PLATFORMS"
+   ],
+   "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: Windows Desktop — реальный клиент владельца; инженерные контракты закрыты, живой сценарий не блокирует DONE. Не VERIFIED."
   },
   {
    "source_id": "L00015",
@@ -4854,7 +4868,7 @@
    "req_id": "REQ-U07-3",
    "slice": "FE-FULLSCREEN",
    "acceptance": "Desktop-адаптив и Windows-проверки выполнены (U07.3a–U07.3c); жёсткий критерий REQ-U07-HARD закрыт на реальном клиенте",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
    "status": "READY_FOR_LIVE",
    "evidence": [
@@ -4876,7 +4890,16 @@
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
     }
-   ]
+   ],
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Жёсткий критерий REQ-U07-HARD на реальном Windows-клиенте — личное наблюдение владельца; desktop-адаптив/Playwright и матрица платформ закрыты (REQ-U07-HARD/U07.3a/U07-PLATFORMS); ручные device-чек-листы отменены владельцем 18.10.2026.",
+   "engineering_req_ids": [
+    "REQ-U07-HARD",
+    "U07.3a",
+    "U07-PLATFORMS"
+   ],
+   "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: остаток только реальный Windows-клиент. Не VERIFIED."
   },
   {
    "source_id": "L00229",
@@ -4951,7 +4974,8 @@
    "engineering_req_ids": [
     "REQ-U07",
     "U07.3a"
-   ]
+   ],
+   "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional (уже была): ручной клиентский журнал — добровольное наблюдение; инженерные ссылки приведены к не-optional REQ-U07/U07.3a. Не VERIFIED."
   },
   {
    "source_id": "L00231",
@@ -4963,7 +4987,7 @@
    "req_id": "U07.3c",
    "slice": "FE-FULLSCREEN",
    "acceptance": "Проверены Windows 10/11 Telegram Desktop, Android portrait/landscape, по доступности iOS/macOS/Web A/K; браузерный stand-alone без window.Telegram — отдельный fallback, кнопка не вводит в заблуждение",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
    "status": "READY_FOR_LIVE",
    "evidence": [
@@ -4985,7 +5009,17 @@
      "observation": "Деплой fs-HOTFIX (2.58.84 @0b7a0aca) выполнен изолированным релизом: дельта vs 448cc81a = 40 файлов (9 fs + 31 версионный пин), SOUL-1 byte-diff пуст (soul1-diff-empty.txt). Policy `96db0642…` в проде байт-в-байт (443 POLICY_SHA); на релиз-дереве FS-POLICY-OK (node-guards) и fs-матрица S1–S13 12/12 (166 проверок, e2e-w2/_results.json); прод runtime-проба: policy_tdesktop_ban=0, policy_soft_exit=0, policy_launch_storage=3, policy_diag=1, idx_admin_tool=1, idx_stub=0, css_logo_hidden=1, css_float_slot=0; headless-390 (см. postdeploy_headless_probe.txt): страница открывается, кнопка не вводит в заблуждение без `me`, §8 off. Остаётся только живое наблюдение на реальном клиенте (owner-live; OQ-1 отменён владельцем — PET_PROJECT).",
      "type": "live"
     }
-   ]
+   ],
+   "verification_tier": "owner_optional",
+   "owner_policy_ref": "plans/owner_live_checks.md",
+   "owner_optional_reason": "Windows 10/11 Telegram Desktop, Android portrait/landscape, iOS/macOS/Web A/K — нативные клиенты на устройствах владельца; политика платформ и Android/Web-матрица закрыты (U07-PLATFORMS/U07.2e/U07.3a); device-наблюдение необязательно по политике 18.10.2026.",
+   "engineering_req_ids": [
+    "REQ-U07-HARD",
+    "U07.3a",
+    "U07-PLATFORMS",
+    "U07.2e"
+   ],
+   "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: реальные клиенты недоступны агентам; инженерные проверки платформ закрыты. Не VERIFIED."
   },
   {
    "source_id": "L00237",
