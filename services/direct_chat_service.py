@@ -8805,7 +8805,9 @@ class DirectChatService:
             capabilities=(),
             force_line="; ".join(_init_conditions),
             persona_frame=persona_block, bot_replies=bot_replies,
-            with_ids=True, alias_resolver=self.aliases)
+            # ASAP3-ACCEPT (fail-open, то же что Writer-сайт ниже): частичный DI-объект
+            # (tests/__new__) не должен падать в L1-пути инициативы.
+            with_ids=True, alias_resolver=getattr(self, "aliases", None))
         messages = [
             {"role": "system",
              "content": resolve_prompt(

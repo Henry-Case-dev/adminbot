@@ -926,6 +926,12 @@ class TestBounds:
                                     # emergency env; summary_generator —
                                     # гейт на входе generate_and_send.
                                     "services/summary_scheduler.py",
+                                    # NOTE (ASAP-3 corrective, review-identity / review-identity-r2
+                                    # Approved, 23.10.2026): services/summary_aliases.py
+                                    # санкционировано — слияние алиасов по user_id
+                                    # (живой per-turn resolver + merged diag); изменение
+                                    # принадлежит ASAP-3, а не round1026-koordinator'u.
+                                    "services/summary_aliases.py",
                                     "services/summary_generator.py"}, \
             summary_changed
 
