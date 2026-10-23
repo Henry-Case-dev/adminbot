@@ -1,0 +1,14 @@
+{
+ "source": "read-only copy of prod local_database.db (table-level snapshot)",
+ "snapshot_utc": "2026-10-23T03:18:00Z",
+ "graph_facts_total": 20108,
+ "graph_facts_eligible": 15868,
+ "graph_facts_eligible_rule": "expires_at IS NULL OR expires_at > now",
+ "graph_facts_vec_rows": 16003,
+ "eligible_facts_without_vector": 4224,
+ "vectors_pointing_to_noneligible_facts": 4359,
+ "eligible_facts_with_vector": 11644,
+ "smart_archive_rows": 0,
+ "smart_archive_facts_rows": 0,
+ "note": "Числа посчитаны на локальной копии; expires_at сравнивался с now на момент прогона (2026-10-23 ~03:2x UTC)."
+}
