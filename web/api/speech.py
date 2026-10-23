@@ -1199,6 +1199,32 @@ def _style_hint_excluded(view: Mapping) -> list[dict]:
     return rows
 
 
+def _mask_style_view(style) -> dict:
+    """Маскировка Style-среза на границе Inspector (R17, review r2 F1).
+
+    Текст подсказки/исключённых инструкций может содержать секрет или длинный
+    ID: в ответ и DOM он идёт только санитизированным. Структура (счётчики,
+    ревизии, причины) не меняется.
+    """
+    if not isinstance(style, Mapping):
+        return {}
+    out = dict(style)
+    if "hint_text" in out:
+        out["hint_text"] = _mask_text(out.get("hint_text"))
+    if "hint_block_masked" in out:
+        out["hint_block_masked"] = _mask_text(out.get("hint_block_masked"))
+    excluded = []
+    for row in (out.get("excluded") or ()):
+        if isinstance(row, Mapping):
+            copy = dict(row)
+            copy["text"] = _mask_text(copy.get("text"))
+            excluded.append(copy)
+        else:
+            excluded.append(row)
+    out["excluded"] = excluded
+    return out
+
+
 def _style_policy_as_view(policy) -> dict:
     """Срез EffectiveStylePolicy в форму, понятную ``_style_hint_excluded``."""
     try:
@@ -1956,7 +1982,7 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
             "system_chars": len(manifest.system or ""),
             # ASAP3 §1.5: слой Style Policy в РЕАЛЬНОМ payload (chars/state) и
             # сам блок подсказки (маскирован как весь payload).
-            "style": _style_sent_summary(manifest),
+            "style": _mask_style_view(_style_sent_summary(manifest)),
         }
         layer_texts = composer.render_layer_texts(manifest)
         # INS-PRIVACY (review F2): иерархия строится ТОЛЬКО по маскированным
@@ -1990,6 +2016,7 @@ async def _inspector_payload(cache, user, ctx, chat_id: int | None) -> dict:
     exact = _inspector_exact(provider_call, preview)
     preview_layers = _inspector_layer_rows(preview.get("layers") or [])
     preview = dict(preview)
+    preview["style"] = _mask_style_view(preview.get("style"))
     preview["layers"] = preview_layers
     preview["skip_reasons"] = [
         {"layer": row["layer"], "label": row["label"],

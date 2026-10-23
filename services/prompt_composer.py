@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import itertools
 import json
 import logging
 import re
@@ -1018,6 +1019,9 @@ PROVIDER_CALL_MAX = 24
 _PROVIDER_TEXT_MAX = 60000
 _provider_lock = threading.Lock()
 _provider_calls: "OrderedDict[str, dict]" = OrderedDict()
+#: Уникальный ключ записи: одинаковые тела ретраев не перезаписывают друг
+#: друга (иначе «все попытки» фактически схлопывались в одну).
+_provider_seq = itertools.count(1)
 
 
 def _turn_key(chat_id: int, run_id: str | None) -> tuple[int, str] | None:
@@ -2007,9 +2011,8 @@ def record_provider_call(*, payload: Any, messages: Sequence[Mapping[str, Any]],
             "system_sha256": sha256_text(system_text),
         }
         entry.update(_redact_chat_id(chat_id))
-        key = "%s:%s:%s" % (checksum[:16], time.time_ns(),
-                            str(correlation_id or "")[:8])
         with _provider_lock:
+            key = "%s:%d" % (checksum[:16], next(_provider_seq))
             _provider_calls[key] = entry
             while len(_provider_calls) > PROVIDER_CALL_MAX:
                 _provider_calls.popitem(last=False)
