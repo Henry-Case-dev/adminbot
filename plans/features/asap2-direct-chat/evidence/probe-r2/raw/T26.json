@@ -1,0 +1,56 @@
+{
+ "label": "L1 T26",
+ "model_requested": "deepseek/deepseek-v4.1-flash",
+ "model_returned": "deepseek/deepseek-v4.1-flash",
+ "base_url": "https://nano-gpt.com/api/v1",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "95597ea80aa5",
+ "messages_sha12": "2a0e938ab9d2",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2177,
+  "completion_tokens": 147,
+  "total_tokens": 2324,
+  "reasoning_tokens": 0,
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "cache_read_input_tokens": 1920,
+  "prompt_tokens_details": {
+   "cached_tokens": 1920,
+   "created_cache_tokens": 256,
+   "audio_tokens": 0
+  },
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "cache_creation_input_tokens": 0,
+  "input_tokens": 257,
+  "cost": 7.14e-05,
+  "currency": "USD"
+ },
+ "latency_s": 3.4,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"clarification\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [], \"needs_clarification\": true, \"clarification_target\": \"критерий важности: что именно считать важным при очистке истории чата\", \"confidence\": 0.75, \"future_intent\": null}",
+ "reasoning_head": "",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nудали всю историю чата, но чтобы важное осталось\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, chat_memory, user_memory, historical_search, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "clarification",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "chat",
+  "capabilities_needed": [],
+  "needs_clarification": true,
+  "clarification_target": "критерий важности: что именно считать важным при очистке истории",
+  "confidence": 0.75,
+  "confidence_bucket": "high"
+ },
+ "class": "clarification",
+ "speech_hints": "",
+ "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: clarification\nтон: neutral\nнедостающий обязательный предмет: критерий важности: что именно считать важным при очистке истории\nДля выполнения этого запроса действительно не хватает обязательного предмета, указанного в плане уточнения. Спроси только о нём одним понятным вопросом. Не предлагай человеку выбирать необязательные варианты формата, объёма, интервала или способа объяснения. После ответа следует продолжить исходную задачу.\n</Response_Plan>"
+}

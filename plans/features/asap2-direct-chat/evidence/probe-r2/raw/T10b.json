@@ -1,0 +1,55 @@
+{
+ "label": "L1 T10b",
+ "model_requested": "deepseek/deepseek-v4.1-flash",
+ "model_returned": "deepseek/deepseek-v4.1-flash",
+ "base_url": "https://nano-gpt.com/api/v1",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "424f0d43f5ce",
+ "messages_sha12": "09d664973ce0",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2173,
+  "completion_tokens": 129,
+  "total_tokens": 2302,
+  "reasoning_tokens": 0,
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "prompt_tokens_details": {
+   "cached_tokens": 0,
+   "audio_tokens": 0
+  },
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 0,
+  "input_tokens": 2173,
+  "cost": 0.00022782,
+  "currency": "USD"
+ },
+ "latency_s": 2.3,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"summarization\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"summary\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.9, \"future_intent\": null}",
+ "reasoning_head": "",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nнапомни вкратце, о чём был разговор в чате\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nweb_search, fetch_url, chat_history, user_memory, fact_check, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "summarization",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "summary",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.9,
+  "confidence_bucket": "high"
+ },
+ "class": "answer",
+ "speech_hints": "",
+ "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: summarization\nтон: neutral\n</Response_Plan>"
+}

@@ -1,0 +1,58 @@
+{
+ "label": "L1 T18",
+ "model_requested": "deepseek/deepseek-v4.1-flash",
+ "model_returned": "deepseek/deepseek-v4.1-flash",
+ "base_url": "https://nano-gpt.com/api/v1",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "59189d184c1e",
+ "messages_sha12": "41e234906d35",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2166,
+  "completion_tokens": 130,
+  "total_tokens": 2296,
+  "reasoning_tokens": 0,
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "cache_read_input_tokens": 1920,
+  "prompt_tokens_details": {
+   "cached_tokens": 1920,
+   "created_cache_tokens": 128,
+   "audio_tokens": 0
+  },
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "cache_creation_input_tokens": 0,
+  "input_tokens": 246,
+  "cost": 6.616e-05,
+  "currency": "USD"
+ },
+ "latency_s": 2.73,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"answer\", \"extent\": \"compact\", \"tone\": \"neutral\", \"emotional_mirroring\": \"none\", \"structure\": \"answer\", \"delivery_hint\": \"plain\", \"tool_policy\": \"auto\", \"capabilities_needed\": [\"historical_search\"], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.75, \"future_intent\": null}",
+ "reasoning_head": "",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nкакой сейчас официальный курс доллара к рублю?\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nchat_history, chat_memory, user_memory, historical_search, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "extent": "compact",
+  "tone": "neutral",
+  "structure": "answer",
+  "capabilities_needed": [
+   "historical_search"
+  ],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.75,
+  "confidence_bucket": "high"
+ },
+ "class": "tool_use",
+ "speech_hints": "",
+ "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: answer\nтон: neutral\n</Response_Plan>"
+}

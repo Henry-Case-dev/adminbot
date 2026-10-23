@@ -1,0 +1,58 @@
+{
+ "label": "L1 T10a",
+ "model_requested": "deepseek/deepseek-v4.1-flash",
+ "model_returned": "deepseek/deepseek-v4.1-flash",
+ "base_url": "https://nano-gpt.com/api/v1",
+ "temperature": "omitted",
+ "max_tokens": 512,
+ "system_sha12": "c987c03e3ee0",
+ "system_chars": 6542,
+ "user_sha12": "242e71e019fc",
+ "messages_sha12": "8100bbd5c29d",
+ "finish_reason": "stop",
+ "usage": {
+  "prompt_tokens": 2174,
+  "completion_tokens": 129,
+  "total_tokens": 2303,
+  "reasoning_tokens": 0,
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "image_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "cache_creation_input_tokens": 0,
+  "cache_read_input_tokens": 1024,
+  "prompt_tokens_details": {
+   "cached_tokens": 1024,
+   "cache_write_tokens": 0,
+   "audio_tokens": 0,
+   "video_tokens": 0
+  },
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "input_tokens": 1150,
+  "cost": 0.000141894,
+  "currency": "USD"
+ },
+ "latency_s": 4.16,
+ "content": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"chat\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"summarization\", \"extent\": \"compact\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"summary\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.85, \"future_intent\": null}",
+ "reasoning_head": "",
+ "context": "[СООБЩЕНИЕ]\n<Current_Question>\nчто тут у нас происходило, пока меня не было?\n</Current_Question>\n\n[ПОСЛЕДНИЕ СООБЩЕНИЯ]\nКирилл: вчера разобрал санузел до ремонта за час, а сборка заняла неделю\nМаша: классика: демонтаж всегда быстрый\nКирилл: плитку взяли серо-голубую под бетон\nМаша: я бы всё-таки взяла матовую\n\n[УЧАСТНИКИ]\nГоворящий: Кирилл\nАдресат: чат\n\n[РЕЧЕВОЙ СИГНАЛ]\nact=question negation\n\n[ДОСТУПНЫЕ ВОЗМОЖНОСТИ]\nuser_memory, image_understanding, media_download, transcription, video_summary, image_generation, health, statistics\n\n[УСЛОВИЯ]\nпрямое обращение к боту: текстовый ответ обязателен",
+ "plan": {
+  "action": "reply",
+  "response_act": "summarization",
+  "extent": "compact",
+  "tone": "playful",
+  "structure": "summary",
+  "capabilities_needed": [],
+  "needs_clarification": false,
+  "clarification_target": null,
+  "confidence": 0.85,
+  "confidence_bucket": "high"
+ },
+ "class": "answer",
+ "speech_hints": "act=question negation",
+ "plan_block": "<Response_Plan>\nдействие: reply\nсмысловой акт ответа: summarization\nтон: playful\nзеркалирование эмоций собеседника: light\n</Response_Plan>"
+}

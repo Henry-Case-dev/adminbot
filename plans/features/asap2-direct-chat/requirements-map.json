@@ -102,7 +102,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Полный семантический раунд по всем классам §6.1–§6.3 (недостающие T10/T11/T14/T17/T18/T22/T26) с 2–3 парафразами; оценить, что ответ даётся при любой разумной интерпретации",
+      "next_check": "Все ранее недостающие сценарии (T10/T11/T14/T17/T18/T22/T26) прогнаны в r2; Reviewer: подтвердить принцип «можно ответить — отвечай» на полном наборе §6.1–§6.3 и закрыть строку.",
       "owner_role": "Builder",
       "blocked_reason": "принцип сформулирован в каноне, но его выполнение проверено только на 14 классах из 26"
     },
@@ -364,7 +364,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2: широкие вопросы с несколькими равноправными объяснениями/вариантами (T06/T10/T14) — убедиться, что Writer не строит меню",
+      "next_check": "T10 (широкий вопрос о истории) и T14 (объяснение по reply-ролику) в r2 дали ответ без меню; Reviewer: подтвердить отсутствие меню на этом наборе вместе с r1 T06.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: отсутствие меню проверено на ограниченной выборке формулировок"
     },
@@ -506,7 +506,7 @@
           "artifact_sha256": "0fdf9df95494a79d1a68dffd781696d8a8152bf08b3540065240f2affaa9f927"
         }
       ],
-      "next_check": "Раунд 2: T10 (частичный доступ к истории) — проверить честное указание границ вместо выдуманного контекста на реальной модели",
+      "next_check": "Часть «не выдумывать отсутствующий контекст» подтверждена r2 T10 (ответ только из видимых реплик); часть «честно обозначить недостаток контекста» упирается в T10-BOUNDARY — то же решение Reviewer/Architect.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: честность при реально отсутствующей истории проверена только структурно"
     },
@@ -863,14 +863,64 @@
       "reason": "Строка матрицы §6.1.",
       "req_id": "T10",
       "slice": "TESTS",
-      "acceptance": "[P0] Матрица §6.1 #10: широкий вопрос при частичном доступе к истории → ответ из видимой части с честным указанием ограничения (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
+      "acceptance": "[P0] Матрица §6.1 #10 (часть 1 — ответ из видимой части): широкий вопрос при частичном доступе к истории → содержательный ответ из доступной части, без выдуманного контекста и без ненужного переспроса (семантический прогон реального L1/L2). Явное указание границы истории выделено в T10-BOUNDARY.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T10 + §3 + §5.1 (PASS с оговоркой)",
+          "observation": "«Бот, что мы обсуждали за последние дни?» (су женный набор возможностей, поиска по истории нет): answered, clarify=false, target=None; L2-ответ перечисляет только видимые реплики (ремонт санузла, плитка, Маша) — ничего не выдумано. Три смысловые формулировки T10/T10a/T10b — все answered, 0 переспросов. Отдельной фразы «вижу только последние сообщения» в тексте нет — вынесено в T10-BOUNDARY (results.md §5.1).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T10.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T10.json",
+          "artifact_sha256": "52f7a2c44d646a331a588b8696b9f1ff4e264d74fa50410260b8b84a941f491a"
+        }
+      ],
+      "owner_role": "Builder"
+    },
+    {
+      "source_id": "MAN-T10B",
+      "source_line": 230,
+      "source_text_sha256": "6df651113bc1accda7359ef52622ab350e62367c11b2bd08c63e6de555c8ede4",
+      "source_excerpt": "| 10 | Широкий вопрос при частичном доступе к истории | Ответ из видимой части с честным указанием ограничения |",
+      "disposition": "required",
+      "reason": "Строка матрицы §6.1.",
+      "req_id": "T10-BOUNDARY",
+      "slice": "TESTS",
+      "acceptance": "[P0] Матрица §6.1 #10 (часть 2 — честное указание ограничения): при частичном доступе к истории бот явно обозначает границу доступного (что он видит только доступную часть), а не выдаёт ответ как полный обзор всей истории.",
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: реальный L1/L2 с урезанной историей; проверить ответ из видимой части + честное указание границ",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: широкий вопрос при частичном доступе к истории — живого прогона нет"
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/results.md §5.1",
+          "observation": "В окружении пробы ничто не сообщало модели об усечении истории; явной оговорки о границе в ответе нет. Прод тоже не помечает «история неполная» (prod-snapshot §2), поэтому требование не воспроизведено как отдельное поведение и не может быть доказано прогоном без изменения подачи контекста.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T10.L2.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T10.L2.json",
+          "artifact_sha256": "681f4119cb25c6505ead16a3eca092ba480a023e8bc0aaa3e02e1aa66bb6c19c"
+        }
+      ],
+      "owner_role": "Reviewer",
+      "next_check": "Reviewer/Architect: определить судьбу пункта — (а) передавать в контекст явный маркер усечения истории + строка канона L2, затем повторный прогон T10; (б) подтвердить not_applicable, т.к. в текущем контракте граница истории не сигнализируется, а заставлять модель угадывать её — новая эвристика, запрещённая §8.7 источника. PM строку не закрывает.",
+      "blocked_reason": "Пункт «явное указание границы» не воспроизведён: модель не получает сигнала об усечении (results.md §5.1); нужно решение Reviewer/Architect о применимости или изменении подачи контекста"
     },
     {
       "source_id": "MAN-T11",
@@ -884,11 +934,26 @@
       "acceptance": "[P0] Матрица §6.1 #11: вопрос, для которого нужен уже доступный tool → использован штатный инструмент; не уточнение из-за сложности (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: прогон с доступным tool (например fetch_url) — инструмент использован, уточнения нет",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: вопрос, требующий уже доступного инструмента — tool-маршрут живьём не исполнялся"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T11 (PASS)",
+          "observation": "«Открой https://example.com/incident, скажи про сроки восстановления и проверь в интернете другие источники»: plan tool_use (research, fetch_url+web_search+fact_check), clarify=false, target=None; в plan-блоке нет ни директивы недостающего предмета, ни act-строки clarification — штатный инструмент не заблокирован уточнением.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T11.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T11.json",
+          "artifact_sha256": "267bb1055216207a201a4e8feb4f995feb3cf9ed5f4ae48b1eac158b9bfe0cc2"
+        }
+      ],
+      "owner_role": "Builder"
     },
     {
       "source_id": "MAN-T12",
@@ -950,11 +1015,26 @@
       "acceptance": "[P0] Матрица §6.2 #14: «Расшифруй» в reply на конкретный ролик → ролик использован, цель не уточняется (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: reply-ветка с медиа; цель не уточняется",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: «Расшифруй» в reply на конкретный ролик — живого прогона нет"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T14 (PASS)",
+          "observation": "«Бот, расшифруй» в reply на ролик Маши [медиа: video tg:555]: plan tool_use (explanation; media_download+transcription+video_summary), clarify=false; объект берётся из reply-ролика, цель не уточняется.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T14.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T14.json",
+          "artifact_sha256": "02e9b82e627aac410feed6dbee4abd7c6c1e2c70a3e4c15a781bd08b64ded127"
+        }
+      ],
+      "owner_role": "Builder"
     },
     {
       "source_id": "MAN-T15",
@@ -1016,11 +1096,26 @@
       "acceptance": "[P0] Матрица §6.2 #17: объект действия указан в предшествующей ветке, а не текущем сообщении → уже найденная цель использована (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: объект в истории без текущего упоминания; найденная цель переиспользована",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: объект действия в предшествующей ветке — живого прогона нет"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T17 (PASS)",
+          "observation": "«Бот, расшифруй его» — голосовое найдено ботом в предшествующей ветке: plan tool_use (answer/auto, transcription), clarify=false; переиспользована уже найденная цель, переспроса нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T17.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T17.json",
+          "artifact_sha256": "ab7e9eb48f5793d32db3a55b1768a01276f8335acd058258a483c938628a6096"
+        }
+      ],
+      "owner_role": "Builder"
     },
     {
       "source_id": "MAN-T18",
@@ -1034,11 +1129,26 @@
       "acceptance": "[P0] Матрица §6.2 #18: невозможность получить актуальный внешний факт из-за отсутствующего инструмента → честный предел знания; без вопроса о жанре/периоде без причины (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: запрос внешнего факта без tool; честное указание невозможности, без уточнения",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: нет инструмента для актуального внешнего факта — живого прогона нет"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T18b + §5.2 (PASS)",
+          "observation": "Запрос официального курса доллара без внешних/архивных инструментов (вариант T18b, суженный набор возможностей): plan answer/micro, clarify=false; L2 — «Не знаю актуальный курс — у меня нет доступа к данным в реальном времени» → честный предел знания, без вопроса о жанре/периоде. Вариант T18 с объявленным historical_search тоже дал clarify=false (raw/T18.json) — переспроса нет ни в одном варианте.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T18b.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T18b.json",
+          "artifact_sha256": "a5badc55ec35be70a73490fce64077f7efa03540d9bfe5fe024b6baeac475d76"
+        }
+      ],
+      "owner_role": "Builder"
     },
     {
       "source_id": "MAN-T19",
@@ -1134,11 +1244,26 @@
       "acceptance": "[P0] Матрица §6.3 #22: в одном чате после закрытой задачи начинается новый независимый запрос → новый запрос не связан искусственным счётчиком с прежним (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: две задачи подряд; новый запрос не тянет предыдущий контекст как уточнение",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: новая независимая задача после закрытой в том же чате — живого прогона нет"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T22 (PASS)",
+          "observation": "В том же чате после закрытой задачи («спасибо, то что нужно») новый независимый запрос про HDMI: plan answer/explanation, clarify=false; ответ — 5 шагов диагностики монитора, прежняя тема не подтянута, вопросов-меню нет.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T22.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T22.json",
+          "artifact_sha256": "ddd8d7b1a34e78b2491ceaf224d7a8b4903a5a5b767487428a5eb442a98d0dbf"
+        }
+      ],
+      "owner_role": "Builder"
     },
     {
       "source_id": "MAN-T23",
@@ -1226,11 +1351,26 @@
       "acceptance": "[P0] Матрица §6.3 #26: ввод пользователя действительно не устраняет критическую неопределённость при опасном действии → безопасный отказ либо адресное выяснение обязательной цели, без произвольного выполнения (семантический прогон реального L1/L2 либо структурный/интеграционный тест; без подгонки кода под текст сценария).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Раунд 2: опасное действие с недостающим предметом; поведение — один вопрос или безопасный отказ",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2 §«Нельзя VERIFIED»: ввод не устраняет критическую неопределённость при опасном действии — живого прогона нет"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "results.md §2 T26 (PASS)",
+          "observation": "«Удали всю историю чата, но чтобы важное осталось»: clarification=true, target=«критерий важности: что именно считать важным при очистке истории»; L2 — «Что для тебя тут важное — темы разговоров, конкретные сообщения или что-то ещё?». Один адресный вопрос об обязательном критерии, опасное действие не выполняется и не обещается (замечание §5.4: формулировка чуть ближе к выбору — related-nonblocking).",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
+        },
+        {
+          "candidate_commit": "e4ee54f3",
+          "type": "semantic",
+          "ref": "probe-r2/probe-r2: прогон 23.10.2026 на worktree от e4ee54f3, модель прода deepseek/deepseek-v4.1-flash, 19/20 вызовов HTTP 200, ledger вошёл в артефакт",
+          "observation": "Сырой вызов (system/user sha, план, plan_block, L2-текст) — raw/T26.json",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/raw/T26.json",
+          "artifact_sha256": "664192c6df90ef3782586fd05676e42d8a7825b06503ac1387dc9d3b9af6b7bb"
+        }
+      ],
+      "owner_role": "Builder"
     },
     {
       "source_id": "MAN-T27",
@@ -1590,7 +1730,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2 на реальном L2: проверить, что Writer не анкетирует поверх плана в tool-маршрутах (T11/T17/T18) и не повторяет инструкции Speech",
+      "next_check": "L2 в tool-маршрутах r2 (T11/T17/T18) писал по плану, без анкеты и без повторных инструкций; Reviewer: подтвердить и закрыть строку.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: L2-роль проверена на 14 текстах без tool-маршрутов; отдельного живого покрытия нет"
     },
@@ -2308,7 +2448,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Прогон 2-го семантического раунда: T10 (частичный доступ к истории), T11 (доступный tool), T18 (нет инструмента для внешнего факта) на кандидате; команда — probes по protocol.md, затем перепривязка строки",
+      "next_check": "Reviewer: сверить r2 (T10/T10a/T10b — частичная история, T11 — доступный tool, T18/T18b — нет инструмента, честный предел) с DIST2 и либо закрыть класс, либо указать конкретный остаток.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2 §«Нельзя VERIFIED»: класс «недостающие факты ≠ непонятный запрос» не покрыт живьём на частичном доступе/инструментах/честных границах"
     },
@@ -2335,7 +2475,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2: T14 (объект в reply), T17 (объект в предшествующей ветке), T20-подобная цепочка с обязательным предметом; проверить, что вопрос остаётся один и адресный",
+      "next_check": "T14 (reply-ролик) и T17 (объект в ветке) покрыты r2; остаток класса — T20 (обязательный предмет в цепочке), решение Reviewer по канону T20.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: DIST3 опирается на непокрытые T14/T17/T20"
     },
@@ -2413,7 +2553,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2: T22 (новая независимая задача после закрытой) и T26 (ввод не устраняет критическую неопределённость при опасном действии) — различить техническое уточнение и естественный вопрос",
+      "next_check": "T22 (новая задача после закрытой) и T26 (опасное действие, ввод не устраняет неопределённость) покрыты r2; Reviewer: подтвердить различение технического уточнения и живого вопроса на этих двух и закрыть строку.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: различение технического clarification и живого вопроса проверено только на T25/T32"
     },
@@ -3265,7 +3405,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2: реальные L1/L2 на кандидате 34af90ff для непокрытых T10/T11/T14/T17/T18/T20/T22/T24/T26; при провайдерском лимите — после его снятия (26.10), с записью ledger",
+      "next_check": "Остаток после probe-r2: T20 (цепочка «период → сегодня») и T24 (ответ после restart) — см. binding-probe-r2.md §4; покрытие r2 (T10/T11/T14/T17/T18/T22/T26 + 5 парафраз, модель прода) приложено к строке как частичное доказательство.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: 38/45 вызовов на 5ad73933, перенос на кандидата допустим, но не равен повторному прогону; часть классов не покрыта"
     },
@@ -3281,20 +3421,18 @@
       "acceptance": "[P0] Для каждого ключевого класса — минимум 2–3 разные смысловые формулировки; оцениваются полезность ответа и отсутствие ненужного переспроса, не точное совпадение текста; встречное полезное уточнение проходит.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "e4ee54f3",
           "type": "semantic",
-          "ref": "probe/results.md §2 T01/T02 (частично)",
-          "observation": "Для одного класса есть 2 формулировки (T01/T02), для остальных — по одной.",
-          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe/results.md",
-          "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
+          "ref": "results.md §3 (парафразы) + §2 T10/T10a/T10b/T14/T17/P-OBJ1/P-OBJ2 (PASS)",
+          "observation": "Ключевой класс «понятно, но нет деталей» — 3 разные смысловые формулировки (T10, T10a, T10b): все answered, 0 переспросов. Класс «объект реально неизвестен» — 2 формулировки (P-OBJ1 файл, P-OBJ2 видео): обе дают ровно одно узкое уточнение именно предмета, не формата/жанра/периода. Контраст «объект есть» (T14 reply-ролик, T17 ветка → не спрашивает) / «объекта нет» (P-OBJ1/P-OBJ2 → спрашивает) получен на разных формулировках, а не на одной фразе. Оценка по полезности и факту ненужного переспроса, не по совпадению текста; встречные полезные уточнения T26/P-OBJ1 проходят.",
+          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/results.md",
+          "artifact_sha256": "c370da71310e6b498ca0187a58429149be37678cd0ce7feea0f65616dacbb8f4"
         }
       ],
-      "next_check": "Раунд 2: минимум 2–3 смысловые формулировки на ключевой класс (§6.1–§6.3)",
-      "owner_role": "Builder",
-      "blocked_reason": "review-r2: TESTS-METHOD-PARAPHRASE не закрыт"
+      "owner_role": "Builder"
     },
     {
       "source_id": "L00278",
@@ -3416,7 +3554,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2: живой прогон второго хода на кандидате (вопрос бота + исходная просьба в L1 payload) с 2–3 парафразами; service-level уже зелёный",
+      "next_check": "Остаток: двухходовый прогон «вопрос бота → ответ пользователя» (в r2 его нет); видимость ветки L1 живым прогоном подтверждена — T17 (объект из предшествующей ветки) и T10 (ответ из видимой части). Reviewer: принять или запросить двухходовый сценарий.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: критерий подтверждён структурно/на пробах, но не как полный живой контракт"
     },
@@ -3563,7 +3701,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Раунд 2: стандартный Direct→tool→L2 путь без лишней команды переспросить (T11/T17/T18) и действительно отсутствующий объект (T13/T15)",
+      "next_check": "Plan/Writer-половина закрыта r2: T11/T17/T18 — plan-блок без act-строки clarification, L2 без анкеты. Остаток: Reviewer принять это как покрытие D5 либо запросить реальное исполнение tool-маршрута (в r2 фиксировался план и Writer, не сам tool-run).",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: tool-маршруты живьём не исполнялись"
     },
@@ -3590,7 +3728,7 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5"
         }
       ],
-      "next_check": "Завершить семантические прогоны §6 (недостающие T10/T11/T14/T17/T18/T20/T22/T24/T26) + интеграционные проверки; runtime слов матрицы не добавлять. Закрывать только прогонами сценариев: статистика needs_clarification на проде not_instrumented (prod-snapshot/report.md §5), по телеметрии строку закрыть нельзя.",
+      "next_check": "Остаток семантического охвата §6: T20 и T24 (binding-probe-r2.md §4); прод-статистика needs_clarification остаётся not_instrumented (prod-snapshot §5) — по телеметрии строку не закрыть.",
       "owner_role": "Builder",
       "blocked_reason": "неполный семантический охват §6 (9 классов без живого прогона); прод-статистика needs_clarification not_instrumented — прокси response_act=clarification 46/324 не заменяет флаг"
     },
@@ -3649,7 +3787,7 @@
           "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063"
         }
       ],
-      "next_check": "Раунд 2: цепочки #19–#24 (T19–T24) на реальной модели, включая T22/T24; зафиксировать, что повторных цепочек нет",
+      "next_check": "Цепочки #19–#24: T22 закрыт r2 (новый запрос после закрытой задачи, 0 переспросов); остаток — T20 и T24. Reviewer: подтвердить отсутствие повторных цепочек на полном наборе.",
       "owner_role": "Builder",
       "blocked_reason": "review-r2: антицикл подтверждён на 3 цепочках, не на всём классе"
     },
@@ -3807,5 +3945,5 @@
       "evidence": []
     }
   ],
-  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit. | 23.10.2026 PM-BIND-DEPLOYED-258113: candidate_commit=e4ee54f3, deployed_commit=e4ee54f3; git diff 34af90ff..e4ee54f3 по коду asap2 пуст — evidence перепривязано. Деплой 2.58.113 подтверждён (healthz/active/NRestarts=0), но deploy.md не содержит Factory/active PG/effective, payload и статистики уточнений (pg_available=false): MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 остаются PENDING, DONE-D9 — READY_FOR_LIVE. Release-gate EXIT 1 (34 PENDING + DONE-D9), DONE не ставится. | 23.10.2026 PM-BIND-PROD-SNAPSHOT: к карте привязан read-only снимок прода 2.58.113 @ e4ee54f3 (evidence/prod-snapshot/report.md, sha 278f281c…; raw-snapshot.json). VERIFIED по производственным фактам: MIGR-INSPECT (factory/active/effective + per-chat overrides, read-path глобальный), MIGR-EFFECTIVE (L1 effective=global PG, L2 effective=factory при withheld, PG-only откат L2 no-op), MIGR-BOTHSIDES (factory==active==effective, оба односторонних состояния исключены), MIGR-DEVOPS (деплой/rollback/health/backup), DONE-D4 (effective=новые каноны, owner edits честно), DONE-D9 (postdeploy: deploy+health+effective+payload, статусы DEPLOYED/TESTED разделены). MIGR-REVISION/OWNER/NORESET остаются VERIFIED, к ним добавлены производственные основания и указана остаточная граница (история prompt_migrations на проде не перезапрашивалась). MIGR-PAYLOAD — PENDING: полный model payload/messages[] и платный вызов L1 не снимались; MIGR-HOTAPPLY — PENDING: hot apply правки промпта в живом процессе не наблюдался. Статистика needs_clarification на проде not_instrumented (прокси response_act=clarification 46/324) — DONE-D6/TESTS-METHOD-* по ней не закрываются. См. binding-prod-snapshot.md."
+  "binding_note": "PM-BIND-ASAP2 (23.10.2026): candidate_commit=34af90ff — код-кандидат, независимо проверенный review-r2 (блокеры 1-4 закрыты). 4bd2f3c6 (SOUL-1 фикстуры) не меняет services/ и tests/test_asap2_*; он обязателен в поезде, но не является кандидатом этой фичи. Release-гейт: перепривязать candidate_commit к деплоящемуся коммиту поезда (код asap2 побайтово тот же) и заполнить deployed_commit. | 23.10.2026 PM-BIND-DEPLOYED-258113: candidate_commit=e4ee54f3, deployed_commit=e4ee54f3; git diff 34af90ff..e4ee54f3 по коду asap2 пуст — evidence перепривязано. Деплой 2.58.113 подтверждён (healthz/active/NRestarts=0), но deploy.md не содержит Factory/active PG/effective, payload и статистики уточнений (pg_available=false): MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 остаются PENDING, DONE-D9 — READY_FOR_LIVE. Release-gate EXIT 1 (34 PENDING + DONE-D9), DONE не ставится. | 23.10.2026 PM-BIND-PROD-SNAPSHOT: к карте привязан read-only снимок прода 2.58.113 @ e4ee54f3 (evidence/prod-snapshot/report.md, sha 278f281c…; raw-snapshot.json). VERIFIED по производственным фактам: MIGR-INSPECT (factory/active/effective + per-chat overrides, read-path глобальный), MIGR-EFFECTIVE (L1 effective=global PG, L2 effective=factory при withheld, PG-only откат L2 no-op), MIGR-BOTHSIDES (factory==active==effective, оба односторонних состояния исключены), MIGR-DEVOPS (деплой/rollback/health/backup), DONE-D4 (effective=новые каноны, owner edits честно), DONE-D9 (postdeploy: deploy+health+effective+payload, статусы DEPLOYED/TESTED разделены). MIGR-REVISION/OWNER/NORESET остаются VERIFIED, к ним добавлены производственные основания и указана остаточная граница (история prompt_migrations на проде не перезапрашивалась). MIGR-PAYLOAD — PENDING: полный model payload/messages[] и платный вызов L1 не снимались; MIGR-HOTAPPLY — PENDING: hot apply правки промпта в живом процессе не наблюдался. Статистика needs_clarification на проде not_instrumented (прокси response_act=clarification 46/324) — DONE-D6/TESTS-METHOD-* по ней не закрываются. См. binding-prod-snapshot.md. || 23.10.2026 PM-BIND-ASAP2-PROBE2: evidence probe-r2 перенесён в основную линию (plans/features/asap2-direct-chat/evidence/probe-r2/, results.md sha256 c370da71…, protocol.md f7755916…, ledger.jsonl 2b061978…), produced_on = e4ee54f3 (код Direct байт-идентичен). Закрыты T10 (часть «ответ из видимой части»), T11, T14, T17, T18, T22, T26 и TESTS-METHOD-PARAPHRASE → VERIFIED. Пункт «явное указание границы истории» выделен в новую строку T10-BOUNDARY (PENDING, решение Reviewer/Architect). Остаются PENDING: T10-BOUNDARY, T20, T24, CLAR-L1-DIST2/DIST3/DIST4/DIST5, CLAR-L1-PRINCIPLE/PRIOR/CONTINUATION, CLAR-CTX-HONEST, CLAR-PLAN-ONETARGET, CLAR-L2-NOMENU/ROLE, TESTS-METHOD-REAL/SCREENSHOT, DONE-D1/D5/D6/D8/REPORT, MIGR-PAYLOAD/HOTAPPLY. Binding: plans/features/asap2-direct-chat/binding-probe-r2.md."
 }
