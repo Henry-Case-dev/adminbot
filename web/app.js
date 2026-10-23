@@ -2846,6 +2846,7 @@
         speechBlocks: null,
         speechCapabilities: null,
         speechInspector: null,
+        speechInspectorLayer: '',     // INS-HIERARCHY: раскрытый блок
         speechLoaded: {},             // section id → true
         speechDrafts: { core: { full: '', compact: '' } },
         // P0A-UX §5.3/§4-C6: dirty — ПО РЕДАКЦИИ Core (coreFull/coreCompact):
@@ -20051,6 +20052,7 @@
           } else if (id === 'capabilities') {
             this.speechCapabilities = await this.api('/api/speech/capabilities');
           } else if (id === 'inspector') {
+            this.speechInspectorLayer = '';
             this.speechInspector = await this.api('/api/speech/inspector');
           }
           this.speechLoaded[id] = true;
@@ -20081,6 +20083,7 @@
         this.speechBlocks = null;
         this.speechCapabilities = null;
         this.speechInspector = null;
+        this.speechInspectorLayer = '';
         this.speechError = '';
         this.speechDrafts = { core: { full: '', compact: '' } };
         this.speechDirty = { coreFull: false, coreCompact: false,
@@ -21671,6 +21674,44 @@
           parts.push(k + ' ' + versions[k]);
         }
         return parts.length ? parts.join(' · ') : '—';
+      },
+      // ── INS-EXACT / INS-TRACE: фактический запрос vs превью сборки ────────
+      speechExactLabel: function (exact) {
+        if (!exact) return 'нет данных';
+        return exact.is_actual ? 'фактический запрос провайдера'
+          : 'превью сборки';
+      },
+      // ── INS-HIERARCHY: раскрытие блока (текст/источник/редакция) ──────────
+      speechHierarchyKey: function (group, item) {
+        var g = group || '';
+        var l = (item && item.layer) || '';
+        var b = (item && item.block_id) || '';
+        return g + '|' + l + '|' + b;
+      },
+      speechHierarchyToggle: function (group, item) {
+        var key = this.speechHierarchyKey(group, item);
+        this.speechInspectorLayer = this.speechInspectorLayer === key ? '' : key;
+      },
+      speechHierarchyIsOpen: function (group, item) {
+        return this.speechInspectorLayer === this.speechHierarchyKey(group, item);
+      },
+      // ── INS-SKIPREASON: человеческая причина (серверная — приоритет) ──────
+      speechInspectorSkipText: function (code, human) {
+        if (human) return human;
+        var known = {
+          samples_absent: 'Примеры не выбраны: нет подходящих подтверждённых примеров.',
+          samples_disabled: 'Библиотека примеров выключена — примеры не отправлены.',
+          channel_output_not_required: 'Отдельный форматный блок этому этапу не нужен.',
+          budget_excluded: 'Слой не вошёл в запрос: исчерпан бюджет дополнительных блоков.',
+          core_absent: 'Характер (Core) не передан — модель его не получила.',
+          style_policy_absent: 'Активных правил стиля письма нет — блок пуст.',
+          lessons_absent: 'Уроков и правил для этого чата нет — блок пуст.',
+          response_plan_absent: 'План ответа не сформирован — запрос ушёл без плана.',
+          humor_no_strategy: 'Приём юмора на этот ход не выбран.',
+        };
+        if (known[code]) return known[code];
+        return code ? ('Слой пропущен (техническая причина: ' + code + ').')
+          : 'Причина не сообщена.';
       },
       // ── ASAP3 §1.5: Style Policy в фактической сборке Inspector ──────────
       speechStyleBuild: function (build) {

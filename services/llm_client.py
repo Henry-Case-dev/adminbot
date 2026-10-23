@@ -100,6 +100,31 @@ def _sanitize_snippet(text: str, max_chars: int = _AUTH_BODY_MAX_CHARS) -> str:
     return masked[:max_chars]
 
 
+def _record_provider_call(*, payload: dict, messages, model: str,
+                          provider: str, module: str | None, step: str | None,
+                          correlation_id: str | None, chat_id: int | None,
+                          channel: str = "primary", status: str = "ok",
+                          error: str = "") -> None:
+    """INS-TRACE/INS-EXACT: снимок РЕАЛЬНОГО запроса к провайдеру.
+
+    Тексты маскируются каноническим маскером логов ДО записи (R17): журнал
+    хранит структуру, хэши и санитизированный текст (owner-debug). Любой сбой
+    журнала не влияет на вызов модели (fail-open, только warning).
+    """
+    try:
+        from services import prompt_composer as _pcomp
+        masked_msgs = [{"role": str(m.get("role") or ""),
+                        "content": _mask_secrets(str(m.get("content") or ""))}
+                       for m in (messages or ()) if isinstance(m, dict)]
+        _pcomp.record_provider_call(
+            payload=payload, messages=masked_msgs, model=str(model or ""),
+            provider=str(provider or ""), module=str(module or ""),
+            step=str(step or ""), correlation_id=str(correlation_id or ""),
+            chat_id=chat_id, channel=channel, status=status, error=error)
+    except Exception:
+        logger.warning("LLM provider trace failed — fail-open", exc_info=True)
+
+
 def _safe_exc_text(exc: BaseException, max_chars: int = 200) -> str:
     """T-2467 (ADR-1025-6 D4): R17-safe текст исключения для диаг-логов.
 
@@ -467,6 +492,19 @@ class LLMClient:
     def _current_api_key_source(self) -> str:
         """Глобальный слой нетронут: источник 'global' (для резолва)."""
         return "global"
+
+    def _provider_label(self, model: str) -> str:
+        """Хост провайдера для trace Inspector (без URL-путей и ключей)."""
+        try:
+            base = (self._fallback_base_url
+                    if model == self._fallback_model else self._base_url)
+            return _provider_host(str(base or ""))
+        except Exception:       # pragma: no cover — защитная ветка
+            return ""
+
+    def _channel_label(self, model: str) -> str:
+        """Канал trace: 'fallback' только когда реально ушёл fallback-модели."""
+        return "fallback" if model == self._fallback_model else "primary"
 
     def _current_embed_api_key(self) -> str:
         """OD-1 (раунд 10.12): ключ primary-эмбеддингов из горячего конфига
@@ -1309,6 +1347,13 @@ class LLMClient:
         except NoApiKeyForChat:
             raise
         except LLMError as exc:
+            # INS-TRACE: неудачная попытка тоже реальный вызов провайдера —
+            # фиксируем payload этой попытки (checksum до fallback-recompose).
+            _record_provider_call(
+                payload=payload, messages=messages, model=self._chat_model,
+                provider=self._provider_label(self._chat_model), module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                status="error", error=type(exc).__name__)
             if supervised_transport is not None:
                 # Supervisor — единственный владелец fallback-решения
                 # (ADR-1028-8 D5.3: no retry multiplication) — внутренний
@@ -1353,18 +1398,43 @@ class LLMClient:
         try:
             data = response.json()
         except ValueError as exc:
+            _record_provider_call(
+                payload=payload, messages=messages, model=used_model,
+                provider=self._provider_label(used_model), module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                channel=self._channel_label(used_model), status="error",
+                error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: invalid JSON response") from exc
         try:
             content = data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
+            _record_provider_call(
+                payload=payload, messages=messages, model=used_model,
+                provider=self._provider_label(used_model), module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                channel=self._channel_label(used_model), status="error",
+                error="LLMBadResponseError")
             raise LLMBadResponseError(
                 "chat/completions: no choices[0].message.content in response"
             ) from exc
         if not isinstance(content, str) or not content.strip():
+            _record_provider_call(
+                payload=payload, messages=messages, model=used_model,
+                provider=self._provider_label(used_model), module=module,
+                step=step, correlation_id=correlation_id, chat_id=chat_id,
+                channel=self._channel_label(used_model), status="error",
+                error="LLMBadResponseError")
             raise LLMBadResponseError("chat/completions: empty content")
         logger.info(
             "LLM generate OK | model=%s | out_chars=%d", self._chat_model, len(content)
         )
+        # INS-TRACE/INS-EXACT: снимок ровно того payload, что ушёл провайдеру
+        # (после adapt/fallback-recompose): checksum считается по этому телу.
+        _record_provider_call(
+            payload=payload, messages=messages, model=used_model,
+            provider=self._provider_label(used_model), module=module,
+            step=step, correlation_id=correlation_id, chat_id=chat_id,
+            channel=self._channel_label(used_model))
         await self._record_global_usage(chat_id, content, source=source)
         usage = data.get("usage") if isinstance(data, dict) else None
         await self._record_analytics(usage, messages, content, source=source,

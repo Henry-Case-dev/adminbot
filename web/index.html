@@ -9351,6 +9351,149 @@
                       </div>
                       <div class="text-xs text-gray-500">{{ speechInspector.retention }}</div>
                     </div>
+                    <!-- INS-EXACT: «полный итоговый промпт» = РЕАЛЬНЫЙ запрос
+                         провайдера (system+user, порядок, checksum), а не
+                         превью отдельной настройки. -->
+                    <div class="card speech-pad" data-speech-exact>
+                      <div class="speech-row">
+                        <div class="text-sm font-bold">Полный итоговый промпт</div>
+                        <span class="badge"
+                              :class="speechInspector.exact && speechInspector.exact.is_actual
+                                      ? 'badge-info' : 'badge-warn'"
+                              data-speech-exact-label>
+                          {{ speechExactLabel(speechInspector.exact) }}
+                        </span>
+                      </div>
+                      <div class="text-xs text-gray-500 speech-note">
+                        Режим показывает ровно то, что ушло провайдеру: system
+                        и пользовательские блоки в порядке запроса. Метка
+                        «фактический запрос» ставится только по журналу
+                        реальных вызовов; сборка настроек подписана «превью».
+                      </div>
+                      <div v-if="speechInspector.exact" class="text-xs text-gray-500">
+                        checksum payload (sha256):
+                        <code class="speech-hash" data-speech-exact-checksum>{{ speechInspector.exact.checksum || '—' }}</code>
+                      </div>
+                      <div v-if="speechInspector.exact" class="text-xs text-gray-500">
+                        correlation_id: {{ speechInspector.exact.correlation_id || '—' }}
+                        · модель: {{ speechInspector.exact.model || '—' }}
+                        · провайдер: {{ speechInspector.exact.provider || '—' }}
+                        · этап: {{ speechInspector.exact.module || '—' }}/{{ speechInspector.exact.step || '—' }}
+                      </div>
+                      <div v-if="speechInspector.exact" class="text-xs text-gray-500">
+                        сообщений: {{ (speechInspector.exact.messages || []).length }}
+                        · роли: {{ (speechInspector.exact.roles || []).join(' → ') || '—' }}
+                        · знаков: {{ speechInspector.exact.chars_total || 0 }}
+                        <template v-if="speechInspector.exact.error">
+                          · ошибка: {{ speechInspector.exact.error }}
+                        </template>
+                      </div>
+                      <div v-if="speechInspector.exact && !speechInspector.exact.is_actual"
+                           class="speech-warn" data-speech-exact-preview-note>
+                        Это превью сборки, а НЕ фактический запрос провайдера:
+                        снимка реального вызова в памяти процесса ещё нет.
+                      </div>
+                      <div class="speech-adv-title">system</div>
+                      <pre class="speech-pre" data-speech-exact-system>{{ (speechInspector.exact && speechInspector.exact.system) || '(пусто)' }}</pre>
+                      <div class="speech-adv-title">user-блоки (по порядку)</div>
+                      <pre v-for="(m, mi) in ((speechInspector.exact && speechInspector.exact.messages) || []).slice(1)"
+                           :key="'exm-' + mi" class="speech-pre"
+                           :data-speech-exact-message="m.role">{{ m.text || '(пусто)' }}</pre>
+                    </div>
+                    <!-- INS-SKIPREASON: пропущенные слои объясняются
+                         по-русски; машинный код — только в подсказке. -->
+                    <div class="card speech-pad" data-speech-skip-reasons>
+                      <div class="speech-row">
+                        <div class="text-sm font-bold mb-1">Почему слои не отправлены</div>
+                        <span class="badge badge-muted">
+                          {{ (speechInspector.skip_reasons || []).length }}
+                        </span>
+                      </div>
+                      <div v-if="!(speechInspector.skip_reasons || []).length"
+                           class="text-xs text-gray-500">
+                        Все слои этой сборки вошли в запрос.
+                      </div>
+                      <div v-for="(row, si) in (speechInspector.skip_reasons || [])"
+                           :key="'sk-' + si" class="speech-skip-row"
+                           :data-speech-skip-layer="row.layer">
+                        <span class="text-xs font-semibold">{{ row.label || row.layer }}</span>
+                        <span class="text-xs" :title="row.code">
+                          {{ speechInspectorSkipText(row.code, row.text) }}</span>
+                      </div>
+                    </div>
+                    <!-- INS-HIERARCHY: порядок слоёв и click-through к тексту,
+                         источнику и редакции блока. -->
+                    <div class="card speech-pad" data-speech-hierarchy>
+                      <div class="text-sm font-bold mb-1">Иерархия сборки</div>
+                      <div class="text-xs text-gray-500 speech-note">
+                        Порядок от контракта канала к примерам и стилю. Нажмите
+                        на блок, чтобы увидеть его точный текст, источник и
+                        редакцию.
+                      </div>
+                      <div v-for="(g, gi) in (speechInspector.hierarchy || [])"
+                           :key="'hg-' + gi" class="speech-hier-group">
+                        <div class="speech-adv-title">{{ g.title }}</div>
+                        <div v-for="(item, ii) in g.items"
+                             :key="'hi-' + gi + '-' + ii"
+                             class="speech-hier-row"
+                             :class="speechHierarchyIsOpen(g.group, item) ? 'is-open' : ''"
+                             @click="speechHierarchyToggle(g.group, item)"
+                             :data-speech-hierarchy-row="item.layer">
+                          <span class="text-xs font-semibold">{{ item.label }}</span>
+                          <span class="badge"
+                                :class="item.rendered ? 'badge-info' : 'badge-muted'">
+                            {{ item.rendered ? 'в запросе' : 'пропущен' }}
+                          </span>
+                          <span class="text-xs text-gray-500">
+                            {{ item.source || '—' }} · {{ item.revision || '—' }}
+                            · {{ item.chars }} зн.
+                          </span>
+                        </div>
+                        <div v-for="(item, ii) in g.items"
+                             :key="'hd-' + gi + '-' + ii"
+                             v-show="speechHierarchyIsOpen(g.group, item)"
+                             class="speech-hier-detail"
+                             :data-speech-hierarchy-detail="item.layer">
+                          <div class="text-xs text-gray-500">
+                            {{ item.label }} · владелец: {{ item.owner || '—' }}
+                            · источник: {{ item.source || '—' }}
+                            · редакция: {{ item.revision || '—' }}
+                            <template v-if="item.detail"> · {{ item.detail }}</template>
+                          </div>
+                          <div v-if="!item.rendered" class="speech-warn">
+                            {{ item.skip_reason_human || 'Слой пропущен.' }}
+                            <span class="text-xs" :title="item.skip_reason_code">
+                              ({{ item.skip_reason_code || 'без кода' }})</span>
+                          </div>
+                          <pre v-else class="speech-pre">{{ item.text || '(текст недоступен)' }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                    <!-- INS-CONFLICT: конкурирующие правила по реальным данным. -->
+                    <div class="card speech-pad" data-speech-conflicts>
+                      <div class="speech-row">
+                        <div class="text-sm font-bold mb-1">Конфликты и дубликаты правил</div>
+                        <span class="badge badge-muted">
+                          найдено: {{ (speechInspector.conflicts_detail && speechInspector.conflicts_detail.detected_total) || 0 }}
+                        </span>
+                      </div>
+                      <div v-if="speechInspector.conflicts_detail" class="text-xs text-gray-500">
+                        {{ speechInspector.conflicts_detail.coverage_note }}
+                      </div>
+                      <div v-for="(cls, ci) in ((speechInspector.conflicts_detail && speechInspector.conflicts_detail.classes) || [])"
+                           :key="'cf-' + ci" class="speech-conflict-row"
+                           :data-speech-conflict-class="cls.class">
+                        <span class="text-xs font-semibold">{{ cls.title }}</span>
+                        <span class="badge" :class="cls.detected ? 'badge-warn' : 'badge-muted'">
+                          {{ cls.detected ? ('найдено: ' + cls.detected) : 'не найдено' }}
+                        </span>
+                        <div v-for="(it, xi) in cls.items" :key="'cfl-' + ci + '-' + xi"
+                             class="text-xs text-gray-500">
+                          {{ it.conflict_id }}<template v-if="it.detail"> — {{ it.detail }}</template>
+                          <template v-if="it.provenance"> · {{ it.provenance }}</template>
+                        </div>
+                      </div>
+                    </div>
                     <div class="card speech-pad">
                       <div class="text-sm font-bold mb-1">Предпросмотр (сборка сейчас)</div>
                       <div class="text-xs text-gray-500">
@@ -9370,10 +9513,11 @@
                       <div class="speech-adv-title">Слои</div>
                       <div class="speech-table">
                         <div v-for="(l, li) in speechInspector.preview.layers" :key="'pl-' + li" class="speech-layer-row">
-                          <span class="text-xs font-semibold">{{ l.layer }}</span>
+                          <span class="text-xs font-semibold">{{ l.label || l.layer }}</span>
                           <span class="text-xs text-gray-500">{{ l.source }} · {{ l.revision || '—' }}</span>
                           <span class="text-xs">{{ l.rendered ? 'включён' : 'пропущен' }}</span>
-                          <span class="text-xs text-gray-500">{{ l.rendered ? l.tokens + ' ток.' : (l.skip_reason || '') }}</span>
+                          <span class="text-xs text-gray-500"
+                                :title="l.skip_reason_code || l.skip_reason || ''">{{ l.rendered ? l.tokens + ' ток.' : (l.skip_reason_human || l.skip_reason || '') }}</span>
                         </div>
                       </div>
                       <pre class="speech-pre" data-speech-preview-payload>{{ speechInspector.preview.system_masked }}</pre>

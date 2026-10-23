@@ -4740,6 +4740,54 @@ html.cover-editor-open { overflow: hidden; }
   gap: 6px;
 }
 .speech-rule-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* INS-SKIPREASON / INS-HIERARCHY / INS-CONFLICT (ASAP inspector §6) */
+.speech-skip-row,
+.speech-conflict-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(9, 14, 25, .78);
+  border: 1px solid rgba(148, 163, 184, .18);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.speech-skip-row .text-xs,
+.speech-conflict-row .text-xs { min-width: 0; overflow-wrap: anywhere; }
+.speech-hier-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.speech-hier-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(9, 14, 25, .78);
+  border: 1px solid rgba(148, 163, 184, .18);
+  cursor: pointer;
+  min-width: 0;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+.speech-hier-row.is-open { border-color: rgba(96, 165, 250, .55); }
+.speech-hier-row .text-xs { min-width: 0; overflow-wrap: anywhere; }
+.speech-hier-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 4px 6px;
+  min-width: 0;
+}
+.speech-hash {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+  color: var(--text-2, #AEB6C4);
+}
 .speech-block-row { cursor: pointer; text-align: left; color: inherit; min-height: 44px; }
 .speech-block-row .text-xs:last-child { color: var(--text-3, #7C8798); }
 
