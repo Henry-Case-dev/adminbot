@@ -6668,10 +6668,23 @@ class DirectChatService:
             suffix = " ".join(markers)
             room = max(0, cap - len(suffix) - 1)
             if room:
+                if len(stripped) > room:
+                    # ASAP3 §2: вопрос пользователя длиннее cap — потеря не
+                    # молчит (R17: только числа, текст сообщения не логируем).
+                    logger.warning(
+                        "direct: current question truncated | chat=%s | "
+                        "chars=%d -> %d | cap=%d",
+                        getattr(message, "chat_id", None), len(stripped),
+                        room, cap)
                 body = stripped[:room] + (" " + suffix if stripped else suffix)
             else:
                 body = suffix
         else:
+            if len(stripped) > cap:
+                logger.warning(
+                    "direct: current question truncated | chat=%s | "
+                    "chars=%d -> %d | cap=%d",
+                    getattr(message, "chat_id", None), len(stripped), cap, cap)
             body = stripped[:cap]
         return (f"<Current_Question>\n"
                 f"{escape_xml_text(body)}\n"
@@ -8108,8 +8121,21 @@ class DirectChatService:
         if not fact_lines and not meme_lines and not links and not generated_block:
             return None
         body_parts = []
+        dossier_stats: dict = {}
         dossier = format_dossier_block(fact_lines, meme_lines,
-                                       _PERSONA_DOSSIER_MAX_CHARS)
+                                       _PERSONA_DOSSIER_MAX_CHARS,
+                                       stats=dossier_stats)
+        if dossier_stats.get("truncated"):
+            # ASAP3 §2: бюджет досье не режет факты/мемы молча — числа в WARN
+            # (R17: без текстов фактов).
+            logger.warning(
+                "direct: persona dossier capped | chat=%s | facts=%d/%d | "
+                "memes=%d/%d | cap_chars=%d", chat_id,
+                dossier_stats.get("facts_kept", 0),
+                dossier_stats.get("facts_total", 0),
+                dossier_stats.get("memes_kept", 0),
+                dossier_stats.get("memes_total", 0),
+                _PERSONA_DOSSIER_MAX_CHARS)
         if dossier:
             body_parts.append(dossier)
         if links:
