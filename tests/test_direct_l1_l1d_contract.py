@@ -30,11 +30,13 @@ from services import direct_l1 as _l1  # noqa: E402
 from services.chat_prompts import (  # noqa: E402
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_1022,
+    PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_W1,
     _DIRECT_L1_CLARIFICATION_CONTRACT,
     _DIRECT_L1_PLANNER_BASE,
     _DIRECT_L1_PLANNER_BASE_L1D,
     _DIRECT_L1_PLANNER_BASE_R1022,
+    _DIRECT_L1_PLANNER_BASE_R3,
     _DIRECT_L1_PLANNER_RULES,
     _DIRECT_L1_PLANNER_RULES_W1,
 )
@@ -57,7 +59,7 @@ def test_canon_schema_has_delivery_fields():
     ASAP 2 (§4.1 asap2 source): между секцией участия и ПРАВИЛАМИ вставлен
     контракт «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» (текст владельца)."""
     canon = DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert canon == (_DIRECT_L1_PLANNER_BASE
+    assert canon == (_DIRECT_L1_PLANNER_BASE_R3
                      + _DIRECT_L1_CLARIFICATION_CONTRACT
                      + _DIRECT_L1_PLANNER_RULES)
     assert '"action": "reply|react|silent"' in canon
@@ -70,20 +72,34 @@ def test_canon_schema_has_delivery_fields():
 
 
 def test_canon_forms_no_priority_and_positive_criteria():
-    """§1/§3 (W1: секция §3.7 «ВЫБОР УЧАСТИЯ»): семантика форм — без
-    приоритетов; reply осмыслен только как ответ на конкретное сообщение;
-    silent — полноценное действие; запрет эвристик/квот."""
+    """§1/§3 (W1: секция §3.7 «ВЫБОР УЧАСТИЯ»; R3: смысловое усиление):
+    семантика форм — без приоритетов; reply осмыслен только как ответ на
+    конкретное сообщение; адресат текста определяет цель; silent —
+    полноценное действие; запрет эвристик/квот."""
     flat = _flatten(DIRECT_L1_PLANNER_SYSTEM_PROMPT)
     assert "Никакое действие не предпочтительнее остальных по умолчанию" \
         in flat
     assert ("Reply возможен, но никогда не обязателен и не используется как "
             "fallback по умолчанию") in flat
     # target_message_id — выбор LLM из окна по смысловой связи
-    assert "твоя мысль смыслово относится именно к этому сообщению" in flat
+    assert "твоя мысль отвечает именно на это сообщение" in flat
+    # R3: адресат текста и цель совпадают; свежесть не решает
+    assert ("target_message_id должен быть сообщением этого участника"
+            ) in flat
+    assert "target_user_id указывай только для реального адресата из окна" \
+        in flat
+    assert "Свежесть сообщения сама по себе не делает его адресатом" in flat
+    assert ("action=reply означает решение написать текст, а не "
+            "Telegram-reply") in flat
+    # R3: содержательная общая мысль не прячется за молчанием
+    assert ("Если по общей теме у тебя есть содержательная мысль для всех, "
+            "выбери chat") in flat
     # target_user_id сам по себе не включает reply (сценарий C)
     assert "target_user_id не превращает chat в reply" in flat
-    # реакция без reply-цели; молчание без полей доставки
-    assert "Для реакции не назначай цель reply текстового сообщения" in flat
+    # реакция требует конкретную цель; молчание без полей доставки
+    assert ("Для реакции укажи target_message_id сообщения, на которое "
+            "ставится реакция") in flat
+    assert "без конкретной цели реакция не исполняется" in flat
     assert "Для молчания не заполняй поля доставки и адресата" in flat
     # запрет подгонки/эвристик (§4 директивы) — в каноне владельца
     assert "Не принимай решение по признаку" in flat
@@ -144,6 +160,16 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert "УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА" in \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert "УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА" not in PREV_DIRECT_L1_PLANNER_W1
+    # SPEECH-INIT-FIX R3: прод-канон 2.58.113 (W1 + контракт уточнений)
+    # ведёт на усиленную секцию участия; слепок точен, откат на него.
+    assert targets[PREV_DIRECT_L1_PLANNER_CLAR] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert PREV_DIRECT_L1_PLANNER_CLAR == (
+        _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_CLARIFICATION_CONTRACT
+        + _DIRECT_L1_PLANNER_RULES)
+    from services.prompt_migrations import ROLLBACK_MIGRATIONS
+    assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == \
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_CLAR)
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
 
 

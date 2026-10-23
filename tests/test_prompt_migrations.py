@@ -39,6 +39,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_1021,
     PREV_DIRECT_L1_PLANNER_1022,
     PREV_DIRECT_L1_PLANNER_L1D,
+    PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -274,7 +275,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 (прод 2.58.111, f8ab20121c02); стек ступеней цел.
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_W1,
+    # SPEECH-INIT-FIX R3 (23.10.2026): откат снимает ТОЛЬКО ступень R3 →
+    # непосредственный прод-канон 2.58.113 (канон W1 + контракт уточнений).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_CLAR,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,

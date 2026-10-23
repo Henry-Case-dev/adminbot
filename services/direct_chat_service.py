@@ -1979,14 +1979,20 @@ class DirectChatService:
             return False
 
     async def _recent_bot_replies(self, chat_id: int,
-                                  limit: int = 3) -> tuple[str, ...]:
+                                  limit: int = 3, *,
+                                  window_seconds: int | None = None
+                                  ) -> tuple[str, ...]:
         """FIX-CORRECTIVE-R1 (direct-l1-rootcause P2, 21.10.2026): тексты
         недавних ответов бота из СУЩЕСТВУЮЩЕЙ таблицы bot_replies — контекст
         L1-планера («разговор уже завершён» видно из собственной реплики).
-        То же окно ``CHAT_BOT_REPLIED_RECENTLY_SECONDS`` и тот же паттерн
-        прямого чтения, что у ``_bot_replied_recently``; новых хранилищ нет.
+        Прежнее окно ``CHAT_BOT_REPLIED_RECENTLY_SECONDS`` (default 600)
+        остаётся дефолтом Direct-пути; SPEECH-INIT-FIX R3 (r2/results.md §7.3)
+        инициатива передаёт ``window_seconds`` окна своего контекста
+        (``_initiative_context_window_seconds`` = limits.summary_window_hours),
+        иначе ответ бота старше 10 минут L1 не видел (I-07).
         Хронологический порядок (старое → свежее). Fail-open → ()."""
-        window_s = bot_replied_recently_window_seconds()
+        window_s = (bot_replied_recently_window_seconds()
+                    if window_seconds is None else max(0, int(window_seconds)))
         if window_s <= 0 or limit <= 0:
             return ()
         try:
@@ -8739,7 +8745,11 @@ class DirectChatService:
         except Exception:
             pass
         persona_block = await self._initiative_persona_block(chat_id)
-        bot_replies = await self._recent_bot_replies(chat_id)
+        # SPEECH-INIT-FIX R3: инициатива видит ответы бота в окне СВОЕГО
+        # контекста (limits.summary_window_hours), а не в 600-секундном окне
+        # анти-спама Direct (I-07). Direct-путь не изменён.
+        bot_replies = await self._recent_bot_replies(
+            chat_id, window_seconds=_initiative_context_window_seconds())
         row = intent_row or {}
         goal = str(row.get("goal") or "").strip()
         kind = str(row.get("kind") or "")
@@ -8777,11 +8787,11 @@ class DirectChatService:
             "Никто бота не звал: решается уместность ИНИЦИАТИВЫ. "
             f"Предложение наблюдателя (можешь отклонить; kind={kind or 'unknown'}, "
             f"origin={origin or 'unknown'}): {goal or 'цель не указана'}. "
-            "Оцени свежий контекст чата и выбери форму участия: написать "
-            "в чат, ответить как reply на конкретное сообщение, поставить "
-            "реакцию или промолчать. Умерший повод, ответ на него в "
-            "контексте или нечего добавить - silent; бессмыслица и шум "
-            "участников не обязаны становиться репликой.")
+            "Оцени контекст чата и выбери форму участия: написать "
+            "в чат обычным сообщением, ответить как reply на конкретное "
+            "сообщение, поставить реакцию или промолчать. Умерший повод, "
+            "ответ на него в контексте или нечего добавить - silent; "
+            "бессмыслица и шум участников не обязаны становиться репликой.")
         # L1D: УСЛОВИЯ — равноправие форм + существующий allowed-набор
         # реакций (той же строкой, что прямой L1; прецедент P3 rootcause).
         _init_conditions = [_l1.INITIATIVE_LINE]
@@ -8790,7 +8800,7 @@ class DirectChatService:
                 "разрешённые реакции: "
                 + " ".join(_llm_react.ALLOWED_LLM_REACTIONS))
         context_text = _l1.build_l1_context(
-            query=task, window=window, speaker="",
+            query=task, window=window, speaker="наблюдатель",
             addressee=addressee_label,
             capabilities=(),
             force_line="; ".join(_init_conditions),

@@ -184,7 +184,8 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # фабрики обоих ключей = новые каноны; метки бампнуты
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
-    assert "l1-planner-clar" in pr.factory_revision("direct.base.l1_planner")
+    assert "l1-planner-participation-r3" in pr.factory_revision(
+        "direct.base.l1_planner")
     assert "l2-writer-clar" in pr.factory_revision("direct.base.l2_writer")
     # лестница: прод-байты 2.58.111 ведутся на новые каноны при рестарте
     steps_l1 = {src: dst for src, dst in
@@ -193,6 +194,7 @@ def test_34_factory_and_ladder_and_custom_preserved():
                 pm.PROMPT_MIGRATIONS[
                     "prompts.direct_chat_verbalizer_system_prompt"]}
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_W1] == CANON_L1
+    assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_CLAR] == CANON_L1
     assert steps_l2[cp.PREV_CHAT_VERBALIZER_W1_31] == CANON_L2
     import hashlib
     assert hashlib.sha256(
@@ -207,9 +209,10 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # прежние W1-каноны остаются известными канонами (не «кастом»)
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_W1)
     assert pr.is_known_canon(CANON_L1)
-    # откат ведёт на непосредственный прежний канон 2.58.111
+    # откат ведёт на непосредственный прежний канон 2.58.113 (канон W1 +
+    # контракт уточнений); ступень R3 снимается одна, стек цел.
     assert pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] \
-        == (CANON_L1, cp.PREV_DIRECT_L1_PLANNER_W1)
+        == (CANON_L1, cp.PREV_DIRECT_L1_PLANNER_CLAR)
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_chat_verbalizer_system_prompt"] == \
         (CANON_L2, cp.PREV_CHAT_VERBALIZER_W1_31)
@@ -284,16 +287,17 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
 
-    # rollback → ровно прежние прод-байты 2.58.111; повтор — no-op
+    # rollback → ровно непосредственные прежние прод-байты 2.58.113
+    # (L1: канон W1 + контракт уточнений); повтор — no-op
     back = _ClarCache({_L1_KEY: CANON_L1, _L2_KEY: CANON_L2})
     assert await pm.rollback_prompt_canons(back) == {
         _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_W1,
+        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_CLAR,
         _L2_KEY: cp.PREV_CHAT_VERBALIZER_W1_31}
     assert {c for _k, _v, c in back.set_calls} == {"prompts"}
     back.apply_writes()
-    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_W1
+    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_CLAR
     assert await pm.rollback_prompt_canons(back) == {}
     # и ступень снова ведёт вперёд (стек цел)
     assert await pm.migrate_prompt_canons(back) == {
@@ -322,8 +326,9 @@ def test_35_initiative_delivery_contracts_unchanged():
     block = _l1.build_l2_plan_block(plan, include_delivery=True)
     assert "[msg:42]" in block and "прямым" in block
     assert "никакая форма не имеет приоритета" in _l1.INITIATIVE_LINE
-    # секция участия W1 в каноне не тронута (байт-в-байт)
-    assert cp._DIRECT_L1_PARTICIPATION_W1 in CANON_L1
+    # секция участия R3 в каноне (W1 заморожен как ступень/откат)
+    assert cp._DIRECT_L1_PARTICIPATION_R3 in CANON_L1
+    assert cp._DIRECT_L1_PARTICIPATION_W1 not in CANON_L1
 
 
 # ── №36: Character/Expression/Style и обычные вопросы не тронуты ────────────

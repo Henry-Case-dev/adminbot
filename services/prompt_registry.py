@@ -127,7 +127,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # байты — PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31.
     "direct.base.l2_writer": "l2-writer-clar",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-clar",
+    "direct.base.l1_planner": "l1-planner-participation-r3",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -1663,7 +1663,16 @@ def factory_set_fingerprint() -> str:
 #: direct.base.l2_writer).
 #: Было ``fd4e88754749``, стало ``24ae494ac422``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "24ae494ac422"
+#: SPEECH-INIT-FIX R3 (23.10.2026, evidence/r2/results.md §7): канон
+#: ``direct.base.l1_planner`` усилен смысловыми критериями доставки/адресата
+#: (reply только к сообщению названного адресата; свежесть не делает цель
+#: адресатом; reaction требует target_message_id); Direct-часть контракта
+#: уточнений не менялась. Входные промпты/схема прежние — changed = 1
+#: (direct.base.l1_planner), метка ``l1-planner-participation-r3``; прежние
+#: байты 2.58.113 — PREV_DIRECT_L1_PLANNER_CLAR (лестница + откат).
+#: Было ``24ae494ac422``, стало ``c531f7b289d1``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "c531f7b289d1"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

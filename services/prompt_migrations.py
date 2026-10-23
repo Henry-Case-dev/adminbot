@@ -48,6 +48,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_1022,
     PREV_DIRECT_L1_PLANNER_L1D,
     PREV_DIRECT_L1_PLANNER_W1,
+    PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_PERSONALITY_CORE_FULL_TEXT,
     PREV_PERSONALITY_CORE_FULL_V2_TEXT,
     PREV_R1022_CHAT_SYSTEM_PROMPT,
@@ -205,7 +206,12 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» и правилом 5-отсылкой; схема
         # JSON и секция участия не менялись. Кастом владельца (не точное
         # совпадение байт) ступенью не трогается.
-        (PREV_DIRECT_L1_PLANNER_W1, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
+        (PREV_DIRECT_L1_PLANNER_W1, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        # SPEECH-INIT-FIX R3 (23.10.2026, evidence/r2/results.md §7):
+        # прод-канон 2.58.113 (канон W1 + контракт уточнений) ведёт на
+        # канон с усиленными смысловыми критериями доставки/адресата и
+        # target для реакции. Только точное совпадение байт.
+        (PREV_DIRECT_L1_PLANNER_CLAR, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
         (PREV_R2020_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -366,8 +372,11 @@ ROLLBACK_MIGRATIONS: dict[str, tuple[str, str]] = {
     # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
     # ASAP 2 (23.10.2026): откат снимает ступень уточнений — на канон W1
     # (прод 2.58.111); стек ступеней цел.
+    # SPEECH-INIT-FIX R3 (23.10.2026): откат снимает только ступень R3 —
+    # на непосредственный прежний прод-канон 2.58.113 (PREV_..._CLAR:
+    # канон W1 + контракт уточнений); стек ступеней цел.
     "prompts.direct_l1_planner_system_prompt":
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_W1),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_CLAR),
     # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         (FACTCHECK_VERBALIZER_SYSTEM_PROMPT, PREV_FACTCHECK_VERBALIZER_W1),

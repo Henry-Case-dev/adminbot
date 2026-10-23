@@ -346,7 +346,10 @@ def test_p0f_matrix_other_channels_audit():
 def test_p0g_l1_participation_section_byte_exact():
     assert cp._DIRECT_L1_PARTICIPATION_W1 == _fence("### 3.7. P0-G")
     canon = cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert cp._DIRECT_L1_PARTICIPATION_W1 in canon
+    # SPEECH-INIT-FIX R3: активная секция — усиленная семантика доставки;
+    # прежние байты W1 остаются замороженными (ступень/откат).
+    assert cp._DIRECT_L1_PARTICIPATION_W1 not in canon
+    assert cp._DIRECT_L1_PARTICIPATION_R3 in canon
     assert "ФОРМА УЧАСТИЯ" not in canon
     # схема/обязательные поля не сломаны
     for field in ('"action": "reply|react|silent"',
