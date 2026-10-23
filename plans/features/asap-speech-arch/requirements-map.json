@@ -21,7 +21,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): Финальный отчёт ещё не выпущен; проверить формат (время/зона, IMPLEMENTED/TESTED/DEPLOYED/LIVE_VERIFIED/PENDING, коммиты/хеши, без секретов) на closing-report."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Orchestrator) · проверяется на финальном отчёте: время/зона, IMPLEMENTED/TESTED/DEPLOYED/LIVE_VERIFIED/PENDING, коммиты/хеши, без секретов."
   },
   {
    "source_id": "MAN-REP-NOFAKE",
@@ -37,7 +37,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): Проверить closing-report: недоступное = PENDING_LIVE/WAITING_EXTERNAL, не VERIFIED; эта реконсиляция — частичное доказательство, не закрытие."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Orchestrator) · проверить, что недоступное помечено PENDING_LIVE/WAITING_EXTERNAL, а не VERIFIED; эта реконсиляция доказательством не является."
   },
   {
    "source_id": "MAN-REQ-REALDB",
@@ -77,7 +77,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Architect/Builder): Нет отдельного документа полного вызовного графа до provider API и Telegram sendMessage. Нужен Architect/Builder trace по services/direct_chat_service.py, prompt_composer.py, llm_client, transport с ссылками на строки HEAD."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_IMPLEMENTATION (Architect/Builder) · отдельного документа вызовного графа до provider API и Telegram sendMessage нет; w0-inventory его не заменяет."
   },
   {
    "source_id": "MAN-CANON-EXACT",
@@ -247,7 +247,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): s7 (цитата с матом) не выполнен в W3 из-за бюджета; нужен один harness-стимул с quoted source/user input/RAG/примером в трёх режимах: мат в цитате не должен классифицироваться как собственная речь, forced insertion отсутствует."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · s7-цитата с матом не выполнена в W3 из-за бюджета; нужен один стимул с quoted source/user input/RAG/примером в трёх режимах + отсутствие forced insertion."
   },
   {
    "source_id": "MAN-P0E-BOUNDS",
@@ -407,7 +407,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: 3+ участника без вызова бота → action=reply, delivery=chat, target=null (или silent/react); текст не приклеен reply к последнему. Harness W3, 0 Telegram."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · initiative-harness I-01 (3+ участника без вызова): нужны action=reply, delivery=chat, target=null или silent/react; в raw W3 поля delivery/target не писались."
   },
   {
    "source_id": "MAN-INIT-I02",
@@ -423,7 +423,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: прямое возражение на [msg:N] → delivery=reply, target=N, не самое свежее ID. Harness W3."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · harness I-02: возражение на [msg:N] → delivery=reply, target_message_id=N; в W3 target не фиксировался."
   },
   {
    "source_id": "MAN-INIT-I03",
@@ -439,7 +439,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: мелкое «лол»/флуд → react или silent допустимы; текст не обязан. Harness W3."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · harness I-03: «лол»/флуд → react или silent без принудительного текста."
   },
   {
    "source_id": "MAN-INIT-I04",
@@ -455,7 +455,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: новая общая тема → chat; reply не выбирается из-за имён. Harness W3."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · harness I-04: новая общая тема → chat, не reply из-за имён в окне."
   },
   {
    "source_id": "MAN-INIT-I05",
@@ -471,7 +471,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Модельный сценарий удалённого reply-target не прогнан (есть только transport-тесты case7b/gone-target). Нужен initiative-прогон с удалённой целью: отмена/bounded reassess, без отправки контекстного текста обычным сообщением."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · harness I-05: удалённый reply-target → отмена/bounded reassess; есть только transport-тесты, initiative-прогона нет."
   },
   {
    "source_id": "MAN-INIT-I06",
@@ -487,7 +487,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Модельный сценарий reply на сообщение вне чата (поддельный/чужой ID) не прогнан; transport-тесты addressee mismatch есть, но fake-ID сценарий нужен в harness."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · harness I-06: fake/чужой message_id → отказ доставки и диагностика."
   },
   {
    "source_id": "MAN-INIT-I07",
@@ -503,7 +503,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Реальный initiative-сценарий: старое сообщение бота → L1 учитывает свои сообщения и может промолчать; повтора из-за отсутствия self-сообщений нет."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · harness I-07: старое сообщение бота → L1 учитывает свои сообщения и может промолчать."
   },
   {
    "source_id": "MAN-INIT-I08",
@@ -612,7 +612,7 @@
    "live_when": "postdeploy",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_LIVE_OBSERVATION (DevOps (read-only)): 48-часовая наблюдательная проверка распределения действий на проде. Нужен read-only анализ mca_events/journal после окна; earliest 2026-10-25 13:14 UTC (старт 2.58.111 23.10 13:14 UTC). Отсутствие события = NOT_YET_OBSERVED, не дефект."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NOT_YET_OBSERVED · 48-часовое окно распределения действий: earliest 2026-10-25 13:14 UTC (26.10 01:14 UTC+12) при сохранении 2.58.111; деплой 2.58.113 мог сбросить окно — уточнить на DevOps-проверке. Отсутствие событий = NOT_YET_OBSERVED, не VERIFIED."
   },
   {
    "source_id": "MAN-MAN-FACTORY-ACTIVE",
@@ -676,7 +676,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): Полная матрица 3 режима × 3 жанра × 10 стимулов не выполнена: W3 — 45 вызовов, мини-выборка, s7/инициативный текст не сняты. Нужен полный harness-прогон (~270 вызовов) с фиксацией hash/model/temperature; бюджет/квота провайдера."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · полная матрица 3 режима × 3 жанра × 10 стимулов не прогонялась (W3 = 45 вызовов, мини-выборка); нужен harness ~270 вызовов с фиксацией hash/model/temperature."
   },
   {
    "source_id": "MAN-EVAL-EGRESS",
@@ -714,7 +714,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): Epic остаётся открытым: live-строки помечены PENDING/READY_FOR_LIVE, не VERIFIED; проверить при закрытии."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Orchestrator) · проверяется на closing-report: живое событие отдельным PENDING_LIVE/PENDING_EXTERNAL с телеметрией и датой, epic не объявляется VERIFIED."
   },
   {
    "source_id": "MAN-ARCH-ADR",
@@ -730,7 +730,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Architect): ADR «Почему L2 промпт Direct остаётся» отсутствует: plans/features/asap-speech-arch/adr-l2-kept.md (указан в write_scope P0-A) не создан. Нужен Architect: boundaries, DB keys, provider payload route, reverse constraints."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_IMPLEMENTATION (Architect) · файла ADR нет ни в plans/features/asap-speech-arch, ни рядом; нужен adr-l2-kept.md: boundaries, DB keys, provider payload route, reverse constraints."
   },
   {
    "source_id": "MAN-DOD-FINAL",
@@ -746,7 +746,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Orchestrator): DoD-финал проверяется только на closing-report после W4-UI/INSPECTOR/48h; сейчас не закрыт."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Orchestrator) · DoD проверяется только на closing-report после INSPECTOR/EVAL/48h."
   },
   {
    "source_id": "MAN-ADD1-PERSONA",
@@ -952,7 +952,7 @@
    "live_when": "postdeploy",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_LIVE_OBSERVATION (Owner (optional) / Builder for EVAL-MODES): Реальный чат occasional/frequent — личное наблюдение владельца. Инженерная часть (payload/поведение на боевых байтах) закрывается EVAL-MODES/EVAL-EGRESS; строка переводится в owner_optional, не VERIFIED.",
+   "reconciliation_note": "REMAINDER-2026-10-23 · OWNER_OPTIONAL (metadata уже стоит) · личное наблюдение в реальном чате; инженерные половины EVAL-MODES, P0D-QUOTED остаются обязательными и PENDING.",
    "verification_tier": "owner_optional",
    "owner_policy_ref": "plans/owner_live_checks.md",
    "owner_optional_reason": "Реальный чат occasional/frequent — личное наблюдение владельца; инженерная часть (effective Expression branch, поведение на боевых байтах, отсутствие подавления) остаётся обязательной в EVAL-MODES/EVAL-EGRESS. Политика 18.10.2026: device/live-наблюдения не блокируют DONE.",
@@ -1252,7 +1252,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Architect/Reviewer): Стабильные префиксы отделены, но exact effective order/bytes и невозможность dynamic content создавать директивы равного приоритета не доказаны. Нужно: Architect/Reviewer сверяет direct-runtime-assembly-w1.txt + prompt_composer порядок слоёв; Inspector exact bytes."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Architect+Reviewer) · direct-runtime-assembly-w1.txt даёт порядок и байты по стадиям, но exact assembled system в инспекторе и запрет dynamic-директив равного приоритета не показаны; blocked_by INS-EXACT."
   },
   {
    "source_id": "L00055",
@@ -1323,7 +1323,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): Проверен не каждый override-параметр отдельно. Команда: pytest tests/test_add_exp_expression.py::test_chat_scope_inherit_label_isolation_and_reset tests/test_soul1_core_registry_api.py -q; затем Reviewer-матрица chat-explicit>global-explicit>factory по каждому параметру (expression/style/prompts/chat-блоки)."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder+Reviewer) · попараметрическая матрица chat>global>factory не собрана; шаг: pytest tests/test_add_exp_expression.py::test_chat_scope_inherit_label_isolation_and_reset tests/test_soul1_core_registry_api.py -q + матрица по expression/style/prompts/chat-блокам."
   },
   {
    "source_id": "L00058",
@@ -1339,7 +1339,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): W3 подтвердил Core/Expression только для Direct L2; полная матрица всех пользовательских выходов (initiative writer, factcheck-финал, summary narrator, search/web/youtube, diagnostics/fallbacks) и негатив для internal JSON не собрана. Команда: pytest tests/test_soul1_composer_layers.py tests/test_soul14_layers_payload.py tests/test_expression_isolation_followup.py -q + Reviewer-матрица writers."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Reviewer) · W3 подтвердил только Direct L2; нужна матрица писателей (initiative writer, factcheck-финал, summary narrator, search/web/youtube, диагностики) + негатив для internal JSON; шаг: pytest tests/test_soul1_composer_layers.py tests/test_soul14_layers_payload.py tests/test_expression_isolation_followup.py -q + вердикт по каждому выходу."
   },
   {
    "source_id": "L00059",
@@ -1753,7 +1753,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Reviewer): Нет отдельного артефакта с построчным вердиктом по всем 11 строкам §4. Нужно: Reviewer заполняет матрицу «антипример → проверка/негативный тест → вердикт» (reply всем, forced-мат, только фабрика без active, слияние инструкций, глобальная санитизация, ссылки «куда-нибудь», opacity на весь UI, вторая Save, подгонка теста, заголовок без acceptance)."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Reviewer) · отдельного артефакта с 11 строками §4 нет (review-w1/review-r2 его не заменяют); создать evidence-матрицу «антипример → проверка/негативный тест → вердикт»."
   },
   {
    "source_id": "L00226",
@@ -1949,7 +1949,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps/Builder): Hot-apply после записи не прогонялся: W2-записи были до планового рестарта. Команда: pytest tests/test_soul1_core_version_propagation.py tests/test_prompt_migrations.py -q + DevOps read-only проверка NOTIFY/revision и inspector==payload на тестовом ключе."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder локально + DevOps read-only) · hot-apply после записи не прогонялся; шаг: pytest tests/test_soul1_core_version_propagation.py tests/test_prompt_migrations.py -q на кандидате, затем read-only сверка revision/NOTIFY на тестовом ключе. Прод-SSH не использовался."
   },
   {
    "source_id": "L00237",
@@ -1996,7 +1996,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps): SELECT/независимый процесс/runtime payload/blob — подтверждены deploy; inspector==payload байт-в-байт не показан. Команда: DevOps read-only GET /api/speech/inspector на проде, сверить sent.manifest_id/слои/хеш с SELECT активного значения."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (DevOps, read-only) · SELECT/независимый процесс подтверждены deploy 2.58.111/2.58.113, но inspector==payload байт-в-байт не показан; blocked_by INS-EXACT."
   },
   {
    "source_id": "L00239",
@@ -2051,7 +2051,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder): Существующий Inspector отдаёт manifest_id/run_id/layers/versions/conflicts/skipped, но не полный per-call trace (correlation_id, model/provider, checksum после scrub/retry). Реализация — слайс INSPECTOR после W4-UI."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_IMPLEMENTATION (Builder, слайс INSPECTOR) · на кандидате e4ee54f3 инспектор отдаёт run_id=correlation_id и layers/versions, но нет per-call trace: model/provider, checksum после scrub/truncate/fallback retry."
   },
   {
    "source_id": "L00248",
@@ -2067,7 +2067,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder): Режим «полный итоговый промпт» байт-в-байт отсутствует: inspector отдаёт system_masked, а не owner-debug exact assembled system. Реализация — INSPECTOR (owner-only, sanitized)."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_IMPLEMENTATION (Builder, слайс INSPECTOR) · в speech.py на кандидате только system_masked; owner-debug exact assembled system отсутствует."
   },
   {
    "source_id": "L00249",
@@ -2083,7 +2083,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder): UI показывает машинные коды skip_reason как основной текст; по-русски переведён только style_policy_absent. Нужны человеческие объяснения few_shot/channel_output + коды во всплывающей диагностике. Слайс INSPECTOR."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_IMPLEMENTATION (Builder) · человеческие объяснения few_shot/channel_output не добавлены; машинные коды пока основной текст."
   },
   {
    "source_id": "L00250",
@@ -2099,7 +2099,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): Иерархия слоёв и source/revision уже видны, но клик по элементу (текст/источник/редакция) и отсутствие пустого скролла не проверены. Команда: Playwright-проход Inspector + pytest tests/test_soul1_composer_layers.py -q; при отсутствии click-through — доработка INSPECTOR."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder+Reviewer) · иерархия и скриншоты inspector_* есть, click-through (текст/источник/редакция, без пустого скролла) не проверен; шаг: Playwright-проход Inspector + pytest tests/test_soul1_composer_layers.py -q."
   },
   {
    "source_id": "L00251",
@@ -2115,7 +2115,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Reviewer/Builder): Список conflicts есть, но покрытие классов (типографика/длина/мат-регистр/роль/chat-global/устаревшие SOUL-*) не доказано. Команда: pytest tests/test_soul1_composer_layers.py::test_no_duplicate_owner_character_conflict tests/test_soul1_composer_layers.py::test_layer_order_ownership_and_provenance -q + Reviewer-матрица классов."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Reviewer) · список конфликтов есть, покрытие классов (типографика/длина/мат-регистр/роль/chat-global/SOUL-*) не доказано; шаг: pytest tests/test_soul1_composer_layers.py -q + Reviewer-матрица классов."
   },
   {
    "source_id": "L00252",
@@ -2776,7 +2776,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/Reviewer): Preview vs sent разделены и проверены (test_soul1_w6_speech_ui), но exact last request после адаптеров/fallback байт-в-байт не доказан: inspector отдаёт system_masked. Команда: pytest tests/test_soul1_w6_speech_ui.py::test_inspector_never_claims_preview_as_sent tests/test_soul1_w6_speech_ui.py::test_inspector_finds_runtime_shaped_turn_snapshot -q + проверка fallback-пути."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder+Reviewer), blocked_by INS-EXACT · preview vs sent разделены тестом, exact last request после адаптеров/fallback недоказуем без INS-EXACT."
   },
   {
    "source_id": "L00323",
@@ -2877,7 +2877,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): I-01…I-07 требуют реальных initiative-прогонов; W3 дал только silent/react, текстовых ответов не было. Команда: harness как W3, стимулы I-01…I-07, фиксировать action/delivery/target/текст; 0 Telegram."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · нужны initiative-прогоны I-01…I-09 с фиксацией action/delivery/target; W3 дал только silent/react и не писал delivery/target."
   },
   {
    "source_id": "L00335",
@@ -2924,7 +2924,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Скриншоты/e2e desktop 1280/1440, Windows fullscreen, mobile 320/360/390/430, WebView 390, landscape — активный лейн W4-UI; evidence ещё нет."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · ui-report.json покрывает 320/360/390/430/768/1024/1280/1440/landscape, failures=0; нет Windows fullscreen и Telegram-WebView-UA 390 (см. w4/report.md:257). Физическое устройство — добровольно, не блокирует."
   },
   {
    "source_id": "L00337",
@@ -2940,7 +2940,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Длинные русские фразы/code tokens/URL без обрезания во всех редакторах — активный W4-UI."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · нет отдельной проверки «длинная русская фраза + code token + URL во всех редакторах»; шаг: Playwright-инъекция строк в редакторы на 320/390/1280, assert scrollWidth<=vw и отсутствие обрезки."
   },
   {
    "source_id": "L00338",
@@ -2956,7 +2956,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Клики/назад/dirty/save/conflict + сохранение после reload/нового процесса — активный W4-UI."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · состояния/409 покрыты UI-U07, но равенство сохранённого и загруженного после hard reload и в новом процессе не показано; шаг: Playwright save→hard reload→сверка, затем сверка после рестарта веб-процесса."
   },
   {
    "source_id": "L00339",
@@ -2972,7 +2972,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_IMPLEMENTATION (Builder W4-UI): Полигональный фон/Liquid Glass/FPS/контраст — активный W4-UI; Playwright+perf после."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · полигон не изменён (пиксельная сверка), контраст 9.26:1 и paintMs<6ms/p95<40ms замерены, но FPS до/после не измерялся (w4/report.md:262); шаг: CDP-замер FPS на baseline и кандидате 1280/390."
   },
   {
    "source_id": "L00341",
@@ -3261,7 +3261,7 @@
    "live_when": "preprod",
    "status": "PENDING",
    "evidence": [],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder): W3 проверил только profanity-режимы; влияние wit/sharpness на речь наблюдаемо не подтверждено. Нужен harness-прогон с разными wit/sharpness при фиксированном profanity: различие регистра/резкости, Core-личность присутствует."
+   "reconciliation_note": "REMAINDER-2026-10-23 · NEEDS_AGENT_CHECK (Builder) · W3 проверял только profanity; влияние wit/sharpness при фиксированном profanity не наблюдалось; шаг: harness с 2 режимами wit/sharpness + негатив «Core-личность присутствует»."
   },
   {
    "source_id": "L00390",
