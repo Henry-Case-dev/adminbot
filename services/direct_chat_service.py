@@ -8833,7 +8833,11 @@ class DirectChatService:
         # L1D: окно Writer с теми же [msg:N]/[user:UID] id, что видел L1, —
         # форма доставки из плана ссылается на конкретное сообщение.
         window_block = _l1.render_window_lines(
-            window, 12, with_ids=True, alias_resolver=self.aliases)
+            window, 12, with_ids=True,
+            # ASAP3-ACCEPT: частично собранный объект (tests/__new__) без DI
+            # алиасов не должен ронять инициативу — тот же fail-open, что и в
+            # _refresh_turn_aliases.
+            alias_resolver=getattr(self, "aliases", None))
         user_blocks = [context_block]
         if window_block:
             user_blocks.append("<Fresh_Chat_Window>\n" +
