@@ -34,11 +34,18 @@ class _Cache:
         self.pg_available = pg_available
         self.values = dict(values or {})
         self.set_calls = []
+        # Провенанс (``character.prompt_history``) — отдельный журнал, не
+        # «запись канона»: миграция пишет туда аттестацию ступени (P0-PROMPTS).
+        self.provenance_sets = []
 
     def get(self, key, default=None):
         return self.values.get(key, default)
 
     async def set(self, key, value, category):
+        if key == "character.prompt_history":
+            self.provenance_sets.append((key, value, category))
+            self.values[key] = value
+            return
         self.set_calls.append((key, value, category))
 
     def apply_writes(self):
@@ -164,6 +171,12 @@ async def test_migration_idempotent_rollback_custom_kept():
         L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
         L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT}
     assert {c for _k, _v, c in cache.set_calls} == {"prompts"}
+    # аттестация провенанса пишется отдельным журналом (P0-PROMPTS), а не как
+    # запись канона; обе ступени миграции в ней отмечены.
+    assert len(cache.provenance_sets) == 1
+    _pkey, _pdoc, _pcat = cache.provenance_sets[0]
+    assert _pkey == "character.prompt_history"
+    assert "direct.base.l2_writer" in _pdoc["provenance"]
     cache.apply_writes()
     # повторный прогон на активных байтах — no-op
     assert await pm.migrate_prompt_canons(cache) == {}

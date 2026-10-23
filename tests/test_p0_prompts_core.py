@@ -216,8 +216,11 @@ def test_direct_l2_writer_factory_edition_is_not_a_warning(caplog):
     assert "provenance_factory_equivalent" in resolved.diagnostics
     assert not [r for r in caplog.records
                 if "persisted speech value withheld" in r.message]
-    rows = {row["block_id"]: row for row in pr.withheld_values(cache=cache)}
-    assert rows[block_id]["withheld_class"] == pr.WITHHELD_IDENTICAL_CLASS
+    # На релизной базе 2.58.118 persisted-байты L2 совпадают с заводской
+    # редакцией, поэтому в списке Inspector удержания НЕТ (P0-PROMPTS:
+    # identical_to_factory — не WARNING и не строка отчёта).
+    rows = pr.withheld_values(cache=cache)
+    assert not [row for row in rows if row["block_id"] == block_id]
 
 
 # ═══ Allowlist: точные байты Checkup сохраняются, остальное чистится ════════

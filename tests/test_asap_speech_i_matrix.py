@@ -401,7 +401,7 @@ def test_i08_parser_fail_closed_for_reply(raw, action, delivery, target,
 _MODE_MARKERS = {
     "off": "Не используй мат в собственной речи.",
     "occasional": "примесью мата",
-    "frequent": "выраженным использованием мата",
+    "frequent": "привычная и заметная часть твоей собственной речи",
 }
 
 

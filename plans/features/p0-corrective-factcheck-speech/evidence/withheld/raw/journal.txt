@@ -1,0 +1,20 @@
+# journalctl -u admin_bot --since 2026-10-01 (read-only)
+2026-10-18T16:54:24+00:00 racknerd-f4e3456 python[3430462]: 2026-10-18 16:54:24,687 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-18 21:54:29 +05)" executed successfully
+2026-10-23T18:50:26+00:00 racknerd-f4e3456 python[858447]: 2026-10-23 18:50:26,024 - apscheduler.executors.default - INFO - Job "VisionMediaWorker._tick (trigger: interval[0:00:05], next run at: 2026-10-23 23:50:31 +05)" executed successfully
+== KEYS ==
+    210 prompts.direct_chat_system_prompt
+    152 prompts.direct_chat_verbalizer_system_prompt
+     17 prompts.summary_system_prompt
+     13 prompts.summary_narrator_system_prompt
+      6 prompts.factcheck_verbalizer_system_prompt
+      5 prompts.factcheck_system_prompt
+      3 prompts.search_system_prompt
+      3 prompts.checkup_system_prompt
+      2 prompts.youtube_video_system_prompt
+      2 prompts.youtube_system_prompt
+      2 prompts.webpage_system_prompt
+== TOTAL ==
+415
+== REASONS ==
+     20 provenance_mismatch
+    395 provenance_missing
