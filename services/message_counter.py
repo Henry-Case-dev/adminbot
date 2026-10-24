@@ -8,7 +8,7 @@ from aiogram.types import FSInputFile, Message
 from config.settings import settings
 from services import hot_config as hot
 from services.database import DatabaseService
-from services.pemsoc_reactions import claim_reaction
+from services.pemsoc_reactions import claim_reaction, release_claim
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +79,11 @@ class MessageCounterMiddleware(BaseMiddleware):
             await event.answer_animation(animation=FSInputFile(self.gif_path))
         except FileNotFoundError as exc:
             logger.error("GIF file missing at send time | path=%s | error=%s", self.gif_path, exc)
+            release_claim(event)
             return False
         except Exception:
             logger.error("GIF send failed | path=%s", self.gif_path, exc_info=True)
+            release_claim(event)
             return False
         else:
             logger.info("GIF sent | path=%s | chat_id=%s | count=%s", self.gif_path, chat_id, new_count)

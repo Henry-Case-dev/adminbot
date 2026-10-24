@@ -705,12 +705,12 @@ class TestCommonRelaySendCommon:
         assert call_kwargs["reply_parameters"].quote == "\u041e\u0442\u0431\u043e\u0439"
 
     @pytest.mark.asyncio
-    async def test_scan_error_returns_none(self, mock_bot):
+    async def test_scan_error_returns_false(self, mock_bot):
         relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
         with patch.object(relay, "_scan_directory", return_value=[]):
             result = await relay.send_common(chat_id=1, message_id=10, matched_word="x", subdir="otboy")
 
-        assert result is None
+        assert result is False
         mock_bot.send_photo.assert_not_called()
 
     @pytest.mark.asyncio
@@ -964,24 +964,26 @@ class TestCommonIntegration:
     """Integration tests: propagation, cross-component interactions."""
 
     @pytest.mark.asyncio
-    async def test_otboy_handler_does_not_block_propagation(self):
+    async def test_otboy_handler_consumes_after_send(self):
         mock_relay = MagicMock()
         mock_relay.send_common = AsyncMock()
         setup_common(mock_relay)
 
         msg = make_message(text="\u043e\u0442\u0431\u043e\u0439")
         result = await otboy_handler(msg, matched_word="\u043e\u0442\u0431\u043e\u0439")
-        assert result is UNHANDLED
+        assert result is None
+        mock_relay.send_common.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_danger_handler_does_not_block_propagation(self):
+    async def test_danger_handler_consumes_after_send(self):
         mock_relay = MagicMock()
         mock_relay.send_common = AsyncMock()
         setup_common(mock_relay)
 
         msg = make_message(text="\u0431\u043f\u043b\u0430")
         result = await danger_handler(msg, matched_word="\u0431\u043f\u043b\u0430")
-        assert result is UNHANDLED
+        assert result is None
+        mock_relay.send_common.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_otboy_filter_independent_of_user_id(self):
@@ -1019,7 +1021,9 @@ class TestCommonIntegration:
         msg = make_message(text="\u043e\u0442\u0431\u043e\u0439 \u0431\u043f\u043b\u0430 \u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c")
         await otboy_handler(msg, matched_word="\u043e\u0442\u0431\u043e\u0439")
         await danger_handler(msg, matched_word="\u0431\u043f\u043b\u0430")
-        assert mock_relay.send_common.call_count == 2
+        # Одно сообщение = одна реакция: первый обработчик заклеймил и отправил.
+        assert mock_relay.send_common.call_count == 1
+        assert mock_relay.send_common.call_args.kwargs["subdir"] == "otboy"
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1358,7 +1362,7 @@ class TestMimicForwardsGate:
         with patch.object(common_mod, "settings", mod):
             result = await mimic_handler(msg)
 
-        assert result is UNHANDLED
+        assert result is None
         mock_relay.send_mimic.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1372,7 +1376,7 @@ class TestMimicForwardsGate:
         with patch.object(common_mod, "settings", mod):
             result = await mimic_handler(msg)
 
-        assert result is UNHANDLED
+        assert result is None
         mock_relay.send_mimic.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1443,7 +1447,7 @@ class TestMimicGateFlags:
         mod = replace(settings, MIMIC_ENABLED=True, ALAN_MIMIC_ENABLED=True)
         with patch.object(common_mod, "settings", mod):
             result = await mimic_handler(self._msg(settings.ALAN_USER_ID))
-        assert result is UNHANDLED
+        assert result is None
         mock_relay.send_mimic.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1453,7 +1457,7 @@ class TestMimicGateFlags:
         mod = replace(settings, MIMIC_ENABLED=True, ALAN_MIMIC_ENABLED=False)
         with patch.object(common_mod, "settings", mod):
             result = await mimic_handler(self._msg(111))
-        assert result is UNHANDLED
+        assert result is None
         mock_relay.send_mimic.assert_called_once()
 
 
@@ -1661,7 +1665,7 @@ class TestSelfdevWorkHandlers:
         msg = make_message(text="саморазвитие", chat_id=-100456, message_id=789)
         result = await selfdev_handler(msg, matched_word="саморазвитие")
 
-        assert result is UNHANDLED
+        assert result is None
         mock_relay.send_common.assert_called_once_with(
             chat_id=-100456,
             message_id=789,
@@ -1680,7 +1684,7 @@ class TestSelfdevWorkHandlers:
         msg = make_message(text="устал", chat_id=-100789, message_id=555)
         result = await work_handler(msg, matched_word="устал")
 
-        assert result is UNHANDLED
+        assert result is None
         mock_relay.send_common.assert_called_once_with(
             chat_id=-100789,
             message_id=555,
@@ -1785,7 +1789,8 @@ class TestCommonMediaFlags:
         msg = make_message(text="устал", chat_id=-100789, message_id=555)
         result = await work_handler(msg, matched_word="устал")
 
-        assert result is UNHANDLED
+        assert result is None
+        mock_relay.send_common.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_work_flag_from_hot_cache_true(self):
@@ -1814,7 +1819,7 @@ class TestCommonMediaFlags:
                 msg = make_message(text="устал", chat_id=-100789,
                                    message_id=555)
                 result = await work_handler(msg, matched_word="устал")
-            assert result is UNHANDLED
+            assert result is None
             mock_relay.send_common.assert_called_once()   # hot=True победил
         finally:
             hot.set_config_cache(old_cache)
@@ -1841,7 +1846,7 @@ class TestCommonMediaFlags:
             from handlers.common import work_handler
             msg = make_message(text="устал", chat_id=-100789, message_id=555)
             result = await work_handler(msg, matched_word="устал")
-            assert result is UNHANDLED
+            assert result is None
             mock_relay.send_common.assert_called_once()
         finally:
             hot.set_config_cache(old_cache)
@@ -1900,9 +1905,13 @@ class TestCommonMediaFlags:
         with patch.object(common_mod, "settings", mod):
             from handlers.common import (danger_handler, otboy_handler,
                                          selfdev_handler)
-            await otboy_handler(make_message(text="отбой"), matched_word="отбой")
-            await danger_handler(make_message(text="бпла"), matched_word="бпла")
-            await selfdev_handler(make_message(text="саморазвитие"), matched_word="саморазвитие")
+            await otboy_handler(make_message(text="отбой", message_id=101),
+                                matched_word="отбой")
+            await danger_handler(make_message(text="бпла", message_id=102),
+                                 matched_word="бпла")
+            await selfdev_handler(make_message(text="саморазвитие",
+                                              message_id=103),
+                                  matched_word="саморазвитие")
 
         assert mock_relay.send_common.call_count == 3
         subdirs = [c.kwargs["subdir"] for c in mock_relay.send_common.call_args_list]

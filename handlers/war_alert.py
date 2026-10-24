@@ -16,6 +16,7 @@ import logging
 import random
 
 from aiogram import Router, types
+from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 
 from config.settings import settings
@@ -24,7 +25,7 @@ from filters.target_channel import TargetChannelFilter
 from filters.user_id import UserIdFilter
 from filters.danger_word import DangerWordFilter
 from services.permsoc import PermsocBlockGate
-from services.pemsoc_reactions import claim_reaction
+from services.pemsoc_reactions import claim_reaction, release_claim
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,11 @@ async def war_keyword_handler(message: types.Message,
             "War Alert (keyword): failed to send reply | msg_id=%d",
             message.message_id,
         )
-    # Поглотить update: одно сообщение = одна реакция (не отдавать slavik).
+        # Отправки не было — освобождаем claim, чтобы сработал дефолт
+        # «пошёл нахуй» в slavik_router.
+        release_claim(message)
+        return UNHANDLED
+    # Реакция реально отправлена: поглотить update.
     return None
 
 
@@ -185,7 +190,8 @@ async def war_channel_repost_handler(message: types.Message,
     origin = message.forward_origin
     if not isinstance(origin, MessageOriginChannel):
         logger.error("War Alert (repost): unexpected origin type %s", type(origin))
-        return None
+        # Не наша ветка — пусть ниже сработает обычный slavik-дефолт.
+        return UNHANDLED
     if not claim_reaction(message, source="war_channel_repost"):
         return None
 
@@ -213,4 +219,6 @@ async def war_channel_repost_handler(message: types.Message,
             message.message_id,
             origin.chat.id,
         )
+        release_claim(message)
+        return UNHANDLED
     return None

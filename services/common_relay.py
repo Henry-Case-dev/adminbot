@@ -227,18 +227,11 @@ class CommonRelay:
         message_id: int,
         matched_word: str,
         subdir: str,
-    ) -> None:
+    ) -> bool:
         """Send random media from media/common/{subdir}/ as a reply.
 
-        Dual-layer cooldown (Epic 18, обобщён Epic 30):
-        Layer 1 — пер-сабдирный (danger/selfdev/work); Layer 2 — shared
-        (все сабдиры). Отправка блокируется, если активен ЛЮБОЙ слой.
-
-        Args:
-            chat_id: Target chat.
-            message_id: Message to reply to.
-            matched_word: Word to quote (original case preserved).
-            subdir: Subdirectory under media/common/ (e.g. "otboy", "danger").
+        Returns True only if a media send actually happened; False for disabled
+        switch, cooldown, scan error, empty dir or send failure.
         """
         now = time.monotonic()
 
@@ -253,7 +246,7 @@ class CommonRelay:
                 "subdir=%s | chat_id=%s",
                 subdir, chat_id,
             )
-            return
+            return False
 
         # Layer 1: пер-сабдирный коулдаун (danger/selfdev/work; otboy — пропуск)
         sub_cd = self._subdir_cooldown_seconds.get(subdir, 0)
@@ -268,7 +261,7 @@ class CommonRelay:
                         "elapsed=%.1fs | remaining=%.1fs",
                         subdir, chat_id, elapsed, sub_cd - elapsed,
                     )
-                    return
+                    return False
 
         if self._cooldown_seconds > 0:
             last_sent = self._cooldowns.get(chat_id)
@@ -283,7 +276,7 @@ class CommonRelay:
                         elapsed,
                         self._cooldown_seconds - elapsed,
                     )
-                    return
+                    return False
 
         try:
             files = self._scan_directory(subdir)
@@ -293,10 +286,10 @@ class CommonRelay:
                 subdir,
                 chat_id,
             )
-            return
+            return False
 
         if not files:
-            return
+            return False
 
         filepath, media_type = random.choice(files)
         logger.info(
@@ -328,6 +321,7 @@ class CommonRelay:
                 media_type,
                 matched_word,
             )
+            return True
         except Exception:
             logger.exception(
                 "CommonRelay: send failed | chat_id=%s | subdir=%s | "
@@ -337,3 +331,4 @@ class CommonRelay:
                 filepath.name,
                 media_type,
             )
+            return False

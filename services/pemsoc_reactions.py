@@ -100,3 +100,10 @@ def claim_reaction(message: Any, *, source: str = "") -> bool:
 def reset_claims() -> None:
     """Сброс состояния (тесты/диагностика; в runtime не вызывается)."""
     _claims.clear()
+
+
+def release_claim(message: Any) -> None:
+    """Освободить claim после неудачной отправки — сработает дефолт."""
+    for key in _keys(message):
+        _claims.pop(key, None)
+
