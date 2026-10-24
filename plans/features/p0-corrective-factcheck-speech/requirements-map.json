@@ -4571,8 +4571,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "M00816-REQ-ADD3-QTA-PROD-BASIS",
@@ -8151,8 +8170,18 @@
    "acceptance": "Reviewer проверил не только корректность исправлений, но и полноту охвата проекта.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Blocking findings» F1/F2, «Nonblocking / risks» (C1/C6, EXPRESSION_RESOLVE_MAX_ITEMS, мёртвые подписи web/app.js), «Requirements gate»",
+     "observation": "Независимый Reviewer проверил не только корректность правок, но и полноту охвата: нашёл остаточную A-квоту Expression (F1), конкурирующее правило кавычек (F2), оставшиеся C-пункты и несоответствия карты; вердикт Needs Fixes, а не приёмка.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    }
+   ]
   },
   {
    "source_id": "M01256-CTX-ADD3",
@@ -8181,8 +8210,27 @@
    "acceptance": "Для каждого удалённого ограничения подтверждено, что оно действительно являлось искусственным бюджетом инструкций.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §2A таблица A1-A6 с колонкой «Доказательство» (file:line, отсутствие ключа в config/settings.py, тип возврата, докстринг vs код)",
+     "observation": "Для каждого удалённого ограничения подтверждено, что это искусственный бюджет инструкций при достаточном окне: A1 (синтетический бюджет 1200), A2/A3 (вытеснение слоёв, budget_excluded), A4 (принудительный full->compact), A5 (MAX_ITEMS/CHARS/TOKENS examples), A6; B/C отделены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6: что удалено и чем это подтверждено, тесты",
+     "observation": "Удалено ровно то, что отнесено к классу A; правки локализованы в бюджете Composer/Registry/Expression и тестах.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "M01271-REQ-ADD3-QTA-C-PRESERVE",
@@ -8239,8 +8287,27 @@
    "acceptance": "Scope не расширен на общий рефакторинг функций.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md — структура правок по A1-A6, тесты, «Риск»",
+     "observation": "Правки точечные (удаление бюджета инструкций и связанных сравнений + тесты), общего рефакторинга функций нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Что изменилось в дельте 39a06b88..f0e6a0cd",
+     "observation": "Дельта деплоя 2.58.125 ограничена одним fix style_policy.py (кавычки в URL) и bump-коммитом; рефакторинг в дельту не попал.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "M01277-REQ-ADD3-ACC-REPORT",
@@ -8254,8 +8321,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "M01292-REQ-ADD3-ACC-REPORT-COVERAGE",
@@ -8269,8 +8373,18 @@
    "acceptance": "Отчёт отдельно указывает фактическое покрытие аудита: какие пути найдены, какие проверены, что осталось непроверенным.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §7 «Покрытие и непроверенное»",
+     "observation": "Отчёт отдельно указывает покрытие: 17 групп путей, все services/** адресным поиском, что прочитано, и что НЕ проверено runtime (фактические payload по 17 путям, поведение после рестарта, провайдерские различия, C2/C4/C6).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "M01294-REQ-ADD3-ACC-REPORT-NO-FULL-CLAIM",
@@ -8284,8 +8398,18 @@
    "acceptance": "Полная очистка проекта не заявлена, пока не подтверждён охват всех обнаруженных активных путей формирования LLM-запросов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §7, последняя строка: «Утверждать «полную очистку проекта» до runtime-подтверждения нельзя»",
+     "observation": "Полная очистка проекта не заявлена: аудит прямо формулирует запрет на такое утверждение до runtime-подтверждения и перечисляет непроверенное; в binding-258125 итог ограничен фактически проверенным.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "M01314-REQ-ADD3-ACC-WORKFLOW",
@@ -8299,8 +8423,36 @@
    "acceptance": "Работа выполнена штатным workflow: независимый Reviewer, обязательные проверки и production deployment.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md (вердикт Needs Fixes, блокирующие F1/F2)",
+     "observation": "Штатный workflow соблюдён: независимое ревью выполнено, дефекты приняты как блокеры, а не самоприёмка.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-factcheck-r2.md + evidence/review-factcheck.md + evidence/review-prompts.md",
+     "observation": "Независимые ревью по слайсам FACTCHECK/PROMPTS/QUOTAS зафиксированы отдельными артефактами.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-factcheck-r2.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "e0f7f72bdea1adf2be631cc441aece1dc688233f8be6ac32f78850efdf17ddc0"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "plans/features/_audit-2026-10-23/release-258125/README.md + evidence/binding-258125.md",
+     "observation": "Production deployment выполнен: 2.58.125 задеплоен, привязка candidate=deployed=f0e6a0cd зафиксирована.",
+     "type": "production",
+     "artifact_path": "plans/features/_audit-2026-10-23/release-258125/README.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "79bd02c6956efc6b637afe446c6e1bd9bdb50829381e9b5fce1ee908d5e51f97"
+    }
+   ]
   },
   {
    "source_id": "M01316-REQ-ADD3-QTA-MAIN-PRINCIPLE",
@@ -17935,8 +18087,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01259",
@@ -17950,8 +18130,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01260",
@@ -17965,8 +18173,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01261",
@@ -17980,8 +18216,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01262",
@@ -17995,8 +18259,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01263",
@@ -18010,8 +18302,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01264",
@@ -18025,8 +18345,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01265",
@@ -18040,8 +18388,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01266",
@@ -18055,8 +18431,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01267",
@@ -18070,8 +18474,36 @@
    "acceptance": "Reviewer не принял результат при любом из условий §5: только Composer, только новая Speech Architecture, проигнорированы legacy, не исследованы самостоятельные вызовы, поиск по именам, квоты обойдены другим путём, удалены fallback/retry, повреждены функциональные лимиты, добавлены новые квоты, payload не проверены.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/review-quota-quotes.md — «Вердикт: Needs Fixes», F1 (остаточная A-квота owner-инструкции Expression 2000 символов), F2",
+     "observation": "Reviewer не принял результат при сработавших условиях §5: найдена остаточная искусственная квота (обход другим путём), конкурирующее правило кавычек, незакрытые payload-проверки; вердикт Needs Fixes.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/review-quota-quotes.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "b039f6abc8ec1ef03c8cb262251bb822e6c01457338215a8a6ae34bf6d8d96b4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий",
+     "observation": "Expression-результат не принят и остаётся FAILED; задача не закрыта по этим строкам.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1 (охват всех путей, а не только Composer) и §2C (C-пункты не удалены вслепую)",
+     "observation": "Проверка не сведена к Composer/поиску имён: исследованы legacy/самостоятельные LLM-вызовы, C-пункты оставлены на проверку, fallback/retry и B-лимиты сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    }
+   ]
   },
   {
    "source_id": "L01275",
@@ -18100,8 +18532,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01282",
@@ -18115,8 +18584,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01283",
@@ -18130,8 +18636,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01284",
@@ -18145,8 +18688,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01285",
@@ -18160,8 +18740,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01286",
@@ -18175,8 +18792,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01287",
@@ -18190,8 +18844,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01288",
@@ -18205,8 +18896,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01289",
@@ -18220,8 +18948,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01290",
@@ -18235,8 +19000,45 @@
    "acceptance": "Отчёт §6 содержит: проверенные компоненты/пайплайны, найденные квоты и адреса, устранённые ограничения, сохранённые технические/функциональные лимиты, подтверждение fallback/retry и модуля «Бюджеты», результаты кавычек, результаты OFF/OCCASIONAL/FREQUENT, версию деплоя и состояние production, неустранённые проблемы и категорию C.",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "arch-quota-audit.md §1: карта 17 LLM-путей (источник инструкций -> builder -> wrapper -> квоты); §2A/§2B/§2C: адреса квот file:line",
+     "observation": "Отчёт-контент §6 п.1-2: проверенные компоненты/пайплайны (17 путей, таблица §1) и найденные искусственные квоты с адресами (A1-A6 с file:line, §2A); B-лимиты перечислены §2B. Артефакт существует и прочитан.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "438df5238197bd04583f38a726569527d0bbba6a6eecf60204a1d6638ad62ac4"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §3 FACTCHECK, §5 FREQUENT (4 стимула, два прогона), §6 CORE",
+     "observation": "Отчёт-контент §6 п.7-8: фактические результаты прогонов (FACTCHECK ok, FREQUENT 1/8 match, CORE rev8), §7 «Ограничения прогона»; результат отрицательный и указан как отрицательный.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Факты деплоя 2.58.125, §Expression/главный критерий, §Остаток",
+     "observation": "Отчёт-контент §6 п.9: версия деплоя 2.58.125 @ f0e6a0cd и фактическое состояние production (прод отдаёт 2.58.125, FACTORY_SET 47f0d1eb8de4, Core rev 8); §6 п.10: неустранённые проблемы зафиксированы.",
+     "type": "production",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md A1-A6 + раздел «B — сохранено (не тронуто)»",
+     "observation": "Отчёт-контент §6 п.3-6: что именно устранено (A1-A6), что сохранено (B: token_counter, context_middleware, model_capacity, llm_client retry/timeout, worker_budget — модуль «Бюджеты»).",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    }
+   ]
   },
   {
    "source_id": "L01298",
@@ -18265,8 +19067,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "L01301",
@@ -18314,8 +19135,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "L01303",
@@ -18329,8 +19169,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "L01304",
@@ -18412,8 +19271,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "L01307",
@@ -18495,8 +19373,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "L01310",
@@ -18535,8 +19432,27 @@
    "acceptance": "Соблюдены ограничения выполнения: действующая очередь без нового эпика, без новых архитектурных слоёв/сервисов, без новых LLM-вызовов в pipeline, без массового рефакторинга Smart Module, без отключения функций и повреждения авторских промптов/настроек/контрактов.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/quota-removal.md + раздел «B — сохранено»",
+     "observation": "Ограничения выполнения соблюдены: работа в действующей очереди ADDENDUM #3 без нового эпика/сервисов/архитектурных слоёв; новых LLM-вызовов в pipeline не добавлено; функции не отключались; B-лимиты, retry/fallback и модуль «Бюджеты» (worker_budget) сохранены.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/quota-removal.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "be95e5df0220a5db23bbeffa174ca90e5331184a9e40a9cb72800571ad86ce0a"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md (FACTORY_SET 47f0d1eb8de4 не изменился, Core rev 8, adopt не повторялся, ΔDDL=0)",
+     "observation": "Контракты, настройки и авторские промпты не повреждены: FACTORY_SET и Core rev не изменились, DDL-дельты нет, массового рефакторинга SmartModule нет.",
+     "type": "code",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    }
+   ]
   },
   {
    "source_id": "L01312",
@@ -18550,8 +19466,27 @@
    "acceptance": "Задача не считается завершённой без проверки фактического поведения после выката.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/binding-258125.md §Expression/главный критерий + §Остаток",
+     "observation": "Задача не объявлена завершённой: EX-01/EX-02/STABLE-EFFECT/PROVE-REAL-PATH остаются FAILED, REQ-DONE-MAIN-CRITERION PENDING; проверка фактического поведения после выката сделана и дала отрицательный результат.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "evidence/canary/report.md §5 FREQUENT + §8 «Что это значит для карты»",
+     "observation": "Живой прогон после выката показал 1 совпадение из 8 ответов; карта не закрыта.",
+     "type": "live",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+     "produced_on": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+    }
+   ]
   }
  ],
  "addendum": {
