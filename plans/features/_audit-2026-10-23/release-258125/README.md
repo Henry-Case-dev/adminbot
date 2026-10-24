@@ -3,7 +3,7 @@
 **База:** `76004f34` (`origin/master` на момент push: docs-only привязка requirements map поверх релизного tip `c6290ca1` = 2.58.124; APP_VERSION 2.58.124, FACTORY_SET `47f0d1eb8de4`).
 **Pick:** `6e9f10a2` (cherry-pick `f0092e8a`).
 **Bump:** `f0e6a0cd` (2.58.124 → 2.58.125).
-**Версия:** `2.58.125`. **НЕ задеплоено** (deploy — отдельный шаг).
+**Версия:** `2.58.125`. **Задеплоено** 24.10.2026 (прод 2.58.125 @ `f0e6a0cd`); привязка карты P0 — `plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md`.
 
 Во время lane `origin/master` ушёл вперёд (`c6290ca1` → `76004f34`, только `plans/**`), поэтому train перебазирован на `76004f34`; guard-прогоны выполнены на итоговом кандидате.
 
