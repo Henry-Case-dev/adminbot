@@ -832,6 +832,48 @@ def test_cover12_prompt_limit_unknown_one_shorter_retry(
         cap.reset_cache()
 
 
+def test_cover12c_provider_meta_uses_final_retry_bad_json(
+        tmp_path, monkeypatch):
+    """B1: на пути prompt_limit → retry bad_json в job meta сохраняется
+    response_diag ФИНАЛЬНОЙ попытки, а не первого 400."""
+    cap.reset_cache()
+    _nanogpt_slot_stub(monkeypatch)
+    base = tmp_path / "c12c_base.png"
+    base.write_bytes(PNG_BYTES)
+    profile = _profile()
+    prompts: list = []
+
+    async def edit_call(prompt, **_kw):
+        prompts.append(prompt)
+        if len(prompts) == 1:
+            return EditResult(
+                ok=False, reason="prompt_limit_unknown",
+                meta={"prompt_limit_unknown": True,
+                      "route": "image_api"})
+        return EditResult(
+            ok=False, reason="bad_json",
+            meta={"route": "image_api",
+                  "response_diag": {
+                      "status": 200,
+                      "content_type": "application/json",
+                      "body_len": 11,
+                      "json_keys": ["data"],
+                      "request_id": "req-final",
+                  }})
+
+    meta = _run(cjobs.run_style_job(
+        chat_id=0, base_image_path=str(base), profile=profile,
+        summary_run_id=None, edit_call=edit_call, reference_paths=[],
+        summary_text="Сюжетная фраза для краткого брифа. Вторая фраза."))
+    assert len(prompts) == 2
+    assert meta["fail_reason"] == "bad_json"
+    provider_meta = meta.get("provider_meta") or {}
+    diag = provider_meta.get("response_diag") or {}
+    assert diag.get("json_keys") == ["data"]
+    assert diag.get("request_id") == "req-final"
+    assert diag.get("status") == 200
+
+
 def test_cover12b_prompt_limit_unknown_after_retry_honest_reason(
         tmp_path, monkeypatch):
     """Повторный too-long после сокращения → `prompt_limit_unknown_after_retry`

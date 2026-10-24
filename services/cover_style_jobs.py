@@ -2842,16 +2842,6 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
     # paid call уходит ТОЛЬКО если prompt реально стал короче (ASAP 4.3
     # §7.1/§8 T-4848); скрытого multi-paid loop нет.
     result_meta = dict(getattr(result, "meta", {}) or {})
-    # R17-safe диагностика провайдера: без тел/промптов/ключей. Нужна, чтобы
-    # 2xx-`bad_json` больше не был «чёрным ящиком» (issue 90).
-    _safe_provider_meta = {
-        key: result_meta[key]
-        for key in ("route", "provider_error", "response_diag",
-                    "prompt_limit", "prompt_limit_unknown")
-        if key in result_meta
-    }
-    if _safe_provider_meta:
-        meta["provider_meta"] = _safe_provider_meta
     if not result.ok and result.reason in ("prompt_limit",
                                            "prompt_limit_unknown"):
         try:
@@ -2993,6 +2983,19 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
         except Exception:
             logger.debug("[cover_style_jobs] prompt-limit retry failed",
                          exc_info=True)
+
+    # R17-safe диагностика ФИНАЛЬНОЙ попытки (после retry): на пути
+    # 400 prompt-limit → 2xx bad_json сохраняется именно response_diag
+    # второй попытки, а не первого 400.
+    _final_meta = dict(getattr(result, "meta", {}) or {})
+    _safe_provider_meta = {
+        key: _final_meta[key]
+        for key in ("route", "provider_error", "response_diag",
+                    "prompt_limit", "prompt_limit_unknown")
+        if key in _final_meta
+    }
+    if _safe_provider_meta:
+        meta["provider_meta"] = _safe_provider_meta
 
     # ── ASAP 5 (D7/T-5249): CoverPromptManifest — фактические sent prompt'ы
     # обеих attempts. Полный prompt живёт в durable state (task_jobs payload);
