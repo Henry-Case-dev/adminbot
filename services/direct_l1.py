@@ -919,15 +919,40 @@ def build_evidence_packet(raw, plan=None, *,
 # ── §1.1: plan-блок для L2 Writer ───────────────────────────────────────────
 
 
+def _renders_extent_block(plan) -> bool:
+    """Станет ли ``render_extent_block`` НЕПУСТЫМ в фактическом payload.
+
+    Extent-блок плана ЗАМЕНЯЕТ ``MODE_*_BLOCK``
+    (``prompt_style_blocks.resolve_mode_parts``), поэтому только непустой
+    блок снимает режимный текст анализа. Проверка идёт тем же рендерером и
+    по тому же ``ResponsePlan``, который видит L2 Writer
+    (``L1Plan.to_response_plan``). Никогда не бросает.
+    """
+    try:
+        if plan is None:
+            return False
+        from services import response_extent as _extent
+        response_plan = (plan.to_response_plan()
+                         if hasattr(plan, "to_response_plan") else plan)
+        return bool(_extent.render_extent_block(response_plan))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def analysis_directive_needed(plan, response_mode: str = "",
                               modes_on: bool = True) -> bool:
     """Нужна ли точная analysis-директива в plan-блоке L2.
 
     SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): серьёзный разбор
-    (``response_act=research``) без режима deep_research получает ту же
-    дословную инструкцию анализа/Writer, что и deep-режим — но ровно один
-    раз: при реально рендерящемся ``MODE_DEEP_RESEARCH_BLOCK``
-    (``response_mode == "deep_research"`` и включённых режимах) дубля нет.
+    (``response_act=research``) получает дословную инструкцию анализа/Writer
+    в ``<Response_Plan>``, если режимный блок её в payload не несёт.
+
+    Для ``deep_research`` это решает extent-блок, а не имя режима
+    (SPEECH-P0-DEEP-PAYLOAD, ревью 25.10.2026): непустой extent-блок
+    (``extent``/``form_override`` вне ``auto``) заменяет
+    ``MODE_DEEP_RESEARCH_BLOCK`` целиком — значит тексты нужны в плане;
+    при пустом extent режимный блок рендерится и остаётся единственным
+    носителем (дубля нет). Режимы OFF → режимного блока нет вовсе → True.
     Принимает ``L1Plan`` (``response_act``) или ``ResponsePlan``
     (``task_kind``). Никогда не бросает.
     """
@@ -936,8 +961,9 @@ def analysis_directive_needed(plan, response_mode: str = "",
             return False
         mode = str(response_mode or "") or plan_response_mode(plan)
         if mode == "deep_research" and bool(modes_on):
-            # Режимный блок уже несёт те же дословные тексты.
-            return False
+            # Режимный блок заменяется непустым extent-блоком: тогда те же
+            # дословные тексты обязан нести plan-блок (ровно один раз).
+            return _renders_extent_block(plan)
         act = str(getattr(plan, "response_act", "") or "")
         kind = str(getattr(plan, "task_kind", "") or "")
         return act == "research" or kind == "research"
@@ -964,8 +990,9 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
     добавляет в план дословные ``ANALYSIS_DIRECTIVE_TEXT``/``
     ANALYSIS_WRITER_TEXT`` для serious-разбора (внутренний анализ не
     пересказывается, глубина не задаёт длину ответа). Флаг выставляет
-    вызывающий по ``analysis_directive_needed``; для deep_research его нет —
-    те же тексты уже в режимном блоке."""
+    вызывающий по ``analysis_directive_needed``: у deep_research тексты уже
+    в режимном блоке, но только пока его не заменил extent-блок плана
+    (SPEECH-P0-DEEP-PAYLOAD), — предикат учитывает это сам."""
     try:
         if plan is None:
             return ""

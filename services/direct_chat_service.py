@@ -3764,7 +3764,8 @@ class DirectChatService:
                                         == "low"),
                         # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума):
                         # serious-разбор получает дословную analysis-директиву;
-                        # deep_research уже несёт её режимным блоком (без дубля).
+                        # deep_research — когда его режимный блок заменён
+                        # extent-блоком плана (предикат решает по плану).
                         include_analysis=_l1.analysis_directive_needed(
                             l1_plan,
                             modes_on=bool(getattr(

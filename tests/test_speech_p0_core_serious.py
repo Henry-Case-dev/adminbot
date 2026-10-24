@@ -8,7 +8,9 @@
   ``4e67334b00ad``; хранимые байты и БД не меняются, повтор идемпотентен;
 * серьёзный разбор (``response_act=research`` без deep_research) получает
   ТЕ ЖЕ дословные тексты анализа/Writer в ``<Response_Plan>``; deep-режим
-  несёт их режимным блоком — ровно один раз в payload, без дубля;
+  несёт их режимным блоком, а когда его вытесняет непустой extent-блок
+  плана (SPEECH-P0-DEEP-PAYLOAD) — снова plan-блоком; ровно один раз в
+  payload, без дубля;
 * правило 7 канона L1: просьба оценить человека/мнение о нём — обычный
   содержательный разбор (normal/compact + answer), а detailed/report только
   при явной просьбе подробного/полного разбора; подробный анализ остаётся.
@@ -28,6 +30,7 @@ from services import mca_expression as ex
 from services import mca_humor_craft as craft
 from services import prompt_composer as pcomp
 from services import prompt_style_blocks as psb
+from services import response_extent as _extent
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 EVIDENCE = (ROOT / "plans" / "features" / "asap-speech-arch" / "evidence" /
@@ -134,18 +137,47 @@ def test_serious_research_plan_block_has_exact_analysis_texts_once():
     assert psb.ANALYSIS_DIRECTIVE_TEXT not in plain
 
 
-def test_deep_research_does_not_duplicate_analysis_instruction():
+# TEST-LIFECYCLE: REGRESSION owner=SPEECH-P0-DEEP-PAYLOAD (rev. 25.10.2026)
+def test_deep_research_extent_block_carries_analysis_texts_once():
+    """SPEECH-P0-DEEP-PAYLOAD (ревью 25.10.2026): deep_research с непустым
+    extent-блоком ЗАМЕНЯЕТ ``MODE_DEEP_RESEARCH_BLOCK`` — значит точные
+    тексты §1 обязаны приехать plan-блоком, ровно один раз в payload."""
     plan = _research_plan(delivery_hint="rich", extent="detailed",
                           structure="report")
     assert l1.plan_response_mode(plan) == "deep_research"
+    rp = plan.to_response_plan()
+    extent_block = _extent.render_extent_block(rp)
+    assert extent_block                            # реальный payload ветка
+    assert l1.analysis_directive_needed(plan) is True
+    block = l1.build_l2_plan_block(
+        plan, include_analysis=l1.analysis_directive_needed(plan))
+    system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", "deep_research", "rich",
+        html_safe=True,
+        extent_block=extent_block)
+    # режимный блок вытеснен планом — второй копии инструкции нет
+    assert psb.MODE_DEEP_RESEARCH_BLOCK not in system
+    payload = system + "\n\n" + block
+    assert payload.count(psb.ANALYSIS_DIRECTIVE_TEXT) == 1
+    assert payload.count(psb.ANALYSIS_WRITER_TEXT) == 1
+    assert extent_block in payload
+
+
+def test_deep_research_without_extent_keeps_mode_block_only():
+    """``extent=auto`` → extent-блока нет, режимный блок рендерится и
+    остаётся единственным носителем точных текстов (0 в плане)."""
+    plan = _research_plan(delivery_hint="rich", extent="auto",
+                          structure="report")
+    assert l1.plan_response_mode(plan) == "deep_research"
+    assert _extent.render_extent_block(plan.to_response_plan()) == ""
     assert l1.analysis_directive_needed(plan) is False
     block = l1.build_l2_plan_block(
         plan, include_analysis=l1.analysis_directive_needed(plan))
-    assert psb.ANALYSIS_DIRECTIVE_TEXT not in block
     system = psb.compose_verbalizer_system(
         "КАНАЛ: технический контракт.", "deep_research", "rich",
-        html_safe=True)
+        html_safe=True, extent_block="")
     payload = system + "\n\n" + block
+    assert psb.MODE_DEEP_RESEARCH_BLOCK in payload
     assert payload.count(psb.ANALYSIS_DIRECTIVE_TEXT) == 1
     assert payload.count(psb.ANALYSIS_WRITER_TEXT) == 1
 
@@ -157,11 +189,20 @@ def test_analysis_directive_matrix():
     # режимы выключены → deep-блок не рендерится, инструкция нужна из плана
     rich = _research_plan(delivery_hint="rich")
     assert l1.analysis_directive_needed(rich, modes_on=False) is True
-    assert l1.analysis_directive_needed(rich, modes_on=True) is False
+    # deep + непустой extent (normal) → режимный блок вытеснен → нужна
+    assert l1.analysis_directive_needed(rich, modes_on=True) is True
+    # deep + пустой extent → режимный блок несёт тексты → не нужна
+    auto_rich = _research_plan(delivery_hint="rich", extent="auto")
+    assert l1.analysis_directive_needed(auto_rich, modes_on=True) is False
     # ResponsePlan-путь (L2 Writer получает именно его)
     rp = chat.to_response_plan()
     assert l1.analysis_directive_needed(rp) is False
     assert l1.analysis_directive_needed(_research_plan().to_response_plan())
+    assert l1.analysis_directive_needed(
+        _research_plan(delivery_hint="rich").to_response_plan()) is True
+    assert l1.analysis_directive_needed(
+        _research_plan(delivery_hint="rich",
+                       extent="auto").to_response_plan()) is False
 
 
 def test_plan_block_analysis_survives_noise_flags():
