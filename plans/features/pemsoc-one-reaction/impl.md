@@ -39,11 +39,11 @@ Claim вызывается в `war_keyword_handler`, `war_channel_repost_handler
 ## Проверки
 
 - `tests/test_pemsoc_one_reaction.py`: claim msg/album/origin, разные
-  пользователи, war→slavik, альбом, повторный репост, GIF-флаг.
+  пользователи, war→slavik, альбом, повторный репост, GIF-флаг, сбои
+  war/kucha/GIF → гарантированный дефолт.
 - `tests/test_war_alert.py`, `tests/test_slavik_handlers.py`,
-  `tests/test_slavik_priority.py` — 86 passed.
-- `pytest -k "slavik or war_alert or message_counter or dead_page or pemsoc"` —
-  **273 passed**.
+  `tests/test_slavik_priority.py`, `tests/test_common.py` — 451 passed в
+  широком наборе `slavik/war_alert/message_counter/dead_page/pemsoc/common`.
 - `py_compile` изменённых файлов — rc 0.
 
 ## Ограничения
@@ -60,3 +60,6 @@ Claim вызывается в `war_keyword_handler`, `war_channel_repost_handler
   сохранять счётчик, это отдельная правка.
 - Danger-медиа `common` на war-сообщениях не срабатывает: war выигрывает
   приоритет. Один пост — одна реакция.
+- `common` (otboy/danger/selfdev/work/mimic) тоже проходит через claim:
+  после успешной отправки update поглощается, при сбое claim освобождается
+  и срабатывает «пошёл нахуй» (для Славика).

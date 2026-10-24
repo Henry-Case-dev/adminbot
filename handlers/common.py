@@ -31,6 +31,7 @@ from filters.work_word import WorkWordFilter
 # Раунд 10 (F-9 B5): «Передразнивания» — модуль плагина PERMsoc (гейт по
 # чату-сообщению, у самого mimic_handler).
 from services.permsoc import PermsocBlockGate, PermsocGateFilter
+from services.pemsoc_reactions import claim_reaction, release_claim
 
 if TYPE_CHECKING:
     from services.common_relay import CommonRelay
@@ -73,6 +74,9 @@ async def otboy_handler(
         )
         return
 
+    if not claim_reaction(message, source="common_otboy"):
+        return None
+
     try:
         await _relay.send_common(
             chat_id=message.chat.id,
@@ -86,7 +90,9 @@ async def otboy_handler(
             message.chat.id,
             message.message_id,
         )
-    return UNHANDLED
+        release_claim(message)
+        return UNHANDLED
+    return None
 
 
 @common_router.message(PermsocBlockGate("reactions"), DangerWordFilter())
@@ -104,6 +110,9 @@ async def danger_handler(
         )
         return
 
+    if not claim_reaction(message, source="common_danger"):
+        return None
+
     try:
         await _relay.send_common(
             chat_id=message.chat.id,
@@ -117,7 +126,9 @@ async def danger_handler(
             message.chat.id,
             message.message_id,
         )
-    return UNHANDLED
+        release_claim(message)
+        return UNHANDLED
+    return None
 
 
 @common_router.message(PermsocBlockGate("reactions"), SelfdevWordFilter())
@@ -135,6 +146,9 @@ async def selfdev_handler(
         )
         return
 
+    if not claim_reaction(message, source="common_selfdev"):
+        return None
+
     try:
         await _relay.send_common(
             chat_id=message.chat.id,
@@ -148,7 +162,9 @@ async def selfdev_handler(
             message.chat.id,
             message.message_id,
         )
-    return UNHANDLED
+        release_claim(message)
+        return UNHANDLED
+    return None
 
 
 @common_router.message(PermsocBlockGate("reactions"), WorkWordFilter())
@@ -181,6 +197,9 @@ async def work_handler(
         )
         return
 
+    if not claim_reaction(message, source="common_work"):
+        return None
+
     try:
         await _relay.send_common(
             chat_id=message.chat.id,
@@ -194,7 +213,9 @@ async def work_handler(
             message.chat.id,
             message.message_id,
         )
-    return UNHANDLED
+        release_claim(message)
+        return UNHANDLED
+    return None
 
 
 # ── Mimic handler (§3.1) ──────────────────────────────────
@@ -288,6 +309,8 @@ async def mimic_handler(message: types.Message) -> None:
     if not _mimic_relay.should_trigger(message.chat.id, user_id, content):
         return
 
+    if not claim_reaction(message, source="common_mimic"):
+        return None
     try:
         await _mimic_relay.send_mimic(
             message.bot, message.chat.id, message.message_id, content
@@ -299,4 +322,6 @@ async def mimic_handler(message: types.Message) -> None:
             message.chat.id,
             message.message_id,
         )
-    return UNHANDLED
+        release_claim(message)
+        return UNHANDLED
+    return None
