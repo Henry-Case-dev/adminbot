@@ -3381,7 +3381,8 @@
      "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/binding-258125.md",
      "artifact_sha256": "24848f97f77a77b9644245d0b13aaa1b98bacbbe354fb2b0f7ee68edfe327f19"
     }
-   ]
+   ],
+   "note": "Не закрыто: фактический пользовательский ответ в живом чате не проверялся (живые тесты в рабочих чатах запрещены заданием); FREQUENT остаётся частичным."
   },
   {
    "source_id": "M00637-REQ-SCOPE-CORRECTION-NOT-EPIC",
@@ -7803,8 +7804,30 @@
    "acceptance": "Зафиксировано, что блок <Expression_Settings> присутствует в итоговой сборке; проблема FREQUENT не объясняется отсутствием Style Policy.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+     "release": "2.58.127",
+     "type": "implementation",
+     "ref": "impl.md §1: носитель режима — <Expression_Settings>",
+     "observation": "Текст режима мата подаётся в payload внутри <Expression_Settings>, а не только в постобработке; Style Policy на мат не влияет.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+     "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+     "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+    },
+    {
+     "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+     "release": "2.58.127",
+     "type": "probe",
+     "ref": "probe-BC-final.md §2: аудит снятого payload",
+     "observation": "<Expression_Settings> присутствует в сборке для off/occasional/frequent: system_sha12 различаются по режимам (a2217d22cd15 / f2d76e630033 / ae00dd141fd1).",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+     "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+     "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+    }
+   ],
+   "note": "Закрыто релизом 2.58.127 (b2ac3fa5): блок <Expression_Settings> есть в сборке, режимы различаются в payload."
   },
   {
    "source_id": "M01152-REQ-ADD3-EX-INSPECTOR-PRESENT",
@@ -7818,8 +7841,30 @@
    "acceptance": "Зафиксировано, что блок <Expression_Settings> присутствует в итоговой сборке; проблема FREQUENT не объясняется отсутствием Style Policy.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+     "release": "2.58.127",
+     "type": "implementation",
+     "ref": "impl.md §1: носитель режима — <Expression_Settings>",
+     "observation": "Текст режима мата подаётся в payload внутри <Expression_Settings>, а не только в постобработке; Style Policy на мат не влияет.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+     "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+     "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+    },
+    {
+     "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+     "release": "2.58.127",
+     "type": "probe",
+     "ref": "probe-BC-final.md §2: аудит снятого payload",
+     "observation": "<Expression_Settings> присутствует в сборке для off/occasional/frequent: system_sha12 различаются по режимам (a2217d22cd15 / f2d76e630033 / ae00dd141fd1).",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+     "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+     "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+    }
+   ],
+   "note": "Закрыто релизом 2.58.127 (b2ac3fa5): блок <Expression_Settings> есть в сборке, режимы различаются в payload."
   },
   {
    "source_id": "M01154-REQ-ADD3-EX-FULL-PATH",
@@ -7834,7 +7879,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "note": "Не закрыто: путь БД global/chat setting → payload на проде офлайн недоступен (probe §6); проверены payload и сырой ответ, но не чтение настроек из PostgreSQL и не Style Policy → Telegram."
   },
   {
    "source_id": "M01156-REQ-ADD3-EX-FULL-PATH",
@@ -7849,7 +7895,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "note": "Не закрыто: путь БД global/chat setting → payload на проде офлайн недоступен (probe §6); проверены payload и сырой ответ, но не чтение настроек из PostgreSQL и не Style Policy → Telegram."
   },
   {
    "source_id": "M01158-CTX-ADD3",
@@ -7904,7 +7951,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "note": "Не закрыто: FREQUENT даёт устойчивый эффект только с пресетом dvach (C 2/2), на нейтральном плече B 1/2 — «привычная заметная» лексика не доказана."
   },
   {
    "source_id": "M01172-REQ-ADD3-EX-KEEP-CORE",
@@ -7943,8 +7991,30 @@
    "acceptance": "Проведены реальные офлайн-LLM-пробы на действующем провайдере для OFF, OCCASIONAL и FREQUENT.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+     "release": "2.58.127",
+     "type": "probe",
+     "ref": "probe-BC-final.md §1, §3, §4",
+     "observation": "22 реальных офлайн-вызова на действующем провайдере (nano-gpt, deepseek-v4.1-flash): 11 B + 11 C, режимы off/occasional/frequent, ошибок 0.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+     "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+     "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+    },
+    {
+     "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+     "release": "2.58.127",
+     "type": "probe",
+     "ref": "probe-BC-raw.json",
+     "observation": "Сырые system каждого плеча, 22 ответа, ручные метки мата — артефакт пробы приложен.",
+     "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-raw.json",
+     "artifact_sha256": "79ffb0a9d8d572a507b5f18e1501d5107c6373370741c70feb9505d41bbd2cff",
+     "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+    }
+   ],
+   "note": "Закрыто релизом 2.58.127: реальные офлайн-пробы на действующем провайдере для OFF/OCCASIONAL/FREQUENT (22 вызова)."
   },
   {
    "source_id": "M01176-REQ-ADD3-EX-COMPARE-ARTIFACTS",
@@ -7959,7 +8029,8 @@
    "live_required": false,
    "live_when": "preprod",
    "status": "PENDING",
-   "evidence": []
+   "evidence": [],
+   "note": "Не закрыто: сравнены payload и сырые ответы, но постобработка (Style Policy/Telegram) в пробе не задействована — сравнивать нечего."
   },
   {
    "source_id": "M01178-REQ-ADD3-EX-NO-LIVE-CHAT",
@@ -19553,5 +19624,16 @@
   "method": "Дословное добавление current_task.md L3668-4177 к существующим 807 строкам снимка; сверка всех 707 source_text_sha256/excerpt дала 0 расхождений.",
   "source_line_map": "строка снимка N (807..1316) = current_task.md строка N + 2861",
   "added": "2026-10-24 PM-BIND-258125"
- }
+ },
+ "status": "BUILDING",
+ "status_note": "25.10.2026: релиз 2.58.127 (b2ac3fa5, speech-simplify e44a30b4) закрыл EX/DIAG-строки о наличии <Expression_Settings> и о реальных офлайн-пробах. Остаются открытыми: полный путь настройка→payload→постобработка, сравнение с постобработкой, семантика FREQUENT (B 1/2), устойчивость эффекта (REQ-EX-STABLE-EFFECT/EX-01/EX-02 FAILED) и REQ-DONE-MAIN-CRITERION. P0 не DONE.",
+ "release_bindings": [
+  {
+   "release": "2.58.127",
+   "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+   "deployed_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+   "feature_commit": "e44a30b47827439d477644b68e26a0b4aa3eddbf",
+   "note": "Speech-simplify доставлен в прод; P0 EXPRESSION-строки закрывались только по доказанному."
+  }
+ ]
 }

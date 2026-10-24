@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/asap-speech-arch/source-owner-speech-simplify-2026-10-25.md",
   "source_sha256": "4f1fc083cc46a8fcc8d71b45792b1028722e910d271d80f454a0c7aea9e6ca9c",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+  "deployed_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
   "strict_evidence": false,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -20,8 +20,18 @@
       "acceptance": "Индивидуальные характеристики чувства юмора персонажа, описывающие личность, сохранены в Personality Core; удалены только те, что навязывают технику генерации ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3",
+          "observation": "Индивидуальные черты юмора (остроумие, абсурдное мышление, язвительность, непристойный юмор) остались в Core; сняты директивы о технике генерации.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-NO-EXTRA-EXPLANATIONS",
@@ -36,8 +46,27 @@
       "acceptance": "К готовым инструкциям не дописаны большие пояснения, методички, примеры или ограничения, возвращающие прежнюю проблему: текст каждого речевого блока сопоставим по объёму с источником, лишних абзацев нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROF-LLM-DIRECT",
@@ -52,8 +81,18 @@
       "acceptance": "Режимы управляют речью напрямую через LLM: вклад режима виден в payload, а не только в постобработке или детерминированных правилах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Вклад режима виден в payload: system_sha12 для off/occasional/frequent различаются, текст режима входит в <Expression_Settings>.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-BASE-TEXT",
@@ -68,8 +107,27 @@
       "acceptance": "В runtime-слой базовой манеры дословно внедрён текст BASE_SPEECH: «Говори естественно, как обычный человек в интернет-чате. Отвечай по существу, без воды и искусственной драматургии. Простому вопросу обычно достаточно короткого ответа. Если тема требует подробностей - раскрывай её нормально. Не изображай характер специально, просто разговаривай.»; построчное сравнение с источником L53 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-BASE-SCOPE",
@@ -84,8 +142,18 @@
       "acceptance": "Базовая инструкция задаёт только общий принцип речи и не подменяет Personality Core: в payload одновременно присутствуют Core (личность) и BASE_SPEECH (манера), без замены одного другим.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §2",
+          "observation": "В payload одновременно присутствуют Core (личность) и <Speech_Base> (общий принцип речи); базовый блок не подменяет Core.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-NO-BLANKET-SHORT",
@@ -100,8 +168,18 @@
       "acceptance": "В промптах нет универсального требования отвечать исключительно коротко; проверка текста инструкций и payload не находит такого императива.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Универсального «отвечай коротко» в промптах нет: RESPONSE_LENGTH задаёт длину по ситуации, развёрнутые ответы в пробах 2034-2657 симв.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-LENGTH-BY-CONTENT",
@@ -116,8 +194,18 @@
       "acceptance": "Краткость зависит от содержания сообщения, а не от лимита символов: пробы показывают короткий ответ на простой вопрос и подробный на сложный при одинаковых прочих условиях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §3",
+          "observation": "Простые 01-06 короче baseline на 11-14 %, развёрнутые 07/09/10/11 длиннее на 12-18 %: длина следует содержанию, лимита символов нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-HUMOR-TEXT",
@@ -132,8 +220,27 @@
       "acceptance": "В runtime-слой юмора дословно внедрён текст HUMOR: «Шути естественно и только когда хочется или ситуация располагает. Допустимы ирония, сарказм, абсурд и грубоватые приколы. Не вымучивай шутки, не превращай ответы в стендап, не придумывай истории ради панчлайна и не объясняй собственный юмор.»; построчное сравнение с источником L65 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-LENGTH-TEXT",
@@ -148,8 +255,27 @@
       "acceptance": "В runtime-слой длины ответа дословно внедрён текст RESPONSE_LENGTH: «Подбирай длину ответа по ситуации. Иногда достаточно пары слов или одного предложения. Не пересказывай очевидное, не повторяй мысль и не растягивай ответ ради выразительности. Если нужен подробный разбор - отвечай подробно.»; построчное сравнение с источником L88 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-LENGTH-NO-QUOTA",
@@ -164,8 +290,18 @@
       "acceptance": "Длина не реализована через max_chars, искусственные токенные бюджеты, обрезание готового ответа или дополнительные LLM-вызовы; проверка кода подтверждает отсутствие таких механизмов для этой инструкции.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "max_chars, токенных бюджетов, обрезки готового ответа и отдельных LLM-вызовов для длины нет; RESPONSE_LENGTH — поведенческая инструкция.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROF-OFF-TEXT",
@@ -180,8 +316,27 @@
       "acceptance": "Для режима OFF дословно внедрён текст PROFANITY_OFF: «Не используй мат в собственной речи. Цитаты и исходные пользовательские данные не переписывай ради этого правила.»; сравнение с источником L98 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROF-OCC-TEXT",
@@ -196,8 +351,27 @@
       "acceptance": "Для эпизодического режима дословно внедрён текст PROFANITY_OCCASIONAL: «Матерись иногда, когда это естественно вписывается в разговор. Не добавляй ругательства специально и не делай их обязательной частью каждого ответа.»; сравнение с источником L104 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROF-REUSE-ID",
@@ -212,8 +386,18 @@
       "acceptance": "Использован существующий идентификатор эпизодического режима из актуальной конфигурации; новый enum не создан, режим EPISODIC/OCCASIONAL переиспользован.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Использованы существующие идентификаторы off/occasional/frequent; новый enum не создавался.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROF-FREQ-TEXT",
@@ -228,8 +412,27 @@
       "acceptance": "Для режима FREQUENT дословно внедрён текст PROFANITY_FREQUENT: «Матерись часто и непринуждённо, как человек, для которого мат - обычная часть разговорной речи. Не избегай крепких выражений без причины, но и не вставляй их механически.»; сравнение с источником L114 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FREQ-NO-EXTRA",
@@ -244,8 +447,18 @@
       "acceptance": "К инструкции FREQUENT не добавлены дополнительные абзацы о допустимых обстоятельствах, эмоциональных триггерах, категориях ругательств, процентных соотношениях или обязательных примерах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Текст PROFANITY_FREQUENT — одна короткая директива без абзацев об обстоятельствах, триггерах, допустимых адресатах и квотах.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-FREQ-STABILITY",
@@ -261,7 +474,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "FREQUENT частичен: B 1/2 (по одному мату за прогон), устойчиво только C (dvach) 2/2. Устойчивая заметная разница на нейтральном плече не доказана; не VERIFIED."
     },
     {
       "source_id": "MAN-FREQ-WITHOUT-FEWSHOT",
@@ -277,7 +491,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Пробы без few-shot проведены (22 вызова, примеры not_owner_approved), но целевой эффект устойчив только с dvach; на B 1/2 — требование закрыто частично."
     },
     {
       "source_id": "MAN-DVACH-NAME",
@@ -292,8 +507,27 @@
       "acceptance": "В библиотеке стилей новый пресет назван ровно «Завсегдатай Двача».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-DESC",
@@ -308,8 +542,27 @@
       "acceptance": "Описание для интерфейса совпадает с источником: «Старый анон с имиджборды. Ехидный, прямолинейный, грубоватый, с характерным интернет-сленгом, чёрным юмором и привычкой говорить без церемоний.»",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-TEXT",
@@ -324,8 +577,27 @@
       "acceptance": "Runtime-инструкция стиля дословно совпадает со STYLE_DVACH: «Говори как старый завсегдатай Двача: прямолинейно, ехидно, неформально, с привычным имиджбордным сленгом. Можешь подкалывать, троллить, язвить и использовать чёрный или абсурдный юмор. Не церемонься и не изображай вежливого консультанта. Обычно говори коротко и по делу. Не форси мемы, не объясняй шутки и не изображай карикатурного анона.»; сравнение с источником L152 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-FEEL",
@@ -341,7 +613,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Аутентичность манеры отдельно рубрикой не оценивалась: в пробе C есть грубость и ехидство, но оценки «ощущается как давний посетитель» нет; открыто."
     },
     {
       "source_id": "MAN-DVACH-SLANG-HINT",
@@ -356,8 +629,18 @@
       "acceptance": "Перечень сленга из источника не добавлен в runtime-промпт как инструкция использовать конкретные слова: в тексте пресета нет списка «анон/тред/форс/паста/…».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Перечень сленга не добавлен как инструкция: в payload пресета нет списка слов, в 11 ответах нет обязательных мемов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-WORDLIST",
@@ -372,8 +655,18 @@
       "acceptance": "Стиль не превращён в словарь обязательных слов: промпт не требует употреблять конкретные выражения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "STYLE_DVACH — связная инструкция манеры; списка обязательных слов/выражений в промпте нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-PARODY",
@@ -388,8 +681,27 @@
       "acceptance": "Стиль не является пародией: пробы не показывают карикатурного отыгрыша и набора штампов на каждый ответ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-FORMULA",
@@ -404,8 +716,18 @@
       "acceptance": "Бот не начинает каждое сообщение с «анон»; проверка пробы из нескольких реплик не находит фиксированного открывающего обращения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §4",
+          "observation": "В 11 ответах плеча C ни один не начинается с «анон» (строковый поиск по raw: 0 вхождений в текстах ответов).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-FIT",
@@ -420,8 +742,27 @@
       "acceptance": "Мемы и жаргон не используются там, где не вписываются: на серьёзной теме стиль остаётся прямолинейным без меметических вставок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-TROLLING",
@@ -436,8 +777,27 @@
       "acceptance": "Не каждый вопрос превращается в троллинг: на нейтральный фактический вопрос бот отвечает по существу.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-FORCED-SARCASM",
@@ -452,8 +812,27 @@
       "acceptance": "К каждому ответу не добавляется обязательный сарказм; проба с серьёзным вопросом не содержит навязанной иронии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-FAKE-MEMORY",
@@ -468,8 +847,27 @@
       "acceptance": "Бот не притворяется, что имеет личные воспоминания о реальных событиях на Дваче; проба с вопросом о прошлом не даёт вымышленных «воспоминаний».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-PROFANITY-OVERRIDE",
@@ -484,8 +882,18 @@
       "acceptance": "Заводской стиль не переопределяет настройку мата: режим мата по-прежнему берётся только из Expression, текст стиля не содержит собственных правил мата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Текст стиля не задаёт режим мата: за мат отвечает только Expression (PROFANITY_*), стиль на него не влияет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-WITH-OFF",
@@ -500,8 +908,18 @@
       "acceptance": "При Expression=OFF стиль остаётся грубоватым и ехидным, но без собственного мата; проба OFF+DVACH не содержит мата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §4, §5",
+          "observation": "Плечо C с OFF: мата нет ни в одном из двух прогонов (детектор дал ложное срабатывание на «рубля»), манера остаётся грубоватой.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-WITH-FREQUENT",
@@ -516,8 +934,18 @@
       "acceptance": "При Expression=FREQUENT стиль и мат сочетаются естественно; проба FREQUENT+DVACH содержит уместный мат без механических вставок.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §4, §5",
+          "observation": "Плечо C с FREQUENT: 2/2 сценария в обоих прогонах, мат уместен по контексту, без механики «мат в каждом сообщении».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-NO-LEAK",
@@ -532,8 +960,18 @@
       "acceptance": "При активном другом заводском стиле инструкции «Завсегдатая Двача» не попадают в payload; проверка собранного промпта для другого стиля не содержит текста DVACH.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "При активном другом стиле «двача» в payload 0 вхождений (плечо B), при dvach — 1 в каждом режиме.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-DVACH-REUSE-MECHANISM",
@@ -548,8 +986,18 @@
       "acceptance": "Существующий механизм применения заводских стилей использует новый пресет так же, как остальные: отдельного пути применения нет, поведение совпадает с другими заводскими стилями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет проходит существующий путь style_policy.build_document/presets и effective_policy_sync; отдельного обработчика нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACTUAL-NO-FAKE-MEMORY",
@@ -564,8 +1012,27 @@
       "acceptance": "Бот не выдаёт придуманную ради шутки историю за действительное воспоминание о пользователях; проба на вопрос о прошлом не содержит уверенных вымышленных фактов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACTUAL-TEXT",
@@ -580,8 +1047,27 @@
       "acceptance": "В существующую логику достоверности дословно внедрён текст FACTUAL_SPEECH: «Не придумывай реальные события, чужие цитаты и подробности прошлого, выдавая их за факты. Если чего-то не помнишь или не знаешь, не притворяйся очевидцем. Выдумывать и преувеличивать ради шутки можно, когда понятно, что это шутка.»; сравнение с источником L274 совпадает.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACTUAL-INTEGRATE",
@@ -596,8 +1082,27 @@
       "acceptance": "Интеграция выполнена в существующую логику достоверности или применимые речевые инструкции; новый модуль фактчека не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACTUAL-ALLOW-HUMOR",
@@ -612,8 +1117,27 @@
       "acceptance": "Директива не запрещает вымысел, иронию, гиперболу и абсурд: проба с явной шуткой сохраняет юмор и не блокируется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACTUAL-NO-DISCLAIMER",
@@ -628,8 +1152,27 @@
       "acceptance": "Бот не вставляет дисклеймер о неопределённости в каждый ответ; повторяющихся оговорок в пробах нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FACTUAL-USE-MEMORY",
@@ -644,8 +1187,27 @@
       "acceptance": "Подтверждённые факты из памяти используются естественно: бот ссылается на них без оговорок и без вымысла.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-NO-FEWSHOT-BLOCKER",
@@ -660,8 +1222,18 @@
       "acceptance": "Отсутствие одобренных примеров больше не считается обязательным блокером: задача и приёмка не требуют примеров, а работа оценивается по реальному поведению; при объективном блокере он фиксируется предметно, без возврата требования четырёх заводских примеров и без запроса коротких фраз у владельца.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1",
+          "observation": "Пробы проведены при отсутствии одобренных примеров (not_owner_approved) и работа продолжена; few-shot не запрашивался.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ]
     },
     {
       "source_id": "MAN-FREQ-ROOTCAUSE",
@@ -677,7 +1249,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "note": "Условие требования сработало (FREQUENT остаётся неустойчивым на нейтральном плече), конкретная причина в провайдере/инструкции не изолирована; открыто."
     },
     {
       "source_id": "MAN-NO-OWNER-PHRASES",
@@ -692,8 +1265,18 @@
       "acceptance": "Короткие фразы у владельца не запрашиваются как условие продолжения работы; в отчёте и переписке нет такого запроса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "test",
+          "ref": "review.md: Nonblocking",
+          "observation": "Короткие фразы у владельца не запрашивались: приёмка шла на текстах задания, офлайн-пробах и тестах; новых Human Gate нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/review.md",
+          "artifact_sha256": "c49872858260333581342abe43e4a71bd404155d3b7697193ee295a13e549747",
+          "produced_on": "d722be6302f7299947be3576bfe9ceabc2940920"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-OFFLINE",
@@ -708,8 +1291,27 @@
       "acceptance": "Проведены изолированные офлайн-LLM-пробы на действующем провайдере; артефакты проб (входы, выходы, параметры генерации) сохранены в evidence фичи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-NO-PROD-CHAT",
@@ -724,8 +1326,27 @@
       "acceptance": "Тестовые сообщения не отправлялись в рабочие Telegram-чаты: пробы выполнены офлайн, в логах чатов нет тестовых сообщений за период прогонов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-ABC",
@@ -740,8 +1361,27 @@
       "acceptance": "Выполнено сравнение трёх вариантов: A — текущая baseline-конфигурация, B — новые короткие речевые инструкции с сохранённым Personality Core, C — стиль «Завсегдатай Двача» с разными режимами мата; для всех вариантов сопоставимые входные сообщения и параметры генерации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-COMPARABLE",
@@ -756,8 +1396,27 @@
       "acceptance": "Для всех вариантов использованы одинаковые входные сообщения и сопоставимые параметры генерации; это видно по сохранённым артефактам проб (один и тот же набор входов).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-SCENARIOS-11",
@@ -772,8 +1431,27 @@
       "acceptance": "Прогнаны все 11 сценариев: простой вопрос с ответом в одну фразу; неформальный обмен репликами; вопрос без уверенного ответа по памяти; провокация; ситуация к шутке; серьёзная тема без юмора; запрос подробного объяснения; короткий ответ с FREQUENT; развёрнутый ответ с FREQUENT; тот же вопрос с OFF; тот же вопрос с OCCASIONAL/EPISODIC — каждый имеет зафиксированный результат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-CRITERIA-10",
@@ -788,8 +1466,27 @@
       "acceptance": "Каждый прогон оценён по 10 критериям: естественность речи, отсутствие навязчивых шуток, соразмерность длины, уместность сарказма, выраженность различий режимов мата, сохранение индивидуальности Core, отсутствие выдуманных фактов, отсутствие механических шаблонов, корректное применение заводского стиля, сохранение технических контрактов ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-NO-PROD-METRICS",
@@ -804,8 +1501,27 @@
       "acceptance": "В production не добавлены новые счётчики, квоты или классификаторы качества речи; проверка runtime-кода и метрик подтверждает отсутствие таких механизмов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBE-NO-RUNTIME",
@@ -820,8 +1536,27 @@
       "acceptance": "Офлайн-проверки не стали дополнительными runtime-вызовами: число LLM-вызовов на живое сообщение не выросло, пробный код не подключён к runtime-пути.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §1, §3, §4, §6",
+          "observation": "22 офлайн-вызова (11 B + 11 C) на действующем провайдере, одинаковые 11 входов (user_sha12 11/11), temperature 0.7, ошибок 0; сырые данные в probe-BC-raw.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-A-baseline.md",
+          "observation": "Baseline A снят тем же harness и на тех же 11 входах, что и B/C; сравнение A/B/C в одной таблице.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-A-baseline.md",
+          "artifact_sha256": "b21fc99c6e586036555fdbfe827a66b42df22f0d371afcc92040aa3545af92ab",
+          "produced_on": "ae04494fa7ecdcc9be019befe453946d93d80f17"
+        }
+      ]
     },
     {
       "source_id": "MAN-ACCEPT-20",
@@ -836,8 +1571,18 @@
       "acceptance": "Reviewer подтвердил все 20 условий §8: базовая инструкция обновлена; юмор не управляется длинным набором приёмов; мат использует короткие инструкции для всех режимов; FREQUENT не зависит от few-shot; настройки мата доходят до payload; Core сохранил индивидуальность; избыточные требования устранены без удаления биографии и характера; простые вопросы получают короткие естественные ответы; подробные — содержательные объяснения; нет навязчивой драматургии; нет выдуманных воспоминаний; новый стиль доступен и работает; права доступа к заводским стилям не нарушены; существующие стили не повреждены; глобальные настройки и переопределения чатов сохранены; fallback/retry/технические контракты и Smart Module не повреждены; нет конфликта со Style Policy и Composer из действующей очереди; мат не обязателен в каждом сообщении; различие режимов определено по реальному поведению, а не по тексту промптов; выявленные дефекты исправлены в рамках этой задачи без нового эпика.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "test",
+          "ref": "review.md: вердикт Approved (раунд 4)",
+          "observation": "Reviewer одобрил e44a30b4 после 4 раундов: 4 блокирующих замечания сняты, 8 затронутых тест-файлов 214 passed, -k-срез 1668 passed, factory_set_fingerprint сходится.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/review.md",
+          "artifact_sha256": "c49872858260333581342abe43e4a71bd404155d3b7697193ee295a13e549747",
+          "produced_on": "d722be6302f7299947be3576bfe9ceabc2940920"
+        }
+      ]
     },
     {
       "source_id": "MAN-NO-NEW-HUMAN-GATE",
@@ -852,8 +1597,18 @@
       "acceptance": "По стилю, мату, примерам и длине ответа не создано новых обязательных Human Gate: в owner_questions и картах нет новых блокирующих вопросов владельцу по этим темам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "test",
+          "ref": "review.md: Nonblocking",
+          "observation": "По стилю, мату, примерам и длине новых обязательных Human Gate не создано; замечания Reviewer неблокирующие.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/review.md",
+          "artifact_sha256": "c49872858260333581342abe43e4a71bd404155d3b7697193ee295a13e549747",
+          "produced_on": "d722be6302f7299947be3576bfe9ceabc2940920"
+        }
+      ]
     },
     {
       "source_id": "MAN-DEPLOY-STANDARD",
@@ -868,8 +1623,18 @@
       "acceptance": "После Reviewer и необходимых автоматизированных и офлайн-проверок выполнен штатный deployment на production; версия и коммит зафиксированы в evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "production",
+          "ref": "release-258127.md: Deploy (факт)",
+          "observation": "Прод 2.58.127: задеплоен b2ac3fa5, healthz 200/2.58.127, NRestarts 0, 0 ERROR/Traceback, FACTORY_SET f12130fbccb1, ΔDDL=0, кастомные промпты не перезаписаны.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/release-258127.md",
+          "artifact_sha256": "3b4ea69c47d938861fb40fd0fe28f93f3205525b65e52d9339ad2dc7ccff5578",
+          "produced_on": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39"
+        }
+      ]
     },
     {
       "source_id": "MAN-DEPLOY-9",
@@ -884,8 +1649,9 @@
       "acceptance": "На production проверены все девять пунктов §9: загрузка новых речевых инструкций, загрузка нового заводского стиля, корректное чтение существующих настроек, применение глобальных и локальных переопределений, сохранение текущих стилей чатов, отсутствие ошибок при запуске, состояние healthcheck и production-логов, отсутствие регрессий в основных LLM-пайплайнах, а также запрет живых тестов в рабочих чатах и запрет менять стили без действий пользователя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [],
+      "note": "На проде подтверждены инструкции (FACTORY_SET), отсутствие ошибок, healthz, ΔDDL, сохранение кастомов; НЕ проверены снимок стилей чатов и глобальные/локальные переопределения — post-deploy проверка остаётся."
     },
     {
       "source_id": "MAN-REPORT-9",
@@ -900,8 +1666,18 @@
       "acceptance": "После деплоя предоставлен короткий отчёт человеческим языком по всем девяти пунктам §10: старые избыточные/конфликтующие инструкции, конкретно заменённые тексты, изменения в Personality Core (если были), как работает FREQUENT, результаты OFF/OCCASIONAL/FREQUENT-проб, как работает «Завсегдатай Двача», что показали проверки краткости/юмора/выдуманных историй, production-версия и состояние деплоя, оставшиеся подтверждённые ограничения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "Короткий человеческий отчёт: что заменено, FREQUENT честно 1/2, DVACH, Core сохранён, прод-версия, ограничения.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/final-report.md",
+          "artifact_sha256": "02a0aa46d7d08a058d5fb58f64aa74375561396e25fe9028f3a094faff818be3",
+          "produced_on": "7c9508e897a02a43e5543a8e51fe13c6a4882043"
+        }
+      ]
     },
     {
       "source_id": "MAN-REPORT-NO-FALSE-SUCCESS",
@@ -916,8 +1692,18 @@
       "acceptance": "Успех не объявлен без фактических проверок: каждая заявленная проверка подкреплена артефактом или наблюдением, непройденные пункты перечислены явно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "Короткий человеческий отчёт: что заменено, FREQUENT честно 1/2, DVACH, Core сохранён, прод-версия, ограничения.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/final-report.md",
+          "artifact_sha256": "02a0aa46d7d08a058d5fb58f64aa74375561396e25fe9028f3a094faff818be3",
+          "produced_on": "7c9508e897a02a43e5543a8e51fe13c6a4882043"
+        }
+      ]
     },
     {
       "source_id": "MAN-AUDIT-NO-MASS-CUT",
@@ -932,8 +1718,27 @@
       "acceptance": "Не выполнено механическое сокращение всех промптов: сокращены исключительно избыточные речевые директивы, функциональные инструкции и данные сохранены (перечень удалённого с обоснованием).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-CORE-NO-REWRITE",
@@ -948,8 +1753,27 @@
       "acceptance": "Personality Core не переписан в несколько общих предложений: структура и объём содержательной части сохранены, изменения ограничены дублирующими речевыми императивами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3",
+          "observation": "Заводская Full/Compact-редакция не переписана: авторские байты сохранены, фильтр сборки режет три абзаца только в payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "production",
+          "ref": "release-258127.md: Deploy, строка Core",
+          "observation": "На проде: «абзацы уже есть, авторские байты целы», sha=ead77b2ab50 = rev 8, adopt не повторялся.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/release-258127.md",
+          "artifact_sha256": "3b4ea69c47d938861fb40fd0fe28f93f3205525b65e52d9339ad2dc7ccff5578",
+          "produced_on": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39"
+        }
+      ]
     },
     {
       "source_id": "MAN-CORE-CONTENT-STABLE",
@@ -964,8 +1788,18 @@
       "acceptance": "Фактическое содержание личности не изменено ради экономии токенов: сравнительный diff Core не удаляет содержательных элементов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3",
+          "observation": "Содержательная часть Core сохранена (характер, свобода речи, грубость и конфликт, «чего избегать», фактические границы); удалены только техника шутки, драматургия и ритм.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-CORE-REMOVE-DUP-IMPERATIVES",
@@ -980,8 +1814,27 @@
       "acceptance": "Убраны дублирующиеся императивы о том, как строить каждую шутку, как часто демонстрировать сарказм и как оформлять каждое сообщение, если это уже управляется Expression или Style Policy.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-CORE-EXPRESSION-SPLIT",
@@ -996,8 +1849,27 @@
       "acceptance": "Personality Core определяет личность, а Expression — способ её выражения; в итоговом промпте нет смешения этих ролей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-PRIORITY-EXISTING",
@@ -1012,8 +1884,27 @@
       "acceptance": "Использован существующий механизм приоритетов и технических контрактов, новый механизм приоритетов не создан.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-PRIORITY-OWNER-WINS",
@@ -1028,8 +1919,27 @@
       "acceptance": "Общие речевые шаблоны не подавляют конкретный выбор владельца: выбранный стиль и настройки чата имеют приоритет над общими речевыми блоками (проверено на payload).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-NO-DUP-IN-PROMPT",
@@ -1044,8 +1954,27 @@
       "acceptance": "Перечисленные блоки не дублируются в нескольких местах итогового промпта: каждый речевой блок встречается один раз.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     },
     {
       "source_id": "MAN-REPLACE-NOT-DUPLICATE",
@@ -1060,8 +1989,27 @@
       "acceptance": "Если функция уже существует, заменён её текст, а не создан конкурирующий слой с новым названием; если отдельной функции нет, короткая инструкция встроена в ближайший существующий речевой компонент без новой подсистемы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ]
     }
   ],
   "items": [
@@ -1242,8 +2190,27 @@
       "acceptance": "В действующих речевых слоях нет директив, требующих постоянной демонстрации остроумия, юмористической драматургии, сюжетных поворотов, обязательной иронии, фиксированных конструкций, кульминации, комбинирования видов юмора и квот шуток; аудит промптов фиксирует перечень удалённого.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "prompt-speech"
     },
     {
@@ -1445,8 +2412,27 @@
       "acceptance": "В собранном payload активен ровно один режим мата; перекрёстное включение OFF/OCCASIONAL/FREQUENT невозможно, селектор однозначен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1461,8 +2447,27 @@
       "acceptance": "Режим берётся из действующей глобальной настройки и переопределения чата: смена глобального значения и чатового override видна в payload соответствующего чата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1477,8 +2482,27 @@
       "acceptance": "В Personality Core, Expression, Humor и Functional Writer нет конкурирующих директив о мате; аудит подтверждает единственный источник правил мата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1509,8 +2533,27 @@
       "acceptance": "Аудит ограничен речевыми директивами перечисленных слоёв; удалены или согласованы только конкурирующие оперативные речевые команды, прочие части промптов не тронуты (diff ограничен речевыми блоками).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -1525,8 +2568,27 @@
       "acceptance": "В постобработке нет детерминированной вставки мата: обработчики не добавляют и не выбирают ругательства (проверка кода и тест).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1541,8 +2603,27 @@
       "acceptance": "Отсутствует случайный выбор ругательств: поиск по коду не находит random-choice списка мата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1557,8 +2638,27 @@
       "acceptance": "В репозитории нет словарей обязательной нецензурной лексики, подключённых к генерации речи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1573,8 +2673,27 @@
       "acceptance": "Нет процентных квот использования мата: в промптах и коде отсутствуют доли и счётчики мата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -1605,8 +2724,27 @@
       "acceptance": "Не добавлено ни одного нового runtime-LLM-вызова ради стилистики: число LLM-вызовов на сообщение не выросло (замер до/после).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §2",
+          "observation": "Точные runtime-тексты внедрены в существующие компоненты; в снятом payload каждый блок встречается ровно один раз, без дублей и без дополнительных LLM-вызовов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2",
+          "observation": "Снятый payload B/C: <Speech_Base>=1, BASE/HUMOR/RESPONSE_LENGTH/FACTUAL по 1, старых длинных блоков 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "prompt-speech"
     },
     {
@@ -1666,8 +2804,27 @@
       "acceptance": "Стиль «Завсегдатай Двача» доступен в существующем редакторе и библиотеке заводских стилей тем же механизмом, что и остальные заводские стили.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1682,8 +2839,27 @@
       "acceptance": "Стиль выбирается глобально и переопределяется для чата через существующую архитектуру; выбор сохраняется и попадает в payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1698,8 +2874,27 @@
       "acceptance": "Правила доступа и редактирования заводских стилей не изменены: те же роли и ограничения покрывают новый стиль.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1714,8 +2909,27 @@
       "acceptance": "Стиль «Медведь Press» и его ограничения прав доступа не изменены (diff по его пресету и правилам доступа пуст).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1730,8 +2944,27 @@
       "acceptance": "Пользовательские стили не изменены: их тексты и настройки остались прежними (diff пуст).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1746,8 +2979,27 @@
       "acceptance": "Новый стиль не активируется автоматически: после деплоя ни один чат не переключён на «Завсегдатай Двача» без действия владельца.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1763,8 +3015,28 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": [],
-      "owner": "style-library"
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
+      "owner": "style-library",
+      "note": "Снимок выбранных стилей чатов до/после деплоя не снят; подтверждено только отсутствие миграций стилей; нужна read-only проверка на проде."
     },
     {
       "source_id": "L00191",
@@ -1778,8 +3050,27 @@
       "acceptance": "Нет отдельного обработчика Двача, собственного LLM-pipeline и специализированного постпроцессора; стиль подключён пресетом в общий механизм.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1",
+          "observation": "Пресет «Завсегдатай Двача» добавлен в существующую библиотеку стилей (services/style_policy.py:239, текст STYLE_DVACH в mca_expression.py:126); отдельного pipeline нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4, §5",
+          "observation": "Плечо C собрано с presets=[\"dvach\"]: hint содержит «двача» 1 раз в каждом режиме; в 11 ответах нет открытия «анон», нет словаря мемов, нет объяснения шуток.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "style-library"
     },
     {
@@ -1809,8 +3100,27 @@
       "acceptance": "Проведён аудит всех названных слоёв (Personality Core, Expression, Humor, Style Policy, Functional Writer, базовая манера, Direct Answers, Initiative, прочие реально применяемые) с перечнем найденных директив.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -1937,8 +3247,27 @@
       "acceptance": "Дублирование речевых команд устранено: одна и та же речевая директива не встречается в двух слоях итогового промпта (перечень до/после).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -1953,8 +3282,27 @@
       "acceptance": "Конфликты между настройками устранены; для каждого найденного конфликта зафиксировано решение и итоговая формулировка.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -1969,8 +3317,27 @@
       "acceptance": "Избыточные инструкции о юморе сведены к MAN-HUMOR-TEXT; длинные перечни обязательных приёмов удалены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -1985,8 +3352,27 @@
       "acceptance": "Требования обязательной выразительности удалены: в промптах нет обязательной эмоциональности/яркости на каждый ответ.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2001,8 +3387,27 @@
       "acceptance": "Искусственные требования длинных ответов удалены; длина определяется содержанием (MAN-LENGTH-TEXT).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2017,8 +3422,27 @@
       "acceptance": "Неявное навязывание литературного повествования снято: промпты не требуют завязки, кульминации и историй.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2049,8 +3473,27 @@
       "acceptance": "Устаревшие речевые инструкции, оставшиеся после прошлых переделок, найдены и удалены; перечень удалённого приложен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2065,8 +3508,27 @@
       "acceptance": "Снято требование специально демонстрировать черты персонажа в каждом ответе; характер проявляется через ответы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2096,8 +3558,27 @@
       "acceptance": "Personality Core сохраняет биографию, основные черты характера, индивидуальные особенности, мировоззрение и установки, авторские характеристики, связи с контекстом общения и прочие существенные элементы личности; сравнительный diff подтверждает сохранение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2223,8 +3704,27 @@
       "acceptance": "Каждый слой отвечает только за свою зону (Core — личность, стиль — манера, Expression — мат и речевые параметры, Humor — принцип юмора, Response Length — соразмерность, Style Policy — детерминированные преобразования); проверено по итоговому payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2364,8 +3864,27 @@
       "acceptance": "Готовые короткие инструкции мата внедрены в существующие компоненты настроек без параллельного движка; в payload присутствует целевой текст режима.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -2396,8 +3915,27 @@
       "acceptance": "Фактическая доставка Expression в payload подтверждена снятым payload для всех трёх режимов, а не только наличием настройки в БД.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -2412,8 +3950,27 @@
       "acceptance": "Искусственные квоты инструкций отсутствуют: речевые директивы не обрезаются по локальному бюджету при достаточном окне модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
@@ -2428,8 +3985,27 @@
       "acceptance": "Проверено отсутствие подавления мата постобработкой: сравнение сырого ответа LLM и отправленного текста на пробах FREQUENT не показывает удаления мата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -2444,8 +4020,27 @@
       "acceptance": "Проведено сравнение OFF / OCCASIONAL(EPISODIC) / FREQUENT на сопоставимых входах; различия в реальном поведении зафиксированы.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -2460,8 +4055,27 @@
       "acceptance": "Сравнение выполнено и на коротких, и на развёрнутых ответах; результаты приложены к evidence.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §1, §4 #1,#5",
+          "observation": "Режимы мата — три коротких текста в <Expression_Settings>; мат задаётся инструкцией напрямую, постобработка его не вставляет и не вырезает, словарей/квот/random-choice нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "probe",
+          "ref": "probe-BC-final.md §2, §4",
+          "observation": "Payload для off/occasional/frequent различается только текстом режима (system_sha12 разные), ручной подсчёт мата по 22 ответам приложен в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/probe-BC-final.md",
+          "artifact_sha256": "41795d40151175ae2dfd71b08ac9244ecbe70c9358c06f35aa19b73fd6d7afc2",
+          "produced_on": "0ebb8ea8836d158896e31a4248e5b257e8ada893"
+        }
+      ],
       "owner": "expression-runtime"
     },
     {
@@ -3466,8 +5080,18 @@
       "acceptance": "Работа выполнена в существующей очереди ASAP Speech Architecture без нового эпика, без отдельного проектирования архитектуры и без дополнительного согласования примеров: новая фича-папка или новый эпик под эту задачу не созданы, отдельного архитектурного этапа не заводилось.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "test",
+          "ref": "review.md: вердикт Approved (раунд 4)",
+          "observation": "Reviewer одобрил e44a30b4 после 4 раундов: 4 блокирующих замечания сняты, 8 затронутых тест-файлов 214 passed, -k-срез 1668 passed, factory_set_fingerprint сходится.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/review.md",
+          "artifact_sha256": "c49872858260333581342abe43e4a71bd404155d3b7697193ee295a13e549747",
+          "produced_on": "d722be6302f7299947be3576bfe9ceabc2940920"
+        }
+      ],
       "owner": "reviewer"
     },
     {
@@ -3610,8 +5234,27 @@
       "acceptance": "Ни один промпт не урезан ради экономии токенов: удалены только избыточные речевые директивы, данные, контракты и личность сохранены, каждое удаление обосновано.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "artifact",
+          "ref": "audit.md: аудит слоёв Core/Expression/Humor/Style Policy/Functional Writer",
+          "observation": "Аудит перечисленных слоёв выполнен, дубли и конфликты сведены; перечень удалённого и итог по каждому конфликту зафиксированы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/audit.md",
+          "artifact_sha256": "1600f5732c976a8913d3b663353cc7d8c073fc3efa7ddffc87cd61cd8e9a1565",
+          "produced_on": "61b43393ce3cd7070276d8fc33f41614a2f9b10d"
+        },
+        {
+          "candidate_commit": "b2ac3fa52b85e44ec2f794392f76b5bf248dfa39",
+          "type": "implementation",
+          "ref": "impl.md §3-§4",
+          "observation": "Диффы по слоям: сняты только избыточные речевые директивы, функциональные инструкции и авторские байты Core сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/speech-simplify/impl.md",
+          "artifact_sha256": "fae5c3e51bfd6e472615a97b2338c484f30b606366264762854b318772fa6de4",
+          "produced_on": "f4bb246ce7790da9792d9f7289884df9b9b68146"
+        }
+      ],
       "owner": "speech-audit"
     },
     {
