@@ -1077,8 +1077,7 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
         pg_doc if isinstance(pg_doc, dict) else None)
     source = ("chat" if isinstance(chat_doc, dict)
               else "global" if isinstance(pg_doc, dict) else "default")
-    selection = pr.core_selection_view(
-        active_doc, source=source, budget_tokens=_composer_budget())
+    selection = pr.core_selection_view(active_doc, source=source)
     factory_full = pr.factory_text(pr.CORE_FULL_BLOCK_ID)
     factory_compact = pr.factory_text(pr.CORE_COMPACT_BLOCK_ID)
     full_eff = pr.effective_prompt(pr.CORE_FULL_BLOCK_ID, pg_value=pg_doc,
@@ -1178,12 +1177,10 @@ async def _core_payload(cache, user: WebAppUser, ctx, chat_id: int | None
     }
 
 
-def _composer_budget() -> int:
-    try:
-        from services import mca_gates
-        return int(mca_gates.composer_additive_budget_tokens())
-    except Exception:
-        return 0
+# QUOTA-REMOVAL (ADDENDUM #3 §2.7): витрины аддитивного бюджета инструкций
+# больше нет — `_composer_budget()` удалён вместе с механизмом. Техническое
+# исключение слоя (`budget_excluded`) по-прежнему показывается честно, но его
+# причина — реальное переполнение окна модели, а не квота инструкций.
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2254,8 +2251,7 @@ async def _preview_manifest(cache, chat_id: int | None, *, text: str,
 async def _core_ref_from_doc(doc: dict, *, source: str):
     """CoreRef из конкретного документа (кандидат/предпросмотр)."""
     from services import prompt_composer as composer
-    selection = pr.core_selection(doc, source=source,
-                                  budget_tokens=_composer_budget())
+    selection = pr.core_selection(doc, source=source)
     return composer.CoreRef(
         text=str(selection.get("text") or ""),
         revision=str(selection.get("revision") or ""),

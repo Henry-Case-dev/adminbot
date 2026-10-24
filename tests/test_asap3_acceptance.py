@@ -13,8 +13,11 @@
     version-literal (существующий тест покрывает URL/JSON/цитату);
   * S9: сводка Inspector (``_style_build_summary``) отдаёт ровно тот блок и
     те счётчики, которые собраны из global+chat, а не «желаемые» настройки;
-  * S10: технический бюджет композера виден как ``budget_excluded`` и не
-    выдаётся за лимит владельца; потолок правил — блокирующая диагностика.
+  * S10: техническое исключение слоя видно как ``budget_excluded`` и не
+    выдаётся за лимит владельца, НО локальной квоты инструкций больше нет
+    (ADDENDUM #3 §2.7): слой Style Policy не может быть исключён бюджетом
+    композера — он либо рендерится, либо отсутствует по своей причине;
+    витрины аддитивного бюджета в Inspector/API нет.
 
 Остальные S1-S10/A1-A16 уже доказаны файлами
 ``tests/test_asap3_style_hint_limits.py`` и ``tests/test_asap3_identity_aliases.py``
@@ -24,6 +27,8 @@ TEST-LIFECYCLE: CONTRACT/REGRESSION owner=ASAP3-ACCEPT §8 S4-S10
 """
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
 from datetime import datetime, timezone
 
@@ -33,7 +38,9 @@ from services import chat_params
 from services import hot_config as hot
 from services import mca_gates
 from services import prompt_composer as pc
+from services import prompt_registry as pr
 from services import style_policy as sp
+from web.api import speech as speech_api
 from web.api.speech import _style_build_summary
 
 CHAT_A = 301
@@ -268,7 +275,9 @@ def test_s10_composer_style_layer_has_no_local_quota(monkeypatch):
     """QUOTA-REMOVAL (A3): hint рендерится всегда — прод-симптом устранён.
 
     Прежний `COMPOSER_LAYER_BUDGET_TOKENS=1` давал `budget_excluded` для
-    Style_Policy_Hint даже при отключённом бюджете чата.
+    Style_Policy_Hint даже при отключённом бюджете чата. Теперь слой Style
+    Policy **не** исключается локальным бюджетом: старая переменная окружения
+    ничего не возвращает, слой физически присутствует в запросе.
     """
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "1")
     policy = sp.effective_policy_sync(rich_document(soft_count=8), None,
@@ -292,5 +301,35 @@ def test_s10_composer_style_layer_has_no_local_quota(monkeypatch):
                  if t.layer == "style_policy_hint")
     assert trace.rendered is True
     assert trace.skip_reason == ""
+    # Фактическое присутствие слоя в payload — не только флаг трейса.
     assert ref.hint in manifest.system
+    assert policy.hint in manifest.system
+    # Ни один слой не списан на бюджет инструкций: причина исключения
+    # `budget_excluded` для инструкций больше не существует.
+    assert [t.layer for t in manifest.layers
+            if t.skip_reason == "budget_excluded"] == []
     assert "budget_excluded" not in pc.SKIP_REASONS
+    # Исключений самой подсказки по бюджету тоже нет (только лимит владельца).
+    assert {row.reason for row in policy.hint_excluded} <= {"user_limit"}
+
+
+def test_s10_no_composer_budget_plumbing_in_inspector():
+    """QUOTA-REMOVAL (A1/A4): витрины аддитивного бюджета нет ни в API, ни в UI.
+
+    `_composer_budget()` удалён вместе с механизмом; `core_selection_view`
+    больше не принимает инертный аргумент, а срез Core в Inspector не содержит
+    поля бюджета (нечему показывать «квоту», которой нет).
+    """
+    assert not hasattr(speech_api, "_composer_budget")
+    assert "budget_tokens" not in inspect.signature(
+        pr.core_selection_view).parameters
+    assert "budget_tokens" not in inspect.signature(
+        pr.core_selection).parameters
+    view = pr.core_selection_view(None, source="default")
+    assert not [key for key in view if "budget" in key]
+    assert "budget_tokens" not in json.dumps(view, ensure_ascii=False)
+    # Предпросмотр Core в Inspector собирается без квоты (реальный путь API).
+    ref = asyncio.run(speech_api._core_ref_from_doc(None, source="default"))
+    assert ref.text
+    assert ref.detail_level in {"full", "compact"}
+
