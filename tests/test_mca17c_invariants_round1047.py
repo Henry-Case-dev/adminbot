@@ -141,7 +141,7 @@ def test_coverage_matrix_sync():
 
 def test_app_version_not_bumped():
     # bump 2.58.65→2.58.66 — домен @DevOps (T-5198), Builder не делает.
-    assert APP_VERSION == "2.58.129"
+    assert APP_VERSION == "2.58.130"
 
 
 def test_routes_plus3_and_registration():
