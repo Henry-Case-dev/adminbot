@@ -195,7 +195,11 @@ async def test_protected_repeat_is_not_touched(monkeypatch):
     sp.record_bot_output(CHAT_A, quote)
     outcome = await sp.apply_style_policy(
         "Ответ такой. " + quote, chat_id=CHAT_A)
-    assert quote in outcome.text, "защищённый повтор не срезан"
+    # Повтор не срезан: слова цитаты на месте. Типографика кавычек — отдельное
+    # заводское правило A (« » → "), поэтому сравниваем текст без кавычек.
+    words = "дословная цитата источника целиком"
+    assert words in outcome.text, "защищённый повтор срезан"
+    assert outcome.text.strip().endswith(words + '"'), outcome.text
 
 
 @pytest.mark.asyncio

@@ -7958,6 +7958,42 @@
                       Строгие правила проверяются детерминированно (без вызова модели); мягкие —
                       пожелание. URL, цитаты, код, JSON и версии защищены.
                     </div>
+                    <!-- Владелец 24.10.2026: два детерминированных режима кавычек.
+                         Взаимоисключающие (одна настройка), A включён по умолчанию,
+                         оба могут быть выключены. Без анализа иронии/цитат. -->
+                    <div class="speech-quotes" data-speech-quotes>
+                      <div class="text-xs font-semibold">Кавычки в обычном тексте</div>
+                      <div class="text-xs text-gray-500 speech-note">
+                        Работает ровно один режим: включение одного выключает другой.
+                        Код, JSON, ссылки, литералы и дословные цитаты не меняются.
+                      </div>
+                      <label class="speech-limit-row">
+                        <input type="checkbox" data-speech-quotes-mode="normalize"
+                               :checked="speechQuotesMode() === 'normalize'"
+                               aria-label="Заменять ёлочки на обычные кавычки"
+                               @change="setStyleQuotesMode('normalize', $event.target.checked)">
+                        <span class="text-xs">Заменять ёлочки на обычные кавычки</span>
+                      </label>
+                      <div class="text-xs text-gray-500 speech-note">
+                        «текст» → "текст": слова не меняются, остальные кавычки остаются.
+                        Включено по умолчанию.
+                      </div>
+                      <label class="speech-limit-row">
+                        <input type="checkbox" data-speech-quotes-mode="strip"
+                               :checked="speechQuotesMode() === 'strip'"
+                               aria-label="Удалять кавычки полностью"
+                               @change="setStyleQuotesMode('strip', $event.target.checked)">
+                        <span class="text-xs">Удалять кавычки полностью</span>
+                      </label>
+                      <div class="text-xs text-gray-500 speech-note">
+                        «текст» и "текст" → текст: кавычки убираются, слова остаются.
+                        Пока включено, замена ёлочек не выполняется.
+                      </div>
+                      <div class="text-xs text-gray-500" data-speech-quotes-off
+                           v-if="speechQuotesMode() === 'off'">
+                        Оба режима выключены: кавычки остаются как есть.
+                      </div>
+                    </div>
                     <div v-if="speechDirty.style" class="speech-warn" data-speech-style-dirty-note>
                       Показаны ВАШИ правки (черновик): правил {{ speechStyleViewRules().length }},
                       на сервере {{ speechStyleServerRuleCount() }}. Они вступят в силу только

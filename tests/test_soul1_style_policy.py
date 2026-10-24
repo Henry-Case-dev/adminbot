@@ -197,41 +197,54 @@ def test_hint_carries_hard_and_soft_wording_separately():
 
 @pytest.mark.parametrize("text,expected", [
     ("Ну это «гениальная» идея", "Ну это гениальная идея"),
-    ("Ну это „гениальная“ идея", "Ну это гениальная идея"),
-    ("Ну это “гениальная” идея", "Ну это гениальная идея"),
     ('Ну это "гениальная" идея', "Ну это гениальная идея"),
-    ("Ну это 'гениальная' идея", "Ну это гениальная идея"),
 ])
-def test_quotation_marks_unicode_classes_are_removed_safely(text, expected):
+def test_quotes_strip_mode_removes_declared_chars_only(text, expected):
+    """Режим B (владелец 24.10.2026): удаляются ровно « », \" — слова целы."""
     policy = policy_for("no_quotes")
     out, results = sp.StylePolicyValidator(policy).run(text)
     assert out == expected
     row = outcome_for(results, "quotation_marks")
     assert row.status == sp.STATUS_REPAIRED
-    assert row.reason == "ironic_quotes_removed"
+    assert row.reason == "quotes_removed"
+
+
+def test_quotes_strip_mode_keeps_other_quote_classes():
+    """Вне объявленного набора символов правило не трогает текст (детерминизм)."""
+    policy = policy_for("no_quotes")
+    for text in ("Ну это „гениальная“ идея", "Ну это “гениальная” идея",
+                 "Ну это 'гениальная' идея"):
+        out, results = sp.StylePolicyValidator(policy).run(text)
+        assert out == text, text
+        assert outcome_for(results, "quotation_marks").status == sp.STATUS_PASS
 
 
 def test_apostrophe_and_technical_literals_are_not_quotes():
     policy = policy_for("no_quotes")
     validator = sp.StylePolicyValidator(policy)
     for text in ("Апостроф: don't stop", "rock'n'roll навсегда",
-                 'Итого 5" экран', "Файл C:\\path\\x.txt тут",
-                 'Код: print("hi")'):
+                 'Итого 5" экран', "Файл C:\\path\\x.txt тут"):
         out, results = validator.run(text)
         assert out == text, text
         row = outcome_for(results, "quotation_marks")
         assert row.status == sp.STATUS_PASS, (text, row)
+    # Кавычки внутри кода не речь: байты целы, исход честный exempted.
+    code = 'Код: print("hi")'
+    out, results = validator.run(code)
+    assert out == code
+    assert outcome_for(results, "quotation_marks").status == sp.STATUS_EXEMPTED
 
 
-def test_multiword_quote_is_not_blindly_removed_and_not_declared_pass():
-    """SOUL-16.2.2/16.2.4: смысловой вариант не объявляется равноценным."""
+def test_multiword_quote_is_removed_deterministically_without_rephrase():
+    """Смыслового анализа больше нет (владелец 24.10.2026): режим B удаляет
+    кавычки, слова остаются — без conflict/«переформулируй»."""
     policy = policy_for("no_quotes")
     text = "Он сказал «база это сила», и все согласились"
     out, results = sp.StylePolicyValidator(policy).run(text)
-    assert out == text, "многословная цитата не переписана вслепую"
+    assert out == "Он сказал база это сила, и все согласились"
     row = outcome_for(results, "quotation_marks")
-    assert row.status == sp.STATUS_CONFLICT
-    assert row.reason == "quotes_require_rephrase"
+    assert row.status == sp.STATUS_REPAIRED
+    assert row.reason == "quotes_removed"
 
 
 def test_verbatim_quote_is_exempted_not_broken():
@@ -423,9 +436,9 @@ def test_line_breaks_conflict_when_single_breaks_exceed_limit():
 # ═══ стратегии конфликта (SOUL-16.2.3) ══════════════════════════════════════
 
 @pytest.mark.parametrize("strategy,expected", [
-    # Обычный текст без требования дословности: запрет владельца должен
-    # соблюдаться, вслепую кавычки не срезаются → честный conflict.
-    ("exempt_protected", sp.STATUS_CONFLICT),
+    # Кавычки только внутри защищённого сегмента: байты не трогаются,
+    # исход объясняется стратегией правила.
+    ("exempt_protected", sp.STATUS_EXEMPTED),
     ("deny_incompatible", sp.STATUS_DENIED),
     # Явная задача/дословность старше правила обычной речи.
     ("prefer_task", sp.STATUS_EXEMPTED),
@@ -433,11 +446,11 @@ def test_line_breaks_conflict_when_single_breaks_exceed_limit():
 def test_conflict_strategies_are_explicit(strategy, expected):
     policy = policy_for(rules=[{
         "id": "q.strategy", "kind": "quotation_marks", "strictness": "hard",
-        "params": {"classes": ["«»"]}, "conflict_strategy": strategy,
+        "params": {"mode": "strip"}, "conflict_strategy": strategy,
         "reason": "r"}])
-    text = "Он сказал «база это сила» и ушёл"
+    text = 'Данные: {"q": "«x»"}'
     out, results = sp.StylePolicyValidator(policy).run(text)
-    assert out == text, "байты дословности не портятся ни в одной стратегии"
+    assert out == text, "защищённые байты не портятся ни в одной стратегии"
     assert outcome_for(results, "quotation_marks").status == expected
 
 
@@ -457,10 +470,10 @@ def test_exempt_protected_exempts_real_verbatim_content():
 def test_denied_is_blocking_and_styled_false():
     policy = policy_for(rules=[{
         "id": "q.deny", "kind": "quotation_marks", "strictness": "hard",
-        "params": {"classes": ["«»"]},
+        "params": {"mode": "strip"},
         "conflict_strategy": "deny_incompatible", "reason": "r"}])
     outcome = sp.StyleOutcome(text="x")
-    _t, results = sp.StylePolicyValidator(policy).run("Он сказал «база это сила»")
+    _t, results = sp.StylePolicyValidator(policy).run('{"q": "«x»"}')
     outcome.results = results
     assert outcome.denied is True and outcome.styled is False
 
@@ -526,9 +539,10 @@ async def test_flag_off_gives_empty_policy_with_reason(monkeypatch):
 async def test_missing_document_is_absent_not_invented(monkeypatch):
     enable_policy(monkeypatch)
     policy = await sp.effective_style_policy(CHAT_A)
-    # Заводское правило тире действует и без документа (ASAP3 §3.1), но
-    # политику владельца оно не «выдумывает»: источник остаётся default.
-    assert [r.id for r in policy.rules] == [sp.DASH_FACTORY_ID]
+    # Заводские правила (тире + режим кавычек A) действуют и без документа,
+    # но политику владельца они не «выдумывают»: источник остаётся default.
+    assert [r.id for r in policy.rules] == [sp.DASH_FACTORY_ID,
+                                            sp.QUOTES_FACTORY_ID]
     assert policy.source == "default"
     assert policy.skip_reason == "style_policy_absent"
     assert policy.hint == ""
@@ -627,24 +641,30 @@ async def test_zero_llm_calls_on_style_violations(monkeypatch):
 @pytest.mark.asyncio
 async def test_bounded_semantic_repair_is_at_most_one_and_only_on_conflict(
         monkeypatch):
-    enable_policy(monkeypatch, global_doc=doc_with("no_quotes"))
+    # Кавычки больше не дают conflict (детерминированные режимы), поэтому
+    # конфликт для проверки bounded-ремонта даёт правило переносов строк.
+    doc = {"v": 1, "revision": 1, "soft_instructions": [],
+           "rules": [{"id": "br.hard", "kind": "line_breaks",
+                      "strictness": "hard", "params": {"max_breaks": 1},
+                      "reason": "r"}]}
+    enable_policy(monkeypatch, global_doc=doc)
     calls: list = []
 
     async def repair(text, instruction):
         calls.append(instruction)
-        return "Он назвал это базой, и все согласились"
+        return "раз два три"
 
-    conflict_text = "Он сказал «база это сила», и все согласились"
+    conflict_text = "раз\nдва\nтри"
     outcome = await sp.apply_style_policy(
         conflict_text, chat_id=CHAT_A, repair=repair, repair_allowed=True)
     assert len(calls) == 1, "смысловой ремонт должен быть ровно один"
     assert outcome.repair_used == 1
-    assert outcome.text == "Он назвал это базой, и все согласились"
+    assert outcome.text == "раз два три"
     assert outcome.styled is True
 
     calls.clear()
     clean = await sp.apply_style_policy(
-        "Он сказал база, и все согласились", chat_id=CHAT_A, repair=repair,
+        "раз два три", chat_id=CHAT_A, repair=repair,
         repair_allowed=True)
     assert calls == [], "без конфликта ремонт не запускается"
     assert clean.repair_used == 0

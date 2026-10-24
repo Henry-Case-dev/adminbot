@@ -20341,6 +20341,69 @@
         }
         return 'id ' + rule.id + (parts.length ? (' · ' + parts.join(' · ')) : '');
       },
+      // ── Кавычки (владелец 24.10.2026): два взаимоисключающих режима ──────
+      // Одна настройка = одно правило kind=quotation_marks с params.mode:
+      //   normalize (A, заводской default ON) | strip (B) | enabled=false (OFF).
+      // Список правил рендерится из черновика, поэтому состояние чекбоксов
+      // читается из того же черновика, что уйдёт в Save.
+      speechQuotesRules: function () {
+        var rules = this.speechStyleViewRules() || [];
+        return rules.filter(function (r) {
+          return r && r.kind === 'quotation_marks';
+        });
+      },
+      speechQuotesMode: function () {
+        var rows = this.speechQuotesRules();
+        var fallback = null;
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          if (r.enabled === false) {
+            if (!fallback) fallback = r;
+            continue;
+          }
+          var mode = (r.params && r.params.mode) === 'normalize'
+            ? 'normalize' : 'strip';
+          if (mode === 'strip') return 'strip';
+          fallback = r;
+        }
+        if (!fallback) return 'off';
+        return fallback.enabled === false ? 'off' : 'normalize';
+      },
+      setStyleQuotesMode: function (mode, checked) {
+        var draft = this.ensureStyleDraft();
+        var wanted = (mode === 'strip') ? 'strip' : 'normalize';
+        var reason = wanted === 'strip'
+          ? 'владелец: без кавычек в обычной речи'
+          : 'владелец: ёлочки заменяются обычными кавычками';
+        // Взаимоисключение: в черновике остаётся РОВНО одно правило кавычек.
+        var kept = [];
+        var target = null;
+        (draft.rules || []).forEach(function (r) {
+          if (!r || r.kind !== 'quotation_marks') { kept.push(r); return; }
+          if (!target) target = r;
+        });
+        if (!target) {
+          target = {
+            id: 'quotes.hard.factory',
+            kind: 'quotation_marks',
+            strictness: 'hard',
+            // Слой (global/chat) задаёт документ, а не scope правила:
+            // как у заводского правила и пресетов — обычная речь.
+            scope: 'global',
+            params: { mode: wanted },
+            enabled: true,
+            reason: reason,
+          };
+        }
+        target.params = Object.assign({}, target.params || {}, { mode: wanted });
+        target.strictness = 'hard';
+        target.enabled = !!checked;
+        target.reason = reason;
+        kept.push(target);
+        draft.rules = kept;
+        this.speechDirty.style = true;
+        this.clearSpeechSaved('style');
+      },
       ensureStyleDraft: function () {
         if (!this.speechStyleDraft) {
           this.speechStyleDraft = { rules: [], soft_instructions: [],

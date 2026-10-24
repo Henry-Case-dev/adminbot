@@ -139,13 +139,15 @@ RULE_KIND_SPECS: dict[str, dict] = {
     },
     "quotation_marks": {
         "title_ru": "Кавычки",
-        "purpose": "Запрет графических кавычек в обычной речи с защитой "
-                   "апострофов, литералов, JSON и разметки.",
-        "params": {"classes": ["«»", "„“", "“”", "\"", "'"],
-                   "detect_apostrophe": True},
-        "hard_effect": "безопасные простые случаи правятся; смысловые — "
-                       "честный conflict, а не удаление кавычек вслепую",
-        "soft_effect": "просьба переформулировать без графических кавычек",
+        "purpose": "Детерминированный режим кавычек в обычной речи: "
+                   "замена ёлочек на обычные двойные ИЛИ полное удаление "
+                   "кавычек. Код, JSON, URL, литералы и дословные цитаты "
+                   "защищены; смыслового анализа нет.",
+        "params": {"mode": "normalize|strip"},
+        "hard_effect": "mode=normalize: « » → \" (содержимое не меняется); "
+                       "mode=strip: « » \" удаляются, слова остаются",
+        "soft_effect": "инструкция Writer (mode=strip: без кавычек; "
+                       "mode=normalize: без инструкции, замена и так идёт)",
     },
     "emoji": {
         "title_ru": "Эмодзи",
@@ -192,14 +194,14 @@ PRESET_SPECS: dict[str, dict] = {
     },
     "no_quotes": {
         "title_ru": "Без кавычек",
-        "description": "В обычной речи без графических кавычек; дословность, "
-                       "код и ссылки не переписываются.",
+        "description": "В обычной речи без кавычек (режим B): « », \" "
+                       "удаляются, слова остаются; дословность, код и ссылки "
+                       "не переписываются.",
         "soft_instructions": [],
         "rules": [{"id": "quotation_marks.hard.no_graphic",
                    "kind": "quotation_marks",
                    "strictness": "hard",
-                   "params": {"classes": ["«»", "„“", "“”", "\"", "'"],
-                              "detect_apostrophe": True},
+                   "params": {"mode": "strip"},
                    "conflict_strategy": "exempt_protected",
                    "reason": "владелец: без кавычек в обычной речи"}],
     },
@@ -587,6 +589,12 @@ def normalize_rule(raw: Any, *, index: int = 0,
         strategy = DEFAULT_CONFLICT_STRATEGY
     params = raw.get("params")
     params = dict(params) if isinstance(params, Mapping) else {}
+    if kind == "quotation_marks":
+        mode = str(params.get("mode") or "").strip().lower()
+        if mode and mode not in QUOTES_MODES:
+            # Неизвестный режим не «угадывается» молча: правило работает как
+            # strip (исторический смысл «без кавычек»), причина видна.
+            issues.append(f"rule_params_default:quotation_marks.mode={mode}")
     exemptions = raw.get("content_type_exemptions")
     if isinstance(exemptions, (list, tuple)):
         exemption_tuple = tuple(str(x) for x in exemptions
@@ -950,6 +958,18 @@ def merge_hint_limits(global_doc: Any = None,
 #: строки с этим id; выключение = явная запись того же id с ``enabled=false``.
 DASH_FACTORY_ID = "dash.hard.factory"
 
+#: Заводской режим кавычек A (владелец 24.10.2026): « » → " включён по
+#: умолчанию, тоже без миграции PG. Режим B — та же строка с
+#: ``params.mode="strip"``; «оба выключены» — та же строка ``enabled=false``.
+#: Одна строка = взаимоисключение по построению (нельзя включить A и B разом).
+QUOTES_FACTORY_ID = "quotes.hard.factory"
+#: Детерминированные режимы кавычек. Смыслового анализа (ирония/цитата/
+#: переформулирование) нет: правила только заменяют или удаляют символы.
+QUOTES_MODES = ("normalize", "strip")
+QUOTES_DEFAULT_MODE = "strip"      # легаси-документы «без кавычек»
+QUOTES_NORMALIZE_CHARS = ("«", "»")
+QUOTES_STRIP_CHARS = ("«", "»", "\"")
+
 
 def factory_rules() -> tuple[StyleRule, ...]:
     """Заводские правила, действующие без записи в PG (идемпотентно)."""
@@ -959,7 +979,41 @@ def factory_rules() -> tuple[StyleRule, ...]:
         reason="заводское правило: короткий дефис вместо длинного тире",
         conflict_strategy=DEFAULT_CONFLICT_STRATEGY,
         content_type_exemptions=DEFAULT_EXEMPTIONS,
-        origin="factory_default"),)
+        origin="factory_default"),
+        StyleRule(
+            id=QUOTES_FACTORY_ID, kind="quotation_marks", strictness="hard",
+            scope="global", params={"mode": "normalize"}, enabled=True,
+            owner=None, revision=1,
+            reason="заводское правило: ёлочки заменяются обычными кавычками",
+            conflict_strategy=DEFAULT_CONFLICT_STRATEGY,
+            content_type_exemptions=DEFAULT_EXEMPTIONS,
+            origin="factory_default"),)
+
+
+def _collapse_quotes_rules(rules: Sequence[ResolvedRule]
+                           ) -> tuple[ResolvedRule, ...]:
+    """Ровно одно правило кавычек: A и B взаимоисключающие.
+
+    Порядок выбора детерминированный: чатовый слой > глобальный/пресет >
+    заводской default; внутри слоя — включённые правила, из них последнее
+    записанное (свежая правка владельца). Остальные строки того же kind
+    отбрасываются, поэтому двойной обработки (A+B) быть не может."""
+    positions = [index for index, resolved in enumerate(rules)
+                 if resolved.kind == "quotation_marks"]
+    if len(positions) <= 1:
+        return tuple(rules)
+
+    def layer(resolved: ResolvedRule) -> int:
+        if resolved.source == "chat":
+            return 0
+        return 2 if resolved.source == "factory" else 1
+
+    best_layer = min(layer(rules[index]) for index in positions)
+    pool = [index for index in positions if layer(rules[index]) == best_layer]
+    enabled = [index for index in pool if rules[index].rule.enabled]
+    winner = (enabled or pool)[-1]
+    return tuple(resolved for index, resolved in enumerate(rules)
+                 if index not in set(positions) - {winner})
 
 
 def _with_factory_rules(rules: Sequence[ResolvedRule]
@@ -1017,8 +1071,9 @@ def effective_policy_sync(global_doc: Any = None, chat_doc: Any = None, *,
         source = "global"
     else:
         source = "default"
-    applicable = tuple(r for r in _with_factory_rules(rules)
-                       if rule_applies(r.rule, pack))
+    applicable = tuple(r for r in _collapse_quotes_rules(
+        _with_factory_rules(rules))
+        if rule_applies(r.rule, pack))
     soft_rows = tuple(s for s in soft if s.enabled and _soft_applies(s, pack))
     limits, limit_sources = merge_hint_limits(glob_doc, chat_doc_n)
     owner_applicable = tuple(r for r in applicable
@@ -1468,12 +1523,7 @@ _TRAILING_WS = " \t\r\n\u00a0\u200b\u200c\u200d\ufeff\u2060\u2028\u2029"
 _EMOJI_RE = re.compile(
     "[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B00-\u2BFF\u2049\u203C\uFE0F"
     "\u20E3\u200D]+")
-_QUOTE_CLASS_PAIRS: dict[str, tuple[str, str]] = {
-    "«»": ("«", "»"), "„“": ("„", "“"), "“”": ("“", "”"),
-    "\"\"": ("\"", "\""), "\"": ("\"", "\""), "'": ("'", "'"),
-}
 _DIGIT_RE = re.compile(r"\d")
-_LETTER_RE = re.compile(r"[^\W\d_]", re.UNICODE)
 
 
 def _resolve_exemptions(rule: StyleRule, spans: Sequence[Span]
@@ -1610,160 +1660,74 @@ def _apply_forbidden_chars(text: str, rule: StyleRule,
             {"removed": hits, "protected_kept": protected_hits})
 
 
-def _quote_positions(text: str, spans: Sequence[Span],
-                     pairs: Sequence[tuple[str, str]],
-                     *, detect_apostrophe: bool) -> tuple[list, dict]:
-    """``(пары кавычек, позиции по классам)`` в обычном тексте.
+def _quotes_mode(rule: StyleRule) -> str:
+    """Режим кавычек правила: ``normalize`` (A) или ``strip`` (B).
 
-    Стек открывающих: неоднозначные символы (``“`` закрывает ``„“`` и
-    открывает ``“”``) разрешаются по контексту — сначала закрытие верхушки
-    стека, иначе открытие. Непарные символы возвращаются как ``unpaired``."""
-    open_map: dict[str, int] = {}
-    for class_index, (open_char, _close) in enumerate(pairs):
-        open_map.setdefault(open_char, class_index)
-    stack: list[tuple[int, int]] = []       # (позиция, индекс класса)
-    matched: list[tuple[int, int, int]] = []
-    unmatched_close: list[int] = []
-    by_class: dict[int, list[int]] = {index: [] for index in range(len(pairs))}
-    for index, char in enumerate(text):
-        if not _in_plain(spans, index):
-            continue
-        is_open = char in open_map
-        is_close = any(char == close for _open, close in pairs)
-        if not is_open and not is_close:
-            continue
-        prev_char = text[index - 1] if index > 0 else ""
+    Легаси-правила без ``mode`` (пресет «Без кавычек» до 24.10.2026) означали
+    именно удаление кавычек — получают ``strip``. Неизвестное значение тоже
+    трактуется как ``strip`` (диагностика выдаётся в :func:`normalize_rule`)."""
+    raw = str((rule.params or {}).get("mode") or "").strip().lower()
+    return raw if raw in QUOTES_MODES else QUOTES_DEFAULT_MODE
+
+
+def _quotes_char_hit(mode: str, text: str, index: int) -> bool:
+    """Символ подлежит обработке в этом режиме (без смыслового анализа)."""
+    char = text[index]
+    if mode == "normalize":
+        return char in QUOTES_NORMALIZE_CHARS
+    if char not in QUOTES_STRIP_CHARS:
+        return False
+    if char == "\"":
+        # Дюймы/футы/минуты (``5" экран``) — техническая запись, не кавычка.
+        prev_char = text[index - 1] if index else ""
         next_char = text[index + 1] if index + 1 < len(text) else ""
-        if detect_apostrophe:
-            if char == "'" and _LETTER_RE.match(prev_char or " ") and \
-                    _LETTER_RE.match(next_char or " "):
-                continue             # апостроф внутри слова, не кавычка
-            if char in ("'", "\"", "\u2019") and _DIGIT_RE.match(
-                    prev_char or ""):
-                continue             # минуты/футы/дюймы рядом с числом
-        if stack:
-            open_position, class_index = stack[-1]
-            if char == pairs[class_index][1]:
-                matched.append((open_position, index, class_index))
-                stack.pop()
-                by_class[class_index].extend((open_position, index))
-                continue
-        if is_open:
-            stack.append((index, open_map[char]))
-            continue
-        unmatched_close.append(index)
-    for position, _class_index in stack:
-        unmatched_close.append(position)
-    return matched, by_class, unmatched_close
-
-
-def _protected_machine_quotes(text: str, spans: Sequence[Span],
-                              pairs: Sequence[tuple[str, str]]) -> int:
-    """Кавычки внутри защищённых сегментов при наличии JSON-фрагмента.
-
-    Машинные данные (``{"k": "v"}``) — не ирония: кавычки там синтаксис.
-    Возвращает их число, чтобы исход был честным ``exempted``, а не «pass»
-    (SOUL-16.2.3, review-w3 F1). Обычный код без JSON (``print("hi")``) сюда
-    не попадает — его контракт не меняется."""
-    try:
-        if not _json_spans(text):
-            return 0
-    except Exception:      # pragma: no cover - защитная ветка
-        return 0
-    chars = {char for pair in pairs for char in pair}
-    count = 0
-    for index, char in enumerate(text):
-        if char in chars and span_kind_at(spans, index) != "plain":
-            count += 1
-    return count
+        if _DIGIT_RE.match(prev_char or "") or _DIGIT_RE.match(next_char or ""):
+            return False
+    return True
 
 
 def _apply_quotation_marks(text: str, rule: StyleRule,
                            spans: Sequence[Span]) -> tuple:
-    params = rule.params or {}
-    classes = params.get("classes")
-    if isinstance(classes, str):
-        classes = [classes]
-    if not isinstance(classes, (list, tuple)) or not classes:
-        classes = ["«»", "„“", "“”", "\"", "'"]
-    pairs: list[tuple[str, str]] = []
-    for entry in classes:
-        key = str(entry)
-        if key in _QUOTE_CLASS_PAIRS:
-            pairs.append(_QUOTE_CLASS_PAIRS[key])
-        elif len(key) >= 2:
-            pairs.append((key[0], key[1]))
-        elif key:
-            pairs.append((key, key))
-    if not pairs:
-        return (STATUS_NA, None, "rule_params_absent", {})
-    detect_apostrophe = bool(params.get("detect_apostrophe", True))
-    found, _by_class, unpaired_positions = _quote_positions(
-        text, spans, pairs, detect_apostrophe=detect_apostrophe)
-    unpaired = len(unpaired_positions)
-    if not found and not unpaired:
-        protected_machine = _protected_machine_quotes(text, spans, pairs)
-        if protected_machine:
-            return (STATUS_EXEMPTED, None, "protected_verbatim",
-                    {"protected": protected_machine, "span": "json"})
+    """Детерминированные режимы кавычек (владелец 24.10.2026).
+
+    ``normalize`` (A): ``«``/``»`` → ``"``; содержимое не меняется, остальные
+    кавычки не трогаются. ``strip`` (B): ``«``, ``»`` и ``"`` удаляются, слова
+    остаются. Оба режима работают только в обычных (не защищённых) регионах:
+    код, JSON, URL, литералы, разметка и дословные цитаты не повреждаются.
+    Смыслового анализа цитат/иронии/переформулирования нет."""
+    mode = _quotes_mode(rule)
+    protected: set[int] = set()
+    for start, end in _resolve_exemptions(rule, spans):
+        protected.update(range(start, end))
+    plain_hits: list[int] = []
+    protected_hits = 0
+    for index in range(len(text)):
+        if not _quotes_char_hit(mode, text, index):
+            continue
+        if index in protected:
+            protected_hits += 1
+        else:
+            plain_hits.append(index)
+    if not plain_hits:
+        if protected_hits:
+            status, reason = _strategy_outcome(
+                rule, protected_kind="protected", reason="quotes_in_protected")
+            return (status, None, reason, {"protected": protected_hits})
         return (STATUS_PASS, None, "", {})
     if rule.strictness != "hard":
         return (STATUS_NA, None, "soft_habit_writer_only",
-                {"observed": len(found) * 2 + unpaired})
-    removals: list[int] = []
-    conflicts = 0
-    exempted = 0
-    reason_out = "protected_verbatim"
-    for start, end, _class_index in sorted(found, reverse=True):
-        inner = text[start + 1:end]
-        span_kind = _protected_kind_in(spans, start + 1, end) or \
-            _protected_kind_in(spans, start, end + 1)
-        if span_kind:
-            status, reason = _strategy_outcome(
-                rule, protected_kind=span_kind, reason="quotes_in_protected")
-            if status == STATUS_EXEMPTED:
-                exempted += 1
-                reason_out = reason
-            else:
-                conflicts += 1
-            continue
-        if len(inner.strip().split()) > 1:
-            # Многословная цитата без требования дословности: удалять кавычки
-            # вслепую нельзя (SOUL-16.2.2) — исход по стратегии правила.
-            status, reason = _strategy_outcome(
-                rule, protected_kind="", reason="quotes_require_rephrase")
-            if status == STATUS_EXEMPTED:
-                exempted += 1
-                reason_out = reason
-            else:
-                conflicts += 1
-            continue
-        removals.extend((start, end))
-    if not removals:
-        if conflicts:
-            status, reason = _strategy_outcome(
-                rule, protected_kind="", reason="quotes_require_rephrase")
-            return (status, None, reason, {"conflicts": conflicts,
-                                           "protected": exempted})
-        if exempted:
-            return (STATUS_EXEMPTED, None, reason_out,
-                    {"protected": exempted, "unpaired": unpaired})
-        return (STATUS_CONFLICT, None, "unpaired_quote",
-                {"unpaired": unpaired})
-    new = text
-    for position in sorted(set(removals), reverse=True):
-        new = new[:position] + new[position + 1:]
-    detail = {"removed_pairs": len(set(removals)) // 2,
-              "conflicts": conflicts, "protected": exempted,
-              "unpaired": unpaired,
-              "risk": "irony_may_be_lost"}
-    if conflicts:
-        # Часть кавычек снята безопасно, но остались требующие переформулировки:
-        # правка применена, правило НЕ объявляется пройденным (SOUL-15.7).
-        return (STATUS_CONFLICT, new, "quotes_require_rephrase", detail)
-    if unpaired:
-        return (STATUS_CONFLICT, new, "unpaired_quote_left", detail)
-    return (STATUS_REPAIRED, new, "ironic_quotes_removed", detail)
+                {"observed": len(plain_hits)})
+    hit_set = set(plain_hits)
+    if mode == "normalize":
+        new = "".join("\"" if index in hit_set else char
+                      for index, char in enumerate(text))
+        return (STATUS_REPAIRED, new, "quotes_normalized",
+                {"normalized": len(plain_hits),
+                 "protected_kept": protected_hits})
+    new = "".join(char for index, char in enumerate(text)
+                  if index not in hit_set)
+    return (STATUS_REPAIRED, new, "quotes_removed",
+            {"removed": len(plain_hits), "protected_kept": protected_hits})
 
 
 def _apply_line_breaks(text: str, rule: StyleRule,
