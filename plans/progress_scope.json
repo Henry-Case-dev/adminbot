@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-24T09:51:36+13:00",
+  "updated": "2026-10-24T14:05:00+13:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -159,7 +159,7 @@
     },
     {
       "id": "p0-factcheck-speech",
-      "status": "PENDING",
+      "status": "REVIEW",
       "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
       "source_sha256": "D69C104D2CFE58290C5EAD6826B78AC9CE37502EF3829B8948FE9E2048872D70",
       "maps": [
