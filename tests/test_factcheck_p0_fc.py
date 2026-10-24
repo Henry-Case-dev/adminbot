@@ -16,7 +16,9 @@ TEST-LIFECYCLE: CONTRACT owner=P0-FACTCHECK/FC-01..FC-09
 
 Полностью офлайн: провайдеры/LLM/Vision — фейки, без сети и без прод-чатов.
 """
+import asyncio
 import dataclasses
+import json
 
 import pytest
 
@@ -803,3 +805,317 @@ class TestF6ReadyNoText:
         assert media.image_not_analyzed is True
         assert media.image_analyzed is False
         assert "не готово" in media.notice()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FC-RFL-CLOSE: FC-05/FC-08 через ФАКТИЧЕСКИЙ сервисный путь без сети.
+# Отличие от FC-05/FC-08 выше: класс исхода не собирается руками, а
+# получается РЕАЛЬНЫМ `run_retrieval` (бюджет/дедлайн контура), решение о
+# техническом исходе идёт через `check_claim_envelope`, заголовок — через
+# renderer, а для FC-08 текст изображения читает РЕАЛЬНЫЙ
+# `mca_vision.render_media_context_async` (а не поддельный dict).
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class _DeadlineAgg:
+    """Провайдер, не укладывающийся в бюджет контура: первый запрос «висит»
+    дольше дедлайна и падает по таймауту (как настоящий per-engine timeout),
+    дальнейшие — быстрый отказ. Сети нет."""
+
+    def __init__(self, delay: float = 0.2):
+        self.delay = delay
+        self.calls = 0
+
+    async def search_relevant(self, query, max_symbols, relevance_terms=None,
+                             timeout_budget=None):
+        self.calls += 1
+        if self.calls == 1:
+            await asyncio.sleep(self.delay)
+            raise TimeoutError("engine timeout")
+        raise AllSearchEnginesFailedException("down")
+
+    async def search(self, query, max_symbols):
+        raise AllSearchEnginesFailedException("down")
+
+
+class _FailingVerbalizer:
+    """Вербализатор недоступен → используется ДЕТЕРМИНИРОВАННЫЙ честный текст
+    (`_temporal_fallback_text`), а не «данных недостаточно»."""
+
+    def __init__(self):
+        self.steps = []
+
+    async def generate(self, messages, **kw):
+        self.steps.append(kw.get("step"))
+        raise RuntimeError("verbalizer down")
+
+
+class _CapturingLLM(_JsonLLM):
+    """`_JsonLLM` + сохранение payload каждой стадии (проверка промпта)."""
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.payloads = {}
+
+    async def generate(self, messages, **kw):
+        self.payloads.setdefault(kw.get("step"), []).append(messages)
+        return await super().generate(messages, **kw)
+
+
+def _patch_orchestrator_seams(monkeypatch, *, evaluate):
+    monkeypatch.setattr(
+        "services.mca_gates.temporal_factcheck_enabled", lambda: True)
+    monkeypatch.setattr(
+        "services.mca_gates.temporal_factcheck_cache_enabled", lambda: False)
+    monkeypatch.setattr(orch, "get_smartmodule_concurrency_pool",
+                        lambda: _Pool())
+    monkeypatch.setattr(orch, "typing_active", _Typing)
+    monkeypatch.setattr(fsg, "evaluate_with_expansion", evaluate)
+
+
+async def _envelope_for(text):
+    env, _reject = await tf.build_envelope(
+        FakeDB(origin_row=_origin_row(text)),
+        tf.InputRef(kind="reply", chat_id=CHAT_ID,
+                    target_tg_message_id=TARGET_TG,
+                    trigger_tg_message_id=TRIGGER_TG))
+    return env
+
+
+class TestFC05RealServicePath:
+    """FC-05: истёкший бюджет — технический исход на реальном пути."""
+
+    @pytest.mark.asyncio
+    async def test_budget_outcome_class_reason_and_headline(self, planner_on):
+        plan = fsp.build_retrieval_plan(_decision(COMPOSITE),
+                                        claim_text=COMPOSITE)
+        assert plan is not None
+        agg = _DeadlineAgg()
+        outcome = await fsp.run_retrieval(plan, aggregator=agg,
+                                          budget_seconds=0.05)
+        # исход получен реальным контуром: попытки были, время вышло,
+        # пригодной выдачи нет
+        assert outcome.queries_attempted >= 1
+        assert outcome.budget_exhausted is True
+        assert outcome.queries_used == 0
+        assert classify_retrieval(outcome) == RETRIEVAL_BUDGET
+
+        env = await _envelope_for(COMPOSITE)
+        run = await _service(llm=_FailingVerbalizer(),
+                             aggregator=agg).check_claim_envelope(
+            env, retrieval=outcome)
+        assert run.verdict.reason == "deadline_exceeded"
+        assert run.verdict.factual_verdict == "insufficient_evidence"
+        assert "лимит" in run.verdict.uncertainty["retrieval_state"]
+        # вербализатор упал → детерминированный текст называет причину
+        assert "истёк лимит времени на поиск" in run.verdict_text
+        markup = _presentation_from_run(run)
+        assert "истёк лимит времени" in markup
+        assert "ограничение проверки, а не опровержение" in fr.visible_text(
+            markup)
+        assert "Недостаточно данных для проверки" not in markup
+
+    @pytest.mark.asyncio
+    async def test_deadline_reaches_delivered_message(self, monkeypatch,
+                                                      planner_on):
+        # Дедлайн контура для теста короткий; сам контур — настоящий.
+        monkeypatch.setattr(fsp, "_BUDGET_SECONDS_DEFAULT", 0.05)
+
+        async def fake_evaluate(db_, chat_id, **kwargs):
+            return _decision(kwargs.get("claim_text") or COMPOSITE), None
+
+        _patch_orchestrator_seams(monkeypatch, evaluate=fake_evaluate)
+        recorded = {}
+
+        async def fake_record(db_, run, **kwargs):
+            recorded["run"] = run
+
+        monkeypatch.setattr(tf, "record_temporal_run", fake_record)
+
+        agg = _DeadlineAgg()
+        service = FactCheckService(aggregator=agg,
+                                   llm=_FailingVerbalizer())
+        bot = FakeBot()
+        await orch.run_factcheck(
+            orch.FactcheckRequest(
+                chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
+                target_tg_message_id=TARGET_TG, target_text=COMPOSITE),
+            service=service, db=FakeDB(origin_row=_origin_row(COMPOSITE)),
+            bot=bot, cache=FakeCache())
+
+        run = recorded["run"]
+        assert run.verdict.reason == "deadline_exceeded"
+        assert run.verdict.factual_verdict == "insufficient_evidence"
+        assert run.evidence_rows == ()
+        sent = "\n".join(m["text"] for m in bot.sent)
+        assert "Проверка не завершена: истёк лимит времени" in sent
+        assert "ограничение проверки, а не опровержение" in sent
+        assert "Недостаточно данных для проверки" not in sent
+
+
+FC08_CAPTION = ("В Telegram добавят ИИ-агентов: Claude и ChatGPT подключат "
+                "через API")
+FC08_OCR = "Сборка 283365 · macOS 13.1.0 · Claude, ChatGPT API"
+
+
+def _vision_analysis_row():
+    return {
+        "status": "ready",
+        "ocr_blocks": json.dumps(
+            [{"text": FC08_OCR, "channel": "untrusted_image_data"}],
+            ensure_ascii=False),
+        "visual_description": "скриншот экрана настроек",
+        "uncertainty": [],
+        "self_reported_confidence": 0.8,
+        "error_reason": "",
+        "completed_at": 1792200500,
+        "revision": 1,
+    }
+
+
+class VisionDB:
+    """DB-фейк FC-08: строка сообщения + asset изображения + готовый анализ.
+
+    Отдаётся в РЕАЛЬНЫЙ `mca_vision.render_media_context_async` (никакого
+    поддельного dict контракта Vision)."""
+
+    def __init__(self, *, fail_lookup: bool = False, text: str = ""):
+        self.fail_lookup = fail_lookup
+        self.row = {
+            "text": text, "caption": FC08_CAPTION,
+            "sent_at": 1792200000, "author_name": "Тест",
+            "is_forward": False, "origin_type": None,
+            "origin_sent_at": None, "current_revision": None,
+            "content_hash": None, "origin_sender_user_id": None,
+            "origin_chat_id": None, "origin_display_name": None,
+            "forward_source": None,
+        }
+
+    async def get_smart_message_origin_block(self, chat_id, tg):
+        # Like the real DB: строка сообщения доступна (дата/подпись), origin
+        # отсутствует (не пересылка).
+        return dict(self.row)
+
+    async def get_media_assets_for_message(self, chat_id, tg):
+        return [{"asset_kind": "photo", "asset_id": "asset-fc08",
+                 "content_hash": "hash-fc08"}]
+
+    async def get_smart_message_by_tg_id(self, chat_id, tg):
+        return dict(self.row)
+
+    async def get_ready_analysis(self, asset_id, scope, **kwargs):
+        if self.fail_lookup:
+            raise RuntimeError("vision store down")
+        return _vision_analysis_row()
+
+    async def find_ready_analysis_by_content_hash(self, *a, **kw):
+        if self.fail_lookup:
+            raise RuntimeError("vision store down")
+        return None
+
+
+EVIDENCE_BLOCK = (
+    "Публикация про Telegram и Claude\n"
+    "Агенты Telegram подключат Claude, ChatGPT через API, сборка 283365\n"
+    "https://exa.example.org/tg")
+
+
+class TestFC08RealVisionPath:
+    """FC-08: подпись + изображение через реальный Vision-контур."""
+
+    @pytest.mark.asyncio
+    async def test_real_vision_render_feeds_caption_and_ocr(self):
+        media = await load_claim_media(VisionDB(), CHAT_ID, TARGET_TG)
+        assert media.caption == FC08_CAPTION       # подпись не потеряна
+        assert media.image_present and media.image_analyzed
+        assert "283365" in media.text_suffix
+        assert "macos" in media.text_suffix.lower()
+        # OCR — данные изображения, а не слова автора (честная маркировка)
+        assert "не слова автора" in media.text_suffix
+        assert media.ocr_chars > 0
+        assert media.notice() == ""                # ложной оговорки нет
+
+    @pytest.mark.asyncio
+    async def test_vision_unavailable_is_honest_and_keeps_caption(self):
+        media = await load_claim_media(VisionDB(fail_lookup=True), CHAT_ID,
+                                       TARGET_TG)
+        assert media.image_not_analyzed is True    # распознавания нет — честно
+        assert media.image_analyzed is False
+        assert media.text_suffix == ""             # OCR не выдуман
+        assert media.caption == FC08_CAPTION       # подпись сохранена
+        assert "не готово" in media.notice()
+
+    @pytest.mark.asyncio
+    async def test_end_to_end_caption_and_ocr_reach_search_and_analyst(
+            self, monkeypatch, planner_on):
+        captured = {}
+
+        async def fake_evaluate(db_, chat_id, **kwargs):
+            captured["claim"] = kwargs.get("claim_text")
+            return _decision(kwargs.get("claim_text") or FC08_CAPTION), None
+
+        _patch_orchestrator_seams(monkeypatch, evaluate=fake_evaluate)
+
+        async def no_fetch(url, **kw):        # офлайн: SafeFetcher недоступен
+            return None
+
+        async def no_record(db_, run, **kwargs):
+            return None
+
+        monkeypatch.setattr(fsp, "fetch_primary_evidence", no_fetch)
+        monkeypatch.setattr(tf, "record_temporal_run", no_record)
+        llm = _CapturingLLM(
+            verdict={"factual_verdict": "insufficient_evidence",
+                     "temporal_status": "current"})
+        agg = _Agg(EVIDENCE_BLOCK)
+        bot = FakeBot()
+        await orch.run_factcheck(
+            orch.FactcheckRequest(
+                chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
+                target_tg_message_id=TARGET_TG, target_text=FC08_CAPTION),
+            service=FactCheckService(aggregator=agg, llm=llm),
+            db=VisionDB(), bot=bot, cache=FakeCache())
+
+        # 1) OCR попал в тезис, который ушёл в определение пригодности
+        assert FC08_CAPTION in captured["claim"]
+        assert "283365" in captured["claim"]
+        assert "не слова автора" in captured["claim"]   # честная маркировка
+        # 2) OCR попал в поисковые запросы (не только в промпт)
+        assert any("283365" in q for q in agg.calls)
+        # 3) OCR попал в промпт аналитика (реальный payload стадии verdict)
+        analyst = llm.payloads.get("temporal_verdict") or []
+        assert analyst, "аналитик должен получить evidence"
+        payload = "\n".join(m["content"] for m in analyst[0])
+        assert FC08_CAPTION in payload
+        assert "283365" in payload
+        assert "не слова автора" in payload
+        # 4) ответ доставлен
+        assert bot.sent
+
+    @pytest.mark.asyncio
+    async def test_orchestrator_reports_image_not_analyzed(self, monkeypatch,
+                                                           planner_on):
+        async def fake_evaluate(db_, chat_id, **kwargs):
+            return _decision(kwargs.get("claim_text") or FC08_CAPTION), None
+
+        _patch_orchestrator_seams(monkeypatch, evaluate=fake_evaluate)
+
+        async def no_fetch(url, **kw):
+            return None
+
+        async def no_record(db_, run, **kwargs):
+            return None
+
+        monkeypatch.setattr(fsp, "fetch_primary_evidence", no_fetch)
+        monkeypatch.setattr(tf, "record_temporal_run", no_record)
+        bot = FakeBot()
+        await orch.run_factcheck(
+            orch.FactcheckRequest(
+                chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
+                target_tg_message_id=TARGET_TG, target_text=FC08_CAPTION),
+            service=FactCheckService(aggregator=_Agg(EVIDENCE_BLOCK),
+                                     llm=_JsonLLM()),
+            db=VisionDB(fail_lookup=True), bot=bot, cache=FakeCache())
+        sent = "\n".join(m["text"] for m in bot.sent)
+        assert "распознавание ещё не готово" in sent   # честная оговорка
+        assert "283365" not in sent                    # OCR не выдуман
