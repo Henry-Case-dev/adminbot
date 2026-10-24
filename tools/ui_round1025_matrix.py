@@ -8,12 +8,13 @@
   * `document.documentElement.scrollWidth <= window.innerWidth + 1`
     (нет горизонтального скролла страницы);
   * реальные `getBoundingClientRect()` ключевых shell-элементов
-    (sidebar ≥1200 / drawer 768–1199 / bottom-nav <768 — взаимоисключающе);
-  * нижняя навигация = N пунктов (админ hotfix4: Статус/Справка/Модули/Ещё = 4);
-  * hotfix4 (T-2517): вертикальная граница — `.bottom-nav`/`.more-sheet`
-    целиком в экране: `rect.bottom <= innerHeight + 1` И (при наличии
-    системного бара) `rect.bottom <= stableHeight + 1` → FAIL при выходе;
-  * touch-таргеты ≥44×44;
+    (sidebar ≥1200 / drawer 768–1199 / mobile-topnav <768 — взаимоисключающе;
+    bottom-nav удалён в D13/2.58.77 и проверяется как отсутствующий);
+  * мобильная nav = `.mobile-topnav` (row B, те же navItems, тач-цель ≥44);
+  * touch-таргеты: mobile-nav ≥44×44, scope-trigger ≥40 (U01.2; 32 в landscape
+    ≤500px);
+  * стекло: tier-маркеры render-probe (W2-Glass U08.3), tier A — только при
+    подтверждённом probe, честный Tier B принимается;
   * скриншоты desktop/mobile.
 
 Матрица: 320×700, 360×780, 390×844, 430×932, 768×1024, 1024×768,
@@ -353,6 +354,13 @@ PROBE_JS = """
     const r = el.getBoundingClientRect();
     return Math.min(m, Math.min(r.width || 999, r.height || 999));
   }, 999);
+  // D13/U01-BASE (2.58.77): нижняя навигация удалена, мобильный shell —
+  // компактная верхняя строка (`.mobile-topnav`, row B, тач-цель ≥44).
+  const mtLinks = Array.from(document.querySelectorAll('.mobile-topnav-link'));
+  const mtMinTouch = mtLinks.reduce((m, el) => {
+    const r = el.getBoundingClientRect();
+    return Math.min(m, Math.min(r.width || 999, r.height || 999));
+  }, 999);
   const stableRaw = getComputedStyle(de)
     .getPropertyValue('--tg-viewport-stable-height').trim();
   return {
@@ -369,9 +377,12 @@ PROBE_JS = """
     navbarBand: rect('.navbar-band'),
     bottomNavCount: links.length,
     minTouch: links.length ? Math.round(minTouch) : null,
+    mobileTopnav: rect('.mobile-topnav'),
+    mobileTopnavCount: mtLinks.length,
+    mobileTopnavMinTouch: mtLinks.length ? Math.round(mtMinTouch) : null,
     hasAsideEl: !!document.querySelector('.app-sidebar'),
     // F3 (§5/§70): селектор области — постоянно доступный; на mobile
-    // отдельной строкой ПОД заголовком, тач-цель ≥44px.
+    // отдельной строкой ПОД заголовком; тач-цель U01.2 — min-height 40px.
     scopeWrap: rect('.scope-wrap'),
     scopeTrigger: rect('.scope-trigger'),
     headerTitle: rect('.header-title-wrap'),
@@ -996,6 +1007,49 @@ H9_MODULE_MODAL_OPEN_JS = """
 })()
 """
 
+# D13 (§18I.13) + CFG-04B.1: footer/SaveBar модульного окна — dirty-only;
+# в clean-состоянии `<sticky-save>` не рендерит root-элемент (честный clean,
+# без постоянного футера). Чтобы проверить поведенческий контракт «SaveBar
+# появляется в footer.modal-actions», сначала переводим поле окна в dirty
+# штатными input/change-событиями (то же делает живой пользователь).
+H9_MODULE_MODAL_DIRTY_JS = """
+(() => {
+  const body = document.querySelector('.modal-card .modal-body');
+  if (!body) return { dirty: false, reason: 'no-modal-body' };
+  const fields = body.querySelectorAll('input, select, textarea');
+  for (const el of fields) {
+    if (el.disabled || el.readOnly) continue;
+    if (el.tagName === 'SELECT') {
+      const next = Array.from(el.options)
+        .map((o) => o.value).find((v) => v !== el.value);
+      if (next === undefined) continue;
+      el.value = next;
+    } else if (el.type === 'checkbox' || el.type === 'radio') {
+      el.checked = !el.checked;
+    } else {
+      el.value = (el.value || '') + ' X';
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return { dirty: true, tag: el.tagName, type: el.type || '' };
+  }
+  return { dirty: false, reason: 'no-editable-field' };
+})()
+"""
+
+H9_MODULE_MODAL_CLEANUP_JS = """
+(() => {
+  const el = document.querySelector('#app');
+  const app = el && el.__vue_app__;
+  const inst = (app && app._instance) || (el && el._vnode && el._vnode.component);
+  const proxy = inst && (inst.proxy || inst.ctx);
+  if (!proxy) return false;
+  proxy.openModuleId = null;              // тест сам сделал dirty — guard не нужен
+  if (typeof proxy._snapshotConfig === 'function') proxy._snapshotConfig();
+  return true;
+})()
+"""
+
 # HOTFIX9 M-H9R-1 (fix): реальная потеря WebGL-контекста фонового canvas.
 H9_CONTEXT_LOSS_JS = """
 (() => {
@@ -1388,22 +1442,30 @@ def _f2_failures(probe: dict, label: str) -> list:
                    % (label, probe.get("beforeDur")))
     if not probe.get("hasLensFilter"):
         out.append("%s glass: SVG-фильтр #lg-lens отсутствует" % label)
-    displace = (t.get("displace") or "").replace(" ", "")
-    if displace != "url(#lg-lens)":
-        out.append("%s glass: --glass-displace=%r" % (label, displace))
-    # T-2585 (AMEND ADR-1025-12 D1): tier выбирается feature-detect + перф-кап.
-    # Фиксируем факт A и согласованность маркеров (нет tier=a с downgraded).
+    # W2-Glass U08.3 (c0535280, APP 2.58.117): токен `--glass-displace`
+    # удалён — рефракция `backdrop-filter:url(#lg-lens)` включается ТОЛЬКО
+    # render-probe'ом (glass-probe.js), до подтверждения — честный Tier B.
+    # Проверяем новый контракт (tier-маркеры + честный downgrade), а не токен.
     allow = probe.get("allow") or []
     if not any(x.get("tier") for x in allow):
         out.append("%s glass allow: маркер data-glass-tier отсутствует "
                    "(reconcile не отработал)" % label)
-    if not any(x.get("tier") == "a" for x in allow):
-        out.append("%s glass allow: ни один [data-glass=\"a\"] не получил "
-                   "tier A" % label)
     for x in allow:
+        if x.get("tier") not in ("a", "b", "c"):
+            out.append("%s glass allow: недопустимый tier=%r"
+                       % (label, x.get("tier")))
         if x.get("tier") == "a" and x.get("downgraded"):
             out.append("%s glass allow: tier=a с data-glass-downgraded "
                        "(несогласованность)" % label)
+    # Tier A не гарантирован: он честно недоступен, когда render-probe не
+    # подтвердил backdrop url() (headless Chromium/WebKit-like). Отсутствие A
+    # БЕЗ задокументированной probe-причины — по-прежнему FAIL.
+    proven = any(x.get("tier") == "a" for x in allow)
+    unproven = bool(allow) and all(
+        (x.get("reason") or "").startswith("engine-unproven") for x in allow)
+    if allow and not proven and not unproven:
+        out.append("%s glass allow: ни один [data-glass=\"a\"] не получил "
+                   "tier A и нет probe-причины даунгрейда" % label)
     # A2 (T-2588…T-2591): стеклянные панели текущего вьюпорта несут blur
     # (непрозрачный fallback допустим только на движке без backdrop-filter).
     for name, box in (probe.get("panels") or {}).items():
@@ -1491,7 +1553,10 @@ def _scope_failures(probe: dict, label: str, width: int) -> list:
     """F3 (§5/§70): селектор области — постоянно доступный элемент.
 
     Проверяем, что при наличии ≥1 чата он реально виден; на mobile (<768)
-    расположен ОТДЕЛЬНОЙ строкой под заголовком страницы и его тач-цель ≥44px."""
+    расположен ОТДЕЛЬНОЙ строкой под заголовком страницы. Тач-цель: row B
+    `.mobile-topnav-link` — ≥44×44 (U01.3), а сам scope-trigger в компактной
+    шапке по принятому U01.2 контракту — 40px (`.app-shell.shell-mobile
+    .scope-trigger { min-height: 40px }`; 32px только в landscape ≤500px)."""
     out = []
     wrap = probe.get("scopeWrap")
     if not (wrap and wrap.get("visible")):
@@ -1505,8 +1570,12 @@ def _scope_failures(probe: dict, label: str, width: int) -> list:
                        "(y=%d < title.bottom=%d)"
                        % (label, wrap["y"], title["bottom"]))
         trig = probe.get("scopeTrigger")
-        if trig and trig.get("visible") and trig["h"] < 44:
-            out.append("%s: тач-цель селектора %dpx < 44" % (label, trig["h"]))
+        # U01.2 (asap8-v6.3 W2): компактная шапка — scope-trigger 40px;
+        # 32px допустимы только в landscape ≤500px (см. CSS media-query).
+        limit = 32 if probe.get("innerHeight", 999) <= 500 else 40
+        if trig and trig.get("visible") and trig["h"] < limit:
+            out.append("%s: тач-цель селектора %dpx < %d"
+                       % (label, trig["h"], limit))
     return out
 
 
@@ -2151,15 +2220,24 @@ def main() -> int:
                         failures.append("%s %s: bottom-nav не должен быть 768–1199"
                                         % (vp_key, route))
                 else:
-                    if not (probe["bottomNav"] and probe["bottomNav"]["visible"]):
-                        failures.append("%s %s: нет bottom-nav (<768)"
+                    # D13/U01-BASE (2.58.77; re-pin asap8_w2_shell_mobile_nav):
+                    # bottom-nav УДАЛЁН — мобильный shell это компактная верхняя
+                    # строка `.mobile-topnav` (те же navItems, что sidebar).
+                    if probe["bottomNav"]:
+                        failures.append("%s %s: bottom-nav удалён (D13), "
+                                        "но отрендерен (<768)"
                                         % (vp_key, route))
-                    # hotfix4 (T-2522): админ hotfix4 = 4
-                    # (Статус/Справка/Модули/Ещё); чистый user = 2;
-                    # раздел-онли = 3 (Статус/Справка/Ещё).
-                    if probe["bottomNavCount"] not in (0, 2, 3, 4):
-                        failures.append("%s %s: bottom-nav=%d (ожидалось 2/3/4)"
-                                        % (vp_key, route, probe["bottomNavCount"]))
+                    if not (probe["mobileTopnav"]
+                            and probe["mobileTopnav"]["visible"]):
+                        failures.append("%s %s: нет mobile-topnav (<768)"
+                                        % (vp_key, route))
+                    elif not probe["mobileTopnavCount"]:
+                        failures.append("%s %s: mobile-topnav пуст (<768)"
+                                        % (vp_key, route))
+                    elif (probe.get("mobileTopnavMinTouch") or 0) < 44:
+                        failures.append("%s %s: touch mobile-nav %spx < 44"
+                                        % (vp_key, route,
+                                           probe.get("mobileTopnavMinTouch")))
                     if probe["sidebar"] and probe["sidebar"]["visible"]:
                         failures.append("%s %s: sidebar не должен быть <768"
                                         % (vp_key, route))
@@ -2461,6 +2539,15 @@ def main() -> int:
                             % (vp_key, opened.get("reason")))
                     else:
                         page.wait_for_timeout(250)
+                        dirty = page.evaluate(H9_MODULE_MODAL_DIRTY_JS)
+                        out["viewports"][vp_key][
+                            "hotfix9_module_modal_dirty"] = dirty
+                        if not dirty.get("dirty"):
+                            failures.append(
+                                "%s H9-module-modal: dirty-проверка SaveBar "
+                                "невозможна (%s)" % (vp_key,
+                                                     dirty.get("reason")))
+                        page.wait_for_timeout(300)
                         m9m = page.evaluate(H9_MODAL_PROBE_JS)
                         out["viewports"][vp_key]["hotfix9_module_modal"] = m9m
                         failures.extend(
@@ -2469,6 +2556,10 @@ def main() -> int:
                             failures.append(
                                 "%s H9-module-modal: SaveBar не в "
                                 "footer.modal-actions" % vp_key)
+                    # Возврат к чистому состоянию: dirty был нужен только для
+                    # проверки SaveBar; иначе overlay/guard ломает следующие
+                    # fullscreen-сцены этого же вьюпорта.
+                    page.evaluate(H9_MODULE_MODAL_CLEANUP_JS)
                     page.evaluate("() => { window.location.hash = '#/'; }")
                     page.wait_for_timeout(300)
                 except Exception as exc:  # noqa: BLE001
