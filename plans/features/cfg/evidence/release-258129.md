@@ -48,3 +48,34 @@
 - Холодный: `git checkout dcaca75b` (APP 2.58.128, cover-фикса нет) + `systemctl restart admin_bot`.
 - Ветка отката: `release/fix-2.58.128` → `dcaca75b`.
 - Тёплого флага нет: изменение — корректность метаданных cover-задачи, не переключаемая фича. Мягкий откат фичи на уровне продукта — `COVER_STYLES_ENABLED=false` (обложка остаётся базовой, публикация жива).
+
+## Deploy (факт)
+
+Сервер: `nik@198.46.175.136`, прод `/var/www/admin_bot`, unit `admin_bot`, `venv/bin/python`.
+Серверное время: `2026-10-24T20:04:34Z` → `20:05:18Z`.
+
+| Проверка | Факт |
+|---|---|
+| Pre-deploy HEAD | `dcaca75b` (2.58.128) |
+| `git fetch origin` | rc 0, `master f0160fd8..24ca634b`, `release/2.58.129` получен |
+| Deployed commit (server `git rev-parse HEAD`) | **`79ec3726`** = release SHA (совпадает с кандидатом) |
+| APP_VERSION на сервере | `2.58.129` |
+| Состояние unit | `active/running`, MainPID **1171114**, **NRestarts = 0** |
+| `/healthz` loopback `127.0.0.1:8000` | HTTP **200**, `{"status":"ok","version":"2.58.129"}` |
+| Журнал нового PID (181 строка) | **0** CRITICAL / **0** ERROR / **0** Traceback |
+| `cover_style` в журнале | 1 строка — `[cover_styles] seed ensure | profile=medved_press`, исключений нет |
+| Импорты на проде | `services.cover_style_edit` — OK; `_extract` / `_response_diag` присутствуют (True/True) |
+| `factory_set_fingerprint()` | **f12130fbccb1** (как на 2.58.128) |
+| Core | `character.core` patch: «абзацы уже есть, авторские байты целы», `sha=ead77b2ab509` = **rev 8**; adopt-событий **0** |
+| ΔDDL | **0**: `PRAGMA user_version` = **37** до и после рестарта |
+
+Платных cover-проб и тестовых сообщений в рабочие чаты не запускалось. SSH: 2 успешных коннекта (деплой + чтение журнала); первая попытка без логина не дошла до аутентификации (пароль в `deploy_commands.txt` записан как `pass: …`, парсер ожидал `=`).
+
+## Побочная находка (не блокер релиза)
+
+`requirements_gate.py check --stage release --map plans/features/cfg/requirements-map.json` даёт **553 ошибки и на кандидате `79ec3726`, и на базе `24ca634b`** (уже выкаченный 2.58.128) — карта CFG (`strict_evidence: true`, 246 позиций) не привязана к текущим кандидатам. Это накопленный долг карты, а не регрессия данного релиза; для закрытия нужна сверка карты на уровне PM/Reviewer. Аналогично: PEMsoc-набор в задании ожидался 256, фактически 181 — число завышено в задании, на базе столько же.
+
+## Итог
+
+2.58.129 на проде: cover-style JSON fix (`16a0dbbf`) доставлен, речь/SOUL/PEMsoc не менялись, healthz 200/2.58.129, NRestarts 0, 0 ERROR/Traceback, FACTORY_SET `f12130fbccb1`, ΔDDL=0, Core rev 8 без повторного adopt.
+Откат готов: `dcaca75b` / ветка `release/fix-2.58.128` (запушена).
