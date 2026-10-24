@@ -163,6 +163,37 @@ def test_url_is_kept_while_plain_text_is_processed(mode):
     assert ("слово" in out) if mode == "normalize" else ("«" not in out)
 
 
+@pytest.mark.parametrize("mode", ["normalize", "strip"])
+@pytest.mark.parametrize("text", [
+    "Смотри https://example.org/s?q=«x» и всё",
+    "https://x/«y»",
+    "Поиск https://x/a?q=«термин»&page=2",
+])
+def test_url_with_guillemets_stays_byte_identical(mode, text):
+    """REGRESSION (QUOTES-URL-FIX): кавычки ВНУТРИ ссылки — часть URL."""
+    out, rows, _policy = run(text, doc(rules=[quotes_rule(mode)]))
+    assert out == text, (mode, text, out)
+    assert rows and rows[0].status in (sp.STATUS_PASS, sp.STATUS_EXEMPTED)
+
+
+@pytest.mark.parametrize("mode", ["normalize", "strip"])
+def test_quotes_outside_url_are_still_processed(mode):
+    """REGRESSION (QUOTES-URL-FIX): кавычки ПОСЛЕ ссылки — обычный текст."""
+    text = "Ссылка https://example.org/a?x=1 и «слово»"
+    out, rows, _policy = run(text, doc(rules=[quotes_rule(mode)]))
+    expected = ('Ссылка https://example.org/a?x=1 и "слово"' if mode == "normalize"
+                else "Ссылка https://example.org/a?x=1 и слово")
+    assert out == expected
+    assert rows[0].status == sp.STATUS_REPAIRED
+
+
+@pytest.mark.parametrize("mode", ["normalize", "strip"])
+def test_trailing_closer_after_url_is_not_swallowed(mode):
+    """Закрывающая ёлочка предложения не приклеивается к URL."""
+    out, _rows, _policy = run("«https://x/a»", doc(rules=[quotes_rule(mode)]))
+    assert out == ('"https://x/a"' if mode == "normalize" else "https://x/a")
+
+
 def test_inches_literal_is_not_a_quote():
     text = 'Экран 5" и ещё 7" — итого 12'
     out, rows, _policy = run(text, doc(rules=[quotes_rule("strip")]))

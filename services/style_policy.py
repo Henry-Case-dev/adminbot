@@ -1237,9 +1237,31 @@ class Span:
 _SPAN_PRIORITY = ("code", "json", "verbatim_quote", "telegram_entity", "url",
                   "version_literal", "markdown_markup", "ellipsis")
 
-_URL_RE = re.compile(r"(?:https?://|tg://|www\.)[^\s<>()\"'«»\[\]]+",
+#: ``«»`` внутри ссылки допустимы (IRI/поисковые запросы: ``?q=«x»``):
+#: иначе URL обрывался на кавычке и режимы кавычек портили саму ссылку.
+_URL_RE = re.compile(r"(?:https?://|tg://|www\.)[^\s<>()\"'\[\]]+",
                      re.IGNORECASE)
 _URL_TRAIL = ".,;:!?…"
+
+
+def _url_span_end(text: str, start: int, end: int) -> int:
+    """Конец URL без хвостовой пунктуации и непарных закрывающих ёлочек.
+
+    ``https://x/s?q=«y»`` защищается целиком, а ``»`` без парной ``«`` внутри
+    ссылки (``«https://x»``) остаётся обычным текстом."""
+
+    def _trail(pos: int) -> int:
+        while pos > start and text[pos - 1] in _URL_TRAIL:
+            pos -= 1
+        return pos
+
+    end = _trail(end)
+    while end > start and text[end - 1] == "»":
+        chunk = text[start:end]
+        if chunk.count("»") <= chunk.count("«"):
+            break
+        end = _trail(end - 1)
+    return end
 _VERSION_RE = re.compile(r"\bv?\d+(?:\.\d+){1,3}(?:[-+][0-9A-Za-z.]+)?\b")
 _ELLIPSIS_RE = re.compile(r"\.{3,}|…")
 _TAG_RE = re.compile(
@@ -1405,9 +1427,7 @@ def segment(text: Any, *, verbatim: bool = False,
         raw.extend(Span(m.start(), m.end(), "telegram_entity")
                    for m in _TAG_RE.finditer(source))
         for match in _URL_RE.finditer(source):
-            end = match.end()
-            while end > match.start() and source[end - 1] in _URL_TRAIL:
-                end -= 1
+            end = _url_span_end(source, match.start(), match.end())
             if end > match.start():
                 raw.append(Span(match.start(), end, "url"))
         raw.extend(Span(m.start(), m.end(), "version_literal")
