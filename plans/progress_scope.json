@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-25T08:05:00+12:00",
+  "updated": "2026-10-25T06:20:00+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -173,12 +173,15 @@
     },
     {
       "id": "pemsoc-one-reaction",
-      "status": "BUILDING",
+      "status": "VERIFIED",
       "source_path": "plans/features/pemsoc-one-reaction/source-owner-prompt-2026-10-25.md",
       "source_sha256": "74D10902051A260B7A38C36C3D974E993104681BF72495DAECD99B1A1BFE88A7",
-      "maps": [],
-      "coverage_complete": false,
-      "source_note": "Поручение владельца 25.10.2026 (root chat, дословный снимок): одна реакция PEMsoc на сообщение/альбом/оригинал поста; приоритеты GIF/«потрясись» над «пошёл нахуй»; проверить повторные репосты/удаления. Тривиальный фикс, карта требований не создаётся по политике."
+      "maps": [
+        "plans/features/pemsoc-one-reaction/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Поручение владельца 25.10.2026 (root chat, дословный снимок): одна реакция PEMsoc на сообщение/альбом/оригинал поста; приоритеты GIF/«потрясись» над «пошёл нахуй»; проверить повторные репосты/удаления. Тривиальный фикс, карта требований не создаётся по политике. | 2.58.128 VERIFIED: claim msg/album/origin, send_common bool, common claim, default «пошёл нахуй»; 289 passed.",
+      "updated": "2026-10-25"
     }
   ]
 }
