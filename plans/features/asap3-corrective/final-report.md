@@ -106,3 +106,27 @@ A16 live, TMA на прод-конфигурации) остаются `READY_FO
    реальном HTML-коде в payload (`acceptance.md` §8).
 6. **Полный `pytest` всего репозитория** в полосе приёмки не запускался — целевые файлы;
    широкий прогон остаётся за Reviewer/DevOps.
+
+
+## 8. Остаток после полосы PM-RESIDUAL-CLOSE (25.10.2026, UTC+12)
+
+Состояние карты: 219 / 234 required VERIFIED. Ни одна из 15 открытых строк не закрыта в этой полосе:
+новых замеров не было (прод/SSH запрещены), а переоценка существующих артефактов без привязки к candidate
+дала бы ложный VERIFIED. Разбор по классам:
+
+| Класс | Строки | Что нужно |
+|---|---|---|
+| AGENT_CHECK_NOW | GOV-NO-NEW-LLM, GOV-KEEP-SAFETY-LIMITS, HID-USER-SETTINGS, HID-NO-BULK-OFF, HID-NO-GLOBAL-EDITOR, HID-NO-BUDGET-BREAK, GOV-ROLES-BUILDER, GOV-ROLES-REVIEWER, REPORT-FORMAT | Связать существующие артефакты (rch-design.md §3/§8, migration.md, 
+eview-identity-r2.md, 
+eview-ui-r2.md, этот отчёт) с evidence по candidate 9ed68ee8 и перепроверить на текущем дереве. Это работа PM/Reviewer, не владельца. |
+| AGENT_CHECK_NOW | AUD-PROD-VERIFY | В rch-design.md §1 зафиксирован код и заводские значения, но активные значения PostgreSQL не снимались; нужен read-only снимок (DevOps). |
+| AGENT_CHECK_NOW | MIG-SCOPES | Нужен read-only SELECT style.policy на трёх уровнях (factory/global/chat); в migration.md §5 он описан как план, но не выполнялся. |
+| AGENT_CHECK_NOW | ACC-09 | Проверка на реально действующей конфигурации: read-only снимок прод-конфигурации после деплоя 2.58.118. |
+| WAITING_EXTERNAL | ACC-03, A16 | Нужно реальное исходящее сообщение / live-прогон diag aliases на проде. Полоса не отправляла сообщений в чаты; закрывается при следующем авторизованном живом прогоне, не «наблюдением» агента. |
+
+GOV-ROLES-DEVOPS отдельно не выделяю: деплой 2.58.118 (9ed68ee8) состоялся, но postdeploy-отчёт
+по этой карте в evidence не привязан — та же работа PM/Reviewer, что и для остальных GOV-ROLES-*.
+
+Gate: `requirements_gate.py check --stage release --candidate 9ed68ee8… --deployed-commit 9ed68ee8…` → **EXIT 1**,
+86 ошибок: 15 открытых строк + 71 структурная (`strict_evidence` пины `artifact_sha256` на дерево 2.58.118
+для `services/*` и тестов). Перепин без повторной сверки утверждений запрещён.
