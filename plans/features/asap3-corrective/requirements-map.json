@@ -12,8 +12,18 @@
       "source_line": 11,
       "source_text_sha256": "05c4e3c4dbba0c5307b5c4fbe5683b3a49d760388aab465f1cba6c675d3401d9",
       "source_excerpt": "Нужно исправить первопричины, а не симптомы.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md §1",
+          "observation": "По каждой из трёх проблем указана первопричина с файлом/функцией: P1 — prompt_style_blocks.py:466-469,494-515 + prompt_composer.py:584-585,842-848; P2 — chat_params.py:354-377 (override отдавал только чатовый словарь) + summary_aliases.py:78-102; P3 — bot.py:463,697 (стартовый снапшот DI) + кэш экземпляра.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-ROOT-CAUSE",
@@ -21,8 +31,8 @@
       "acceptance": "В отчёте по каждой из трёх проблем указана первопричина с файлом/функцией, а не описание симптома.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Процессное обязательство: ждёт финального отчёта/ревью-прохода, не проверяется одним диффом."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто §1 итогового отчёта (причина + file:line, не симптом)."
     },
     {
       "source_id": "MAN-L0024",
@@ -46,8 +56,18 @@
       "source_line": 26,
       "source_text_sha256": "00d8410e3f207012535ef0a455368c9b0a18754a5c06221a0a8b60a1c1202db3",
       "source_excerpt": "Если часть требований уже реализована другими ASAP, проверить соответствие фактическому поведению, объединить пересекающиеся работы и не дублировать реализацию.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "plan.md §«Пересечения - reuse, не дублируем»",
+          "observation": "Таблица reuse/duplicate до Builder: SOUL-1 W6 (рендер стиля) и SOUL-16.5.1 + SOUL-10.P3 (Inspector/effective_style_policy) — reuse; CFG-каталог `param_catalog`/`chat_params` — reuse; ASAP-2 Direct — не совпадает по времени и не дублируется; новые сервисы/реестры не создавались.",
+          "artifact_path": "plans/features/asap3-corrective/plan.md",
+          "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7",
+          "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "AUD-REUSE-MAP",
@@ -55,8 +75,8 @@
       "acceptance": "Таблица пересечений: SOUL-1 W6/Inspector, CFG-каталог, ASAP-2 Direct размечены как reuse или duplicate с указанием точки кода.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Не классифицировано в этом прогоне — требует отдельного слайса."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто планом PM (таблица пересечений до Builder)."
     },
     {
       "source_id": "MAN-L0034",
@@ -698,8 +718,18 @@
       "source_line": 189,
       "source_text_sha256": "1f34f8edc059c16958d277ac67525befe82611f07f85b17aecf4201541e5b9b7",
       "source_excerpt": "Замена должна сохранять читаемость, корректные пробелы и структуру предложения.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "test",
+          "ref": "tests/test_asap3_style_hint_limits.py::test_s6_dash_is_replaced_in_plain_speech",
+          "observation": "Пробелы и структура сохранены: «Это — обычная речь. — И ещё раз.» → «Это - обычная речь. - И ещё раз.» (одинарные пробелы, без двойных), статус `repaired`/`dash_replaced`; повторный проход идемпотентен. Исполнено в прогоне 62 passed на 675308b5.",
+          "artifact_path": "tests/test_asap3_style_hint_limits.py",
+          "artifact_sha256": "a11fcb4b4ce14c88ab57bd8a37aa842033842cba6f907da8811b219d6885808f",
+          "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "DASH-READABILITY",
@@ -707,8 +737,8 @@
       "acceptance": "Пробелы и структура предложения сохранены: 'а — б' превращается в 'а - б' без двойных пробелов.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "NEEDS_AGENT_CHECK",
-      "next_check": "Остаток dash-семейства требует отдельного замера/ревью (читаемость, полная цепочка)."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто тестом читаемости/идемпотентности тире."
     },
     {
       "source_id": "MAN-L0202",
@@ -2859,8 +2889,18 @@
       "source_line": 533,
       "source_text_sha256": "606c9cd3f24632d111b22fc07b6f0c7d509665d86fa4bce6de088a9e94e3bcfd",
       "source_excerpt": "PM и Architect должны сначала сверить пересечения с текущими ASAP и определить минимальный набор изменений.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "plan.md §«Архитектурный предикт» + arch-design.md",
+          "observation": "Предикт зафиксирован: ARCH_REUSE_CONFIRMED для STYLE-LIMITS/DASH/HIDDEN-LIMITS/MIGRATION (существующие prompt_style_blocks/style_policy/prompt_composer/param_catalog/hot_config/chat_params) и ARCHITECT_REQUIRED для IDENTITY; минимальный набор изменений и reuse/duplicate сведены до Builder.",
+          "artifact_path": "plans/features/asap3-corrective/plan.md",
+          "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7",
+          "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-ROLES-PM-ARCH",
@@ -2868,8 +2908,8 @@
       "acceptance": "Пересечения с текущими ASAP сведены в таблицу reuse/duplicate; минимальный набор изменений зафиксирован в плане до Builder.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Процессное обязательство: ждёт финального отчёта/ревью-прохода, не проверяется одним диффом."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто планом PM + архитектурным предиктом."
     },
     {
       "source_id": "MAN-L0535",
@@ -2944,8 +2984,17 @@
       "source_line": 553,
       "source_text_sha256": "83bd074b685bdad6fa0fb5f8f55642ac82af77c9143471bee72bb6260c84d1f1",
       "source_excerpt": "Не переносить реальные проверки в блокирующий Human Gate, если они требуют участия владельца в живом Telegram-чате. Такие проверки отдельно обозначать как ожидающие владельца, не блокируя техническое ",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "requirements-map.json (self-check)",
+          "observation": "Проверка карты: статус BLOCKED_REAL_HUMAN_GATE отсутствует; живые проверки ACC-03/ACC-09/A16 помечены READY_FOR_LIVE и не блокируют независимую работу; строк с owner_optional нет, отменённые device-чек-листы не воссоздавались.",
+          "artifact_path": "plans/features/asap3-corrective/requirements-map.json",
+          "produced_on": "675308b50fe59abea324b037d2a7618bcfa80c93"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-NO-BLOCKING-GATE",
@@ -2953,16 +3002,26 @@
       "acceptance": "В карте нет BLOCKED_REAL_HUMAN_GATE по живым проверкам; владельческие наблюдения помечены отдельно и не блокируют DONE.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Процессное обязательство: ждёт финального отчёта/ревью-прохода, не проверяется одним диффом."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто проверкой карты (нет Human Gate по живым проверкам)."
     },
     {
       "source_id": "MAN-L0555",
       "source_line": 555,
       "source_text_sha256": "6b3b8011b715c9e617825998d9aa3b0c7ec313fc8cbff5bd2447b5a10b419ff1",
       "source_excerpt": "**Основной принцип: настройки владельца должны действительно управлять поведением бота. Никакие невидимые лимиты, устаревшие кеши или сведения из памяти не должны молча отменять явные настройки.**",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "test",
+          "ref": "evidence/acceptance.md §3 S1/S2/S10 + §5 10.6",
+          "observation": "Три кейса проверены на фактическом коде путей: скрытый лимит (S1/S2/S10 — все инструкции в блоке, потолки дают блокирующую диагностику), устаревший кэш (A4/A5 + S4 — изменение применяется со следующего хода без рестарта), имя из памяти не переопределяет настройку владельца (A1/A10/A11 — алиас выше nickname/username/памяти).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-CORE-PRINCIPLE",
@@ -2970,16 +3029,26 @@
       "acceptance": "Проверка на трёх кейсах: скрытый лимит, устаревший кеш и имя из памяти не переопределяют явную настройку владельца.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Процессное обязательство: ждёт финального отчёта/ревью-прохода, не проверяется одним диффом."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто тестами трёх кейсов (лимит/кэш/имя из памяти)."
     },
     {
       "source_id": "MAN-L0557",
       "source_line": 557,
       "source_text_sha256": "dd8d1158323df62753f03794c37bcd405a9f0f3d90cd83f36da14ce70531bd77",
       "source_excerpt": "Интегрировать требования в действующую очередь, устранить дубли с существующими ASAP и продолжить штатное выполнение без ожидания дополнительной команды.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "plans/progress_scope.json (asap3-corrective)",
+          "observation": "Задача зарегистрирована в plans/progress_scope.json (`asap3-corrective`, source-2026-10-23.md, coverage_complete=true) и в requirements-map; пересечения с SOUL-1/CFG/ASAP-2 сняты планом reuse, отдельной копии работы нет.",
+          "artifact_path": "plans/progress_scope.json",
+          "artifact_sha256": "cd1dfe586190be1e759ba5579f404aae01d14b20dcf66a0248d4b467feac2f66",
+          "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-QUEUE-INTEGRATION",
@@ -2987,8 +3056,8 @@
       "acceptance": "Задача зарегистрирована в plans/progress_scope.json и в requirements-map; дубли с существующими ASAP сняты.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Процессное обязательство: ждёт финального отчёта/ревью-прохода, не проверяется одним диффом."
+      "classification": "VERIFIED",
+      "next_check": "Закрыто регистрацией в scope + reuse-планом."
     }
   ],
   "items": [
@@ -3174,8 +3243,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Счётчик LLM-вызовов на ответ не сверялся с baseline; нужен замер на одном и том же сценарии до/после.",
-      "classification": "PENDING"
+      "next_check": "Нужен замер счётчика LLM-вызовов на один ответ на одном сценарии (baseline и текущий код) — не выполнялся. Статически фаза добавляла только детерминированную пост-обработку (рендер, тире, алиасы), но это не заменяет счётчик.",
+      "classification": "NEEDS_AGENT_CHECK"
     },
     {
       "source_id": "L00019",
@@ -3241,8 +3310,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Срабатывание защитных лимитов на превышение отдельно не проверялось.",
-      "classification": "PENDING"
+      "next_check": "Наличие 23 защитных лимитов подтверждено инвентаризацией и кодом; срабатывание под тестом подтверждено для бюджета композера (`budget_excluded`) и потолков документа (блокирующая диагностика). Отдельного теста на превышение API-потолка (422), tail 8000 и полей примеров нет.",
+      "classification": "NEEDS_AGENT_CHECK"
     },
     {
       "source_id": "L00022",
@@ -3256,10 +3325,20 @@
       "acceptance": "Сохранённые пользовательские формулировки не сокращены: длина редакций не уменьшилась.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Сравнение длины сохранённых пользовательских редакций до/после не делалось.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "test",
+          "ref": "evidence/acceptance.md §3 S1/S2/S10 + §6.1",
+          "observation": "Сокращения инструкций нет: S1 — инструкция >400 симв. целиком в блоке при OFF; S2 — все 9 мягких привычек в блоке (`included == total`); S10 — потолок привычек больше не режет молча (блокирующая диагностика), `save` сохраняет `hint_limits`. Тесты: `test_s1_long_hint_is_not_truncated_when_limit_off`, `test_s2_more_than_five_soft_instructions_all_present`, `test_s10_soft_instruction_cap_no_longer_silent`, `test_save_keeps_hint_limits_when_editor_omits_field`.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        }
+      ],
+      "next_check": "Закрыто тестами полноты (S1/S2/S10) + проверкой сохранения документа.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00030",
@@ -4407,7 +4486,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Настройка в соответствующем разделе для каждого пользовательского лимита не проверена; зависит от инвентаризации.",
+      "next_check": "Нужен построчный чек-лист по 5 USER_VISIBLE лимитам (№1, 2, 6, 8, 22): раздел интерфейса + конкретное поле. Инвентаризация указывает места, UI-сверка каждого поля не делалась.",
       "classification": "NEEDS_AGENT_CHECK",
       "reconciliation_note": ""
     },
@@ -4491,8 +4570,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Массовое отключение защитных лимитов не проверялось отдельным сравнением защитных ключей до/после.",
-      "classification": "NEEDS_AGENT_CHECK",
+      "next_check": "Нужен read-only снимок защитных ключей PG до/после релиза и их сравнение. В этой полосе нет доступа к проду (SSH/PG запрещены), поэтому замер не выполнен.",
+      "classification": "WAITING_EXTERNAL",
       "reconciliation_note": ""
     },
     {
@@ -4509,7 +4588,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Отсутствие глобального редактора сотен параметров проверяется ревизией UI-навигации; не выполнялось.",
+      "next_check": "Дизайн зафиксировал отказ от глобального редактора (arch-design §3), но фактическая ревизия UI-навигации (список разделов/роутов и отсутствие страницы-редактора) не проводилась.",
       "classification": "NEEDS_AGENT_CHECK",
       "reconciliation_note": ""
     },
@@ -4527,7 +4606,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Замер бюджета запроса/защиты от перерасхода относительно baseline не выполнялся.",
+      "next_check": "Нужен замер бюджета запроса до/после на одинаковом сценарии. Тесты фиксируют семантику бюджета и видимость исключения (`budget_excluded`), но не сравнение с baseline.",
       "classification": "NEEDS_AGENT_CHECK",
       "reconciliation_note": ""
     },
@@ -6168,8 +6247,8 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "next_check": "Read-only проверка эффективного значения на трёх уровнях (factory/global/chat) не выполнялась: нужен `SELECT` style.policy для global + chat-документа тестового чата и сверка effective; только после этого строка закрывается.",
-      "classification": "NEEDS_AGENT_CHECK"
+      "next_check": "Read-only проверка эффективного значения на трёх уровнях (factory/global/chat) не выполнялась: нужен `SELECT` style.policy для global + chat-документа тестового чата и сверка effective по `migration.md` §5; только после этого строка закрывается.",
+      "classification": "WAITING_EXTERNAL"
     },
     {
       "source_id": "L00502",
@@ -6555,10 +6634,20 @@
       "acceptance": "Итоговый отчёт называет первопричину каждой из трёх проблем.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §1: первопричины трёх проблем названы по фактическому коду — P1 (заводские 400/5 при `0`, `lines.pop()` с конца, второй сборщик `[:400]`), P2 (чатовый override заменял глобальный словарь через `get_chat_param`), P3 (стартовый снапшот резолвера в DI + кэш экземпляра); ссылки на arch-design.md §1 и identity-phase.md §1.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00546",
@@ -6572,10 +6661,20 @@
       "acceptance": "Итоговый отчёт перечисляет, какие существующие механизмы исправлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §2: таблица исправленных существующих механизмов — Style Policy рендер (один владелец), save/validate документа, движок правил (kind `dash`), `AliasResolver`, `LiveAliasView`+`bind_turn_aliases`, инвалидация `chat_params`, Inspector (оба слоя), `diag aliases`, раздел UI; новые подсистемы не создавались.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00547",
@@ -6589,10 +6688,20 @@
       "acceptance": "Итоговый отчёт содержит список найденных лимитов и способ управления ими.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §3: 23 проверенных ограничения — 5 USER_VISIBLE, 8 TECHNICAL_VISIBLE, 4 HIDDEN_LOSS (все 4 исправлены), 6 NOT_RELEVANT, и способ управления по классам (раздел владельца / WARN+fatal / `budget_excluded`); источник — limits-inventory.md §1–2.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00548",
@@ -6606,10 +6715,20 @@
       "acceptance": "Итоговый отчёт объясняет разрешение глобальных и чатовых алиасов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §4: порядок chat → global → nickname → username → verified memory → uid; merge по `user_id` с наследованием, удаление чатового возвращает глобальный; слои default/global/chat и проверка effective; диагностика `diag aliases`.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00549",
@@ -6623,10 +6742,20 @@
       "acceptance": "Итоговый отчёт доказывает применение изменённого алиаса без рестарта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §5: доказательство применения без рестарта — существующая инвалидация `set_chat_params`, `bind_turn_aliases(chat_id)` в ContextVar, `LiveAliasView`, middleware `dp.update`; тесты `test_a4_global_change_applies_next_turn`, `test_a5_chat_change_applies_next_turn_without_restart`, `test_a6_after_restart_saved_aliases_apply`, `test_a12_parallel_chats_do_not_leak_overrides`, `test_s4_saved_limit_applies_next_resolve_without_restart`; граница указана честно: тесты, не живое сообщение.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00550",
@@ -6640,10 +6769,20 @@
       "acceptance": "Итоговый отчёт отделяет проверенное тестами от проверенного на production.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §6: таблица «тесты vs production» — S1–S10, A1–A16 (A16 harness), §10.1–10.10, 4 HIDDEN_LOSS, UI e2e; 62 passed на 675308b5; живые A16 live / 10.3 / 10.9 / TMA явно помечены как непроверенные.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00551",
@@ -6657,10 +6796,20 @@
       "acceptance": "Итоговый отчёт перечисляет оставшиеся ограничения и причины их сохранения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Ждёт финального отчёта по ASAP3.",
-      "classification": "PENDING"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md",
+          "observation": "final-report.md §7: 6 оставшихся ограничений с причинами — технические лимиты сохранены как защита и стали видимыми, live-эффекты, MIG-SCOPES read-only SELECT, оговорка HTML `<code>`, полный pytest вне полосы.",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        }
+      ],
+      "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
+      "classification": "VERIFIED"
     }
   ]
 }
