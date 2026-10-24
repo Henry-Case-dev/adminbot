@@ -168,8 +168,14 @@ PG_DB_SHA256_B07 = (
 # EXCEPTIONS в cfg03-аудите обнулён (3→1: остался group_category only);
 # TSV/meta переэмитированы генератором (--check OK, 582 строк). Хэш
 # переутверждён осознанно (L-F11S-1).
+# SPEECH-P0-A1 (25.10.2026, source-owner-p0-hotfix-addendum §1): Δ каталога = 0
+# по структуре (ключи/GROUPS/типы/дефолты не менялись) — изменено ТОЛЬКО
+# описание режима `prompts.verbilizer_mode_deep_research` под новую редакцию
+# (прямой ответ, детали по запросу, отчёт можно перестраивать). TSV/meta
+# переэмитированы генератором (--check OK, 582 строк). Хэш переутверждён
+# осознанно (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "7e9c254430b0a95f896bf340bf8e1a865501631650ac1c8ec5c0d0eba0607887")
+    "72911255da600365385b62698099b6c3533ec9d04457fc2178aeef2dd9eaa4b4")
 
 
 def _sha256(path: Path) -> str:

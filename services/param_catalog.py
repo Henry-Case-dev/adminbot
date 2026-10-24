@@ -670,7 +670,8 @@ _PROMPTS: list[tuple] = [
      "advanced", "mode"),
     ("prompts.verbilizer_mode_deep_research", "Режим Deep Research",
      "services.prompt_style_blocks.MODE_DEEP_RESEARCH_BLOCK", "prompts_verbilizer",
-     "Режим подачи ответа «глубокий разбор»: полный структурированный отчёт.",
+     ("Режим подачи ответа «глубокий разбор»: сначала прямой ответ, детали по "
+      "запросу; отчёт можно сжимать и перестраивать без потери фактов."),
      "advanced", "mode"),
     ("prompts.verbilizer_default_mode", "Резервный режим (Fallback)",
      "services.prompt_style_blocks.VERBILIZER_DEFAULT_MODE", "prompts_verbilizer",
