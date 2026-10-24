@@ -887,8 +887,8 @@ async def speech_owner_block(chat_id: int | None) -> str:
     except (TypeError, ValueError):
         return ""
     parts: list[str] = []
-    # SPEECH-SIMPLIFY §2: короткая базовая манера/юмор/длина/достоверность —
-    # те же тексты, что в каноне Вербализатора; один раз, без второго слоя.
+    # SPEECH-SIMPLIFY §4: функциональные writer'ы получают тот же короткий
+    # бытовой блок, но сохраняют собственный жанр; Core/Expression ниже.
     try:
         from services import prompt_style_blocks as _psb
         parts.append(_psb.speech_base_block())

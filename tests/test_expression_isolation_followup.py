@@ -147,4 +147,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     продолжения §4.1 + граница истории L2 — PREV_DIRECT_L1_PLANNER_R3 /
     PREV_CHAT_VERBALIZER_CLAR, changed = 2)."""
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
-    assert pr.FACTORY_SET_SHA256_12 == "2a5fa4d6e53e"
+    assert pr.FACTORY_SET_SHA256_12 == "84d530a1ed0b"
