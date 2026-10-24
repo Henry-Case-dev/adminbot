@@ -1,0 +1,108 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "asap-speech-arch/p0-hotfix",
+  "source": "plans/features/asap-speech-arch/source-owner-p0-hotfix-chained-2026-10-25.md",
+  "note": "Отдельный граф для карты requirements-map-p0-hotfix.json. Большая карта asap-speech-arch/requirements-map.json продолжает использовать slice-graph.json — он не изменялся.",
+  "slices": [
+    {
+      "id": "TRACE",
+      "owner_role": "PM/Auditor (read-only)",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/audit.md",
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+      ],
+      "acceptance": "audit.md/traces.md называют по каждому симптому конкретные инструкции payload с цитатой и файлом, первопричина доказана по payload, без «виновата модель»."
+    },
+    {
+      "id": "TEXTS",
+      "owner_role": "Builder",
+      "depends_on": ["TRACE"],
+      "write_scope": [
+        "services/mca_expression.py",
+        "services/prompt_registry.py",
+        "services/prompt_style_blocks.py",
+        "tests/test_speech_p0_hotfix_texts_analysis.py"
+      ],
+      "acceptance": "Пять runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL) байт-в-байт совпадают с ТЗ, OFF/OCCASIONAL не изменены, новые слои/квоты не добавлены."
+    },
+    {
+      "id": "ANALYSIS",
+      "owner_role": "Builder",
+      "depends_on": ["TRACE", "TEXTS"],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "services/direct_l1.py",
+        "services/prompt_composer.py",
+        "services/prompt_style_blocks.py",
+        "tests/test_speech_p0_hotfix_texts_analysis.py"
+      ],
+      "acceptance": "В фактическом deep/report payload ровно по одному вхождению ANALYSIS_DIRECTIVE_TEXT и ANALYSIS_WRITER_TEXT, требование «сохрани структуру» отсутствует, простой вопрос не превращается в эссе."
+    },
+    {
+      "id": "MEMORY",
+      "owner_role": "Builder",
+      "depends_on": ["TRACE"],
+      "write_scope": [
+        "services/summary_prompts.py",
+        "services/lore_prompts.py",
+        "services/summary_memory.py",
+        "services/target_marking.py",
+        "services/database.py",
+        "tests/test_speech_p0_a2_memory.py",
+        "tests/test_p0_factual_memory_prompts.py"
+      ],
+      "acceptance": "L2/lore без причинной драматургии и эпичности, current-turn не история, self-echo не доказательство, provenance-фильтр подключён существующий без второго экземпляра."
+    },
+    {
+      "id": "CORE",
+      "owner_role": "Builder",
+      "depends_on": ["TEXTS", "ANALYSIS"],
+      "write_scope": [
+        "services/prompt_registry.py",
+        "services/prompt_composer.py",
+        "services/prompt_style_blocks.py",
+        "services/mca_humor_craft.py",
+        "tests/test_speech_p0_core_serious.py"
+      ],
+      "acceptance": "Активный owner-custom Core 3294 → 1246 симв. (P2/P5/P3 сняты, P1/P4/P6 и биография сохранены), БД не перезаписана, в Core нет analysis-блока."
+    },
+    {
+      "id": "PROBES",
+      "owner_role": "Builder (probes) + Reviewer (comparability)",
+      "depends_on": ["TEXTS", "ANALYSIS", "MEMORY", "CORE"],
+      "write_scope": [
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/**",
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/probes.md"
+      ],
+      "acceptance": "Два проблемных запроса воспроизведены на сопоставимом с production входе тем же сборщиком, что в бою; old/new сравнение подтверждено сырыми ответами и метриками длины/абзацев."
+    },
+    {
+      "id": "REVIEW",
+      "owner_role": "Reviewer (read-only)",
+      "depends_on": ["TRACE", "PROBES", "TEXTS", "ANALYSIS", "MEMORY", "CORE"],
+      "write_scope": [
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md"
+      ],
+      "acceptance": "Независимый release-gate вердикт по сырым ответам и фактическому payload с цитатами; при срабатывании условия отказа исправление не принято."
+    },
+    {
+      "id": "DEPLOY",
+      "owner_role": "DevOps",
+      "depends_on": ["REVIEW"],
+      "write_scope": [
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/deploy/**"
+      ],
+      "acceptance": "Релиз выкачен штатным путём, healthz 200, версия совпадает, rollback зафиксирован, тестовые сообщения в рабочих чатах не отправлялись."
+    },
+    {
+      "id": "REPORT",
+      "owner_role": "Orchestrator/DevOps",
+      "depends_on": ["DEPLOY"],
+      "write_scope": [
+        "plans/features/asap-speech-arch/evidence/p0-hotfix/report.md"
+      ],
+      "acceptance": "Отчёт владельцу содержит что изменено, что проверено, что осталось live-наблюдением и точный план отката."
+    }
+  ]
+}
