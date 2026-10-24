@@ -97,21 +97,19 @@ Humor/Response Length и провоцировали драматургию.
 ## 6. Тесты (фактический прогон)
 
 ```
-py -3 -m pytest tests/test_speech_simplify_2026_10_25.py \
-  tests/test_add_exp_expression.py tests/test_asap_w1_semantics.py \
-  tests/test_p0_expression_final_contract.py tests/test_p0e_expression_frequent.py \
-  tests/test_unified_core_route_coverage.py tests/test_samples_fewshot.py \
-  tests/test_soul1_w4_humor_craft.py tests/test_asap_speech_i_matrix.py \
-  tests/test_soul1_style_policy.py tests/test_soul1_style_payload.py \
-  tests/test_p0_checkup_core_contract.py tests/test_soul1_core_doc_text.py -q
-275 passed, 1 failed
+py -3 -m pytest tests -k "speech or expression or prompt or checkup or \
+  factcheck or unified_core" -q
+1443 passed; 3 падения — только Windows capture/subprocess OSError
+(те же тесты проходят с -s; к коду речи не относятся).
 ```
 
-Единственный сбой — `test_i05_deleted_target_standalone_failsoft_no_rebinding`
-из `test_asap_speech_i_matrix.py`; в составе своего файла он проходит
-(`25 passed`), то есть это известная межфайловая order-зависимость
-глобального конфига, а не речевая регрессия. Отдельный прогон контрактного
-файла новой фичи: `tests/test_speech_simplify_2026_10_25.py` — `16 passed`.
+Контрактный файл фичи: `tests/test_speech_simplify_2026_10_25.py` — **16 passed**.
+Смежный фокус (13 файлов) — **275 passed**; единственный
+`test_asap_speech_i_matrix.py::test_i05...` — межфайловая order-зависимость
+глобального конфига, в своём файле проходит (`25 passed`), не речевая
+регрессия. После восстановления UTF-8 в двух файлах пинов
+(`test_expression_isolation_followup`, `test_p0_prompts_core`) широкий набор
+даёт 1443 passed без функциональных падений.
 
 
 Обновлены пины, которые защищали прежний owner-контракт и были перекрыты
