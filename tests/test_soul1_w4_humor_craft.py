@@ -104,9 +104,8 @@ def test_common_guard_is_registered_and_carries_the_criterion():
     text = pr.factory_text("humor.craft.common").casefold()
     # главный критерий (H11) — причинная связность/уместность, а не частота
     # метафор/оскорблений; юмор не растягивается на каждый ответ
-    assert "причинная связность и уместность" in text
-    assert "не частота метафор или оскорблений" in text
-    assert "не растягивай на каждый ответ" in text
+    assert "только если ситуация располагает" in text
+    assert "не растягивай шутку" in text
     # серьёзное не ломается; нет предписаний частоты
     assert "неприкосновенны" in text
     for banned in ("в каждой реплике", "обязательно обматери",

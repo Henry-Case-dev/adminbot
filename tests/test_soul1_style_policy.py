@@ -145,7 +145,7 @@ def test_validation_never_raises_on_garbage():
 
 
 def test_presets_are_combinations_not_personalities():
-    assert set(sp.PRESET_NAMES) == {"regular_chat", "no_quotes",
+    assert set(sp.PRESET_NAMES) == {"regular_chat", "no_quotes", "dvach",
                                     "no_trailing_period", "no_emoji",
                                     "casual_concise"}
     combined = doc_with("no_quotes", "no_trailing_period")

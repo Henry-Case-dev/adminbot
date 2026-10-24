@@ -1671,9 +1671,9 @@ def factory_set_fingerprint() -> str:
 #: прочитан), core.personality и core.personality.compact (абзац «Как говорить
 #: о реальных событиях» + принцип свободы речи на уровне личности; Compact —
 #: одно предложение). Метки: checkup-p0-24-10, asap-core-full-v4,
-#: asap-core-compact-v4. Было ``24ae494ac422``, стало ``071b1f3ec5f9``.
+#: asap-core-compact-v4. Было ``24ae494ac422``, стало ``288ec2ddbb6e``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "071b1f3ec5f9"
+FACTORY_SET_SHA256_12 = "288ec2ddbb6e"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

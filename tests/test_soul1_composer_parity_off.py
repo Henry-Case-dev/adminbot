@@ -392,7 +392,8 @@ async def test_tool_phase_on_equals_legacy_tail_without_new_layers():
         lessons_block=LESSONS, speech_block=SPEECH)
     legacy = "\n\n".join(p for p in (
         "КАНАЛ", CHARACTER_BLOCK, STYLE_DIRECTIVES, LESSONS, SPEECH,
-        _extent.render_extent_block(PLAN_DETAILED)) if p)
+        _extent.render_extent_block(PLAN_DETAILED),
+        psb.speech_base_block()) if p)
     assert manifest_system == legacy
     layers = [t.layer for t in manifest.layers]
     assert list(dict.fromkeys(layers)) == list(pc.LAYER_ORDER)
@@ -436,7 +437,8 @@ async def test_tool_phase_on_and_off_scrub_identically_on_longform():
     assert _extent.scrub_for_plan(scrubbed, longform)[1] == 0  # идемпотентно
     # Тот же (единственный) владелец нормализации и тот же результат на OFF-пути.
     legacy = "\n\n".join(p for p in (
-        base, CHARACTER_BLOCK, _extent.render_extent_block(longform)) if p)
+        base, CHARACTER_BLOCK, _extent.render_extent_block(longform),
+        psb.speech_base_block()) if p)
     assert _extent.scrub_for_plan(legacy, longform)[1] == removed
     assert scrubbed == _extent.scrub_for_plan(legacy, longform)[0]
     assert pc.get_manifest(12345, run_id="run-cap",
@@ -469,7 +471,8 @@ async def test_l2_on_keeps_block_set_and_applies_designed_order():
         html_safe=True, character_block=CHARACTER_BLOCK,
         style_directives=STYLE_DIRECTIVES, extent_block=extent)
     assert sorted(composed.split("\n\n")) == sorted(
-        (legacy + "\n\n" + LESSONS + "\n\n" + SPEECH).split("\n\n"))
+        (legacy + "\n\n" + LESSONS + "\n\n" + SPEECH + "\n\n"
+         + psb.speech_base_block()).split("\n\n"))
     for block in (CHARACTER_BLOCK, STYLE_DIRECTIVES, LESSONS, SPEECH, extent):
         assert composed.count(block) == 1, block
     assert composed.index(CHARACTER_BLOCK) < composed.index(extent)
@@ -500,7 +503,7 @@ async def test_l2_on_without_plan_keeps_mode_block():
     legacy = psb.compose_verbalizer_system(
         "КАНАЛ", "casual", "plain", html_safe=True,
         character_block=CHARACTER_BLOCK)
-    assert composed == legacy
+    assert composed == legacy + "\n\n" + psb.speech_base_block()
     mode_trace = [t for t in manifest.layers
                   if t.block_id == "mode_block"][0]
     assert mode_trace.rendered is True

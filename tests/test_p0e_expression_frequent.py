@@ -80,9 +80,8 @@ def test_no_budget_conflict_objects_are_produced(monkeypatch):
 def test_frequent_is_habit_of_own_speech_not_permission():
     text = ex.PROFANITY_INSTRUCTIONS["frequent"]
     low = text.casefold()
-    assert "привычная и заметная" in low
-    assert "собственной речи" in low
-    assert "всегда, а не изредка" in low
+    assert "мат - обычная часть разговорной речи" in low
+    assert "не вставляй их механически" in low
     # не «разрешение в исключительных случаях» и не мягкое допущение
     for banned in ("исключительн", "изредка допустим", "мат разрешён",
                    "мат допустим", "нецензурные выражения допустимы"):
@@ -97,12 +96,9 @@ def test_frequent_is_habit_of_own_speech_not_permission():
 def test_off_and_occasional_semantics_unchanged():
     """OFF/OCCASIONAL — прежние тексты (source §6.3 меняет только FREQUENT)."""
     assert ex.PROFANITY_INSTRUCTIONS["off"] == \
-        "Не используй мат в собственной речи."
+        "Не используй мат в собственной речи. Цитаты и исходные пользовательские данные не переписывай ради этого правила."
     assert ex.PROFANITY_INSTRUCTIONS["occasional"] == (
-        "Пиши разговорным языком с примесью мата. Нецензурные выражения "
-        "используй как обычные эмоциональные оценки и междометия, без "
-        "необходимости специально обосновывать их появление. Мат не должен "
-        "доминировать в речи.")
+        "Матерись иногда, когда это естественно вписывается в разговор. Не добавляй ругательства специально и не делай их обязательной частью каждого ответа.")
 
 
 def test_expression_is_rendered_top_of_mode_instructions():

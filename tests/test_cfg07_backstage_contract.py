@@ -385,7 +385,7 @@ def test_summary_l2_profanity_seam_closed_by_p0_priority():
         "controls": {"profanity": {"value": "off"}},
     })
     assert off_text
-    assert "Не используй мат в собственной речи." in off_text
+    assert "Не используй мат в собственной речи. Цитаты и исходные пользовательские данные не переписывай ради этого правила." in off_text
     assert "важнее общего разрешения канона" not in off_text
 
 

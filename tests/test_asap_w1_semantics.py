@@ -169,35 +169,19 @@ def test_p0bc_full_compact_semantics_kept():
 def test_p0d_expression_header_footer_and_modes_byte_exact():
     assert ex.EXPRESSION_HEADER == _fence("Новый `EXPRESSION_HEADER`")
     assert ex.EXPRESSION_FOOTER == _fence("Новый `EXPRESSION_FOOTER`")
-    # Тексты режимов §3.4: сверка по уникальным префиксам фенсов снапшота.
-    # off/occasional — побуквенно те же («не менять текст»), без изменений.
-    fences = re.findall(r"```text\n(.*?)\n```", _src_text(), re.DOTALL)
-    by_prefix = {f[:20]: f for f in fences}
-    assert ex.PROFANITY_INSTRUCTIONS["off"] == \
-        by_prefix[ex.PROFANITY_INSTRUCTIONS["off"][:20]]
-    assert ex.PROFANITY_INSTRUCTIONS["occasional"] == \
-        by_prefix[ex.PROFANITY_INSTRUCTIONS["occasional"][:20]]
-    # FREQUENT — единственная ветка, перекрытая ПОЗЖЕ: P0-E §6.3
-    # (plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md,
-    # 24.10.2026) требует, чтобы мат был привычной и заметной частью
-    # СОБСТВЕННОЙ речи, а не разрешением «в исключительных случаях».
-    # Поэтому байты §3.4 для этой ветки остаются в силе ровно как ступень
-    # лестницы PREV = прод-текст 23.10; действующий частый текст — замена
-    # владельца, а не «мягкая правка» снапшота.
-    assert ex.PREV_PROFANITY_FREQUENT_TEXT == \
-        by_prefix[ex.PREV_PROFANITY_FREQUENT_TEXT[:20]]
+    # P0 SPEECH-SIMPLIFY (25.10.2026 §2.4-2.6): все три режима заменены
+    # короткими точными текстами владельца. Байт-пин — в
+    # test_speech_simplify_2026_10_25; здесь проверяем лестницу и границы.
     assert ex.PROFANITY_INSTRUCTIONS["frequent"] != \
         ex.PREV_PROFANITY_FREQUENT_TEXT
-    # дельта ограничена одной веткой и одной формулировкой: остальные байты
-    # фенсов §3.4 уже сверены выше, байт-пин нового FREQUENT живёт в
-    # P0-E-тестах (test_samples_fewshot::test_section2_texts_are_byte_exact,
-    # test_add_exp_expression::test_owner_exact_texts_are_canon).
     assert ex.PROFANITY_INSTRUCTIONS["frequent"].startswith(
-        "Пиши живым разговорным языком, в котором мат — привычная и "
-        "заметная часть твоей собственной речи.")
+        "Матерись часто и непринуждённо, как человек, для которого мат - "
+        "обычная часть разговорной речи.")
     assert "исключительных случаях" not in \
         ex.PROFANITY_INSTRUCTIONS["frequent"]
-    assert len(by_prefix) == len(fences)  # префиксы фенсов уникальны
+    for mode in ("off", "occasional", "frequent"):
+        assert ex.PROFANITY_INSTRUCTIONS[mode].strip()
+        assert "\n" not in ex.PROFANITY_INSTRUCTIONS[mode]
     # служебные описания для разработчиков сняты (§1.4)
     assert "Выражение владельца" not in ex.EXPRESSION_HEADER
     assert "ПРАВИЛА МАНЕРЫ РЕЧИ" in ex.EXPRESSION_HEADER
@@ -489,8 +473,13 @@ def test_91_composer_parity_machine_stages_clean():
             revision="e1", mode="off"),
         gates=pc.GateState(unified_composer_enabled=True))
     manifest = pc.compose_prompt(plan)
-    assert cp.PERSONALITY_CORE_FULL_TEXT in manifest.system
-    assert "Не используй мат в собственной речи." in manifest.system
+    from services.chat_prompts import strip_core_speech_ops
+    core_kept, core_removed = strip_core_speech_ops(
+        cp.PERSONALITY_CORE_FULL_TEXT)
+    assert core_kept in manifest.system
+    assert core_removed == ("Как рождается юмор.", "Ритм.")
+    assert "живой участник неформального" in manifest.system
+    assert "Не используй мат в собственной речи. Цитаты и исходные пользовательские данные не переписывай ради этого правила." in manifest.system
 
 
 def pc_compose_machine():

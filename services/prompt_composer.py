@@ -1306,7 +1306,17 @@ def _compose(plan: PromptPlan) -> PromptManifest:
                 source=(core_ref.source if core_ref is not None else "default"),
                 skip_reason=reason, detail=core_detail))
         else:
-            core_text = str(core_ref.text)
+            raw_core_text = str(core_ref.text)
+            # P0 SPEECH-SIMPLIFY (§4): снять только оперативные речевые абзацы
+            # (техника шутки/ритм), продублированные Expression/Humor/Length.
+            # Владельческий Core в БД не перезаписывается; срез идемпотентен.
+            from services import chat_prompts as _chat_prompts
+            core_text, core_removed = _chat_prompts.strip_core_speech_ops(
+                raw_core_text)
+            if core_removed:
+                core_detail = (core_detail + "; " if core_detail else "") + (
+                    "core_speech_strip=" + ",".join(core_removed)
+                    + f"; core_chars={len(raw_core_text)}->{len(core_text)}")
             # QUOTA-REMOVAL (ADDENDUM #3 §2.7): Core — обязательный слой и
             # никакой квотой не вытесняется и не понижается. `detail_level`
             # владельца — единственный источник выбора редакции (см.
@@ -1457,7 +1467,20 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             owner="l1", source=str(plan_ref.source or "l1"),
             revision=plan_revision, rendered=True, conflict=plan_conflict))
 
-    # ── 7. expression: эмоциональная температура/резкость (soft) ───────────
+    # ── 7. expression: базовая манера речи + эмоциональная температура ──────
+    # P0 SPEECH-SIMPLIFY §2.1-2.3/§5: базовая разговорная манера, юмор, длина
+    # и достоверность — один короткий блок существующего речевого слоя. Он не
+    # зависит от режима мата (Expression ниже) и не дублирует Core.
+    speech_base_text = psb.speech_base_block() \
+        if speech and core_allowed else ""
+    if speech_base_text:
+        _append(parts, speech_base_text)
+    traces.append(_trace(
+        LAYER_EXPRESSION, block_id="speech_base", text=speech_base_text,
+        owner="core", source="code",
+        revision=(sha12(speech_base_text) if speech_base_text else ""),
+        rendered=bool(speech_base_text),
+        skip_reason="" if speech_base_text else profile_reason))
     expression = plan.expression
     expression_final = ""
     if not speech:

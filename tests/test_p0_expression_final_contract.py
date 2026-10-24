@@ -103,7 +103,7 @@ def test_off_final_contract_does_not_add_profanity():
     assert manifest.system.rstrip().endswith(final_text.rstrip())
     assert ex.count_profanity(final_text) == 0
     assert ex.PROFANITY_INSTRUCTIONS["off"] == \
-        "Не используй мат в собственной речи."
+        "Не используй мат в собственной речи. Цитаты и исходные пользовательские данные не переписывай ради этого правила."
 
 
 def test_occasional_final_contract_keeps_occasional_semantics():
@@ -112,7 +112,7 @@ def test_occasional_final_contract_keeps_occasional_semantics():
     assert manifest.system.rstrip().endswith(final_text.rstrip())
     assert final_text.count(ex.PROFANITY_INSTRUCTIONS["occasional"]) == 1
     low = ex.PROFANITY_INSTRUCTIONS["occasional"].casefold()
-    assert "не должен доминировать" in low
+    assert "не делай их обязательной частью" in low
 
 
 @pytest.mark.parametrize("mode", ALL_MODES)
@@ -127,7 +127,8 @@ def test_mode_semantics_sources_are_untouched(mode):
 
 def test_expression_trace_documents_the_tail_contract():
     manifest = pc.compose_prompt(_plan(_expression("frequent")))
-    traces = [t for t in manifest.layers if t.layer == "expression"]
+    traces = [t for t in manifest.layers
+              if t.layer == "expression" and t.block_id == "expression"]
     assert len(traces) == 1
     trace = traces[0]
     assert trace.block_id == "expression"
@@ -135,7 +136,8 @@ def test_expression_trace_documents_the_tail_contract():
     assert "final_contract=tail" in trace.detail
     assert ex.PROFANITY_INSTRUCTIONS["frequent"] in trace.text
     assert trace.revision == _expression("frequent").revision
-    # Порядок слоёв не изменился: второго `expression` в трассе нет.
-    assert [t.layer for t in manifest.layers].count("expression") == 1
+    # Порядок слоёв не изменился: блок настроек выражения один, рядом
+    # отдельный блок базовой манеры речи (`speech_base`).
+    assert [t.layer for t in manifest.layers].count("expression") == 2
     assert list(dict.fromkeys(t.layer for t in manifest.layers)) == \
         list(pc.LAYER_ORDER)
