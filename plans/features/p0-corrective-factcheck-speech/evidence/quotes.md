@@ -1,6 +1,7 @@
 # QUOTES-MODES — два детерминированных режима кавычек (ADDENDUM #3 §1)
 
-Кандидат: рабочее дерево на базе `141e1e49` (коммит этой полосы — см. `git log`).
+Кандидат (код/тесты/UI): `0315696b` — «feat(style): deterministic quote modes A/B (ADDENDUM #3 §1)».
+Этот файл доказательств привязан к нему отдельным docs-коммитом (HEAD полосы).
 Источник: `plans/features/p0-corrective-factcheck-speech/source-addendum3-2026-10-24.md` §1 (строки 13–52).
 
 ## Что сделано
