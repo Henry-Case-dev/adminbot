@@ -1,0 +1,5 @@
+﻿
+tests/test_quotes_modes.py :: 40 passed in 3.30s
+tests/test_quota_removal_composer.py :: 8 passed in 3.18s
+tests/test_asap3_acceptance.py :: 8 passed in 3.56s
+tests/test_soul1_composer_parity_off.py :: 13 passed in 3.14s
