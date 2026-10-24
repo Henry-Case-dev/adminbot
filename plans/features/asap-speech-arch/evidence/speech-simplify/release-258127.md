@@ -70,6 +70,36 @@ Windows-capture JS-падения не воспроизвелись в этом 
 - **Проверка отката:** переключение на `c635bfe9` возвращает APP_VERSION 2.58.126 и factory set `47f0d1eb8de4`; ΔDDL=0 в обе стороны — схема БД не меняется ни вперёд, ни назад.
 - Промпты: каноны speech-simplify применяются через `prompt_migrations`; на откате активны PREV/ROLLBACK-версии (`91935804` заморозил PREV-байты), кастомные значения владельца не перезаписываются.
 
-## Deploy
+## Deploy (факт)
 
-См. раздел «Deploy» ниже — заполняется по факту (deployed commit, healthz, NRestarts, журнал, FACTORY_SET, миграции).
+Сервер: `nik@198.46.175.136`, прод `/var/www/admin_bot`, unit `admin_bot`.
+Серверное время: `2026-10-24T17:41–17:48Z`.
+
+| Проверка | Факт |
+|---|---|
+| Pre-deploy HEAD | `c635bfe9` (2.58.126) |
+| Deployed commit (server-reported `git rev-parse HEAD`) | **`b2ac3fa5`** = release SHA (совпадает с одобренным кандидатом) |
+| APP_VERSION на сервере | `2.58.127` |
+| `systemctl restart admin_bot` | OK (`sudo -n`, NOPASSWD-правило для systemctl) |
+| Состояние unit | `active/running`, MainPID **1141997**, **NRestarts = 0** |
+| `/healthz` loopback `127.0.0.1:8000` | HTTP **200**, `{"status":"ok","version":"2.58.127"}` (два замера: 17:43:48Z, 17:45:23Z) |
+| Журнал нового процесса (609 строк, 17:41:45Z→) | **0** CRITICAL / **0** ERROR / **0** Traceback / `GIF send failed` **0** |
+| `War Alert` / `Slavic` / `GIF` | 2 / 0 / 0 строк в окне — без исключений (WAR=2 — штатные записи процедуры) |
+| Импорты | `services.pemsoc_reactions`, `services.mca_expression` — `IMPORTS_OK` |
+| `factory_set_fingerprint()` на проде | `f12130fbccb1` — **новый speech-набор** (было `47f0d1eb8de4` на 2.58.126), т.е. speech-каноны реально активны |
+| Core | `character.core` патч: «абзацы уже есть, авторские байты целы», `sha=ead77b2ab50` = **rev 8**; adopt не повторялся |
+| ΔDDL | **0**: `PRAGMA user_version` = **37** (как до релиза), DDL-операций в логе старта нет |
+
+### `prompt_migrations` при старте (17:42:03Z, 18 строк `[prompt_migration]`)
+
+Миграция выполнилась поштатно, кастомные значения владельца **не перезаписаны** (ровно требуемое поведение):
+
+- `INFO — уже новый канон`: `prompts.factcheck_analyst_system_prompt`, `prompts.summary_l1_clusterizer_system_prompt` и др.
+- `WARNING — кастом юзера, НЕ трогаем`: `prompts.summary_narrator_system_prompt` (1788 симв.), `prompts.summary_l2_writer_system_prompt` (8388), `prompts.factcheck_verbalizer_system_prompt` (1712) — зафиксировано, байты сохранены.
+- `INFO — core patch: абзацы уже есть, авторские байты целы`.
+
+Ограничение честно: прямые значения `prompts.*` из PostgreSQL не прочитаны (доступ к `/proc/<pid>/environ` и к `journalctl` требует пароля; NOPASSWD-правило есть только у `systemctl`). Поведение миграции подтверждено журналом по каждому ключу, включая решения «не трогать кастом».
+
+## Итог
+
+2.58.127 на проде: PEMsoc-фикс сохранён (86 passed, файлы без диффа), speech-simplify `e44a30b4` доставлен, healthz 200/2.58.127, NRestarts 0, 0 ERROR/Traceback, FACTORY_SET `f12130fbccb1`, ΔDDL=0. Откат готов: `c635bfe9` / ветка `release/fix-2.58.126`.
