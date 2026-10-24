@@ -102,8 +102,10 @@ def test_off_final_contract_does_not_add_profanity():
     final_text = ex.render_expression_final_contract("off")
     assert manifest.system.rstrip().endswith(final_text.rstrip())
     assert ex.count_profanity(final_text) == 0
-    assert ex.PROFANITY_INSTRUCTIONS["off"] == \
-        "Не используй мат в собственной речи."
+    # owner-канон 25.10.2026 §2.4: запрет мата + сохранение цитат
+    assert ex.PROFANITY_INSTRUCTIONS["off"] == (
+        "Не используй мат в собственной речи. Цитаты и исходные "
+        "пользовательские данные не переписывай ради этого правила.")
 
 
 def test_occasional_final_contract_keeps_occasional_semantics():
@@ -112,7 +114,9 @@ def test_occasional_final_contract_keeps_occasional_semantics():
     assert manifest.system.rstrip().endswith(final_text.rstrip())
     assert final_text.count(ex.PROFANITY_INSTRUCTIONS["occasional"]) == 1
     low = ex.PROFANITY_INSTRUCTIONS["occasional"].casefold()
-    assert "не должен доминировать" in low
+    # owner-канон 25.10.2026 §2.5: эпизодически, без механических вставок
+    assert "матерись иногда" in low
+    assert "не делай их обязательной частью каждого ответа" in low
 
 
 @pytest.mark.parametrize("mode", ALL_MODES)
