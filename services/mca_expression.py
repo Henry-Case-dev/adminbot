@@ -361,6 +361,33 @@ def render_expression_text(source: Any) -> str:
     return EXPRESSION_HEADER + "\n" + "\n".join(lines) + "\n" + EXPRESSION_FOOTER
 
 
+# ── P0-E v2: финальный контракт речи в самом конце system ──────────────────
+# Замер 24.10.2026 (полная боевая сборка L2-writer, 8822 симв.): блок
+# ``<Expression_Settings>`` начинается на 85.0% и заканчивается на 96.3%,
+# но последним модель читает ДРУГОЙ слой (Style_Policy_Hint, 323 симв.).
+# Поэтому тот же режим повторяется в хвосте с явной пометкой приоритета.
+# Это НЕ второй источник частоты: текст берётся из ``PROFANITY_INSTRUCTIONS``
+# (тот же объект), квот/счётчиков/постпроцессора нет (EXP-INSTR.NOPOST).
+EXPRESSION_FINAL_HEADER = (
+    "ПРАВИЛО РЕЧИ (действует поверх остальных инструкций этого сообщения):"
+)
+
+
+def render_expression_final_contract(mode: Any) -> str:
+    """Финальный контракт речи в конце system (тот же текст режима).
+
+    ``inherit``/неизвестный режим → ``""``: второго регулятора нет, владелец
+    частоты остаётся один — слой ``<Expression_Settings>``. ``off`` даёт тот
+    же запрет (мат не появляется), ``occasional``/``frequent`` — свои тексты
+    байт-в-байт из ``PROFANITY_INSTRUCTIONS``.
+    """
+    mode_n = normalize_mode(mode)
+    text = PROFANITY_INSTRUCTIONS.get(mode_n)
+    if not text:
+        return ""
+    return EXPRESSION_FINAL_HEADER + "\n" + text
+
+
 def sha12(text: str) -> str:
     """12-hex sha256 (та же ревизия, что у композера/реестра)."""
     return hashlib.sha256(str(text or "").encode("utf-8")).hexdigest()[:12]
@@ -696,10 +723,12 @@ __all__ = [
     "PROFANITY_INSTRUCTIONS", "PREV_PROFANITY_FREQUENT_TEXT",
     "EXPRESSION_TEXT_REVISION", "EXPRESSION_TEXT_LADDER", "EXPRESSION_HEADER",
     "EXPRESSION_FOOTER", "BANNED_SOLE_RULE_PHRASES", "EXPRESSION_DIAG_CLASSES",
+    "EXPRESSION_FINAL_HEADER",
     "MODEL_IGNORE_PROBES", "PROFANITY_ROOTS",
     "normalize_mode", "normalize_expression", "resolve_effective",
     "expression_migration", "effective_source", "effective_mode",
-    "render_expression_text", "build_expression_settings",
+    "render_expression_text", "render_expression_final_contract",
+    "build_expression_settings",
     "expression_text_ladder", "rollback_profanity_frequent_text",
     "render_expression_examples_block", "build_expression_examples_refs",
     "emit_expression_diag", "reset_diag_dedup", "classify_expression_response",
