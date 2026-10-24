@@ -13,7 +13,7 @@ from services.mimic_transform import mimic_transform, count_words
 # Раунд 10 (F-9 B2): плагин-гейт 5 персон-триггеров (замену фильтра
 # НЕ делаем — PermsocGateFilter первым, UserIdFilter остаётся вторым).
 from services.permsoc import PermsocBlockGate, PermsocGateFilter
-from services.pemsoc_reactions import claim_reaction
+from services.pemsoc_reactions import claim_reaction, release_claim
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +168,13 @@ async def kucha_handler(message: types.Message, data: dict | None = None):
     # второй ответ не отправляем.
     if not claim_reaction(message, source="kucha"):
         return None
-    await message.reply("ДАЛБАЕБ")
+    try:
+        await message.reply("ДАЛБАЕБ")
+    except Exception:
+        logger.exception("kucha: failed to send reply | msg_id=%d",
+                         message.message_id)
+        release_claim(message)
+        return UNHANDLED
     return None
 
 
