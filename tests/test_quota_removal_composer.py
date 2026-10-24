@@ -113,3 +113,23 @@ def test_render_has_no_local_expression_example_quota():
     assert block.dropped == 0 and block.limited_by == ""
     assert block.count(" -> ") == 12
     assert block.endswith("</Expression_Examples>")
+
+
+def test_owner_expression_note_is_not_truncated():
+    """A7 (REV-QUOTA-QUOTES F1): «Пожелание владельца» доходит целиком.
+
+    ADDENDUM #3 §2.2/§2.10: пожелание — управляющая инструкция, потолка
+    2000 символов нет; хвост виден и в `<Expression_Settings>`.
+    """
+    from services import mca_expression as ex
+
+    note = ("СТАРТ_ПОЖЕЛАНИЯ: пиши живо, без канцелярита и воды. " * 60
+            + "ХВОСТ_МАРКЕР")
+    assert len(note) > 2000
+    doc = {"profanity": "occasional", "note": note}
+    assert ex.normalize_expression(doc)["note"] == note
+    assert ex.resolve_effective(doc, None)["note"] == note
+    text = ex.build_expression_settings(doc, None).text
+    assert text.startswith("<Expression_Settings>")
+    assert note in text, "пожелание обрезано до вставки в слой"
+    assert "ХВОСТ_МАРКЕР" in text

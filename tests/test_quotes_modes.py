@@ -9,6 +9,8 @@ TEST-LIFECYCLE: CONTRACT owner=QUOTES-MODES/A-B
 """
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -272,3 +274,90 @@ def test_document_keeps_single_quotes_rule_after_ui_toggle_shape():
     assert "rule_kind_unknown" not in json.dumps(issues)
     out, _rows, _policy = run("«x»", None, payload)
     assert out == "x"
+
+
+# ??? UI: ?????? ???? ???????? = ???? ??????? (REV F2) ?????????????????????
+
+APP_JS = ROOT / "web" / "app.js"
+NODE = shutil.which("node")
+
+
+def _fn(src, start_marker, end_marker):
+    start = src.index(start_marker)
+    end = src.index(end_marker, start)
+    return src[start:end].rstrip().rstrip(",")
+
+
+@pytest.mark.skipif(NODE is None, reason="node ??????????")
+def test_ui_preset_no_quotes_leaves_exactly_one_quotes_rule(tmp_path):
+    """F2: ?+ ??? ???????? ???????? ??????? ???????, ? ?? ????????? ??????.
+
+    ???????? ?????: ? ????????? ??? ???? ????????? A (normalize); ?????
+    ??????? ? ????????? ????? ???? ?????????? ??????? ??????? (B=strip),
+    ???????? ?????????? B, ????????? ???? ?? ????????? ???? ??????.
+    """
+    src = APP_JS.read_text(encoding="utf-8")
+    parts = [
+        _fn(src, "ensureStyleDraft: function", "speechStyleOwnLimits: function"),
+        _fn(src, "speechStyleViewRules: function", "speechStyleViewSoft: function"),
+        _fn(src, "speechQuotesRules: function", "setStyleQuotesMode: function"),
+        _fn(src, "addStylePreset: function", "addSoftInstruction: function"),
+    ]
+    presets = json.dumps({"no_quotes": {"rules": sp.preset_rules("no_quotes"),
+                                        "soft_instructions": []}},
+                         ensure_ascii=False)
+    factory = json.dumps([
+        {"id": "dash.hard.factory", "kind": "dash", "strictness": "hard",
+         "enabled": True, "params": {}, "reason": "r"},
+        {"id": sp.QUOTES_FACTORY_ID, "kind": "quotation_marks",
+         "strictness": "hard", "enabled": True,
+         "params": {"mode": "normalize"}, "reason": "r"},
+    ], ensure_ascii=False)
+    script = (
+        "var obj = {\n" + ",\n".join(parts) + "\n};\n"
+        "var presets = JSON.parse(" + json.dumps(presets) + ");\n"
+        "var factory = JSON.parse(" + json.dumps(factory) + ");\n"
+        "function ctx(rules) {\n"
+        "  return { speechStyleDraft: {rules: rules, soft_instructions: [],"
+        " hint_limits: {}},\n"
+        "    speechStyle: {preset_documents: presets}, speechDirty: {},\n"
+        "    toasts: [], toast: function (m) { this.toasts.push(m); },\n"
+        "    clearSpeechSaved: function () {},\n"
+        "    ensureStyleDraft: obj.ensureStyleDraft,\n"
+        "    speechStyleViewRules: obj.speechStyleViewRules,\n"
+        "    speechQuotesRules: obj.speechQuotesRules,\n"
+        "    speechQuotesMode: obj.speechQuotesMode,\n"
+        "    addStylePreset: obj.addStylePreset };\n"
+        "}\n"
+        "function quotes(c) { return c.speechQuotesRules(); }\n"
+        "var a = ctx(JSON.parse(JSON.stringify(factory)));\n"
+        "a.addStylePreset('no_quotes');\n"
+        "var first = {rules: a.speechStyleDraft.rules,"
+        " quotes: quotes(a), mode: a.speechQuotesMode()};\n"
+        "a.addStylePreset('no_quotes');\n"
+        "var again = {quotes: quotes(a), mode: a.speechQuotesMode(),"
+        " all: a.speechStyleDraft.rules};\n"
+        "var b = ctx([]);\n"
+        "b.addStylePreset('no_quotes');\n"
+        "var empty = {quotes: quotes(b), mode: b.speechQuotesMode()};\n"
+        "console.log(JSON.stringify({first: first, again: again,"
+        " empty: empty}));\n"
+    )
+    proc = subprocess.run([NODE, "-e", script], capture_output=True,
+                          text=True, timeout=60, cwd=str(tmp_path))
+    assert proc.returncode == 0, proc.stderr
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    first = out["first"]
+    assert len(first["quotes"]) == 1, first["rules"]
+    assert first["quotes"][0]["params"]["mode"] == "strip"
+    assert first["quotes"][0]["enabled"] is True
+    assert first["mode"] == "strip", "UI ?????? ???????? B, ? ?? A"
+    # ?????? ??????? ????????? ?? ??????????
+    assert [r["id"] for r in first["rules"] if r["kind"] != "quotation_marks"] \
+        == ["dash.hard.factory"]
+    # ????????? ???? ??? ?? ???????? ?? ???????? ?????????
+    assert len(out["again"]["quotes"]) == 1, out["again"]
+    assert out["again"]["mode"] == "strip"
+    assert len(out["empty"]["quotes"]) == 1
+    assert out["empty"]["mode"] == "strip"
