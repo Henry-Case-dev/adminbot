@@ -1519,9 +1519,9 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         any(tag in str(plan.writer or "").lower()
             for tag in ("factcheck", "summary", "checkup", "search", "youtube",
                         "web"))
-        or any(tag in _base_l
-               for tag in ("фактчек", "factcheck", "сводк", "summary",
-                           "checkup", "поиск", "search")))
+        or any(marker in _base_l
+               for marker in ("фактчекер", "betterstack", "сводк", "checkup",
+                              "summary")))
     speech_base_text = (psb.speech_base_block()
                         if profile in ("speech_plain", "speech_rich")
                         and not _functional_writer else "")
