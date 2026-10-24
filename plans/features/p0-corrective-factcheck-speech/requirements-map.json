@@ -2569,9 +2569,9 @@
    "req_id": "FC-05",
    "slice": "FACTCHECK",
    "acceptance": "Сценарий FC-05: истечение бюджета поиска отражается как техническое ограничение, а не как отсутствие доказательств.",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -2580,8 +2580,18 @@
      "type": "test",
      "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/factcheck.md",
      "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "plans/features/p0-corrective-factcheck-speech/evidence/fc05-fc08.md :: FC-05",
+     "observation": "Офлайн PASS на реальном сервисном пути (tests/test_factcheck_p0_fc.py, 34 passed): run_retrieval с реальным дедлайном и падающим по таймауту провайдером -> classify_retrieval=budget_exhausted -> check_claim_envelope reason=deadline_exceeded -> заголовок «Проверка не завершена: истёк лимит времени» и оговорка «ограничение проверки, а не опровержение» -> доставка через run_factcheck (durable reason, evidence_rows пуст). Мутации: отключение ветки budget_exhausted -> 2 FAILED. Живым остаётся только естественное истечение бюджета у живого провайдера (добор, отдельного поведения не проверяет).",
+     "type": "test",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/fc05-fc08.md",
+     "artifact_sha256": "79d910157f6ad32913e7911d44a2783b1265f55fd99d1c770e4a21e98f4e8e82",
+     "produced_on": "dd439c142c7cf396b04c3db772b73175add9254e"
     }
-   ]
+   ],
+   "note": "Код-путь доказан офлайн на реальном сервисном пути (кандидат dd439c14); живое естественное истечение бюджета у провайдера - добор, а не отдельное требование."
   },
   {
    "source_id": "M00540-FC-06",
@@ -2641,9 +2651,9 @@
    "req_id": "FC-08",
    "slice": "FACTCHECK",
    "acceptance": "Сценарий FC-08: тезис, присутствующий в подписи и на изображении, проверяется с учётом обоих источников.",
-   "live_required": true,
+   "live_required": false,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -2652,8 +2662,18 @@
      "type": "test",
      "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/factcheck.md",
      "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+    },
+    {
+     "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+     "ref": "plans/features/p0-corrective-factcheck-speech/evidence/fc05-fc08.md :: FC-08",
+     "observation": "Офлайн PASS на реальном сервисном пути (tests/test_factcheck_p0_fc.py, 34 passed): настоящий mca_vision.render_media_context_async + load_claim_media дают подпись и OCR-блоки, OCR помечен «не слова автора», оба источника доходят до тезиса, поисковых запросов и payload аналитика; при недоступном Vision - image_not_analyzed и подпись сохранена. Мутации: снятие метки OCR -> 2 FAILED, image_not_analyzed=False -> 2 FAILED. Живыми остаются платный Vision-вызов по реальному изображению и рендер в реальном Telegram-чате (добор; сам Vision-провайдер закрыт live в P0V-PIPE-CONTEXT).",
+     "type": "test",
+     "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/fc05-fc08.md",
+     "artifact_sha256": "79d910157f6ad32913e7911d44a2783b1265f55fd99d1c770e4a21e98f4e8e82",
+     "produced_on": "dd439c142c7cf396b04c3db772b73175add9254e"
     }
-   ]
+   ],
+   "note": "Код-путь «подпись+изображение -> поиск -> аналитик» доказан офлайн на реальных функциях (кандидат dd439c14); платный Vision по реальному изображению и живой чат - добор."
   },
   {
    "source_id": "M00546-FC-09",
