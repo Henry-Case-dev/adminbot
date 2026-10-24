@@ -425,6 +425,7 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
                              actor=None, reason: str = "",
                              chat_id: int | None = None,
                              expected_updated_at: str | None = None,
+                             set_level: bool = True,
                              pg=None, get_root=None, set_root=None) -> dict:
     """Записать речевое значение через API реестра (правка владельца).
 
@@ -436,7 +437,9 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
 
     ``chat_id`` задан → per-chat override (наследование глобала сохраняется);
     иначе — глобальный ключ блока. ``expected_updated_at`` — существующий
-    optimistic-токен (``FactoryConflict`` при чужой правке).
+    optimistic-токен (``FactoryConflict`` при чужой правке). ``set_level``
+    False — правка поля документа не меняет выбор владельца ``detail_level``
+    (нужно owner-preserving миграции активной редакции Core).
     """
     from services import chat_params
     spec = pr.block(block_id)
@@ -487,7 +490,8 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
     entry, persisted = await _mark_provenance(
         cache, block_id, pg_key=spec.pg_key, value=value, kind="owner_edit",
         actor=actor, reason=reason or "owner_edit", scope="global")
-    await _store_spec_value(spec, value, cache, document=document)
+    await _store_spec_value(spec, value, cache, document=document,
+                            set_level=set_level)
     marker = pr.legacy_persona_present(value)
     if marker:
         logger.warning("[prompt_factory] owner edit несёт маркер старой "

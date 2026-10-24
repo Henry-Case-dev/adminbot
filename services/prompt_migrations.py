@@ -590,6 +590,102 @@ def owner_preserve_core_full_patch(text: str) -> tuple[str, list[str]]:
         return str(text or ""), []
 
 
+#: Ключ отчёта/лога шага Core-патча (значение — маркер, не текст канона).
+CORE_PATCH_REPORT_KEY = "character.core"
+CORE_PATCH_APPLIED = "core_patched"
+
+
+def _core_change_log_labels(changes: list[str]) -> tuple[list[str], int]:
+    """R17-safe метки изменений: ``added: <заголовок>`` → заголовок, прочее —
+    счётчик удалённых служебных фрагментов (их текст в лог не попадает)."""
+    added: list[str] = []
+    removed = 0
+    for change in changes:
+        if change.startswith("added: "):
+            added.append(change[len("added: "):])
+        else:
+            removed += 1
+    return added, removed
+
+
+async def migrate_core_owner_patch(cache) -> dict[str, str]:
+    """Штатная миграция активной авторской редакции Full Core (B1-фикс).
+
+    Делегирует решение ``owner_preserve_core_full_patch`` (единственный
+    owner-preserving патч): он добавляет недостающие абзацы владельца
+    («Как говорить о реальных событиях», «Свобода речи») и НЕ переписывает
+    авторские байты. Здесь только безопасная проводка в старт:
+
+    * читается ГЛОБАЛЬНЫЙ документ ``character.core`` (per-chat overrides не
+      трогаются — как и в остальных миграциях канонов);
+    * пустой ``full_text`` / документа нет → действует заводская редакция
+      (в ней оба абзаца уже есть) → no-op;
+    * байты прежних заводских v1/v2 → no-op: их ведёт superseded-гвард
+      ``prompt_registry.core_selection`` (патч их не переписывает);
+    * запись — только когда патч реально что-то добавил, через штатный
+      ``write_speech_value`` (журнал провенанса + history), с
+      ``set_level=False``: выбор владельца ``detail_level`` не меняется;
+    * идемпотентно: повторный прогон видит смысл и возвращает пустой отчёт;
+    * откат: добавленные абзацы остаются в истории ревизий
+      (``character.prompt_history``), поэтому прежняя редакция восстановима;
+      автоматическое вырезание авторского текста не выполняется намеренно.
+
+    Возвращает ``{"character.core": "core_patched"}`` при вставке, иначе ``{}``.
+    Никогда не бросает: сбой шага не отменяет миграцию канонов.
+    """
+    report: dict[str, str] = {}
+    try:
+        if cache is None or not getattr(cache, "pg_available", False):
+            logger.info("[prompt_migration] core patch skip: PG недоступен")
+            return report
+        from services import prompt_registry as pr
+        from services.prompt_factory import _doc_from_raw, write_speech_value
+
+        raw = cache.get(pr.CORE_DOC_KEY, None)
+        if raw is None:
+            logger.info("[prompt_migration] core patch: документа владельца "
+                        "нет — действует заводская редакция | key=%s",
+                        pr.CORE_DOC_KEY)
+            return report
+        document = _doc_from_raw(raw)
+        source = pr.doc_field_text(document, "full_text")
+        if not source.strip():
+            logger.info("[prompt_migration] core patch: полной редакции "
+                        "владельца нет | key=%s", pr.CORE_DOC_KEY)
+            return report
+        patched, changes = owner_preserve_core_full_patch(source)
+        if _CORE_SUPERSEDED_NOTE in changes:
+            logger.info("[prompt_migration] core patch: прежняя заводская "
+                        "редакция — ведёт superseded-гвард | key=%s | sha=%s",
+                        pr.CORE_DOC_KEY, pr.sha12(source))
+            return report
+        if not changes:
+            logger.info("[prompt_migration] core patch: абзацы уже есть, "
+                        "авторские байты целы | key=%s | sha=%s",
+                        pr.CORE_DOC_KEY, pr.sha12(source))
+            return report
+        result = await write_speech_value(
+            pr.CORE_FULL_BLOCK_ID, patched, cache=cache,
+            reason="core_patch_migration", set_level=False)
+        if not result.get("applied"):
+            logger.warning("[prompt_migration] core patch: запись отклонена | "
+                           "key=%s | reason=%s", pr.CORE_DOC_KEY,
+                           result.get("reason", ""))
+            return report
+        added, removed = _core_change_log_labels(changes)
+        report[CORE_PATCH_REPORT_KEY] = CORE_PATCH_APPLIED
+        logger.info("[prompt_migration] core patch: добавлены абзацы | key=%s "
+                    "| added=%s | removed=%d | chars=%d->%d | sha=%s->%s",
+                    pr.CORE_DOC_KEY, ",".join(added) or "-", removed,
+                    len(source), len(patched), pr.sha12(source),
+                    pr.sha12(patched))
+        return report
+    except Exception:      # pragma: no cover — патч не роняет старт
+        logger.warning("[prompt_migration] core owner patch failed",
+                       exc_info=True)
+        return report
+
+
 async def _attest_migrated_canon(cache, key: str, value: str) -> None:
     """P0-PROMPTS (24.10.2026): записать канон через провенанс реестра.
 
@@ -621,7 +717,13 @@ async def migrate_prompt_canons(cache) -> dict[str, str]:
     """Авто-миграция канонов промптов (раунд 5): канон → новый канон;
     кастом юзера НЕ трогаем; PG down / ключ отсутствует → skip с логом
     [prompt_migration]. Возврат: dict обновлённых ключей (пусто — ничего
-    не обновлено). Вызывается из bot.py main() сразу после cache.init()."""
+    не обновлено). Вызывается из bot.py main() сразу после cache.init().
+
+    B1 (24.10.2026): после ступеней канонов тем же стартом выполняется
+    owner-preserving патч активной авторской редакции Full Core
+    (``migrate_core_owner_patch``) — иначе новые абзацы владельца не доезжали
+    до действующей редакции в PG.
+    """
     report: dict[str, str] = {}
     if cache is None or not getattr(cache, "pg_available", False):
         logger.info("[prompt_migration] skip: PG недоступен")
@@ -655,6 +757,9 @@ async def migrate_prompt_canons(cache) -> dict[str, str]:
         await _attest_migrated_canon(cache, key, new)
         report[key] = "updated"
         logger.info("[prompt_migration] канон обновлён | key=%s", key)
+    # B1 (24.10.2026): активная авторская редакция Full Core получает новые
+    # абзацы владельца тем же стартом (owner-preserving патч, идемпотентно).
+    report.update(await migrate_core_owner_patch(cache))
     return report
 
 
