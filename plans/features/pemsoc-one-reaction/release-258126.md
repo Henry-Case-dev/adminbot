@@ -36,17 +36,25 @@
 | FACTORY_SET | `47f0d1eb8de4` — без изменений (Core/prompt factory не тронуты) |
 | Core rev | 8 (без изменений) |
 
-## Деплой (обновляется после выката)
+## Деплой (выполнен)
+
+Сервер: `nik@198.46.175.136`, каталог `/var/www/admin_bot`, unit `admin_bot`.
 
 | Параметр | Значение |
 |---|---|
-| Deployed commit | _pending_ |
-| `systemctl restart admin_bot` | _pending_ |
-| PID / NRestarts | _pending_ |
-| `/healthz` loopback | _pending_ (ожидается 200 / `2.58.126`) |
-| Журнал окна (новый PID) | _pending_ (ожидается 0 CRITICAL/ERROR/Traceback, `GIF send failed` 0) |
-| Postdeploy: adopt / ΔDDL / `pemsoc_reactions` | _pending_ |
-| Логи `War Alert` / `Slavic Photo` / `GIF` | _pending_ |
+| Deployed commit | `c635bfe9` (сервер сообщает `HEAD=c635bfe9`, `APP_VERSION = "2.58.126"`) |
+| `systemctl restart admin_bot` | OK, `sudo -n` (пароль не запрашивался) |
+| Состояние unit | `active/running`, MainPID `1139378`, **NRestarts = 0** |
+| `/healthz` loopback (`127.0.0.1:8000`) | `{"status":"ok","version":"2.58.126"}` — новая версия отдаётся самим процессом |
+| Журнал нового PID (15 мин, 185 строк) | **0** CRITICAL/ERROR/Traceback |
+| Окно 60 мин | 0 CRITICAL/ERROR/Traceback, `GIF send failed` **0** |
+| FACTORY_SET (на сервере, venv) | `47f0d1eb8de4` — **не изменился** |
+| `services.pemsoc_reactions` | импортируется, `claim` присутствует |
+| Core rev 8 / adopt | adopt в окне **0** (не повторялся); фабрика/Core не менялись (в диффе нет prompt/файлов фабрики) |
+| ΔDDL | **0**: в bump-диффе нет schema-строк; `PRAGMA user_version` на проде = 37 (значение не менялось) |
+| Логи `War Alert` / `Slavic` / `GIF` | 8 / 4 / 1 строк, исключений нет (ERR=0) |
+
+Рабочие чаты не задействованы: тестовых сообщений/реакций не отправлялось.
 
 ## Откат
 
