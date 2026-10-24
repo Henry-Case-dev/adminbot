@@ -20656,10 +20656,21 @@
           this.toast('Шаблон недоступен: обновите данные', 'warn');
           return;
         }
+        var presetRules = preset.rules || [];
+        // Кавычки — одна настройка = одно правило: пресет заменяет прежнее
+        // правило кавычек, а не добавляет конкурирующее второе (F2).
+        var quotesPreset = presetRules.some(function (rule) {
+          return rule && rule.kind === 'quotation_marks';
+        });
+        if (quotesPreset) {
+          draft.rules = (draft.rules || []).filter(function (r) {
+            return !r || r.kind !== 'quotation_marks';
+          });
+        }
         var existing = {};
         for (var r = 0; r < draft.rules.length; r++) existing[draft.rules[r].id] = true;
         var added = 0;
-        (preset.rules || []).forEach(function (rule) {
+        presetRules.forEach(function (rule) {
           if (existing[rule.id]) return;
           draft.rules.push(JSON.parse(JSON.stringify(rule)));
           added += 1;

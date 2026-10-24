@@ -245,7 +245,10 @@ def normalize_expression(raw: Any) -> dict:
         value = str(doc.get(key) or "inherit").strip().lower()
         value = EXPRESSION_ALIASES.get(value, value)
         out[key] = value if value in allowed else "inherit"
-    out["note"] = str(doc.get("note") or "")[:2000]
+    # ADDENDUM #3 §2.2/§2.10: «Пожелание владельца» — управляющая
+    # инструкция, потолочной обрезки нет. Длину ограничивает только реальное
+    # окно модели (`model_capacity`), не локальная квота.
+    out["note"] = str(doc.get("note") or "")
     return out
 
 
