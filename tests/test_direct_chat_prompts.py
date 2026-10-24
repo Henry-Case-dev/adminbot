@@ -31,7 +31,10 @@ from services.chat_prompts import (
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
 )
-from services.prompt_style_blocks import STYLE_BLOCKS_SUFFIX
+from services.prompt_style_blocks import (
+    PREV_SPEECH_STYLE_SUFFIX,
+    STYLE_BLOCKS_SUFFIX,
+)
 from services.target_marking import TARGET_INSTRUCTION_BLOCK
 from services.smartmodule_phrases import (
     CHAT_COOLDOWN_PHRASES,
@@ -299,7 +302,7 @@ _CHAT_TOOL_PHASE_ROLE_W1 = """НАЗНАЧЕНИЕ КАНАЛА DIRECT
 _PREV_CHAT_W1_SYSTEM_PROMPT_REFERENCE = (
     _CHAT_R1021_BASE_CORRECTIVE.replace(_MCA23_CAP_BLOCK_OLD,
                                         _MCA23_LIMIT_BLOCK_NEW)
-    + "\n\n" + TARGET_INSTRUCTION_BLOCK + STYLE_BLOCKS_SUFFIX)
+    + "\n\n" + TARGET_INSTRUCTION_BLOCK + PREV_SPEECH_STYLE_SUFFIX)
 
 # Эталон активного канона W1: §3.6 вместо роли/приоритетов/стиля, без A/B.
 _EXPECTED_CHAT_SYSTEM_PROMPT = (
@@ -314,7 +317,7 @@ _EXPECTED_CHAT_SYSTEM_PROMPT = (
 # — байт-в-байт, для авто-миграции PG.
 _PREV_CHAT_MCA23_SYSTEM_PROMPT_REFERENCE = (
     _CHAT_SYSTEM_PROMPT_REFERENCE
-    + "\n\n" + TARGET_INSTRUCTION_BLOCK + STYLE_BLOCKS_SUFFIX)
+    + "\n\n" + TARGET_INSTRUCTION_BLOCK + PREV_SPEECH_STYLE_SUFFIX)
 
 # Прежний эталон активного канона (CFG-07A-2 + FIX-CORRECTIVE-FOLLOWUP, до
 # W1: база без мат-строки + extent-блок + маркировка + блоки A/B) — теперь

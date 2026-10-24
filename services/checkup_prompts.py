@@ -151,7 +151,7 @@ PREV_R1022_CHECKUP_SYSTEM_PROMPT = (
 # Слепок прод-канона 10.21-2.58.100 (непосредственный прежний) — ступень
 # миграции CFG-07A и цель отката (ADR-1013-3).
 PREV_CHECKUP_CFG07A_SYSTEM_PROMPT = (
-    _CHECKUP_R1021_BASE_FROZEN + PREV_STYLE_BLOCKS_SUFFIX
+    _CHECKUP_R1021_BASE_FROZEN + PREV_SPEECH_STYLE_SUFFIX
 )
 
 # R42-2: скрытая приписка в system-контекст при фолбеке (добавляется В КОНЕЦ

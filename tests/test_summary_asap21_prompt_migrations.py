@@ -153,7 +153,7 @@ def test_prev_snapshots_byte_exact():
     assert sp.PREV_SUMMARY_NARRATOR_R1028 == (
         sp._SUMMARY_NARRATOR_R1023_BASE + "\n\n" + sp.PREV_TYPOGRAPHY_BLOCK)
     assert sp.PREV_SUMMARY_SYSTEM_R1028 == (
-        sp._SUMMARY_R1021_BASE + sp.STYLE_BLOCKS_SUFFIX
+        sp._SUMMARY_R1021_BASE + sp.PREV_SPEECH_STYLE_SUFFIX
         + "\n\n" + sp.BOT_KNOWLEDGE_INSTRUCTION)
 
 

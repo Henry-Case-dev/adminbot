@@ -29,6 +29,7 @@ from services.prompt_style_blocks import (
     BOT_KNOWLEDGE_INSTRUCTION,
     BOT_KNOWLEDGE_INSTRUCTION_NEUTRAL,
     LEGACY_BOT_KNOWLEDGE_INSTRUCTION,
+    PREV_SPEECH_STYLE_SUFFIX,
     PREV_STYLE_BLOCKS_SUFFIX,
     PREV_TYPOGRAPHY_BLOCK,
     STYLE_BLOCKS_SUFFIX,
@@ -135,7 +136,7 @@ _SUMMARY_R1028_BASE = """СИСТЕМНАЯ РОЛЬ:
 # R1027→R1028 и документированный ROLLBACK (ADR-1013-3/контракт (g)).
 # CFG-07A-2: байты НЕ меняются — слепок обязан узнавать прежний прод-канон.
 PREV_SUMMARY_SYSTEM_R1028 = (
-    _SUMMARY_R1021_BASE + STYLE_BLOCKS_SUFFIX
+    _SUMMARY_R1021_BASE + PREV_SPEECH_STYLE_SUFFIX
     + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
 )
 
@@ -153,7 +154,7 @@ SYSTEM_PROMPT = (
 # база R1028 + актуальные блоки A/B + прежний R46-4.
 PREV_SUMMARY_CFG07A_SYSTEM_PROMPT = (
     _SUMMARY_R1028_BASE_FROZEN
-    + STYLE_BLOCKS_SUFFIX
+    + PREV_SPEECH_STYLE_SUFFIX
     + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
 )
 
@@ -284,7 +285,7 @@ _SUMMARY_NARRATOR_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 4. Не добавляй финальную приписку про шиза — её добавит код.
 
 ОГРАНИЧЕНИЕ: длина текста не более {max_symbols} символов.
-""" + STYLE_BLOCKS_SUFFIX
+""" + PREV_SPEECH_STYLE_SUFFIX
 
 # Слепок прод-канона Рассказчика ДО правки раунда 10.23 (байт-в-байт) — для
 # идемпотентной канон-миграции/отката (ADR-1013-3).
@@ -303,7 +304,7 @@ _SUMMARY_NARRATOR_R1028_BASE = """СИСТЕМНАЯ РОЛЬ:
 4. Финальная шутка «главным шизом объявляется <имя>» — твоё творческое решение: оцени участников по смыслу (самый абсурдный эпизод, самая странная история) и заверши такой строкой, если она уместна; имя — дословно из выжимки, без @. Можешь и не завершать.
 
 ОГРАНИЧЕНИЕ: длина текста не более {max_symbols} символов.
-""" + STYLE_BLOCKS_SUFFIX
+""" + PREV_SPEECH_STYLE_SUFFIX
 
 # FIX-CORRECTIVE-FOLLOWUP: композиция на PREV_TYPOGRAPHY_BLOCK — прод-байты
 # содержали прежний блок типографики; ступень R1028 узнаёт именно их.

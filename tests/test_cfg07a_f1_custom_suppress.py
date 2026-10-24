@@ -39,6 +39,10 @@ from services import search_prompts as sp
 from services import summary_prompts as sm
 from services import web_prompts as wp
 from services import youtube_prompts as yt
+from services.prompt_style_blocks import (
+    PREV_SPEECH_STYLE_SUFFIX,
+    STYLE_BLOCKS_SUFFIX,
+)
 
 ACTIVE_CANONS: dict[str, str] = {
     "search": sp.SEARCH_SYSTEM_PROMPT,
@@ -272,6 +276,10 @@ def test_known_canon_suppress_still_byte_equal_active(name):
     assert info.applied and info.removed > 0, name
     assert "Разрешен мат" not in stripped, name
     assert "Разрешен мат" not in ACTIVE_CANONS[name], name
+    # SPEECH-SIMPLIFY 25.10: активный канон получил новый блок «АСИММЕТРИЯ»
+    # (без обязательного ритма/метафоры). PREV-канон обязан остаться прежним,
+    # поэтому сравниваем после нормализации суффикса — остальные байты равны.
+    stripped = stripped.replace(PREV_SPEECH_STYLE_SUFFIX, STYLE_BLOCKS_SUFFIX)
     assert stripped == ACTIVE_CANONS[name], name
 
 

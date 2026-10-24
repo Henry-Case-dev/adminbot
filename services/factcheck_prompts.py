@@ -28,6 +28,7 @@ Placeholder: {max_symbols} ×1 (runtime), подстановка ТОЛЬКО ч
 from services.prompt_style_blocks import (
     BOT_KNOWLEDGE_INSTRUCTION,
     LEGACY_BOT_KNOWLEDGE_INSTRUCTION,
+    PREV_SPEECH_STYLE_SUFFIX,
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
     TYPOGRAPHY_BLOCK,
@@ -213,7 +214,7 @@ PREV_FACTCHECK_UNIFIED_CORE_SYSTEM_PROMPT = (
 PREV_FACTCHECK_UNIFIED_CORE_AB_SYSTEM_PROMPT = (
     _FACTCHECK_R1021_BASE_FROZEN
     + "\n\n" + _COVE_BLOCK
-    + STYLE_BLOCKS_SUFFIX
+    + PREV_SPEECH_STYLE_SUFFIX
     + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
 )
 
@@ -333,7 +334,7 @@ _FACTCHECK_VERBALIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 4. Соблюдай лимит длины ниже.
 
 ОБЪЕМ: не более {max_symbols} символов.
-""" + STYLE_BLOCKS_SUFFIX + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
+""" + PREV_SPEECH_STYLE_SUFFIX + "\n\n" + BOT_KNOWLEDGE_INSTRUCTION
 
 # Слепок прод-канона Вербализатора ДО правки раунда 10.23 — для канон-миграции.
 PREV_FACTCHECK_VERBALIZER_R1023 = _FACTCHECK_VERBALIZER_R1023_BASE

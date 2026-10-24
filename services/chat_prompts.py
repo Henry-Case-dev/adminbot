@@ -62,6 +62,7 @@ services/response_extent.py и едут в промпт отдельным бл�
 import logging
 
 from services.prompt_style_blocks import (
+    PREV_SPEECH_STYLE_SUFFIX,
     PREV_STYLE_BLOCKS_SUFFIX,
     PREV_TYPOGRAPHY_BLOCK,
     STYLE_BLOCKS_SUFFIX,
@@ -310,7 +311,7 @@ PREV_CHAT_R1021_SYSTEM_PROMPT = _CHAT_R1021_BASE_FROZEN
 
 # Слепок прод-канона раунда 10.21/10.22 ДО правки раунда 10.23 (байт-в-байт)
 # — для идемпотентной авто-миграции PG (F1, ADR-1023-1; ADR-1013-3).
-PREV_CHAT_R1023_SYSTEM_PROMPT = _CHAT_R1021_BASE_FROZEN + STYLE_BLOCKS_SUFFIX
+PREV_CHAT_R1023_SYSTEM_PROMPT = _CHAT_R1021_BASE_FROZEN + PREV_SPEECH_STYLE_SUFFIX
 
 # Прежний cap-блок (прод 10.20-10.23) — только для построения слепков;
 # сами базы (FROZEN/чистая) НЕ меняются.
@@ -328,7 +329,7 @@ _CHAT_LIMIT_BLOCK_MCA23 = """ГЛАВНОЕ ОГРАНИЧЕНИЕ (КРИТИЧ
 # (ADR-1013-3).
 PREV_CHAT_MCA23_SYSTEM_PROMPT = (_CHAT_R1021_BASE_FROZEN + "\n\n"
                                  + TARGET_INSTRUCTION_BLOCK
-                                 + STYLE_BLOCKS_SUFFIX)
+                                 + PREV_SPEECH_STYLE_SUFFIX)
 
 # Слепок прод-канона 2.58.100 (НЕПОСРЕДСТВЕННЫЙ прежний: MCA-23-композиция
 # на прежней базе, с extent-блоком) — ступень миграции CFG-07A и цель
@@ -337,7 +338,7 @@ _CHAT_MCA23_BASE_FROZEN = _CHAT_R1021_BASE_FROZEN.replace(
     _CHAT_CAP_BLOCK_R1021, _CHAT_LIMIT_BLOCK_MCA23)
 PREV_CHAT_CFG07A_SYSTEM_PROMPT = (_CHAT_MCA23_BASE_FROZEN + "\n\n"
                                   + TARGET_INSTRUCTION_BLOCK
-                                  + STYLE_BLOCKS_SUFFIX)
+                                  + PREV_SPEECH_STYLE_SUFFIX)
 
 # База канона MCA-23: cap-блок R1021 заменён extent-семантикой, остальное
 # побайтово как в R1021 (база после CFG-07A-2 — чистая редакция).
@@ -392,7 +393,7 @@ _CHAT_STYLE_RULES_BLOCK_R1021 = (
 # extent + TARGET + STYLE_BLOCKS_SUFFIX) — ступень лестницы W1 (ADR-1013-3).
 PREV_CHAT_W1_SYSTEM_PROMPT = (_CHAT_MCA23_BASE + "\n\n"
                               + TARGET_INSTRUCTION_BLOCK
-                              + STYLE_BLOCKS_SUFFIX)
+                              + PREV_SPEECH_STYLE_SUFFIX)
 
 # Новый канон W1: чистая база (§3.6 вместо СИСТЕМНОЙ РОЛИ/ПРИОРИТЕТОВ/СТИЛЯ)
 # + правило маркировки 10.23. STYLE_BLOCKS_SUFFIX (АНТИ-БОТ/АСИММЕТРИЯ)
@@ -455,7 +456,7 @@ _DIRECT_VERBALIZER_R1023_BASE = """СИСТЕМНАЯ РОЛЬ:
 3. Не выводи JSON, теги, ID и служебные метки.
 4. Цифры и факты бери только из справки, не выдумывай.
 5. Коротко: одно-два предложения.
-""" + STYLE_BLOCKS_SUFFIX
+""" + PREV_SPEECH_STYLE_SUFFIX
 
 # Слепок прод-канона Вербализатора direct ДО правки раунда 10.23.
 PREV_CHAT_VERBALIZER_R1023 = _DIRECT_VERBALIZER_R1023_BASE
