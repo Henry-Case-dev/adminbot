@@ -2470,26 +2470,8 @@ def initiative_diagnostics_publish_enabled() -> bool:
                     "flags.initiative_diagnostics_publish_enabled")
 
 
-def composer_additive_budget_tokens() -> int:
-    """Аддитивный бюджет новых слоёв композера (`COMPOSER_LAYER_BUDGET_TOKENS`).
-
-    Ограничивает добавку Core/Expression/Humor/Few-Shot/Style-Hint; вопрос,
-    инструкция и tool-evidence не вытесняются никогда. <=0 → без лимита."""
-    raw = None
-    try:
-        value = getattr(settings, "COMPOSER_LAYER_BUDGET_TOKENS", None)
-        if isinstance(value, int) and not isinstance(value, bool):
-            raw = value
-    except Exception:          # pragma: no cover
-        pass
-    if raw is None:
-        try:
-            import os
-            raw = os.environ.get("COMPOSER_LAYER_BUDGET_TOKENS")
-        except Exception:      # pragma: no cover
-            raw = None
-    try:
-        value = int(raw) if raw is not None else 1200
-    except Exception:
-        return 1200
-    return 0 if value <= 0 else value
+# QUOTA-REMOVAL (24.10.2026, ADDENDUM #3 §2.7): `composer_additive_budget_tokens()`
+# и env/`settings.COMPOSER_LAYER_BUDGET_TOKENS` УДАЛЕНЫ. Искусственная квота
+# инструкций речи (дефолт 1200 токенов) вытесняла Style_Policy_Hint/примеры и
+# принудительно понижала Personality Core `full→compact`. Реальное окно модели
+# живёт в `model_capacity`/`CHAT_CONTEXT_BUDGET_TOKENS` и не затронуто.

@@ -5,14 +5,11 @@ TEST-LIFECYCLE: CONTRACT/REGRESSION owner=ASAP3-LIMITS-INVENTORY §2/S10
 
 Проверяется то, что реально теряло настройки владельца молча:
 
-1. Набор примеров регистра речи: одобренные владельцем строки, не влезшие в
-   технический бюджет §3.2 (≤4 строки / 140 токенов / 700 симв.), раньше
-   давали `reason=""`/пустой блок → композер писал `expression_examples_absent`,
-   то есть потеря выглядела как «набора нет». Теперь:
-   - полная потеря → честная причина `budget_excluded` (закрытый набор
-     `SKIP_REASONS`, виден в манифесте/Inspector), не `absent`;
-   - частичная потеря → R17-safe WARN с числами (`kept=X/Y`), текст реплик не
-     логируется.
+1. Набор примеров регистра речи: QUOTA-REMOVAL (ADDENDUM #3 §2.7, A5) снял
+   локальные квоты рендера (≤4 строки / 140 токенов / 700 симв.): одобренные
+   владельцем примеры доходят до payload целиком. Ограничивает только отбор
+   библиотеки — и он не молчит: частичная потеря видна R17-safe WARN с числами
+   (`kept=X/Y`), текст реплик не логируется.
 2. Досье (память) в карточке человека: `format_dossier_block` режет факты и
    мемы по символьному бюджету. Раньше вызывающий код не мог узнать об
    усечении; теперь фактический состав отдаётся в `stats` и усечение
@@ -51,63 +48,68 @@ def test_expression_examples_counts_are_truthful_when_all_fit():
     assert block.dropped == 0 and block.limited_by == ""
 
 
-def test_expression_examples_item_cap_is_counted_not_silent():
+def test_expression_examples_have_no_render_item_cap():
+    """QUOTA-REMOVAL (A5): рендер не режет примеры по числу/символам/токенам."""
     from services import mca_expression as ex
 
     block = ex.render_expression_examples_block("off", _rows(6))
     assert block.total_items == 6
-    assert block.included_items == ex.EXPRESSION_EXAMPLES_MAX_ITEMS == 4
-    assert block.dropped == 2
-    assert block.limited_by == "items"
-    # блок остаётся корректно закрытым и в бюджете §3.2
+    assert block.included_items == 6
+    assert block.dropped == 0
+    assert block.limited_by == ""
     assert block.endswith("</Expression_Examples>")
-    assert ex._estimate_tokens(block) <= ex.EXPRESSION_EXAMPLES_MAX_TOKENS
+    assert not hasattr(ex, "EXPRESSION_EXAMPLES_MAX_ITEMS")
+    assert not hasattr(ex, "EXPRESSION_EXAMPLES_MAX_TOKENS")
 
 
 @pytest.mark.asyncio
-async def test_expression_examples_budget_loss_is_budget_excluded_not_absent(
-        monkeypatch, caplog):
-    """Одобренные строки не влезли в бюджет → честная причина, а не «absent»."""
+async def test_long_expression_examples_are_not_cut_by_local_quota(monkeypatch):
+    """QUOTA-REMOVAL (A5): длинная авторская строка доходит до payload.
+
+    Прежний бюджет §3.2 (140 ток. / 700 симв.) делал блок пустым с причиной
+    `budget_excluded` — примеры (инструкция) исчезали при достаточном окне.
+    """
     from services import mca_expression as ex
     from services import mca_sample_library as lib
     from services import prompt_composer as pc
 
-    huge = _rows(1, size=900)      # одна строка сама больше 700 символов
+    huge = _rows(1, size=900)
 
     async def _resolve(chat_id, mode, db=None, stats=None):
         return tuple(huge), ""
 
     monkeypatch.setattr(lib, "resolve_expression_examples_ex", _resolve)
 
-    with caplog.at_level(logging.WARNING, logger="services.mca_expression"):
-        refs = await ex.build_expression_examples_refs(777, "off")
+    refs = await ex.build_expression_examples_refs(777, "off")
 
     assert len(refs) == 1
-    assert refs[0].enabled is False
-    assert refs[0].text == ""
-    assert refs[0].skip_reason == "budget_excluded"
-    assert refs[0].skip_reason in pc.SKIP_REASONS
-    assert "budget=0" in caplog.text
+    assert refs[0].enabled is True
+    assert refs[0].skip_reason in ("", None)
+    assert "и" * 900 in refs[0].text and "о" * 900 in refs[0].text
 
-    # в манифесте потеря видна как техническая причина, не как пустой набор
     manifest = pc.compose_prompt(pc.PromptPlan(
         profile=pc.PROFILE_SPEECH_PLAIN,
         base_prompt="база", expression_examples=refs))
     trace = [t for t in manifest.layers
              if t.block_id == "expression_examples"][0]
-    assert trace.rendered is False
-    assert trace.skip_reason == "budget_excluded"
+    assert trace.rendered is True
+    assert trace.skip_reason == ""
+    assert "и" * 900 in manifest.system
 
 
 @pytest.mark.asyncio
 async def test_expression_examples_partial_drop_logs_counts_not_text(
         monkeypatch, caplog):
+    """Отбор библиотеки (не рендер) — числа видны, текст реплик не логируется."""
     from services import mca_expression as ex
     from services import mca_sample_library as lib
 
-    rows = _rows(6)
+    rows = _rows(6)[:4]
 
     async def _resolve(chat_id, mode, db=None, stats=None):
+        # Резолвер отдал 4 строки, а подходящих было 6 → потеря видна числом.
+        if stats is not None:
+            stats.update({"eligible": 6, "selected": 4, "dropped": 2})
         return tuple(rows), ""
 
     monkeypatch.setattr(lib, "resolve_expression_examples_ex", _resolve)
@@ -116,7 +118,6 @@ async def test_expression_examples_partial_drop_logs_counts_not_text(
         refs = await ex.build_expression_examples_refs(777, "off")
 
     assert len(refs) == 1 and refs[0].enabled is True
-    # 4 из 6 вошли; факт частичной потери виден числами
     assert "kept=4/6" in caplog.text and "by=items" in caplog.text
     # R17: текст реплик владельца в лог не попадает
     assert "оооо" not in caplog.text and "ииии" not in caplog.text

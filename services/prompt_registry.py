@@ -1067,7 +1067,6 @@ CORE_DETAIL_REASONS = frozenset({
     "factory_default",       # документа владельца нет — действует заводская
     "document_default",      # документ есть, detail_level владелец не выбирал
     "owner_setting",         # выбор владельца (detail_level документа)
-    "context_budget",        # просили полную, не влезает в бюджет слоёв
     "full_text_missing",     # полной редакции нет → компактная
     "compact_text_missing",  # компактной редакции нет → полная
 })
@@ -1154,22 +1153,24 @@ def _superseded_core_shas() -> tuple[frozenset, frozenset]:
             _SUPERSEDED_CORE_SHA_CACHE["compact"])
 
 
-def core_selection(doc=None, *, source: str = "default",
-                   budget_tokens: int | None = None) -> dict:
+def core_selection(doc=None, *, source: str = "default") -> dict:
     """Детерминированный выбор редакции Core: полная/компактная + причина.
 
     Здесь НЕТ и не может быть LLM: выбор — чистая функция от документа
-    владельца, заводских редакций и бюджета аддитивных слоёв (SOUL-02:
-    «вручную согласованная, а не нестабильное LLM-пересказывание»). Правила:
+    владельца и заводских редакций (SOUL-02: «вручную согласованная, а не
+    нестабильное LLM-пересказывание»). Правила:
 
     * пустое поле документа наследует ЗАВОДСКУЮ редакцию этого поля —
       правка одного поля не обнуляет второе;
     * ``detail_level`` документа — выбор владельца (``owner_setting``); без
       него действует заводской дефолт ``compact`` (``factory_default`` /
       ``document_default``);
-    * запрошена полная редакция, но её стоимость превышает бюджет слоёв →
-      компактная, причина ``context_budget`` (видно в манифесте);
     * запрошенной редакции нет → берётся другая, причина ``*_text_missing``.
+
+    QUOTA-REMOVAL (ADDENDUM #3 §2.7, A4): принудительное понижение
+    ``full → compact`` по локальному бюджету слоёв удалено — выбор владельца
+    не подменяется. Реальный размер окна модели учитывается на стороне
+    вызова (``model_capacity``), а не квотой на инструкцию.
 
     Возвращает тексты обеих редакций (для композера) и провенанс выбора.
     """
@@ -1209,9 +1210,6 @@ def core_selection(doc=None, *, source: str = "default",
     if level == "full":
         if not full_text.strip():
             level, reason = "compact", "full_text_missing"
-        elif budget_tokens and budget_tokens > 0 and \
-                _token_estimate(full_text) > int(budget_tokens):
-            level, reason = "compact", "context_budget"
     elif not compact_text.strip():
         level, reason = "full", "compact_text_missing"
     text = full_text if level == "full" else compact_text
@@ -1259,8 +1257,14 @@ def core_selection_view(doc=None, *, source: str = "default",
 
     Без сырых текстов (R17-safe): ревизии/хеши/размеры + провенанс + источник
     каждой редакции (владелец или заводская).
+
+    ``budget_tokens`` — ИНЕРТНЫЙ параметр совместимости с витриной
+    `web/api/speech.py:_composer_budget` (параллельная UI-полоса удаляет её).
+    Значение НЕ влияет на выбор: аддитивного бюджета инструкций больше нет
+    (ADDENDUM #3 §2.7). Уйдёт вместе с витриной.
     """
-    sel = core_selection(doc, source=source, budget_tokens=budget_tokens)
+    del budget_tokens
+    sel = core_selection(doc, source=source)
     document = doc if isinstance(doc, Mapping) else None
 
     def _field_view(field: str, text: str) -> dict:
@@ -1286,7 +1290,6 @@ def core_selection_view(doc=None, *, source: str = "default",
         "active_field": sel["active_field"],
         "active_from_owner": sel["active_from_owner"],
         "superseded_fields": list(sel.get("superseded_fields") or ()),
-        "budget_tokens": int(budget_tokens or 0),
         "full": _field_view("full_text", sel["full_text"]),
         "compact": _field_view("compact_text", sel["compact_text"]),
         "factory_revisions": {

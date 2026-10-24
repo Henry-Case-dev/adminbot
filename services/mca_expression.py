@@ -175,14 +175,14 @@ BANNED_SOLE_RULE_PHRASES: tuple[str, ...] = (
 )
 
 # ── §3.2: few-shot блок примеров регистра речи ──────────────────────────────
+# QUOTA-REMOVAL (ADDENDUM #3 §2.7, A5): квоты `MAX_ITEMS=4` / `MAX_CHARS=700` /
+# `MAX_TOKENS=140` УДАЛЕНЫ. Авторские примеры речи — это инструкции, а не
+# данные: локальный лимит обрезал блок (часто до пустого) при достаточном
+# реальном окне. Число строк теперь определяет отбор библиотеки (ранжирование),
+# а не рендер.
 
 EXPRESSION_EXAMPLES_OPEN = '<Expression_Examples mode="%s">'
 EXPRESSION_EXAMPLES_CLOSE = "</Expression_Examples>"
-EXPRESSION_EXAMPLES_MAX_ITEMS = 4
-EXPRESSION_EXAMPLES_MAX_CHARS = 700
-#: §3.2: бюджет блока ≤ 140 токенов (оценка 4 символа ≈ токен) — при
-#: нехватке строки отбрасываются, блок остаётся честным и закрытым.
-EXPRESSION_EXAMPLES_MAX_TOKENS = 140
 
 # ── §6: диагностика (closed-set классов; R17-safe) ─────────────────────────
 
@@ -463,7 +463,7 @@ class ExampleRender(str):
     """Блок примеров + фактический состав (ASAP3 §2: без скрытой потери).
 
     ``str``-совместим: существующие потребители читают значение как текст
-    блока (``sha12``/``_estimate_tokens``/``startswith``), а состав доступен
+    блока (``sha12``/``startswith``/``len``), а состав доступен
     полями — сколько строк было у владельца и сколько реально вошло.
     """
 
@@ -493,13 +493,14 @@ def render_expression_examples_block(mode: str, rows: Any, *,
                                      ) -> ExampleRender:
     """Блок ``<Expression_Examples mode="…">`` из строк библиотеки (§3.2).
 
-    Бюджет ≤140 токенов: при перерасходе отбрасываются последние строки
-    (блок всегда остаётся корректно закрытым); пустой результат → ``""``.
-    ASAP3 §2: отбор/бюджет не молчат — фактический состав едет в
-    :class:`ExampleRender` (``total_items``/``included_items``/``limited_by``).
+    QUOTA-REMOVAL (ADDENDUM #3 §2.7, A5): локальных квот по символам/токенам и
+    числу строк НЕТ — в блок идут все применимые примеры режима. Блок всегда
+    корректно закрыт; пустой набор строк → ``""``.
+    :class:`ExampleRender` по-прежнему несёт честные числа состава
+    (``total_items``/``included_items``/``limited_by``).
     ``available_items`` — сколько подходящих одобренных строк было у владельца
-    ДО лимита резолвера (§3.2, 4 строки): без него ``total_items`` описывал бы
-    только остаток после отбора и потеря 5..N снова стала бы невидимой (#13).
+    ДО отбора библиотеки: без него ``total_items`` описывал бы только остаток
+    и потеря 5..N снова стала бы невидимой (#13).
     """
     mode = normalize_mode(mode)
     if mode not in ("off", "occasional", "frequent"):
@@ -515,36 +516,16 @@ def render_expression_examples_block(mode: str, rows: Any, *,
     if not candidates:
         return ExampleRender("")
     total_items = max(len(candidates), int(available_items or 0))
-    lines = candidates[:EXPRESSION_EXAMPLES_MAX_ITEMS]
     reasons: list[str] = []
-    if total_items > len(lines):
+    if total_items > len(candidates):
+        # Строки не влезли в отбор библиотеки (не в рендер): факт виден числом.
         reasons.append("items")
-
-    def _assemble(kept: list[str]) -> str:
-        return "\n".join((
-            EXPRESSION_EXAMPLES_OPEN % mode, "\n".join(kept),
-            EXPRESSION_EXAMPLES_CLOSE))
-
-    block = _assemble(lines)
-    while lines:
-        over_tokens = _estimate_tokens(block) > EXPRESSION_EXAMPLES_MAX_TOKENS
-        over_chars = len(block) > EXPRESSION_EXAMPLES_MAX_CHARS
-        if not (over_tokens or over_chars):
-            break
-        if over_tokens:
-            reasons.append("tokens")
-        if over_chars:
-            reasons.append("chars")
-        lines.pop()
-        block = _assemble(lines) if lines else ""
+    block = "\n".join((
+        EXPRESSION_EXAMPLES_OPEN % mode, "\n".join(candidates),
+        EXPRESSION_EXAMPLES_CLOSE))
     return ExampleRender(
         block, mode=mode, total_items=total_items,
-        included_items=len(lines), limited_by="+".join(dict.fromkeys(reasons)))
-
-
-def _estimate_tokens(text: str) -> int:
-    """Тот же оценщик, что у композера (4 символа ≈ токен)."""
-    return max(1, (len(str(text or "")) + 3) // 4)
+        included_items=len(candidates), limited_by="+".join(reasons))
 
 
 async def build_expression_examples_refs(chat_id: int, mode: str, *,
@@ -583,28 +564,16 @@ async def build_expression_examples_refs(chat_id: int, mode: str, *,
                     source="global", technique="expression_register",
                     enabled=False,
                     skip_reason="not_owner_approved"),)
-            if rows:
-                # ASAP3 §2: одобренные строки ЕСТЬ, но технический бюджет
-                # §3.2 (≤4 строки / 140 токенов / 700 симв.) не оставил ни
-                # одной. Молчаливое «absent» выдавало бы потерю за пустой
-                # набор: причина — budget_excluded (не лимит владельца).
-                logger.warning(
-                    "[expression] examples fit budget=0 | mode=%s | "
-                    "rows=%d | by=%s", mode, len(rows),
-                    getattr(text, "limited_by", ""))
-                from services.prompt_composer import SampleRef
-                return (SampleRef(
-                    block_id="expression_examples", text="", revision="",
-                    source="global", technique="expression_register",
-                    enabled=False, skip_reason="budget_excluded"),)
+            # QUOTA-REMOVAL (ADDENDUM #3 §2.7, A5): `budget_excluded` больше не
+            # производится — рендер не режет примеры по символам/токенам.
             return ()
         from services.prompt_composer import SampleRef
         dropped = int(getattr(text, "dropped", 0) or 0)
         if dropped > 0:
-            # ASAP3 §2: частичное исключение одобренных строк — не молча:
-            # R17-safe числа в WARN (текст реплик не логируется).
+            # ASAP3 §2: часть одобренных строк не попала в отбор библиотеки —
+            # не молча: R17-safe числа в WARN (текст реплик не логируется).
             logger.warning(
-                "[expression] examples capped | mode=%s | kept=%d/%d | by=%s",
+                "[expression] examples selected | mode=%s | kept=%d/%d | by=%s",
                 mode, int(getattr(text, "included_items", 0)),
                 int(getattr(text, "total_items", 0)),
                 getattr(text, "limited_by", ""))

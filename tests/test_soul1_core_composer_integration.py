@@ -209,18 +209,23 @@ async def test_owner_core_edit_changes_next_generation(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_full_requested_is_downgraded_by_budget_with_visible_reason(
-        monkeypatch):
+async def test_full_requested_is_never_downgraded_by_local_quota(monkeypatch):
+    """QUOTA-REMOVAL (A4): `detail_level=full` владельца не подменяется.
+
+    Прежний env `COMPOSER_LAYER_BUDGET_TOKENS=3` молча понижал редакцию до
+    `compact` с причиной `context_budget`. Теперь выбор владельца действует
+    всегда; переменная инертна.
+    """
     Stub, D = build_service()
     composer_on(monkeypatch, core_doc={"revision": 5, "enabled": True,
                           "full_text": OWNER_CORE, "detail_level": "full"})
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "3")
     _system, _user, manifest, _llm = await _l2_system(Stub, D)
-    assert OWNER_CORE not in _system
+    assert OWNER_CORE in _system
     assert core_layer(manifest).detail.startswith(
-        "level=compact reason=context_budget")
-    assert manifest.versions["core_detail"] == "compact:context_budget"
-    # Бюджета хватает — действует выбранная владельцем полная редакция.
+        "level=full reason=owner_setting")
+    assert manifest.versions["core_detail"] == "full:owner_setting"
+    # То же при «щедром» значении — поведение не зависит от переменной.
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "100000")
     system_full, _u, manifest_full, _llm = await _l2_system(Stub, D, run_id="r2")
     assert OWNER_CORE in system_full

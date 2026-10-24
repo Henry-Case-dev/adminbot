@@ -264,7 +264,12 @@ def test_s10_rules_cap_is_blocking_diagnostic_not_silent_cut():
 
 # ═══ Проверка, что композер не имеет своего «тихого» лимита hint ════════════
 
-def test_s10_composer_style_layer_exclusion_is_visible(monkeypatch):
+def test_s10_composer_style_layer_has_no_local_quota(monkeypatch):
+    """QUOTA-REMOVAL (A3): hint рендерится всегда — прод-симптом устранён.
+
+    Прежний `COMPOSER_LAYER_BUDGET_TOKENS=1` давал `budget_excluded` для
+    Style_Policy_Hint даже при отключённом бюджете чата.
+    """
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "1")
     policy = sp.effective_policy_sync(rich_document(soft_count=8), None,
                                       context="regular")
@@ -285,6 +290,7 @@ def test_s10_composer_style_layer_exclusion_is_visible(monkeypatch):
     manifest = pc.compose_prompt(plan)
     trace = next(t for t in manifest.layers
                  if t.layer == "style_policy_hint")
-    assert trace.rendered is False
-    assert trace.skip_reason == "budget_excluded"
-    assert trace.skip_reason in pc.SKIP_REASONS
+    assert trace.rendered is True
+    assert trace.skip_reason == ""
+    assert ref.hint in manifest.system
+    assert "budget_excluded" not in pc.SKIP_REASONS

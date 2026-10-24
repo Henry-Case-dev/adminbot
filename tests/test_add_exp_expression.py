@@ -406,12 +406,12 @@ def test_machine_writers_keep_profile_reason_not_expression_defect():
     assert trace.skip_reason != "expression_absent"
 
 
-def test_expression_budget_is_never_silently_excluded(monkeypatch):
-    """P0-E (§6.2 п.3): Expression не вытесняется аддитивным бюджетом молча.
+def test_expression_is_never_excluded_by_local_quota(monkeypatch):
+    """QUOTA-REMOVAL (A2/A6): Expression не вытесняется и не «конфликтует».
 
     Прежний `budget_excluded` скрывал настроенный FREQUENT из system и давал
-    ложный «ноль различий». Теперь слой рендерится всегда, а перерасход
-    виден конфликтом `expression_protected_from_budget`.
+    ложный «ноль различий». Квоты нет — слой рендерится всегда, без служебных
+    конфликтов о перерасходе.
     """
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "40")
     expr_text = HEADER + "\n" + FREQ_LINE + "\n</Expression_Settings>"
@@ -422,13 +422,8 @@ def test_expression_budget_is_never_silently_excluded(monkeypatch):
     assert trace.rendered is True and trace.skip_reason == ""
     assert expr_text in manifest.system
     assert "<Expression_Settings>" in manifest.system
-    conflict = [c for c in manifest.conflicts
+    assert not [c for c in manifest.conflicts
                 if c.conflict_id == "expression_protected_from_budget"]
-    assert conflict, "перерасход Expression обязан быть видимым"
-    assert conflict[0].outcome == "exempted_protected"
-    assert conflict[0].layer == "expression"
-    assert conflict[0].provenance.startswith("expression:")
-    assert "budget=40" in conflict[0].detail
     assert "КАНАЛ: факты." in manifest.system, "база канала не вытесняется"
 
 
@@ -910,13 +905,16 @@ async def test_expression_examples_seed_select_and_isolation(db, monkeypatch):
     assert block.startswith('<Expression_Examples mode="off">')
     assert block.endswith("</Expression_Examples>")
     assert " -> " in block and "«" not in block and "→" not in block
-    assert ex._estimate_tokens(block) <= ex.EXPRESSION_EXAMPLES_MAX_TOKENS
-    # длинные владельческие строки не раздувают блок сверх бюджета (§3.2)
+    # QUOTA-REMOVAL (A5): локального лимита символов/токенов нет — все
+    # применимые строки режима входят в блок, включая длинные авторские.
     long_block = ex.render_expression_examples_block("frequent", [
         {"context_note": "быт", "input_text": "и" * 900,
          "reply_text": "о" * 900}])
-    assert ex._estimate_tokens(long_block) <= ex.EXPRESSION_EXAMPLES_MAX_TOKENS
-    assert long_block == "" or long_block.endswith("</Expression_Examples>")
+    assert long_block.startswith('<Expression_Examples mode="frequent">')
+    assert long_block.endswith("</Expression_Examples>")
+    assert "и" * 900 in long_block and "о" * 900 in long_block
+    assert not hasattr(ex, "EXPRESSION_EXAMPLES_MAX_TOKENS")
+    assert not hasattr(ex, "EXPRESSION_EXAMPLES_MAX_CHARS")
     # своя ось: OFF → пусто (набор не впрыскивается), инструкция живёт
     monkeypatch.setenv("EXPRESSION_EXAMPLES_ENABLED", "0")
     assert await sl.resolve_expression_examples(777, "off", db=db) == ()
@@ -968,13 +966,14 @@ def test_composer_expression_examples_before_humor_and_budgeted(monkeypatch):
              if t.block_id == "expression_examples"][0]
     assert trace.rendered is True and trace.owner == "core"
     assert manifest.versions["expression_examples"] == "ex1"
-    # перерасход бюджета → честная причина (не молчание)
+    # QUOTA-REMOVAL (A5): локальной квоты нет — набор регистра речи остаётся
+    # в payload даже при «тесном» значении прежней переменной.
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "20")
     tight = pc.compose_prompt(plan)
     trace_tight = [t for t in tight.layers
                    if t.block_id == "expression_examples"][0]
-    assert trace_tight.rendered is False
-    assert trace_tight.skip_reason == "budget_excluded"
+    assert trace_tight.rendered is True and trace_tight.skip_reason == ""
+    assert expr_block in tight.system
     # своя ось OFF → своя причина, не humor `samples_disabled`
     off_axis = pc.compose_prompt(pc.PromptPlan(**{
         **plan.__dict__,
