@@ -1,0 +1,6 @@
+tests/test_soul1_composer_parity_off.py :: 13 passed
+tests/test_p0_expression_final_contract.py :: 15 passed
+tests/test_p0_prompts_core.py :: 9 passed
+tests/test_p0_checkup_core_contract.py :: 16 passed (pick 90fc3ad1 не трогает checkup; фактический набор 16, в брифе ожидалось 12)
+tests/test_factcheck_p0_fc.py :: 28 passed
+tests/test_initiative_delivery_telemetry.py :: 13 passed

@@ -1,0 +1,9 @@
+﻿............................                                             [100%]
+============================== warnings summary ===============================
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+tests/test_factcheck_p0_fc.py::TestF1CascadeRealPath::test_retrieval_numbers_after_tavily_failure
+  C:\Code\Python\adminbot-wt258119\services\search_aggregator.py:400: RuntimeWarning: This package (`duckduckgo_search`) has been renamed to `ddgs`! Use `pip install ddgs` instead.
+    with DDGS(timeout=int(max(1.0, timeout))) as ddgs:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+28 passed, 2 warnings in 13.93s
