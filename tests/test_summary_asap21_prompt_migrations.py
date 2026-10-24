@@ -57,8 +57,10 @@ _ROLLBACK_CASES = [
     # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): откат блока источника →
     # канон R1029 (прод 2.58.46; parity с SUMMARY_WRITER_SOURCE_INPUT_
     # ENABLED=false).
+    # SPEECH-P0-B2 (25.10.2026): первый откат снимает только P0-ступень →
+    # прод-байты 2.58.130 (PREV_*_R1030_P0); второй — на R1029.
     (_L2, "l2", lambda: sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT,
-     lambda: sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41),
+     lambda: sp.PREV_SUMMARY_L2_WRITER_R1030_P0),
     (_NARR, "narr", lambda: sp.SUMMARY_NARRATOR_SYSTEM_PROMPT,
      # LEGFIX (22.10.2026): откат — на непосредственный прежний канон
      # (слепок ДО снятия identity-фразы; снимается только ступень LEGFIX).
@@ -94,6 +96,22 @@ async def test_rollback_returns_previous_canon(key, _name, new_fn, old_fn):
     report = await pm.rollback_prompt_canons(cache)
     assert report.get(key) == "rolled_back"
     assert cache.values[key] == old_fn()
+
+
+@pytest.mark.asyncio
+async def test_l2_second_rollback_step_reaches_r1029():
+    """SPEECH-P0-B2: стек отката L2 — P0-канон → 2.58.130 (R1030) → R1029
+    (2.58.46). Повторный вызов снимает следующую ступень; стек цел."""
+    key = _L2
+    cache = FakeCache({key: sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT})
+    first = await pm.rollback_prompt_canons(cache)
+    assert first.get(key) == "rolled_back"
+    assert cache.values[key] == sp.PREV_SUMMARY_L2_WRITER_R1030_P0
+    second = await pm.rollback_prompt_canons(cache)
+    assert second.get(key) == "rolled_back"
+    assert cache.values[key] == sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41
+    third = await pm.rollback_prompt_canons(cache)
+    assert key not in third               # последняя ступень — no-op
 
 
 # ── (б) genuinely-custom не трогается ──────────────────────────────────────

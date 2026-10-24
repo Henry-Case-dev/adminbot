@@ -152,7 +152,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "summary.base.editor": "summary-editor-r1025-hotfix4",
     "summary.base.narrator": "summary-narrator-legfix",
     "summary.base.l1_clusterizer": "summary-l1-clusterizer-asap41",
-    "summary.base.l2_writer": "summary-l2-writer-asap41",
+    # SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4): L2 больше не
+    # заказывает причинную драматургию/фантазию; факты/JSON/evidence целы.
+    "summary.base.l2_writer": "summary-l2-writer-p0-factual",
     "summary.cover.style": "cover-style-default",
     "summary.cover.style_id": "cover-style-id-default",
     "search.base.system": "search-cfg07a",
@@ -171,9 +173,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.dream.distill": "dream-distill",
     "internal.dream.deep_sleep_bridge": "deep-sleep-bridge",
     "internal.dream.persona_evolution": "persona-evolution",
-    "internal.lore.init": "lore-init",
-    "internal.lore.merge": "lore-merge",
-    "internal.lore.story": "lore-story",
+    # SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4): лор/летопись —
+    # только факты из данных, без «эпичности», «усиления» и импровизации;
+    # юмор сохраняется, но шутка не становится фактом.
+    "internal.lore.init": "lore-init-p0-factual",
+    "internal.lore.merge": "lore-merge-p0-factual",
+    "internal.lore.story": "lore-story-p0-factual",
     "internal.nostalgia.candidate": "nostalgia",
     "internal.dossier.system": "dossier-system",
     "internal.dossier.layer_a": "dossier-layer-a",
@@ -1728,7 +1733,18 @@ def factory_set_fingerprint() -> str:
 #: ``l1-planner-analysis-routing``. changed = 1 (direct.base.l1_planner).
 #: Было ``dd64bbc52632``, стало ``9b2fb9d7c573``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "9b2fb9d7c573"
+#: SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4; evidence
+#: p0-hotfix/memory-provenance M1/M3/M4): изменены 4 фабрики —
+#: summary.base.l2_writer (снята обязательная причинная драматургия, финал
+#: «главный шиз» — шутка, «нет данных — нет фантазии»; JSON/evidence/имена/
+#: числа целы), internal.lore.init/merge/story (только факты из данных, без
+#: «эпичности», «усиления» и импровизации; юмор сохранён). Метки:
+#: summary-l2-writer-p0-factual, lore-init-p0-factual, lore-merge-p0-factual,
+#: lore-story-p0-factual. Прежние байты L2 — PREV_SUMMARY_L2_WRITER_R1030_P0
+#: (ступень миграции + откат); лор — модульные каноны без PG-сида.
+#: changed = 4. Было ``9b2fb9d7c573``, стало ``a8ae82425a33``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "a8ae82425a33"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

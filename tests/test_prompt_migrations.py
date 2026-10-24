@@ -101,6 +101,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1028,
     PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+    PREV_SUMMARY_L2_WRITER_R1030_P0,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_NARRATOR_LEGFIX,
@@ -335,8 +336,11 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # непосредственный прежний прод-канон PREV_*_R1028_ASAP4 (запрет цитат).
     # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): откат блока источника →
     # канон R1029 (прод 2.58.46).
+    # SPEECH-P0-B2 (25.10.2026): верхняя ступень — фактологический канон;
+    # первый откат снимает только её → прод-байты 2.58.130 (R1030), второй —
+    # историческую ступень источника (R1029).
     "prompts.summary_l2_writer_system_prompt":
-        PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+        PREV_SUMMARY_L2_WRITER_R1030_P0,
     # ASAP-2.1 (round1028): откат Рассказчика → прежний канон R1028.
     # LEGFIX (22.10.2026): откат снимает ТОЛЬКО ступень LEGFIX →
     # непосредственный прежний канон (слепок PREV_*_LEGFIX).

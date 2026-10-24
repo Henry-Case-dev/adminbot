@@ -88,13 +88,15 @@ class TestLoreStoryCanon:
     def test_canon_structure_and_html(self):
         text = LORE_STORY_SYSTEM_PROMPT
         assert "{topic}" in text
-        assert "завязк" in text and "развитие событий" in text
-        assert "статус-кво" in text
+        # SPEECH-P0-B2: вместо «эпичной/абсурдной завязки» — только известное.
+        assert "что известно о теме" in text
+        assert "развитии событий" in text
+        assert "не заполняй пробелы выдумкой" in text
         assert "постирония" in text
         assert "<b>" in text and "<i>" in text          # О5: HTML, не Markdown
         assert "Маркдаун" in text
         assert "UPD (Свежак)" in text
-        assert "НЕ ври про ключевые действия" in text
+        assert "Имена, поступки и их порядок" in text
         assert text.count("{") == 1 and text.count("}") == 1
 
     def test_topic_placeholder_replacement(self):
