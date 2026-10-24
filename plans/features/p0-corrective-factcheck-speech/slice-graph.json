@@ -2,7 +2,7 @@
   "schema": "openworkflow-slices-v1",
   "feature": "p0-factcheck-speech",
   "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
-  "source_sha256": "d69c104d2cfe58290c5ead6826b78ac9ce37502ef3829b8948fe9e2048872d70",
+  "source_sha256": "2BD56C9F15E90AAD62C81654EC0D9F4B325F0BCEA58A8EEDD71CF6513BFE6978",
   "plan": "plans/features/p0-corrective-factcheck-speech/plan.md",
   "priority": "P0",
   "waves": [
@@ -10,33 +10,48 @@
       "id": "W0",
       "slices": [
         "FORENSIC",
-        "PROMPTS",
-        "EXPRESSION"
+        "PROMPTS"
       ],
-      "note": "диагностика и независимые точки ответственности; разные файлы"
+      "note": "диагностика и реестр промптов (без изменений)"
     },
     {
       "id": "W1",
       "slices": [
         "FACTCHECK",
         "CHECKUP",
-        "CORE"
+        "CORE",
+        "OPS",
+        "QUOTES"
       ],
-      "note": "фактчек после трассы; промпты Checkup/Core после реестра и после architect_freeze (принадлежность слоёв §1 аддендума ASAP 4)"
+      "note": "независимые точки ответственности; QUOTES после PROMPTS (общий web/app.js и web/api/speech.py)"
     },
     {
       "id": "W2",
       "slices": [
-        "OPS"
+        "COMPOSER-QUOTA"
       ],
-      "note": "после классификации фактов в Checkup"
+      "note": "после QUOTES: общие UI/API-файлы; устраняет budget_excluded"
     },
     {
       "id": "W3",
       "slices": [
+        "EXPRESSION"
+      ],
+      "note": "после COMPOSER-QUOTA: финальные пробы FREQUENT на честном payload"
+    },
+    {
+      "id": "W4",
+      "slices": [
+        "QUOTA-AUDIT"
+      ],
+      "note": "аудит (чтение) стартует сразу; запись — после всех модульных слайсов, чтобы не конфликтовать файлами и не потерять находки"
+    },
+    {
+      "id": "W5",
+      "slices": [
         "ACCEPT"
       ],
-      "note": "сценарная матрица, отчёт, деплой"
+      "note": "сценарная матрица, отчёт §6, деплой и postdeploy-наблюдение"
     }
   ],
   "overlaps": [
@@ -409,13 +424,17 @@
       "id": "EXPRESSION",
       "title": "Expression/FREQUENT: путь настройки, payload, raw->outbound, реальные пробы",
       "owner": "Builder",
-      "depends_on": [],
+      "depends_on": [
+        "COMPOSER-QUOTA"
+      ],
       "write_scope": [
         "services/mca_expression.py",
         "services/prompt_composer.py",
-        "tests/test_p0fc_expression_frequent.py"
+        "tests/test_p0fc_expression_frequent.py",
+        "tests/test_p0e_expression_frequent.py",
+        "plans/features/p0-corrective-factcheck-speech/evidence/expression/"
       ],
-      "acceptance": "По Direct/инициативе/фактчеку/Checkup/Summary зафиксированы effective-режим и наличие Expression_Settings в системном сообщении; проверены бюджет, конфликт жанра, скрытые противоположные инструкции, постобработка и влияние модели; FREQUENT трактуется как привычная часть речи; нет квот, постпроцессорной вставки, скрытой токсичность-фильтрации и второго характера; серия реальных LLM-проб показывает устойчивое отличие FREQUENT от OFF/OCCASIONAL; тестовые сообщения в рабочий чат не отправлялись.",
+      "acceptance": "По Direct/инициативе/фактчеку/Checkup/Summary зафиксированы effective-режим и наличие Expression_Settings в системном сообщении; проверены бюджет, конфликт жанра, скрытые противоположные инструкции, постобработка и влияние модели; FREQUENT трактуется как привычная часть речи; нет квот, постпроцессорной вставки, скрытой токсичность-фильтрации и второго характера; серия реальных LLM-проб показывает устойчивое отличие FREQUENT от OFF/OCCASIONAL; тестовые сообщения в рабочий чат не отправлялись. | Дополнение #3: payload содержит Expression_Settings; OFF/OCCASIONAL/FREQUENT различаются в фактических ответах; постобработка не подавляет FREQUENT; Personality Core сохранён; результат подтверждён офлайн-пробами.",
       "risk": "R3",
       "next_role": "Builder",
       "can_parallel_with": [
@@ -453,8 +472,27 @@
         "REQ-EX-NO-LIVE-CHAT",
         "EX-01",
         "EX-02",
-        "EX-03"
-      ]
+        "EX-03",
+        "REQ-ADD3-EX-INSPECTOR-PRESENT",
+        "REQ-ADD3-EX-FULL-PATH",
+        "REQ-ADD3-EX-FREQ-CHECKS",
+        "REQ-ADD3-EX-FREQ-WHY",
+        "REQ-ADD3-EX-NO-MECHANICAL",
+        "REQ-ADD3-EX-FREQ-SEMANTICS",
+        "REQ-ADD3-EX-KEEP-CORE",
+        "REQ-ADD3-EX-REAL-PROBES",
+        "REQ-ADD3-EX-COMPARE-ARTIFACTS",
+        "REQ-ADD3-EX-NO-LIVE-CHAT",
+        "REQ-ADD3-EX-HONEST-LIMIT",
+        "REQ-ADD3-EX-NO-DONE",
+        "REQ-ADD3-EX-ACC-DIFF",
+        "REQ-ADD3-EX-ACC-EFFECT",
+        "REQ-ADD3-EX-ACC-NO-INSERT",
+        "REQ-ADD3-EX-ACC-POSTPROC",
+        "REQ-ADD3-EX-ACC-CORE",
+        "REQ-ADD3-EX-ACC-PROBES"
+      ],
+      "outcome": "Диагностика пути effective → payload → raw → outbound и фактическая работа FREQUENT: заметная нецензурная лексика в собственной речи без механических вставок и постобработки, подтверждённая офлайн-пробами OFF/OCCASIONAL/FREQUENT."
     },
     {
       "id": "OPS",
@@ -498,7 +536,10 @@
         "CHECKUP",
         "CORE",
         "EXPRESSION",
-        "OPS"
+        "OPS",
+        "QUOTES",
+        "COMPOSER-QUOTA",
+        "QUOTA-AUDIT"
       ],
       "write_scope": [
         "tests/test_p0fc_accept_matrix.py",
@@ -509,7 +550,7 @@
         "plans/progress_scope.json",
         "plans/features/p0-corrective-factcheck-speech/evidence/"
       ],
-      "acceptance": "Все 23 сценария (FC-01..FC-09, PR-01..PR-03, SP-01..SP-06, EX-01..EX-03, OPS-01..OPS-02) имеют привязанное к кандидату доказательство; governance-запреты §1 и критерии §11 подтверждены инспекцией diff и runtime; отчёт содержит первопричины, активную конфигурацию, изменения, судьбу промптов, результаты проверок, production-факты и неподтверждённое, дату/время/прогрессбар; формулировки-заменители не приняты. Дополнение ASAP 4: матрица «строка → владелец → изменение → причина», §7-проверки Reviewer и §8-отчёт выполнены; DONE не объявлен при потере жанровых правил или расхождении Inspector/runtime.",
+      "acceptance": "Все 23 сценария (FC-01..FC-09, PR-01..PR-03, SP-01..SP-06, EX-01..EX-03, OPS-01..OPS-02) имеют привязанное к кандидату доказательство; governance-запреты §1 и критерии §11 подтверждены инспекцией diff и runtime; отчёт содержит первопричины, активную конфигурацию, изменения, судьбу промптов, результаты проверок, production-факты и неподтверждённое, дату/время/прогрессбар; формулировки-заменители не приняты. Дополнение ASAP 4: матрица «строка → владелец → изменение → причина», §7-проверки Reviewer и §8-отчёт выполнены; DONE не объявлен при потере жанровых правил или расхождении Inspector/runtime. | Дополнение #3: независимый Reviewer проверил полноту охвата проекта, отчёт §6 содержит покрытие аудита и состояние production, полная очистка не заявлена без подтверждённого охвата.",
       "risk": "R2",
       "next_role": "Reviewer",
       "can_parallel_with": [],
@@ -563,8 +604,246 @@
         "REQ-A4-REPORT-MATRIX",
         "REQ-A4-REPORT-AFTER",
         "REQ-A4-DONE-BLOCKERS",
-        "REQ-A4-SYNC-NO-NEW-MAP"
+        "REQ-A4-SYNC-NO-NEW-MAP",
+        "REQ-ADD3-ACC-CONSTRAINTS",
+        "REQ-ADD3-ACC-WORKFLOW",
+        "REQ-ADD3-ACC-NO-DONE",
+        "REQ-ADD3-ACC-REVIEW-CHECKS",
+        "REQ-ADD3-ACC-REVIEW-REJECT",
+        "REQ-ADD3-ACC-REVIEW-CLASS-A-PROOF",
+        "REQ-ADD3-ACC-REVIEW-NO-REFACTOR",
+        "REQ-ADD3-ACC-REPORT",
+        "REQ-ADD3-ACC-REPORT-COVERAGE",
+        "REQ-ADD3-ACC-REPORT-NO-FULL-CLAIM"
       ]
+    },
+    {
+      "id": "QUOTES",
+      "title": "Кавычки: детерминированная замена/удаление в Style Policy + UI/фабрика",
+      "owner": "Builder",
+      "depends_on": [
+        "PROMPTS"
+      ],
+      "mode": "writer",
+      "can_parallel_with": [
+        "FACTCHECK",
+        "CHECKUP",
+        "CORE",
+        "OPS"
+      ],
+      "join_barrier": "COMPOSER-QUOTA и ACCEPT проверяют кавычки после миграции заводских значений и UI; общие web-файлы правятся только здесь",
+      "outcome": "Два детерминированных режима кавычек в Style Policy (замена ON, полное удаление OFF, взаимоисключение), UI/фабрика/миграция, согласованный no_quotes, global/chat.",
+      "requirements": [
+        "REQ-ADD3-Q-REPLACE",
+        "REQ-ADD3-Q-REMOVE",
+        "REQ-ADD3-Q-CONTENT",
+        "REQ-ADD3-Q-MUTEX",
+        "REQ-ADD3-Q-STYLE-POLICY",
+        "REQ-ADD3-Q-PROTECTED",
+        "REQ-ADD3-Q-NO-SEMANTIC",
+        "REQ-ADD3-Q-NO-LLM",
+        "REQ-ADD3-Q-UI-FACTORY",
+        "REQ-ADD3-Q-NO_QUOTES",
+        "REQ-ADD3-Q-SCOPE",
+        "REQ-ADD3-Q-ACC-REPLACE",
+        "REQ-ADD3-Q-ACC-REMOVE",
+        "REQ-ADD3-Q-ACC-NOCONFLICT",
+        "REQ-ADD3-Q-ACC-PERSIST",
+        "REQ-ADD3-Q-ACC-PROTECTED",
+        "REQ-ADD3-Q-ACC-NO-SEMANTIC",
+        "REQ-ADD3-Q-ACC-SCOPE"
+      ],
+      "acceptance": "На кандидате: «текст» → \"текст\" при замене; «текст»/\"текст\" → текст при удалении; режимы не конфликтуют; настройки переживают рестарт; код/JSON/URL целы; семантического анализа и LLM-вызовов нет; global и chat-переопределение работают.",
+      "write_scope": [
+        "services/style_policy.py",
+        "services/prompt_style_blocks.py",
+        "web/api/speech.py",
+        "web/app.js",
+        "tests/test_quotes_modes.py",
+        "plans/features/p0-corrective-factcheck-speech/evidence/quotes/"
+      ],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один пользовательский результат — два взаимоисключающих режима кавычек в существующем Style Policy; UI и фабрика без него не проверяемы."
+    },
+    {
+      "id": "COMPOSER-QUOTA",
+      "title": "Composer: удаление аддитивного бюджета речевых слоёв",
+      "owner": "Builder",
+      "depends_on": [
+        "QUOTES"
+      ],
+      "mode": "writer",
+      "can_parallel_with": [
+        "FACTCHECK",
+        "CHECKUP",
+        "CORE",
+        "OPS"
+      ],
+      "join_barrier": "EXPRESSION и QUOTA-AUDIT проверяют payload после удаления бюджета; настройка бюджета Composer удалена из UI/API",
+      "outcome": "Аддитивный бюджет речевых слоёв Composer удалён: style_policy_hint не исключается при отключённом бюджете чата, Core/Expression не вытесняются, ручная настройка удалена, payload/fallback/ошибки сохранены.",
+      "requirements": [
+        "REQ-ADD3-CQ-SYMPTOM",
+        "REQ-ADD3-CQ-POINTS",
+        "REQ-ADD3-CQ-ZERO-NONE",
+        "REQ-ADD3-CQ-STYLE-EXEMPT",
+        "REQ-ADD3-CQ-NO-DISPLACE",
+        "REQ-ADD3-CQ-REMOVE-ADDITIVE",
+        "REQ-ADD3-CQ-KEEP-PAYLOAD",
+        "REQ-ADD3-CQ-NO-MANUAL",
+        "REQ-ADD3-CQ-NOT-FINAL",
+        "REQ-ADD3-CQ-ACC-NO-DISPLACE"
+      ],
+      "acceptance": "При отключённом бюджете чата фактический payload содержит Style Policy hint, Core и Expression без budget_excluded; 0 и None не смешиваются; настройка COMPOSER_LAYER_BUDGET_TOKENS не осталась в UI/API; fallback/ошибки/реальное окно работают. Список A1/A2 и границы B взяты из read-only arch-quota-audit.md, а не изобретаются Builder-ом.",
+      "write_scope": [
+        "services/prompt_composer.py",
+        "services/mca_gates.py",
+        "services/prompt_registry.py",
+        "services/config_migrations.py",
+        "services/param_catalog.py",
+        "web/api/speech.py",
+        "web/app.js",
+        "tests/test_quota_removal_composer.py",
+        "plans/features/p0-corrective-factcheck-speech/evidence/composer/"
+      ],
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один связанный дефект бюджета Composer с общей точкой правки и одним наблюдаемым исходом в payload; UI/API-файлы общие с QUOTES, поэтому серийная зависимость, а не параллельная запись.",
+      "arch_dependency": "arch-quota-audit.md: A1 (mca_gates.composer_additive_budget_tokens, default 1200, <=0->0) и A2 (budget is not None вытесняет humor/expression_examples/few_shot/style_policy_hint); B-механизмы не удалять"
+    },
+    {
+      "id": "QUOTA-AUDIT",
+      "title": "Сквозной аудит квот инструкций по всему проекту (A/B/C) + правило AGENTS.md",
+      "owner": "Builder (audit + remediation) + Reviewer (полнота охвата)",
+      "depends_on": [
+        "PROMPTS",
+        "FACTCHECK",
+        "CHECKUP",
+        "CORE",
+        "OPS",
+        "QUOTES",
+        "COMPOSER-QUOTA",
+        "EXPRESSION"
+      ],
+      "mode": "writer",
+      "can_parallel_with": [],
+      "join_barrier": "ACCEPT принимает раздел только по перечню путей и классификации A/B/C, а не по числу тестов; запись начинается после слияния модульных слайсов",
+      "outcome": "Сквозной аудит всех реально используемых LLM-путей с классификацией A/B/C, устранением квот A и сохранением fallback/retry/техлимитов/модуля «Бюджеты»; правило против новых квот зафиксировано в AGENTS.md.",
+      "requirements": [
+        "REQ-ADD3-QTA-MAIN-PRINCIPLE",
+        "REQ-ADD3-QTA-PROD-BASIS",
+        "REQ-ADD3-QTA-KEEP-MODULE",
+        "REQ-ADD3-QTA-KEEP-GLOBAL",
+        "REQ-ADD3-QTA-KEEP-USER-SETTINGS",
+        "REQ-ADD3-QTA-KEEP-MAIN-OFF",
+        "REQ-ADD3-QTA-KEEP-NEW-OFF",
+        "REQ-ADD3-QTA-REMOVE-ADDITIVE",
+        "REQ-ADD3-QTA-SCOPE-WHOLE-PROJECT",
+        "REQ-ADD3-QTA-NO-NEW-BUDGET-SYSTEM",
+        "REQ-ADD3-QTA-DEFINITION",
+        "REQ-ADD3-QTA-TARGETS",
+        "REQ-ADD3-QTA-MECHANISMS",
+        "REQ-ADD3-QTA-LOCATION",
+        "REQ-ADD3-QTA-DECISION-CONDITION",
+        "REQ-ADD3-QTA-NO-REPLACEMENT",
+        "REQ-ADD3-QTA-NO-SHORTCUT",
+        "REQ-ADD3-QTA-REPO-WIDE",
+        "REQ-ADD3-QTA-AUDIT-NEW-ARCH",
+        "REQ-ADD3-QTA-AUDIT-SMART",
+        "REQ-ADD3-QTA-AUDIT-LEGACY",
+        "REQ-ADD3-QTA-LIST-OPEN",
+        "REQ-ADD3-QTA-COVERAGE",
+        "REQ-ADD3-QTA-INTERMEDIATE",
+        "REQ-ADD3-QTA-METHOD-NAMES",
+        "REQ-ADD3-QTA-METHOD-SURFACES",
+        "REQ-ADD3-QTA-PROVENANCE",
+        "REQ-ADD3-QTA-RUNTIME",
+        "REQ-ADD3-QTA-OWN-CHAINS",
+        "REQ-ADD3-QTA-COMPARE",
+        "REQ-ADD3-QTA-APPLICABILITY",
+        "REQ-ADD3-QTA-NO-NAME-PROOF",
+        "REQ-ADD3-QTA-CLASSIFY-EACH",
+        "REQ-ADD3-QTA-CLASS-A",
+        "REQ-ADD3-QTA-CLASS-B",
+        "REQ-ADD3-QTA-CLASS-C",
+        "REQ-ADD3-QTA-C-PRESERVE",
+        "REQ-ADD3-QTA-NO-NAME-CLASS",
+        "REQ-ADD3-QTA-KEEP-SAFETY",
+        "REQ-ADD3-QTA-KEEP-LIMITS",
+        "REQ-ADD3-QTA-FIX-QUOTA-IN-FALLBACK",
+        "REQ-ADD3-QTA-MIXED",
+        "REQ-ADD3-QTA-NO-MASS-DELETE",
+        "REQ-ADD3-QTA-LEGACY-FOCUS",
+        "REQ-ADD3-QTA-FACTCHECK",
+        "REQ-ADD3-QTA-CHECKUP",
+        "REQ-ADD3-QTA-SUMMARY",
+        "REQ-ADD3-QTA-MEMORY-GRAPHRAG",
+        "REQ-ADD3-QTA-INITIATIVE-OBSERVER",
+        "REQ-ADD3-QTA-SLEEP",
+        "REQ-ADD3-QTA-CORE-FORMATION",
+        "REQ-ADD3-QTA-ALL-OTHERS",
+        "REQ-ADD3-QTA-WRAPPER",
+        "REQ-ADD3-QTA-LEGACY-IMPORTANT",
+        "REQ-ADD3-QTA-KEEP-MODULE-SETTINGS",
+        "REQ-ADD3-QTA-MIGRATE-REMOVED",
+        "REQ-ADD3-QTA-RESTART",
+        "REQ-ADD3-QTA-INSPECTOR-TRUTH",
+        "REQ-ADD3-QTA-INSPECTOR-SCOPE",
+        "REQ-ADD3-QTA-EXISTING-TOOLS",
+        "REQ-ADD3-QTA-NO-NEW-DIAG",
+        "REQ-ADD3-QTA-NO-SECRETS",
+        "REQ-ADD3-QTA-AGENTS-RULE",
+        "REQ-ADD3-QTA-RULE-AREAS",
+        "REQ-ADD3-QTA-RULE-EXCEPTIONS",
+        "REQ-ADD3-QTA-REVIEWER-REJECT",
+        "REQ-ADD3-QTA-NO-NEW-CONTROL",
+        "REQ-ADD3-QTA-ACC-ENTRYPOINTS",
+        "REQ-ADD3-QTA-ACC-LEGACY",
+        "REQ-ADD3-QTA-ACC-BUILDERS",
+        "REQ-ADD3-QTA-ACC-AUX",
+        "REQ-ADD3-QTA-ACC-FOUND",
+        "REQ-ADD3-QTA-ACC-A-REMOVED",
+        "REQ-ADD3-QTA-ACC-NO-HIDDEN",
+        "REQ-ADD3-QTA-ACC-NO-RENAMED",
+        "REQ-ADD3-QTA-ACC-KEEP-FUNCTIONAL",
+        "REQ-ADD3-QTA-ACC-KEEP-FALLBACK",
+        "REQ-ADD3-QTA-ACC-KEEP-TECH",
+        "REQ-ADD3-QTA-ACC-KEEP-MODULE",
+        "REQ-ADD3-QTA-ACC-KEEP-CHAT",
+        "REQ-ADD3-QTA-ACC-NO-RESTORE",
+        "REQ-ADD3-QTA-ACC-COMPOSER-NOT-ENOUGH",
+        "REQ-ADD3-QTA-REG-METHOD",
+        "REQ-ADD3-QTA-REG-ISOLATED",
+        "REQ-ADD3-QTA-REG-01",
+        "REQ-ADD3-QTA-REG-02",
+        "REQ-ADD3-QTA-REG-03",
+        "REQ-ADD3-QTA-REG-04",
+        "REQ-ADD3-QTA-REG-05",
+        "REQ-ADD3-QTA-REG-06",
+        "REQ-ADD3-QTA-REG-07",
+        "REQ-ADD3-QTA-REG-08",
+        "REQ-ADD3-QTA-REG-09",
+        "REQ-ADD3-QTA-REG-10",
+        "REQ-ADD3-QTA-REG-11",
+        "REQ-ADD3-QTA-REG-12",
+        "REQ-ADD3-QTA-REG-13",
+        "REQ-ADD3-QTA-REG-14",
+        "REQ-ADD3-QTA-REG-15",
+        "REQ-ADD3-QTA-REG-16"
+      ],
+      "acceptance": "На кандидате: перечень путей (источник инструкции → payload) с классификацией A/B/C; все A устранены и подтверждены сравнением payload; fallback/retry/техлимиты/модуль «Бюджеты» проверены исполнением; 16 регрессионных путей пройдены на фактических запросах; AGENTS.md содержит запрет новых квот.",
+      "write_scope": [
+        "AGENTS.md",
+        "services/",
+        "handlers/",
+        "web/",
+        "tests/test_quota_removal_composer.py",
+        "plans/features/p0-corrective-factcheck-speech/audit/",
+        "plans/features/p0-corrective-factcheck-speech/evidence/quota-audit/"
+      ],
+      "risk": "R3",
+      "next_role": "Builder",
+      "why_one_slice": "Единый сквозной аудит с одним критерием охвата и одной классификацией A/B/C; дробление по модулям потеряло бы общий перечень путей и повторно создало бы конфликты записи."
     }
   ],
   "addendum": {
@@ -596,6 +875,31 @@
       "FACTCHECK",
       "EXPRESSION",
       "OPS"
-    ]
+    ],
+    "arch_quota_audit": {
+      "ref": "plans/features/p0-corrective-factcheck-speech/arch-quota-audit.md",
+      "status": "read-only inventory (17 entry points, A/B/C, C1-C6)",
+      "rule": "Builder исполняет список A, не расширяет его; C не удаляет без доказательств; порядок QUOTES -> COMPOSER-QUOTA -> AUDIT -> ACCEPT"
+    }
+  },
+  "addendum_3": {
+    "id": "P0-ADDENDUM-3-QUOTES-QUOTAS-FREQUENT",
+    "status": "integrated-into-existing-graph",
+    "new_slices": [
+      "QUOTES",
+      "COMPOSER-QUOTA",
+      "QUOTA-AUDIT"
+    ],
+    "extended_slices": [
+      "EXPRESSION",
+      "ACCEPT"
+    ],
+    "serial_joins": [
+      "QUOTES -> COMPOSER-QUOTA: общие web/app.js и web/api/speech.py (сначала режимы кавычек и UI, затем удаление аддитивного бюджета и его настройки)",
+      "COMPOSER-QUOTA -> EXPRESSION: Expression нельзя финально проверять, пока Composer вытесняет речевые слои",
+      "все writer-слайсы -> QUOTA-AUDIT: сквозная правка services/** после слияния модульных слайсов",
+      "QUOTA-AUDIT -> ACCEPT: приёмка опирается на полный перечень путей и классификацию A/B/C"
+    ],
+    "note": "Источник — current_task.md L3673-EOF (sha FAA174DE…), в снапшоте source-2026-10-24.md L810-1316 дословно."
   }
 }
