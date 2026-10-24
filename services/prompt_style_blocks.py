@@ -568,7 +568,6 @@ def _hint_candidates(policy) -> list[_HintItem]:
     for kind, hard_line, soft_line in (
             ("trailing_period", HINT_TRAILING_PERIOD_HARD,
              HINT_TRAILING_PERIOD_SOFT),
-            ("quotation_marks", HINT_QUOTES_HARD, HINT_QUOTES_SOFT),
             ("emoji", HINT_EMOJI_HARD, HINT_EMOJI_SOFT)):
         hard_ids = ids(kind, "hard")
         soft_ids = ids(kind, "soft")
@@ -576,6 +575,26 @@ def _hint_candidates(policy) -> list[_HintItem]:
             items.append(_HintItem(hard_line, kind, hard_ids))
         elif soft_ids:
             items.append(_HintItem(soft_line, kind, soft_ids))
+    # Кавычки (владелец 24.10.2026): режим A (normalize) исполняется
+    # детерминированно — Writer не нужна инструкция. Инструкция остаётся
+    # только для режима B (strip): «не используй кавычки».
+    quotes_hard, quotes_soft = [], []
+    for resolved in rules:
+        if str(getattr(resolved, "kind", "")) != "quotation_marks":
+            continue
+        rule = getattr(resolved, "rule", resolved)
+        params = getattr(rule, "params", {}) or {}
+        if str(params.get("mode") or "").strip().lower() == "normalize":
+            continue
+        target = (quotes_hard if str(getattr(resolved, "strictness", ""))
+                  == "hard" else quotes_soft)
+        target.append(str(getattr(resolved, "id", "")))
+    if quotes_hard:
+        items.append(_HintItem(HINT_QUOTES_HARD, "quotation_marks",
+                               tuple(quotes_hard)))
+    elif quotes_soft:
+        items.append(_HintItem(HINT_QUOTES_SOFT, "quotation_marks",
+                               tuple(quotes_soft)))
     forbidden_ids = ids("forbidden_chars", "hard") + \
         ids("forbidden_chars", "soft")
     if forbidden_ids:
@@ -596,8 +615,17 @@ def _hint_candidates(policy) -> list[_HintItem]:
             soft_rows.append(_HintItem(
                 text, "soft_instruction",
                 (str(getattr(item, "id", "") or ""),), soft=True))
-    writer_rules = [r for r in rules
-                    if str(getattr(r, "kind", "")) != "dash"]
+    writer_rules = []
+    for r in rules:
+        kind = str(getattr(r, "kind", ""))
+        if kind == "dash":
+            continue           # детерминированная замена, инструкция не нужна
+        if kind == "quotation_marks":
+            rule = getattr(r, "rule", r)
+            params = getattr(rule, "params", {}) or {}
+            if str(params.get("mode") or "").strip().lower() == "normalize":
+                continue       # режим A тоже детерминированный
+        writer_rules.append(r)
     if writer_rules or soft_rows:
         items.append(_HintItem(HINT_VERBATIM_PROTECTED, "verbatim_protected"))
     items.extend(soft_rows)

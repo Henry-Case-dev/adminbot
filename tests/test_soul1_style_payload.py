@@ -127,16 +127,21 @@ async def test_trailing_period_removed_from_real_payload_url_intact(
 @pytest.mark.asyncio
 async def test_payload_verification_is_honest_when_rule_still_violated(
         monkeypatch):
-    enable_style(monkeypatch, hard_doc())
-    # Текст, который проход НЕ мог поправить безопасно (многословная цитата).
-    answer = "Он сказал «база это сила», и все согласились."
+    # Кавычки теперь правятся детерминированно, поэтому «непоправимый»
+    # hard-конфликт для payload-проверки даёт лимит переносов строк.
+    doc = {"v": 1, "revision": 1, "soft_instructions": [],
+           "rules": [{"id": "br.hard", "kind": "line_breaks",
+                      "strictness": "hard", "params": {"max_breaks": 1},
+                      "reason": "r"}]}
+    enable_style(monkeypatch, doc)
+    answer = "раз\nдва\nтри"
     outcome = await sp.apply_style_policy(answer, chat_id=CHAT_ID,
                                           context="regular")
     assert outcome.styled is False, "hard-правило провалено — styled запрещён"
     check = sp.verify_outbound_payload(outcome.text, policy=outcome.policy,
                                        outcome=outcome)
     assert check.payload_status == "mismatch"
-    assert "quotation_marks.hard.no_graphic" in check.conflicts
+    assert "br.hard" in check.conflicts
 
 
 @pytest.mark.asyncio
@@ -348,7 +353,7 @@ async def test_initiative_prepared_text_goes_through_the_same_pass(monkeypatch):
     delivered = bot.payloads[0]
     assert "😀" not in delivered, "инициативный текст обошёл проход формы"
     assert not delivered.endswith("."), delivered
-    assert "«база это сила»" in delivered, "многословная цитата не срезана вслепую"
+    assert "база это сила" in delivered, "слова цитаты сохранены (режим B)"
 
 
 @pytest.mark.asyncio
