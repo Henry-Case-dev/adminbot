@@ -3,7 +3,7 @@
   "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
   "source_sha256": "d69c104d2cfe58290c5ead6826b78ac9ce37502ef3829b8948fe9e2048872d70",
   "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
-  "deployed_commit": "",
+  "deployed_commit": "c128675a6a1294c657f13149994b6424b6fae539",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -1786,7 +1786,7 @@
       "acceptance": "Режим устойчиво влияет на манеру речи, а не срабатывает случайно раз в десятки реплик (серия проб).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "FAILED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -1794,6 +1794,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Режим устойчиво влияет на манеру речи, а не срабатывает случайно раз в десятки реплик (серия проб).",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §5",
+          "observation": "1 мат из 8 живых ответов — режим срабатывает случайно, а не как устойчивая манера речи. Кандидатский v2 даёт 3/6 и 1/4, но не задеплоен и прод-эффект не доказан. FAILED.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -1878,7 +1886,7 @@
       "acceptance": "Проблема доказанно закрыта на реальном модельном пути, а не только на тестах сборки промптов.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "FAILED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -1886,6 +1894,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Проблема доказанно закрыта на реальном модельном пути, а не только на тестах сборки промптов.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §5",
+          "observation": "На реальном модельном пути прода проблема не закрыта: 1/8. Локальные пробы v2 (3/6, 1/4) идут на другой сборке (90fc3ad1) и в прод не выкачены — доказательством реального пути не являются. FAILED.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2215,7 +2231,7 @@
       "acceptance": "Сценарий FC-01: свежая новость с несколькими проверяемыми утверждениями, частичными подтверждениями и субъективным выводом — каждый тезис получает свой вердикт.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -2223,6 +2239,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Сценарий FC-01: свежая новость с несколькими проверяемыми утверждениями, частичными подтверждениями и субъективным выводом — кажды",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/factcheck.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §3 FC-01",
+          "observation": "Канарейка (прод 2.58.122): составное утверждение разобрано на 4 части, класс mixed, temporal=unknown, fallback_used=false; 2 URL-доказательства (theverge, deepgram); «консенсус экспертов» и «провал» названы оценкой, а не фактом, в тексте ответа. ОГОВОРКА: прогон шёл с decision=None, план retrieval v2 не строился (queries=[]); структурированный verdict.parts вернул 4 элемента с пустыми text/verdict — разбор по частям есть в пользовательском тексте, но не в структуре. Структурная часть FC-01 живой пробой не подтверждена.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2238,7 +2262,7 @@
       "acceptance": "Сценарий FC-02: релевантная публикация с другими словами находится и не отбрасывается лексическим фильтром.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -2246,6 +2270,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Сценарий FC-02: релевантная публикация с другими словами находится и не отбрасывается лексическим фильтром.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/factcheck.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §3 FC-02",
+          "observation": "Канарейка: вторичная публикация с другими словами найдена и использована — theverge.com/2023/12/1/…telegram-update-voice-transcription…; лексический фильтр её не отбросил (доказательство попало в вердикт), поиск шёл семантическим контуром сервиса (FC-SEMQUERY), не лексическим совпадением.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2261,7 +2293,7 @@
       "acceptance": "Сценарий FC-03: при недоступном первоисточнике вторичные публикации дают пригодные доказательства и используются.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -2269,6 +2301,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Сценарий FC-03: при недоступном первоисточнике вторичные публикации дают пригодные доказательства и используются.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/factcheck.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §3 FC-03",
+          "observation": "Канарейка: первоисточники (Telegram/Google) в выдаче отсутствуют, доказательства получены из вторичных публикаций (theverge + deepgram) и использованы в разборе — недоступность первоисточника не превратилась в «доказательств нет».",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2284,7 +2324,7 @@
       "acceptance": "Сценарий FC-04: при недоступности одного провайдера результат даёт следующий, ответ не деградирует до «нет данных».",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -2292,6 +2332,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Сценарий FC-04: при недоступности одного провайдера результат даёт следующий, ответ не деградирует до «нет данных».",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/factcheck.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §3 FC-04",
+          "observation": "Канарейка: tavily level failed → fallback → exa ok (10 276 симв., 2 241 мс), затем tavily ok (6 331 симв., 1 174 мс); ответ не деградировал до «нет данных». Каскад FC-04 сработал живьём.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2476,6 +2524,14 @@
           "observation": "PR-01..03 покрыты tests/test_p0_prompts_core.py (9 passed): сохранённая и действующая редакции сверяются с реестром, 8 withheld остаются неактивными, миграция канона переживает рестарт; provenance_missing разобран в forensic §1. Строка PR-03 (источник L552): Сценарий PR-03: корректно восстановленная авторская редакция действует после рестарта и очередной миграции.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/prompts-core.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/withheld-postdeploy.md :: §4 PR-03",
+          "observation": "После штатной миграции/рестарта прод 2.58.122: авторская редакция r8.ead77b2ab509 восстановлена и действует (source=global, active_from_owner=true), повторный рестарт 01:49:10Z не изменил sha/revision; 8 legacy-значений withheld, 3 identical_to_factory — подмены авторской редакции нет.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/withheld-postdeploy.md",
+          "artifact_sha256": "3548ed5ea21770c891223adc7aa198d8ac2f924b8524be48e2ab68adba2434c9"
         }
       ]
     },
@@ -2545,6 +2601,14 @@
           "observation": "Checkup/Core контракт: tests/test_p0_checkup_core_contract.py + tests/test_p0_prompts_core.py (16 проверок): блок «СУТЬ АНАЛИЗА» дословно, SP-01..06 (Core/Expression/Style/capitalization), матрица «строка->владелец», миграция и откат. Строка SP-03 (источник L558): Сценарий SP-03: Checkup соблюдает соответствующие правила Style Policy. Композиция слоёв проверена на уровне фактического payload (tests/test_p0_checkup_core_contract.py); поведение на реальном проде покрыто postdeploy-строкой REQ-DONE-MAIN-CRITERION.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/checkup-core.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §4 SP-03",
+          "observation": "Канарейка Checkup: исходящий ответ 2 321 симв. — 13 дефисов-минус, 0 длинных и 0 средних тире; контрольная проба «Это проверка — тире в тексте.» → «Это проверка - тире в тексте», applied=true. Style Policy применён на живой модели.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2591,6 +2655,14 @@
           "observation": "Checkup/Core контракт: tests/test_p0_checkup_core_contract.py + tests/test_p0_prompts_core.py (16 проверок): блок «СУТЬ АНАЛИЗА» дословно, SP-01..06 (Core/Expression/Style/capitalization), матрица «строка->владелец», миграция и откат. Строка SP-05 (источник L562): Сценарий SP-05: готовая речь не содержит навязанного Checkup-правила начинать предложения с маленькой буквы. Композиция слоёв проверена на уровне фактического payload (tests/test_p0_checkup_core_contract.py); поведение на реальном проде покрыто postdeploy-строкой REQ-DONE-MAIN-CRITERION.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/checkup-core.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §4 SP-05",
+          "observation": "Канарейка Checkup: в system 0 вхождений инструкции про строчную букву (7 776 симв., sha12 17dbe60530e4), в исходящем ответе — обычная капитализация; навязанного правила «начинать со строчной» нет.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2629,7 +2701,7 @@
       "acceptance": "Сценарий EX-01: FREQUENT демонстрирует устойчивое отличие от OFF и OCCASIONAL на серии проб.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "FAILED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -2637,6 +2709,22 @@
           "observation": "Payload-level отличие режимов доказано (marker 4/4, разные инструкции, защита от бюджета); поведенческое отличие FREQUENT от OFF/OCCASIONAL на реальных пробах не доказано — проверка после деплоя.",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §5",
+          "observation": "Канарейка на живой модели прода: 4 стимула × 2 прогона, мат в собственной речи — 1/8 (прогон 1: 1/4, прогон 2 с identity: 0/4); маркер режима в system присутствует ровно один, постпроцессора нет, классификация штатной функции — model_ignored_instruction. Устойчивого отличия FREQUENT от OFF/OCCASIONAL нет; плечи OFF/OCCASIONAL живьём не гонялись. ИТОГ: FAILED (не PARTIAL в терминах карты — состояние PARTIAL схемой не предусмотрено).",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
+        },
+        {
+          "candidate_commit": "90fc3ad15c95262175576ee35b6df8d27616cba0",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/expression-v2.md :: §3-4",
+          "observation": "Кандидатский фикс хвоста system (не задеплоен, коммит 90fc3ad1): пробы на провайдере прода 3/6 при свободной длине и 1/4 в реалистичном МИКРО — PARTIAL, прод-эффект не доказан.",
+          "type": "provider",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression-v2.md",
+          "artifact_sha256": "cd53f2ffe4d777ebcb5f4d6df8b5c287bb37758256d70ea4f1559bed0561e6a1"
         }
       ]
     },
@@ -2660,6 +2748,14 @@
           "observation": "EX-02 NOT PROVEN: реальная проба только для FREQUENT (4 хода, dev-провайдер nano-gpt/deepseek-v4.1-flash) — 0/4 реплик с матом в собственной речи при корректной доставке инструкции (marker 4/4); сравнительной матрицы режимов нет. Ограничение модели/провайдера, офлайн-доказательства недостаточно: Сценарий EX-02: различия видны не только в промпте, но и в результатах реальных LLM-проб.",
           "type": "provider",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §5",
+          "observation": "Живые LLM-пробы на проде: 8 ответов, 1 мат; ответы живые и резкие, но мат как привычная часть речи не воспроизводится. Пробы кандидатского v2 (не задеплоен): 3/6 свободная длина, 1/4 МИКРО — PARTIAL. Требование «различия видны в результатах реальных проб» не выполнено.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md",
+          "artifact_sha256": "82bef22a64ff7c7fd9a9f3639b70c4b33e26fa1e019fa009822ee2dcb7ef1029"
         }
       ]
     },
@@ -2950,13 +3046,13 @@
       "source_text_sha256": "4b98fb3dd6112c0e26a382078cafeace84a5a39ecbe5eaea588a57e5daa48133",
       "source_excerpt": "**Главный критерий:** фактический пользовательский ответ должен соответствовать настройкам владельца, использовать действующие авторские промпты, сохранять выразительный характер и не подменять неудач",
       "disposition": "required",
-      "reason": "",
+      "reason": "FREQUENT на живой модели не соответствует настройке владельца (1/8), поэтому главный пользовательский критерий не может быть закрыт: сначала исправление Expression и новый замер, затем live-приёмка.",
       "req_id": "REQ-DONE-MAIN-CRITERION",
       "slice": "ACCEPT",
       "acceptance": "Фактический пользовательский ответ соответствует настройкам владельца, использует авторские промпты, сохраняет характер и не подменяет неудачный поиск выводом об отсутствии доказательств.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -3936,7 +4032,7 @@
       "acceptance": "Принцип свободы речи живёт в Personality Core на уровне личности: ровно один абзац «Свобода речи.» в Full Core и одно предложение в Compact, сформулированные как собственный голос, а не как правило ответа. Патч владельческой редакции owner-preserving: повторный прогон идемпотентен (тот же текст, пустой список правок), авторские байты не перезаписываются, вставка только при отсутствии эквивалентного смысла. Второго регулятора мата нет: интенсивность остаётся единственным полномочием Expression (services/mca_expression.py не меняется). Функциональные промпты (checkup.base.system, factcheck.base.*, summary.base.*, search.base.system) не получают вторых определений личности и мата и не содержат старой строки обхода ограничений. В проде активная редакция Core содержит принцип после штатного применения owner_preserve_core_full_patch.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
@@ -3944,6 +4040,14 @@
           "observation": "Офлайн-часть закрыта фазовыми проверками, но требуется фактическое поведение в проде: Принцип свободы речи живёт в Personality Core на уровне личности: ровно один абзац «Свобода речи.» в Full Core и одно предложение ",
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/core-patch-wire.md"
+        },
+        {
+          "candidate_commit": "c128675a6a1294c657f13149994b6424b6fae539",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/canary/report.md :: §6 + plans/features/p0-corrective-factcheck-speech/evidence/withheld-postdeploy.md :: §4",
+          "observation": "Прод 2.58.122: активна stored-редакция character.core r8.ead77b2ab509 (3294 зн., full, origin=owner_edit), «Свобода речи.» — 1 в core и 1 в собранном system, «Как говорить о реальных событиях.» — 1/1; active_is_stored_full=true (заводская v4 не подменяет). owner_preserve_core_full_patch(pre)==post=True, повторный рестарт 01:49:10Z идемпотентен (sha/revision не менялись). Compact: stored compact пуст, активный путь — full (бюджет 1200 ток.), предложение Compact проверяется фабричной редакцией тестами test_p0_prompts_core.py.",
+          "type": "live",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/withheld-postdeploy.md",
+          "artifact_sha256": "3548ed5ea21770c891223adc7aa198d8ac2f924b8524be48e2ab68adba2434c9"
         }
       ],
       "pm_note": "ADDENDUM #2 (L802-806). Код внедрён и независимо подтверждён Reviewer на кандидате 3fcac03c (evidence/review-prompts.md §1); статус остаётся PENDING до штатного binding-прохода карты. Postdeploy-остаток из ревью: активная владельческая PG-редакция Core получает абзац только когда деплой вызывает owner_preserve_core_full_patch — должно попасть в чек-лист выката."
