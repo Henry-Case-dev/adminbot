@@ -1,5 +1,8 @@
 # W4 e2e — диагностика «178 падений» (LANE W4-E2E-DIAG, 25.10.2026)
 
+Кандидат с исправлением стенда: **69517068** (`tools/ui_round1025_matrix.py`
++ этот файл; `web/**` без изменений).
+
 ## Симптом
 
 В `plans/workflow_state.md` осталось: «W4 e2e 178 failures — pre-existing,
