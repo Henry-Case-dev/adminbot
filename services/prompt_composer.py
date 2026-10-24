@@ -1225,6 +1225,7 @@ def _joined(parts: Sequence[str]) -> str:
 
 def _compose(plan: PromptPlan) -> PromptManifest:
     from services import prompt_style_blocks as psb
+    from services import mca_expression as _expr_mod
 
     gates = plan.gates if isinstance(plan.gates, GateState) \
         else gates_from_config()
@@ -1484,6 +1485,7 @@ def _compose(plan: PromptPlan) -> PromptManifest:
 
     # ── 7. expression: эмоциональная температура/резкость (soft) ───────────
     expression = plan.expression
+    expression_final = ""
     if not speech:
         traces.append(_trace(LAYER_EXPRESSION, block_id="expression",
                              owner="core", skip_reason=profile_reason))
@@ -1501,12 +1503,23 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     else:
         text = str(expression.text)
         cost = estimate_tokens(text)
+        # P0-E v2 (24.10.2026): тот же режим речи повторяется ФИНАЛЬНЫМ
+        # контрактом в самом конце system. Замер: слой стоит на 85.0–96.3%
+        # полной сборки, а последние ~320 симв. занимает другой слой —
+        # поэтому хвост получает ту же директиву с явной пометкой приоритета.
+        # Источник текста один (`mca_expression.PROFANITY_INSTRUCTIONS`):
+        # второго регулятора частоты, квот и постпроцессора нет.
+        expression_final = _expr_mod.render_expression_final_contract(
+            getattr(expression, "mode", ""))
         # P0-E (source §6.2 п.3 / §6.3): Expression — единственный носитель
         # режима мата в готовой речи. Тихий `budget_excluded` превращал
         # настроенный FREQUENT в ложный «ноль различий» (арх-дизайн §4).
         # Слой защищён как Core: рендерится всегда, а перерасход виден
         # конфликтом `expression_protected_from_budget`
         # (outcome `exempted_protected`, R17-safe: только числа/коды).
+        # Финальный контракт в бюджет НЕ добавляется: это та же директива
+        # слоя в хвосте, а не новый аддитивный слой — иначе он вытеснял бы
+        # Style_Policy_Hint при бюджете 1200.
         if budget is not None and consumed + cost > budget:
             detail = (f"expression_tokens={cost} budget={budget} "
                       f"consumed={consumed}")
@@ -1522,10 +1535,14 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         consumed += cost
         _append(parts, text)
         traces.append(_trace(
-            LAYER_EXPRESSION, block_id="expression", text=text,
+            LAYER_EXPRESSION, block_id="expression",
+            text=(text + ("\n\n" + expression_final if expression_final
+                          else "")),
             owner="core", source=str(expression.source or "global"),
             revision=str(expression.revision or _sha16(text)),
-            rendered=True))
+            rendered=True,
+            detail=(f"final_contract=tail chars={len(expression_final)}"
+                    if expression_final else "")))
 
     # ── 8. humor_craft (приёмы, не личность; 0 доп. LLM) ───────────────────
     if not speech:
@@ -1691,6 +1708,15 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             text=channel_output, owner="channel",
             source=str(plan.channel or "plain"),
             revision=sha12(channel_output), rendered=True))
+
+    # ── 12. expression final contract: тот же режим речи в САМОМ КОНЦЕ ──────
+    # Слой стоит НЕ в конце сборки (85–96%), последним модель читает другой
+    # блок. Финальный контракт повторяет ту же директиву из единственного
+    # источника (`mca_expression.PROFANITY_INSTRUCTIONS`) с пометкой
+    # приоритета; второго регулятора частоты не появляется. Учтён в трассе
+    # слоя `expression` (`detail=final_contract=tail`), отдельного слоя нет.
+    if expression_final:
+        _append(parts, expression_final)
 
     system = _joined(parts)
     # INS-CONFLICT: устаревшие служебные метки `SOUL-*` не должны попадать в
