@@ -10781,13 +10781,18 @@ class DatabaseService:
         архивные beliefs (status='archived_belief', пенальти) и читает
         base_weight из belief_meta при воскрешении. status=None → без
         SQL-фильтра (фильтрация статусов — на стороне вызывающего).
-        B03.2 (v6.3): + expires_at — as-of-пометка архивного top-up."""
+        B03.2 (v6.3): + expires_at — as-of-пометка архивного top-up.
+        SPEECH-P0-A2: + provenance-колонки v17 (chat_id/subject_ref_id/
+        speaker_author_id/assertion_kind/attribution_method/provenance_channel)
+        — аддитивно, для `with_meta`-выдачи direct-RAG (`read_policy_rank`)."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
                f"status, last_confirmed_at, message_timestamp, belief_meta, "
-               f"kind, importance, tg_message_id, forward_from, expires_at "
+               f"kind, importance, tg_message_id, forward_from, expires_at, "
+               f"chat_id, subject_ref_id, speaker_author_id, assertion_kind, "
+               f"attribution_method, provenance_channel "
                f"FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)

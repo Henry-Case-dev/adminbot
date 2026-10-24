@@ -2066,9 +2066,11 @@ class TestEpic60RunningSummaryContext:
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
-        # D5: метка summary-режима первой строкой (каноническая форма)
-        assert body.split("\n")[0] == \
-            "фон: конспект из 3 сообщений, ниже дословно свежий хвост"
+        # D5: метка summary-режима первой строкой (каноническая форма);
+        # SPEECH-P0-A2: конспект помечен «пересказ, не источник».
+        assert body.split("\n")[0] == (
+            "фон: конспект из 3 сообщений, ниже дословно свежий хвост "
+            "— пересказ, не источник")
         assert "суть окна: спорили про дроны" in body
         assert "новое сообщение" in body
         assert "старое сообщение" not in body
@@ -2090,7 +2092,8 @@ class TestEpic60RunningSummaryContext:
             blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
-        assert "фон: конспект из 1 сообщений, ниже дословно свежий хвост" in body
+        assert ("фон: конспект из 1 сообщений, ниже дословно свежий хвост "
+                "— пересказ, не источник") in body
         assert "суть окна: спорили про дроны" in body    # конспект держится
         assert any("global context truncated" in r.message
                    for r in caplog.records)
@@ -2151,10 +2154,12 @@ class TestEpic60RunningSummaryContext:
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
         lines = body.split("\n")
-        assert lines[0] == \
-            "широкий фон: раньше спорили про ракеты и запуски"
-        assert lines[1] == \
-            "фон: конспект из 3 сообщений, ниже дословно свежий хвост"
+        assert lines[0] == (
+            "широкий фон: пересказ, не источник: "
+            "раньше спорили про ракеты и запуски")
+        assert lines[1] == (
+            "фон: конспект из 3 сообщений, ниже дословно свежий хвост "
+            "— пересказ, не источник")
         assert "суть окна: спорили про дроны" in body
         assert "новое сообщение" in body
 
@@ -2174,10 +2179,10 @@ class TestEpic60RunningSummaryContext:
         assert body.split("\n")[0] == "фон: дословно последние 1 сообщений"
 
     @pytest.mark.asyncio
-    async def test_level2_capped_by_max_chars_keep_end(self, fake_time,
-                                                       monkeypatch):
-        """E2: кап limits.chat_level2_max_chars — обрезание keep-end (свежий
-        конец L2 ближе к текущему окну)."""
+    async def test_level2_capped_by_max_chars_keep_head(self, fake_time,
+                                                        monkeypatch):
+        """E2 + SPEECH-P0-A2: кап limits.chat_level2_max_chars — keep-head
+        (начало пересказа держит тему; хвост L2 отбрасывается)."""
         import dataclasses as _dc
 
         mod = _dc.replace(settings, CHAT_LEVEL2_MAX_CHARS=40)
@@ -2191,8 +2196,8 @@ class TestEpic60RunningSummaryContext:
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         global_block = next(b for b in blocks if b.startswith("<Global_Context>"))
         body = global_block[len("<Global_Context>\n"):-len("\n</Global_Context>")]
-        assert "конец-маркер" in body.split("\n")[0]   # keep-end: хвост L2
-        assert "начало-маркер" not in body              # голова обрезана
+        assert "начало-маркер" in body.split("\n")[0]   # keep-head: начало L2
+        assert "конец-маркер" not in body                # хвост обрезан
 
     @pytest.mark.asyncio
     async def test_level2_db_error_fail_open_keeps_l1(self, fake_time, caplog):
@@ -2274,11 +2279,11 @@ class TestRagDirectPipeline:
         assert memory.rerank_calls == []       # флаг off → 0 LLM-вызовов
 
     @pytest.mark.asyncio
-    async def test_self_facts_get_label_and_anti_echo(self, fake_time):
-        """F1/T-1482 (ADR-1014-2 D5/D7): self-факт в direct-RAG рендерится с
-        тегом [Источник: Я сам (Бот)] и анти-эхо-инструкцией первой строкой;
-        include_self=True доходит до memory."""
-        from services.summary_memory import _SELF_ECHO_INSTRUCTION
+    async def test_self_facts_not_in_factual_rag(self, fake_time):
+        """SPEECH-P0-A2 (§self-echo; ПЕРЕОПРЕДЕЛЯЕТ F1/T-1482 D5/D7):
+        self-факт (`bot_self_reply`) — не факт мира: в фактический
+        <RAG_Memory> он не попадает (прошлые ответы остаются только в
+        <style_anchors> как интонация), анти-эхо-инструкция не нужна."""
         memory = FakeMemory(
             window=[_window_row()],
             rag_facts=[("bot_self_reply", "[Бот] заявил: любит грибы",
@@ -2286,10 +2291,7 @@ class TestRagDirectPipeline:
         service = _make_service(memory=memory)
         blocks = await service._build_user_content(
             CHAT_ID, _message(text="грибы"), "вася")
-        rag_block = next(b for b in blocks if b.startswith("<RAG_Memory>"))
-        assert "[Источник: Я сам (Бот)]" in rag_block
-        assert rag_block.splitlines()[1] == _SELF_ECHO_INSTRUCTION
-        assert memory.rag_facts_calls[-1][3] is True
+        assert not any(b.startswith("<RAG_Memory>") for b in blocks)
 
     @pytest.mark.asyncio
     async def test_no_self_facts_no_anti_echo(self, fake_time):

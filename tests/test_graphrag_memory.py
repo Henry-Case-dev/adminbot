@@ -2288,9 +2288,9 @@ class TestGetRagFactsF1:
         calls = []
 
         async def fake_search(chat_id, query, limit, include_direct_reply=False,
-                              include_self=False):
+                              include_self=False, with_meta=False):
             calls.append((chat_id, query, limit, include_direct_reply,
-                          include_self))
+                          include_self, with_meta))
             return list(ranked)
 
         monkeypatch.setattr(memory, "_search_graph_facts", fake_search)
@@ -2299,7 +2299,7 @@ class TestGetRagFactsF1:
         # порядок rel сохранён (даты в фактах перемешаны — хроно-сортировки нет)
         assert facts == ranked
         assert calls == [(-100, "запрос", settings.GRAPH_RAG_FACTS_LIMIT, True,
-                          False)]
+                          False, False)]
 
     @pytest.mark.asyncio
     async def test_rag_context_sort_true_still_sorts_by_created_at(self, db,
@@ -2312,7 +2312,7 @@ class TestGetRagFactsF1:
                   ("web_content", "средний по дате факт", 200)]
 
         async def fake_search(chat_id, query, limit, include_direct_reply=False,
-                              include_self=False):
+                              include_self=False, with_meta=False):
             return list(ranked)
 
         monkeypatch.setattr(memory, "_search_graph_facts", fake_search)
@@ -2329,7 +2329,7 @@ class TestGetRagFactsF1:
         memory = MemoryManager(db, FactsLLM())
 
         async def broken(chat_id, query, limit, include_direct_reply=False,
-                         include_self=False):
+                         include_self=False, with_meta=False):
             raise RuntimeError("поиск упал")
 
         monkeypatch.setattr(memory, "_search_graph_facts", broken)

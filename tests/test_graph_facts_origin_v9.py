@@ -328,15 +328,18 @@ class TestMemorizeSelfReply:
             "FROM graph_facts WHERE id = ?", (fid,))
         row = await cursor.fetchone()
         assert row["origin"] == "bot_self_reply"
-        assert row["status"] == "confirmed"
+        # SPEECH-P0-A2: ответ бота — НЕ подтверждённое знание (status
+        # 'tentative'), поэтому в фактический RAG не попадает.
+        assert row["status"] == "tentative"
         assert row["kind"] == "fact"
         assert row["target_user"] is None
         assert row["weight"] == pytest.approx(0.2)
         assert row["importance"] == 2
-        # FTS-строка записана (внутри insert_graph_fact)
+        # FTS-строка записана (внутри insert_graph_fact), но retrieval не
+        # отдаёт её ни по умолчанию, ни с include_self (status-фильтр RAG).
         found = await db.search_graph_facts_fts(
             -100, '"чай"*', 5, int(time.time()) + 10, include_self=True)
-        assert any(r["id"] == fid for r in found)
+        assert all(r["id"] != fid for r in found)
         # nodes/edges НЕ создаются
         assert (await (await db.db.execute(
             "SELECT COUNT(*) AS c FROM nodes")).fetchone())["c"] == 0

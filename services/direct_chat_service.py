@@ -54,12 +54,16 @@ Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карто�
   * D5 (T-802): метки-строки свежести в начале <Global_Context>.
   * D2/E1 (T-799/T-803): global держит голову (конспект не режется первым),
     importance-удержание verbatim-строк (флаг chat_importance_keep_enabled).
-  * E2/E4 (T-804/T-806): инжект level-2 («широкий фон: …», keep-end кап) в
-    <Global_Context> при L1+L2; конспект читается без TTL-смерти.
+  * E2/E4 (T-804/T-806): инжект level-2 («широкий фон: пересказ, не
+    источник: …», keep-head кап) в <Global_Context> при L1+L2; конспект
+    читается без TTL-смерти.
   * F1-F4 (T-807…T-810): direct-RAG — факты rel-порядка (get_rag_facts),
     словарный дедуп против <Global_Context> (dedup_rag_vs_global),
     origin-метки «[{label}] {date}» (origin_labels), опциональный LLM-реранк
     (flags.chat_rag_rerank_enabled, fail-open).
+  * SPEECH-P0-A2: текущая реплика не история (current-turn boundary);
+    L2/L1 — пересказ (keep-head + маркер); выводы бота не факты
+    (BOT_ORIGINS), достоверность RAG — существующим read-policy рангом.
 
 Раунд 9 (AGI Memory, spec §3.1.4/Q3, T-819/B4): инжект `<user_relations>` —
 строка отношений собеседника (стадия/активность/заметка админа) сразу после
@@ -181,7 +185,7 @@ from services.summary_memory import (
     order_rag_facts_asc,
 )
 from services.summary_xml import escape_xml_text
-from services.target_marking import is_target_row
+from services.target_marking import append_marker, is_target_row
 from services.token_counter import (
     append_protected_spans,
     count_tokens,
@@ -1836,6 +1840,77 @@ class DirectChatThrottle:
             return max(1.0, self._cooldown - (now - state[1]))   # ceil-по-остатку
         self._state[(chat_id, user_id)] = (burst - 1, now)
         return 0.0
+
+
+# ── SPEECH-P0-A2 (§self-echo / §provenance): direct-RAG — только ФАКТЫ ──────
+# Существующий provenance-контур (mca-22 §23) применяется к фактическому
+# direct-RAG без нового classification/retrieval: ранг берётся из
+# `graphrag_provenance.read_policy_rank` (3 = provenance+confirmed —
+# обычная строка; 2 = attributed tentative; 0/1 = legacy/unverified или
+# conflicting). Legacy-факты НЕ удаляются — подаются как честный weak hint
+# с явной пометкой (не «уверенный факт»).
+
+_RAG_UNCONFIRMED_MARK = "(не подтверждено) "
+_RAG_TENTATIVE_MARK = "(предположение) "
+
+
+def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
+    """Нормализация кандидатов RAG → (факты-кортежи, {item_id: rank}).
+
+    dict-кандидаты (`get_rag_facts(with_meta=True)` /
+    `retrieve_fact_candidates`) несут v17-provenance → ранг считается
+    СУЩЕСТВУЮЩИМ `read_policy_rank`; tuple-кандидаты (совместимые
+    реализации/двойники) provenance не несут → rank=None (без пометок)."""
+    facts: list = []
+    ranks: dict = {}
+    for row in rows or []:
+        if isinstance(row, dict):
+            item = (row.get("origin"), row.get("fact"), row.get("rag_ts"),
+                    row.get("target_user"), row.get("item_id"),
+                    row.get("forward_from") or "",
+                    bool(row.get("expired")))
+            try:
+                rank = _gprov.read_policy_rank(row)
+            except Exception:
+                rank = None
+            key = row.get("item_id") or (row.get("origin"),
+                                        row.get("fact"))
+            ranks[key] = rank
+        else:
+            item = tuple(row)
+            key = item[4] if len(item) > 4 else (item[0], item[1])
+        facts.append(item)
+        if key not in ranks:
+            ranks[key] = None
+    return facts, ranks
+
+
+def _rag_item_key(item) -> object:
+    """Стабильный ключ факта-кортежа для rank-таблицы (item_id или текст)."""
+    try:
+        if len(item) > 4 and item[4]:
+            return item[4]
+    except TypeError:
+        pass
+    try:
+        return (item[0], item[1])
+    except (TypeError, IndexError):
+        return None
+
+
+def _mark_rag_fact(item, ranks: dict):
+    """Пометка достоверности строки RAG (§23): rank 3 → без изменений;
+    rank 2 → «предположение»; rank 0/1 (legacy/conflicting) → «не
+    подтверждено». Применяется ПОСЛЕ дедупа/реранка и ДО рендера (текст
+    факта уже не участвует в сравнениях с фоном)."""
+    rank = ranks.get(_rag_item_key(item))
+    if rank is None or rank >= 3:
+        return item
+    mark = _RAG_TENTATIVE_MARK if rank == 2 else _RAG_UNCONFIRMED_MARK
+    try:
+        return (item[0], f"{mark}{item[1]}") + tuple(item[2:])
+    except (TypeError, IndexError):
+        return item
 
 
 class DirectChatService:
@@ -5347,10 +5422,11 @@ class DirectChatService:
         window = await self.memory.get_window_messages(chat_id)
         # Раунд 10.23 (F1, ADR-1023-1): текущий пользовательский ход —
         # триггер маркировки (сопоставление по Telegram message_id).
-        # R1023F1-01: маркер ставится РОВНО ОДИН раз на всю сборку — только в
-        # <Global_Context> (единственный «исторический» блок; цепочка стартует
-        # от текущего хода, поэтому thread/branch его дублируют). Вспомогательные
-        # блоки получают trigger_message_id=None и маркер не расходуют.
+        # R1023F1-01: маркер ставится РОВНО ОДИН раз на всю сборку.
+        # SPEECH-P0-A2 (§current-turn boundary): текущая реплика больше НЕ
+        # входит в историю (<Global_Context>), поэтому legacy-путь ставит
+        # маркер в <Current_Question>, а composer-путь — в thread (walk до
+        # триггера); вспомогательные блоки получают trigger_message_id=None.
         trigger_message_id = getattr(message, "message_id", None)
         # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
         # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
@@ -5446,6 +5522,16 @@ class DirectChatService:
         # ADD-TR.2: текст — text/caption (см. _render_current_question).
         current = self._render_current_question(
             message, extra_markers=extra_media_markers)
+        # SPEECH-P0-A2 (§current-turn boundary): текущая реплика больше не
+        # рендерится в истории (<Global_Context>), поэтому маркер «текущая
+        # команда» (R1023F1) ставится там, где реплика реально подаётся —
+        # в <Current_Question> (ровно один раз). Условие — триггер реально
+        # присутствует в окне истории (паритет с прежним правилом: нет
+        # строки-триггера → маркера нет). В composer-режиме маркер уже
+        # ставит <Conversation_Thread> (walk до триггера) — дублей нет.
+        if current and not composer_mode and any(
+                is_target_row(row, trigger_message_id) for row in window):
+            current = append_marker(current)
         if current:
             blocks.append(("current", current))
         # Epic 60 (65.4, T-472): стилевые якоря — у конца (форма, не содержание).
@@ -5552,9 +5638,15 @@ class DirectChatService:
         tail_rows (P1, keep-end) с гарантированным полом
         CHAT_FRESH_TAIL_MIN_MESSAGES; кандидаты middle = post-watermark до
         пола. Без summary — последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений
-        (soft target, D13) как tail. RAG-дедупу отдаётся head+tail текст."""
+        (soft target, D13) как tail. RAG-дедупу отдаётся head+tail текст.
+        SPEECH-P0-A2 (§current-turn boundary): текущая реплика-триггер
+        исключается из окна истории ДО расчёта tail/middle — вопрос не
+        дублируется как «старое событие» (остаётся <Current_Question>).
+        L2 (широкий фон) капится keep-head и подаётся с явной пометкой
+        «пересказ, не источник»."""
         roster = roster or []
         suffix_map = suffix_map or {}
+        window = self._history_window(window, trigger_message_id)
         tail_min = _composer.fresh_tail_min_messages()
         parts: dict = {
             "head_lines": [], "middle_rows": [], "tail_rows": [],
@@ -5581,9 +5673,10 @@ class DirectChatService:
                                 hot.get("limits.chat_level2_max_chars",
                                         settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
                             if cap2 and len(level2_text) > cap2:
-                                level2_text = level2_text[-cap2:]
+                                level2_text = level2_text[:cap2]
                             parts["head_lines"].append(
-                                "широкий фон: " + level2_text)
+                                "широкий фон: пересказ, не источник: "
+                                + level2_text)
                     except Exception:
                         logger.warning(
                             "direct: level2 read failed — without L2 row "
@@ -5597,7 +5690,7 @@ class DirectChatService:
             parts["raw_count"] = raw_count
             parts["head_lines"].append(
                 f"фон: конспект из {raw_count} сообщений, "
-                f"ниже дословно свежий хвост")
+                f"ниже дословно свежий хвост — пересказ, не источник")
             parts["head_lines"].append(summary_text)
             post_rows = []
             for row in window:
@@ -8329,17 +8422,42 @@ class DirectChatService:
         Раунд 10.14 (F1, ADR-1014-2 D5/D7): include_self=True — свои прошлые
         слова участвуют; если среди kept есть self, первой строкой внутрь
         <RAG_Memory> добавляется _SELF_ECHO_INSTRUCTION (канон промпта direct
-        не меняется → PREV/PROMPT_MIGRATIONS не нужны)."""
+        не меняется → PREV/PROMPT_MIGRATIONS не нужны).
+        SPEECH-P0-A2 (§self-echo, ПЕРЕОПРЕДЕЛЯЕТ D5/D7-фактичность): выводы
+        бота (`bot_self_reply`/`bot_direct_reply`, существующий
+        `provenance.is_self_referential_origin`) в ФАКТИЧЕСКИЙ RAG не
+        попадают — прошлые ответы остаются только в <style_anchors> как
+        интонация. Кандидаты читаются ОДНИМ retrieval
+        (`get_rag_facts(with_meta=True)`; совместимый фолбэк — прежний
+        tuple-контракт) и оцениваются СУЩЕСТВУЮЩИМ
+        `graphrag_provenance.read_policy_rank`: rank 3 — обычная строка,
+        rank 2 — пометка «предположение», rank 0/1 (legacy/conflicting) —
+        «не подтверждено» (weak hint; legacy-факты не удаляются и не
+        массово фильтруются)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return "", ""
         query = getattr(message, "text", None) or ""
         try:
-            facts = await self.memory.get_rag_facts(
-                chat_id, query, include_direct_reply=True, include_self=True)
+            try:
+                rows = await self.memory.get_rag_facts(
+                    chat_id, query, include_direct_reply=True,
+                    include_self=True, with_meta=True)
+            except TypeError:
+                # Совместимость: реализации без provenance-меты (двойники/
+                # альтернативные memory) — прежний tuple-контракт, ранг
+                # неизвестен (без пометок, состав фактов тот же).
+                rows = await self.memory.get_rag_facts(
+                    chat_id, query, include_direct_reply=True,
+                    include_self=True)
         except Exception:
             logger.warning("direct: rag facts failed — no rag block | chat=%s",
                            chat_id, exc_info=True)
             return "", ""
+        facts, ranks = _rag_rows_with_ranks(rows)
+        # §23 read policy: бот-выводы — не факты мира (единый существующий
+        # предикат; новых классификаторов нет).
+        facts = [item for item in facts
+                 if not _prov.is_self_referential_origin(item[0])]
         if not facts:
             return "", ""
         # F2: дубли конспекта/verbatim-хвоста фона из RAG-блока исключаются
@@ -8368,8 +8486,10 @@ class DirectChatService:
                 extra = await activation(chat_id)
                 if extra:
                     seen = {str(f[1]) for f in kept}
-                    kept = list(kept) + [f for f in extra
-                                         if str(f[1]) not in seen]
+                    kept = list(kept) + [
+                        f for f in extra
+                        if str(f[1]) not in seen
+                        and not _prov.is_self_referential_origin(f[0])]
         except Exception:
             logger.warning(
                 "direct: graph activation failed — no inject | chat=%s",
@@ -8383,11 +8503,18 @@ class DirectChatService:
         # F3: единый формат строки с origin-меткой; дата — внутри факта.
         # 10.20 (БЛОК 2.6, ADR-1020-2 п.1): ASC-хронология ПОСЛЕ дедупа/реранка/
         # граф-активации, ПЕРЕД рендером (состав top-K не меняется).
+        # SPEECH-P0-A2 (§23): пометка достоверности — тем же существующим
+        # read-policy рангом, ПОСЛЕ дедупа/маркера «золотых» (сравнения шли
+        # по исходному тексту факта) и ДО рендера.
+        kept = [_mark_rag_fact(item, ranks) for item in kept]
         content = build_rag_context(order_rag_facts_asc(kept), origin_labels=True)
         if not content:
             return "", ""
         # F1/T-1482 (ADR-1014-2 D5): анти-эхо — только когда в блоке есть
         # собственные прошлые слова бота (origin='bot_self_reply').
+        # SPEECH-P0-A2: после self-origin-фильтра выше ветка недостижима и
+        # оставлена СТРАХОВКОЙ (альтернативная memory, вернувшая self-факт
+        # без BOT_ORIGINS); в норме self-выводы в фактах не подаются.
         # L4-фикс: инструкция добавляется ДО расчёта cap, иначе итоговый
         # <RAG_Memory> превышал limits.graph_rag_context_max_chars.
         if any(str(item[0]) == "bot_self_reply" for item in kept):
@@ -8454,6 +8581,23 @@ class DirectChatService:
     # ── <Global_Context> (Раунд 8: D2/T-799 keep-head + E1/T-803 importance,
     #    D5/T-802 метки-строки, C1/T-792 uid-рендеры) ────────────
 
+    @staticmethod
+    def _history_window(window: list, trigger_message_id) -> list:
+        """SPEECH-P0-A2 (§current-turn boundary): окно истории БЕЗ текущей
+        реплики-триггера.
+
+        Текущий ход — это ВОПРОС (<Current_Question>/thread), а не прошлое
+        событие: если оставить его в окне, конспект/verbatim-хвост подают
+        его как «старую» историю (риск ретро-датировки и self-echo).
+        Сопоставление — существующим `is_target_row` (Telegram message_id,
+        та же нормализация, что у маркера R1023F1); нет/битый id → окно
+        не меняется (никаких догадок)."""
+        rows = list(window or [])
+        if not rows:
+            return rows
+        return [row for row in rows
+                if not is_target_row(row, trigger_message_id)]
+
     async def _build_global_context(self, chat_id: int, window: list,
                                     roster: list | None = None,
                                     suffix_map: dict[int, str] | None = None,
@@ -8469,8 +8613,10 @@ class DirectChatService:
         («фон: конспект из N сообщений…» / «фон: дословно последние N…»).
         Раунд 8 (E2/T-804): при наличии L1 и level-2 (широкий фон) строка
         L2 с меткой «широкий фон:» — ПЕРВОЙ строкой body (кап
-        limits.chat_level2_max_chars, keep-end; в иерархии бюджетных жертв
-        L2 жертвуется последней — голова body). Раунд 8 (E4/T-806):
+        limits.chat_level2_max_chars, keep-head: сохраняется НАЧАЛО пересказа
+        — тема/суть; в иерархии бюджетных жертв L2 жертвуется последней —
+        голова body). SPEECH-P0-A2: L2/L1 подаются с явной пометкой
+        «пересказ, не источник» (шапка конспекта — не цитата). Раунд 8 (E4/T-806):
         конспект читается без TTL-смерти (get_running_summary не удаляет
         по expires_at — тихий чат держит конспект до пересборки по
         заполнению).
@@ -8478,6 +8624,9 @@ class DirectChatService:
         суффиксы-дискриминаторы строк и имена для importance-маркеров E1."""
         roster = roster or []
         suffix_map = suffix_map or {}
+        # SPEECH-P0-A2 (§current-turn boundary): текущая реплика исключена из
+        # истории до конспекта/verbatim-хвоста (вопрос живёт отдельным блоком).
+        window = self._history_window(window, trigger_message_id)
         summary_text = None
         raw_count = 0
         window_end_ts = None
@@ -8507,7 +8656,7 @@ class DirectChatService:
                                 logger.warning(
                                     "direct: level2 capped to %d chars | chat=%s",
                                     cap2, chat_id)
-                                level2_text = level2_text[-cap2:]
+                                level2_text = level2_text[:cap2]
                     except Exception:
                         logger.warning(
                             "direct: level2 read failed — without L2 row "
@@ -8522,9 +8671,10 @@ class DirectChatService:
             # затем метка summary-режима (возраст НЕ вводим — конспект живёт
             # по заполнению окна, Q11/E4) и сам конспект L1.
             if level2_text:
-                head.append("широкий фон: " + level2_text)
+                head.append("широкий фон: пересказ, не источник: "
+                            + level2_text)
             head.append(f"фон: конспект из {raw_count} сообщений, "
-                        f"ниже дословно свежий хвост")
+                        f"ниже дословно свежий хвост — пересказ, не источник")
             head.append(summary_text)
             for row in window:
                 if int(row["timestamp"] or 0) <= window_end_ts:

@@ -3923,8 +3923,15 @@ class MemoryManager:
         Гейты: флаг flags.bot_self_awareness_enabled (дефолт True — UPD п.2) и
         непустая суть; иначе 0 (факт не пишется). Вес — hot-ключ
         limits.graph_fact_weight_bot (дефолт settings.GRAPH_FACT_WEIGHT_BOT=0.2),
-        важность 2 (ниже пользовательских), status='confirmed', kind='fact',
-        target_user=None. TTL — как у прямого чата: None/0 → вечно, иначе
+        важность 2 (ниже пользовательских), kind='fact', target_user=None.
+        SPEECH-P0-A2 (§self-echo): status='tentative' — ответ бота НЕ
+        подтверждённое знание о мире. `insert_graph_fact` принимает статус
+        вербатим (CHECK на status нет), а существующие retrieval-фильтры
+        (`status IN ('confirmed','archived_belief')` в FTS/KNN) уже не
+        отдают такой факт как фактический RAG — дополнительный классификатор
+        не нужен. Origin остаётся 'bot_self_reply' (прошлые слова бота —
+        только style anchors/интонация, не факты). TTL — как у прямого чата:
+        None/0 → вечно, иначе
         now + ttl_days*86400*(0.5+weight). Вербатим (суть уже готова — LLM-
         экстрактор отработал в self_reflection), узлы/рёбра НЕ создаются
         (прямой INSERT, как user_memory). Возвращает fact_id (0 — пропуск).
@@ -3951,7 +3958,7 @@ class MemoryManager:
                                * (0.5 + weight)))
             fact_id = await self.db.insert_graph_fact(
                 chat_id, essence, "bot_self_reply", expiry,
-                target_user=None, status="confirmed", weight=weight,
+                target_user=None, status="tentative", weight=weight,
                 importance=2, kind="fact")
             if self._vec_available and fact_id:
                 await self._save_graph_fact_embedding(
@@ -4015,7 +4022,8 @@ class MemoryManager:
 
     async def get_rag_facts(self, chat_id: int, query: str, *,
                             include_direct_reply: bool = False,
-                            include_self: bool = False) -> list:
+                            include_self: bool = False,
+                            with_meta: bool = False) -> list:
         """F1/T-807 (spec §3.F1): кандидаты RAG direct-пути как список
         4-кортежей (origin, fact, rag_ts, target_user) в порядке
         РЕЛЕВАНТНОСТИ — KNN: rel = cosine × w_eff + MMR (_knn_graph_facts);
@@ -4027,7 +4035,13 @@ class MemoryManager:
         выключенный RAG/любая ошибка → [] (WARNING).
         Раунд 10.14 (F1, ADR-1014-2 D7): include_self=True (только direct-
         путь) → origin='bot_self_reply' участвует; default False — self не
-        виден чужим пайплайнам."""
+        виден чужим пайплайнам.
+        SPEECH-P0-A2 (§provenance): with_meta=True — те же кандидаты, но
+        dict'ами (REUSE `_search_graph_facts(with_meta=True)`, ВТОРОГО
+        retrieval нет) с provenance-полями v17 (`status`/`subject_ref_id`/
+        `speaker_author_id`/…) — их читает существующий
+        `graphrag_provenance.read_policy_rank` в direct-пути. Default False —
+        прежний tuple-контракт остальных потребителей (dream/search/tools)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -4036,7 +4050,7 @@ class MemoryManager:
                 (hot.get("limits.graph_rag_facts_limit",
                          settings.GRAPH_RAG_FACTS_LIMIT) or 0),
                 include_direct_reply=include_direct_reply,
-                include_self=include_self)
+                include_self=include_self, with_meta=with_meta)
         except Exception:
             logger.warning(
                 "graphrag RAG: facts search failed — empty list | chat_id=%s",
@@ -4397,7 +4411,17 @@ class MemoryManager:
                      tg_message_id=row["tg_message_id"], fact_id=row["id"]),
                  "score": float(len(kept) - i),
                  "expired": row["id"] in expired_row_ids,
-                 "expires_at": row["expires_at"]}
+                 "expires_at": row["expires_at"],
+                 # SPEECH-P0-A2 (§provenance): v17-атрибуция — вход
+                 # существующего `graphrag_provenance.read_policy_rank`
+                 # (без второго retrieval/новых запросов: колонки уже в SELECT).
+                 "chat_id": chat_id,
+                 "status": row["status"],
+                 "subject_ref_id": row["subject_ref_id"],
+                 "speaker_author_id": row["speaker_author_id"],
+                 "assertion_kind": row["assertion_kind"],
+                 "attribution_method": row["attribution_method"],
+                 "provenance_channel": row["provenance_channel"]}
                 for i, row in enumerate(kept)]
         return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"],
                  resolve_item_id(tg_message_id=row["tg_message_id"],
@@ -4562,7 +4586,17 @@ class MemoryManager:
                  "score": float(len(chosen) - i),
                  # B03.2 (v6.3): as-of-пометка архивного top-up (additive).
                  "expired": f in expired_by_id,
-                 "expires_at": by_id[f]["expires_at"]}
+                 "expires_at": by_id[f]["expires_at"],
+                 # SPEECH-P0-A2 (§provenance): v17-атрибуция — вход
+                 # существующего `graphrag_provenance.read_policy_rank`
+                 # (REUSE `get_graph_fact_records`, второго retrieval нет).
+                 "chat_id": chat_id,
+                 "status": by_id[f]["status"],
+                 "subject_ref_id": by_id[f]["subject_ref_id"],
+                 "speaker_author_id": by_id[f]["speaker_author_id"],
+                 "assertion_kind": by_id[f]["assertion_kind"],
+                 "attribution_method": by_id[f]["attribution_method"],
+                 "provenance_channel": by_id[f]["provenance_channel"]}
                 for i, f in enumerate(chosen)]
         return [(by_id[f]["origin"], by_id[f]["fact"],
                  by_id[f]["message_timestamp"] or by_id[f]["created_at"],
