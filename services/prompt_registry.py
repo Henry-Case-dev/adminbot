@@ -1251,19 +1251,16 @@ def core_active_revision(*, text: str, document_revision: str = "") -> str:
     return f"r{rev}.{sha12(text)}"
 
 
-def core_selection_view(doc=None, *, source: str = "default",
-                        budget_tokens: int | None = None) -> dict:
+def core_selection_view(doc=None, *, source: str = "default") -> dict:
     """Inspector-вид выбора Core: какая редакция действует и почему.
 
     Без сырых текстов (R17-safe): ревизии/хеши/размеры + провенанс + источник
     каждой редакции (владелец или заводская).
 
-    ``budget_tokens`` — ИНЕРТНЫЙ параметр совместимости с витриной
-    `web/api/speech.py:_composer_budget` (параллельная UI-полоса удаляет её).
-    Значение НЕ влияет на выбор: аддитивного бюджета инструкций больше нет
-    (ADDENDUM #3 §2.7). Уйдёт вместе с витриной.
+    Аддитивного бюджета инструкций больше нет (ADDENDUM #3 §2.7): локальная
+    квота не понижает `full` до `compact`, поэтому параметра бюджета нет и в
+    сигнатуре — значение не могло влиять на выбор.
     """
-    del budget_tokens
     sel = core_selection(doc, source=source)
     document = doc if isinstance(doc, Mapping) else None
 
