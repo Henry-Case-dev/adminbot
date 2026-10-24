@@ -109,6 +109,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1028,
     PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+    PREV_SUMMARY_L2_WRITER_R1030_P0,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_NARRATOR_LEGFIX,
@@ -359,7 +360,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): ступень
         # R1029→R1030 — блок источника (Full SourceWindow первоклассно,
         # FactPackage = derived view).
-        (PREV_SUMMARY_L2_WRITER_R1029_ASAP41, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L2_WRITER_R1029_ASAP41, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
+        # SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4,
+        # MEMORY-NO-UNSUPPORTED-CAUSAL-STORY): прод-канон 2.58.130 (R1030
+        # байт-в-байт) ведёт на канон без обязательной причинной драматургии.
+        (PREV_SUMMARY_L2_WRITER_R1030_P0, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
     # 10.28 (ASAP-2.1, контракт (g)/§25): ступени Рассказчика — шиза выбирает
     # модель (строка опциональна); прежние каноны R1023/R1028 ведут на новый.
     # LEGFIX (22.10.2026, закрытие backlog «narrator-канон identity-фраза»,
@@ -494,8 +499,14 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # цитат; rollback-паритет с kill-switch SUMMARY_L2_REVIEW_ENABLED=false).
     # ASAP 4.1 волна 3 (T-4609): откат блока источника — на канон R1029
     # (прод 2.58.46; parity с SUMMARY_WRITER_SOURCE_INPUT_ENABLED=false).
-    "prompts.summary_l2_writer_system_prompt":
-        [(SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1029_ASAP41)],
+    # SPEECH-P0-B2 (25.10.2026): новая верхняя ступень — P0-фактологический
+    # канон; первый вызов снимает ТОЛЬКО её (на прод-байты 2.58.130 —
+    # PREV_SUMMARY_L2_WRITER_R1030_P0), второй — историческую ступень
+    # источника (R1029, 2.58.46). Стек ступеней цел (ADR-1013-3).
+    "prompts.summary_l2_writer_system_prompt": [
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1030_P0),
+        (PREV_SUMMARY_L2_WRITER_R1030_P0,
+         PREV_SUMMARY_L2_WRITER_R1029_ASAP41)],
     # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
     # §25); ключ в PG не удаляется.
     # LEGFIX (22.10.2026): откат снимает ТОЛЬКО ступень LEGFIX — на
@@ -822,7 +833,7 @@ async def rollback_prompt_canons(cache) -> dict[str, str]:
     Кастом юзера не трогаем (WARNING), ключ отсутствует / PG down — skip.
     Вызывается вручную (runbook @DevOps) при откате `git revert` — столько
     раз, сколько ступеней нужно снять (L1 R3b: 2 вызова до канона 2.58.113,
-    L2 R3b: 1 вызов)."""
+    L2: 2 вызова — P0-канон → прод-байты 2.58.130 → R1029/2.58.46)."""
     report: dict[str, str] = {}
     if cache is None or not getattr(cache, "pg_available", False):
         logger.info("[prompt_rollback] skip: PG недоступен")

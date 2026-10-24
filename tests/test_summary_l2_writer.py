@@ -447,10 +447,15 @@ class TestCanon:
         assert "Прямые цитаты не приводи" not in canon
         assert "Прямые цитаты НЕ запрещены" in canon
         assert "автор реплики доказан" in canon
-        # §50.4 prose-first: рассказ, не transcript; narrative continuity.
+        # §50.4 prose-first: рассказ, не transcript.
+        # SPEECH-P0-B2 (25.10.2026): причинная драматургия НЕ заказывается —
+        # связи/мотивы/последствия только при подтверждении источником.
         assert "связный прозаический рассказ" in canon
         assert "список реплик" in canon
-        assert "событие → реакция участников → развитие" in canon
+        assert "событие → реакция участников → развитие" not in canon
+        assert "предысторией, развитием и последствиями" not in canon
+        assert "не достраивай историю ради связности" in canon
+        assert "не заполняй пробел фантазией" in canon
         # §50.5: голос бота сохранён, грамматика нормальная.
         assert "заглавной буквы" in canon
         # §16 двачерский голос: CORRECTIVE-FOLLOWUP (21.10.2026, §2) —
@@ -476,6 +481,9 @@ class TestCanon:
         assert '"finale"' in canon
         # §50.47: кандидат финала — участник пакета.
         assert "Кандидат обязан быть участником пакета" in canon
+        # SPEECH-P0-B2: «главный шиз» — шутка/опция, не фактический вердикт.
+        assert "необязательная шутка в конце, а не фактический вердикт" in canon
+        assert "не характеристика человека" in canon
         # Числа целей длины — НЕ в каноне (иначе hot-правка канона ломала бы
         # подстановку; см. length-блок build_l2_input):
         assert "6500" not in canon and "target_chars" not in canon
@@ -544,14 +552,28 @@ class TestCanon:
         # R1029→R1030 — блок источника (Full SourceWindow первоклассно);
         # откат — на канон R1029 (прод 2.58.46, parity с
         # SUMMARY_WRITER_SOURCE_INPUT_ENABLED=false).
-        from services.summary_prompts import PREV_SUMMARY_L2_WRITER_R1029_ASAP41
+        from services.summary_prompts import (
+            PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+            PREV_SUMMARY_L2_WRITER_R1030_P0,
+        )
         assert PREV_SUMMARY_L2_WRITER_R1029_ASAP41 != \
             SUMMARY_L2_WRITER_SYSTEM_PROMPT
         assert "ИСТОЧНИК (оригинал — истина)" in SUMMARY_L2_WRITER_SYSTEM_PROMPT
         assert "ИСТОЧНИК" not in PREV_SUMMARY_L2_WRITER_R1029_ASAP41
-        assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == [(
-            SUMMARY_L2_WRITER_SYSTEM_PROMPT,
-            PREV_SUMMARY_L2_WRITER_R1029_ASAP41)]
+        # SPEECH-P0-B2 (25.10.2026): ступень P0 — прод-байты 2.58.130 (R1030)
+        # ведут на фактологический канон; откат снимает только эту ступень.
+        assert (PREV_SUMMARY_L2_WRITER_R1030_P0,
+                SUMMARY_L2_WRITER_SYSTEM_PROMPT) in \
+            pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
+        assert PREV_SUMMARY_L2_WRITER_R1030_P0 != \
+            SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        assert "предысторией, развитием и последствиями" in \
+            PREV_SUMMARY_L2_WRITER_R1030_P0
+        assert pm.ROLLBACK_MIGRATIONS[PROMPT_PG_KEY] == [
+            (SUMMARY_L2_WRITER_SYSTEM_PROMPT,
+             PREV_SUMMARY_L2_WRITER_R1030_P0),
+            (PREV_SUMMARY_L2_WRITER_R1030_P0,
+             PREV_SUMMARY_L2_WRITER_R1029_ASAP41)]
 
     def test_catalog_delta_sanctioned(self):
         # ASAP-2.1 (ADR-1028-1 D1, контракт i): санкционированная
