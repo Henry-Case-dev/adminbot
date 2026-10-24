@@ -347,6 +347,66 @@ def _first_item(data) -> dict:
     return {}
 
 
+def _image_magic_ok(data: bytes) -> bool:
+    """PNG/JPEG/WebP/GIF по сигнатуре — без декодера и без доверия MIME."""
+    if not data or len(data) < 12:
+        return False
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return True
+    if data.startswith(b"\xff\xd8\xff"):
+        return True
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return True
+    return data[:6] in (b"GIF87a", b"GIF89a")
+
+
+def _json_items(body) -> list[dict]:
+    """Все кандидаты-объекты с картинкой из известных JSON-конвертов."""
+    candidates: list = []
+    if isinstance(body, list):
+        candidates = list(body)
+    elif isinstance(body, dict):
+        for key in ("data", "output", "images", "result"):
+            value = body.get(key)
+            if isinstance(value, list):
+                candidates.extend(value)
+            elif isinstance(value, dict):
+                candidates.append(value)
+            elif isinstance(value, str) and value:
+                candidates.append({"url": value})
+        candidates.append(body)
+    out: list[dict] = []
+    for item in candidates:
+        if isinstance(item, dict):
+            out.append(item)
+        elif isinstance(item, str) and item:
+            out.append({"url": item})
+    return out
+
+
+def _decode_b64_image(value) -> bytes | None:
+    try:
+        text = str(value or "").strip()
+        if text.startswith("data:") and "," in text:
+            text = text.split(",", 1)[1]
+        data = base64.b64decode(text, validate=False)
+    except Exception:
+        return None
+    # b64_json — уже заявленное изображение; формат проверит вызывающий контур
+    # (`_styled_payload_signal`), как и раньше. Здесь не требуем magic bytes,
+    # иначе легитимные тестовые/короткие payload'ы ломались.
+    return data or None
+
+
+def _json_image_url(item: dict) -> str:
+    for key in ("url", "image_url", "image"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+
 def _headers(api_key: str) -> dict:
     return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
@@ -445,6 +505,8 @@ async def edit_image(prompt: str, *, base_image_path: str | None,
                     content, reason = _extract(resp)
                     if content is None and reason == "url":
                         content, reason = await _download(getter, resp, timeout)
+                    if content is None and reason == "bad_json":
+                        edit_meta["response_diag"] = _response_diag(resp)
                 except Exception:
                     content, reason = None, "error"
                 if content is not None:
@@ -526,41 +588,109 @@ def _safe_resp_text(resp) -> str:
         return ""
 
 
-def _extract(resp) -> tuple[bytes | None, str]:
-    """Синхронно достать b64 из JSON; url — отложенно (нужен downloader)."""
-    if hasattr(resp, "json"):
+def _response_diag(resp) -> dict:
+    """R17-safe диагностика 2xx, который не разобрался как картинка.
+
+    Только статус, content-type, длина тела, имена верхних JSON-ключей и
+    request-id. Ни тела, ни байтов, ни промптов.
+    """
+    try:
+        headers = getattr(resp, "headers", {}) or {}
+        ctype = str(headers.get("content-type", "") or "")[:100]
+        raw = getattr(resp, "content", b"") or b""
+        keys: list[str] = []
         try:
             body = resp.json()
+            if isinstance(body, dict):
+                keys = sorted(str(k) for k in body.keys())[:12]
+            elif isinstance(body, list):
+                keys = ["<list>"]
         except Exception:
-            return None, "bad_json"
-    else:      # pragma: no cover - fake в тестах
-        body = resp
-    item = _first_item(body)
-    b64 = item.get("b64_json")
-    if b64:
-        try:
-            return base64.b64decode(b64), "ok"
-        except Exception:
-            return None, "bad_json"
-    if item.get("url"):
-        return None, "url"
+            pass
+        request_id = ""
+        for key in ("x-request-id", "request-id", "x-trace-id"):
+            if headers.get(key):
+                request_id = str(headers.get(key))[:80]
+                break
+        return {
+            "status": getattr(resp, "status_code", None),
+            "content_type": ctype,
+            "body_len": len(raw),
+            "json_keys": keys,
+            "request_id": request_id,
+        }
+    except Exception:
+        return {}
+
+
+def _extract(resp) -> tuple[bytes | None, str]:
+    """Достать картинку из 2xx: binary image, b64 или url (любой конверт).
+
+    Провайдеры image edit отвечают по-разному: OpenAI-подобный
+    ``data[0].b64_json``/``url``, NanoGPT/иные — бинарным ``image/*`` или
+    ``output/images/result``. Раньше всё, кроме первого конверта, падало в
+    ``bad_json`` без диагностики (issue 90: 2xx после retry).
+    """
+    raw = getattr(resp, "content", b"") or b""
+    headers = getattr(resp, "headers", {}) or {}
+    ctype = str(headers.get("content-type", "") or "").lower()
+    if raw and (ctype.startswith("image/") or _image_magic_ok(raw)):
+        return raw, "ok"
+    try:
+        if hasattr(resp, "json"):
+            body = resp.json()
+        else:      # pragma: no cover - fake в тестах (dict)
+            body = resp
+    except Exception:
+        return None, "bad_json"
+    for item in _json_items(body):
+        b64 = (item.get("b64_json") or item.get("b64")
+               or item.get("image_base64"))
+        if b64:
+            data = _decode_b64_image(b64)
+            if data is not None:
+                return data, "ok"
+            continue
+        url = _json_image_url(item)
+        if not url:
+            continue
+        if url.startswith("data:image/") and ";base64," in url:
+            data = _decode_b64_image(url)
+            if data is not None:
+                return data, "ok"
+            continue
+        if url.startswith(("http://", "https://")):
+            return None, "url"
     return None, "bad_json"
 
 
 async def _download(getter, resp, timeout: float) -> tuple[bytes | None, str]:
     try:
-        body = resp.json()
+        if hasattr(resp, "json"):
+            body = resp.json()
+        else:      # pragma: no cover - fake в тестах (dict)
+            body = resp
     except Exception:
+        raw = getattr(resp, "content", b"") or b""
+        if _image_magic_ok(raw):
+            return raw, "ok"
         return None, "bad_json"
-    url = _first_item(body).get("url")
-    if not url:
-        return None, "bad_json"
-    try:
-        return await getter(str(url), timeout), "ok"
-    except httpx.TimeoutException:
-        return None, "timeout"
-    except Exception:
-        return None, "network"
+    for item in _json_items(body):
+        url = _json_image_url(item)
+        if not url:
+            continue
+        if url.startswith("data:image/") and ";base64," in url:
+            data = _decode_b64_image(url)
+            if data is not None:
+                return data, "ok"
+            continue
+        try:
+            return await getter(str(url), timeout), "ok"
+        except httpx.TimeoutException:
+            return None, "timeout"
+        except Exception:
+            return None, "network"
+    return None, "bad_json"
 
 
 def _async_configured() -> bool:

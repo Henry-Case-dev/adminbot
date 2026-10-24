@@ -2984,6 +2984,19 @@ async def run_style_job(*, chat_id: int, base_image_path: str | None,
             logger.debug("[cover_style_jobs] prompt-limit retry failed",
                          exc_info=True)
 
+    # R17-safe диагностика ФИНАЛЬНОЙ попытки (после retry): на пути
+    # 400 prompt-limit → 2xx bad_json сохраняется именно response_diag
+    # второй попытки, а не первого 400.
+    _final_meta = dict(getattr(result, "meta", {}) or {})
+    _safe_provider_meta = {
+        key: _final_meta[key]
+        for key in ("route", "provider_error", "response_diag",
+                    "prompt_limit", "prompt_limit_unknown")
+        if key in _final_meta
+    }
+    if _safe_provider_meta:
+        meta["provider_meta"] = _safe_provider_meta
+
     # ── ASAP 5 (D7/T-5249): CoverPromptManifest — фактические sent prompt'ы
     # обеих attempts. Полный prompt живёт в durable state (task_jobs payload);
     # в generic log/events НЕ попадает (SAFE_LOG_FIELDS не расширялись).
