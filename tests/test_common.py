@@ -705,12 +705,12 @@ class TestCommonRelaySendCommon:
         assert call_kwargs["reply_parameters"].quote == "\u041e\u0442\u0431\u043e\u0439"
 
     @pytest.mark.asyncio
-    async def test_scan_error_returns_none(self, mock_bot):
+    async def test_scan_error_returns_false(self, mock_bot):
         relay = CommonRelay(mock_bot, cooldown_seconds=0, media_base="/fake/media")
         with patch.object(relay, "_scan_directory", return_value=[]):
             result = await relay.send_common(chat_id=1, message_id=10, matched_word="x", subdir="otboy")
 
-        assert result is None
+        assert result is False
         mock_bot.send_photo.assert_not_called()
 
     @pytest.mark.asyncio

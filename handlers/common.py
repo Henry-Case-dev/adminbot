@@ -78,7 +78,7 @@ async def otboy_handler(
         return None
 
     try:
-        await _relay.send_common(
+        sent = await _relay.send_common(
             chat_id=message.chat.id,
             message_id=message.message_id,
             matched_word=matched_word,
@@ -90,6 +90,9 @@ async def otboy_handler(
             message.chat.id,
             message.message_id,
         )
+        release_claim(message)
+        return UNHANDLED
+    if not sent:
         release_claim(message)
         return UNHANDLED
     return None
@@ -114,7 +117,7 @@ async def danger_handler(
         return None
 
     try:
-        await _relay.send_common(
+        sent = await _relay.send_common(
             chat_id=message.chat.id,
             message_id=message.message_id,
             matched_word=matched_word,
@@ -126,6 +129,9 @@ async def danger_handler(
             message.chat.id,
             message.message_id,
         )
+        release_claim(message)
+        return UNHANDLED
+    if not sent:
         release_claim(message)
         return UNHANDLED
     return None
@@ -150,7 +156,7 @@ async def selfdev_handler(
         return None
 
     try:
-        await _relay.send_common(
+        sent = await _relay.send_common(
             chat_id=message.chat.id,
             message_id=message.message_id,
             matched_word=matched_word,
@@ -162,6 +168,9 @@ async def selfdev_handler(
             message.chat.id,
             message.message_id,
         )
+        release_claim(message)
+        return UNHANDLED
+    if not sent:
         release_claim(message)
         return UNHANDLED
     return None
@@ -201,7 +210,7 @@ async def work_handler(
         return None
 
     try:
-        await _relay.send_common(
+        sent = await _relay.send_common(
             chat_id=message.chat.id,
             message_id=message.message_id,
             matched_word=matched_word,
@@ -213,6 +222,9 @@ async def work_handler(
             message.chat.id,
             message.message_id,
         )
+        release_claim(message)
+        return UNHANDLED
+    if not sent:
         release_claim(message)
         return UNHANDLED
     return None
