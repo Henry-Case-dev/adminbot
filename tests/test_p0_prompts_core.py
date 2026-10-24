@@ -87,7 +87,7 @@ def _withheld_text(block_id: str) -> str:
 
 def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
-    assert pr.FACTORY_SET_SHA256_12 == "dd64bbc52632"
+    assert pr.FACTORY_SET_SHA256_12 == "9b2fb9d7c573"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

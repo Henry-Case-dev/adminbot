@@ -108,12 +108,13 @@ def test_l1_rule1_and_schema_byte_preserved():
     new_r4 = new_rules.split("4. capabilities_needed")[1].split(
         "5. needs_clarification")[0]
     assert old_r4 == new_r4
-    # хвост после правила 5 — правила 6-7 байт-в-байт (в старом правило 3
-    # однострочное; в новом заканчивается «текст ради текста.»; ASAP 2
-    # изменил только правило 5, поэтому хвост режется по «6. confidence»)
-    old_tail = old_rules.split("6. confidence")[1]
-    new_tail = new_rules.split("6. confidence")[1]
-    assert old_tail == new_tail
+    # хвост после правила 5 — правило 6 и дисциплина JSON байт-в-байт
+    # (SPEECH-P0-CORE-SERIOUS добавил правило 7 маршрутизации личного разбора,
+    # поэтому JSON-строка сдвинулась на номер 8; её текст не менялся)
+    old_head = old_rules.split("6. confidence")[1].split("7. В ответе")[0]
+    new_head = new_rules.split("6. confidence")[1].split("7. Просьба оценить")[0]
+    assert old_head == new_head
+    assert new_rules.split("8. В ответе")[1] == old_rules.split("7. В ответе")[1]
     # правило 5: единственная дельта против замороженных правил W1 —
     # отсылка к контракту; capability-запрет уточнения сохранён
     w1_r5 = _DIRECT_L1_PLANNER_RULES_W1.split(

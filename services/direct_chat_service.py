@@ -3686,7 +3686,15 @@ class DirectChatService:
                             getattr(l1_plan, "needs_clarification", False)),
                         low_confidence=(getattr(l1_plan,
                                                 "confidence_bucket", "high")
-                                        == "low"))
+                                        == "low"),
+                        # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума):
+                        # serious-разбор получает дословную analysis-директиву;
+                        # deep_research уже несёт её режимным блоком (без дубля).
+                        include_analysis=_l1.analysis_directive_needed(
+                            l1_plan,
+                            modes_on=bool(getattr(
+                                settings, "SMART_VERBALIZER_MODES_ENABLED",
+                                True))))
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -8956,7 +8964,13 @@ class DirectChatService:
             plan_block = _l1.build_l2_plan_block(
                 plan,
                 rejected=(),
-                include_delivery=True) \
+                include_delivery=True,
+                # SPEECH-P0-CORE-SERIOUS: тот же флаг по плану (инициатива
+                # обычно response_act=other → анализа нет).
+                include_analysis=_l1.analysis_directive_needed(
+                    plan,
+                    modes_on=bool(getattr(
+                        settings, "SMART_VERBALIZER_MODES_ENABLED", True)))) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             result = await self._l2_write_answer(

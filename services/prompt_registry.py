@@ -127,7 +127,11 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # байты — PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31.
     "direct.base.l2_writer": "l2-writer-clar-boundary",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-continuation-r3b",
+    # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): правило 7 —
+    # просьба оценить человека/мнение о нём не заказывает хронику/отчёт
+    # (normal/compact + answer; detailed/report только по явной просьбе).
+    # Прежние байты — PREV_DIRECT_L1_PLANNER_R3B.
+    "direct.base.l1_planner": "l1-planner-analysis-routing",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
@@ -1714,7 +1718,17 @@ def factory_set_fingerprint() -> str:
 #: PREV_MODE_DEEP_RESEARCH_BLOCK. changed = 1 (verbilizer.mode.deep_research).
 #: Было ``f12130fbccb1``, стало ``dd64bbc52632``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "dd64bbc52632"
+#: SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума, продолжение A1):
+#: ``direct.base.l1_planner`` — правило 7: просьба оценить человека, его
+#: поведение или прозвучавшее о нём чужое мнение — содержательный разбор
+#: (extent=normal/compact, structure=answer), а не заказ хроники/отчёта;
+#: detailed/report только при явной просьбе подробного/полного разбора.
+#: Правила 1-6/8 (JSON) и тексты владельца не менялись; прежние байты R3b —
+#: PREV_DIRECT_L1_PLANNER_R3B (ступень лестницы + откат). Метка
+#: ``l1-planner-analysis-routing``. changed = 1 (direct.base.l1_planner).
+#: Было ``dd64bbc52632``, стало ``9b2fb9d7c573``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "9b2fb9d7c573"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

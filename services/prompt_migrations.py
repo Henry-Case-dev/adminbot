@@ -51,6 +51,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_R3,
+    PREV_DIRECT_L1_PLANNER_R3B,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
@@ -226,6 +227,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # (база R3 + контракт §4.1 + правила) ведёт на канон с узким
         # усилением продолжения после ответа на уточнение. Только точное
         # совпадение байт; правила и секция участия не менялись.
+        # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): активный канон R3b
+        # (база R3 + контракт §4.1 + продолжение + правила) доведён до правила 7
+        # маршрутизации личного разбора. Ступень узнаёт прод-байты R3b целиком;
+        # кастомы владельца не перетираются.
+        (PREV_DIRECT_L1_PLANNER_R3B, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_R3, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -406,11 +412,16 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # канон W1 + контракт уточнений); стек ступеней цел.
     # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
     # канон R3 (PREV_DIRECT_L1_PLANNER_R3: база R3 + контракт §4.1 + правила).
+    # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): новая верхняя ступень
+    # (правило 7 маршрутизации личного разбора); откат снимает только её — на
+    # прод-байты R3b, стек прежних ступеней цел.
     "prompts.direct_l1_planner_system_prompt": [
+        # ступень 0: активный канон → R3b (прод-байты без правила 7)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3B),
         # ступень 1: R3b → канон R3 (база R3 + контракт §4.1 + правила)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3),
+        (PREV_DIRECT_L1_PLANNER_R3B, PREV_DIRECT_L1_PLANNER_R3),
         # ступень 2: R3 → прод-канон 2.58.113 (контракт уточнений).
-        # Полный откат до 2.58.113 = два вызова rollback_prompt_canons.
+        # Полный откат до 2.58.113 = три вызова rollback_prompt_canons.
         (PREV_DIRECT_L1_PLANNER_R3, PREV_DIRECT_L1_PLANNER_CLAR)],
     # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":

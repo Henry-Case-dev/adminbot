@@ -43,6 +43,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_L1D,
     PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_R3,
+    PREV_DIRECT_L1_PLANNER_R3B,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -285,7 +286,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # непосредственный прод-канон 2.58.113 (канон W1 + контракт уточнений).
     # SPEECH-CANON R3b (23.10.2026): откат снимает ТОЛЬКО ступень R3b →
     # канон R3 (база R3 + контракт §4.1 + правила).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_R3,
+    # SPEECH-P0-CORE-SERIOUS (25.10.2026): верхняя ступень — правило 7
+    # маршрутизации личного разбора; откат снимает только её → прод-байты R3b.
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_R3B,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -737,14 +740,14 @@ class TestMca23Migration:
 
     @pytest.mark.asyncio
     async def test_r3b_rollback_chain_restores_258113_bytes(self):
-        """REL-F1 (24.10.2026): полный откат канонов R3b до байтов 2.58.113.
+        """REL-F1 (24.10.2026): полный откат канонов до байтов 2.58.113.
 
-        Dry-run на копии прод-значений 2.58.114 (L1 ``6c2ddc17``,
-        L2 ``83ff62bb``): процедура runbook'а «повторный
-        ``rollback_prompt_canons``» обязана вернуть именно БАЙТЫ 2.58.113
-        (L1 ``c987c03e``, L2 ``d1b210c1``), а не только отчёт; третий вызов —
-        no-op; повторный deploy новых канонов снова применяется; кастом
-        владельца не перетирается ни на одном шаге.
+        Dry-run на копии текущих канонов (L1 ``8ef75b63`` = правило 7
+        маршрутизации личного разбора, L2 ``83ff62bb``): процедура runbook'а
+        «повторный ``rollback_prompt_canons``» обязана вернуть именно БАЙТЫ
+        2.58.113 (L1 ``c987c03e``, L2 ``d1b210c1``), а не только отчёт;
+        лишний вызов — no-op; повторный deploy новых канонов снова
+        применяется; кастом владельца не перетирается ни на одном шаге.
         """
         l1_key = "prompts.direct_l1_planner_system_prompt"
         l2_key = "prompts.direct_chat_verbalizer_system_prompt"
@@ -752,21 +755,28 @@ class TestMca23Migration:
         def sha12(text: str) -> str:
             return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
-        # «копия прод-значений» после boot-миграции 2.58.114
+        # «копия текущих значений» после boot-миграции
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("6c2ddc17c998", "83ff62bbee40")
+            ("8ef75b632d12", "83ff62bbee40")
 
-        # шаг 1: снимается ступень R3b у обоих ключей
+        # шаг 1: снимается правило маршрутизации (L1 → R3b) и ступень R3b у L2
         assert await rollback_prompt_canons(cache) == {
             l1_key: "rolled_back", l2_key: "rolled_back"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_R3B
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+        assert sha12(cache.values[l1_key]) == "6c2ddc17c998"
+
+        # шаг 2: L1 → R3 (усиление продолжения); L2 уже на 2.58.113 — no-op
+        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
         cache.apply_writes()
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_R3
         assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
         assert sha12(cache.values[l1_key]) == "ab6817a18657"
 
-        # шаг 2: L1 доходит до канона 2.58.113; L2 уже на нём — no-op
+        # шаг 3: L1 доходит до канона 2.58.113; L2 уже на нём — no-op
         assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
         cache.apply_writes()
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_CLAR
@@ -776,13 +786,13 @@ class TestMca23Migration:
         assert (len(cache.values[l1_key]), len(cache.values[l2_key])) == \
             (6542, 2827)
 
-        # шаг 3: оба на целевом прод-каноне 2.58.113 — полный no-op
+        # шаг 4: оба на целевом прод-каноне 2.58.113 — полный no-op
         assert await rollback_prompt_canons(cache) == {}
         assert cache.set_calls == []
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_CLAR
         assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
 
-        # повторный deploy 2.58.114: boot-миграция снова ставит новые каноны
+        # повторный deploy: boot-миграция снова ставит новые каноны
         assert await migrate_prompt_canons(cache) == {
             l1_key: "updated", l2_key: "updated"}
         cache.apply_writes()

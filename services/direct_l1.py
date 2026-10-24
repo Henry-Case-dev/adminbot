@@ -919,10 +919,37 @@ def build_evidence_packet(raw, plan=None, *,
 # ── §1.1: plan-блок для L2 Writer ───────────────────────────────────────────
 
 
+def analysis_directive_needed(plan, response_mode: str = "",
+                              modes_on: bool = True) -> bool:
+    """Нужна ли точная analysis-директива в plan-блоке L2.
+
+    SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): серьёзный разбор
+    (``response_act=research``) без режима deep_research получает ту же
+    дословную инструкцию анализа/Writer, что и deep-режим — но ровно один
+    раз: при реально рендерящемся ``MODE_DEEP_RESEARCH_BLOCK``
+    (``response_mode == "deep_research"`` и включённых режимах) дубля нет.
+    Принимает ``L1Plan`` (``response_act``) или ``ResponsePlan``
+    (``task_kind``). Никогда не бросает.
+    """
+    try:
+        if plan is None:
+            return False
+        mode = str(response_mode or "") or plan_response_mode(plan)
+        if mode == "deep_research" and bool(modes_on):
+            # Режимный блок уже несёт те же дословные тексты.
+            return False
+        act = str(getattr(plan, "response_act", "") or "")
+        kind = str(getattr(plan, "task_kind", "") or "")
+        return act == "research" or kind == "research"
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         clarification: bool = False,
                         low_confidence: bool = False,
-                        include_delivery: bool = False) -> str:
+                        include_delivery: bool = False,
+                        include_analysis: bool = False) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
@@ -931,7 +958,14 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
     Writer) доводит до Writer ВЫБРАННУЮ L1 форму участия — прямой ответ на
     сообщение / обращение к человеку без reply / самостоятельная реплика,
     чтобы текст соответствовал способу доставки. Прямой чат (Direct) форму
-    доставки плана не получает (контракт Direct не менялся)."""
+    доставки плана не получает (контракт Direct не менялся).
+
+    SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): ``include_analysis``
+    добавляет в план дословные ``ANALYSIS_DIRECTIVE_TEXT``/``
+    ANALYSIS_WRITER_TEXT`` для serious-разбора (внутренний анализ не
+    пересказывается, глубина не задаёт длину ответа). Флаг выставляет
+    вызывающий по ``analysis_directive_needed``; для deep_research его нет —
+    те же тексты уже в режимном блоке."""
     try:
         if plan is None:
             return ""
@@ -980,6 +1014,20 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         note = rejected_note(rejected)
         if note:
             lines.append(note)
+        # ── SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): дословные
+        # тексты анализа/Writer в plan-блоке для serious-разбора. Один
+        # источник (`prompt_style_blocks`), deep-режим их уже несёт.
+        if include_analysis:
+            try:
+                from services import prompt_style_blocks as _psb
+                _directive = str(_psb.ANALYSIS_DIRECTIVE_TEXT or "").strip()
+                _writer = str(_psb.ANALYSIS_WRITER_TEXT or "").strip()
+            except Exception:      # pragma: no cover - защитная ветка
+                _directive = _writer = ""
+            if _directive:
+                lines.append(f"как разбирать: {_directive}")
+            if _writer:
+                lines.append(f"как подать разбор: {_writer}")
         if low_confidence:
             lines.append("уверенность плана низкая: опирайся на контекст "
                          "разговора, а не на подсказки плана.")
@@ -1182,6 +1230,7 @@ __all__ = [
     "dedicated_generate", "authorize_l1_call", "record_l1_usage",
     "infer_fallback_capabilities", "build_l1_context", "render_window_lines",
     "build_evidence_packet", "fallback_plan", "plan_response_mode",
-    "emit_l1_plan_event", "build_l2_plan_block", "rejected_note",
+    "emit_l1_plan_event", "build_l2_plan_block",
+    "analysis_directive_needed", "rejected_note",
     "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
 ]
