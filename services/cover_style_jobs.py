@@ -1767,6 +1767,32 @@ def compile_style_prompt(profile: dict, *, issue_display: str,
         components.append(compiler.PromptComponent(
             base_style_prompt, priority=compiler.P3, label="base_style_prompt"))
     compiled = compiler.compile_prompt(components, capabilities=caps_eff)
+    if getattr(compiled, "exceeded", False):
+        # COVER-400: learned safe ceiling — НАШ эмпирический потолок
+        # (`runtime_safe`), а не provider exact. Полное P0+P1 под него не
+        # влезает → собираем уже проверенное mandatory-ядро (ровно тот состав,
+        # что успешно проходит unknown-limit retry) вместо гарантированного
+        # платного 400. Exact/manual/unknown лимиты сохраняют честный
+        # `prompt_limit_exceeded` без платного вызова (§5.4).
+        pl = getattr(caps_eff, "prompt_limit", None)
+        taxonomy = cap.prompt_limit_source_taxonomy(getattr(pl, "source", ""))
+        core_limit = int(pl.value) if pl is not None and pl.known else 0
+        if taxonomy == cap.TAXONOMY_LEARNED_SAFE_CEILING and core_limit > 0:
+            core = compile_style_prompt(
+                profile, issue_display=issue_display,
+                capabilities=capabilities,
+                base_style_prompt=base_style_prompt, brief=brief,
+                story_scene=story_scene, retry_core=True)
+            if len(core.prompt) <= core_limit:
+                core_report = dict(getattr(core, "edit_report", {}) or {})
+                core_report.update({
+                    "preflight_degraded": "learned_safe_ceiling",
+                    "degraded_from_chars": len(compiled.prompt),
+                    "degraded_limit": core_limit,
+                    "headroom_chars": headroom,
+                })
+                core.edit_report = core_report
+                return core
     edit_report["final_chars"] = len(compiled.prompt)
     edit_report["dropped"] = [
         {"label": label, "reason": "overflow"}

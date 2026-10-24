@@ -556,6 +556,13 @@ def parse_discovery(model_entry: dict, endpoints: dict | None = None
 _CACHE: dict[str, tuple[float, ImageModelCapabilities]] = {}
 _DEFAULT_TTL_SECONDS = 900.0
 
+# COVER-400: learned safe ceilings живут ДОЛЬШЕ TTL-кеша capabilities.
+# Иначе эмпирически выученный потолок (source `runtime_safe`) истекал через
+# `_DEFAULT_TTL_SECONDS` и каждый следующий job снова шёл с лимитом `unknown`,
+# отправлял полный prompt и получал 400 «prompt is too long». Ключ тот же,
+# что у `_CACHE` (provider+base_url+model+route), значение — (value, unit).
+_LEARNED_CEILINGS: dict[str, tuple[int, str]] = {}
+
 
 def _ttl() -> float:
     try:
@@ -566,7 +573,9 @@ def _ttl() -> float:
 
 
 def reset_cache() -> None:
+    """Полный сброс (тесты/смена конфигурации): TTL-кеш + learned ceilings."""
     _CACHE.clear()
+    _LEARNED_CEILINGS.clear()
 
 
 def invalidate(provider: str, base_url: str, model: str) -> None:
@@ -644,6 +653,13 @@ def record_runtime_safe_ceiling(provider: str, base_url: str, model: str,
     key = _cache_key(provider, base_url, model, route)
     existing = _cache_get(key)
     caps = existing if existing is not None else conservative_unknown()
+    if existing is None and key in _LEARNED_CEILINGS:
+        # COVER-400: TTL истёк, но выученный потолок помним — `only_raise`
+        # bound должен сравнивать с ним, а не с пустым unknown.
+        prev_value, prev_unit = _LEARNED_CEILINGS[key]
+        caps.source = SOURCE_RUNTIME_SAFE
+        caps.prompt_limit = PromptLimit(value=prev_value, unit=prev_unit,
+                                        source=SOURCE_RUNTIME_SAFE)
     current = caps.prompt_limit
     if current.known and current.source not in (SOURCE_UNKNOWN,
                                                 SOURCE_RUNTIME_SAFE):
@@ -659,6 +675,7 @@ def record_runtime_safe_ceiling(provider: str, base_url: str, model: str,
     caps.prompt_limit = PromptLimit(value=value, unit=unit,
                                     source=SOURCE_RUNTIME_SAFE)
     _cache_put(key, caps)
+    _LEARNED_CEILINGS[key] = (int(value), unit)
     return value
 
 
@@ -801,6 +818,21 @@ def _resolve_dynamic(provider: str, base_url: str, model: str, *,
 
     # Уровень 5: cached runtime-discovered.
     cached = _cache_get(key)
+    if cached is not None and cached.prompt_limit.known:
+        return cached
+
+    # Уровень 5b (COVER-400): learned safe ceiling переживает TTL-кеш —
+    # иначе каждый новый job после 15 минут снова шёл в unknown-limit.
+    learned = _LEARNED_CEILINGS.get(key)
+    if learned is not None:
+        value, unit = learned
+        caps = conservative_unknown()
+        caps.source = SOURCE_RUNTIME_SAFE
+        caps.prompt_limit = PromptLimit(value=value, unit=unit,
+                                        source=SOURCE_RUNTIME_SAFE)
+        _cache_put(key, caps)
+        return caps
+
     if cached is not None:
         return cached
 
