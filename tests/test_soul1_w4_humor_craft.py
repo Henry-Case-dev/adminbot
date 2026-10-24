@@ -102,15 +102,13 @@ def test_common_guard_is_registered_and_carries_the_criterion():
     spec = pr.block("humor.craft.common")
     assert spec is not None and spec.code_source.endswith("HUMOR_CRAFT_GUARD")
     text = pr.factory_text("humor.craft.common").casefold()
-    # главный критерий (H11) — причинная связность/уместность, а не частота
-    # метафор/оскорблений; юмор не растягивается на каждый ответ
-    assert "причинная связность и уместность" in text
-    assert "не частота метафор или оскорблений" in text
-    assert "не растягивай на каждый ответ" in text
-    # серьёзное не ломается; нет предписаний частоты
+    # SPEECH-SIMPLIFY §2.2 (owner 25.10.2026): короткая рамка без обязательных
+    # приёмов, кульминаций и квот; факты и суть просьбы неприкосновенны.
+    assert "приём уместен" in text
+    assert "не растягивай шутку" in text and "не объясняй" in text
     assert "неприкосновенны" in text
     for banned in ("в каждой реплике", "обязательно обматери",
-                   "три ступени"):
+                   "три ступени", "кульминац", "комбинируй"):
         assert banned not in text
 
 

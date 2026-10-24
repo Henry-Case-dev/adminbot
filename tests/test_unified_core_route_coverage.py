@@ -198,8 +198,13 @@ def test_factcheck_single_path_without_config_is_byte_parity(no_config):
     _run(service.check_claim("сервер падал в августе?", chat_id=777))
     system = llm.calls[0]["messages"][0]["content"]
     max_symbols = 4000
-    assert system == FACTCHECK_SYSTEM_PROMPT.replace(
-        "{max_symbols}", str(max_symbols))
+    # SPEECH-SIMPLIFY §2.1-2.3/§5 (owner 25.10.2026): базовая манера/юмор/
+    # длина/достоверность — один короткий блок перед жанровым каноном; при
+    # отсутствии конфигурации второго Core/Expression не появляется.
+    from services import prompt_style_blocks as psb
+    expected = FACTCHECK_SYSTEM_PROMPT.replace("{max_symbols}",
+                                               str(max_symbols))
+    assert system == expected + "\n\n" + psb.speech_base_block()
 
 
 # ═══ 2. Summary: Рассказчик (Stage-2) и legacy-путь ═════════════════════════

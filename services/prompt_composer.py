@@ -1306,13 +1306,6 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         # tool-phase: база канала как есть (режимный блок на этом пути
         # никогда не рендерился), полнота едет слоем response_plan.
         base_text = base_raw
-    # SPEECH-SIMPLIFY §2 (25.10.2026): короткий блок манеры/юмора/длины/
-    # достоверности — ОДИН раз в начале речевой сборки, до Core и Expression.
-    # Тексты живут в `mca_expression` (единственный источник), рендер — здесь.
-    if speech:
-        speech_base = psb.speech_base_block()
-        base_text = (speech_base + "\n\n" + base_text) if base_text \
-            else speech_base
     base_rendered = _append(parts, base_text)
     if not base_rendered:
         base_reason = "channel_contract_missing"
@@ -1521,8 +1514,18 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     # ── 7. speech_base: короткая манера/юмор/длина/достоверность ───────────
     # P0 SPEECH-SIMPLIFY §2.1-2.3/§5: один короткий блок существующего
     # речевого слоя; не зависит от режима мата и не дублирует Core.
-    speech_base_text = psb.speech_base_block() if speech else ""
-    if speech_base_text:
+    _base_l = str(plan.base_prompt or "").lower()
+    _functional_writer = (
+        any(tag in str(plan.writer or "").lower()
+            for tag in ("factcheck", "summary", "checkup", "search", "youtube",
+                        "web"))
+        or any(tag in _base_l
+               for tag in ("фактчек", "factcheck", "сводк", "summary",
+                           "checkup", "поиск", "search")))
+    speech_base_text = (psb.speech_base_block()
+                        if profile in ("speech_plain", "speech_rich")
+                        and not _functional_writer else "")
+    if speech_base_text and speech_base_text not in "\n".join(parts):
         _append(parts, speech_base_text)
 
     # ── 7. expression: эмоциональная температура/резкость (soft) ───────────

@@ -292,18 +292,17 @@ def technique_text(technique: str) -> str:
 
 def render_layer(technique: str, *, guard: str | None = None,
                  text: str | None = None) -> str:
-    """Единая директива юмора (SPEECH-SIMPLIFY §2.2).
+    """Короткая ситуационная подсказка + текст приёма (owner 25.10 §2.2).
 
-    Приём остаётся диагностическим кодом выбора L1, но НЕ рендерит отдельную
-    обязующую технику: в payload идёт ровно точный текст ``HUMOR_TEXT``.
+    Базовая директива юмора идёт отдельным коротким блоком ``HUMOR_TEXT``;
+    здесь остаётся только ситуационная подсказка выбранного L1 приёма.
     """
-    if guard or text:
-        # Явные переопределения оставлены для совместимости вызовов/тестов,
-        # но заводской путь всегда отдаёт короткую владельческую директиву.
-        body = str(text if text is not None else guard).strip()
-        if body:
-            return body
-    return HUMOR_TEXT
+    body = str(text if text is not None else technique_text(technique)).strip()
+    if not body:
+        return ""
+    frame = str(HUMOR_CRAFT_GUARD if guard is None else guard).strip()
+    layer = f"{frame}\n{body}" if frame else body
+    return layer[:MAX_LAYER_CHARS]
 
 
 def layer_calls(technique: str) -> int:

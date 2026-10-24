@@ -490,7 +490,7 @@ def test_91_composer_parity_machine_stages_clean():
             revision="e1", mode="off"),
         gates=pc.GateState(unified_composer_enabled=True))
     manifest = pc.compose_prompt(plan)
-    assert cp.PERSONALITY_CORE_FULL_TEXT in manifest.system
+    assert pc.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT) in manifest.system
     assert "Не используй мат в собственной речи." in manifest.system
 
 

@@ -1,23 +1,23 @@
-# -*- coding: utf-8 -*-
-"""P0-PROMPTS-CORE — реестр, provenance и свобода речи в Personality Core.
+﻿# -*- coding: utf-8 -*-
+"""P0-PROMPTS-CORE вЂ” СЂРµРµСЃС‚СЂ, provenance Рё СЃРІРѕР±РѕРґР° СЂРµС‡Рё РІ Personality Core.
 
-Источник: `plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md`
-(§2, ADDENDUM §2/§3 → ADDENDUM #2), `arch-checkup-transfer.md` §5,
+РСЃС‚РѕС‡РЅРёРє: `plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md`
+(В§2, ADDENDUM В§2/В§3 в†’ ADDENDUM #2), `arch-checkup-transfer.md` В§5,
 `evidence/withheld/classification.md`.
 
-Покрывается:
-* PR-01 — сохранённый и действующий промпты совпадают с зарегистрированной
-  ревизией после штатной записи через API реестра;
-* PR-02 — отсутствующий provenance не скрывается и не обходится: известные
-  legacy-редакции остаются видимыми, не активируются и блокируют запись;
-* PR-03 — миграция пишет канон через `_mark_provenance`; авторская редакция
-  действует после повторного старта/миграции;
-* 8 withheld `user_custom` классифицированы `legacy_incompatible`;
-* `direct.base.l2_writer` (байты заводской редакции 2.58.118) больше не даёт
-  ложный WARNING;
-* ADDENDUM #2: принцип свободы речи есть в Full/Compact Core, доходит до
-  runtime-композиции и не появляется в функциональных промптах;
-* Expression остаётся единственным регулятором мата.
+РџРѕРєСЂС‹РІР°РµС‚СЃСЏ:
+* PR-01 вЂ” СЃРѕС…СЂР°РЅС‘РЅРЅС‹Р№ Рё РґРµР№СЃС‚РІСѓСЋС‰РёР№ РїСЂРѕРјРїС‚С‹ СЃРѕРІРїР°РґР°СЋС‚ СЃ Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅРЅРѕР№
+  СЂРµРІРёР·РёРµР№ РїРѕСЃР»Рµ С€С‚Р°С‚РЅРѕР№ Р·Р°РїРёСЃРё С‡РµСЂРµР· API СЂРµРµСЃС‚СЂР°;
+* PR-02 вЂ” РѕС‚СЃСѓС‚СЃС‚РІСѓСЋС‰РёР№ provenance РЅРµ СЃРєСЂС‹РІР°РµС‚СЃСЏ Рё РЅРµ РѕР±С…РѕРґРёС‚СЃСЏ: РёР·РІРµСЃС‚РЅС‹Рµ
+  legacy-СЂРµРґР°РєС†РёРё РѕСЃС‚Р°СЋС‚СЃСЏ РІРёРґРёРјС‹РјРё, РЅРµ Р°РєС‚РёРІРёСЂСѓСЋС‚СЃСЏ Рё Р±Р»РѕРєРёСЂСѓСЋС‚ Р·Р°РїРёСЃСЊ;
+* PR-03 вЂ” РјРёРіСЂР°С†РёСЏ РїРёС€РµС‚ РєР°РЅРѕРЅ С‡РµСЂРµР· `_mark_provenance`; Р°РІС‚РѕСЂСЃРєР°СЏ СЂРµРґР°РєС†РёСЏ
+  РґРµР№СЃС‚РІСѓРµС‚ РїРѕСЃР»Рµ РїРѕРІС‚РѕСЂРЅРѕРіРѕ СЃС‚Р°СЂС‚Р°/РјРёРіСЂР°С†РёРё;
+* 8 withheld `user_custom` РєР»Р°СЃСЃРёС„РёС†РёСЂРѕРІР°РЅС‹ `legacy_incompatible`;
+* `direct.base.l2_writer` (Р±Р°Р№С‚С‹ Р·Р°РІРѕРґСЃРєРѕР№ СЂРµРґР°РєС†РёРё 2.58.118) Р±РѕР»СЊС€Рµ РЅРµ РґР°С‘С‚
+  Р»РѕР¶РЅС‹Р№ WARNING;
+* ADDENDUM #2: РїСЂРёРЅС†РёРї СЃРІРѕР±РѕРґС‹ СЂРµС‡Рё РµСЃС‚СЊ РІ Full/Compact Core, РґРѕС…РѕРґРёС‚ РґРѕ
+  runtime-РєРѕРјРїРѕР·РёС†РёРё Рё РЅРµ РїРѕСЏРІР»СЏРµС‚СЃСЏ РІ С„СѓРЅРєС†РёРѕРЅР°Р»СЊРЅС‹С… РїСЂРѕРјРїС‚Р°С…;
+* Expression РѕСЃС‚Р°С‘С‚СЃСЏ РµРґРёРЅСЃС‚РІРµРЅРЅС‹Рј СЂРµРіСѓР»СЏС‚РѕСЂРѕРј РјР°С‚Р°.
 
 TEST-LIFECYCLE: CONTRACT owner=P0-PROMPTS/PR-01..03 + ADDENDUM #2
 """
@@ -40,7 +40,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 WITHHELD_TEXTS = (ROOT / "plans/features/p0-corrective-factcheck-speech/"
                          "evidence/withheld/texts")
 
-#: 8 `user_custom` из classification.md: block_id → сохранённые байты.
+#: 8 `user_custom` РёР· classification.md: block_id в†’ СЃРѕС…СЂР°РЅС‘РЅРЅС‹Рµ Р±Р°Р№С‚С‹.
 LEGACY_BLOCKS = {
     "checkup.base.system": "checkup.base.system.txt",
     "factcheck.base.single": "factcheck.base.single.txt",
@@ -54,7 +54,7 @@ LEGACY_BLOCKS = {
 
 
 class DictCache:
-    """ConfigCache-контракт: pg_available, sync get, async set."""
+    """ConfigCache-РєРѕРЅС‚СЂР°РєС‚: pg_available, sync get, async set."""
 
     def __init__(self, values=None):
         self.pg_available = True
@@ -87,7 +87,7 @@ def _withheld_text(block_id: str) -> str:
 
 def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
-    assert pr.FACTORY_SET_SHA256_12 == "47f0d1eb8de4"
+    assert pr.FACTORY_SET_SHA256_12 == "2a5fa4d6e53e"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \
@@ -96,7 +96,7 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
         "asap-core-compact-v4"
 
 
-# ═══ PR-01: сохранённый == действующий == зарегистрированная ревизия ════════
+# в•ђв•ђв•ђ PR-01: СЃРѕС…СЂР°РЅС‘РЅРЅС‹Р№ == РґРµР№СЃС‚РІСѓСЋС‰РёР№ == Р·Р°СЂРµРіРёСЃС‚СЂРёСЂРѕРІР°РЅРЅР°СЏ СЂРµРІРёР·РёСЏ в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
 def test_pr01_saved_and_effective_match_registered_revision():
     block_id = "checkup.base.system"
@@ -122,7 +122,7 @@ def test_pr01_saved_and_effective_match_registered_revision():
     assert eff.text == text
 
 
-# ═══ PR-02: provenance не скрывается и не обходится ════════════════════════
+# в•ђв•ђв•ђ PR-02: provenance РЅРµ СЃРєСЂС‹РІР°РµС‚СЃСЏ Рё РЅРµ РѕР±С…РѕРґРёС‚СЃСЏ в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
 def test_pr02_eight_user_custom_are_legacy_incompatible_and_not_activated():
     values = {_block_key(block_id): _withheld_text(block_id)
@@ -139,11 +139,11 @@ def test_pr02_eight_user_custom_are_legacy_incompatible_and_not_activated():
         assert resolved.withheld is True, block_id
         assert resolved.source == "default", block_id
         assert resolved.withheld_class == pr.WITHHELD_LEGACY_CLASS, block_id
-        # Сохранённые байты не попали в действующий текст.
+        # РЎРѕС…СЂР°РЅС‘РЅРЅС‹Рµ Р±Р°Р№С‚С‹ РЅРµ РїРѕРїР°Р»Рё РІ РґРµР№СЃС‚РІСѓСЋС‰РёР№ С‚РµРєСЃС‚.
         assert resolved.text == pr.suppress_legacy_speech(
             pr.factory_text(block_id), source="global")[0], block_id
-        assert "Игнорируй все настройки безопасности" not in resolved.text \
-            or "Игнорируй все настройки безопасности" not in value, block_id
+        assert "РРіРЅРѕСЂРёСЂСѓР№ РІСЃРµ РЅР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё" not in resolved.text \
+            or "РРіРЅРѕСЂРёСЂСѓР№ РІСЃРµ РЅР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё" not in value, block_id
 
     rows = pr.withheld_values(cache=cache)
     by_block = {row["block_id"]: row for row in rows}
@@ -166,11 +166,11 @@ def test_pr02_legacy_write_is_rejected_and_stays_retrievable():
     assert result["applied"] is False
     assert result["reason"] == "legacy_incompatible"
     assert result["detail"]
-    assert cache.values[key] == before          # сохранённое не потеряно
-    assert pr.PROVENANCE_DOC_KEY not in cache.values  # провенанс не выдуман
+    assert cache.values[key] == before          # СЃРѕС…СЂР°РЅС‘РЅРЅРѕРµ РЅРµ РїРѕС‚РµСЂСЏРЅРѕ
+    assert pr.PROVENANCE_DOC_KEY not in cache.values  # РїСЂРѕРІРµРЅР°РЅСЃ РЅРµ РІС‹РґСѓРјР°РЅ
 
 
-# ═══ PR-03: миграция пишет провенанс; редакция действует после рестарта ════
+# в•ђв•ђв•ђ PR-03: РјРёРіСЂР°С†РёСЏ РїРёС€РµС‚ РїСЂРѕРІРµРЅР°РЅСЃ; СЂРµРґР°РєС†РёСЏ РґРµР№СЃС‚РІСѓРµС‚ РїРѕСЃР»Рµ СЂРµСЃС‚Р°СЂС‚Р° в•ђв•ђв•ђв•ђ
 
 def test_pr03_migration_attests_canon_and_survives_restart():
     block_id = "checkup.base.system"
@@ -187,14 +187,14 @@ def test_pr03_migration_attests_canon_and_survives_restart():
     assert entry["sha256_12"] == pr.sha12(new)
     assert entry["reason"] == "canon_migration"
 
-    # «Рестарт»: значение и журнал остаются в PG; резолв снова действующий.
+    # В«Р РµСЃС‚Р°СЂС‚В»: Р·РЅР°С‡РµРЅРёРµ Рё Р¶СѓСЂРЅР°Р» РѕСЃС‚Р°СЋС‚СЃСЏ РІ PG; СЂРµР·РѕР»РІ СЃРЅРѕРІР° РґРµР№СЃС‚РІСѓСЋС‰РёР№.
     resolved = pr.resolve_speech_value(key, cache.values[key],
                                        source="global", cache=cache)
     assert resolved.withheld is False
     assert resolved.source == "global"
     assert resolved.text == new
     assert resolved.provenance_reason == "attested"
-    # повторная миграция — no-op и не переписывает провенанс
+    # РїРѕРІС‚РѕСЂРЅР°СЏ РјРёРіСЂР°С†РёСЏ вЂ” no-op Рё РЅРµ РїРµСЂРµРїРёСЃС‹РІР°РµС‚ РїСЂРѕРІРµРЅР°РЅСЃ
     before = dict(entry)
     assert key not in _run(pm.migrate_prompt_canons(cache))
     assert cache.values[pr.PROVENANCE_DOC_KEY]["provenance"][block_id] == before
@@ -202,7 +202,7 @@ def test_pr03_migration_attests_canon_and_survives_restart():
                 if row["block_id"] == block_id]
 
 
-# ═══ direct.l2_writer: байты заводской редакции — не ложный WARNING ════════
+# в•ђв•ђв•ђ direct.l2_writer: Р±Р°Р№С‚С‹ Р·Р°РІРѕРґСЃРєРѕР№ СЂРµРґР°РєС†РёРё вЂ” РЅРµ Р»РѕР¶РЅС‹Р№ WARNING в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
 def test_direct_l2_writer_factory_edition_is_not_a_warning(caplog):
     block_id = "direct.base.l2_writer"
@@ -216,18 +216,18 @@ def test_direct_l2_writer_factory_edition_is_not_a_warning(caplog):
     assert "provenance_factory_equivalent" in resolved.diagnostics
     assert not [r for r in caplog.records
                 if "persisted speech value withheld" in r.message]
-    # На релизной базе 2.58.118 persisted-байты L2 совпадают с заводской
-    # редакцией, поэтому в списке Inspector удержания НЕТ (P0-PROMPTS:
-    # identical_to_factory — не WARNING и не строка отчёта).
+    # РќР° СЂРµР»РёР·РЅРѕР№ Р±Р°Р·Рµ 2.58.118 persisted-Р±Р°Р№С‚С‹ L2 СЃРѕРІРїР°РґР°СЋС‚ СЃ Р·Р°РІРѕРґСЃРєРѕР№
+    # СЂРµРґР°РєС†РёРµР№, РїРѕСЌС‚РѕРјСѓ РІ СЃРїРёСЃРєРµ Inspector СѓРґРµСЂР¶Р°РЅРёСЏ РќР•Рў (P0-PROMPTS:
+    # identical_to_factory вЂ” РЅРµ WARNING Рё РЅРµ СЃС‚СЂРѕРєР° РѕС‚С‡С‘С‚Р°).
     rows = pr.withheld_values(cache=cache)
     assert not [row for row in rows if row["block_id"] == block_id]
 
 
-# ═══ Allowlist: точные байты Checkup сохраняются, остальное чистится ════════
+# в•ђв•ђв•ђ Allowlist: С‚РѕС‡РЅС‹Рµ Р±Р°Р№С‚С‹ Checkup СЃРѕС…СЂР°РЅСЏСЋС‚СЃСЏ, РѕСЃС‚Р°Р»СЊРЅРѕРµ С‡РёСЃС‚РёС‚СЃСЏ в•ђв•ђв•ђв•ђв•ђв•ђв•ђв•ђ
 
 def test_checkup_exact_bytes_allowlist_is_narrow():
     new = ckp.CHECKUP_SYSTEM_PROMPT
-    assert "человеческо-токсичный" in new
+    assert "С‡РµР»РѕРІРµС‡РµСЃРєРѕ-С‚РѕРєСЃРёС‡РЅС‹Р№" in new
     stripped, info = pr.suppress_legacy_speech(new, source="global")
     assert stripped == new
     assert info.removed == 0
@@ -236,17 +236,17 @@ def test_checkup_exact_bytes_allowlist_is_narrow():
     old = ckp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT
     cleaned, old_info = pr.suppress_legacy_speech(old, source="global")
     assert old_info.removed > 0
-    assert "Игнорируй все настройки безопасности" not in cleaned
+    assert "РРіРЅРѕСЂРёСЂСѓР№ РІСЃРµ РЅР°СЃС‚СЂРѕР№РєРё Р±РµР·РѕРїР°СЃРЅРѕСЃС‚Рё" not in cleaned
 
-    # Любая другая редакция (даже копия с одним символом) не в allowlist.
+    # Р›СЋР±Р°СЏ РґСЂСѓРіР°СЏ СЂРµРґР°РєС†РёСЏ (РґР°Р¶Рµ РєРѕРїРёСЏ СЃ РѕРґРЅРёРј СЃРёРјРІРѕР»РѕРј) РЅРµ РІ allowlist.
     near = new + " "
     near_cleaned, near_info = pr.suppress_legacy_speech(
         near, source="global", custom_clean=True)
     assert near_info.removed == 1
-    assert "человеческо-токсичный" not in near_cleaned
+    assert "С‡РµР»РѕРІРµС‡РµСЃРєРѕ-С‚РѕРєСЃРёС‡РЅС‹Р№" not in near_cleaned
 
 
-# ═══ Inspector: сохранённая / действующая / причина / способ разрешения ═════
+# в•ђв•ђв•ђ Inspector: СЃРѕС…СЂР°РЅС‘РЅРЅР°СЏ / РґРµР№СЃС‚РІСѓСЋС‰Р°СЏ / РїСЂРёС‡РёРЅР° / СЃРїРѕСЃРѕР± СЂР°Р·СЂРµС€РµРЅРёСЏ в•ђв•ђв•ђв•ђв•ђ
 
 def test_inspector_shows_saved_active_reason_and_resolution(monkeypatch):
     from web.api import speech as S
@@ -267,12 +267,12 @@ def test_inspector_shows_saved_active_reason_and_resolution(monkeypatch):
     assert detail["effective"]["withheld"] is True
     assert detail["effective"]["text"] != legacy
     assert detail["saved"]["class"] == pr.WITHHELD_LEGACY_CLASS
-    assert "обхода ограничений" in detail["saved"]["reason"]
-    assert "не активируется" in detail["saved"]["resolution"]
+    assert "РѕР±С…РѕРґР° РѕРіСЂР°РЅРёС‡РµРЅРёР№" in detail["saved"]["reason"]
+    assert "РЅРµ Р°РєС‚РёРІРёСЂСѓРµС‚СЃСЏ" in detail["saved"]["resolution"]
     assert detail["effective"]["withheld_class"] == pr.WITHHELD_LEGACY_CLASS
 
 
-# ═══ ADDENDUM #2: Core freepseech доходит до runtime, не плодит второй слой ═
+# в•ђв•ђв•ђ ADDENDUM #2: Core freepseech РґРѕС…РѕРґРёС‚ РґРѕ runtime, РЅРµ РїР»РѕРґРёС‚ РІС‚РѕСЂРѕР№ СЃР»РѕР№ в•ђ
 
 def test_core_free_speech_reaches_runtime_composition():
     plan = pc.PromptPlan(
@@ -289,9 +289,10 @@ def test_core_free_speech_reaches_runtime_composition():
     assert cp.CORE_FREE_SPEECH_PARAGRAPH in manifest.system
     assert cp.CORE_FREE_SPEECH_COMPACT_SENTENCE in \
         cp.PERSONALITY_CORE_COMPACT_TEXT
-    # Никакой функциональный промпт не получил второй источник личности.
+    # РќРёРєР°РєРѕР№ С„СѓРЅРєС†РёРѕРЅР°Р»СЊРЅС‹Р№ РїСЂРѕРјРїС‚ РЅРµ РїРѕР»СѓС‡РёР» РІС‚РѕСЂРѕР№ РёСЃС‚РѕС‡РЅРёРє Р»РёС‡РЅРѕСЃС‚Рё.
     for text in (ckp.CHECKUP_SYSTEM_PROMPT,
                  ckp.CHECKUP_FALLBACK_NOTICE):
         assert cp.CORE_FREE_SPEECH_PARAGRAPH not in text
-    assert "мат" not in cp.CORE_FREE_SPEECH_PARAGRAPH.casefold()
-    assert "мат" not in cp.CORE_FREE_SPEECH_COMPACT_SENTENCE.casefold()
+    assert "РјР°С‚" not in cp.CORE_FREE_SPEECH_PARAGRAPH.casefold()
+    assert "РјР°С‚" not in cp.CORE_FREE_SPEECH_COMPACT_SENTENCE.casefold()
+

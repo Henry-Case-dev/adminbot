@@ -145,9 +145,11 @@ def test_validation_never_raises_on_garbage():
 
 
 def test_presets_are_combinations_not_personalities():
+    # SPEECH-SIMPLIFY §3 (25.10.2026): добавлен заводской речевой пресет
+    # «Завсегдатай Двача»; остальные пресеты не изменены.
     assert set(sp.PRESET_NAMES) == {"regular_chat", "no_quotes",
                                     "no_trailing_period", "no_emoji",
-                                    "casual_concise"}
+                                    "casual_concise", "dvach"}
     combined = doc_with("no_quotes", "no_trailing_period")
     kinds = {r["kind"] for r in combined["rules"]}
     assert kinds == {"quotation_marks", "trailing_period"}
