@@ -1,0 +1,11 @@
+bump commit = f0e6a0cd (pre-bump HEAD = 6e9f10a2)
+
+files=31 pairs=33 (adds=33 dels=33)
+
+non-token deltas: NONE
+
+F8-meta HEAD short = 6e9f10a2 (matches pre-bump HEAD: True)
+
+F8-meta APP_VERSION = 2.58.125: True
+
+settings APP_VERSION ok: True
