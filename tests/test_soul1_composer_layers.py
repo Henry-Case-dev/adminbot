@@ -3,8 +3,8 @@
 Доказывает: порядок слоёв == контракт §3; у каждого блока свой владелец и
 ревизия; Core рендерится РОВНО один раз; одна инструкция не рендерится
 дважды как `system_prompt_overrides` и Core (SOUL-03.6); каждая OFF-ветка
-несёт видимую причину из закрытого набора; бюджета хватает на защищённые
-слои; в события не утекает текст промпта (R17).
+несёт видимую причину из закрытого набора; локальной квоты инструкций нет
+(ADDENDUM #3 §2.7); в события не утекает текст промпта (R17).
 
 TEST-LIFECYCLE: CONTRACT owner=SOUL-1/W2 (SOUL-04.1/04.2, SOUL-03.6, 15.7)
 """
@@ -176,8 +176,13 @@ def test_skip_reasons_are_closed_and_visible_without_core_layer():
     assert all(t.skip_reason in pc.SKIP_REASONS for t in manifest.layers)
 
 
-def test_budget_never_evicts_channel_identity_question_or_evidence(monkeypatch):
-    """SOUL-04.5: бюджет режет добавку, но не вопрос/инструкцию/evidence."""
+def test_no_local_quota_evicts_layers_with_available_window(monkeypatch):
+    """QUOTA-REMOVAL (ADDENDUM #3 §2.7): локальной квоты инструкций нет.
+
+    Прежний env `COMPOSER_LAYER_BUDGET_TOKENS=40` вытеснял humor/samples/hint.
+    Теперь переменная ИНЕРТНА: вопрос/инструкция/evidence и все применимые
+    речевые слои остаются в payload; `budget_excluded` не производится.
+    """
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "40")
     manifest = pc.compose_prompt(full_plan())
     by_layer = layers_of(manifest)
@@ -185,20 +190,20 @@ def test_budget_never_evicts_channel_identity_question_or_evidence(monkeypatch):
     assert by_layer["identity"].rendered is True
     assert by_layer["response_plan"].rendered is True
     assert manifest.user_parts == (USER_Q, EVIDENCE)
-    assert by_layer["few_shot"].skip_reason in ("budget_excluded",
-                                                "samples_absent",
-                                                "samples_disabled")
+    for layer in ("humor_craft", "few_shot", "style_policy_hint"):
+        assert by_layer[layer].rendered is True, layer
+        assert by_layer[layer].skip_reason == "", layer
+    assert "budget_excluded" not in {t.skip_reason for t in manifest.layers}
     assert USER_Q in manifest.user_parts[0]
     assert EVIDENCE in manifest.user_parts[1]
     assert all(t.skip_reason in pc.SKIP_REASONS for t in manifest.layers)
 
 
-def test_core_is_never_evicted_by_additive_budget(monkeypatch):
-    """F5 (review-w2): Core — обязательный слой, бюджет его не вытесняет.
+def test_core_and_expression_are_never_evicted_or_downgraded(monkeypatch):
+    """F5 (review-w2) + A4: Core и Expression — обязательные слои.
 
-    Перерасход из-за Core виден конфликтом `core_protected_from_budget`
-    (outcome `exempted_protected`), режется при этом добавка (expression/
-    humor/samples/hint), а не личность.
+    Квоты больше нет, поэтому нет и «перерасхода, видимого конфликтом»:
+    личность и режим речи просто остаются в payload без вытеснения.
     """
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "20")
     manifest = pc.compose_prompt(full_plan())
@@ -207,27 +212,15 @@ def test_core_is_never_evicted_by_additive_budget(monkeypatch):
     assert core.rendered is True
     assert core.skip_reason == ""
     assert CORE in manifest.system
-    assert "budget_excluded" != core.skip_reason
     for layer in ("humor_craft", "few_shot", "style_policy_hint"):
-        assert by_layer[layer].rendered is False, layer
-        assert by_layer[layer].skip_reason == "budget_excluded", layer
-    # P0-E: Expression защищён от бюджета (иначе режим мата пропадал молча).
+        assert by_layer[layer].rendered is True, layer
+        assert by_layer[layer].skip_reason == "", layer
     assert by_layer["expression"].rendered is True
     assert by_layer["expression"].skip_reason == ""
     assert EXPRESSION in manifest.system
-    conflict = [c for c in manifest.conflicts
-                if c.conflict_id == "core_protected_from_budget"]
-    assert conflict, "перерасход Core обязан быть видимым"
-    assert conflict[0].outcome == "exempted_protected"
-    assert conflict[0].outcome in pc.CONFLICT_OUTCOMES
-    assert conflict[0].layer == "core"
-    assert conflict[0].provenance.startswith("core:")
-    assert CORE not in conflict[0].provenance, "R17: без текста промпта"
-    assert "budget=20" in conflict[0].detail
-    expr_conflict = [c for c in manifest.conflicts
-                     if c.conflict_id == "expression_protected_from_budget"]
-    assert expr_conflict, "перерасход Expression обязан быть видимым"
-    assert expr_conflict[0].outcome == "exempted_protected"
+    assert not [c for c in manifest.conflicts
+                if c.conflict_id in ("core_protected_from_budget",
+                                     "expression_protected_from_budget")]
     # Защищённая user-часть не изменилась.
     assert manifest.user_parts == (USER_Q, EVIDENCE)
 

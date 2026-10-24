@@ -39,11 +39,11 @@ def _layer(manifest, layer: str):
     return [t for t in manifest.layers if t.layer == layer][0]
 
 
-# ═══ 1. Бюджет: слой не теряется молча ═════════════════════════════════════
+# ═══ 1. Квоты нет: слой не теряется ═════════════════════════════════════════
 
 @pytest.mark.parametrize("mode", ("off", "occasional", "frequent"))
-def test_expression_marker_survives_tight_budget(monkeypatch, mode):
-    """Даже при бюджете меньше стоимости слоя маркер режима остаётся."""
+def test_expression_marker_survives_former_tight_budget(monkeypatch, mode):
+    """QUOTA-REMOVAL: прежний «тесный» env инертен — маркер режима на месте."""
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "10")
     expression = ex.build_expression_settings({"profanity": mode}, None)
     assert expression.text and expression.enabled
@@ -56,37 +56,23 @@ def test_expression_marker_survives_tight_budget(monkeypatch, mode):
     # слой не помечен тихой потерей ни в одном виде
     assert all(t.skip_reason != "budget_excluded"
                for t in manifest.layers if t.layer == "expression")
-    conflict = [c for c in manifest.conflicts
+    assert not [c for c in manifest.conflicts
                 if c.conflict_id == "expression_protected_from_budget"]
-    assert conflict and conflict[0].outcome == "exempted_protected"
-    assert conflict[0].layer == "expression"
 
 
-def test_expression_budget_conflict_is_r17_safe(monkeypatch):
-    """Диагностика перерасхода — коды/числа, без текста промпта (R17)."""
+def test_no_budget_conflict_objects_are_produced(monkeypatch):
+    """QUOTA-REMOVAL: служебных конфликтов о перерасходе квоты больше нет."""
     monkeypatch.setenv("COMPOSER_LAYER_BUDGET_TOKENS", "10")
     expression = ex.build_expression_settings({"profanity": "frequent"}, None)
     manifest = pc.compose_prompt(_plan(expression))
-    conflict = [c for c in manifest.conflicts
-                if c.conflict_id == "expression_protected_from_budget"][0]
-    payload = f"{conflict.detail} {conflict.provenance}"
+    ids = {c.conflict_id for c in manifest.conflicts}
+    assert "expression_protected_from_budget" not in ids
+    assert "core_protected_from_budget" not in ids
+    assert ex.PROFANITY_INSTRUCTIONS["frequent"] in manifest.system
+    # R17: в манифесте событий нет текста промпта (диагностика остаётся кодами)
+    import json as _json
+    payload = _json.dumps(pc.manifest_for_events(manifest), ensure_ascii=False)
     assert "Expression_Settings" not in payload
-    assert ex.PROFANITY_INSTRUCTIONS["frequent"] not in payload
-    assert "expression_tokens=" in conflict.detail
-
-
-def test_inspector_shows_budget_class_for_expression_conflict():
-    """§6.2 п.8: диагностика Expression показывает класс «бюджет»."""
-    from web.api import speech as speech_api
-    rows = speech_api._inspector_conflicts(
-        [], [{"conflict_id": "expression_protected_from_budget",
-              "outcome": "exempted_protected", "layer": "expression",
-              "block_id": "expression", "detail": "expression_tokens=97"}],
-        {}, {})
-    budget = [c for c in rows["classes"] if c["class"] == "budget"][0]
-    row = [r for r in budget["items"] if r["conflict_id"]
-           == "expression_protected_from_budget"]
-    assert row and row[0]["title"] == "Бюджет против характера"
 
 
 # ═══ 2. Семантика FREQUENT ═════════════════════════════════════════════════

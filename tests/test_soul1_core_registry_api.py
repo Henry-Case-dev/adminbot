@@ -199,20 +199,22 @@ def test_core_selection_is_deterministic_and_reasons_are_closed():
     assert first["level"] == "compact" and first["reason"] == "document_default"
     assert first["revision"].startswith("r3.")
     cases = [
-        (None, None, "factory_default"),
-        (doc, None, "document_default"),
-        ({**doc, "detail_level": "full"}, None, "owner_setting"),
-        ({**doc, "detail_level": "full"}, 1, "context_budget"),
-        ({**doc, "detail_level": "full"}, 10 ** 9, "owner_setting"),
-        ({"revision": 1, "compact_text": "К"}, None, "document_default"),
+        (None, "factory_default"),
+        (doc, "document_default"),
+        ({**doc, "detail_level": "full"}, "owner_setting"),
+        ({"revision": 1, "compact_text": "К"}, "document_default"),
     ]
-    for payload, budget, reason in cases:
-        selection = pr.core_selection(payload, source="global",
-                                      budget_tokens=budget)
-        assert selection["reason"] == reason, (payload, budget)
+    for payload, reason in cases:
+        selection = pr.core_selection(payload, source="global")
+        assert selection["reason"] == reason, (payload, reason)
         assert selection["reason"] in pr.CORE_DETAIL_REASONS
         assert selection["level"] in pr.CORE_DETAIL_LEVELS
         assert selection["text"].strip()
+    # QUOTA-REMOVAL (A4): `context_budget` больше не существует, а `full`
+    # владельца не понижается ни при каком значении прежней переменной.
+    assert "context_budget" not in pr.CORE_DETAIL_REASONS
+    full = pr.core_selection({**doc, "detail_level": "full"}, source="global")
+    assert full["level"] == "full" and full["text"] == "ПОЛНАЯ"
     # Пустое поле документа наследует заводскую редакцию ИМЕННО ЭТОГО поля.
     inherited = pr.core_selection({"full_text": "ТОЛЬКО ПОЛНАЯ"}, source="global")
     assert inherited["full_text"] == "ТОЛЬКО ПОЛНАЯ"

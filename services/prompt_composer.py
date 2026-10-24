@@ -107,8 +107,9 @@ SKIP_REASONS = frozenset({
     "samples_absent", "samples_disabled",
     "style_policy_absent", "style_policy_disabled", "style_policy_unavailable",
     "style_policy_read_error",
-    # аддитивный бюджет и профили
-    "budget_excluded", "compose_error",
+    # QUOTA-REMOVAL (ADDENDUM #3 §2.7): `budget_excluded` больше не существует —
+    # искусственного бюджета инструкций нет; остаются только смысловые причины.
+    "compose_error",
     "profile:machine_stage", "profile:editorial_eligibility",
     "profile:internal_silent",
 })
@@ -139,14 +140,8 @@ _CORE_PROFILES = frozenset({
     PROFILE_SPEECH_PLAIN, PROFILE_SPEECH_RICH, PROFILE_CHANNEL_TEXT_ONLY,
 })
 
-# Слои, к которым применяется аддитивный бюджет (порядок == приоритету).
-# Core присутствует здесь только как первый по приоритету; вытеснить его
-# бюджет не может (обязательный слой §4, см. конфликт
-# `core_protected_from_budget` при перерасходе).
-_BUDGET_LAYERS = (
-    LAYER_CORE, LAYER_EXPRESSION, LAYER_HUMOR_CRAFT, LAYER_FEW_SHOT,
-    LAYER_STYLE_POLICY_HINT,
-)
+# QUOTA-REMOVAL (ADDENDUM #3 §2.7): кортеж `_BUDGET_LAYERS` удалён вместе с
+# аддитивным бюджетом — приоритет слоёв задаёт порядок сборки, а не квота.
 
 # Дефолтные причины «слоя нет» (когда ref не передан вовсе).
 _ABSENT_REASON = {
@@ -270,9 +265,6 @@ SKIP_REASON_LABELS: Mapping[str, str] = {
         "Правила стиля письма недоступны — слой честно пропущен.",
     "style_policy_read_error":
         "Правила стиля письма не удалось прочитать — слой пропущен.",
-    "budget_excluded":
-        "Слой не вошёл в запрос: исчерпан бюджет дополнительных блоков "
-        "(технический лимит модели).",
     "compose_error":
         "Сборка слоя не удалась — отправлена только база канала.",
     "profile:machine_stage":
@@ -804,9 +796,7 @@ async def resolve_core_ref(chat_id: int) -> CoreRef:
     try:
         from services import prompt_registry as _pr
         enabled = True if doc is None else bool(doc.get("enabled", True))
-        selection = _pr.core_selection(
-            doc, source=source,
-            budget_tokens=mca_gates.composer_additive_budget_tokens())
+        selection = _pr.core_selection(doc, source=source)
         text = str(selection["text"] or "")
         present = bool(text.strip())
         skip_reason = ("core_disabled" if not enabled
@@ -937,9 +927,7 @@ async def core_inspection(chat_id: int) -> dict:
         ref = CoreRef(skip_reason="core_read_error")
     try:
         from services import prompt_registry as _pr
-        factory_view = _pr.core_selection_view(
-            None, source="default",
-            budget_tokens=mca_gates.composer_additive_budget_tokens())
+        factory_view = _pr.core_selection_view(None, source="default")
     except Exception:          # pragma: no cover — реестр недоступен
         factory_view = {}
     return {
@@ -1239,8 +1227,9 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     traces: list[LayerTrace] = []
     conflicts: list[ConflictRecord] = []
     parts: list[str] = []
-    budget = mca_gates.composer_additive_budget_tokens()
-    consumed = 0
+    # QUOTA-REMOVAL (ADDENDUM #3 §2.7): аддитивного бюджета инструкций нет.
+    # Слои рендерятся по порядку и по смыслу (owner/gates/profile), а не по
+    # остатку квоты. Реальное окно модели — `model_capacity` на стороне вызова.
 
     # ── 1. channel_contract: техническая база канала/профиля ────────────────
     base_raw = str(plan.base_prompt or "")
@@ -1318,25 +1307,10 @@ def _compose(plan: PromptPlan) -> PromptManifest:
                 skip_reason=reason, detail=core_detail))
         else:
             core_text = str(core_ref.text)
-            cost = estimate_tokens(core_text)
-            # SOUL-1 §4 («единственная точка инъекции Core»): Core —
-            # ОБЯЗАТЕЛЬНЫЙ слой и аддитивным бюджетом НЕ вытесняется
-            # (review-w2 F5: при `detail_level=full` и дефолтных 1200 tokens
-            # `budget_excluded` молча убирал личность из речи). Бюджет режет
-            # только добавку (expression/humor/samples/hint), поэтому
-            # перерасход из-за Core виден конфликтом
-            # `core_protected_from_budget` (outcome `exempted_protected`),
-            # а не исчезновением характера.
-            if budget is not None and consumed + cost > budget:
-                conflicts.append(ConflictRecord(
-                    conflict_id="core_protected_from_budget",
-                    outcome="exempted_protected", layer=LAYER_CORE,
-                    block_id="core",
-                    detail=(f"core_tokens={cost} budget={budget} "
-                            f"consumed={consumed}"),
-                    provenance="core:{}".format(
-                        core_ref.revision or sha12(core_text))))
-            consumed += cost
+            # QUOTA-REMOVAL (ADDENDUM #3 §2.7): Core — обязательный слой и
+            # никакой квотой не вытесняется и не понижается. `detail_level`
+            # владельца — единственный источник выбора редакции (см.
+            # `prompt_registry.core_selection`).
             _append(parts, core_text)
             traces.append(_trace(
                 LAYER_CORE, block_id="core", text=core_text, owner="core",
@@ -1502,7 +1476,6 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             skip_reason=reason))
     else:
         text = str(expression.text)
-        cost = estimate_tokens(text)
         # P0-E v2 (24.10.2026): тот же режим речи повторяется ФИНАЛЬНЫМ
         # контрактом в самом конце system. Замер: слой стоит на 85.0–96.3%
         # полной сборки, а последние ~320 симв. занимает другой слой —
@@ -1511,28 +1484,9 @@ def _compose(plan: PromptPlan) -> PromptManifest:
         # второго регулятора частоты, квот и постпроцессора нет.
         expression_final = _expr_mod.render_expression_final_contract(
             getattr(expression, "mode", ""))
-        # P0-E (source §6.2 п.3 / §6.3): Expression — единственный носитель
-        # режима мата в готовой речи. Тихий `budget_excluded` превращал
-        # настроенный FREQUENT в ложный «ноль различий» (арх-дизайн §4).
-        # Слой защищён как Core: рендерится всегда, а перерасход виден
-        # конфликтом `expression_protected_from_budget`
-        # (outcome `exempted_protected`, R17-safe: только числа/коды).
-        # Финальный контракт в бюджет НЕ добавляется: это та же директива
-        # слоя в хвосте, а не новый аддитивный слой — иначе он вытеснял бы
-        # Style_Policy_Hint при бюджете 1200.
-        if budget is not None and consumed + cost > budget:
-            detail = (f"expression_tokens={cost} budget={budget} "
-                      f"consumed={consumed}")
-            conflicts.append(ConflictRecord(
-                conflict_id="expression_protected_from_budget",
-                outcome="exempted_protected", layer=LAYER_EXPRESSION,
-                block_id="expression", detail=detail,
-                provenance="expression:{}".format(
-                    expression.revision or _sha16(text))))
-            logger.warning(
-                "[composer] expression protected from budget | %s "
-                "| mode=%s", detail, str(expression.mode or "unknown"))
-        consumed += cost
+        # QUOTA-REMOVAL (ADDENDUM #3 §2.7): `budget_excluded` для Expression
+        # удалён вместе с аддитивным бюджетом — режим речи не может исчезнуть
+        # из payload из-за локальной квоты.
         _append(parts, text)
         traces.append(_trace(
             LAYER_EXPRESSION, block_id="expression",
@@ -1570,16 +1524,12 @@ def _compose(plan: PromptPlan) -> PromptManifest:
     else:
         reason = "" if plan.humor.enabled else (
             plan.humor.skip_reason or "humor_disabled")
-        cost = estimate_tokens(plan.humor.text)
-        if not reason and budget is not None and consumed + cost > budget:
-            reason = "budget_excluded"
         if reason:
             traces.append(_trace(LAYER_HUMOR_CRAFT, block_id="humor_craft",
                                  owner="library",
                                  revision=plan.humor.revision,
                                  skip_reason=reason))
         else:
-            consumed += cost
             _append(parts, plan.humor.text)
             traces.append(_trace(
                 LAYER_HUMOR_CRAFT, block_id="humor_craft",
@@ -1608,12 +1558,8 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             reason = _block_reason(block, "expression_examples_absent")
             if not reason and not gates.expression_examples_enabled:
                 reason = "expression_examples_disabled"
-            cost = estimate_tokens(block.text)
-            if not reason and budget is not None and consumed + cost > budget:
-                reason = "budget_excluded"
             rendered = not reason
             if rendered:
-                consumed += cost
                 _append(parts, block.text)
             traces.append(_trace(
                 LAYER_FEW_SHOT,
@@ -1637,12 +1583,8 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             reason = _block_reason(block, "samples_absent")
             if not reason and not gates.humor_library_enabled:
                 reason = "samples_disabled"
-            cost = estimate_tokens(block.text)
-            if not reason and budget is not None and consumed + cost > budget:
-                reason = "budget_excluded"
             rendered = not reason
             if rendered:
-                consumed += cost
                 _append(parts, block.text)
             traces.append(_trace(
                 LAYER_FEW_SHOT, block_id=block.block_id or "few_shot",
@@ -1676,22 +1618,16 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             skip_reason=reason))
     else:
         hint_text = str(policy.hint)
-        cost = estimate_tokens(hint_text)
-        if budget is not None and consumed + cost > budget:
-            traces.append(_trace(
-                LAYER_STYLE_POLICY_HINT, block_id="style_policy_hint",
-                owner="style_policy", revision=policy.revision,
-                source=str(policy.source or "default"),
-                skip_reason="budget_excluded"))
-        else:
-            consumed += cost
-            _append(parts, hint_text)
-            traces.append(_trace(
-                LAYER_STYLE_POLICY_HINT, block_id="style_policy_hint",
-                text=hint_text, owner="style_policy",
-                source=str(policy.source or "default"),
-                revision=str(policy.revision or _sha16(hint_text)),
-                rendered=True))
+        # QUOTA-REMOVAL (ADDENDUM #3 §2.7): прод-симптом
+        # `style_policy_hint → budget_excluded` устранён вместе с квотой —
+        # hint рендерится всегда, когда он активен и разрешён осью.
+        _append(parts, hint_text)
+        traces.append(_trace(
+            LAYER_STYLE_POLICY_HINT, block_id="style_policy_hint",
+            text=hint_text, owner="style_policy",
+            source=str(policy.source or "default"),
+            revision=str(policy.revision or _sha16(hint_text)),
+            rendered=True))
 
     # ── 11. channel_output: финальные ограничения вывода канала ────────────
     if not speech:
@@ -1816,7 +1752,8 @@ def _versions(plan: PromptPlan, profile: str, base_text: str, core_text: str,
     return {
         "core": (core.revision if core is not None else ""),
         # Какая редакция Core действует и почему (SOUL-AMD.1.1/§10):
-        # «compact:owner_setting» | «full:context_budget» | «compact:factory_default».
+        # «compact:owner_setting» | «full:owner_setting» | «compact:factory_default».
+        # QUOTA-REMOVAL (ADDENDUM #3 §2.7): причины `context_budget` больше нет.
         "core_detail": ((f"{core.detail_level}:{core.detail_reason}"
                          if core is not None and core.detail_reason else "")
                         if core is not None else ""),
@@ -2269,8 +2206,6 @@ def emit_layer_events(manifest: PromptManifest, *,
             outcome, level, code = "failed", "WARN", "source_missing"
         elif reason in _OFF_REASONS:
             outcome, level, code = "skipped", "INFO", "disabled"
-        elif reason == "budget_excluded":
-            outcome, level, code = "skipped", "INFO", "budget_exceeded"
         elif reason in ("profile:machine_stage", "profile:editorial_eligibility",
                         "profile:internal_silent"):
             outcome, level, code = "silent", "INFO", "disabled"
@@ -2290,8 +2225,7 @@ def emit_layer_events(manifest: PromptManifest, *,
         # но слой не рендерен/вытеснен. Отдельная точка диагностики (свой
         # дедуп в `mca_expression`), событие prompt_layers не заменяет.
         if trace.layer == LAYER_EXPRESSION and reason in (
-                "expression_absent", "expression_disabled",
-                "budget_excluded"):
+                "expression_absent", "expression_disabled"):
             try:
                 from services import mca_expression as _expr
                 _expr.emit_expression_diag(
