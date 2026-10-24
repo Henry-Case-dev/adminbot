@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/asap-speech-arch/source-owner-p0-hotfix-chained-2026-10-25.md",
   "source_sha256": "ca709757a68b22ab7fc927095822bed66d24c901ae70f6c58fec39eb07825c38",
-  "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
+  "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph-p0-hotfix.json",
@@ -88,6 +88,14 @@
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md",
           "artifact_sha256": "ab9c708279da8d71c1df321871931f23f36dab8de0f23e3506b3d9cb21063e9c"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -134,6 +142,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -158,9 +174,17 @@
           "observation": "Reviewer прямо указал: реальный сырой output двух показанных запросов не проверен (raw LLM output не персистится); вердикт опирался на новые генерации на synthetic L2.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "probes_prod.md §5 (сравнение с доставленным)",
+          "observation": "Таблица «доставлено vs проба old vs проба new» с длиной/абзацами: A 2186 vs 477/742 (несопоставимо по объёму), B 1658 vs 1756/2094 (сопоставимо по порядку). Выдуманная ретро-датировка доставленного B в пробах не воспроизвелась.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
         }
       ],
-      "status_note": "Reviewer прямо указал: реальный сырой output двух показанных запросов не проверен (raw LLM output не персистится); вердикт опирался на новые генерации на synthetic L2."
+      "status_note": "Исторический raw LLM production-вызова не персистится, поэтому построчная корреляция «исходные данные → payload → сырой ответ» для двух запросов недостижима ретроспективно. Замена: построчное сравнение доставленного ответа с пробами на восстановленном контексте (probes_prod.md §5); окончательная формулировка остатка — за Reviewer."
     },
     {
       "source_id": "MAN-TRACE-NO-BLAME",
@@ -190,6 +214,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -221,6 +253,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -252,6 +292,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "verbatim_text": "Разговаривай естественно, как обычный участник чата. Отвечай сразу по существу. Не растягивай простые мысли, не превращай ответы в рассказы и не демонстрируй характер специально. Подробности добавляй, когда они действительно нужны."
@@ -284,6 +332,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "verbatim_text": "Шути спонтанно, когда это уместно. Не вымучивай панчлайны, не строй истории ради шутки, не пытайся быть смешной в каждом сообщении. Не объясняй собственный юмор."
@@ -316,6 +372,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "verbatim_text": "Длина ответа зависит от вопроса. Иногда достаточно двух слов, иногда нужен подробный разбор. Не повторяй сказанное и заканчивай, когда мысль закончена."
@@ -348,6 +412,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "verbatim_text": "Матерись часто и естественно, как в обычном грубом интернет-разговоре. Не выдумывай сложные ругательные конструкции и не вставляй мат механически."
@@ -380,6 +452,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "verbatim_text": "Не выдавай придуманные события, даты, цитаты и статистику за реальные. Если фактов недостаточно, не достраивай историю фантазией. Шути и преувеличивай свободно, но не подменяй этим реальные воспоминания."
@@ -412,6 +492,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -443,6 +531,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -474,6 +570,14 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: byte-exact тексты",
           "observation": "Reviewer независимо сверил 5 runtime-текстов §2 (BASE/HUMOR/LENGTH/FREQUENT/FACTUAL и PROFANITY_INSTRUCTIONS['frequent']) байт-в-байт с source; OFF/OCCASIONAL не изменены (review.md, строка «Что подтверждено»).",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -610,6 +714,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py",
           "observation": "Reviewer подтвердил L2 keep-head + маркер, current-turn вне истории, self-echo tentative/фильтр, фактологию L2/lore без эпичности; профильные тесты 44 passed.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -656,6 +768,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py",
           "observation": "Reviewer подтвердил L2 keep-head + маркер, current-turn вне истории, self-echo tentative/фильтр, фактологию L2/lore без эпичности; профильные тесты 44 passed.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -695,6 +815,14 @@
           "observation": "Reviewer зафиксировал: новых LLM-вызовов, слоёв, классификаторов, квот и обрезки ответа не добавлено.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -717,6 +845,14 @@
           "type": "review",
           "ref": "review.md: границы изменений",
           "observation": "Reviewer зафиксировал: новых LLM-вызовов, слоёв, классификаторов, квот и обрезки ответа не добавлено.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
@@ -765,6 +901,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -796,6 +940,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -842,6 +994,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -888,6 +1048,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -920,6 +1088,14 @@
           "observation": "Reviewer: 12 сырых old/new + self-echo получены на реальном LLM-провайдере без Telegram и прода (probes/raw_old.json, raw_new.json, selfecho.json).",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/raw_old.json",
           "artifact_sha256": "a58564a1157441c58ed6c865cb265eec7631f14fe7f7d02ba812a06664d8cc48"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -952,9 +1128,17 @@
           "observation": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/metrics.json",
           "artifact_sha256": "ba96f84e27a7bf830083a9dae4e31274fd2cb33f25eeb1ded85c1860f8082872"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "probes_prod.md §2/§5 (покрытие кейсов)",
+          "observation": "R2 воспроизводит только трассы A (1175252) и B (1175255); полного набора §6 в сопоставимом прогоне нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
         }
       ],
-      "status_note": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо."
+      "status_note": "R2-прогон покрывает только 2 из 6 формулировок §6 (A/B из трассы, дословно), а acceptance требует все шесть в одном прогоне на реальной сборке. Остальные кейсы остались в отклонённом offline-прогоне (7eca3cbc)."
     },
     {
       "source_id": "MAN-PROBE-CHECK-INTRO",
@@ -992,6 +1176,14 @@
           "observation": "Reviewer: отсутствие новых квот/жёсткой формулы подтверждено диффом и профильными тестами (review.md, «Границы»).",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -1016,6 +1208,14 @@
           "observation": "Reviewer: отсутствие новых квот/жёсткой формулы подтверждено диффом и профильными тестами (review.md, «Границы»).",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -1031,7 +1231,7 @@
       "acceptance": "Вердикт Reviewer содержит цитаты сырых ответов из прогона и явно указывает, что проверялись ответы, а не только формулировки инструкций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
@@ -1040,9 +1240,16 @@
           "observation": "Reviewer прямо указал: реальный сырой output двух показанных запросов не проверен (raw LLM output не персистится); вердикт опирался на новые генерации на synthetic L2.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "review.md (предыдущий вердикт, candidate 7eca3cbc)",
+          "observation": "Предыдущий Reviewer зафиксировал «needs fixes» по R1/R2 и не имел raw-ответов production-контекста; повторная проверка на новом candidate ещё не выполнена.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md"
         }
       ],
-      "status_note": "Reviewer прямо указал: реальный сырой output двух показанных запросов не проверен (raw LLM output не персистится); вердикт опирался на новые генерации на synthetic L2."
+      "status_note": "Ждёт повторного независимого ревью на candidate 9650e099 с новыми артефактами R2 (raw A/B, payload, metrics). PM не подменяет вердикт Reviewer."
     },
     {
       "source_id": "MAN-REVIEW-INTRO",
@@ -1131,7 +1338,7 @@
       "acceptance": "Целевая инструкция анализа («Проанализируй доступные сведения по существу вопроса…») присутствует байт-в-байт в фактическом analysis-пути сборки 2.58.130+ (реальный промпт-сборщик или параметр каталога), обязательные психологические портреты, архетипы, рекомендации и требование 4+ абзацев удалены, фиктивная константа ANALYSIS_SYSTEM_PROMPT/ANALYSIS_USER_TEMPLATE не создана.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
@@ -1147,11 +1354,34 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: тест мимо extent-блока",
           "observation": "Reviewer: payload c2/c5 собраны MODE_DEEP_RESEARCH_BLOCK напрямую, минуя render_extent_block, т.е. не тем путём, который исполняет _l2_write_answer.",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "test",
+          "ref": "PM recheck R1 (test)",
+          "observation": "PM-перепроверка на чистом worktree candidate 9650e099 (detached, без правок кода): `py -3 -m pytest tests/test_speech_p0_core_serious.py -q` -> 13 passed. Ключевой тест test_deep_research_extent_block_carries_analysis_texts_once собирает system через compose_verbalizer_system(extent_block=render_extent_block(detailed/report)) — это ровно та ветка, где extent-блок вытесняет MODE_DEEP_RESEARCH_BLOCK — и проверяет payload.count(ANALYSIS_DIRECTIVE_TEXT)==1, payload.count(ANALYSIS_WRITER_TEXT)==1, MODE_DEEP_RESEARCH_BLOCK отсутствует, extent_block присутствует. Целевая инструкция байт-в-байт достижима в фактическом deep/report пути после R1: ровно 1 вхождение точной константы в payload при extent-блоке detailed/report.",
+          "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context payload A/B",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/metrics.json",
+          "artifact_sha256": "4c30cddd3e83c03ccbf4098db73a6bb5625f3a8817b79571b9e3b865a4034d20"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "payload B (detailed/report)",
+          "observation": "Фактический payload кейса B, где extent-блок detailed/report вытесняет mode-блок.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/payload_new_B.json",
+          "artifact_sha256": "de06f3c08c03442ee049c3fbb7f9699a63f6a594af1dc1bf3685a5b1bfb2cc7e"
         }
       ],
       "renamed_from": "ANALYSIS-EXACT-TARGET",
       "split_reason": "MAN-ADD2-001 — сам текст новой целевой инструкции; проверяется байт-в-байт наличие в фактическом analysis-пути.",
-      "status_note": "BLOCKER R1 review.md: в фактическом deep/report payload (render_extent_block → plan-блок, direct_l1 deep_research include_analysis=False) 0 вхождений ANALYSIS_DIRECTIVE_TEXT и ANALYSIS_WRITER_TEXT — точные тексты в реальный путь не попадают."
+      "status_note": "R1 закрыт на candidate 9650e099: Целевая инструкция байт-в-байт достижима в фактическом deep/report пути после R1: ровно 1 вхождение точной константы в payload при extent-блоке detailed/report."
     },
     {
       "source_id": "MAN-ADD2-002",
@@ -1165,7 +1395,7 @@
       "acceptance": "Целевая инструкция анализа («Проанализируй доступные сведения по существу вопроса…») присутствует байт-в-байт в фактическом analysis-пути сборки 2.58.130+ (реальный промпт-сборщик или параметр каталога), обязательные психологические портреты, архетипы, рекомендации и требование 4+ абзацев удалены, фиктивная константа ANALYSIS_SYSTEM_PROMPT/ANALYSIS_USER_TEMPLATE не создана.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
@@ -1181,11 +1411,34 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: тест мимо extent-блока",
           "observation": "Reviewer: payload c2/c5 собраны MODE_DEEP_RESEARCH_BLOCK напрямую, минуя render_extent_block, т.е. не тем путём, который исполняет _l2_write_answer.",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "test",
+          "ref": "PM recheck R1 (test)",
+          "observation": "PM-перепроверка на чистом worktree candidate 9650e099 (detached, без правок кода): `py -3 -m pytest tests/test_speech_p0_core_serious.py -q` -> 13 passed. Ключевой тест test_deep_research_extent_block_carries_analysis_texts_once собирает system через compose_verbalizer_system(extent_block=render_extent_block(detailed/report)) — это ровно та ветка, где extent-блок вытесняет MODE_DEEP_RESEARCH_BLOCK — и проверяет payload.count(ANALYSIS_DIRECTIVE_TEXT)==1, payload.count(ANALYSIS_WRITER_TEXT)==1, MODE_DEEP_RESEARCH_BLOCK отсутствует, extent_block присутствует. Действующая target-инструкция запрещает психологическое эссе/хронологию/художественный пересказ; grep по services на candidate не находит обязательных архетипов/портретов/«минимум 4 абзаца»; фиктивной ANALYSIS_SYSTEM_PROMPT/ANALYSIS_USER_TEMPLATE в chat-пути нет.",
+          "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context payload A/B",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/metrics.json",
+          "artifact_sha256": "4c30cddd3e83c03ccbf4098db73a6bb5625f3a8817b79571b9e3b865a4034d20"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "payload B (detailed/report)",
+          "observation": "Фактический payload кейса B, где extent-блок detailed/report вытесняет mode-блок.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/payload_new_B.json",
+          "artifact_sha256": "de06f3c08c03442ee049c3fbb7f9699a63f6a594af1dc1bf3685a5b1bfb2cc7e"
         }
       ],
       "renamed_from": "ANALYSIS-EXACT-TARGET",
       "split_reason": "MAN-ADD2-002 — снятие обязательных психопортретов/архетипов/рекомендаций и требования 4+ абзацев; отделимо от наличия точного текста.",
-      "status_note": "BLOCKER R1 review.md: в фактическом deep/report payload (render_extent_block → plan-блок, direct_l1 deep_research include_analysis=False) 0 вхождений ANALYSIS_DIRECTIVE_TEXT и ANALYSIS_WRITER_TEXT — точные тексты в реальный путь не попадают."
+      "status_note": "R1 закрыт на candidate 9650e099: Действующая target-инструкция запрещает психологическое эссе/хронологию/художественный пересказ; grep по services на candidate не находит обязательных архетипов/портретов/«минимум 4 абзаца»; фиктивной ANALYSIS_SYSTEM_PROMPT/ANALYSIS_USER_TEMPLATE в chat-пути нет."
     },
     {
       "source_id": "MAN-ADD2-003",
@@ -1199,7 +1452,7 @@
       "acceptance": "Требование «сохрани структуру» к внутреннему analysis-пакету отсутствует, а в писательской инструкции дословно стоит «Используй результаты анализа … не пересказывай внутреннюю структуру анализа …»; проверено по сырому payload, а не по комментарию в коде.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
@@ -1215,11 +1468,34 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: тест мимо extent-блока",
           "observation": "Reviewer: payload c2/c5 собраны MODE_DEEP_RESEARCH_BLOCK напрямую, минуя render_extent_block, т.е. не тем путём, который исполняет _l2_write_answer.",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "test",
+          "ref": "PM recheck R1 (test)",
+          "observation": "PM-перепроверка на чистом worktree candidate 9650e099 (detached, без правок кода): `py -3 -m pytest tests/test_speech_p0_core_serious.py -q` -> 13 passed. Ключевой тест test_deep_research_extent_block_carries_analysis_texts_once собирает system через compose_verbalizer_system(extent_block=render_extent_block(detailed/report)) — это ровно та ветка, где extent-блок вытесняет MODE_DEEP_RESEARCH_BLOCK — и проверяет payload.count(ANALYSIS_DIRECTIVE_TEXT)==1, payload.count(ANALYSIS_WRITER_TEXT)==1, MODE_DEEP_RESEARCH_BLOCK отсутствует, extent_block присутствует. Точный писательский текст «Используй результаты анализа … не пересказывай внутреннюю структуру анализа …» присутствует ровно один раз в фактическом payload (A и B).",
+          "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context payload A/B",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/metrics.json",
+          "artifact_sha256": "4c30cddd3e83c03ccbf4098db73a6bb5625f3a8817b79571b9e3b865a4034d20"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "payload B (detailed/report)",
+          "observation": "Фактический payload кейса B, где extent-блок detailed/report вытесняет mode-блок.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/payload_new_B.json",
+          "artifact_sha256": "de06f3c08c03442ee049c3fbb7f9699a63f6a594af1dc1bf3685a5b1bfb2cc7e"
         }
       ],
       "renamed_from": "ANALYSIS-WRITER-EXACT",
       "split_reason": "MAN-ADD2-003 — точный текст писательской инструкции (байт-в-байт в payload).",
-      "status_note": "BLOCKER R1 review.md: в фактическом deep/report payload (render_extent_block → plan-блок, direct_l1 deep_research include_analysis=False) 0 вхождений ANALYSIS_DIRECTIVE_TEXT и ANALYSIS_WRITER_TEXT — точные тексты в реальный путь не попадают."
+      "status_note": "R1 закрыт на candidate 9650e099: Точный писательский текст «Используй результаты анализа … не пересказывай внутреннюю структуру анализа …» присутствует ровно один раз в фактическом payload (A и B)."
     },
     {
       "source_id": "MAN-ADD2-004",
@@ -1233,7 +1509,7 @@
       "acceptance": "Требование «сохрани структуру» к внутреннему analysis-пакету отсутствует, а в писательской инструкции дословно стоит «Используй результаты анализа … не пересказывай внутреннюю структуру анализа …»; проверено по сырому payload, а не по комментарию в коде.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
@@ -1249,11 +1525,34 @@
           "ref": "tests/test_speech_p0_hotfix_texts_analysis.py: тест мимо extent-блока",
           "observation": "Reviewer: payload c2/c5 собраны MODE_DEEP_RESEARCH_BLOCK напрямую, минуя render_extent_block, т.е. не тем путём, который исполняет _l2_write_answer.",
           "artifact_path": "tests/test_speech_p0_hotfix_texts_analysis.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "test",
+          "ref": "PM recheck R1 (test)",
+          "observation": "PM-перепроверка на чистом worktree candidate 9650e099 (detached, без правок кода): `py -3 -m pytest tests/test_speech_p0_core_serious.py -q` -> 13 passed. Ключевой тест test_deep_research_extent_block_carries_analysis_texts_once собирает system через compose_verbalizer_system(extent_block=render_extent_block(detailed/report)) — это ровно та ветка, где extent-блок вытесняет MODE_DEEP_RESEARCH_BLOCK — и проверяет payload.count(ANALYSIS_DIRECTIVE_TEXT)==1, payload.count(ANALYSIS_WRITER_TEXT)==1, MODE_DEEP_RESEARCH_BLOCK отсутствует, extent_block присутствует. Требования «сохрани структуру» в сборке нет: ANALYSIS_WRITER_TEXT/DIRECTIVE_TEXT (AST) фразы не содержат, а git grep по services на candidate даёт только комментарии, не литералы payload.",
+          "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context payload A/B",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/metrics.json",
+          "artifact_sha256": "4c30cddd3e83c03ccbf4098db73a6bb5625f3a8817b79571b9e3b865a4034d20"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "payload B (detailed/report)",
+          "observation": "Фактический payload кейса B, где extent-блок detailed/report вытесняет mode-блок.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/payload_new_B.json",
+          "artifact_sha256": "de06f3c08c03442ee049c3fbb7f9699a63f6a594af1dc1bf3685a5b1bfb2cc7e"
         }
       ],
       "renamed_from": "ANALYSIS-WRITER-EXACT",
       "split_reason": "MAN-ADD2-004 — удаление требования «сохрани структуру» к внутреннему analysis-пакету; проверяется отдельно от точного текста Writer.",
-      "status_note": "BLOCKER R1 review.md: в фактическом deep/report payload (render_extent_block → plan-блок, direct_l1 deep_research include_analysis=False) 0 вхождений ANALYSIS_DIRECTIVE_TEXT и ANALYSIS_WRITER_TEXT — точные тексты в реальный путь не попадают."
+      "status_note": "R1 закрыт на candidate 9650e099: Требования «сохрани структуру» в сборке нет: ANALYSIS_WRITER_TEXT/DIRECTIVE_TEXT (AST) фразы не содержат, а git grep по services на candidate даёт только комментарии, не литералы payload."
     },
     {
       "source_id": "MAN-ADD2-005",
@@ -1291,9 +1590,17 @@
           "observation": "Reviewer: «маршрутизация сохранена» не доказана — L1 old/new не воспроизведён (часть R2).",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "probes_prod.md §3/§6 (честные границы)",
+          "observation": "L1-план трассы не персистится; отдельный L1-вызов не делали (второй LLM-вызов и он не восстанавливает исторический план). Прямой вывод R2: «ANALYSIS-ROUTING-PRESERVED — не доказано (L1 old/new не воспроизведён)».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
         }
       ],
-      "status_note": "Reviewer: «маршрутизация сохранена» не доказана — L1 old/new не воспроизведён (часть R2)."
+      "status_note": "НЕ доказано и после R1/R2: L1 old/new на одних входах не воспроизведён (probes_prod.md §3, §6). Правило 7 меняет extent/structure для персонального анализа, поэтому «маршрутизация сохранена» нельзя принять без сравнения old/new L1-планов. Решение о deferral на postdeploy — за Reviewer/Orchestrator, PM не выдумывает VERIFIED."
     },
     {
       "source_id": "MAN-ADD2-007",
@@ -1353,6 +1660,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "renamed_from": "CORE-ACTIVE-VERIFIED",
@@ -1387,6 +1702,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "renamed_from": "CORE-ACTIVE-VERIFIED",
@@ -1420,6 +1743,14 @@
           "ref": "tests/test_speech_p0_core_serious.py: Core-фильтр",
           "observation": "Reviewer подтвердил активный Core ead77b2ab509 (3294) → simplify 1246/idempotent, P2/P5/P3 сняты, P1/P4/P6 и биография сохранены, БД не перезаписана, analysis-блока в Core нет.",
           "artifact_path": "tests/test_speech_p0_core_serious.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -1602,11 +1933,27 @@
           "observation": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/metrics.json",
           "artifact_sha256": "ba96f84e27a7bf830083a9dae4e31274fd2cb33f25eeb1ded85c1860f8082872"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context probes (partial)",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "сырые ответы new A/B (одна модель/T=0.7)",
+          "observation": "raw_new_A: 742 симв., 4 абзаца, прямой ответ в начале; raw_new_B: 2094 симв., 7 абзацев, вердикт в 3-м абзаце. Доставленные prod-ответы: A 2186 (10–14 абзацев), B 1658. Пробы воспроизводят направление, но не доказывают production-эффект.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/raw_new_B.json",
+          "artifact_sha256": "1b4e57f03462a854ee6a25d445c62cf43e49f451d8148b62c357225375077c01"
         }
       ],
       "renamed_from": "PROBES-TWO-RUNS",
       "split_reason": "MAN-ADD2-022 — требование воспроизвести два проблемных запроса, отделимо от требования сопоставимого сравнения (MAN-ADD2-023).",
-      "status_note": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо."
+      "status_note": "R2 частично: восстановлены real-PG/real-SQLite входы, old/new payload и 4 сырых ответа (артефакты d0123639); сопоставимость НЕ достигнута — system 6.2–8.2k против ~19–20k, кейс A по объёму несопоставим (2186 доставлено vs 477/742 проба). FAILED = acceptance «сопоставимые входы» не выполнен, а не «работа не делалась»."
     },
     {
       "source_id": "MAN-ADD2-023",
@@ -1637,11 +1984,27 @@
           "observation": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/metrics.json",
           "artifact_sha256": "ba96f84e27a7bf830083a9dae4e31274fd2cb33f25eeb1ded85c1860f8082872"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context probes (partial)",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "сырые ответы new A/B (одна модель/T=0.7)",
+          "observation": "raw_new_A: 742 симв., 4 абзаца, прямой ответ в начале; raw_new_B: 2094 симв., 7 абзацев, вердикт в 3-м абзаце. Доставленные prod-ответы: A 2186 (10–14 абзацев), B 1658. Пробы воспроизводят направление, но не доказывают production-эффект.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/raw_new_B.json",
+          "artifact_sha256": "1b4e57f03462a854ee6a25d445c62cf43e49f451d8148b62c357225375077c01"
         }
       ],
       "renamed_from": "PROBES-TWO-RUNS",
       "split_reason": "MAN-ADD2-023 — сравнение старой и исправленной конфигурации на сопоставимых входах; именно этот пункт отклонён Reviewer (R2).",
-      "status_note": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо."
+      "status_note": "R2 частично: восстановлены real-PG/real-SQLite входы, old/new payload и 4 сырых ответа (артефакты d0123639); сопоставимость НЕ достигнута — system 6.2–8.2k против ~19–20k, кейс A по объёму несопоставим (2186 доставлено vs 477/742 проба). FAILED = acceptance «сопоставимые входы» не выполнен, а не «работа не делалась»."
     },
     {
       "source_id": "MAN-ADD2-024",
@@ -1694,6 +2057,14 @@
           "observation": "В offline-провайдере прогнан повторный запрос к тем же воспоминаниям: новый ответ отзывает выдуманный «февраль» и не подаёт прежнюю интерпретацию бота как факт. Контекст пробы синтетический (R2), поэтому production-наблюдение остаётся обязательным.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/selfecho.json",
           "artifact_sha256": "2b12b94312362215941011f5ede0d38adbd5d4d9bb983f82a292c8ef386aeb8d"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "live",
+          "ref": "живые prod-данные: graph_facts.id=21255 / lore_stories.id=4",
+          "observation": "Живые prod-данные (probes_prod.md §2/§5): graph_facts.id=21255 — origin=bot_self_reply, created_at=1792873573 (+95 c после B), дословно цитирует вердикт старого ответа; lore_stories.id=4 (1660 симв.) содержит весь доставленный ответ B, включая придуманную ретро-датировку «в далёком декабре 2022-го». Дефект «ответ бота вернулся в память как факт» подтверждён на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
         }
       ],
       "renamed_from": "MEMORY-SELF-ECHO-REPEAT",
@@ -1711,7 +2082,7 @@
       "acceptance": "Reviewer проверил сырой output, фактические payload, provenance и итоговые ответы, а не только unit-тесты, и зафиксировал вердикт с цитатами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "7eca3cbccdf338a0f8180a6a1087ee262c805b5c",
@@ -1720,9 +2091,16 @@
           "observation": "Reviewer: payload c2/c5 собраны MODE_DEEP_RESEARCH_BLOCK напрямую, минуя render_extent_block, т.е. не тем путём, который исполняет _l2_write_answer.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
           "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "review.md (предыдущий вердикт, candidate 7eca3cbc)",
+          "observation": "Предыдущий Reviewer зафиксировал «needs fixes» по R1/R2 и не имел raw-ответов production-контекста; повторная проверка на новом candidate ещё не выполнена.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md"
         }
       ],
-      "status_note": "Reviewer: payload c2/c5 собраны MODE_DEEP_RESEARCH_BLOCK напрямую, минуя render_extent_block, т.е. не тем путём, который исполняет _l2_write_answer."
+      "status_note": "Ждёт повторного независимого ревью на candidate 9650e099 с новыми артефактами R2 (raw A/B, payload, metrics). PM не подменяет вердикт Reviewer."
     },
     {
       "source_id": "MAN-ADD2-027",
@@ -1752,6 +2130,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py",
           "observation": "Reviewer подтвердил L2 keep-head + маркер, current-turn вне истории, self-echo tentative/фильтр, фактологию L2/lore без эпичности; профильные тесты 44 passed.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -1798,6 +2184,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py: provenance/read-policy",
           "observation": "Reviewer подтвердил, что read_policy_rank подключён в direct-RAG без второго экземпляра provenance; unit-покрытие в test_speech_p0_a2_memory.py. Остаётся неблокирующий production-риск распределения меток — вынесен в live-наблюдение.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "renamed_from": "MEMORY-PROVENANCE-ACTUAL-PATH",
@@ -1999,6 +2393,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2030,6 +2432,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2061,6 +2471,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2092,6 +2510,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2123,6 +2549,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2154,6 +2588,14 @@
           "ref": "traces.md: путь сообщения и payload",
           "observation": "audit.md/traces.md называют конкретные инструкции payload с цитатой и файлом; Reviewer переиспользовал их с проверкой утверждений по коду.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/traces.md"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2890,6 +3332,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py",
           "observation": "Reviewer подтвердил L2 keep-head + маркер, current-turn вне истории, self-echo tentative/фильтр, фактологию L2/lore без эпичности; профильные тесты 44 passed.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2921,6 +3371,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py",
           "observation": "Reviewer подтвердил L2 keep-head + маркер, current-turn вне истории, self-echo tentative/фильтр, фактологию L2/lore без эпичности; профильные тесты 44 passed.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "renamed_from": "MEMORY-NO-UNSUPPORTED-CAUSAL-STORY",
@@ -2954,6 +3412,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py",
           "observation": "Reviewer подтвердил L2 keep-head + маркер, current-turn вне истории, self-echo tentative/фильтр, фактологию L2/lore без эпичности; профильные тесты 44 passed.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ]
     },
@@ -2993,6 +3459,14 @@
           "observation": "В offline-провайдере прогнан повторный запрос к тем же воспоминаниям: новый ответ отзывает выдуманный «февраль» и не подаёт прежнюю интерпретацию бота как факт. Контекст пробы синтетический (R2), поэтому production-наблюдение остаётся обязательным.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/selfecho.json",
           "artifact_sha256": "2b12b94312362215941011f5ede0d38adbd5d4d9bb983f82a292c8ef386aeb8d"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "live",
+          "ref": "живые prod-данные: graph_facts.id=21255 / lore_stories.id=4",
+          "observation": "Живые prod-данные (probes_prod.md §2/§5): graph_facts.id=21255 — origin=bot_self_reply, created_at=1792873573 (+95 c после B), дословно цитирует вердикт старого ответа; lore_stories.id=4 (1660 симв.) содержит весь доставленный ответ B, включая придуманную ретро-датировку «в далёком декабре 2022-го». Дефект «ответ бота вернулся в память как факт» подтверждён на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
         }
       ],
       "renamed_from": "MEMORY-SELF-ECHO-REPEAT",
@@ -3026,6 +3500,14 @@
           "ref": "tests/test_speech_p0_a2_memory.py: provenance/read-policy",
           "observation": "Reviewer подтвердил, что read_policy_rank подключён в direct-RAG без второго экземпляра provenance; unit-покрытие в test_speech_p0_a2_memory.py. Остаётся неблокирующий production-риск распределения меток — вынесен в live-наблюдение.",
           "artifact_path": "tests/test_speech_p0_a2_memory.py"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "review",
+          "ref": "carry-over Review ledger 7eca3cbc -> 9650e099",
+          "observation": "Carry-over ledger: вердикт Reviewer d4b3c979 по candidate 7eca3cbc остаётся в силе для 9650e099, т.к. R1-диф 9650e099 затрагивает только services/direct_l1.py, services/direct_chat_service.py и tests/test_speech_p0_core_serious.py. Утверждения этого пункта (тексты §2/§1, Core-фильтр 3294→1246, L2/lore, current-turn, self-echo/provenance, отсутствие новых слоёв/квот, 44 теста) от этих файлов не зависят. Это не новая проверка поведения, а перенос уже полученного доказательства на новый candidate; независимое подтверждение Reviewer на 9650e099 всё ещё требуется.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review.md",
+          "artifact_sha256": "d4c46f38fd510c60c3efe9ea77fea387facedc6d36edf534f01e1893d73c52e6"
         }
       ],
       "status_note": "Проводка и unit-покрытие подтверждены; распределение меток на реальных данных — неблокирующий production-риск, наблюдается после деплоя (review.md, «Неблокирующие наблюдения»)."
@@ -3089,11 +3571,27 @@
           "observation": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/metrics.json",
           "artifact_sha256": "ba96f84e27a7bf830083a9dae4e31274fd2cb33f25eeb1ded85c1860f8082872"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context probes (partial)",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "сырые ответы new A/B (одна модель/T=0.7)",
+          "observation": "raw_new_A: 742 симв., 4 абзаца, прямой ответ в начале; raw_new_B: 2094 симв., 7 абзацев, вердикт в 3-м абзаце. Доставленные prod-ответы: A 2186 (10–14 абзацев), B 1658. Пробы воспроизводят направление, но не доказывают production-эффект.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/raw_new_B.json",
+          "artifact_sha256": "1b4e57f03462a854ee6a25d445c62cf43e49f451d8148b62c357225375077c01"
         }
       ],
       "renamed_from": "PROBES-TWO-RUNS",
       "split_reason": "L00258 — конкретный прогон 83ad82c8; L00259 — второй прогон 8f93324b; MAN-ADD2-022 — воспроизвести оба; MAN-ADD2-023 — сравнить old/new. Четыре отдельных acceptance.",
-      "status_note": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо."
+      "status_note": "R2 частично: восстановлены real-PG/real-SQLite входы, old/new payload и 4 сырых ответа (артефакты d0123639); сопоставимость НЕ достигнута — system 6.2–8.2k против ~19–20k, кейс A по объёму несопоставим (2186 доставлено vs 477/742 проба). FAILED = acceptance «сопоставимые входы» не выполнен, а не «работа не делалась»."
     },
     {
       "source_id": "L00259",
@@ -3124,11 +3622,27 @@
           "observation": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/metrics.json",
           "artifact_sha256": "ba96f84e27a7bf830083a9dae4e31274fd2cb33f25eeb1ded85c1860f8082872"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "R2 production-context probes (partial)",
+          "observation": "R2 production-context проба (real PG character.core/expression/verbalizer + real SQLite-окно + реальный compose_prompt/render_extent_block/build_l2_plan_block) на candidate 9650e099: markers analysis_directive=1 и analysis_writer=1 в новых payload A и B, 0/0 в old; B идёт путём detailed/report (тот самый deep-путь, где до R1 текстов не было), system 6225/6648 симв. против old 7762/8185. Ограничение: system пробы 6.2–8.2k против production ~19–20k (нет identity/RAG/stats/L2), поэтому это доказательство наличия текстов в фактическом пути, а не сопоставимости эффекта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "probe",
+          "ref": "сырые ответы new A/B (одна модель/T=0.7)",
+          "observation": "raw_new_A: 742 симв., 4 абзаца, прямой ответ в начале; raw_new_B: 2094 симв., 7 абзацев, вердикт в 3-м абзаце. Доставленные prod-ответы: A 2186 (10–14 абзацев), B 1658. Пробы воспроизводят направление, но не доказывают production-эффект.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod/raw_new_B.json",
+          "artifact_sha256": "1b4e57f03462a854ee6a25d445c62cf43e49f451d8148b62c357225375077c01"
         }
       ],
       "renamed_from": "PROBES-TWO-RUNS",
       "split_reason": "L00259 — второй конкретный прогон (8f93324b), проверяется отдельно от первого.",
-      "status_note": "BLOCKER R2 review.md: пробы собраны harness'ом мимо реального сборщика, system 3.4–3.9k против production ~19–20k; реальный сырой output двух запросов не проверен — сравнение old/new несопоставимо."
+      "status_note": "R2 частично: восстановлены real-PG/real-SQLite входы, old/new payload и 4 сырых ответа (артефакты d0123639); сопоставимость НЕ достигнута — system 6.2–8.2k против ~19–20k, кейс A по объёму несопоставим (2186 доставлено vs 477/742 проба). FAILED = acceptance «сопоставимые входы» не выполнен, а не «работа не делалась»."
     },
     {
       "source_id": "L00265",
@@ -3226,6 +3740,14 @@
           "observation": "В offline-провайдере прогнан повторный запрос к тем же воспоминаниям: новый ответ отзывает выдуманный «февраль» и не подаёт прежнюю интерпретацию бота как факт. Контекст пробы синтетический (R2), поэтому production-наблюдение остаётся обязательным.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes/selfecho.json",
           "artifact_sha256": "2b12b94312362215941011f5ede0d38adbd5d4d9bb983f82a292c8ef386aeb8d"
+        },
+        {
+          "candidate_commit": "9650e0998e76fa8401b4ec860ad63463025cb784",
+          "type": "live",
+          "ref": "живые prod-данные: graph_facts.id=21255 / lore_stories.id=4",
+          "observation": "Живые prod-данные (probes_prod.md §2/§5): graph_facts.id=21255 — origin=bot_self_reply, created_at=1792873573 (+95 c после B), дословно цитирует вердикт старого ответа; lore_stories.id=4 (1660 симв.) содержит весь доставленный ответ B, включая придуманную ретро-датировку «в далёком декабре 2022-го». Дефект «ответ бота вернулся в память как факт» подтверждён на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_prod.md",
+          "artifact_sha256": "b1627c41426f76feaf9dc5ddd3dc3c45b954387fa440396e4e8251135b0503b2"
         }
       ],
       "renamed_from": "MEMORY-SELF-ECHO-REPEAT",
@@ -3292,6 +3814,6 @@
       "evidence": []
     }
   ],
-  "candidate_note": "Кандидат = commit 7eca3cbc (код 51cee325 + offline-пробы), тот самый SHA, который ревьюил Reviewer d4b3c979. R1/R2 вносят код в task/speech-p0-hotfix: после их коммита PM обязан сменить candidate_commit на новый SHA и перепривязать evidence (candidate_commit внутри evidence должен совпадать). Slice-graph вынесен в slice-graph-p0-hotfix.json, чтобы не перезаписать slice-graph.json большой карты asap-speech-arch.",
-  "map_note": "Структурная сверка 25.10: 100 required сохранены (100 уникальных req_id), 37 context, 23 duplicate. Слитые ранее обязательства разделены по смыслу (см. renamed_from/split_reason); VERIFIED выставлен только по acceptance ledger Reviewer d4b3c979, R1/R2-дефекты помечены FAILED, зависящие от R1/R2 проверки — PENDING, DEPLOY/REPORT — PENDING."
+  "candidate_note": "candidate_commit = 9650e0998e76fa8401b4ec860ad63463025cb784 (R1: точные analysis-тексты в фактическом deep/report payload; ветка task/speech-p0-hotfix). Evidence-коммит d012363993ad75ba53e58d5e7528fe29a91d98af (R2, только docs/probes, кода не добавляет) перенесён в эту ветку как 546df713, чтобы artifact_path существовали там же, где карта. Candidate и ветка карты не являются ancestor-ами (карта/docs и код живут раздельно) — это осознанно: candidate указывает на код, карта фиксирует учёт.",
+  "map_note": "25.10 PM-P0-R1R2-BIND: candidate 9650e099. R1 (4 требования точных analysis-текстов) закрыт исполняемым тестом на candidate + фактическим production-context payload (1/1 вхождения, old 0/0). R2 остаётся частичным: входы реальные, но неполные (system 6.2–8.2k против ~19–20k), поэтому PROBES-*/PROBE-REAL-PHRASINGS/TRACE-PAYLOAD-CORRELATION остаются FAILED, REVIEW-* — PENDING до повторного ревью. ANALYSIS-ROUTING-PRESERVED — FAILED (L1 old/new не доказан), VERIFIED не выдуман. production-эффект A/B (эссе → прямой ответ) не объявлен доказанным. Self-echo подтверждён живыми строками graph_facts.id=21255 / lore_stories.id=4. strict_evidence не ослаблен; DEPLOY/REPORT — PENDING. Carry-over: 38 VERIFIED-пунктов получили candidate-привязку к 9650e099 с явной пометкой, что это перенос ревью-леджера 7eca3cbc (R1-диф не касается их предмета), а не новая проверка."
 }
