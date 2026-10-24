@@ -517,7 +517,7 @@ class TestBounds:
         assert len(pc.TAB_RULES) == 23
 
     def test_app_version_bumped(self):
-        assert APP_VERSION == "2.58.125"
+        assert APP_VERSION == "2.58.126"
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         assert "v2.58.34" in readme
 
