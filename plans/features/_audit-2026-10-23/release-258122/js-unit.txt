@@ -1,0 +1,10 @@
+﻿VUE-MOUNT-OK
+тЬФ tests\js\vue_mount_test.js (63.7688ms)
+тД╣ tests 90
+тД╣ suites 0
+тД╣ pass 90
+тД╣ fail 0
+тД╣ cancelled 0
+тД╣ skipped 0
+тД╣ todo 0
+тД╣ duration_ms 728.6871

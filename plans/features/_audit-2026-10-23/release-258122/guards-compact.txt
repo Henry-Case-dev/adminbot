@@ -1,0 +1,8 @@
+﻿tests/test_asap7_f9_help_resync.py :: 21 passed, 2 warnings in 2.81s
+tests/test_asap8_v6_d14_help_sync.py :: 24 passed, 2 warnings in 2.55s
+tests/test_p0_checkup_core_contract.py :: 16 passed, 2 warnings in 2.68s
+tests/test_p0_prompts_core.py :: 9 passed, 2 warnings in 2.84s
+tests/test_factcheck_p0_fc.py :: 28 passed, 2 warnings in 3.83s
+tests/test_initiative_delivery_telemetry.py :: 13 passed, 2 warnings in 4.15s
+tests/test_soul1_composer_parity_off.py :: 13 passed, 2 warnings in 2.54s
+tests/test_prompt_migrations.py :: 43 passed, 2 warnings in 2.60s

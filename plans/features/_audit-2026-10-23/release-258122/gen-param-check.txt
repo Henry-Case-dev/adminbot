@@ -1,0 +1,3 @@
+﻿--- cmd: py -3 tests/test_round1025_f8_registry.py --check
+EXIT=0
+raw_stdout_lines=0

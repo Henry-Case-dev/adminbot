@@ -1,0 +1,5 @@
+﻿files=31 pairs=33
+non-token deltas: NONE
+F8-meta HEAD short = 324868f0 (matches pre-bump HEAD: True)
+F8-meta APP_VERSION = 2.58.122: True
+settings APP_VERSION ok: True

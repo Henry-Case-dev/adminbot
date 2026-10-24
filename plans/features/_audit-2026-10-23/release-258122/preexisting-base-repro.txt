@@ -1,0 +1,10 @@
+﻿
+E   AssertionError: Expected mock to have been awaited once. Awaited 0 times.
+C:\Code\Python\adminbot-wt258119\tests\test_summary_publish_integration_round1026.py:688: AssertionError: Expected mock
+ to have been awaited once. Awaited 0 times.
+FAILED tests/test_summary_publish_integration_round1026.py::TestOnDelivery::test_on_l1_not_usable_level2_l2_publishes_a
+rticle
+1 failed, 2 warnings in 2.65s
+
+
+HEAD=999e547a (base 999e547a, no pick, no bump)

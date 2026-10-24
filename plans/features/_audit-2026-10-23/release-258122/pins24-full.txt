@@ -1,0 +1,6 @@
+﻿
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_summary_publish_integration_round1026.py::TestOnDelivery::test_on_l1_not_usable_level2_l2_publishes_article
+1 failed, 867 passed, 2 warnings in 63.63s (0:01:03)
+EXIT=1
