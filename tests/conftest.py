@@ -330,6 +330,15 @@ def mock_bot():
     return bot
 
 
+@pytest.fixture(autouse=True)
+def _reset_pemsoc_reaction_claims():
+    """PEMsoc one-reaction claim — изолировать состояние между тестами."""
+    from services.pemsoc_reactions import reset_claims
+    reset_claims()
+    yield
+    reset_claims()
+
+
 @pytest.fixture
 def make_message():
     """Factory fixture to create mock Message objects."""

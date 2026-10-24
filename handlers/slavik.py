@@ -13,6 +13,7 @@ from services.mimic_transform import mimic_transform, count_words
 # Раунд 10 (F-9 B2): плагин-гейт 5 персон-триггеров (замену фильтра
 # НЕ делаем — PermsocGateFilter первым, UserIdFilter остаётся вторым).
 from services.permsoc import PermsocBlockGate, PermsocGateFilter
+from services.pemsoc_reactions import claim_reaction
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +164,12 @@ async def kucha_handler(message: types.Message, data: dict | None = None):
         logger.info("kucha: disabled (reactions.kucha_enabled=False) | chat=%s",
                     message.chat.id)
         return UNHANDLED
+    # Одно сообщение = одна реакция: если war/slavik/GIF уже отреагировали,
+    # второй ответ не отправляем.
+    if not claim_reaction(message, source="kucha"):
+        return None
     await message.reply("ДАЛБАЕБ")
+    return None
 
 
 # Handler 2: Catch-all — priority: dead page (0) > service (0.5) > GIF (1) > photo (2) > mimic (3) > "пошёл нахуй" (4)
@@ -211,6 +217,15 @@ async def slavik_catchall_handler(message: types.Message, data: dict | None = No
     if (data or {}).get("slavik_gif_sent"):
         logger.debug(
             "Slavic catchall: GIF already sent by middleware — no further action | msg_id=%d",
+            message.message_id,
+        )
+        return None
+
+    # Одно сообщение = одна реакция: claim на msg/альбом/оригинал. Если
+    # war/kucha/GIF уже ответили — молчим и не тикаем фото-счётчик.
+    if not claim_reaction(message, source="slavik"):
+        logger.debug(
+            "Slavic catchall: reaction already claimed | msg_id=%d",
             message.message_id,
         )
         return None

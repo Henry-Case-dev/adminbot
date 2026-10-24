@@ -8,6 +8,7 @@ from aiogram.types import FSInputFile, Message
 from config.settings import settings
 from services import hot_config as hot
 from services.database import DatabaseService
+from services.pemsoc_reactions import claim_reaction
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,12 @@ class MessageCounterMiddleware(BaseMiddleware):
         """Send GIF. Returns True if the animation was actually sent."""
         if not Path(self.gif_path).is_file():
             logger.warning("GIF file not found: %s, skipping", self.gif_path)
+            return False
+        # Одно сообщение = одна реакция: если альбом/оригинал уже отреагировал,
+        # вторую гифку не отправляем.
+        if not claim_reaction(event, source="gif"):
+            logger.debug("GIF: reaction already claimed | chat=%s | count=%s",
+                         chat_id, new_count)
             return False
         try:
             await event.answer_animation(animation=FSInputFile(self.gif_path))

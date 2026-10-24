@@ -26,6 +26,7 @@ from handlers.war_alert import (
 )
 from filters.target_channel import TargetChannelFilter
 from config.settings import settings
+from services.pemsoc_reactions import reset_claims
 
 
 # ── Helpers ──
@@ -148,6 +149,7 @@ class TestWarKeywordHandler:
         msg = make_war_message(text="ракетная опасность", from_id=479167456)
         replies_seen = set()
         for _ in range(20):
+            reset_claims()
             msg.reply.reset_mock()
             await war_keyword_handler(msg)
             replies_seen.add(msg.reply.call_args[0][0])
@@ -238,6 +240,7 @@ class TestWarChannelRepostHandler:
         )
         replies_seen = set()
         for _ in range(20):
+            reset_claims()
             msg.reply.reset_mock()
             await war_channel_repost_handler(msg)
             if msg.reply.call_count > 0:

@@ -16,7 +16,6 @@ import logging
 import random
 
 from aiogram import Router, types
-from aiogram.dispatcher.event.bases import UNHANDLED
 from aiogram.types import MessageOriginChannel
 
 from config.settings import settings
@@ -25,6 +24,7 @@ from filters.target_channel import TargetChannelFilter
 from filters.user_id import UserIdFilter
 from filters.danger_word import DangerWordFilter
 from services.permsoc import PermsocBlockGate
+from services.pemsoc_reactions import claim_reaction
 
 logger = logging.getLogger(__name__)
 
@@ -121,8 +121,14 @@ _target_channel_usernames_set: set[str] = set(_parse_str_list(hot.get("reactions
     UserIdFilter(hot.get("reactions.slavik_user_id", settings.SLAVIK_USER_ID)),
     DangerWordFilter(),
 )
-async def war_keyword_handler(message: types.Message):
+async def war_keyword_handler(message: types.Message,
+                              data: dict | None = None):
     """Any message from Slava (regular or forwarded) with a military keyword → random reply."""
+    if (data or {}).get("slavik_gif_sent"):
+        # Гифка уже отправила единственную реакцию на это сообщение.
+        return None
+    if not claim_reaction(message, source="war_keyword"):
+        return None
     # Diagnostic: log whether this is a forwarded message
     if message.forward_origin is not None:
         logger.info(
@@ -157,7 +163,8 @@ async def war_keyword_handler(message: types.Message):
             "War Alert (keyword): failed to send reply | msg_id=%d",
             message.message_id,
         )
-    return UNHANDLED
+    # Поглотить update: одно сообщение = одна реакция (не отдавать slavik).
+    return None
 
 
 # ── Handler 2: Channel reposts ──
@@ -166,16 +173,21 @@ async def war_keyword_handler(message: types.Message):
     PermsocBlockGate("reactions"),
     TargetChannelFilter(_target_channel_ids_set, _target_channel_usernames_set),
 )
-async def war_channel_repost_handler(message: types.Message):
+async def war_channel_repost_handler(message: types.Message,
+                                     data: dict | None = None):
     """Any channel repost from a target channel → random reply.
 
     TargetChannelFilter guarantees origin is a MessageOriginChannel
     from one of the configured target channels.
     """
+    if (data or {}).get("slavik_gif_sent"):
+        return None
     origin = message.forward_origin
     if not isinstance(origin, MessageOriginChannel):
         logger.error("War Alert (repost): unexpected origin type %s", type(origin))
-        return
+        return None
+    if not claim_reaction(message, source="war_channel_repost"):
+        return None
 
     reply_text = random.choice(WAR_REPLIES)
     reposter_id = message.from_user.id if message.from_user else 0
@@ -201,4 +213,4 @@ async def war_channel_repost_handler(message: types.Message):
             message.message_id,
             origin.chat.id,
         )
-    return UNHANDLED
+    return None
