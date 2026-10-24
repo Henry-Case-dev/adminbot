@@ -431,7 +431,7 @@
         "services/mca_expression.py",
         "services/prompt_composer.py",
         "tests/test_p0fc_expression_frequent.py",
-        "tests/test_p0q_expression_frequent.py",
+        "tests/test_p0e_expression_frequent.py",
         "plans/features/p0-corrective-factcheck-speech/evidence/expression/"
       ],
       "acceptance": "По Direct/инициативе/фактчеку/Checkup/Summary зафиксированы effective-режим и наличие Expression_Settings в системном сообщении; проверены бюджет, конфликт жанра, скрытые противоположные инструкции, постобработка и влияние модели; FREQUENT трактуется как привычная часть речи; нет квот, постпроцессорной вставки, скрытой токсичность-фильтрации и второго характера; серия реальных LLM-проб показывает устойчивое отличие FREQUENT от OFF/OCCASIONAL; тестовые сообщения в рабочий чат не отправлялись. | Дополнение #3: payload содержит Expression_Settings; OFF/OCCASIONAL/FREQUENT различаются в фактических ответах; постобработка не подавляет FREQUENT; Personality Core сохранён; результат подтверждён офлайн-пробами.",
@@ -659,7 +659,7 @@
         "services/prompt_style_blocks.py",
         "web/api/speech.py",
         "web/app.js",
-        "tests/test_p0q_quotes_modes.py",
+        "tests/test_quotes_modes.py",
         "plans/features/p0-corrective-factcheck-speech/evidence/quotes/"
       ],
       "risk": "R2",
@@ -703,7 +703,7 @@
         "services/param_catalog.py",
         "web/api/speech.py",
         "web/app.js",
-        "tests/test_p0q_composer_quota.py",
+        "tests/test_quota_removal_composer.py",
         "plans/features/p0-corrective-factcheck-speech/evidence/composer/"
       ],
       "risk": "R2",
@@ -837,7 +837,7 @@
         "services/",
         "handlers/",
         "web/",
-        "tests/test_p0q_quota_audit.py",
+        "tests/test_quota_removal_composer.py",
         "plans/features/p0-corrective-factcheck-speech/audit/",
         "plans/features/p0-corrective-factcheck-speech/evidence/quota-audit/"
       ],
