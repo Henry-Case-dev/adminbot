@@ -54,6 +54,30 @@ ASYMMETRY_BLOCK = """АСИММЕТРИЯ:
 # Единый суффикс для всех отвечающих канонов.
 STYLE_BLOCKS_SUFFIX = "\n\n" + ANTI_BOT_BLOCK + "\n\n" + ASYMMETRY_BLOCK
 
+# ── P0 SPEECH-SIMPLIFY (25.10.2026, source §2.1-2.3, §5) ────────────────────
+# Базовая разговорная манера, юмор, длина и достоверность речи. Тексты —
+# единственный источник `services.mca_expression` (байт-в-байт владельца);
+# рендерятся ОДНИМ блоком в существующем expression-слое композера.
+SPEECH_BASE_OPEN = "<Speech_Base>"
+SPEECH_BASE_CLOSE = "</Speech_Base>"
+
+
+def speech_base_block() -> str:
+    """Блок базовых речевых инструкций владельца (без квот/постобработки)."""
+    from services import mca_expression as _expr
+
+    return "\n".join((
+        SPEECH_BASE_OPEN,
+        _expr.BASE_SPEECH_TEXT,
+        "",
+        _expr.HUMOR_TEXT,
+        "",
+        _expr.RESPONSE_LENGTH_TEXT,
+        "",
+        _expr.FACTUAL_SPEECH_TEXT,
+        SPEECH_BASE_CLOSE,
+    ))
+
 # Слепок суффикса раунда 10.21 (прежний ANTI_BOT без п.7) — для
 # `PREV_*_R1022`-слепков идемпотентной канон-миграции PG (ADR-1013-3).
 PREV_STYLE_BLOCKS_SUFFIX = (
