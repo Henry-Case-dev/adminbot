@@ -1,0 +1,5 @@
+39a06b88 chore(release-258124): bump 2.58.123 -> 2.58.124 (31-file proc set SET EQUAL proc-123, F8-meta HEAD=58b1bcca, deltaDDL=0)
+58b1bcca fix(p0): remove owner-note cap and collapse quotes preset to one rule
+4df74a81 refactor(inspector): drop composer budget plumbing from speech API/UI (QUOTA-UI-CLEANUP)
+42657294 refactor(composer): remove artificial instruction quotas (A1-A6, ADDENDUM #3 2.7)
+f00050a5 feat(style): deterministic quote modes A/B (ADDENDUM #3 Tç1)

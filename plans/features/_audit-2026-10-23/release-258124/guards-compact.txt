@@ -1,0 +1,13 @@
+tests/test_quotes_modes.py :: 30 passed in 3.42s
+tests/test_quota_removal_composer.py :: 8 passed in 3.14s
+tests/test_asap3_acceptance.py :: 8 passed in 3.44s
+tests/test_soul1_composer_parity_off.py :: 13 passed in 3.14s
+tests/test_p0_expression_final_contract.py :: 15 passed in 3.24s
+tests/test_p0_prompts_core.py :: 9 passed in 3.56s
+tests/test_p0_checkup_core_contract.py :: 16 passed in 3.16s
+tests/test_factcheck_p0_fc.py :: 28 passed, 2 warnings in 7.57s
+tests/test_initiative_delivery_telemetry.py :: 13 passed in 5.23s
+tests/test_asap7_f9_help_resync.py :: 21 passed in 3.08s
+tests/test_asap8_v6_d14_help_sync.py :: 24 passed in 3.11s
+tests/test_prompt_migrations.py :: 43 passed in 3.27s
+tests/test_webapp_js_unit.py :: 39 passed in 5.44s
