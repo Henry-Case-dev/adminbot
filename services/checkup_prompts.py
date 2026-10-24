@@ -33,6 +33,7 @@ P0-CHECKUP (24.10.2026, addendum §1/§2 source-2026-10-24.md): активный
 """
 
 from services.prompt_style_blocks import (
+    PREV_SPEECH_STYLE_SUFFIX,
     PREV_STYLE_BLOCKS_SUFFIX,
     STYLE_BLOCKS_SUFFIX,
 )
@@ -110,7 +111,7 @@ PREV_CHECKUP_R1021_SYSTEM_PROMPT = _CHECKUP_R1021_BASE_FROZEN
 # Слепок прод-канона 2.58.118 (2077 c, sha12 38d63d86b54d) — непосредственный
 # прежний активный канон P0-CHECKUP: ступень прямой миграции и цель отката
 # (ADR-1013-3). Байты НЕ меняются ретроактивно.
-PREV_CHECKUP_P0_SYSTEM_PROMPT = _CHECKUP_R1021_BASE + STYLE_BLOCKS_SUFFIX
+PREV_CHECKUP_P0_SYSTEM_PROMPT = _CHECKUP_R1021_BASE + PREV_SPEECH_STYLE_SUFFIX
 
 # P0-CHECKUP (24.10.2026, addendum §2 source-2026-10-24.md): целевая
 # функциональная редакция Checkup. Блок «СУТЬ АНАЛИЗА» (4 пункта) — дословно
@@ -150,7 +151,7 @@ PREV_R1022_CHECKUP_SYSTEM_PROMPT = (
 # Слепок прод-канона 10.21-2.58.100 (непосредственный прежний) — ступень
 # миграции CFG-07A и цель отката (ADR-1013-3).
 PREV_CHECKUP_CFG07A_SYSTEM_PROMPT = (
-    _CHECKUP_R1021_BASE_FROZEN + STYLE_BLOCKS_SUFFIX
+    _CHECKUP_R1021_BASE_FROZEN + PREV_SPEECH_STYLE_SUFFIX
 )
 
 # R42-2: скрытая приписка в system-контекст при фолбеке (добавляется В КОНЕЦ

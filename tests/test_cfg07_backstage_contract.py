@@ -287,6 +287,11 @@ def test_suppress_persisted_matches_new_canon_bytes(name):
     stripped, info = pr.suppress_legacy_speech(prev, source="global")
     assert info.applied and info.removed > 0, name
     assert "Разрешен мат" not in stripped, name
+    # SPEECH-SIMPLIFY 25.10: PREV-канон остаётся на прежнем суффиксе, активный
+    # получил новый блок «АСИММЕТРИЯ». Сравниваем после нормализации суффикса;
+    # остальные байты по-прежнему строго равны.
+    stripped = stripped.replace(psb.PREV_SPEECH_STYLE_SUFFIX,
+                                psb.STYLE_BLOCKS_SUFFIX)
     assert stripped == ACTIVE_CANONS[name], name
 
 

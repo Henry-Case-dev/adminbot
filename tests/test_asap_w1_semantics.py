@@ -7,11 +7,11 @@
     мата и форматных правил; используется в L2 (composition head intact);
   * P0-B/C: Core full/compact = §3.2/§3.3 байт-в-байт; нет мат-регулирования
     и SOUL-* в model-facing; семантика Full↔Compact сверена деривацией;
-  * P0-D: EXPRESSION_HEADER/FOOTER = §3.4; режимы off/occasional побуквенно
-    прежние, frequent сверен с §3.4 как ступень PREV и заменён более поздним
-    указанием владельца (P0-E §6.3, 24.10.2026); в payload ровно эффективная
-    ветка (не все три); mode-блоки legacy (verbilizer_mode_*) не
-    подтягиваются при плане;
+  * P0-D: EXPRESSION_HEADER/FOOTER = §3.4; тексты режимов заменены owner-
+    каноном 25.10.2026 (source-owner-speech-simplify-2026-10-25.md §2.4–2.6,
+    off/occasional/frequent — байт-в-байт), frequent прежней ступени остаётся
+    в PREV для лестницы; в payload ровно эффективная ветка (не все три);
+    mode-блоки legacy (verbilizer_mode_*) не подтягиваются при плане;
   * P0-E: альтернативные типографские правила («только дефис», «только ""»,
     «категорически запрещено «»») из Direct-канонов сняты; Style Policy —
     единственный владелец подачи; валидация/нормализация исходящих не
@@ -43,6 +43,9 @@ from services import prompt_style_blocks as psb
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SOURCE_PATH = ROOT / "plans/features/asap-speech-arch/source-2026-10-22.md"
+#: Действующий owner-канон речи (25.10.2026): §2.4–2.6 — тексты режимов мата.
+SOURCE_2510_PATH = (ROOT / "plans/features/asap-speech-arch" /
+                    "source-owner-speech-simplify-2026-10-25.md")
 
 _IDENTITY_MARKERS = ("токсичн", "бот-абьюзер", "двача")
 _TYPO_MARKERS = ("ТИПОГРАФИКА (ОБЯЗАТЕЛЬНО)", "только короткие дефисы",
@@ -51,6 +54,10 @@ _TYPO_MARKERS = ("ТИПОГРАФИКА (ОБЯЗАТЕЛЬНО)", "тольк�
 
 def _src_text() -> str:
     return SOURCE_PATH.read_text(encoding="utf-8")
+
+
+def _src_2510_text() -> str:
+    return SOURCE_2510_PATH.read_text(encoding="utf-8")
 
 
 def _fence(heading: str) -> str:
@@ -170,32 +177,22 @@ def test_p0bc_full_compact_semantics_kept():
 def test_p0d_expression_header_footer_and_modes_byte_exact():
     assert ex.EXPRESSION_HEADER == _fence("Новый `EXPRESSION_HEADER`")
     assert ex.EXPRESSION_FOOTER == _fence("Новый `EXPRESSION_FOOTER`")
-    # Тексты режимов §3.4: сверка по уникальным префиксам фенсов снапшота.
-    # off/occasional — побуквенно те же («не менять текст»), без изменений.
     fences = re.findall(r"```text\n(.*?)\n```", _src_text(), re.DOTALL)
     by_prefix = {f[:20]: f for f in fences}
-    assert ex.PROFANITY_INSTRUCTIONS["off"] == \
-        by_prefix[ex.PROFANITY_INSTRUCTIONS["off"][:20]]
-    assert ex.PROFANITY_INSTRUCTIONS["occasional"] == \
-        by_prefix[ex.PROFANITY_INSTRUCTIONS["occasional"][:20]]
-    # FREQUENT — единственная ветка, перекрытая ПОЗЖЕ: P0-E §6.3
-    # (plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md,
-    # 24.10.2026) требует, чтобы мат был привычной и заметной частью
-    # СОБСТВЕННОЙ речи, а не разрешением «в исключительных случаях».
-    # Поэтому байты §3.4 для этой ветки остаются в силе ровно как ступень
-    # лестницы PREV = прод-текст 23.10; действующий частый текст — замена
-    # владельца, а не «мягкая правка» снапшота.
+    # §3.4-снапшот 22.10 остаётся исторической ступенью: его байты видны в
+    # PREV_* (frequent), а действующий канон всех трёх режимов — owner-канон
+    # 25.10.2026 (source-owner-speech-simplify-2026-10-25.md §2.4–2.6).
     assert ex.PREV_PROFANITY_FREQUENT_TEXT == \
         by_prefix[ex.PREV_PROFANITY_FREQUENT_TEXT[:20]]
+    quotes = [line[2:] for line in
+              _src_2510_text().splitlines() if line.startswith("> ")]
+    for mode in ("off", "occasional", "frequent"):
+        assert ex.PROFANITY_INSTRUCTIONS[mode] in quotes, mode
+    # дельта ограничена текстами режимов: header §3.4 не тронут выше.
     assert ex.PROFANITY_INSTRUCTIONS["frequent"] != \
         ex.PREV_PROFANITY_FREQUENT_TEXT
-    # дельта ограничена одной веткой и одной формулировкой: остальные байты
-    # фенсов §3.4 уже сверены выше, байт-пин нового FREQUENT живёт в
-    # P0-E-тестах (test_samples_fewshot::test_section2_texts_are_byte_exact,
-    # test_add_exp_expression::test_owner_exact_texts_are_canon).
     assert ex.PROFANITY_INSTRUCTIONS["frequent"].startswith(
-        "Пиши живым разговорным языком, в котором мат — привычная и "
-        "заметная часть твоей собственной речи.")
+        "Матерись часто и непринуждённо, как человек, для которого мат -")
     assert "исключительных случаях" not in \
         ex.PROFANITY_INSTRUCTIONS["frequent"]
     assert len(by_prefix) == len(fences)  # префиксы фенсов уникальны
@@ -493,7 +490,7 @@ def test_91_composer_parity_machine_stages_clean():
             revision="e1", mode="off"),
         gates=pc.GateState(unified_composer_enabled=True))
     manifest = pc.compose_prompt(plan)
-    assert cp.PERSONALITY_CORE_FULL_TEXT in manifest.system
+    assert pc.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT) in manifest.system
     assert "Не используй мат в собственной речи." in manifest.system
 
 

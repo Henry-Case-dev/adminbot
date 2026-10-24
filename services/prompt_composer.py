@@ -104,6 +104,9 @@ SKIP_REASONS = frozenset({
     # в runtime не идут, причина видна в манифесте/событии.
     "not_owner_approved",
     "humor_no_strategy", "humor_disabled",
+    # SPEECH-SIMPLIFY §2.2: короткая HUMOR уже вошла в базовый речевой блок;
+    # отдельный слой приёма не дублирует её в payload.
+    "humor_folded_into_speech_base",
     "samples_absent", "samples_disabled",
     "style_policy_absent", "style_policy_disabled", "style_policy_unavailable",
     "style_policy_read_error",
@@ -884,11 +887,19 @@ async def speech_owner_block(chat_id: int | None) -> str:
     except (TypeError, ValueError):
         return ""
     parts: list[str] = []
+    # SPEECH-SIMPLIFY §4: функциональные writer'ы получают тот же короткий
+    # бытовой блок, но сохраняют собственный жанр; Core/Expression ниже.
+    try:
+        from services import prompt_style_blocks as _psb
+        parts.append(_psb.speech_base_block())
+    except Exception:          # pragma: no cover — fail-open
+        logger.warning("[composer] speech base block unavailable",
+                       exc_info=True)
     try:
         core = await resolve_core_ref(cid)
         if core is not None and core.enabled \
                 and str(core.text or "").strip():
-            parts.append(str(core.text))
+            parts.append(simplify_core_for_prompt(str(core.text)))
     except Exception:          # pragma: no cover — resolve уже fail-open
         logger.warning("[composer] speech_owner_block core failed",
                        exc_info=True)
@@ -1211,6 +1222,49 @@ def _joined(parts: Sequence[str]) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
+#: SPEECH-SIMPLIFY §4: оперативные абзацы, которые больше не должны попадать
+#: в payload. Хранимый авторский Core не переписывается — фильтр применяется
+#: только при сборке промпта, поэтому биография/характер остаются в редакции.
+_CORE_HUMOR_TECHNIQUE_PARAGRAPH = (
+    "Как рождается юмор. Когда разговор располагает к шутке, ищи неожиданную "
+    "интерпретацию сказанного. Можешь принять оговорку, нелепую предпосылку "
+    "или метафору буквально и исследовать её последствия. Если нашёл смешную "
+    "идею, развивай её конкретными бытовыми деталями, воображаемыми правилами, "
+    "предметами и ситуациями. Абсурд может нарастать, пока не закончится "
+    "неожиданным, но внутренне связным выводом. Смешивай несовместимые "
+    "области - бытовуху, философию, бюрократию, экономику, биологию, "
+    "технологии, религию и устройство общества. Интересны не случайные "
+    "сравнения, а связи, которые после прочтения кажутся почти логичными."
+)
+_CORE_RHYTHM_PARAGRAPH = (
+    "Ритм. Не придерживайся одной длины или композиции ответа. Иногда "
+    "достаточно трёх слов, иногда шутке требуется несколько предложений и "
+    "нарастающий абсурд. Не обрывай удачную мысль ради искусственной "
+    "краткости. Можно начать с неожиданного вывода, детали, возражения, "
+    "воображаемой сцены или продолжения чужой мысли. Не объясняй собственные "
+    "шутки, не объявляй используемые приёмы."
+)
+
+
+def simplify_core_for_prompt(text: str) -> str:
+    """Убрать из Core только оперативные дубли Expression/Humor/Length.
+
+    Авторские байты в БД не меняются; фильтр применяется при сборке system.
+    Точные абзацы; переформулировки владельца не совпадут и останутся.
+    """
+    out = str(text or "")
+    try:
+        from services.chat_prompts import CORE_REAL_EVENTS_PARAGRAPH
+    except Exception:      # pragma: no cover — фильтр не роняет сборку
+        CORE_REAL_EVENTS_PARAGRAPH = ""
+    for paragraph in (_CORE_HUMOR_TECHNIQUE_PARAGRAPH,
+                      CORE_REAL_EVENTS_PARAGRAPH,
+                      _CORE_RHYTHM_PARAGRAPH):
+        if paragraph and paragraph in out:
+            out = out.replace(paragraph, "")
+    return re.sub(r"\n{3,}", "\n\n", out).strip()
+
+
 def _compose(plan: PromptPlan) -> PromptManifest:
     from services import prompt_style_blocks as psb
     from services import mca_expression as _expr_mod
@@ -1306,7 +1360,7 @@ def _compose(plan: PromptPlan) -> PromptManifest:
                 source=(core_ref.source if core_ref is not None else "default"),
                 skip_reason=reason, detail=core_detail))
         else:
-            core_text = str(core_ref.text)
+            core_text = simplify_core_for_prompt(str(core_ref.text))
             # QUOTA-REMOVAL (ADDENDUM #3 §2.7): Core — обязательный слой и
             # никакой квотой не вытесняется и не понижается. `detail_level`
             # владельца — единственный источник выбора редакции (см.
@@ -1457,6 +1511,23 @@ def _compose(plan: PromptPlan) -> PromptManifest:
             owner="l1", source=str(plan_ref.source or "l1"),
             revision=plan_revision, rendered=True, conflict=plan_conflict))
 
+    # ── 7. speech_base: короткая манера/юмор/длина/достоверность ───────────
+    # P0 SPEECH-SIMPLIFY §2.1-2.3/§5: один короткий блок существующего
+    # речевого слоя; не зависит от режима мата и не дублирует Core.
+    _base_l = str(plan.base_prompt or "").lower()
+    _functional_writer = (
+        any(tag in str(plan.writer or "").lower()
+            for tag in ("factcheck", "summary", "checkup", "search", "youtube",
+                        "web"))
+        or any(marker in _base_l
+               for marker in ("фактчекер", "betterstack", "сводк", "checkup",
+                              "summary")))
+    speech_base_text = (psb.speech_base_block()
+                        if profile in ("speech_plain", "speech_rich")
+                        and not _functional_writer else "")
+    if speech_base_text and speech_base_text not in "\n".join(parts):
+        _append(parts, speech_base_text)
+
     # ── 7. expression: эмоциональная температура/резкость (soft) ───────────
     expression = plan.expression
     expression_final = ""
@@ -1530,13 +1601,22 @@ def _compose(plan: PromptPlan) -> PromptManifest:
                                  revision=plan.humor.revision,
                                  skip_reason=reason))
         else:
-            _append(parts, plan.humor.text)
-            traces.append(_trace(
-                LAYER_HUMOR_CRAFT, block_id="humor_craft",
-                text=plan.humor.text, owner="library",
-                source=str(plan.humor.source or "library"),
-                revision=str(plan.humor.revision or _sha16(plan.humor.text)),
-                rendered=True))
+            humor_text = str(plan.humor.text)
+            if humor_text.strip() and any(
+                    humor_text.strip() in str(p) for p in parts):
+                traces.append(_trace(
+                    LAYER_HUMOR_CRAFT, block_id="humor_craft",
+                    owner="library", revision=plan.humor.revision,
+                    skip_reason="humor_folded_into_speech_base"))
+            else:
+                _append(parts, plan.humor.text)
+                traces.append(_trace(
+                    LAYER_HUMOR_CRAFT, block_id="humor_craft",
+                    text=plan.humor.text, owner="library",
+                    source=str(plan.humor.source or "library"),
+                    revision=str(plan.humor.revision or _sha16(
+                        plan.humor.text)),
+                    rendered=True))
 
     # ── 9. few_shot ─────────────────────────────────────────────────────────
     # ADD-EXP §3.2/§3.3: набор регистра речи идёт ДО humor-примеров, своим
