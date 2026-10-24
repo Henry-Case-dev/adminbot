@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-24T14:05:00+13:00",
+  "updated": "2026-10-24T23:59:00+13:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -161,12 +161,12 @@
       "id": "p0-factcheck-speech",
       "status": "BUILDING",
       "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
-      "source_sha256": "D69C104D2CFE58290C5EAD6826B78AC9CE37502EF3829B8948FE9E2048872D70",
+      "source_sha256": "2BD56C9F15E90AAD62C81654EC0D9F4B325F0BCEA58A8EEDD71CF6513BFE6978",
       "maps": [
         "plans/features/p0-corrective-factcheck-speech/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "P0 24.10 (корректировка ASAP Speech/Factcheck, 639 строк): фактчек по существу, восстановление промптов, Checkup в модульной речи, дополнение Core, фактическая работа FREQUENT, Vision sweep/Betterstack. 24.10 CANARY-BIND: канарейка на проде 2.58.122 (c128675a) привязана — FACTCHECK FC-01..04 live PASS (FC-01: verdict.parts структурно пуст, план v2 не строился), Checkup SP-03/SP-05 live PASS, REQ-CORE-FREESPEECH live PASS (rev8 ead77b2ab509), PR-03 live PASS; EXPRESSION: EX-01/EX-02/REQ-EX-STABLE-EFFECT/REQ-EX-PROVE-REAL-PATH FAILED (1/8 живых, кандидатский v2 3/6+1/4 PARTIAL, не задеплоен); REQ-DONE-MAIN-CRITERION PENDING. Сборка 2.58.123 отсутствует (нет коммита), прод = 2.58.122.",
+      "source_note": "P0 24.10 (корректировка ASAP Speech/Factcheck, 639 строк): фактчек по существу, восстановление промптов, Checkup в модульной речи, дополнение Core, фактическая работа FREQUENT, Vision sweep/Betterstack. 24.10 CANARY-BIND: канарейка на проде 2.58.122 (c128675a) привязана — FACTCHECK FC-01..04 live PASS (FC-01: verdict.parts структурно пуст, план v2 не строился), Checkup SP-03/SP-05 live PASS, REQ-CORE-FREESPEECH live PASS (rev8 ead77b2ab509), PR-03 live PASS; EXPRESSION: EX-01/EX-02/REQ-EX-STABLE-EFFECT/REQ-EX-PROVE-REAL-PATH FAILED (1/8 живых, кандидатский v2 3/6+1/4 PARTIAL, не задеплоен); REQ-DONE-MAIN-CRITERION PENDING. Сборка 2.58.123 отсутствует (нет коммита), прод = 2.58.122. | 24.10 #3 (дословно current_task.md L3673-EOF): кавычки, сквозное удаление искусственных квот инструкций, FREQUENT. | 24.10 ADDENDUM #3 RECONCILED (PM-P0-ADDENDUM3): source L810-1316 (current_task.md L3673-EOF, sha FAA174DE) — 289 новых required (156 новых REQ-ADD3-*), 37 context; новые слайсы QUOTES/COMPOSER-QUOTA/QUOTA-AUDIT, EXPRESSION и ACCEPT дополнены; plan-gate EXIT 0 (inventory=401 manual=306 errors=0); существующие req_id/статусы не менялись. Открыто: 290 PENDING (включая всю дельту #3), 4 FAILED (EX-02 и др.), 5 READY_FOR_LIVE.",
       "updated": "2026-10-24"
     }
   ]
