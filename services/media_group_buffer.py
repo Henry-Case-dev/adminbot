@@ -8,19 +8,21 @@ services/smartmodule_throttling.py (общее состояние, исполь�
 
 Заполнение: record_media_group_message из summary_observer (0a) — caption
 приходит в Telegram ТОЛЬКО на ПЕРВОМ элементе media group. Чтение:
-get_media_group_caption из services/factcheck_service.py
-(resolve_claim_publication) — reply «фактчек» на 2-е/3-е фото альбома
-получает caption 1-го фото.
+get_media_group_caption / get_media_group_ids из
+services/factcheck_service.py (resolve_claim_publication) — reply «фактчек»
+на 2-е/3-е фото альбома получает caption 1-го фото и набор id элементов,
+чтобы отличить неполный durable-альбом от полного.
 
-P0-FACTCHECK media (owner 25.10.2026 §3.3): буфер — только same-turn
-fast-path. Источник истины реконструкции альбома — durable
+P0-FACTCHECK media (owner 25.10.2026 §3.3; review fix): буфер — только
+same-turn fast-path. Источник истины реконструкции альбома — durable
 `smart_messages.media_group_id` (observer пишет каждый элемент); после
-рестарта/TTL альбом всё равно собирается из БД, а не теряется.
+рестарта/TTL альбом всё равно собирается из БД. Набор id элементов нужен
+ТОЛЬКО для честной оценки полноты («в группе было N элементов, прочитано M»).
 """
 import logging
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from aiogram import types
 
@@ -36,6 +38,10 @@ class _MediaGroupRecord:
     caption: str
     first_message_id: int
     ts: float           # time.monotonic()
+    # Review fix (25.10.2026): id всех элементов пачки — чтобы отличить
+    # неполный durable-альбом (потерянная строка) от полного. Bounded:
+    # Telegram media group ≤ 10 элементов.
+    message_ids: set = field(default_factory=set)
 
 
 _buffer: OrderedDict[str, _MediaGroupRecord] = OrderedDict()
@@ -57,45 +63,49 @@ def record_media_group_message(message: types.Message) -> None:
     Правила:
     - media_group_id нет → return (не альбом);
     - caption = (message.caption or message.text or "").strip();
-    - запись ЕСТЬ → move_to_end(mgid) + ts = now (TTL от последнего элемента пачки);
-      caption НЕ перезаписывается пустым (caption только на 1-м элементе);
-    - записи НЕТ и caption непустой → вставка {caption, first_message_id, ts};
-    - записи НЕТ и caption пуст → ничего (альбом без caption в буфере не храним);
+    - запись ЕСТЬ → move_to_end(mgid) + ts = now (TTL от последнего элемента),
+      id элемента добавляется в набор; caption НЕ перезаписывается пустым;
+    - записи НЕТ и caption непустой → вставка {caption, first_message_id, ids};
+    - записи НЕТ и caption пуст → запись с пустым caption и набором id (альбом
+      без подписи: caption не отдаётся, но полнота группы известна);
     - _cleanup_expired() на write-пути; len > MAX_ENTRIES → popitem(last=False) (LRU).
     """
     mgid = getattr(message, "media_group_id", None)
     if not mgid:
         return
     caption = (message.caption or message.text or "").strip()
+    message_id = getattr(message, "message_id", None)
     _cleanup_expired()
     now = time.monotonic()
     record = _buffer.get(mgid)
     if record is not None:
         _buffer.move_to_end(mgid)
         record.ts = now                       # TTL от последнего элемента пачки
+        if isinstance(message_id, int) and not isinstance(message_id, bool):
+            record.message_ids.add(message_id)
         logger.debug(
             "Media group buffer: touch | group=%s entries=%d", mgid, len(_buffer)
         )
         return
-    if not caption:
-        return                               # альбом без caption не храним
+    ids = {message_id} if isinstance(message_id, int) \
+        and not isinstance(message_id, bool) else set()
     _buffer[mgid] = _MediaGroupRecord(
         caption=caption,
-        first_message_id=message.message_id,
+        first_message_id=message_id if isinstance(message_id, int) else 0,
         ts=now,
+        message_ids=ids,
     )
     if len(_buffer) > MAX_ENTRIES:
         evicted, _ = _buffer.popitem(last=False)
         logger.debug("Media group buffer: LRU evicted | group=%s", evicted)
     logger.info(
         "Media group buffer: insert | group=%s first_msg=%s caption_len=%d entries=%d",
-        mgid, message.message_id, len(caption), len(_buffer),
+        mgid, message_id, len(caption), len(_buffer),
     )
 
 
-def get_media_group_caption(media_group_id: str) -> str | None:
-    """Чтение (из handlers/factcheck.py). None = нет записи / TTL истёк
-    (ленивая эвикция: del + DEBUG-expiry)."""
+def _live_record(media_group_id: str) -> _MediaGroupRecord | None:
+    """Запись группы без истёкших (ленивая эвикция); None — нет/TTL."""
     record = _buffer.get(media_group_id)
     if record is None:
         return None
@@ -105,4 +115,29 @@ def get_media_group_caption(media_group_id: str) -> str | None:
             "Media group buffer: expired on read | group=%s", media_group_id
         )
         return None
-    return record.caption
+    return record
+
+
+def get_media_group_caption(media_group_id: str) -> str | None:
+    """Чтение (из handlers/factcheck.py). None = нет записи / TTL истёк
+    (ленивая эвикция: del + DEBUG-expiry)."""
+    if not media_group_id:
+        return None
+    record = _live_record(media_group_id)
+    if record is None:
+        return None
+    return record.caption or None
+
+
+def get_media_group_ids(media_group_id: str) -> tuple[int, ...] | None:
+    """Id элементов группы, виденных в этом же ходе (ASC); None — нет/TTL.
+
+    Review fix: позволяет отличить «в группе было N элементов, durable-строк
+    M<N» от полного альбома. После рестарта буфер пуст → None (полнота
+    оценивается по durable-строке/непрерывности id, см. resolver)."""
+    if not media_group_id:
+        return None
+    record = _live_record(media_group_id)
+    if record is None or not record.message_ids:
+        return None
+    return tuple(sorted(record.message_ids))

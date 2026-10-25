@@ -36,7 +36,10 @@ from services.grounding_validator import (
     strip_phantom_tags,
 )
 from services.llm_client import LLMBadResponseError, LLMClient, LLMError
-from services.media_group_buffer import get_media_group_caption
+from services.media_group_buffer import (
+    get_media_group_caption,
+    get_media_group_ids,
+)
 from services import anticliche_cache
 from services import mca_gates
 from services import usage_events
@@ -196,22 +199,32 @@ class ClaimMediaMaterial:
     image_count: int = 0              # элементов с реально найденными активами
     pending_count: int = 0            # из них распознавание ещё не готово
     visual_descriptions: tuple[str, ...] = ()
+    # Review fix (25.10.2026): описания — контекст, не тезис. В ``text_suffix``
+    # они попадают только вместе с OCR; иначе идут отдельным блоком контекста.
+    description_suffix: str = ""
+    truncated: bool = False           # материал изображения обрезан по лимиту
 
     def notice(self) -> str:
         """Человеческое ограничение (никогда не выдумывает распознавание)."""
+        parts: list[str] = []
         if self.vision_failed:
             if self.image_count:
-                return ("Не все изображения публикации удалось прочитать "
-                        "(технический сбой) — проверено то, что доступно.")
-            return ("Изображение не удалось прочитать (технический сбой) — "
-                    "проверен только текст сообщения.")
+                parts.append("Не все изображения публикации удалось прочитать "
+                             "(технический сбой) — проверено то, что доступно.")
+            else:
+                parts.append("Изображение не удалось прочитать (технический "
+                             "сбой) — проверен только текст публикации.")
+        if self.truncated:
+            parts.append("Текст части изображений обрезан по лимиту — "
+                         "проверено то, что вошло в материал.")
         if self.image_not_analyzed:
             if self.pending_count and self.pending_count < self.image_count:
-                return ("Часть изображений публикации ещё не распознана — "
-                        "учтено то, что уже прочитано.")
-            return ("На изображении мог быть текст, но распознавание ещё не "
-                    "готово — проверен только текст сообщения.")
-        return ""
+                parts.append("Часть изображений публикации ещё не распознана — "
+                             "учтено то, что уже прочитано.")
+            else:
+                parts.append("На изображении мог быть текст, но распознавание "
+                             "ещё не готово — проверен только текст публикации.")
+        return " ".join(parts)
 
 
 _IMAGE_MEDIA_TYPES = frozenset({"photo", "sticker"})
@@ -338,12 +351,18 @@ async def load_claim_media(db, chat_id: int | None,
                                   vision_failed=expected > 0)
     captions: list[str] = []
     ocr_blocks: list[str] = []
-    descriptions: list[str] = []
+    desc_blocks: list[str] = []
     raw_descriptions: list[str] = []
     ocr_chars = 0
     pending = False
     pending_count = 0
+    truncated = False
     multi = len(rendered) > 1
+    # Review fix (25.10.2026): лимит — НА ОДИН элемент (не на всю публикацию).
+    # 10 фото по ~400 симв. OCR помещаются полностью; тихой обрезки всех
+    # изображений одним общим бюджетом больше нет. При превышении лимита
+    # элемента — честный флаг truncated (=> оговорка в ответе).
+    element_budget = max(200, int(max_chars or 2000))
     for index, media in enumerate(rendered, start=1):
         caption = str(media.get("caption") or "").strip()
         if caption and caption not in captions:
@@ -357,11 +376,13 @@ async def load_claim_media(db, chat_id: int | None,
             pending_count += 1
         texts = [str(t).strip() for t in (media.get("untrusted_ocr_texts")
                                           or ()) if str(t or "").strip()]
+        element_ocr: list[str] = []
         for text in texts:
             ocr_chars += len(text)
-            ocr_blocks.append(_labelled_block(
+            element_ocr.append(_labelled_block(
                 "Текст с изображения", index, multi,
                 " (OCR, не слова автора)", text))
+        element_desc: list[str] = []
         descs = [str(d).strip()
                  for d in (media.get("visual_descriptions") or ())
                  if str(d or "").strip()]
@@ -369,13 +390,34 @@ async def load_claim_media(db, chat_id: int | None,
             descs = _descriptions_from_lines(lines)
         for desc in descs:
             raw_descriptions.append(desc)
-            descriptions.append(_labelled_block(
+            element_desc.append(_labelled_block(
                 "Визуальное описание изображения", index, multi,
                 " (результат модели; не доказывает подлинность, дату или "
                 "место)", desc))
-    suffix = "\n\n".join(ocr_blocks + descriptions).strip()
-    if len(suffix) > max_chars:
-        suffix = suffix[:max_chars].rstrip()
+        ocr_part = "\n\n".join(element_ocr)
+        desc_part = "\n\n".join(element_desc)
+        if len(ocr_part) > element_budget:
+            ocr_part = ocr_part[:element_budget].rstrip()
+            truncated = True
+            desc_part = ""
+        elif ocr_part and len(ocr_part) + len(desc_part) > element_budget:
+            desc_part = desc_part[:max(0, element_budget - len(ocr_part))].rstrip()
+            truncated = True
+        elif not ocr_part and len(desc_part) > element_budget:
+            desc_part = desc_part[:element_budget].rstrip()
+            truncated = True
+        if ocr_part:
+            ocr_blocks.append(ocr_part)
+        if desc_part:
+            desc_blocks.append(desc_part)
+    ocr_suffix = "\n\n".join(ocr_blocks).strip()
+    desc_suffix = "\n\n".join(desc_blocks).strip()
+    # Review fix: описание — КОНТЕКСТ, а не тезис. В claim/envelope оно идёт
+    # только когда есть OCR (материал тезиса); без OCR остаётся в
+    # description_suffix и передаётся модели отдельным non-evidence блоком.
+    suffix = ocr_suffix
+    if ocr_suffix and desc_suffix:
+        suffix = f"{ocr_suffix}\n\n{desc_suffix}"
     unavailable = expected > len(rendered)
     return ClaimMediaMaterial(text_suffix=suffix, image_present=True,
                               image_analyzed=not pending,
@@ -386,7 +428,9 @@ async def load_claim_media(db, chat_id: int | None,
                               or (bool(failed) and expected > 0),
                               image_count=len(rendered),
                               pending_count=pending_count,
-                              visual_descriptions=tuple(raw_descriptions))
+                              visual_descriptions=tuple(raw_descriptions),
+                              description_suffix=desc_suffix,
+                              truncated=truncated)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -419,6 +463,20 @@ class ClaimPublication:
         if media_notice:
             parts.append(media_notice)
         return " ".join(parts)
+
+    def material_context(self) -> str:
+        """Визуальные описания как non-evidence контекст (review fix).
+
+        Если OCR есть, описания уже вошли в ``text`` (материал тезиса) —
+        второй раз не дублируем. Если OCR нет, описание — только контекст
+        изображения (результат модели, не доказательство) и в тезис не
+        попадает."""
+        descriptions = self.media.description_suffix
+        if not self.has_image or not descriptions or self.media.text_suffix:
+            return ""
+        return ('<chat_context note="визуальные описания изображений — '
+                'результат модели, НЕ доказательства и НЕ утверждения '
+                'автора">\n' + descriptions + "\n</chat_context>")
 
 
 async def resolve_claim_publication(
@@ -491,6 +549,12 @@ async def resolve_claim_publication(
             attached_via_reply = True
     album_rows: list = []
     album_incomplete = False
+    known_ids: tuple[int, ...] | None = None
+    if media_group_id:
+        try:
+            known_ids = get_media_group_ids(str(media_group_id))
+        except Exception:          # pragma: no cover — буфер не бросает
+            known_ids = None
     if media_group_id and db is not None and chat_id is not None:
         try:
             album_rows = list(
@@ -509,6 +573,26 @@ async def resolve_claim_publication(
             continue
         by_id[row_id] = row
     album_rows = [by_id[key] for key in sorted(by_id)][:_MAX_ALBUM_ELEMENTS]
+    # Review fix (25.10.2026): неполнота альбома — не только исключение чтения.
+    # Признаки (детерминированно, без угадывания числа): цель-элемент не
+    # сохранён; durable-строк меньше двух (media group в Telegram — ≥2);
+    # известные из same-turn буфера id отсутствуют в durable-строках;
+    # разрыв в последовательности tg_message_id (альбом отправляется пачкой,
+    # id соседние; удалённый/потерянный элемент даёт разрыв). Любой признак →
+    # честная оговорка, а не «полная публикация».
+    durable_ids = set(by_id)
+    if media_group_id and db is not None and chat_id is not None:
+        if not attached_via_reply:
+            # Цель — элемент группы: он обязан быть среди durable-строк.
+            if tg_id is not None and tg_id not in durable_ids:
+                album_incomplete = True
+            if len(durable_ids) < 2:
+                album_incomplete = True
+        if known_ids is not None and not set(known_ids) <= durable_ids:
+            album_incomplete = True
+        if len(durable_ids) >= 2 and (
+                max(durable_ids) - min(durable_ids) + 1 > len(durable_ids)):
+            album_incomplete = True
     element_rows = list(album_rows)
     if target_row is not None and tg_id is not None and tg_id not in by_id:
         element_rows.append(target_row)

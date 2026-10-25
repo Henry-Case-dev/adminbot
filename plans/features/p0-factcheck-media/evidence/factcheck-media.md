@@ -50,7 +50,8 @@ failed.
 | Файл | Изменение |
 |---|---|
 | `services/database.py` | `get_smart_messages_by_media_group(chat_id, media_group_id)` — durable элементы альбома (ASC, `reply_to_id` включён); `get_smart_messages_reply_to(chat_id, reply_to_id, media_only=…)` — структурная связь «альбом отвечает на текст поста». Соседние сообщения не подмешиваются. |
-| `services/factcheck_service.py` | `load_claim_media`: читает **все** `message_ids`, агрегирует подписи, OCR (нумерованные блоки при альбоме) и визуальные описания; `expected_images`/`pending_count` отличают «изображения нет» / «недоступно» / «часть не распознана». `ClaimPublication` + `resolve_claim_publication`: публикация целиком (durable альбом → буфер fast-path → цель), обратная связь reply→альбом, текст поста отдельным сообщением, `augmented`, `album_incomplete`, `forward_source`, honest `notice()`. |
+| `services/factcheck_service.py` | `load_claim_media`: читает **все** `message_ids`, агрегирует подписи, OCR (нумерованные блоки при альбоме) и визуальные описания; бюджет — **на элемент**; `truncated`-флаг; `expected_images`/`pending_count` отличают «изображения нет» / «недоступно» / «часть не распознана». `ClaimPublication` + `resolve_claim_publication`: публикация целиком (durable альбом → буфер fast-path → цель), обратная связь reply→альбом, текст поста отдельным сообщением, `album_incomplete` (цель/≥2/буфер/id-gap), `material_context()` для описаний, `forward_source`, honest `notice()`. |
+| `services/media_group_buffer.py` | Дополнительно хранит набор id элементов (`get_media_group_ids`) — честная оценка полноты durable-альбома; caption-контракт не изменён (пустой caption → None). |
 | `services/mca_vision.py` | Аддитивный ключ `visual_descriptions` в `render_media_context_async` (описание — отдельным каналом, не OCR). Существующие потребители не затронуты. |
 | `handlers/factcheck.py` | `_resolve_publication` перед проверкой пустоты; `_empty_content_phrase` различает: пусто / изображение не прочитано / распознавание не готово / нет проверяемого утверждения; оговорка добавляется к ответу (не к тезису); claim_text для envelope при собранном тексте; атрибуция пересланной публикации из сохранённой строки. |
 | `services/factcheck_orchestrator.py` | v2 использует тот же резолвер (одна реализация), envelope получает собранный текст, notice — из публикации. |
@@ -60,8 +61,7 @@ failed.
 | `config/settings.py` | `FACTCHECK_WIDE_CONTEXT_ENABLED` default **True** (решение владельца 25.10.2026). |
 | `services/config_migrations.py` + `bot.py` | `migrate_factcheck_wide_context_default`: одноразовый false→true с маркером `flags.factcheck_wide_context_default_v1`; после маркера ручное выключение не перетирается; PG down → skip. Вызов в `main()` рядом с миграцией окна. |
 | `services/param_catalog.py` + `plans/docs/param-registry-round1025.tsv` | Описание тумблера «Модули → Фактчек» под новый дефолт (окно 200–500, дефолт 300, откат без рестарта). Группа/вкладка не менялись; TSV переэмитирован генератором (`--check OK`, 582 строки). |
-| `services/media_group_buffer.py` | Докстринг: буфер = fast-path, источник истины — `smart_messages` (код буфера не менялся). |
-| `tests/test_factcheck_media_2026_10_25.py` | 40 unit-тестов на вход пайплайна (не только на финальную фразу). |
+| `tests/test_factcheck_media_2026_10_25.py` | 53 unit-теста на вход пайплайна (не только на финальную фразу), включая 13 review-fix тестов. |
 | `tests/test_factcheck_wide_context_default_2026_10_25.py` | 11 тестов дефолта/миграции/каталога/проводки широкого контекста. |
 
 Новых LLM/OCR/Vision-провайдеров, таблиц, миграций и квот инструкций нет.
@@ -209,31 +209,151 @@ reply-цепочка и окно 200–300 сообщений, и только �
 `load_claim_media`, 11 тестов дефолта/миграции/каталога/проводки в
 `tests/test_factcheck_wide_context_default_2026_10_25.py`.
 
+## 4a. Review fixes (25.10.2026, кандидат c7514ce4 → review fixes)
+
+Независимое ревью вернуло Needs Fixes по 6 пунктам. Исправления — минимальные,
+на существующих механизмах; новых LLM-вызовов/квот инструкций нет.
+
+### 1. Тихая обрезка материала изображений
+
+- Было: единый `max_chars=2000` на всю публикацию → 10 фото × ~400 симв. OCR
+  давали тезис 2000, `FOTO6..FOTO10` отсутствовали, описания не входили,
+  оговорки не было.
+- Стало: лимит — **на один элемент** (`max(200, max_chars)`), все элементы
+  альбома попадают в материал. При превышении лимита элемента —
+  `ClaimMediaMaterial.truncated=True` и оговорка «Текст части изображений
+  обрезан по лимиту…» в ответе.
+- Probe: `claim_len 4605`, `all_foto=True`, `desc10_in_claim=True`,
+  `truncated=False` (10 × 400).
+- Тесты: `test_all_album_images_survive_per_element_budget`,
+  `test_overlong_image_is_flagged_with_notice`.
+
+### 2. Неполный альбом выдавался за полный
+
+- Было: `album_incomplete` только при исключении чтения группы; 2/3 durable-
+  строк с потерянной подписью → тихий неполный тезис.
+- Стало: неполнота ставится при (а) отсутствии цели среди durable-строк,
+  (б) меньше двух строк на media group (Telegram: ≥2), (в) известных из
+  same-turn буфера id, которых нет в durable-строках, (г) разрыве
+  последовательности `tg_message_id` (альбом идёт пачкой). Буфер теперь
+  хранит набор id элементов (`get_media_group_ids`); для публикации
+  «текст + альбом по reply» цель — не элемент группы, ложной неполноты нет.
+- Probe: `album_incomplete=True`, notice «Элементы альбома прочитаны не
+  полностью…».
+- Тесты: `test_missing_durable_row_is_partial_via_buffer`,
+  `test_missing_row_detected_by_id_gap_without_buffer`,
+  `test_missing_target_row_is_partial`,
+  `test_single_durable_row_for_group_is_partial`; тест буфера обновлён
+  (captionless-альбом теперь хранит только id, caption остаётся None).
+
+### 3. Описание изображения становилось «тезисом»
+
+- Было: `text_suffix` = OCR + описания; фото без подписи/OCR с описанием
+  «на фото мужчина на мосту» → `check_claim` вызывался с описанием.
+- Стало: OCR — материал тезиса, описание — контекст. Без OCR/подписи тезис
+  пуст → честная фраза `FACTCHECK_IMAGE_NO_CLAIM_PHRASES`, `check_claim` не
+  вызывается. С подписью/OCR описание идёт в тезис (как ожидает ревью) или
+  отдельным non-evidence `<chat_context>`-блоком (`material_context()`),
+  когда OCR нет.
+- Probe: `claim_text=''`, `desc_ctx=True`.
+- Тесты: `test_description_without_ocr_is_not_a_claim`,
+  `test_description_with_caption_is_context_not_claim`,
+  `test_all_album_images_survive_per_element_budget` (описание + OCR).
+
+### 4. Красный тест старого контракта
+
+- `tests/test_epic33_router_isolation.py`:
+  `test_album_without_caption_goes_empty_context_full_pipeline` →
+  `test_album_without_caption_is_not_empty_context`. Контракт: альбом без
+  подписи и без Vision-активов → техническая/ожидающая фраза, НЕ «пусто»;
+  `check_claim` не вызывается. `test_album_reply_uses_buffered_caption_...`
+  обновлён под wide-контекст и честную оговорку о недоступных изображениях.
+- Полный прогон без playwright: новых падений нет (см. §5).
+
+### 5. Короткий проверяемый тезис в окружении
+
+- Было: `_claim_like_text("Мост обрушился вчера") == False`,
+  `"Курс 95" == False` → ложный отказ.
+- Стало: recall-предикат: числа/даты независимо от длины; предикат W2;
+  глагольная форма (в т.ч. возвратная) + ≥2 содержательных токена.
+  Филлеры («ага», «ну такое», «лол», эмодзи) отсекаются
+  `is_conservatively_irrelevant`.
+- Probe: `Мост обрушился вчера=True`, `Курс 95=True`, `12.10.2026=True`,
+  `ага/ну такое/лол=False`.
+- Тесты: `test_claim_like_predicate_recall_and_fillers`,
+  `test_short_claim_in_previous_message`, `test_numeric_short_claim_in_window`.
+
+### 6. Нерелевантная непустая цель и reply-цепочка
+
+- Было: probe только при `not target_text`; wide-фид возвращался без
+  reply-цепочки.
+- Стало: консервативно нерелевантная непустая цель («лол», «ага», эмодзи)
+  запускает тот же probe; найденный тезис заменяет реакцию. В
+  `build_factcheck_context` добавлена существующая цепочка
+  `collect_thread_chain`/`render_reply_chains` — родитель старше окна
+  попадает в фид. Команды «фактчек …» (и текущая, и прошлые) исключаются.
+- Тесты: `test_irrelevant_target_uses_previous_claim`,
+  `test_reply_parent_outside_window_in_wide_feed`,
+  `test_trigger_message_never_becomes_claim`.
+
 ## 5. Прогоны (реальный вывод)
 
+Целевой набор ревью (5 файлов):
+
 ```
-$ py -3 -m pytest tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_wide_context_default_2026_10_25.py tests/test_factcheck_handlers.py tests/test_factcheck_service.py tests/test_factcheck_context_cfg06.py tests/test_factcheck_deep_context_round1023.py tests/test_context_limits_round1019.py tests/test_webapp_round109_ui.py -q
-216 passed, 2 warnings in 6.81s
+$ py -3 -m pytest tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_handlers.py tests/test_factcheck_service.py tests/test_factcheck_context_cfg06.py tests/test_factcheck_deep_context_round1023.py -q
+176 passed, 2 warnings in 4.66s
+```
+
+Расширенный набор (media + wide-default + handlers/service + cfg06 + deep +
+buffer + epic33 + round109):
+
+```
+$ py -3 -m pytest tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_wide_context_default_2026_10_25.py tests/test_factcheck_handlers.py tests/test_factcheck_service.py tests/test_factcheck_context_cfg06.py tests/test_factcheck_deep_context_round1023.py tests/test_media_group_buffer.py tests/test_epic33_router_isolation.py -q
+202 passed, 2 warnings in 5.48s
 ```
 
 ```
 $ py -3 -m pytest tests -k "factcheck or vision or media_group" -q --ignore=tests/test_p0_vision_ui_e2e.py
-1 failed, 707 passed, 15005 deselected, 4 warnings in 36.75s
+1 failed, 721 passed, 15005 deselected, 4 warnings in 39.64s
 FAILED tests/test_soul1_registry_completeness.py::test_legacy_persona_canons_are_registered_with_revision_labels
 ```
+
+Полный `tests` без playwright (реальный прогон, 13–14 мин):
+
+```
+кандидат: 38 failed, 15687 passed, 1 skipped, 1 error in 774.62s
+база 534ac7dd (отдельный worktree, затем удалён):
+          36 failed, 15624 passed, 1 skipped, 1 error in 842.26s
+```
+
+Детерминированное множество падений совпадает: 36 тестов падают и на базе,
+и на кандидате (см. список ниже). Два дополнительных падения последнего
+полного прогона — `test_mca09_intents_block_e_round1040::test_handle_initiative_cancelled_by_recheck`
+и `test_soul1_w5_initiative_vitality::test_check_dry_run_reaches_mock_send_without_publishing`:
+оба проходят в изоляции и в связке после всех factcheck-файлов (241 passed),
+кода этого лейна не касаются → order/time-зависимые флейки полного прогона,
+не детерминированные регрессии. Error — `test_samples_ui_e2e` (нет playwright).
+
+Base = candidate (36): asap7_direct_settings (2), chat_keys (1),
+direct_fallback_recompose_asap32 (5), history_cli (1),
+hotfix_round1025_logging (1), mca20_rework1_f1_f2 (1),
+outgoing_guard_round1022 (2), quota_removal_composer (4),
+soul1_composer_parity_off (4), soul1_registry_completeness (1),
+soul1_registry_legacy_removal (2), summary_asap2_failsoft_round1027 (1),
+summary_l1_clusterizer (1), summary_publish_integration_round1026 (1),
+summary_two_call_round1022 (1), t5150_startup_migrations_round1046 (5),
+verbilizer_response_modes_round1023 (1), webapp_round1024_nodeflow (1),
+webapp_tma_fixes_ui (1).
 
 ```
 $ py -3 tools/gen_param_registry_round1025.py --check
 CHECK OK: реестр 582 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
 ```
 
-Без `--ignore` тот же прогон добавляет 7 ERROR из `test_p0_vision_ui_e2e.py`
-(`ModuleNotFoundError: No module named 'playwright'` — модуль не установлен в
-этом окружении).
-
-Падение `test_soul1_registry_completeness.py` **pre-existing и не связано** с
-задачей: на чистом `534ac7dd` (git stash всех правок) тот же тест падает так
-же (`verbilizer.mode.deep_research`, реестр промптов).
+Без `--ignore` тот же широкий прогон добавляет 7 ERROR из
+`test_p0_vision_ui_e2e.py` (`ModuleNotFoundError: No module named 'playwright'`
+— модуль не установлен в этом окружении).
 
 ```
 $ py -3 -m py_compile handlers/factcheck.py services/factcheck_service.py services/factcheck_orchestrator.py services/database.py services/mca_vision.py services/smartmodule_phrases.py services/media_group_buffer.py services/factcheck_context.py services/factcheck_suitability.py services/config_migrations.py services/param_catalog.py config/settings.py bot.py tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_wide_context_default_2026_10_25.py
@@ -288,3 +408,13 @@ py_compile: OK
     следующем старте. `FACTCHECK_EMPTY_CONTEXT_PHRASES` остаётся только для
     DI-off/совместимости — в прод-пути пустая цель всегда сначала смотрит
     окружение.
+11. **Материал изображений теперь до ~20k символов** (2000 на элемент × 10).
+    Это данные, не инструкции; при превышении лимита элемента — честная
+    оговорка. Верхняя граница привязана к лимиту Telegram (10 элементов).
+12. **Полнота альбома** оценивается консервативно: отсутствие цели/меньше
+    двух строк/известные id буфера/разрыв последовательности. Разрыв id —
+    сигнал Telegram-порядка (альбом идёт пачкой); если платформа когда-нибудь
+    отдаст несмежные id, возможна ложная оговорка «прочитаны не полностью»
+    (честная перестраховка, не потеря данных). Фраза «нет проверяемого
+    утверждения» для изображения не называет число окна (окно при этом
+    проверяется и пишется в лог) — так требует §4/§7/§9.14.

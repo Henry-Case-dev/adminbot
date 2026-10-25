@@ -218,6 +218,12 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                     target_tg_message_id=target.message_id,
                     trigger_message_id=message.message_id,
                     claim_text=target_text, user_hint=user_hint)
+            # Review fix: визуальные описания — контекст к существующему
+            # тезису (не доказательства); в тезис они не подмешиваются.
+            if publication is not None:
+                media_context = publication.material_context()
+                if media_context:
+                    chat_context = f"{chat_context}\n\n{media_context}".strip()
             # CFG-06 W2 (06B.3/06J.3): тезиса нет после изучения контекста —
             # короткая реплика БЕЗ псевдопроверки и БЕЗ платного поиска.
             if gate_decision is not None \
@@ -460,6 +466,20 @@ def _extract_target_text(message: types.Message, target: types.Message) -> str |
 
 # ── P0-FACTCHECK MEDIA (owner 25.10.2026 §3–§7): публикация целиком ─────────
 
+def _is_irrelevant_target(text: str) -> bool:
+    """Консервативно нерелевантная непустая цель (review fix 25.10.2026).
+
+    «лол»/«ага»/эмодзи — повод проверить окружение, а не готовый тезис.
+    Список филлеров узкий: всё остальное идёт прежним путём."""
+    try:
+        from services.factcheck_suitability import (
+            is_conservatively_irrelevant,
+        )
+        return is_conservatively_irrelevant(text)
+    except Exception:      # pragma: no cover — предикат не роняет хендлер
+        return False
+
+
 async def _resolve_publication(message: types.Message, target: types.Message):
     """Текст + все элементы альбома + материал изображений одной публикации.
 
@@ -539,6 +559,11 @@ def _empty_content_phrase(publication, probe=None) -> str:
         return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
     if publication.has_image and media.image_not_analyzed:
         return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
+    if publication.has_image:
+        # Review fix: изображение разобрано, но ни подписи, ни OCR нет.
+        # Описание модели — НЕ тезис; честный отказ §4/§7/§9.14 (а не
+        # платная проверка собственного описания).
+        return random.choice(FACTCHECK_IMAGE_NO_CLAIM_PHRASES)
     if probe is None:
         # Цель пуста, окружение прочитать не удалось — это не «фактов нет».
         return random.choice(FACTCHECK_CONTEXT_ERROR_PHRASES)
@@ -626,8 +651,10 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     publication = await _resolve_publication(message, target)
     target_text = publication.text
     context_feed = None
-    if not target_text:
-        # Уточнение №2 (owner 25.10.2026): пустая цель — не отказ. Сначала
+    irrelevant = bool(target_text) and _is_irrelevant_target(target_text)
+    if not target_text or irrelevant:
+        # Уточнения №2/№6 (owner 25.10.2026): пустая ИЛИ консервативно
+        # нерелевантная цель («лол», «ага», эмодзи) — не отказ. Сначала
         # обязательный широкий контекст (цепочка ответов + окно 200–300) БЕЗ
         # учёта гейта; материал найден → фактчек идёт по нему.
         probe = await _probe_context(message, target, publication)
@@ -639,10 +666,11 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 augmented=True)
             logger.info(
                 "[factcheck] claim from context | chat=%s | target=%s | "
-                "source=%s | anchor=%s | author=%s | window=%d | chain=%d",
+                "source=%s | anchor=%s | author=%s | window=%d | chain=%d | "
+                "target_irrelevant=%s",
                 message.chat.id, target.message_id, probe.claim.source,
                 probe.claim.tg_message_id, probe.claim.author,
-                probe.window_messages, probe.chain_len)
+                probe.window_messages, probe.chain_len, irrelevant)
         else:
             await _reply(bot, message.chat.id,
                          _empty_content_phrase(publication, probe),
@@ -650,13 +678,13 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
             logger.info(
                 "[factcheck] no claim in target/context | chat=%s | target=%s "
                 "| group=%s | probed=%d | image=%s | vision_failed=%s | "
-                "pending=%s | window=%s | chain=%s",
+                "pending=%s | window=%s | chain=%s | target_irrelevant=%s",
                 message.chat.id, target.message_id,
                 publication.media_group_id, len(publication.message_ids),
                 publication.has_image, publication.media.vision_failed,
                 publication.media.image_not_analyzed,
                 None if probe is None else probe.window_messages,
-                None if probe is None else probe.chain_len)
+                None if probe is None else probe.chain_len, irrelevant)
             return
     forward_source = None
     if getattr(target, "forward_origin", None) is not None:
@@ -737,6 +765,10 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                     target_tg_message_id=target.message_id,
                     trigger_message_id=message.message_id,
                     claim_text=target_text, user_hint=user_hint)
+            # Review fix: описание изображения — контекст, не тезис.
+            media_context = publication.material_context()
+            if media_context:
+                chat_context = f"{chat_context}\n\n{media_context}".strip()
             # CFG-06 W2 (06B.3/06J.3): короткая реплика без поиска —
             # без кеш-записи (идемпотентность 59.2 сохранена).
             if gate_decision is not None \

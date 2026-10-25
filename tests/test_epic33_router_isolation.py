@@ -27,7 +27,11 @@ from handlers.search import search_router, setup_search
 from handlers.summary import setup_summary, summary_observer_router
 from services import media_group_buffer as mgb_mod
 from services.database import DatabaseService
-from services.smartmodule_phrases import FACTCHECK_EMPTY_CONTEXT_PHRASES
+from services.smartmodule_phrases import (
+    FACTCHECK_EMPTY_CONTEXT_PHRASES,
+    FACTCHECK_IMAGE_PENDING_PHRASES,
+    FACTCHECK_MEDIA_ERROR_PHRASES,
+)
 from services.summary_aliases import AliasResolver
 
 CHAT_ID = -1001234567890
@@ -56,7 +60,9 @@ def integration_cleanup():
     summary_mod._aliases = None
     summary_mod._bot_id = None
     factcheck_mod._service = None
-    factcheck_mod._cooldown._last.clear()
+    last = getattr(factcheck_mod._cooldown, "_last", None)
+    if last is not None:
+        last.clear()
     search_mod._service = None
     search_mod._cooldown._last.clear()
     common_mod._relay = None
@@ -188,6 +194,7 @@ class TestRouterIsolation:
         """#17: пачка альбома из 3 фото (caption на 1-м) → reply «фактчек» на 3-е
         → ровно 1 ответ, check_claim с caption, reply_to_message_id == 3-го фото."""
         dp, bot, db, relay, _, factcheck_service = env
+        setup_factcheck(factcheck_service, db)
         await dp.feed_update(bot, Update(update_id=10, message=_make_photo_message(
             2, "текст новости", message_id=70, media_group_id="album-1")))
         await dp.feed_update(bot, Update(update_id=11, message=_make_photo_message(
@@ -201,18 +208,28 @@ class TestRouterIsolation:
 
         assert bot.send_message.await_count == 1          # ровно 1 ответ
         sent = bot.send_message.await_args
-        assert sent.args[1] == "вердикт: пиздеж"
+        assert sent.args[1].startswith("вердикт: пиздеж")
+        # Review fix: без Vision-анализов ответ несёт честную оговорку,
+        # а не тихую «полную проверку изображений».
+        assert ("не удалось прочитать" in sent.args[1]
+                or "не распознана" in sent.args[1]
+                or "распознавание" in sent.args[1])
         assert sent.kwargs["reply_to_message_id"] == 72   # target = 3-е фото
-        factcheck_service.check_claim.assert_awaited_once_with(
-            "текст новости", None, None, chat_id=CHAT_ID, chat_context=None
-        )
+        call = factcheck_service.check_claim.await_args
+        assert call.args[0] == "текст новости"
+        assert call.kwargs["chat_id"] == CHAT_ID
+        # wide default ON: caption/цепочка идут контекстом, не доказательствами
+        assert call.kwargs["chat_context"]
+        assert "<chat_context" in call.kwargs["chat_context"]
         relay.send_common.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_album_without_caption_goes_empty_context_full_pipeline(self, env):
-        """#18: caption пуст у ВСЕХ элементов → 5.3 (empty-context фраза),
-        check_claim не вызван."""
+    async def test_album_without_caption_is_not_empty_context(self, env):
+        """#18 (review fix): caption пуст у ВСЕХ элементов, в БД нет Vision-
+        активов → честная техническая фраза, НЕ «пусто»; check_claim не вызван.
+        Старый контракт «альбом без подписи = пусто» противоречит источнику."""
         dp, bot, db, relay, _, factcheck_service = env
+        setup_factcheck(factcheck_service, db)
         await dp.feed_update(bot, Update(update_id=20, message=_make_photo_message(
             2, None, message_id=70, media_group_id="album-2")))
         await dp.feed_update(bot, Update(update_id=21, message=_make_photo_message(
@@ -224,6 +241,8 @@ class TestRouterIsolation:
 
         assert bot.send_message.await_count == 1
         sent = bot.send_message.await_args
-        assert sent.args[1] in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        assert sent.args[1] not in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        assert sent.args[1] in (FACTCHECK_MEDIA_ERROR_PHRASES
+                                + FACTCHECK_IMAGE_PENDING_PHRASES)
         assert sent.kwargs["reply_to_message_id"] == 71
         factcheck_service.check_claim.assert_not_called()

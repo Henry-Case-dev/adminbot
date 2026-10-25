@@ -58,12 +58,22 @@ class TestMediaGroupBuffer:
         record_media_group_message(_make_msg(caption=None, message_id=11))
         assert get_media_group_caption("mg1") == "текст новости"
 
-    def test_album_without_caption_not_stored(self, fake_time):
-        """#3: альбом без caption вообще → get == None, буфер пуст."""
+    def test_album_without_caption_tracked_but_no_caption(self, fake_time):
+        """#3: альбом без caption → caption None, но id элементов известны
+        (review fix: нужно для честной оценки полноты durable-альбома)."""
         record_media_group_message(_make_msg(caption=None, message_id=10))
         record_media_group_message(_make_msg(caption="   ", message_id=11))
         assert get_media_group_caption("mg1") is None
-        assert len(mgb_mod._buffer) == 0
+        assert len(mgb_mod._buffer) == 1
+        assert mgb_mod.get_media_group_ids("mg1") == (10, 11)
+
+    def test_ids_collected_for_all_elements(self, fake_time):
+        record_media_group_message(_make_msg(caption="текст", message_id=10))
+        record_media_group_message(_make_msg(caption=None, message_id=12))
+        record_media_group_message(_make_msg(caption=None, message_id=11))
+        assert mgb_mod.get_media_group_ids("mg1") == (10, 11, 12)
+        fake_time["now"] += TTL_SECONDS + 1
+        assert mgb_mod.get_media_group_ids("mg1") is None
 
     def test_ttl_expiry_lazy_eviction(self, fake_time):
         """#4: TTL: fake-monotonic +61с → get == None, запись удалена (ленивая эвикция)."""

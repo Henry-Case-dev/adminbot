@@ -85,6 +85,16 @@ class FakeDb:
         return list(self.around_rows[-int(limit):]) if limit else []
 
 
+class _NullCache:
+    """Не кеширует (локальный аналог wide-context двойника)."""
+
+    async def get_update_marker(self, key, *, ttl_seconds):
+        return None
+
+    async def set_update_marker(self, key, payload, *, ttl_seconds):
+        return None
+
+
 def _row(tg, *, caption=None, text=None, media_type="photo", mgid=ALBUM_ID,
          forward_source=None, origin_display_name=None, reply_to_id=None):
     return {
@@ -556,8 +566,8 @@ class TestMediaFailureSemantics:
     @pytest.mark.asyncio
     async def test_image_without_verifiable_claim_checks_context(
             self, handler_env, monkeypatch):
-        """Уточнение №2: «на картинке нет тезиса» ещё не приговор —
-        окружение проверено, и отказ называет окно."""
+        """Review fix: описание модели — не тезис. Нет подписи/OCR (и тезиса
+        в окружении) → честная фраза «нет проверяемого утверждения»."""
         monkeypatch.setattr(mca_vision, "render_media_context_async",
                             _render({77: _analysis()}))
         service = _service()
@@ -569,14 +579,8 @@ class TestMediaFailureSemantics:
         await _run(handler_env, service, db, target)
         service.check_claim.assert_not_awaited()
         phrase = _reply_text(handler_env)
-        candidates = [p.format(scope="цель с изображением",
-                               scope_of="цели с изображением",
-                               window=len(window))
-                      for p in FACTCHECK_CONTEXT_EMPTY_PHRASES]
-        assert phrase in candidates
+        assert phrase in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
         assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
-        assert phrase not in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
-        assert str(len(window)) in phrase
 
     @pytest.mark.asyncio
     async def test_image_pending_is_honest_pending(self, handler_env,
@@ -649,11 +653,7 @@ class TestMediaFailureSemantics:
         service.check_claim.assert_not_awaited()
         phrase = _reply_text(handler_env)
         assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
-        candidates = [p.format(scope="цель с изображением",
-                               scope_of="цели с изображением",
-                               window=len(window))
-                      for p in FACTCHECK_CONTEXT_EMPTY_PHRASES]
-        assert phrase in candidates
+        assert phrase in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
 
 
 # ── 15. Текст и изображения, которые его не подтверждают ────────────────────
@@ -775,6 +775,8 @@ class TestOwnerClarification2026_10_25:
         assert calls == [200, 201, 202, 203]      # все изображения поста
         assert ("reply", CHAT_ID, 200) in db.calls
         assert handler_env.send_chunked_reply.await_args.args[3] == 200
+        # Пост-текст — не элемент группы: ложной «неполноты» быть не должно.
+        assert "прочитаны не полностью" not in _sent_text(handler_env)
 
     @pytest.mark.asyncio
     async def test_post_text_as_separate_message_next_to_album(
@@ -1025,6 +1027,248 @@ class TestOwnerClarification2ContextWindow:
             trigger_tg_message_id=11,
             cache=handler_env.get_smart_cache())
         assert probe is not None and probe.claim is not None
+
+
+# ── Review fixes (25.10.2026): 6 блокеров ───────────────────────────────────
+
+class TestReviewFixes2026_10_25:
+    @pytest.mark.asyncio
+    async def test_all_album_images_survive_per_element_budget(
+            self, handler_env, monkeypatch):
+        """(1) 10 фото × ~400 симв. OCR — все маркеры в тезисе, без обрезки."""
+        ids = list(range(101, 111))
+        payloads = {
+            tid: _analysis(ocr=[f"FOTO{idx} " + "x" * 395],
+                           desc=[f"описание {idx}"] if idx == 10 else [])
+            for idx, tid in enumerate(ids, start=1)}
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render(payloads))
+        service = _service()
+        rows = [_row(tid, caption="Подпись публикации" if tid == 101 else None,
+                     mgid="album-big") for tid in ids]
+        db = FakeDb(rows_by_tg={r["tg_message_id"]: r for r in rows},
+                    group_rows={"album-big": rows})
+        target = _make_msg(message_id=ids[8], media_group_id="album-big",
+                           photo=[object()])
+        await _run(handler_env, service, db, target)
+        claim = _claim_text(service)
+        for idx in range(1, 11):
+            assert f"FOTO{idx}" in claim
+        assert "описание 10" in claim
+        assert "обрезан" not in _sent_text(handler_env)
+
+    @pytest.mark.asyncio
+    async def test_overlong_image_is_flagged_with_notice(self, handler_env,
+                                                         monkeypatch):
+        """(1) Неизбежная обрезка элемента — флаг + честная оговорка."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({77: _analysis(ocr=["X" * 5000])}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, caption="Подпись", mgid=None)})
+        target = _make_msg(message_id=77, photo=[object()])
+        await _run(handler_env, service, db, target)
+        assert "Текст части изображений обрезан по лимиту" in _sent_text(
+            handler_env)
+
+    @pytest.mark.asyncio
+    async def test_missing_durable_row_is_partial_via_buffer(
+            self, handler_env, monkeypatch):
+        """(2) 3 элемента в буфере, durable-строка 72 потеряна → оговорка."""
+        from services import media_group_buffer as mgb
+
+        mgb._buffer.clear()
+        try:
+            for tid, cap in ((71, "Подпись публикации"), (72, None),
+                             (73, None)):
+                mgb.record_media_group_message(_make_msg(
+                    caption=cap, message_id=tid,
+                    media_group_id="album-gap"))
+            monkeypatch.setattr(mca_vision, "render_media_context_async",
+                                _render({71: _analysis(ocr=["фото 1"]),
+                                         73: _analysis(ocr=["фото 3"])}))
+            service = _service()
+            rows = [_row(71, caption="Подпись публикации",
+                         mgid="album-gap"), _row(73, mgid="album-gap")]
+            db = FakeDb(rows_by_tg={71: rows[0], 73: rows[1]},
+                        group_rows={"album-gap": rows})
+            target = _make_msg(message_id=73, media_group_id="album-gap",
+                               photo=[object()])
+            await _run(handler_env, service, db, target)
+            claim = _claim_text(service)
+            assert "Подпись публикации" in claim and "фото 1" in claim
+            assert "прочитаны не полностью" in _sent_text(handler_env)
+        finally:
+            mgb._buffer.clear()
+
+    @pytest.mark.asyncio
+    async def test_missing_row_detected_by_id_gap_without_buffer(
+            self, handler_env, monkeypatch):
+        """(2) Буфер пуст (рестарт), но id 71/73 с разрывом → оговорка."""
+        from services import media_group_buffer as mgb
+
+        mgb._buffer.clear()
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({71: _analysis(ocr=["фото 1"]),
+                                     73: _analysis(ocr=["фото 3"])}))
+        service = _service()
+        rows = [_row(71, caption="Подпись публикации", mgid="album-gap2"),
+                _row(73, mgid="album-gap2")]
+        db = FakeDb(rows_by_tg={71: rows[0], 73: rows[1]},
+                    group_rows={"album-gap2": rows})
+        target = _make_msg(message_id=73, media_group_id="album-gap2",
+                           photo=[object()])
+        await _run(handler_env, service, db, target)
+        assert "прочитаны не полностью" in _sent_text(handler_env)
+
+    @pytest.mark.asyncio
+    async def test_missing_target_row_is_partial(self, handler_env,
+                                                 monkeypatch):
+        """(2) Цель-элемент отсутствует в durable-строках → оговорка."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({71: _analysis(ocr=["фото 1"]),
+                                     73: _analysis(ocr=["фото 3"])}))
+        service = _service()
+        rows = [_row(71, caption="Подпись публикации", mgid="album-tmiss"),
+                _row(73, mgid="album-tmiss")]
+        db = FakeDb(rows_by_tg={71: rows[0], 73: rows[1]},
+                    group_rows={"album-tmiss": rows})
+        target = _make_msg(message_id=72, media_group_id="album-tmiss",
+                           photo=[object()])
+        await _run(handler_env, service, db, target)
+        assert "Подпись публикации" in _claim_text(service)
+        assert "прочитаны не полностью" in _sent_text(handler_env)
+
+    @pytest.mark.asyncio
+    async def test_single_durable_row_for_group_is_partial(self, handler_env,
+                                                           monkeypatch):
+        """(2) В группе Telegram ≥2 элемента, а durable-строка одна → оговорка."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({71: _analysis(ocr=["фото 1"])}))
+        service = _service()
+        rows = [_row(71, caption="Подпись публикации", mgid="album-one")]
+        db = FakeDb(rows_by_tg={71: rows[0]},
+                    group_rows={"album-one": rows})
+        target = _make_msg(message_id=71, media_group_id="album-one",
+                           photo=[object()])
+        await _run(handler_env, service, db, target)
+        assert "прочитаны не полностью" in _sent_text(handler_env)
+
+    @pytest.mark.asyncio
+    async def test_description_without_ocr_is_not_a_claim(self, handler_env,
+                                                          monkeypatch):
+        """(3) Описание модели без OCR — контекст, не тезис."""
+        monkeypatch.setattr(
+            mca_vision, "render_media_context_async",
+            _render({77: _analysis(desc=["на фото мужчина на мосту"])}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, mgid=None)})
+        target = _make_msg(message_id=77, photo=[object()])
+        await _run(handler_env, service, db, target)
+        service.check_claim.assert_not_awaited()
+        assert _reply_text(handler_env) in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
+
+    @pytest.mark.asyncio
+    async def test_description_with_caption_is_context_not_claim(
+            self, handler_env, monkeypatch):
+        """(3) При подписи описание идёт контекстом, а не в тезис."""
+        caption = "Мост обрушился вчера"
+        monkeypatch.setattr(
+            mca_vision, "render_media_context_async",
+            _render({77: _analysis(caption=caption,
+                                   desc=["на фото мужчина на мосту"])}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, caption=caption, mgid=None)})
+        target = _make_msg(caption=caption, message_id=77, photo=[object()])
+        await _run(handler_env, service, db, target)
+        claim = _claim_text(service)
+        assert claim == caption
+        assert "на фото мужчина" not in claim
+        chat_context = service.check_claim.await_args.kwargs.get("chat_context")
+        assert chat_context and "на фото мужчина" in chat_context
+        assert "НЕ доказательства" in chat_context
+
+    @pytest.mark.asyncio
+    async def test_short_claim_in_previous_message(self, handler_env,
+                                                   monkeypatch):
+        """(5) «Мост обрушился вчера» — проверяемый тезис, не отказ."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=[_win(76, "Мост обрушился вчера")])
+        target = _make_msg(message_id=77)
+        await _run(handler_env, service, db, target)
+        assert _claim_text(service) == "Мост обрушился вчера"
+
+    @pytest.mark.asyncio
+    async def test_numeric_short_claim_in_window(self, handler_env,
+                                                 monkeypatch):
+        """(5) «Курс 95» — числовой тезис, не отказ."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=[_win(76, "Курс 95")])
+        target = _make_msg(message_id=77)
+        await _run(handler_env, service, db, target)
+        assert _claim_text(service) == "Курс 95"
+
+    def test_claim_like_predicate_recall_and_fillers(self):
+        from services.factcheck_suitability import (
+            _claim_like_text,
+            is_conservatively_irrelevant,
+        )
+        assert _claim_like_text("Мост обрушился вчера") is True
+        assert _claim_like_text("Курс 95") is True
+        assert _claim_like_text("12.10.2026") is True
+        for filler in ("ага", "ну такое", "лол", "🙂", "+++"):
+            assert _claim_like_text(filler) is False
+            assert is_conservatively_irrelevant(filler) is True
+        assert is_conservatively_irrelevant("Мост обрушился вчера") is False
+        assert is_conservatively_irrelevant("Земля плоская") is False
+
+    @pytest.mark.asyncio
+    async def test_irrelevant_target_uses_previous_claim(self, handler_env,
+                                                         monkeypatch):
+        """(6) Цель «лол» → probe, тезис из предыдущего сообщения."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, text="лол", media_type="text",
+                                         mgid=None)},
+                    around_rows=[_win(76, "Мост обрушился вчера")])
+        target = _make_msg(text="лол", message_id=77)
+        await _run(handler_env, service, db, target)
+        assert _claim_text(service) == "Мост обрушился вчера"
+        assert _claim_text(service) != "лол"
+        handler_env.send_chunked_reply.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_reply_parent_outside_window_in_wide_feed(
+            self, handler_env, monkeypatch):
+        """(6) Родитель старше окна попадает в фид через reply-цепочку."""
+        from services import factcheck_context as fcx
+
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        monkeypatch.setattr("services.smart_cache.get_smart_cache",
+                            lambda: _NullCache())
+        service = _service()
+        db = FakeDb(rows_by_tg={
+            77: _row(77, text="цель с текстом", media_type="text",
+                     mgid=None, reply_to_id=70),
+            70: _row(70, text="родитель вне окна: объект сдан 12.10.2026",
+                     media_type="text", mgid=None),
+        }, around_rows=[])
+        handler_env.setup_factcheck(service, db)
+        monkeypatch.setattr(fcx, "wide_context_enabled", lambda: True)
+        feed = await handler_env._fetch_chat_context(
+            CHAT_ID, 6, 6, target_tg_message_id=77, trigger_message_id=78,
+            claim_text="цель с текстом")
+        assert "<reply_chains" in feed
+        assert "родитель вне окна" in feed
 
 
 class TestDurableAlbumStorage:

@@ -604,7 +604,12 @@ async def build_factcheck_context(db, chat_id: int, *,
                                   cache=None) -> str:
     """Готовый фид для user-content (тот же контракт, что узкое окно:
     ``<chat_context>…</chat_context>`` или '' при пустом срезе/ошибке).
-    ``cache=None`` → ленивый SmartCache-синглтон (no-op при выключенном)."""
+    ``cache=None`` → ленивый SmartCache-синглтон (no-op при выключенном).
+
+    Review fix (25.10.2026): широкий фид ДОПОЛНЯЕТСЯ reply-цепочкой
+    (существующий ``collect_thread_chain`` + ``render_reply_chains``) — родитель
+    старше окна 255 сообщений больше не теряется. Цепочка — контекст, не
+    доказательства (её собственный wrapper)."""
     if cache is None:
         try:
             from services.smart_cache import get_smart_cache
@@ -619,7 +624,23 @@ async def build_factcheck_context(db, chat_id: int, *,
     except Exception:
         logger.warning("[factcheck_context] wide context build failed | "
                        "chat=%s", chat_id, exc_info=True)
-        return ""
-    if ctx is None:
-        return ""
-    return ctx.render_feed()
+        ctx = None
+    feed = ctx.render_feed() if ctx is not None else ""
+    chain_block = ""
+    if db is not None and target_tg_message_id not in (None, "", 0):
+        try:
+            from services import hot_config as hot
+            from services.thread_chain import (collect_thread_chain,
+                                               render_reply_chains)
+            depth = hot.get("limits.chat_thread_max_depth",
+                            getattr(settings, "CHAT_THREAD_MAX_DEPTH", 6))
+            chain = await collect_thread_chain(
+                db, int(chat_id), int(target_tg_message_id),
+                int(depth or 0))
+            chain_block = render_reply_chains(chain, trigger_message_id)
+        except Exception:
+            logger.warning("[factcheck_context] reply chain failed | chat=%s",
+                           chat_id, exc_info=True)
+    if chain_block:
+        feed = f"{feed}\n\n{chain_block}".strip()
+    return feed

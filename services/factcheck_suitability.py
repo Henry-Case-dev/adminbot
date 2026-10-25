@@ -372,8 +372,23 @@ def _replied_tg(ctx: ConversationContext) -> int | None:
 # сообщений (W1), и только потом возможен честный отказ с указанием, что
 # именно проверено. Новых механизмов нет: reuse W1 ContextMessage + предикат.
 
-_CONTEXT_CLAIM_MIN_CHARS = 8
-_CONTEXT_CLAIM_MIN_TOKENS = 6
+_CONTEXT_CLAIM_MIN_CHARS = 4
+_CONTEXT_CLAIM_MIN_TOKENS = 2
+# Review fix (25.10.2026): recall-ориентированный структурный предикат для
+# контекстного probe. Глагольные формы (в т.ч. возвратные) — достаточный
+# признак утверждения: «Мост обрушился вчера» не должен теряться из-за
+# длины/словаря. Числа/даты — значимы независимо от длины («Курс 95»).
+_VERB_FORM_RE = re.compile(
+    r"(?:л|ла|ло|ли|лся|лась|лось|лись|ет|ют|ит|ат|ят|"
+    r"ется|ются|ует|ирует|ал|ял|ил|ел)\b", re.IGNORECASE)
+_COMMAND_TEXT_RE = re.compile(r"^\s*фактчек\b", re.IGNORECASE)
+# Реакции/филлеры — НЕ повод для фактчека (консервативный список).
+_FILLER_WORDS = frozenset({
+    "лол", "ага", "угу", "ок", "ok", "ну", "такое", "ясно", "понятно",
+    "хм", "хз", "да", "нет", "конечно", "пф", "хех", "ахах", "кек",
+    "норм", "бывает", "серьезно", "серьёзно", "ааа", "ооо",
+})
+_WORD_TOKEN_RE = re.compile(r"[0-9a-zа-яё]+", re.IGNORECASE)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -397,19 +412,51 @@ class ContextProbe:
 
 
 def _claim_like_text(text: str) -> bool:
-    """Структурный признак проверяемого утверждения (тот же предикат W2)."""
+    """Структурный признак проверяемого утверждения (recall-ориентированный).
+
+    Review fix (25.10.2026): не терять короткие факты.
+    * числа/даты — значимы независимо от длины («Курс 95», «12.10.2026»);
+    * предикат W2 (лексика/копула/цитата) — как раньше;
+    * глагольная форма + ≥2 содержательных токена («Мост обрушился вчера»).
+    Без LLM-классификатора. Филлеры («ага», «ну такое») отсекаются отдельно
+    в ``is_conservatively_irrelevant``.
+    """
     clean = str(text or "").strip()
     if len(clean) < _CONTEXT_CLAIM_MIN_CHARS:
         return False
-    return (_has_predicate(clean)
-            or len(tokenize_for_relevance(clean)) >= _CONTEXT_CLAIM_MIN_TOKENS)
+    if re.search(r"\d", clean):
+        return True
+    if _has_predicate(clean):
+        return True
+    if len(tokenize_for_relevance(clean)) < _CONTEXT_CLAIM_MIN_TOKENS:
+        return False
+    return bool(_VERB_FORM_RE.search(clean))
+
+
+def is_conservatively_irrelevant(text: str) -> bool:
+    """Консервативно нерелевантная непустая цель («лол», «ага», эмодзи).
+
+    Только явные филлеры/реакции (≤24 симв., без цифр, не claim-like):
+    такой текст — повод проверить окружение, а не тезис. Всё остальное
+    (даже короткое) считается материалом и идёт обычным путём."""
+    clean = str(text or "").strip()
+    if not clean:
+        return True
+    if len(clean) > 24 or re.search(r"\d", clean):
+        return False
+    if _claim_like_text(clean):
+        return False
+    words = _WORD_TOKEN_RE.findall(clean.lower())
+    if not words:
+        return True                  # только эмодзи/пунктуация
+    return all(word in _FILLER_WORDS for word in words)
 
 
 def find_context_claim(ctx: ConversationContext | None, *,
                        trigger_tg_message_id=None) -> ContextClaim | None:
     """Ближайший к цели тезис в окне (детерминированно, без LLM).
 
-    Цель и сообщение-триггер («фактчек …») исключаются: команда — не
+    Цель и сообщения-команды «фактчек …» исключаются: команда — не
     публикация. Расстояние — по ``tg_message_id``; при равенстве выбирается
     более раннее сообщение. Текст подписи доступен в окне (W1 caption-фикс)."""
     if ctx is None or not ctx.messages:
@@ -419,6 +466,7 @@ def find_context_claim(ctx: ConversationContext | None, *,
                   if str(m.text or "").strip()
                   and m.tg_message_id != target
                   and m.tg_message_id != trigger_tg_message_id
+                  and not _COMMAND_TEXT_RE.match(str(m.text or ""))
                   and _claim_like_text(m.text)]
     if not candidates:
         return None
@@ -480,6 +528,8 @@ async def resolve_context_claim(
             for item in chain:               # от текущего (родителя) к корню
                 if item.is_bot:
                     continue                 # ответы бота — не тезис
+                if _COMMAND_TEXT_RE.match(str(item.text or "")):
+                    continue                 # «фактчек …» — команда, не тезис
                 if _claim_like_text(item.text):
                     chain_claim = ContextClaim(
                         text=str(item.text).strip(), source="reply_to",

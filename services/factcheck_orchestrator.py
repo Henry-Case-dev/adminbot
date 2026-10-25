@@ -416,6 +416,9 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         target_tg_message_id=req.target_tg_message_id,
         trigger_tg_message_id=req.trigger_tg_message_id, cache=cache)
     feed = ctx.render_feed() if ctx is not None else ""
+    media_context = publication.material_context()
+    if media_context:
+        feed = f"{feed}\n\n{media_context}".strip()
 
     # 3. Gate-маршруты ДО платного поиска (06B.1/06J.3).
     scope = decision.scope if decision is not None else "web"
