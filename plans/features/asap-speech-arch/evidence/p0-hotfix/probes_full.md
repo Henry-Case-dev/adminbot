@@ -1,106 +1,178 @@
-# P0 HOTFIX — full production-context probe (LANE FULL-PRODUCTION-PROBE, 2-й бюджет)
+# P0 HOTFIX — full production-context probe (LANE FULL-L2-MATRIX)
 
-Статус: **BLOCKED (неполный прогон).** Реальный L1 Planner выполнен только для
-old/A; L2 Writer (8 raw) и 9 проверок §5 не выполнены: единственный разрешённый
-SSH-сеанс оборвался по транспорту во время матрицы. Ничего не выдаётся за
-VERIFIED, deploy не выполнялся.
+Статус: **L2-матрица выполнена полностью** — 4 процесса (old/new × A/B), по 1
+реальному L1-плану и 2 реальным L2-ответам на каждый, всего **8 raw**, все rc=0,
+один SSH-сеанс, транспорт не упал. **Payload-плечо фикса (1×/0 точных
+analysis-текстов) этим прогоном НЕ проверено** и VERIFIED по нему не
+заявляется — причина в §4.1. Deploy не выполнялся.
 
-## 1. Что реально выполнено и чем подтверждено
+## 1. Что и как выполнено
 
-Инструмент: `probes_full/harness_probe_full.py` (запускается на сервере, импортирует
-код варианта; PG — read-only пул, SQLite — `mode=ro`; учёт usage и события
-заглушены, чтобы не писать в БД). Smoke-прогон: `--root /var/www/admin_bot
---label old --case A --skip-l2`.
-
-Реальные источники, прочитанные этим прогоном:
-
-| Слой | Факт | Значение |
-|---|---|---|
-| PG | `SHOW transaction_read_only` | `on` |
-| PG | ключей в `bot_settings` | 537 (значения не выгружались и не печатались) |
-| PG | per-chat overrides | 6 ключей |
-| PG | **источник Personality Core** | `bot_settings['character.core']` через `hot_config` → `prompt_composer.resolve_core_ref`; это НЕ отдельная таблица документов в `public` |
-| SQLite | окно чата | 64 сообщения |
-| SQLite | `graph_facts` | 40 строк |
-| SQLite | `lore_stories` | 2 строки |
-| SQLite | `mca_lessons` | 2 строки |
-| SQLite | `chat_running_summary` | 1117 симв., sha12 `ec7a5231c9ba` |
-| Prompt | база канала | 3081 симв., sha12 `83ff62bbee40`, source `global` |
-
-## 2. Реальный system (old/A) по слоям композера
-
-`system` = **13937** симв., sha12 `8c2c7edc3ee6`.
-
-| Слой | Симв. | Статус |
-|---|---|---|
-| channel_contract | 3081 | rendered |
-| **core** | **2507** | rendered (старый вариант) |
-| identity (persona) | 5048 | rendered |
-| context_lessons (lessons) | 141 | rendered |
-| response_plan (extent) | 141 | rendered |
-| expression | 1016 | rendered |
-| style_policy_hint | 980 | rendered |
-| self_model_traits | 0 | `self_model_folded_into_identity` |
-| speech_understanding | 0 | `speech_absent` |
-| humor_craft | 0 | `humor_no_strategy` |
-| few_shot (expression examples) | 0 | `expression_examples_absent` |
-| few_shot (samples) | 0 | `samples_absent` |
-| channel_output | 0 | `channel_output_not_required` |
-
-Отсюда честная граница: **13937 против 19–20k в проде**. Разница — слои, которым
-нужен живой сервисный резолв с БД-объектом (`mca_sample_library`, expression
-examples, speech, досье), а не только тексты. Это ограничение одинаково для old и
-new, поэтому сравнение изменённых инструкций остаётся валидным, но «system
-сопоставим по объёму с продом» утверждать нельзя.
-
-## 3. Реальный L1 Planner (old, кейс A) — выполнен
-
-- вход: system 8261 (`6c2ddc17c998`), контекст 2935 (`8a338ae33b60`),
-  `l1_temperature` из конфига; 3.5 s; JSON распарсен.
-- план: `action=reply`, `response_act=banter`, `extent=compact`,
-  `structure=chat`, `tone=playful`, `confidence=0.95` (high), `source=llm`.
-
-**Это важная находка.** Для A трасса показывала маршрут serious/research/normal, а
-реальный L1 на том же вопросе и окне решает «banter / compact / chat». Значит:
-1) восстановленный из трассы маршрут нельзя использовать как «план L1»;
-2) для A новая analysis-директива по предикату `analysis_directive_needed` в
-нормальном случае **не должна включаться** — сравнение 1×/0 нужно делать на том
-плане, который реально отдаёт L1, иначе проверка измеряет не тот путь.
-
-## 4. Что не выполнено
-
-- L2 Writer: 0 из 8 raw (2 повтора × A/B × old/new). Процессы не стартовали.
-- Полные `system`/`user` длины и sha12 для new/A, old/B, new/B; счётчики exact
-  analysis 1×/0; `MODE_DEEP_RESEARCH_BLOCK`; Core 1246/2507 по вариантам.
-- 9 пунктов §5 цитатами.
-- Self-echo на `graph_facts.id=21255` / `lore_stories.id=4` исправленным кодом.
-
-Причина: SSH-транспорт оборвался (`SSH session not active`) на этапе матрицы;
-единственный разрешённый сеанс израсходован. Данные и staging на сервере живы:
-`/tmp/p0-full-new` (new `9650e099`), `/var/www/admin_bot` (old `534ac7dd`),
-`/tmp/p0-probe/probe_full.py`, `/tmp/p0_old_A_smoke.json`.
-
-## 5. Точный следующий шаг (механический)
+- Дата: **2026-10-25 01:30–01:33 UTC** (локально 13:30–13:33, UTC+12).
+- Один SSH-сеанс, логин одиночный, без ретраев; вывод целиком —
+  `probes_full/run_full_session.txt`.
+- `old` = `/var/www/admin_bot` (git `534ac7dd`, релиз 2.58.130),
+  `new` = `/tmp/p0-full-new` (staging new-варианта `9650e099`).
+- Python — venv прода `/var/www/admin_bot/venv/bin/python`; модель
+  `deepseek-v4-flash`.
+- Учёт usage/событий заглушён внутри пробника (`_record_analytics`,
+  `_record_global_usage`, `mca_events.emit_mca_event`, `usage_events.record`);
+  PG — read-only сессия (`SHOW transaction_read_only=on`), SQLite — `mode=ro`.
+  В Telegram ничего не отправлялось.
+- Staging new-дерева: отсутствующие `.env` и `local_database.db` подведены
+  симлинками на прод (сам код не менялся).
+- Команды — ровно §5 предыдущей версии этого файла:
 
 ```
-mkdir -p /tmp/p0-probe && cp -f /tmp/p0-full-new/probe_full.py /tmp/p0-probe/
-cd /tmp/p0-probe && PY=/var/www/admin_bot/venv/bin/python
-$PY probe_full.py --root /var/www/admin_bot  --label old --case A --out /tmp/raw_old_A.json
-$PY probe_full.py --root /var/www/admin_bot  --label old --case B --out /tmp/raw_old_B.json
-$PY probe_full.py --root /tmp/p0-full-new    --label new --case A --out /tmp/raw_new_A.json
-$PY probe_full.py --root /tmp/p0-full-new    --label new --case B --out /tmp/raw_new_B.json
+$PY probe_full.py --root /var/www/admin_bot --label old --case A --out /tmp/raw_old_A.json
+$PY probe_full.py --root /var/www/admin_bot --label old --case B --out /tmp/raw_old_B.json
+$PY probe_full.py --root /tmp/p0-full-new   --label new --case A --out /tmp/raw_new_A.json
+$PY probe_full.py --root /tmp/p0-full-new   --label new --case B --out /tmp/raw_new_B.json
 ```
-Каждый процесс: 1 L1 + 2 L2 (T=0.7, max_tokens=2400). Затем 9 проверок §5 по
-`l2_texts` и self-echo-проверка. Ограничения те же: read-only, без Telegram,
-`bot_settings` не выгружать.
 
-## 6. Инфраструктурные находки (для следующих лейнов)
+## 2. Реальные источники прогона (одинаковы для всех 4 процессов)
 
-1. `graph_facts`, `lore_stories`, `chat_running_summary`, `summary_runs`,
-   `mca_lessons`, `smart_messages` — SQLite, не PG (подтверждено повторно).
-2. `bot_settings` (537 ключей) содержит живые ключи провайдеров: выгружать
-   нельзя, читать только через реальные резолверы в памяти.
-3. `/tmp` заполнен на 96% (1.1 GB): полный `rsync` прод-дерева падает на
-   `backups/pre_deploy_*.db`; рабочий вариант — staging только `.py` (11.5 MB).
-4. Учёт usage/событий в пробе обязательно заглушать: иначе LLM-вызовы пишут в
-   PG (`llm_usage_events`, `mca_events`), что нарушает read-only.
+| Источник | Значение |
+|---|---|
+| PG `transaction_read_only` | `on` |
+| `bot_settings` | 537 ключей (значения не выгружались) |
+| per-chat overrides | 6 ключей |
+| SQLite окно чата | 64 сообщения |
+| `graph_facts` | 40 строк |
+| `lore_stories` | 2 строки |
+| `mca_lessons` | 2 строки |
+| `chat_running_summary` | 1117 симв. |
+| база канала | 3081 симв., sha12 `83ff62bbee40`, source `global` |
+
+## 3. Payload: что реально ушло в L2 (old/new × A/B)
+
+| Метрика | old A | new A | old B | new B |
+|---|---|---|---|---|
+| system, симв. | 13937 | 12400 | 14360 | 12823 |
+| system sha12 | `8c2c7edc3ee6` | `05046222b8f9` | `8f9956f8b3a8` | `47be05aae9cc` |
+| **слой core** | **2507** | **1246** | **2507** | **1246** |
+| identity (persona) | 5048 | 5048 | 5048 | 5048 |
+| expression | 1016 | 968 | 1016 | 968 |
+| style_policy_hint | 980 | 980 | 980 | 980 |
+| response_plan (extent) | 141 | 141 | 204 | 204 |
+| channel_output | 0 (skip) | 0 (skip) | 358 | 358 |
+| user, симв. / sha12 | 3997 / `527ffe69fd4a` | 4140 / `adde94cc5058` | 3934 / `adc9eb55ad6` | 4067 / `9c7d57e381d3` |
+| plan-блок L2 | **0** (нет функции) | 141 | **0** (нет функции) | 131 |
+| RAG-блок | 0, ошибка `KeyError: 0` | 0, ошибка `KeyError: 0` | 0 | 0 |
+| L2 #1 / #2, симв. | 340 / 745 | 516 / 659 | 628 / 1135 | 871 / 1165 |
+
+Core сокращён **2507 → 1246** (−1261 симв.) фильтром P2/P5 (коммит
+`2e3bea20`); identity/persona (5048) и style hint не изменились. Метрика
+`core_blocks=0` в raw — артефакт пробника: литерала `<Personality_Core>` в
+коде нет, Core подаётся текстом (доказательство — слой `core` в `layers`).
+
+## 4. Ограничения валидности этого прогона (важно для решения)
+
+### 4.1 Payload-плечо фикса не проверено, счётчики analysis в этом пробнике невалидны
+- Исполненный на сервере `probe_full.py` **не байт-в-байт** совпадает с
+  закоммиченным `probes_full/harness_probe_full.py`: sha256 исполненного
+  `3dcf602fa824…`, закоммиченного `d0d510da847b…`. `/tmp/p0-full-new/.git`
+  отсутствует, т.е. версию кода дерева по git подтвердить нельзя.
+- Исполненная копия не выставляла `analysis_predicate`/`include_analysis`
+  (в raw нет ключа `analysis_predicate`), т.е. plan-блок собирался **без**
+  точных analysis-текстов в обоих вариантах.
+- Счётчики `analysis_directive`/`analysis_writer` в raw считают ASCII-литерал
+  `ANALYSIS_DIRECTIVE`, которого в русских текстах нет (локальная проверка:
+  `"ANALYSIS_DIRECTIVE" in ANALYSIS_DIRECTIVE_TEXT == False`). Их «0»
+  **не означает отсутствие текстов**.
+- Локальная проверка тем же фиксированным кодом (`9650e099`): для
+  `research/detailed/report` предикат `True` и блок содержит тексты 1×1×
+  (728 симв.); для `banter/compact` и `answer/normal` — `False` (90 симв.),
+  при принудительном `include_analysis=True` — 1×1× (726). Значит фикс
+  работает на плане research, но данный прогон в этот путь не попал (см. §5).
+
+### 4.2 `old` — не только «без analysis-текстов»
+В old-варианте функций `build_l2_plan_block`/`analysis_directive_needed` нет
+вообще (`AttributeError` в `stage_errors.plan_block`), поэтому old-payload
+не содержит **всего** `<Response_Plan>`, а не только analysis-директиву.
+Дельта old→new в этом прогоне шире, чем «1×/0 текстов».
+
+### 4.3 RAG/память в payload не участвовали
+`build_rag_context` на dict-строках падает `KeyError: 0` (A) и пуст (B),
+поэтому `graph_facts`/`lore` в этих 4 payload отсутствуют. Проверки §5,
+зависящие от памяти, этим прогоном покрыты только на уровне инструкций.
+
+### 4.4 Чистота прод-дерева
+`git status --porcelain` на `/var/www/admin_bot` в момент прогона: **13
+изменённых путей**. Какие именно — в этом сеансе не снималось; если среди них
+есть `services/*.py`, old-плечо исполняло не ровно `534ac7dd`. Закрывается
+одним `git status --porcelain` в следующем сеансе.
+
+## 5. Реальные L1-планы (не из трассы)
+
+| Кейс | action | response_act | extent | structure | tone | confidence | mode | t, s |
+|---|---|---|---|---|---|---|---|---|
+| old A | reply | answer | normal | answer | neutral | 0.90 | casual | 3.6 |
+| new A | reply | emotional_reply | compact | chat | playful | 0.85 | casual | 2.3 |
+| old B | reply | other | auto | chat | neutral | 0.85 | casual | 3.1 |
+| new B | reply | banter | compact | chat | playful | 0.85 | casual | 3.8 |
+
+Вывод: **ни один из двух реальных вопросов не уходит в research/deep_research
+по решению L1** — оба плана casual/compact. Поэтому нормальный путь
+`analysis_directive_needed=True` на этих сообщениях не включается, и
+сравнение 1×/0 на них физически не могло получиться. Это же объясняет, почему
+new-payload не содержит analysis-текстов при исправном коде.
+
+## 6. Девять проверок §5 источника — с цитатами
+
+| # | Проверка (source §5, :265–273) | old | new | Итог |
+|---|---|---|---|---|
+| 1 | Прямой ответ без обязательного многословного вступления | A#1 «Да бля, ну ты серьёзно?»; B#1 «Давай, я проанализирую твои сообщения в этом чате.» | A#1 «Ой бля, ну ты реально хочешь, чтобы я тебе тут досье развернул…»; B#1 «Ринтаро, ты хочешь, чтобы я проанализировал твои сообщения и сказал, злобный ли ты?»; B#2 «Ринтаро, ну ты даёшь. Серьёзно, хочешь досье на самого себя?» | **PARTIAL**: в B метавступление осталось, но короче и без прежнего «Ладно, брат, давай по-честному…»; вердикт в 1–2-м абзаце |
+| 2 | Нет навязанной структуры психологического эссе | B#1: «Во-первых… Во-вторых… В-третьих…», 5 абзацев | B#1: 3 абзаца без нумерации; B#2: 5 абзацев со схемой «конёк → тон → единственный раз»; markdown-заголовков 0 во всех 8 | **PARTIAL** (лучше, но разбор B#2 всё ещё структурный портрет) |
+| 3 | Нет искусственной драматургии | 0 маркеров (сцена/драма/кульминация/«в далёком») | 0 | **PASS** |
+| 4 | Нет неподтверждённых точных событий и цитат | дат нет; в B#2 одно упоминание месяца; цитаты — короткие пересказы чата (`«пиздато стелит»`, `"старьё"`) | дат нет; год 0; месяц 1 в A#1 («как муха в августе» — идиома); цитат 1–4, все короткие | **PASS по дефекту**: «декабрь 2022 / мобилизация / вагнеровцы» из прод-ответа B не воспроизводятся |
+| 5 | L2 не выдаёт свои интерпретации за подтверждённую историю | self-ref маркеров 0 | self-ref 0; «[Бот]»/«я уже говорил» отсутствуют | **PASS** на уровне текста |
+| 6 | FREQUENT сохраняет естественный мат | мат есть (A 1–2 корня, B 0) | мат есть (A 2–3, B#2 5) | **NOT COVERED**: режим expression в прогоне не переключался, FREQUENT-плеча нет |
+| 7 | При явном запросе подробного анализа — подробно | B 628/1135 симв. | B 871/1165 симв. | **PASS** (B заметно подробнее A) |
+| 8 | При обычном вопросе — коротко | A 340/745 симв. | A 516/659 симв. | **PASS** (2–3 абзаца) |
+| 9 | Personality Core и индивидуальность сохранены | core 2507, identity 5048, persona-маркер есть | core **1246**, identity 5048, persona-маркер есть | **PARTIAL**: индивидуальность/persona сохранены, но owner-Core подан не полностью (−1261 симв. фильтром P2/P5). Нужно явное решение Reviewer, что сокращение Core допустимо |
+
+## 7. Self-echo на реальных строках (фиксированный код, read-only)
+
+Скрипт `probes_full/raw_full_selfecho.json` (исполнен на сервере прод-venv из
+дерева `9650e099`; `direct_chat_service.py` sha12 `e9f275008431`).
+
+**`graph_facts.id=21255`** — `origin=bot_self_reply`, `status=confirmed`
+(legacy-строка), текст «[Бот] заявил: Ринтаро — не злобный, а хаотичный
+пиздабол-шизоид…».
+- `provenance.is_self_referential_origin(origin) = True`
+- `graphrag_provenance.read_policy_rank(row) = 0`
+- строка RAG в фиксированном коде: `(не подтверждено) [Бот] заявил: Ринтаро — не злобный…`
+- `fact_visible_as_factual_rag = False`
+
+То есть прошлый ответ бота **не** попадает в фактический RAG, а при попадании
+в иной путь помечается «не подтверждено». Фикс на этой строке подтверждён.
+
+**`lore_stories.id=4`** — `story` 1660 симв., sha12 `6358c29609bb`; наибольший
+общий префикс с доставленным ответом бота `tg 1175257` (1658 симв.) = **1071
+симв.** (~65 % текста — дословно прод-ответ B). Колонок provenance
+(`origin`/`source_type`/`status`) в `lore_stories` **нет**, поэтому
+фиксированный provenance-фильтр эту строку классифицировать не может;
+legacy-лор остаётся «историей» без атрибуции. Это **отдельная находка**
+(medium): фикс закрывает self-echo в `graph_facts`/direct-RAG, но не в
+legacy-лоре.
+
+## 8. Итог
+
+Доказано этим прогоном:
+- реальные L1-планы и по 2 реальных L2-ответа на old/new × A/B (8 raw, один сеанс);
+- Core-фильтр: 2507 → 1246 при неизменных identity (5048) и style hint;
+- поведение L2: нет драматургии, нет выдуманных дат/цитат прод-ответа B,
+  нет self-echo в тексте, A короткий, B подробный (пп. 3, 4, 5, 7, 8);
+- self-echo в `graph_facts` 21255 закрыт кодом (rank 0 + метка).
+
+Не доказано (и не заявляется как VERIFIED):
+- 1×/0 точных analysis-текстов в фактическом payload: исполненный пробник их не
+  включал, а его счётчики невалидны (§4.1); реальный L1 на этих двух вопросах
+  не выбирает research/deep_research (§5). Единственное доказательство фикса
+  остаётся payload/unit-тестом `9650e099`;
+- RAG/lore в payload (§4.3) и FREQUENT-режим (п. 6);
+- версия new-дерева по git (нет `.git`) и чистота old-дерева (13 изменённых путей).
+
+Deploy не выполнялся. Решение о выпуске — за Reviewer по совокупности:
+payload-тест фикса + эта поведенческая матрица + открытые пункты выше.

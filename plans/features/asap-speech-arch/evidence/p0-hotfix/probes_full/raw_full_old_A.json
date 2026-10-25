@@ -1,0 +1,236 @@
+{
+ "label": "old",
+ "root": "/var/www/admin_bot",
+ "case": "A",
+ "chat_id": -1002661910336,
+ "stage_errors": {
+  "rag": "KeyError: 0",
+  "plan_block": "AttributeError: module 'services.direct_l1' has no attribute 'analysis_directive_needed'"
+ },
+ "sources": {
+  "pg_read_only": "on",
+  "settings_keys": 537,
+  "chat_param_keys": 6,
+  "window_messages": 64,
+  "graph_facts_rows": 40,
+  "lore_stories_rows": 2,
+  "mca_lessons_rows": 2
+ },
+ "persona_pool": "injected",
+ "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+ "identity_block_chars": 5048,
+ "l2_summary": {
+  "chars": 1117,
+  "sha12": "ec7a5231c9ba",
+  "runs": [
+   {
+    "created_at": "1792890003",
+    "updated_at": "1792890737"
+   },
+   {
+    "created_at": "1792868401",
+    "updated_at": "1792869264"
+   },
+   {
+    "created_at": "1792846800",
+    "updated_at": "1792847592"
+   },
+   {
+    "created_at": "1792825205",
+    "updated_at": "1792825804"
+   }
+  ],
+  "levels": 0
+ },
+ "rag_block_chars": 0,
+ "lessons_block_chars": 141,
+ "base_prompt": {
+  "chars": 3081,
+  "sha12": "83ff62bbee40",
+  "source": "global"
+ },
+ "gates": {
+  "unified_composer_enabled": true,
+  "character_core_enabled": true,
+  "persona_enabled": true,
+  "character_layers_enabled": true,
+  "smart_verbalizer_modes_enabled": true,
+  "expression_examples_enabled": true,
+  "humor_library_enabled": true,
+  "humor_craft_enabled": true
+ },
+ "layers": [
+  {
+   "layer": "channel_contract",
+   "block_id": "channel_canon",
+   "chars": 3081,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "core",
+   "block_id": "core",
+   "chars": 2507,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "identity",
+   "block_id": "identity",
+   "chars": 5048,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "self_model_traits",
+   "block_id": "self_model_traits",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "self_model_folded_into_identity"
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "style_requests",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "lessons_absent"
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "verified_lessons",
+   "chars": 141,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "speech_understanding",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "speech_absent"
+  },
+  {
+   "layer": "response_plan",
+   "block_id": "response_plan",
+   "chars": 141,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "expression",
+   "block_id": "expression",
+   "chars": 1016,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "humor_craft",
+   "block_id": "humor_craft",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "humor_no_strategy"
+  },
+  {
+   "layer": "few_shot",
+   "block_id": "expression_examples",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "expression_examples_absent"
+  },
+  {
+   "layer": "few_shot",
+   "block_id": "few_shot",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "samples_absent"
+  },
+  {
+   "layer": "style_policy_hint",
+   "block_id": "style_policy_hint",
+   "chars": 980,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "channel_output",
+   "block_id": "channel_output",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "channel_output_not_required"
+  }
+ ],
+ "core": {
+  "chars": 0,
+  "detail": null
+ },
+ "system": {
+  "chars": 13937,
+  "sha12": "8c2c7edc3ee6",
+  "core_blocks": 0,
+  "analysis_directive": 0,
+  "analysis_writer": 0,
+  "persona_marker": true,
+  "mode_block": false
+ },
+ "system_chars": 13937,
+ "user_blocks_chars": 1148,
+ "llm": {
+  "model": "deepseek-v4-flash",
+  "base_host": "nano-gpt.com"
+ },
+ "l1_input": {
+  "system_chars": 8261,
+  "system_sha12": "6c2ddc17c998",
+  "context_chars": 2935,
+  "context_sha12": "8a338ae33b60"
+ },
+ "l1_raw": "{\"action\":\"reply\",\"reaction\":null,\"delivery\":\"chat\",\"target_message_id\":null,\"target_user_id\":null,\"response_act\":\"answer\",\"extent\":\"normal\",\"tone\":\"neutral\",\"emotional_mirroring\":\"none\",\"structure\":\"answer\",\"delivery_hint\":\"plain\",\"tool_policy\":\"none\",\"capabilities_needed\":[],\"needs_clarification\":false,\"clarification_target\":null,\"confidence\":0.9,\"future_intent\":null}",
+ "l1_plan": {
+  "action": "reply",
+  "response_act": "answer",
+  "extent": "normal",
+  "structure": "answer",
+  "tone": "neutral",
+  "delivery_hint": "plain",
+  "confidence": 0.9,
+  "confidence_bucket": "high",
+  "source": "llm",
+  "needs_clarification": false
+ },
+ "l1_elapsed_s": 3.6,
+ "l1_parse_failed": false,
+ "plan_block": {
+  "chars": 0,
+  "sha12": "e3b0c44298fc",
+  "analysis_directive": 0,
+  "analysis_writer": 0
+ },
+ "user": {
+  "chars": 3997,
+  "sha12": "527ffe69fd4a",
+  "analysis_directive": 0,
+  "analysis_writer": 0
+ },
+ "l2_runs": [
+  {
+   "repeat": 1,
+   "temperature": 0.7,
+   "max_tokens": 2400,
+   "chars": 340,
+   "sha12": "78e7879927f7",
+   "elapsed_s": 2.9
+  },
+  {
+   "repeat": 2,
+   "temperature": 0.7,
+   "max_tokens": 2400,
+   "chars": 745,
+   "sha12": "3d98a6c397de",
+   "elapsed_s": 4.7
+  }
+ ],
+ "l2_texts": [
+  "Да бля, ну ты серьёзно? Ты сидишь, ссылаешься на Эджмоникса, говоришь что старьё, а потом спрашиваешь, злобный ли ты. Ты просто человек с плохим музыкальным вкусом и завышенной самооценкой, это не злоба, это диагноз. Злоба — это когда ты кому-то реально гадишь, а ты просто ноешь про кринж и советуешь всем идти спать. Иди проспись, короче.",
+  "Ой, Ринтаро, ну ты даёшь. Конечно, злобный. Ты же половину чата построил на том, чтобы подкалывать Костика за старьё, слать ссылки на Эджмоникса с комментарием «пиздато стелит» и вбрасывать про Путина с поясом шахида. Это не злоба, это стиль жизни.\n\nНо если серьёзно — ты не злобный, ты просто токсичный в меру, как и все тут. У тебя скорее позиция наблюдателя, который любит подкинуть дровишек и посмотреть, как горит. Это не злоба, это развлечение. Другое дело, что для постороннего глаза твои шутки про «пиздато стелит» и политический троллинг выглядят как агрессия, но в контексте чата — норм.\n\nХочешь досье — скажи, соберу. Но если ты реально переживаешь, что ты злой — иди проспись, завтра снова будешь кидать ссылки и называть всё старьём"
+ ]
+}
