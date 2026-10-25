@@ -389,6 +389,11 @@ async def build_alias_resolver(chat_id: int) -> AliasResolver:
     report["inherited"] = inherited
     report["merged"] = len(merged)
     report["dropped"] = gmeta["dropped"] + cmeta["dropped"]
+    # F7 (P0 corrective 25.10.2026): слой действующего алиаса по каждому
+    # user_id — ТОЛЬКО код слоя («chat»/«global»), без значений (R17).
+    # Источник для /direct/context-diagnostics; второго механизма имён нет.
+    report["by_uid"] = {int(uid): ("chat" if uid in cmap else "global")
+                        for uid in merged}
     resolver = AliasResolver(merged, scope_report=report)
     if not report["ok"]:
         logger.warning(

@@ -100,7 +100,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    "d54cc29695c702e79b3410007bf3f08490d045a2e99679c16495a129736fb9e2")
+    # P0 corrective 25.10.2026 (F7): аддитивное R17-safe поле `aliases`
+    # (слой имени по uid) в СУЩЕСТВУЮЩЕМ GET /api/direct/context-diagnostics;
+    # новых endpoint'ов нет (Δ routes=0), RBAC/маскировка не менялись.
+    # Хэш переутверждён осознанно (L-F11S-1), routes-инвентарь f8_baseline
+    # не менялся.
+    "a75a3333a2be82f0f5ac0f4cad3dd799d43cd6e6a456cd2a47add8fef9e8bf06")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

@@ -755,6 +755,34 @@ async def get_params_meta(
     return {"items": items}
 
 
+def _alias_diagnostics_payload(report: dict, names: dict) -> dict:
+    """R17-safe срез диагностики алиасов (P0 corrective 25.10.2026, F7).
+
+    Только счётчики/слой/факт наличия имени по каждому Telegram ID; САМИ
+    значения алиасов не выходят ни в API, ни в логи (R17). Источник слоя —
+    единственный владелец карты (`build_alias_resolver` → `scope_report`).
+    """
+    by_uid = report.get("by_uid") or {}
+    return {
+        "scope": report.get("scope"),
+        "ok": bool(report.get("ok")),
+        "global": int(report.get("global") or 0),
+        "chat": int(report.get("chat") or 0),
+        "inherited": int(report.get("inherited") or 0),
+        "merged": int(report.get("merged") or 0),
+        "invalid": list(report.get("invalid_json") or []),
+        # per_uid: alias_source = слой действующего имени, name_present =
+        # имя реально разрешилось (не uid). Ни имён, ни сырых значений.
+        "per_uid": [
+            {"user_id": int(uid),
+             "alias_source": str(source),
+             "name_present": bool(str(names.get(str(uid)) or "").strip())}
+            for uid, source in sorted(by_uid.items(),
+                                      key=lambda item: int(item[0]))
+        ],
+    }
+
+
 @api_router.get("/direct/context-diagnostics")
 async def direct_context_diagnostics(
     request: Request,
@@ -784,6 +812,15 @@ async def direct_context_diagnostics(
     try:
         from services import direct_l1 as _direct_l1
         out["l1"] = _direct_l1.get_l1_diagnostics(chat_id)
+    except Exception:
+        pass
+    # P0 corrective 25.10.2026 (F7): R17-safe источник действующего имени по
+    # каждому uid (слой + наличие имени), без значений алиасов.
+    try:
+        from services.summary_aliases import build_alias_resolver
+        resolver = await build_alias_resolver(chat_id)
+        out["aliases"] = _alias_diagnostics_payload(
+            resolver.scope_report, resolver.aliases)
     except Exception:
         pass
     return out
