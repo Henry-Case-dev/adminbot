@@ -317,13 +317,168 @@ def core_report(manifest, system: str) -> dict:
 
 # ── RAG: реальная цепочка прод-сервиса (без самодельного рендера) ───────────
 
-def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
-                    hot) -> tuple[str, dict]:
+#: Источник `<RAG_Memory>` в прогоне. `service` — фактическая функция сервиса
+#: (`DirectChatService._build_rag_block`) над реальной `MemoryManager`; `dump`
+#: — прежний дамп 40 строк, только явный fallback с причиной (никогда молча).
+RAG_SERVICE = "service"
+RAG_DUMP = "dump"
+
+
+class _RagMessage:
+    """Минимальный message для `_build_rag_block`: сервис читает только .text."""
+
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+
+class _RecordingMemory:
+    """Прокси памяти: делегирует ВСЁ внутрь и записывает факт retrieval.
+
+    Зачем: эквивалентность надо доказывать данными, а не словами — фиксируем
+    аргументы вызова (`get_rag_facts(chat_id, query, **kwargs)`), число строк,
+    их id и sha, чтобы в отчёте было видно, что RAG для A/B шёл по РАЗНЫМ
+    query и вернул разные наборы (прежний дамп был одинаковым для всех).
+    """
+
+    def __init__(self, inner) -> None:
+        self._inner = inner
+        self.calls: list[dict] = []
+
+    async def get_rag_facts(self, chat_id, query, **kwargs):
+        rows = await self._inner.get_rag_facts(chat_id, query, **kwargs)
+        rows = list(rows or [])
+        self.calls.append({
+            "chat_id": chat_id,
+            "query": str(query or ""),
+            "kwargs": {k: v for k, v in sorted(kwargs.items())},
+            "rows": len(rows),
+            "ids": [r.get("id") for r in rows if isinstance(r, dict)][:12],
+            "rows_sha12": sha12(json.dumps(
+                [r for r in rows if isinstance(r, dict)],
+                ensure_ascii=False, sort_keys=True, default=str)),
+            "ranks": _rank_histogram(rows),
+        })
+        return rows
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def _rank_histogram(rows) -> dict:
+    """Распределение read-policy ранга по фактическим строкам retrieval."""
+    out: dict[str, int] = {}
+    for row in rows or ():
+        if not isinstance(row, dict):
+            continue
+        try:
+            from services import graphrag_provenance as _gprov
+            rank = _gprov.read_policy_rank(row)
+        except Exception:                             # noqa: BLE001
+            rank = None
+        out[str(rank)] = out.get(str(rank), 0) + 1
+    return out
+
+
+async def service_memory(root: str, llm):
+    """Реальная `MemoryManager` над READ-ONLY снимком БД (никаких записей).
+
+    Доступность vec ОТРАЖАЕТСЯ по фактической таблице снимка, а не создаётся:
+    в проде vec уже инициализирован, поэтому холодный экземпляр без этого
+    флага уходил бы в FTS-ветку. Обе ветки — код продукта; запись touch на
+    read-only падает в его штатный try/except и на текущий ответ не влияет.
+    """
+    from pathlib import Path as _Path
+
+    from config.settings import settings
+    from services.database import DatabaseService
+    from services.summary_memory import MemoryManager
+
+    db_path = os.path.join(root, "local_database.db")
+    if not os.path.exists(db_path):
+        raise FileNotFoundError("local_database.db отсутствует в --root")
+    db = DatabaseService(_Path(db_path))
+    await db.initialize_readonly()
+    memory = MemoryManager(db, llm, aliases=None)
+    cursor = await db.db.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' "
+        "AND name IN ('graph_facts_vec', 'graph_facts_vec_int8')")
+    names = {r[0] for r in await cursor.fetchall()}
+    has_vec = "graph_facts_vec" in names
+    if has_vec:
+        memory._vec_available = True
+        memory._vec_dim = int(getattr(settings, "EMBEDDING_DIM", 0) or 0)
+        memory._vec_off_reason = None
+    else:
+        memory._vec_off_reason = "extension"
+    return memory, {"memory_class": type(memory).__name__,
+                    "db_read_only": True,
+                    "vec_reflected": has_vec,
+                    "vec_dim": getattr(memory, "_vec_dim", None),
+                    "vec_tables": sorted(names)}
+
+
+async def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
+                          hot, llm=None,
+                          source: str = RAG_SERVICE) -> tuple[str, dict]:
+    """`<RAG_Memory>` из РЕАЛЬНОГО пути сервиса (F4 ревью).
+
+    Основной путь: `DirectChatService._build_rag_block` — тот же метод, что
+    собирает RAG в проде (те же фильтры self-origin, dedup с global, реранк,
+    хронология, пометки достоверности, cap). Стенд не переписывает эту логику,
+    поэтому «эквивалентность» = буквально один и тот же код; различие только в
+    backend памяти: здесь реальная `MemoryManager` над read-only снимком.
+
+    Fallback на прежний дамп 40 строк разрешён, но помечается
+    `rag_source=dump` + причина; тихой подмены нет.
+    """
+    meta: dict = {"rag_source": source, "query": question}
+    if source == RAG_SERVICE:
+        try:
+            from services.direct_chat_service import DirectChatService
+
+            memory, mem_meta = await service_memory(root, llm)
+            meta.update(mem_meta)
+            recorder = _RecordingMemory(memory)
+            service = DirectChatService.__new__(DirectChatService)
+            service.memory = recorder
+            block, hint = await service._build_rag_block(
+                CHAT_ID, _RagMessage(question), global_ctx)
+            call = recorder.calls[0] if recorder.calls else {}
+            meta.update({
+                "function": "DirectChatService._build_rag_block",
+                "retrieval": "MemoryManager.get_rag_facts",
+                "retrieval_call": call,
+                "rows": call.get("rows", 0),
+                "nostalgia_hint": bool(hint),
+                "empty": not bool(block),
+            })
+            if not call:
+                # Ранний выход сервиса (флаг RAG выключен / нет данных):
+                # это НЕ эквивалентный пустой RAG по умолчанию — фиксируем.
+                meta["retrieval_skipped"] = (
+                    "сервис вернулся до retrieval: flags.graph_rag_enabled="
+                    "%s" % hot.get("flags.graph_rag_enabled", None))
+            return block, meta
+        except Exception as exc:                      # noqa: BLE001
+            meta["service_error"] = "%s: %s" % (type(exc).__name__,
+                                                str(exc)[:300])
+            meta["rag_source"] = RAG_DUMP
+    return _dump_rag_block(sq, global_ctx, hot, meta)
+
+
+def _dump_rag_block(sq: dict, global_ctx: str, hot,
+                    meta: dict) -> tuple[str, dict]:
+    """Явный fallback: прежний дамп строк БД, НЕ retrieval по query."""
     from services import provenance as _prov
     from services.summary_memory import build_rag_context
 
     rows = sq.get("graph_facts") or []
-    meta = {"rows": len(rows), "kept": 0, "render": "real"}
+    meta["rag_source"] = RAG_DUMP
+    meta["rows"] = len(rows)
+    meta["kept"] = 0
+    meta["render"] = "real"
+    meta["dump_reason"] = ("реальный путь недоступен: "
+                           + str(meta.get("service_error") or "задан --rag-source dump"))
     if not rows:
         meta["render"] = "absent"
         return "", meta
@@ -377,6 +532,20 @@ def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
 def _service_settings():
     from services import direct_chat_service
     return direct_chat_service.settings
+
+
+def _dump_marker_ok() -> bool:
+    """Fallback обязан быть помечен: `rag_source=dump` + причина, не молча."""
+    block, meta = _dump_rag_block({"graph_facts": []}, "", _HotStub(), {})
+    return (block == "" and meta.get("rag_source") == RAG_DUMP
+            and bool(meta.get("dump_reason")))
+
+
+class _HotStub:
+    """hot-конфиг для офлайн-проверки dump-пути: только дефолты settings."""
+
+    def get(self, key, default=None):
+        return default
 
 
 def self_check(root: str, json_out: bool = False) -> int:
@@ -463,6 +632,59 @@ def self_check(root: str, json_out: bool = False) -> int:
              {"tg_message_id": 999, "text": "прочее"}]
     cin_a = case_inputs("A", row_a)
     cin_c = case_inputs("C", row_a)
+    # F2: анализатор меты должен ловить преамбулу во ВТОРОМ предложении
+    # (тип A1: «эмоция. Ладно, глянул…») и не трогать чистый ответ.
+    from analyze_l2_meta import analyze_text as _meta_analyze
+    meta_bad = _meta_analyze(
+        "Ох бля, Макс, ну ты даёшь запрос. Ладно, глянул твои сообщения.\n\n"
+        "Ты вступился за Костю.")
+    meta_ok = _meta_analyze("Он не злобный, он просто устал от споров.")
+
+    from services.direct_chat_service import DirectChatService as _DCSimpl
+    _rag_block_method = _DCSimpl._build_rag_block
+
+    # F4 (review): RAG-блок собирает РЕАЛЬНАЯ функция сервиса, а не копия
+    # логики в стенде. Проверяем три вещи: (а) метод — тот самый класс-метод,
+    # (б) вызов retrieval идёт с прод-аргументами (include_direct_reply/
+    # include_self/with_meta=True), (в) блок непустой и помечен rag_source.
+    class _FakeMemory:
+        def __init__(self):
+            self.calls = []
+
+        async def get_rag_facts(self, chat_id, query, **kwargs):
+            self.calls.append({"chat_id": chat_id, "query": query,
+                               "kwargs": dict(kwargs)})
+            return [{"id": 7, "origin": "chat_history",
+                     "fact": "Макс заступился за Костю",
+                     "rag_ts": 1792873000, "message_timestamp": 1792873000,
+                     "created_at": 1792873000, "target_user": None,
+                     "tg_message_id": 42, "item_id": "tg:42",
+                     "forward_from": "", "expired": False,
+                     "expires_at": None, "chat_id": CHAT_ID,
+                     "status": "confirmed", "subject_ref_id": None,
+                     "speaker_author_id": 42115912,
+                     "assertion_kind": "opinion",
+                     "attribution_method": "speaker",
+                     "provenance_channel": "chat"}]
+
+    fake = _FakeMemory()
+
+    async def _rag_probe():
+        from services.direct_chat_service import DirectChatService
+        svc = DirectChatService.__new__(DirectChatService)
+        svc.memory = _RecordingMemory(fake)
+        block, hint = await svc._build_rag_block(
+            CHAT_ID, _RagMessage("вопрос для RAG"), "контекст окна")
+        return block, hint, svc
+
+    try:
+        rag_block, _rag_hint, _svc = asyncio.run(_rag_probe())
+        _rag_err = ""
+    except Exception as exc:                          # noqa: BLE001
+        rag_block, _rag_err = "", "%s: %s" % (type(exc).__name__,
+                                             str(exc)[:200])
+        _rag_hint = ""
+    rag_call = (fake.calls or [{}])[0]
     results = {
         "counts_1x1": counts["directive"] == 1 and counts["writer"] == 1,
         "ascii_marker_zero": counts["ascii_marker"] == 0,
@@ -527,10 +749,31 @@ def self_check(root: str, json_out: bool = False) -> int:
                                     and cin_c["tg_id"] == TG_A),
         "case_c_short_single_line": (
             "\n" not in CASE_C_QUESTION and len(CASE_C_QUESTION) <= 120),
+        # F2: категории раздельные, второй-предложенческий тип ловится.
+        "meta_detector_catches_second_sentence": (
+            meta_bad["flagged"] and bool(meta_bad["announce"])
+            and bool(meta_bad["leadin"])),
+        "meta_detector_clean_answer": not meta_ok["flagged"],
+        # F4: RAG — реальная функция сервиса с прод-аргументами retrieval.
+        "rag_service_function_real": (
+            not _rag_err
+            and type(_svc)._build_rag_block is _rag_block_method),
+        "rag_service_retrieval_kwargs": (
+            rag_call.get("kwargs") == {"include_direct_reply": True,
+                                       "include_self": True,
+                                       "with_meta": True}),
+        "rag_service_query_passed": (
+            rag_call.get("chat_id") == CHAT_ID
+            and rag_call.get("query") == "вопрос для RAG"),
+        "rag_service_block_rendered": (
+            rag_block.startswith("<RAG_Memory>")
+            and "Макс заступился за Костю" in rag_block),
+        "rag_dump_marked": _dump_marker_ok(),
     }
     ok = all(results.values())
     out = {"self_check": "PASS" if ok else "FAIL", "results": results,
            "counts": counts, "synthetic_payload": synthetic_payload,
+           "meta_detector": {"bad": meta_bad["meta"], "ok": meta_ok["meta"]},
            "meta_check": {"free": meta_free,
                           "payload_counts": {
                               name: payload.count(_meta)
@@ -542,7 +785,9 @@ def self_check(root: str, json_out: bool = False) -> int:
                              "prev_p0cs2_sha12": sha12(
                                  cp.PREV_DIRECT_L1_PLANNER_P0CS2)},
            "pins": pins}
-    print(json.dumps(out, ensure_ascii=False, indent=1)[:3000])
+    # self-check — машинная проверка: JSON печатается целиком (обрезанный
+    # вывод нельзя распарсить в evidence-пайплайне).
+    print(json.dumps(out, ensure_ascii=False, indent=1))
     return 0 if ok else 1
 
 
@@ -551,8 +796,15 @@ def _make_llm(root, result):
     base = env(os.path.join(root, ".env"), "LLM_BASE_URL")
     keyv = env(os.path.join(root, ".env"), "LLM_API_KEY")
     model = env(os.path.join(root, ".env"), "LLM_MODEL_NAME")
-    client = LLMClient(base, keyv, model, "", embed_base_url="",
-                       embed_api_key="")
+    # F4: RAG-путь делает query-embedding тем же клиентом, что и прод, —
+    # без embed-конфига реальный retrieval молча ушёл бы в FTS-fallback.
+    client = LLMClient(base, keyv, model,
+                       env(os.path.join(root, ".env"),
+                           "EMBEDDING_MODEL_NAME") or "",
+                       embed_base_url=env(os.path.join(root, ".env"),
+                                          "EMBEDDING_BASE_URL") or "",
+                       embed_api_key=env(os.path.join(root, ".env"),
+                                         "EMBEDDING_API_KEY") or "")
 
     async def _noop(*a, **k):
         return None
@@ -617,6 +869,10 @@ def main() -> int:
     ap.add_argument("--repeats", type=int, default=None,
                     help="L2-повторов на прогон (A/B: 2, C: 1 по умолчанию)")
     ap.add_argument("--skip-l2", action="store_true")
+    ap.add_argument("--rag-source", default=RAG_SERVICE,
+                    choices=(RAG_SERVICE, RAG_DUMP),
+                    help="service — реальный путь сервиса (по умолчанию); "
+                         "dump — прежний дамп строк, помечается в отчёте")
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--force-plan", default="",
                     choices=("", "research"))
@@ -661,11 +917,17 @@ def main() -> int:
         result["traceback"] = traceback.format_exc()[-2500:]
     json.dump(result, open(args.out, "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)
-    print(json.dumps({k: result.get(k) for k in
-                      ("label", "case", "question_source", "forced", "invalid",
-                       "fatal", "l1_plan", "mode", "no_meta_contract",
-                       "payload_counts", "l2_runs", "stage_errors")},
-                     ensure_ascii=False)[:2200])
+    out_keys = ("label", "case", "question_source", "forced", "invalid",
+                "fatal", "l1_plan", "mode", "no_meta_contract", "rag_source",
+                "payload_counts", "l2_meta", "l2_chars", "stage_errors")
+    summary = {k: result.get(k) for k in out_keys}
+    summary["rag"] = {k: (result.get("rag") or {}).get(k) for k in
+                      ("rag_source", "rows", "kept", "retrieval",
+                       "block_sha12")}
+    summary["l2_meta"] = {k: (result.get("l2_meta") or {}).get(k) for k in
+                          ("flagged", "total", "analyzer")}
+    summary["l2_chars"] = [r.get("chars") for r in result.get("l2_runs") or []]
+    print(json.dumps(summary, ensure_ascii=False)[:2500])
     return 0
 
 
@@ -764,10 +1026,12 @@ async def _run(args, result):
     # ── реальный RAG (ошибка рендера = invalid, без fallback-строк)
     window_text = build_window_text(win)
     try:
-        rag_block, rag_meta = build_rag_block(
-            args.root, sq, question, window_text, hot)
+        rag_block, rag_meta = await build_rag_block(
+            args.root, sq, question, window_text, hot, llm=llm,
+            source=getattr(args, "rag_source", RAG_SERVICE) or RAG_SERVICE)
     except Exception as exc:                          # noqa: BLE001
-        rag_block, rag_meta = "", {"render": "error"}
+        rag_block, rag_meta = "", {"render": "error",
+                                   "rag_source": RAG_DUMP}
         result["invalid"] = "rag_render"
         result["stage_errors"]["rag"] = "%s: %s" % (
             type(exc).__name__, str(exc)[:220])
@@ -803,9 +1067,11 @@ async def _run(args, result):
                         "expression_examples_enabled", "humor_library_enabled",
                         "humor_craft_enabled")}
     modes_on = bool(getattr(gates, "smart_verbalizer_modes_enabled", True))
+    # LLM-клиент нужен и RAG-пути (embed запроса для реального retrieval),
+    # поэтому создаётся до сборки RAG, а не только перед L1.
+    llm = _make_llm(args.root, result)
 
     # ── L1: один реальный план (или явно помеченный forced)
-    llm = _make_llm(args.root, result)
     from services.direct_chat_service import (
         DIRECT_L1_PLANNER_SYSTEM_PROMPT as code_l1_system)
     pg_l1_system = resolve_prompt("prompts.direct_l1_planner_system_prompt",
@@ -989,8 +1255,11 @@ async def _run(args, result):
             type(exc).__name__, str(exc)[:300])
         return
 
+    # F6 (review): `core_marker` убран — литерала `<Personality_Core>` в
+    # payload нет ни в одном дереве (ядро — обычный текст), поэтому поле
+    # всегда false и читалось как «Core отсутствует». Реальный размер/sha —
+    # в `result["core"]` из отрендеренного слоя (и `in_system`).
     result["system"] = {"chars": len(system), "sha12": sha12(system),
-                        "core_marker": "<Personality_Core>" in system,
                         "expression_marker": "<Expression" in system}
     result["author"] = author
     try:
@@ -1065,6 +1334,34 @@ async def _run(args, result):
     result["l2_runs"] = [{k: v for k, v in r.items() if k != "text"}
                          for r in l2]
     result["l2_texts"] = [r.get("text") or "" for r in l2]
+    # F2 (review): мета-вступления считает закоммиченный анализатор, а не
+    # отдельный незакоммиченный скрипт. Категории раздельные (анонс/подводка/
+    # ярлык), окно — первые 1–2 предложения первого абзаца; цитаты вырезаны.
+    # Отчёт только фиксирует факт, поведение не меняет.
+    try:
+        import sys as _sys
+        _sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from analyze_l2_meta import analyze_text
+        per_run = []
+        for text in result["l2_texts"]:
+            rep = analyze_text(text)
+            per_run.append({"flagged": rep["flagged"],
+                            "categories": {name: rep[name]
+                                           for name in ("announce", "leadin",
+                                                        "label")},
+                            "window": rep["window"]})
+        result["l2_meta"] = {
+            "analyzer": "probes_full/analyze_l2_meta.py",
+            "analyzer_sha256": sha256_file(os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "analyze_l2_meta.py")),
+            "flagged": sum(1 for r in per_run if r["flagged"]),
+            "total": len(per_run),
+            "runs": per_run,
+        }
+    except Exception as exc:                          # noqa: BLE001
+        result["l2_meta"] = {"analyzer_error": "%s: %s" % (
+            type(exc).__name__, str(exc)[:200])}
 
 
 if __name__ == "__main__":
