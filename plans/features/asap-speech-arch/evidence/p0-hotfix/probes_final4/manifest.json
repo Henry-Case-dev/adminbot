@@ -1,0 +1,103 @@
+{
+ "candidate": "59922de52461129ac2e10a66c472d699587cf860",
+ "code_commit": "c0d5a3d3fc65f15a81f337bd322d1dd9ff2c226d",
+ "branch": "task/speech-p0-hotfix",
+ "prod_old": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "prod_version": "2.58.130",
+ "ssh_window_utc": "2026-10-25T06:59:00Z/2026-10-25T07:04:29Z",
+ "ssh_elapsed_s": 329.0,
+ "ssh_logins": 2,
+ "ssh_note": "first login 06:57 UTC failed on local SFTP path before any upload/remote command/LLM; second login ran the probe",
+ "staging": "/tmp/p0-final4/new",
+ "staging_files": 421,
+ "stage_tgz_sha256": "42c1d36c0d51acb99c67c0f99d112fb4cf13ebd58f29955664fd6ac1a4063efe",
+ "harness": {
+  "path": "probes_full/harness_probe_full.py @ 59922de5",
+  "sha256": "caefd7bc5631d82be86dbd68b53108bdba32fcd68d37bf2f9b10aa8214488425",
+  "self_check": "PASS 17/17"
+ },
+ "harness_extra": {
+  "sha256": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1",
+  "purpose": "replaces only the current A-window message for C/D/E/F; product code and harness unchanged"
+ },
+ "core": {
+  "chars": 3294,
+  "sha12": "ead77b2ab509",
+  "offset_in_system": 3083
+ },
+ "l1_canon": {
+  "source": "code",
+  "chars": 9588,
+  "sha12": "cc020660ae03",
+  "pg_chars": 8261,
+  "pg_sha12": "6c2ddc17c998",
+  "pg_matches_code": false
+ },
+ "results": {
+  "l1_ab_research": "1/2 (A answer, B research)",
+  "forced_research": "2/2",
+  "meta_first_sentence": "3/16 new+forced (A1, E1, E2)",
+  "meta_first_paragraph_tokens": "5/16 (plus quoted C1 and non-announcement forced_A2)",
+  "quote_fragments": "45 total, 26 not exact substring in payload; E 17/30",
+  "e": "reply/research/detailed, 2318/2952 chars, not silent",
+  "rag": "rows=40, after_self_filter=40, after_dedup=39, kept=39, block=2027, sha12=1fdb8b237233",
+  "frequent": "frequent_text=true; occasional/off=false",
+  "alias": "uid 42115912 -> Макс (source=chat)",
+  "db": "mtime/size changed during live session (+126976 B) from live bot activity; harness uses SQLite mode=ro and PG read-only"
+ },
+ "verdict": "FAILED",
+ "files": {
+  "harness_extra.py": {
+   "bytes": 2376,
+   "sha256": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1"
+  },
+  "raw_forced_A.json": {
+   "bytes": 47999,
+   "sha256": "6b3cd3c8c60af81685a23031e9467b1d759250fe1718ab251d25d8bdfe0ff030"
+  },
+  "raw_forced_B.json": {
+   "bytes": 47722,
+   "sha256": "078f73baf92d4684e51326d630491261724bc0daf01f3c2692c75e6ffc996c0b"
+  },
+  "raw_new_A.json": {
+   "bytes": 46279,
+   "sha256": "04da16e1df510cff0b1ca07b0f7a097b131fb5579ab7141029d98ed9148ba033"
+  },
+  "raw_new_B.json": {
+   "bytes": 48443,
+   "sha256": "a5f1c13eae5a1407c82fe1ef3730e913f1b76888eccfaba716bb2c0365c53cea"
+  },
+  "raw_new_C.json": {
+   "bytes": 45853,
+   "sha256": "2bc81e19ee357a02332a04850700147ea8d1880d307cb3908300a7bdee483dfd"
+  },
+  "raw_new_D.json": {
+   "bytes": 46825,
+   "sha256": "a09a77ea3f781acf032729e7f7d4e3419d8de5326084b98bcbf89704e4296cce"
+  },
+  "raw_new_E.json": {
+   "bytes": 57328,
+   "sha256": "d8f272d1b82d3c0bd2c1a7c1699e2e79726bf1799264338c82acde2412f52aa7"
+  },
+  "raw_new_F.json": {
+   "bytes": 46420,
+   "sha256": "f7ded209748e6581456dd1374a25512286f1de13c83b00dd08be928c71a800f6"
+  },
+  "raw_old_A.json": {
+   "bytes": 44787,
+   "sha256": "0c8da80bb74a459a3e2d6260ec8a2cb5007680682fddf00d336972f6ca7e0432"
+  },
+  "raw_old_B.json": {
+   "bytes": 44832,
+   "sha256": "c56a7ebd705d20e3b2939d1665292db4498a59c053c408228363311f470ab671"
+  },
+  "selfcheck_new.json": {
+   "bytes": 2918,
+   "sha256": "194056e56ab9493e17096b0f1b1bf6b40b23e5eccd6a29cb50abe745a60bd0e6"
+  },
+  "ssh_session.json": {
+   "bytes": 8615,
+   "sha256": "ebc02889e4250c7319f1d3ded0c71e7b9b54e093fa26cc43b3e8b2bb76b96188"
+  }
+ }
+}
