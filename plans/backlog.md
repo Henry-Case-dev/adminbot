@@ -7,15 +7,31 @@
 > исследования и операционные watch-пункты, сгруппированные по раундам-источникам.
 > Хвосты приведены по состоянию на дату своего раунда — при касании сверять детали с архивом
 > соответствующего раунда в plans/archive/.
-> Активная работа сейчас ведётся вне этого файла: plans/workflow_state.md +
-> plans/features/asap8-v6-3-live-correction/ (v6.3 live correction).
+> Активная работа ведётся вне этого файла — см. `plans/workflow_state.md` и
+> `plans/progress_scope.json` (единственный актуальный реестр задач и прогресса).
+> Этот файл — реестр **незакрытых исторических хвостов**; он не дублирует активную очередь.
+
+## Актуальная очередь 25.10.2026 (указатель, не дублировать)
+
+| Задача | Состояние | Где ведётся |
+|---|---|---|
+| P0 speech corrective (L1, алиасы, Core, FREQUENT, lore) | в работе, ревью среза алиасов | `features/asap-speech-arch/` |
+| P0 fact-check: фото, альбомы, пересылка | в работе; причина доказана production-данными | `features/p0-factcheck-media/` |
+| ASAP-3 corrective | ре-верификация 48 id после привязки к 2.58.129 | `features/asap3-corrective/` |
+| CFG-01…07 | открытые required-строки | `features/cfg/` |
+| SOUL-1 | открытые required-строки | `features/soul-1/` |
+| ASAP2 direct chat | открытые required-строки | `features/asap2-direct-chat/` |
+| ASAP8 v6.3 live correction | открытые required-строки | `features/asap8-v6-3-live-correction/` |
+| P0 follow-up nostalgia | WAITING_EXTERNAL: сценарий B ждёт естественного затишья | `features/p0-save-init-ux/` |
+
+Правило: новые находки добавляются сюда как ссылки на feature-карту, а не как текст в этом файле.
 
 ## Статус программ (сводка)
 
 - **MCA программа (раунды 10.27–10.48, MCA-01…22)** — ЗАКРЫТА: RELEASED + VERIFIED **2.58.67** (07.10.2026, mca-release; 2.58.31→2.58.67, SQLite v12→v33, каталог 473→523). Историческая шапка 10.27 «IN PROGRESS» в слепке устарела — программа закрыта раундом 10.48.
 - **ASAP 5** (asap5-final-fixes) — ЗАКРЫТ: RELEASED + VERIFIED **2.58.69** (07.10.2026).
 - **ASAP 8 v6** (asap8-v6-remediation, D01–D14) — ЗАКРЫТА: deployed **2.58.78** (14.10.2026); осознанные остатки и OWNER_VISUAL_PENDING — в разделе «ASAP 8 v6» ниже; доказательства — plans/features/asap8-v6-remediation/.
-- **Активно:** v6.3 live correction (B01–B12/U01–U08/V01–V07) — plans/features/asap8-v6-3-live-correction/.
+- **Активно (25.10):** P0 speech corrective + P0 fact-check медиа — см. таблицу «Актуальная очередь» выше и `plans/progress_scope.json`.
 
 ## Раунд 10.27 MCA memory-context-autonomy (историческая шапка, сжато)
 

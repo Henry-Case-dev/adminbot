@@ -259,8 +259,17 @@
       "acceptance": "Все 13 изменённых файлов production перечислены с типом изменения и содержимым; артефакт — таблица файл → диф/происхождение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §1: таблица 13 файлов",
+          "observation": "Read-only аудит перечисляет все 13 путей: 9 бэкапов info_text.md, осиротевший SQLite-journal, каталог pre_migration_backup, test_subs.ru.json3 и tools/_s41_precheck.py; git diff пуст, все строки git status — untracked, ни один путь не правит отслеживаемый файл продукта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROD-PROVENANCE",
@@ -709,8 +718,25 @@
       "acceptance": "Существующий provenance-механизм не пропускает неподтверждённую старую историю в фактическое извлечение; проверено на реальной записи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "type": "test",
+          "ref": "old-lore-audit.md §1/§3/§5 + реализация 272170e3",
+          "observation": "Аудит показывает, что legacy lore_stories шли мимо provenance; коммит 272170e3 добавляет аддитивные колонки origin/status/excluded_from_retrieval/provenance_note, единый предикат извлечения для baseline и фасада, исключение bot_self_reply/bot_direct_reply/tentative из lore_graph_slice и запрет подачи карантинного рассказа как «известной базы».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        },
+        {
+          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "type": "test",
+          "ref": "tests/test_p0_old_lore_quarantine.py: контракт provenance/карантина",
+          "observation": "Контрактные тесты коммита 272170e3 покрывают паритет фильтров baseline/фасад, идемпотентность миграции, сохранность строки после метки, LCP-гард без false positive, фильтр lore_graph_slice и маркер PG chat_lore. Применение карантина на прод-БД и live-извлечение остаются PENDING.",
+          "artifact_path": "tests/test_p0_old_lore_quarantine.py",
+          "artifact_sha256": "a2ec43c3b37fb8bb22e8eacef74530b5c4df2309e2c2d568f9e2d7911378eae2"
+        }
+      ]
     },
     {
       "source_id": "MAN-MEMORY-TARGETED-FIX",
@@ -891,6 +917,36 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": []
+    },
+    {
+      "source_id": "MAN-MEMORY-LORE-FOCUS",
+      "source_line": 163,
+      "source_text_sha256": "8a4883aa85180381da213c70d292ca4d2e7734ea99c8c43911b089b7b6a92648",
+      "source_excerpt": "Особое внимание уделить старым записям `lore_stories`.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "MEMORY-LORE-FOCUS",
+      "slice": "MEMORY",
+      "acceptance": "Отдельный проход §3 адресно охватывает именно уже сохранённые lore_stories: в артефакте перечислены конкретные id, их provenance-статус и результат извлечения до/после, а не только новые записи.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "MAN-MEMORY-NO-NEW-QUOTAS",
+      "source_line": 171,
+      "source_text_sha256": "e856927403879eb8f871207091fe19c4a331b3063d09d6d5aca9a17b41405fb5",
+      "source_excerpt": "Не проводить массовую очистку памяти, не удалять многолетнюю историю чатов и не вводить новые искусственные квоты.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "MEMORY-NO-NEW-QUOTAS",
+      "slice": "MEMORY",
+      "acceptance": "В исправлении §3 не появилось новых искусственных квот или обрезки управляющих инструкций (Core/Expression/Style Policy); проверено по диффу кандидата и каталогу настроек, технические лимиты генерации не выдаются за новые квоты.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
     }
   ],
   "items": [
@@ -921,8 +977,25 @@
       "acceptance": "Оба исходных проблемных запроса в фактическом прогоне получают research/deep-маршрут, а не casual/compact; в артефакте — mode из резолвера и payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "47fba46561e2e7abb279c2b06915955943715202",
+          "type": "test",
+          "ref": "l1-fix.md: канон правил 7/8, research→serious, 261 passed",
+          "observation": "Исправление 47fba465: критерий правила 7 переведён с оценки объекта на действие с материалом (история/свои слова → response_act=research), mode research→serious, указан sha256 harness a370c986…, исходные фразы в каноне отсутствуют; зафиксирован прогон 261 passed / 0 failed. Документ добавлен docs-коммитом 272170e3 в той же ветке; реальный прогон двух исходных запросов с payload остаётся за HARNESS/PROBES.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/l1-fix.md",
+          "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
+        },
+        {
+          "candidate_commit": "47fba46561e2e7abb279c2b06915955943715202",
+          "type": "test",
+          "ref": "tests/test_speech_p0_corrective_l1_route.py: контрактные тесты маршрута",
+          "observation": "Тесты фиксируют research-ветку канона для уже сказанного/истории, независимость длины ответа от глубины, research-план 1×1 в payload и mode serious вместо casual. Это контракт кода, а не live-прогон исходных запросов.",
+          "artifact_path": "tests/test_speech_p0_corrective_l1_route.py",
+          "artifact_sha256": "c8833ccab1d149fc53277f66280ffc67d70e036f4b959c6092174717b4bebf45"
+        }
+      ]
     },
     {
       "source_id": "L00020",
@@ -1011,8 +1084,25 @@
       "acceptance": "Старые записи lore_stories проверены: перечислены конкретные id с неподтверждёнными событиями; артефакт — таблица аудита.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "type": "audit",
+          "ref": "old-lore-audit.md §1–§3: пути lore_stories, id=4, self-echo 21255",
+          "observation": "Аудит перечисляет конкретные сохранённые записи: lore_stories.id=4 (1071 из 1658 символов совпадают с доставленным ответом бота), id=3 с маркером [Бот], graph_facts.id=21255 (origin=bot_self_reply); показаны все пути чтения lore_stories и отсутствие provenance-колонок у legacy-строк.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        },
+        {
+          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §3: свежая read-only сверка таблицы lore_stories на проде",
+          "observation": "Живая read-only сверка прод-БД перечисляет все 4 строки lore_stories с id, чатом, размером и датами; id=3/4 подтверждены как ответы бота, id=1/2 проверены по метаданным. Это аудит старых записей, а не их исправление.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        }
+      ]
     },
     {
       "source_id": "L00031",
@@ -1930,6 +2020,6 @@
       "evidence": []
     }
   ],
-  "candidate_note": "Карта создана на этапе планирования: candidate ещё не существует, реализация не начиналась. При первом review-гейте candidate_commit привязывается к реальному коммиту исправлений, а каждая PENDING-строка получает evidence с artifact_path в этом же репозитории.",
-  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP: дословный снимок корректирующего ТЗ владельца (source-owner-p0-corrective-2026-10-25.md, 214 строк, sha 2f7ef4d7…); продолжение текущего P0, без нового эпика. 69 автоинвентарных строк классифицированы полностью (52 required / 12 context / 5 duplicate), плюс 59 manual-строк прозы (42 required / 17 context) — всего 94 required-строки и 84 уникальных req_id по 10 слайсам L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT. Ключевые добавления, которых не было в прежних картах: L1-ROOT-CAUSE, L1-DEPTH-NOT-LENGTH, L1-NO-HARDCODED, HARNESS-SAME-COMMIT/EQUIVALENT-CONFIG, PROD-NO-BLIND-RESET, PROD-PRESERVE-REPRODUCIBLE, ALIAS-IDENTITY-TGID, ALIAS-NAME-PRIORITY (5 ступеней), 11 runtime-путей ALIAS-RT-* + ALIAS-RT-L1L2, 11 изолированных проверок ALIAS-T01…T11, ALIAS-PAYLOAD-FACT, ALIAS-GIPERBORETS, ALIAS-EXPECTED-FROM-SETTINGS, MEMORY-LORE-AUDIT/EXISTING-ROWS/TARGETED-FIX, REV-LOOP, REV-NO-REPORT-ONLY, DEPLOY-SAFETY-FIRST, DEPLOY-STANDARD (postdeploy live) и 8 строк отчёта. Строки 20–24 (симптомы блокеров) закрыты как duplicate с указанием владеющей нормы: отдельные счётчики не создавались. Все строки verification_tier=engineering, owner_live_checks не является гейтом; ни одна строка не VERIFIED — реализация не начиналась."
+  "candidate_note": "Карта создана на этапе планирования: на тот момент candidate ещё не существовал, реализация не начиналась. При первом review-гейте candidate_commit привязывается к реальному коммиту исправлений, а каждая PENDING-строка получает evidence с artifact_path в этом же репозитории. На 25.10.2026 map-level candidate_commit пуст: VERIFIED-строки привязаны к реальным коммитам доказательств (47fba465 — L1, 272170e3 — lore/prod), а не к релизному кандидату; перед review-гейтом candidate_commit и evidence должны быть перепривязаны к SHA проверяемого кандидата. Файлы доказательств лежат в ветке task/speech-p0-hotfix (worktree adminbot-wt-speech-p0), поэтому review/release-гейт нужно запускать с --repo на каталоге кандидата, а не на book-worktree.",
+  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP: дословный снимок корректирующего ТЗ владельца (source-owner-p0-corrective-2026-10-25.md, 214 строк, sha 2f7ef4d7…); продолжение текущего P0, без нового эпика. 69 автоинвентарных строк классифицированы полностью (52 required / 12 context / 5 duplicate), плюс 59 manual-строк прозы (42 required / 17 context) — всего 94 required-строки и 84 уникальных req_id по 10 слайсам L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT. Ключевые добавления, которых не было в прежних картах: L1-ROOT-CAUSE, L1-DEPTH-NOT-LENGTH, L1-NO-HARDCODED, HARNESS-SAME-COMMIT/EQUIVALENT-CONFIG, PROD-NO-BLIND-RESET, PROD-PRESERVE-REPRODUCIBLE, ALIAS-IDENTITY-TGID, ALIAS-NAME-PRIORITY (5 ступеней), 11 runtime-путей ALIAS-RT-* + ALIAS-RT-L1L2, 11 изолированных проверок ALIAS-T01…T11, ALIAS-PAYLOAD-FACT, ALIAS-GIPERBORETS, ALIAS-EXPECTED-FROM-SETTINGS, MEMORY-LORE-AUDIT/EXISTING-ROWS/TARGETED-FIX, REV-LOOP, REV-NO-REPORT-ONLY, DEPLOY-SAFETY-FIRST, DEPLOY-STANDARD (postdeploy live) и 8 строк отчёта. Строки 20–24 (симптомы блокеров) закрыты как duplicate с указанием владеющей нормы: отдельные счётчики не создавались. Все строки verification_tier=engineering, owner_live_checks не является гейтом; на момент создания карты ни одна строка не была VERIFIED — реализация не начиналась. 25.10.2026 PM-MAP-CORRECTIVE: обратная сверка источника строка-в-строку — все непустые строки с обязательствами покрыты (5 строк — заголовки и вводные фразы без самостоятельной нормы), добавлены 2 manual-строки (L163 — отдельный фокус на старые lore_stories; L171 — запрет новых искусственных квот); слайсы HARNESS/PROD/PROBES/L1 и 9 условий §4 уже присутствовали. VERIFIED привязаны только к доказанным артефактам: L1-ROUTING-REPAIR (47fba465 + l1-fix.md + контрактные тесты), MEMORY-LORE-AUDIT (old-lore-audit.md + prod-worktree-alias.md §3), MEMORY-PROVENANCE-BLOCKS (272170e3 + old-lore-audit.md + tests/test_p0_old_lore_quarantine.py), PROD-INVESTIGATE (prod-worktree-alias.md §1). Карантин на прод-БД, live-прогоны, алиасы, REVIEW, REPORT и DEPLOY остаются PENDING."
 }

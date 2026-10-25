@@ -1,0 +1,111 @@
+{
+  "schema": "openworkflow-coverage-v1",
+  "source_path": "plans/features/pemsoc-one-reaction/source-owner-prompt-2026-10-25.md",
+  "source_sha256": "74d10902051a260b7a38c36c3d974e993104681bf72495daecd99b1a1bfe88a7",
+  "candidate_commit": "dcaca75bcd535f7d6555d606fa5ac2804eaaaf20",
+  "deployed_commit": "dcaca75bcd535f7d6555d606fa5ac2804eaaaf20",
+  "strict_evidence": false,
+  "additional_requirements": [
+    {
+      "source_id": "MAN-PEMSOC-1",
+      "source_line": 13,
+      "source_text_sha256": "fe175a72e07395381f882323c79c3099156a4ca7ee7dda3011de7a01fc84b7ec",
+      "source_excerpt": "1. На одно сообщение — не более одной реакции от модуля PEMsoc.",
+      "disposition": "required",
+      "req_id": "PEMSOC-ONE-REACTION",
+      "slice": "PEMSOC",
+      "acceptance": "На одно сообщение/альбом/оригинал — не более одной реакции PEMsoc.",
+      "live_required": false,
+      "status": "VERIFIED",
+      "verification_tier": "engineering",
+      "evidence": [
+        {
+          "ref": "plans/features/pemsoc-one-reaction/impl.md",
+          "type": "evidence",
+          "observation": "claim msg/album/origin; tests 289; deploy 2.58.128"
+        },
+        {
+          "ref": "plans/features/pemsoc-one-reaction/release-258128.md",
+          "type": "deploy",
+          "observation": "2.58.128 live; healthz 200; NRestarts 0"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-PEMSOC-2",
+      "source_line": 15,
+      "source_text_sha256": "2b542cb2a7a9ff45f068a99de83aa5b233741b6d1886873d2f600163e374aed6",
+      "source_excerpt": "3. Очередь гифки имеет приоритет: если выпала гифка, она отправляется вместо «пошёл нахуй».",
+      "disposition": "required",
+      "req_id": "PEMSOC-PRIORITY-DEFAULT",
+      "slice": "PEMSOC",
+      "acceptance": "GIF и «потрясись» приоритетнее «пошёл нахуй»; при сбое любой реакции дефолт всё равно отправляется.",
+      "live_required": false,
+      "status": "VERIFIED",
+      "verification_tier": "engineering",
+      "evidence": [
+        {
+          "ref": "plans/features/pemsoc-one-reaction/impl.md",
+          "type": "evidence",
+          "observation": "claim msg/album/origin; tests 289; deploy 2.58.128"
+        },
+        {
+          "ref": "plans/features/pemsoc-one-reaction/release-258128.md",
+          "type": "deploy",
+          "observation": "2.58.128 live; healthz 200; NRestarts 0"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-PEMSOC-3",
+      "source_line": 17,
+      "source_text_sha256": "9e0b9bcc2bd0c8e6a2f3de0de116a7dc491f86a8e6d1133e7045e35694640cec",
+      "source_excerpt": "5. Проверить, не является ли повтор «пошёл нахуй» следствием повторного репоста/удаления сообщения пользователем; если да — не реагировать повторно на тот же контент/событие.",
+      "disposition": "required",
+      "req_id": "PEMSOC-REPOST-DEDUPE",
+      "slice": "PEMSOC",
+      "acceptance": "Повторный репост/удаление того же оригинала не даёт новую реакцию (TTL 120 c).",
+      "live_required": false,
+      "status": "VERIFIED",
+      "verification_tier": "engineering",
+      "evidence": [
+        {
+          "ref": "plans/features/pemsoc-one-reaction/impl.md",
+          "type": "evidence",
+          "observation": "claim msg/album/origin; tests 289; deploy 2.58.128"
+        },
+        {
+          "ref": "plans/features/pemsoc-one-reaction/release-258128.md",
+          "type": "deploy",
+          "observation": "2.58.128 live; healthz 200; NRestarts 0"
+        }
+      ]
+    },
+    {
+      "source_id": "MAN-PEMSOC-4",
+      "source_line": 18,
+      "source_text_sha256": "1130c837546535ba73bd736187ae8cdb4576091e9a068ed8d2c22fd4f6108070",
+      "source_excerpt": "6. Не ломать существующие срабатывания и не добавлять новые обязательные согласования.",
+      "disposition": "required",
+      "req_id": "PEMSOC-NO-REGRESSION",
+      "slice": "PEMSOC",
+      "acceptance": "Существующие срабатывания не сломаны; новых обязательных согласований нет.",
+      "live_required": false,
+      "status": "VERIFIED",
+      "verification_tier": "engineering",
+      "evidence": [
+        {
+          "ref": "plans/features/pemsoc-one-reaction/impl.md",
+          "type": "evidence",
+          "observation": "claim msg/album/origin; tests 289; deploy 2.58.128"
+        },
+        {
+          "ref": "plans/features/pemsoc-one-reaction/release-258128.md",
+          "type": "deploy",
+          "observation": "2.58.128 live; healthz 200; NRestarts 0"
+        }
+      ]
+    }
+  ],
+  "items": []
+}
