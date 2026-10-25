@@ -1,0 +1,7 @@
+RUN newA invalid='' fatal='' act='research'/'research' rew=False mode=serious core=3294/ead77b2ab509 insys=True rag=service rows=10 empty=True reason=service_empty correct=False l2=[394, 656] meta=(0, 2)
+RUN newB invalid='' fatal='' act='research'/'research' rew=False mode=serious core=3294/ead77b2ab509 insys=True rag=service rows=10 empty=True reason=service_empty correct=False l2=[565, 398] meta=(0, 2)
+RUN newC invalid='' fatal='' act='answer'/'answer' rew=False mode=casual core=3294/ead77b2ab509 insys=True rag=service rows=10 empty=False reason=None correct=None l2=[218] meta=(0, 1)
+RUN new_forced_A invalid='' fatal='' act=None/None rew=None mode=serious core=3294/ead77b2ab509 insys=True rag=service rows=10 empty=True reason=service_empty correct=False l2=[230, 522] meta=(0, 2)
+RUN new_forced_B invalid='' fatal='' act=None/None rew=None mode=serious core=3294/ead77b2ab509 insys=True rag=service rows=10 empty=True reason=service_empty correct=False l2=[356, 556] meta=(0, 2)
+RUN oldA invalid='' fatal='' act='analysis'/'analysis' rew=False mode=casual core=2507/e62de1fcd7a2 insys=True rag=service rows=10 empty=False reason=None correct=None l2=[782, 407] meta=(1, 2)
+RUN oldB invalid='' fatal='' act='clarification'/'clarification' rew=False mode=casual core=2507/e62de1fcd7a2 insys=True rag=service rows=10 empty=True reason=no_facts correct=True l2=[266, 447] meta=(0, 2)

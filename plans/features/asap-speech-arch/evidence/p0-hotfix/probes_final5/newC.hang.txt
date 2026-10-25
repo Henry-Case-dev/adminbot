@@ -1,0 +1,1 @@
+exit_after_summary=yes in 0s
