@@ -372,21 +372,22 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     from services import factcheck_context as fcx
     from services import factcheck_suitability as fsg
 
-    # 0. P0-FACTCHECK (§3.3, owner 24.10.2026): материал изображения целевого
-    # сообщения. Текст с картинки (OCR готового Vision-анализа) ДОБАВЛЯЕТСЯ к
-    # тезису, поэтому попадает и в поисковые запросы, и в промпт аналитика —
-    # версия/сборка/платформа больше не теряются. Новый OCR не создаётся;
-    # анализ ещё не готов → честная пометка image_not_analyzed, подпись
-    # сохраняется. Любой сбой Vision → прежний путь только по тексту.
-    from services.factcheck_service import load_claim_media
-    media = await load_claim_media(db, req.chat_id, req.target_tg_message_id)
-    claim_text = req.target_text
-    if media.text_suffix:
-        claim_text = f"{claim_text}\n\n{media.text_suffix}"
+    # 0. P0-FACTCHECK MEDIA (owner 25.10.2026 §3/§4): публикация целиком —
+    # durable элементы альбома (smart_messages.media_group_id) + все подписи
+    # + OCR/визуальное описание изображений существующим Vision-контуром.
+    # Один резолвер на оба маршрута (handler и v2): новых OCR/Vision/LLM-
+    # вызовов нет; недоступность изображения — честная пометка, не «пусто».
+    from services.factcheck_service import resolve_claim_publication
+    publication = await resolve_claim_publication(
+        db, req.chat_id, req.target_tg_message_id, base_text=req.target_text)
+    media = publication.media
+    claim_text = publication.text
     if media.image_present:
         logger.info("[factcheck_v2] media claim | chat=%s | analyzed=%s | "
-                    "ocr_chars=%d | caption=%d", req.chat_id,
-                    media.image_analyzed, media.ocr_chars, len(media.caption))
+                    "ocr_chars=%d | caption=%d | images=%d | notice=%s",
+                    req.chat_id, media.image_analyzed, media.ocr_chars,
+                    len(media.caption), media.image_count,
+                    bool(publication.notice()))
 
     # 1. ResolveTimeAndProvenance — ВСЕГДА, дёшево (06H.3); unknown честно.
     envelope = None
@@ -398,9 +399,12 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                              target_tg_message_id=req.target_tg_message_id,
                              trigger_tg_message_id=req.trigger_tg_message_id,
                              hint=req.user_hint,
-                             # §3.3: OCR идёт в claim только когда он есть —
-                             # иначе прежний путь «текст из БД» байт-в-байт.
-                             claim_text=claim_text if media.text_suffix else None),
+                             # §3.3: собранный сверх сохранённой строки текст
+                             # (подпись другого элемента альбома/OCR) идёт в
+                             # claim только когда он реально есть — иначе
+                             # прежний путь «текст из БД» байт-в-байт.
+                             claim_text=(claim_text
+                                         if publication.augmented else None)),
                 default_mode=str(req.default_mode or "contextual"))
         except Exception:
             logger.warning("[factcheck_v2] envelope build failed", exc_info=True)
@@ -550,7 +554,7 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
     if attribution_match is not None:
         verdict = fat.attach_attribution_evidence(verdict,
                                                   attribution_match)
-    _notice = media.notice()
+    _notice = publication.notice()
     if (not _notice and retrieval_outcome is not None
             and not getattr(retrieval_outcome, "refs_collected", 0)
             and getattr(retrieval_outcome, "search_text", "")

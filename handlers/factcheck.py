@@ -39,6 +39,9 @@ from services.smartmodule_concurrency import (
 from services.smartmodule_phrases import (
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
+    FACTCHECK_IMAGE_NO_CLAIM_PHRASES,
+    FACTCHECK_IMAGE_PENDING_PHRASES,
+    FACTCHECK_MEDIA_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
     LLM_ERROR_PHRASES,
     SMARTMODULE_BUSY_PHRASES,
@@ -104,20 +107,30 @@ async def _factcheck_pipeline_v2(message: types.Message, bot: Bot,
 async def _factcheck_temporal(message: types.Message, bot: Bot,
                               target: types.Message, target_text: str,
                               user_hint: str | None,
-                              forward_source: str | None) -> None:
+                              forward_source: str | None,
+                              publication=None) -> None:
     """MCA-20 ON-путь (D3/D9/D12): один resolver → TemporalClaimEnvelope →
     составной кеш-ключ `factcheck_temporal` (авто-bypass при unknown origin)
     → envelope-пайплайн единого сервиса. Ответ — reply на ЦЕЛЕВОЕ (5.3/5.4b/
-    5.5-контракт legacy сохранён)."""
+    5.5-контракт legacy сохранён).
+
+    P0-FACTCHECK media (owner 25.10.2026 §3/§4): ``publication`` собран
+    handler'ом (текст альбома + материал изображений). Собранный сверх
+    сохранённой строки текст передаётся в envelope как claim_text (даты/
+    origin по-прежнему из серверных метаданных); честная оговорка о
+    недоступном изображении идёт в ответ, а не в тезис."""
     from services import mca_gates, temporal_factcheck as tf
 
     chat_id = message.chat.id
     kind = "reply" if target is not message else "command"
+    assembled_claim = (target_text
+                       if publication is not None and publication.augmented
+                       else None)
     ref = tf.InputRef(
         kind=kind, chat_id=chat_id,
         target_tg_message_id=target.message_id,
         trigger_tg_message_id=message.message_id,
-        hint=user_hint)
+        hint=user_hint, claim_text=assembled_claim)
     try:
         default_mode = await _cp_g(
             chat_id, "temporal.default_mode",
@@ -144,7 +157,9 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                 cache, envelope, scope=scope)
         if cached is not None:
             # CA-20-9: hit хранит СВОЙ as_of — сегодняшнюю дату не подставляем.
-            await _reply(bot, chat_id, str(cached.get("text") or ""),
+            await _reply(bot, chat_id,
+                         _with_publication_notice(
+                             str(cached.get("text") or ""), publication),
                          target.message_id)
             logger.info("[factcheck] temporal cache hit | chat=%s | as_of=%s",
                         chat_id, cached.get("as_of"))
@@ -227,7 +242,9 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                     target_text, user_hint, forward_source, chat_id=chat_id,
                     chat_context=chat_context or None)
                 verdict_text = verdict
-            await send_chunked_reply(bot, chat_id, verdict_text,
+            await send_chunked_reply(bot, chat_id,
+                                     _with_publication_notice(verdict_text,
+                                                              publication),
                                      target.message_id)
         logger.info("[factcheck] temporal verdict sent | chat=%s", chat_id)
     except LLMBadResponseError as exc:
@@ -429,6 +446,66 @@ def _extract_target_text(message: types.Message, target: types.Message) -> str |
     return raw if raw and not _FACTCHECK_TRIGGER_RE.match(raw) else None
 
 
+# ── P0-FACTCHECK MEDIA (owner 25.10.2026 §3–§7): публикация целиком ─────────
+
+async def _resolve_publication(message: types.Message, target: types.Message):
+    """Текст + все элементы альбома + материал изображений одной публикации.
+
+    Базовый текст — прежний контракт ``_extract_target_text`` (text/caption →
+    буфер альбома → None). Резолвер ``services.factcheck_service`` добавляет
+    durable элементы группы из ``smart_messages`` (caption может быть на
+    ЛЮБОМ элементе) и OCR/визуальное описание через существующий Vision-контур.
+
+    Fail-open: любой сбой → прежний текстовый путь; честная «пустота»
+    остаётся только там, где действительно нечего проверять."""
+    from services.factcheck_service import (
+        ClaimPublication,
+        resolve_claim_publication,
+    )
+    base_text = _extract_target_text(message, target)
+    try:
+        return await resolve_claim_publication(
+            _db, message.chat.id, target.message_id,
+            base_text=base_text, target=target,
+            # Репост-вариант (target is message): caption триггера — команда
+            # «фактчек», а не текст публикации (D121 не меняется).
+            use_stored_target_text=target is not message)
+    except Exception:
+        logger.warning("[factcheck] publication resolve failed — text only",
+                       exc_info=True)
+        return ClaimPublication(text=base_text or "",
+                                caption_text=base_text or "")
+
+
+def _empty_content_phrase(publication) -> str:
+    """Почему фактчек не может идти — по фактическому состоянию входа.
+
+    §4/§5/§7: «пустота» допустима ТОЛЬКО когда данных действительно нет.
+    Изображение, которое не прочиталось технически или ещё не распознано, —
+    отдельная честная причина, а не «и че тут проверять, пустоту?»."""
+    media = publication.media
+    if publication.album_incomplete:
+        # Альбом прочитан не полностью: утверждать «нечего проверять» нельзя.
+        return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
+    if publication.has_image:
+        if media.vision_failed:
+            return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
+        if media.image_not_analyzed:
+            return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
+        return random.choice(FACTCHECK_IMAGE_NO_CLAIM_PHRASES)
+    return random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+
+
+def _with_publication_notice(text: str, publication) -> str:
+    """Честное ограничение входа — к готовому ответу, НЕ в тезис/поиск."""
+    if publication is None:
+        return text
+    notice = publication.notice()
+    if not notice:
+        return text
+    return f"{text}\n\n{notice}"
+
+
 # ── Epic 72 (74.C.3, D275): фактчек на расшифровку ───────────────────
 
 _TRANSCRIPTION_CLAIM_RE = re.compile(r"🗣:\s?(.*)", re.DOTALL)
@@ -487,14 +564,31 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, throttle_phrase(remaining), message.message_id)
         return                                # консьюм (D107: троттлинг — на вызов)
     await cooldown_touch(_cooldown, message.chat.id, user_id)  # слот сразу (42.4)
-    target_text = _extract_target_text(message, target)
-    if not target_text:                        # 5.3 → РЕПЛАЙ НА ЦЕЛЕВОЕ, БЕЗ поиска
-        await _reply(bot, message.chat.id, random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES),
+    # P0-FACTCHECK MEDIA (owner 25.10.2026 §3–§7): публикация целиком —
+    # текст/подпись (в т.ч. с другого элемента альбома) + все изображения
+    # через существующий Vision-контур. Раньше здесь был только текст, и
+    # фото/альбом/пересыл без caption упирались в «проверять пустоту».
+    publication = await _resolve_publication(message, target)
+    target_text = publication.text
+    if not target_text:                        # нет тезиса → РЕПЛАЙ НА ЦЕЛЕВОЕ, БЕЗ поиска
+        await _reply(bot, message.chat.id, _empty_content_phrase(publication),
                      target.message_id)
+        logger.info(
+            "[factcheck] no claim text | chat=%s | target=%s | group=%s | "
+            "probed=%d | image=%s | vision_failed=%s | pending=%s",
+            message.chat.id, target.message_id, publication.media_group_id,
+            len(publication.message_ids), publication.has_image,
+            publication.media.vision_failed,
+            publication.media.image_not_analyzed)
         return
     forward_source = None
     if getattr(target, "forward_origin", None) is not None:
         forward_source = _extract_forward_source(target.forward_origin)  # reuse handlers/summary.py
+    # P0-FACTCHECK media §3.7/§3.8: пересланная публикация сохраняет
+    # атрибуцию, даже если forward_origin есть только у элемента с caption.
+    if forward_source is None and publication.forward_source and (
+            publication.augmented or publication.media_group_id):
+        forward_source = publication.forward_source
     # Epic 72 (74.C.3, D275): реплай на расшифровку → клейм адресуем автору
     # исходного ГС; явный user-forward цели имеет приоритет (не регрессируем
     # существующий репост-вариант). Fail-open: записи нет → без атрибуции.
@@ -513,18 +607,28 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     # CFG-06 W3 (06H.2): единый оркестратор run_factcheck за миграционным
     # флагом (default OFF → прежняя развилка байт-в-байт).
     if _pipeline_v2_enabled():
-        await _factcheck_pipeline_v2(message, bot, target, target_text,
+        # v2 сам восстанавливает публикацию (одна реализация): текстовый
+        # случай получает прежний target_text (включая клейм расшифровки);
+        # медиа-случай — текст публикации БЕЗ материала, чтобы оркестратор
+        # не задвоил OCR/описание.
+        v2_text = (publication.caption_text
+                   if (publication.has_image or publication.media_group_id)
+                   else target_text)
+        await _factcheck_pipeline_v2(message, bot, target, v2_text,
                                      user_hint, forward_source)
         return
     if _temporal_on():
         await _factcheck_temporal(message, bot, target, target_text,
-                                  user_hint, forward_source)
+                                  user_hint, forward_source,
+                                  publication=publication)
         return
     cache = get_smart_cache()
     cache_key = cache.build_key("factcheck", target_text)
     cached = await cache.get(cache_key)
     if cached is not None:
-        await _reply(bot, message.chat.id, cached, message.message_id)
+        await _reply(bot, message.chat.id,
+                     _with_publication_notice(cached, publication),
+                     message.message_id)
         logger.info("[factcheck] cache hit | chat=%s", message.chat.id)
         return
     # Раунд N (T-841): слот пула per-chat перед LLM-вызовом check_claim
@@ -565,7 +669,10 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 target_text, user_hint, forward_source, chat_id=message.chat.id,
                 chat_context=chat_context or None,
             )
-            await send_chunked_reply(bot, message.chat.id, verdict, target.message_id)
+            await send_chunked_reply(
+                bot, message.chat.id,
+                _with_publication_notice(verdict, publication),
+                target.message_id)
         await cache.set(cache_key, verdict)      # только успешная генерация (59.2)
         logger.info("[factcheck] verdict sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:

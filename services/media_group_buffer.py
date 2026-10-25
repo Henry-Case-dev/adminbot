@@ -8,9 +8,14 @@ services/smartmodule_throttling.py (общее состояние, исполь�
 
 Заполнение: record_media_group_message из summary_observer (0a) — caption
 приходит в Telegram ТОЛЬКО на ПЕРВОМ элементе media group. Чтение:
-get_media_group_caption из handlers/factcheck.py (_extract_target_text) —
-reply «фактчек» на 2-е/3-е фото альбома получает caption 1-го фото.
-In-memory: после рестарта буфер пуст → fallback 5.3 (принято, D121).
+get_media_group_caption из services/factcheck_service.py
+(resolve_claim_publication) — reply «фактчек» на 2-е/3-е фото альбома
+получает caption 1-го фото.
+
+P0-FACTCHECK media (owner 25.10.2026 §3.3): буфер — только same-turn
+fast-path. Источник истины реконструкции альбома — durable
+`smart_messages.media_group_id` (observer пишет каждый элемент); после
+рестарта/TTL альбом всё равно собирается из БД, а не теряется.
 """
 import logging
 import time

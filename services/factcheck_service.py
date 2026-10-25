@@ -36,6 +36,7 @@ from services.grounding_validator import (
     strip_phantom_tags,
 )
 from services.llm_client import LLMBadResponseError, LLMClient, LLMError
+from services.media_group_buffer import get_media_group_caption
 from services import anticliche_cache
 from services import mca_gates
 from services import usage_events
@@ -181,71 +182,430 @@ def _human_evaluated_period(period: dict | None) -> str:
 
 @dataclasses.dataclass(frozen=True)
 class ClaimMediaMaterial:
-    """Что дало изображение целевого сообщения (для анализа и честности)."""
+    """Что дали изображения публикации (для анализа и честности)."""
     text_suffix: str = ""             # блок для claim/envelope (пусто — нет)
     image_present: bool = False
     image_analyzed: bool = False
     image_not_analyzed: bool = False
     ocr_chars: int = 0
     caption: str = ""
+    # P0-FACTCHECK media (owner 25.10.2026 §3/§4/§5/§7): альбом — несколько
+    # изображений одной публикации; недоступность — технический факт, а не
+    # «нет содержимого».
+    vision_failed: bool = False       # чтение Vision-контура не удалось
+    image_count: int = 0              # элементов с реально найденными активами
+    pending_count: int = 0            # из них распознавание ещё не готово
+    visual_descriptions: tuple[str, ...] = ()
 
     def notice(self) -> str:
         """Человеческое ограничение (никогда не выдумывает распознавание)."""
+        if self.vision_failed:
+            if self.image_count:
+                return ("Не все изображения публикации удалось прочитать "
+                        "(технический сбой) — проверено то, что доступно.")
+            return ("Изображение не удалось прочитать (технический сбой) — "
+                    "проверен только текст сообщения.")
         if self.image_not_analyzed:
+            if self.pending_count and self.pending_count < self.image_count:
+                return ("Часть изображений публикации ещё не распознана — "
+                        "учтено то, что уже прочитано.")
             return ("На изображении мог быть текст, но распознавание ещё не "
                     "готово — проверен только текст сообщения.")
         return ""
 
 
+_IMAGE_MEDIA_TYPES = frozenset({"photo", "sticker"})
+_MAX_ALBUM_ELEMENTS = 10          # Telegram: media group ≤ 10 элементов
+
+
+def _row_value(row, key):
+    """Значение колонки из ``aiosqlite.Row``/dict/тестового двойника."""
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return row.get(key)
+    try:
+        return row[key]
+    except (KeyError, IndexError, TypeError):
+        return None
+
+
+def _row_is_image(row) -> bool:
+    """Строка ``smart_messages`` — изображение для существующего Vision."""
+    return str(_row_value(row, "media_type") or "") in _IMAGE_MEDIA_TYPES
+
+
+def _message_image_hint(message) -> bool:
+    """Есть ли в TG-сообщении изображение, пригодное Vision-контуру.
+
+    Проверяются ТОЛЬКО реальные aiogram-атрибуты (``list[PhotoSize]``,
+    документ с image-mime, статический стикер): тестовые MagicMock-двойники
+    не должны притворяться фотографией, а анимации/видео — вне image-контура
+    (D18, mca_vision)."""
+    photo = getattr(message, "photo", None)
+    if isinstance(photo, (list, tuple)):
+        return bool(photo)
+    document = getattr(message, "document", None)
+    if document is not None:
+        mime = getattr(document, "mime_type", None)
+        if isinstance(mime, str) and mime.startswith("image/"):
+            return True
+    sticker = getattr(message, "sticker", None)
+    if sticker is not None:
+        return not (bool(getattr(sticker, "is_animated", False))
+                    or bool(getattr(sticker, "is_video", False)))
+    return False
+
+
+def _descriptions_from_lines(lines) -> list[str]:
+    """Визуальные описания из готового рендера (совместимость со старыми
+    структурами без аддитивного ключа ``visual_descriptions``)."""
+    prefix = "Визуальное описание (результат модели):"
+    result: list[str] = []
+    for line in lines or ():
+        value = str(line or "")
+        if value.startswith(prefix):
+            text = value[len(prefix):].strip()
+            if text:
+                result.append(text)
+    return result
+
+
+def _labelled_block(prefix: str, index: int, multi: bool, tail: str,
+                    body: str) -> str:
+    number = f" {index}" if multi else ""
+    return f"{prefix}{number}{tail}:\n{body}"
+
+
 async def load_claim_media(db, chat_id: int | None,
                            tg_message_id: int | None, *,
                            render_async=None,
-                           max_chars: int = 2000) -> ClaimMediaMaterial:
-    """OCR-текст изображения целевого сообщения (REUSE mca_vision).
+                           max_chars: int = 2000,
+                           message_ids=None,
+                           expected_images: int = 0) -> ClaimMediaMaterial:
+    """OCR/визуальное описание изображений публикации (REUSE mca_vision).
 
-    Возвращает контракт «что попало в анализ»: ``text_suffix`` уходит в
-    claim/envelope (=> в поисковые запросы и в промпт аналитика), а
-    ``image_not_analyzed`` — честная пометка, когда изображение есть, но
-    распознавания ещё нет. Fail-open: любая ошибка → пустой материал
-    (прежнее поведение без изображения)."""
-    if db is None or not chat_id or not tg_message_id:
-        return ClaimMediaMaterial()
+    ``message_ids`` (P0-FACTCHECK media §3) — элементы альбома: читаются ВСЕ,
+    поэтому тезис получает текст каждого изображения, а не только целевого.
+    ``expected_images`` — сколько элементов заведомо являются изображениями
+    (TG-атрибут/``media_type``): расхождение с реально найденными активами —
+    честная ТЕХНИЧЕСКАЯ недоступность (``vision_failed``), а не «нет
+    изображения». Возвращает контракт «что попало в анализ»: ``text_suffix``
+    уходит в claim/envelope (=> в поисковые запросы и в промпт аналитика),
+    ``notice()`` — честная оговорка для ответа.
+
+    Fail-open: любая ошибка чтения → пустой материал (прежнее поведение без
+    изображения), но сам факт сбоя при наличии ожидаемого изображения
+    помечается ``vision_failed``."""
+    if db is None or not chat_id:
+        return ClaimMediaMaterial(image_present=False,
+                                  vision_failed=bool(expected_images))
     if render_async is None:
         try:
             from services import mca_vision
             render_async = mca_vision.render_media_context_async
         except Exception:          # pragma: no cover — vision выключен
-            return ClaimMediaMaterial()
-    try:
-        media = await render_async(db, chat_id=int(chat_id),
-                                   tg_message_id=int(tg_message_id))
-    except Exception:
-        logger.warning("[factcheck] media context read failed — caption only",
-                       exc_info=True)
-        return ClaimMediaMaterial()
-    if not media:
-        return ClaimMediaMaterial()
-    caption = str(media.get("caption") or "").strip()
-    ocr_texts = [str(t).strip() for t in (media.get("untrusted_ocr_texts")
-                                          or ()) if str(t or "").strip()]
-    ocr_text = "\n".join(ocr_texts).strip()[:max_chars]
-    if not ocr_text:
-        # F6 (review r1): «распознавание не готово» ≠ «на изображении нет
-        # текста». Готовый анализ без текста — честный `analyzed` без
-        # ложной оговорки; `not_analyzed` только когда строка ожидания
-        # Vision реально присутствует.
+            return ClaimMediaMaterial(image_present=False,
+                                      vision_failed=bool(expected_images))
+    ids: list[int] = []
+    for value in (message_ids if message_ids is not None
+                  else [tg_message_id]):
+        try:
+            mid = int(value)
+        except (TypeError, ValueError):
+            continue
+        if mid and mid not in ids:
+            ids.append(mid)
+    rendered: list[dict] = []
+    failed = 0
+    for mid in ids[:_MAX_ALBUM_ELEMENTS]:
+        try:
+            media = await render_async(db, chat_id=int(chat_id),
+                                       tg_message_id=int(mid))
+        except Exception:
+            failed += 1
+            logger.warning("[factcheck] media context read failed — caption "
+                           "only | chat=%s | tg=%s", chat_id, mid,
+                           exc_info=True)
+            continue
+        if media:
+            rendered.append(media)
+    expected = max(0, int(expected_images or 0))
+    if not rendered:
+        # Изображения ожидались, но ни одного не прочитали — техническая
+        # недоступность (а не «изображения нет»). Без ожидания — материала нет.
+        return ClaimMediaMaterial(image_present=False,
+                                  vision_failed=expected > 0)
+    captions: list[str] = []
+    ocr_blocks: list[str] = []
+    descriptions: list[str] = []
+    raw_descriptions: list[str] = []
+    ocr_chars = 0
+    pending = False
+    pending_count = 0
+    multi = len(rendered) > 1
+    for index, media in enumerate(rendered, start=1):
+        caption = str(media.get("caption") or "").strip()
+        if caption and caption not in captions:
+            captions.append(caption)
         lines = [str(line) for line in (media.get("lines") or ())]
-        pending = any("содержание ещё не распознано" in line
-                      for line in lines)
-        ready = bool(media.get("knowledge_time"))
-        return ClaimMediaMaterial(
-            image_present=True, image_analyzed=ready or not pending,
-            image_not_analyzed=pending, caption=caption)
-    suffix = ("Текст с изображения (OCR, не слова автора):\n"
-              + ocr_text)
+        # F6 (review r1): «распознавание не готово» ≠ «на изображении нет
+        # текста». Готовый анализ без текста — честный `analyzed` без ложной
+        # оговорки; pending только когда строка ожидания Vision реально есть.
+        if any("содержание ещё не распознано" in line for line in lines):
+            pending = True
+            pending_count += 1
+        texts = [str(t).strip() for t in (media.get("untrusted_ocr_texts")
+                                          or ()) if str(t or "").strip()]
+        for text in texts:
+            ocr_chars += len(text)
+            ocr_blocks.append(_labelled_block(
+                "Текст с изображения", index, multi,
+                " (OCR, не слова автора)", text))
+        descs = [str(d).strip()
+                 for d in (media.get("visual_descriptions") or ())
+                 if str(d or "").strip()]
+        if not descs:
+            descs = _descriptions_from_lines(lines)
+        for desc in descs:
+            raw_descriptions.append(desc)
+            descriptions.append(_labelled_block(
+                "Визуальное описание изображения", index, multi,
+                " (результат модели; не доказывает подлинность, дату или "
+                "место)", desc))
+    suffix = "\n\n".join(ocr_blocks + descriptions).strip()
+    if len(suffix) > max_chars:
+        suffix = suffix[:max_chars].rstrip()
+    unavailable = expected > len(rendered)
     return ClaimMediaMaterial(text_suffix=suffix, image_present=True,
-                              image_analyzed=True, ocr_chars=len(ocr_text),
-                              caption=caption)
+                              image_analyzed=not pending,
+                              image_not_analyzed=pending,
+                              ocr_chars=ocr_chars,
+                              caption="\n\n".join(captions),
+                              vision_failed=unavailable
+                              or (bool(failed) and expected > 0),
+                              image_count=len(rendered),
+                              pending_count=pending_count,
+                              visual_descriptions=tuple(raw_descriptions))
+
+
+@dataclasses.dataclass(frozen=True)
+class ClaimPublication:
+    """Что удалось восстановить о публикации до фактчека (P0 media §3).
+
+    ``text`` — тезис для пайплайна (подпись/текст публикации + материал
+    изображений), ``caption_text`` — только текст публикации (без материала;
+    для повторного резолва в оркестраторе v2). ``augmented`` — текст собран
+    сверх целевой строки (caption другого элемента альбома или изображения):
+    только тогда он передаётся в envelope как claim_text."""
+    text: str = ""
+    caption_text: str = ""
+    media: ClaimMediaMaterial = dataclasses.field(
+        default_factory=ClaimMediaMaterial)
+    message_ids: tuple[int, ...] = ()
+    media_group_id: str | None = None
+    has_image: bool = False
+    augmented: bool = False
+    album_incomplete: bool = False
+    forward_source: str | None = None
+
+    def notice(self) -> str:
+        parts: list[str] = []
+        if self.album_incomplete:
+            parts.append("Элементы альбома прочитаны не полностью — проверено "
+                         "то, что сохранилось.")
+        media_notice = self.media.notice()
+        if media_notice:
+            parts.append(media_notice)
+        return " ".join(parts)
+
+
+async def resolve_claim_publication(
+        db, chat_id: int | None, tg_message_id: int | None, *,
+        base_text: str | None = None,
+        target=None,
+        use_stored_target_text: bool = True,
+        render_async=None,
+        max_chars: int = 2000) -> ClaimPublication:
+    """Восстановить публикацию: durable элементы альбома + изображения.
+
+    P0-FACTCHECK media (owner 25.10.2026 §3): ответ на ЛЮБОЙ элемент
+    media group обязан дать всю публикацию — все элементы и ВСЕ подписи
+    (Telegram кладёт caption только на один элемент), все изображения.
+    Durable источник — ``smart_messages.media_group_id``; in-memory
+    ``media_group_buffer`` используется только как fast-path, когда строк
+    ещё нет (рестарт/TTL/сбой записи). Соседние сообщения вне группы не
+    подмешиваются: запрос строго по ``media_group_id`` в том же чате.
+
+    ``target`` — aiogram ``Message`` (handler-путь): даёт прямой текст, признак
+    изображения и ``media_group_id`` без ожидания записи. Без него (путь
+    оркестратора v2) всё берётся из сохранённой строки.
+
+    Fail-open: сбой чтения строки/группы не роняет фактчек; неполнота альбома
+    помечается честно (``album_incomplete``), а не выдаётся за полный вход."""
+    base = str(base_text or "").strip()
+    try:
+        tg_id = (int(tg_message_id)
+                 if tg_message_id not in (None, "", 0) else None)
+    except (TypeError, ValueError):
+        tg_id = None
+    target_row = None
+    if db is not None and chat_id is not None and tg_id is not None:
+        try:
+            target_row = await db.get_smart_message_by_tg_id(
+                int(chat_id), int(tg_id))
+        except Exception:
+            logger.warning("[factcheck] target row read failed — text only | "
+                           "chat=%s | tg=%s", chat_id, tg_id, exc_info=True)
+    media_group_id = None
+    if target is not None:
+        raw = getattr(target, "media_group_id", None)
+        if isinstance(raw, str) and raw.strip():
+            media_group_id = raw.strip()
+    if media_group_id is None:
+        raw = _row_value(target_row, "media_group_id")
+        if isinstance(raw, str) and raw.strip():
+            media_group_id = raw.strip()
+    hint_image = _message_image_hint(target) if target is not None else False
+    # Уточнение владельца 25.10.2026: ответ на ТЕКСТОВУЮ часть поста даёт тот
+    # же охват, что ответ на фото. Альбом, прикреплённый ответом к этому
+    # сообщению, находится по структурной связи `reply_to_id` (не по
+    # соседству). Связь неоднозначна (>1 группы) → не угадываем.
+    attached_via_reply = False
+    if (media_group_id is None and not hint_image and db is not None
+            and chat_id is not None and tg_id is not None):
+        try:
+            attached = list(await db.get_smart_messages_reply_to(
+                int(chat_id), int(tg_id), media_only=True) or [])
+        except Exception:
+            attached = []
+            logger.warning("[factcheck] attached album lookup failed — text "
+                           "only | chat=%s | tg=%s", chat_id, tg_id,
+                           exc_info=True)
+        groups = {str(_row_value(row, "media_group_id") or "").strip()
+                  for row in attached}
+        groups.discard("")
+        if len(groups) == 1:
+            media_group_id = groups.pop()
+            attached_via_reply = True
+    album_rows: list = []
+    album_incomplete = False
+    if media_group_id and db is not None and chat_id is not None:
+        try:
+            album_rows = list(
+                await db.get_smart_messages_by_media_group(
+                    int(chat_id), str(media_group_id)) or [])
+        except Exception:
+            album_incomplete = True
+            logger.warning("[factcheck] media group read failed — partial | "
+                           "chat=%s | group=%s", chat_id, media_group_id,
+                           exc_info=True)
+    by_id: dict[int, object] = {}
+    for row in album_rows:
+        try:
+            row_id = int(_row_value(row, "tg_message_id"))
+        except (TypeError, ValueError):
+            continue
+        by_id[row_id] = row
+    album_rows = [by_id[key] for key in sorted(by_id)][:_MAX_ALBUM_ELEMENTS]
+    element_rows = list(album_rows)
+    if target_row is not None and tg_id is not None and tg_id not in by_id:
+        element_rows.append(target_row)
+    caption_values: list[str] = []
+    if base:
+        caption_values.append(base)
+    for row in element_rows:
+        row_id = _row_value(row, "tg_message_id")
+        try:
+            row_id = int(row_id)
+        except (TypeError, ValueError):
+            row_id = None
+        if row_id == tg_id and (base or not use_stored_target_text):
+            # Прямой текст цели авторитетнее сохранённой копии (правки),
+            # дубль в тезис не тянем. Репост-вариант (D121): caption самого
+            # триггера — это команда «фактчек», а не публикация.
+            continue
+        value = (str(_row_value(row, "caption") or "").strip()
+                 or str(_row_value(row, "text") or "").strip())
+        if value and value not in caption_values:
+            caption_values.append(value)
+    if not caption_values and media_group_id:
+        buffered = get_media_group_caption(str(media_group_id))
+        if buffered:
+            caption_values.append(str(buffered).strip())
+    # Текст поста отдельным сообщением (уточнение 25.10): подключается по
+    # структурной связи reply_to — альбом отвечает на текст публикации.
+    # Это НЕ соседнее сообщение (§3.8): связь явная и одношаговая; чужие
+    # подписи/тексты рядом не подмешиваются.
+    parent_id = None
+    for row in ([target_row] if target_row is not None else []) + element_rows:
+        try:
+            value = int(_row_value(row, "reply_to_id"))
+        except (TypeError, ValueError):
+            continue
+        if value and value != tg_id:
+            parent_id = value
+            break
+    if (parent_id is not None and media_group_id and not attached_via_reply
+            and db is not None and chat_id is not None):
+        try:
+            parent = await db.get_smart_message_by_tg_id(
+                int(chat_id), int(parent_id))
+        except Exception:
+            parent = None
+            logger.warning("[factcheck] post text read failed — caption "
+                           "only | chat=%s | tg=%s", chat_id, parent_id,
+                           exc_info=True)
+        if parent is not None and not _row_is_image(parent):
+            parent_text = (str(_row_value(parent, "text") or "").strip()
+                           or str(_row_value(parent, "caption") or "").strip())
+            if parent_text and parent_text not in caption_values:
+                caption_values.insert(0, parent_text)
+    caption_text = "\n\n".join(value for value in caption_values if value)
+    expected_ids: set[int] = set()
+    if hint_image and tg_id is not None:
+        expected_ids.add(int(tg_id))
+    for row in element_rows:
+        if not _row_is_image(row):
+            continue
+        try:
+            expected_ids.add(int(_row_value(row, "tg_message_id")))
+        except (TypeError, ValueError):
+            continue
+    image_ids: list[int] = []
+    for row in element_rows:
+        try:
+            row_id = int(_row_value(row, "tg_message_id"))
+        except (TypeError, ValueError):
+            continue
+        if row_id not in image_ids:
+            image_ids.append(row_id)
+    if tg_id is not None and tg_id not in image_ids:
+        image_ids.append(tg_id)
+    image_ids.sort()
+    media = await load_claim_media(
+        db, chat_id, tg_id, render_async=render_async, max_chars=max_chars,
+        message_ids=image_ids or None, expected_images=len(expected_ids))
+    has_image = hint_image or bool(expected_ids) or media.image_present
+    if expected_ids and not media.image_present and not media.vision_failed:
+        media = dataclasses.replace(media, vision_failed=True)
+    text = caption_text
+    if media.text_suffix:
+        text = (f"{caption_text}\n\n{media.text_suffix}".strip()
+                if caption_text else media.text_suffix)
+    forward_source = None
+    for row in ([target_row] if target_row is not None else []) + element_rows:
+        source = str(_row_value(row, "forward_source") or "").strip()
+        if not source:
+            source = str(_row_value(row, "origin_display_name") or "").strip()
+        if source:
+            forward_source = source
+            break
+    return ClaimPublication(
+        text=text, caption_text=caption_text, media=media,
+        message_ids=tuple(image_ids), media_group_id=media_group_id,
+        has_image=has_image, augmented=bool(text) and text != base,
+        album_incomplete=album_incomplete, forward_source=forward_source)
 
 
 # ── P0-FACTCHECK (§3.6): классы исхода retrieval — сбой ≠ «нет данных» ───────

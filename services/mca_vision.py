@@ -3232,6 +3232,16 @@ async def render_media_context_async(db, *, chat_id: int,
                  if analysis is not None
                  for b in analysis_from_row(analysis).ocr_blocks
                  if str(b.get("text") or "").strip()]
+    # P0-FACTCHECK media (owner 25.10.2026 §4/§6.2): визуальное описание —
+    # отдельным каналом (не OCR), чтобы потребитель мог показать/передать его
+    # как результат модели и НЕ путать с текстом изображения. Аддитивный ключ:
+    # существующие потребители (Direct/Observer/Initiative/Memory/Summary)
+    # читают прежние поля без изменений.
+    visual_descriptions = [str(analysis.get("visual_description") or "").strip()
+                           for analysis in analyses
+                           if analysis is not None
+                           and str(analysis.get("visual_description")
+                                   or "").strip()]
     return {
         "message_key": f"{chat_id}:{tg_message_id}",
         "event_time": int(event_time or 0) or None,
@@ -3240,6 +3250,7 @@ async def render_media_context_async(db, *, chat_id: int,
         "caption": caption or None,
         "forward_source": str(_row_get("forward_source") or "") or None,
         "untrusted_ocr_texts": ocr_texts,
+        "visual_descriptions": visual_descriptions,
         "lines": lines,
         "text": "\n".join(lines),
         "replay_mode": bool(replay_before is not None),
