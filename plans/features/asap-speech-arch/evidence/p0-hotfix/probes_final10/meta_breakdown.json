@@ -1,0 +1,20 @@
+{
+ "note": "final (post-guard) first-sentence counters on the 16 primary answers",
+ "total": 16,
+ "product_announce_re": 0,
+ "product_filler_re": 0,
+ "strict_prefix": 2,
+ "strict_prefix_rows": [
+  {
+   "label": "eff_B",
+   "repeat": 2,
+   "first": "Ну Макс, ты сам напросился."
+  },
+  {
+   "label": "new_E",
+   "repeat": 1,
+   "first": "Ну давай, раз уж просят."
+  }
+ ],
+ "union": 2
+}

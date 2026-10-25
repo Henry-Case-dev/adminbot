@@ -1,0 +1,12 @@
+prod_head_after=534ac7dda6713fb407e0789fdddfa563251cdab4
+prod_dirty_after=13
+db_after /var/www/admin_bot/local_database.db 1626075136 1792930161
+db_after /var/www/admin_bot/local_database.db-wal 4223032 1792930489
+db_after /var/www/admin_bot/local_database.db-shm 32768 1792930489
+NRestarts=0
+ActiveState=active
+ActiveEnterTimestamp=Sat 2026-10-24 21:03:19 UTC
+health_https=000
+health_http=308
+stray_after=0
+end_utc=2026-10-25T12:14:51Z

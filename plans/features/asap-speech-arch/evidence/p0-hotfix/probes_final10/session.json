@@ -1,0 +1,297 @@
+{
+ "lane": "LIVE-META-ZERO-FINAL",
+ "candidate": "9828a8adcbd420bb8f15997129fbaccf0671ff54",
+ "prod_baseline": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "prod_head_before": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "started_utc": "2026-10-25T12:08:19Z",
+ "finished_utc": "2026-10-25T12:15:07Z",
+ "elapsed_s": 408.5,
+ "host": "198.46.175.136",
+ "user": "nik",
+ "staging": "/tmp/p0-final10/new",
+ "local_sha256": {
+  "new_code.tar.gz": "de918f5ac1cddaf0b040ea606d15246eea1c688bee8e4e096d240c4fcd14fd0d",
+  "harness_extra.py": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1",
+  "harness_effective.py": "5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086",
+  "analysis_final9.py": "9bd2e2482e2e3069896d75f2cbc5b74037f18ed6bf99ff1c4c081014e100a848",
+  "guard_check_final9.py": "5cb2fda0239af24a6e61dc81a5fc584f8ad18b760eb7bd81293f4973ef891a99",
+  "meta_gap_check_final9.py": "8161e2c20486b0f77c7efac5e91b1cb47f99e6d65d5163033bc3a2b9f878b4f0",
+  "guard_check_final10.py": "2e9ffa492cad38c1cb8a90349d1a43f34f0a7395bff7aa5a5567ec3d31bc2e90",
+  "remote_run_final10.sh": "43c7bef19399df25622bd1990f2a889605565650ef6899674a1cb78dc352b281"
+ },
+ "commands": [
+  {
+   "label": "precheck",
+   "rc": 0,
+   "elapsed_s": 2.4,
+   "stdout": "2026-10-25T12:08:22Z\nracknerd-f4e3456\n/dev/vda2        24G   19G  3.5G  85% /\n534ac7dda6713fb407e0789fdddfa563251cdab4\n13\n/var/www/admin_bot/local_database.db 1626017792 1792929276\nNRestarts=0\nActiveState=active\n1\n/usr/bin/python3.12\n",
+   "stderr": ""
+  },
+  {
+   "label": "reset_stage",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "",
+   "stderr": ""
+  },
+  {
+   "label": "sha_uploaded",
+   "rc": 0,
+   "elapsed_s": 0.8,
+   "stdout": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1  harness_extra.py\n5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086  harness_effective.py\n9bd2e2482e2e3069896d75f2cbc5b74037f18ed6bf99ff1c4c081014e100a848  analysis_final9.py\n5cb2fda0239af24a6e61dc81a5fc584f8ad18b760eb7bd81293f4973ef891a99  guard_check_final9.py\n8161e2c20486b0f77c7efac5e91b1cb47f99e6d65d5163033bc3a2b9f878b4f0  meta_gap_check_final9.py\n2e9ffa492cad38c1cb8a90349d1a43f34f0a7395bff7aa5a5567ec3d31bc2e90  guard_check_final10.py\n",
+   "stderr": ""
+  },
+  {
+   "label": "bash_syntax",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "SYNTAX_OK\n",
+   "stderr": ""
+  },
+  {
+   "label": "start",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "started=1369824\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "2\n",
+   "stderr": "bash: line 1: /tmp/p0-final10/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "3\n",
+   "stderr": "bash: line 1: /tmp/p0-final10/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "3\n",
+   "stderr": "bash: line 1: /tmp/p0-final10/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "1\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "1\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "1\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "2\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "2\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "3\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "3\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "4\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "4\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "4\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "5\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "5\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "7\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "7\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "8\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "8\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "9\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "9\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.8,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:13:48Z\nRESULTS_READY\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "run_tail",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "START_UTC=2026-10-25T12:09:12Z\nprod_head_before=534ac7dda6713fb407e0789fdddfa563251cdab4\nPROBES_DONE_UTC=2026-10-25T12:13:48Z\nresults_sha256=1e57171f1d9a3cc414db400c8c9d310e409be8c036e5e2ece5b892aa9d8a7c6a\nRESULTS_READY\nEND_UTC=2026-10-25T12:14:51Z\n---\nnew_A rc=0 utc=2026-10-25T12:09:54Z\nnew_B rc=0 utc=2026-10-25T12:10:19Z\neff_A rc=0 utc=2026-10-25T12:10:42Z\neff_B rc=0 utc=2026-10-25T12:11:09Z\nnew_C rc=0 utc=2026-10-25T12:11:32Z\nnew_D rc=0 utc=2026-10-25T12:11:57Z\nnew_E rc=0 utc=2026-10-25T12:12:37Z\nnew_F rc=0 utc=2026-10-25T12:13:03Z\nforced_A rc=0 utc=2026-10-25T12:13:24Z\nforced_B rc=0 utc=2026-10-25T12:13:48Z\n---\nanalysis_rc=0\nmeta_gap_rc=0\nguard9_rc=0\nguard10_rc=0\n",
+   "stderr": ""
+  },
+  {
+   "label": "cleanup",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "1\n0\n",
+   "stderr": ""
+  }
+ ]
+}

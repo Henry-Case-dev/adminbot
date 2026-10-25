@@ -1,0 +1,10 @@
+new_A rc=0 utc=2026-10-25T12:09:54Z
+new_B rc=0 utc=2026-10-25T12:10:19Z
+eff_A rc=0 utc=2026-10-25T12:10:42Z
+eff_B rc=0 utc=2026-10-25T12:11:09Z
+new_C rc=0 utc=2026-10-25T12:11:32Z
+new_D rc=0 utc=2026-10-25T12:11:57Z
+new_E rc=0 utc=2026-10-25T12:12:37Z
+new_F rc=0 utc=2026-10-25T12:13:03Z
+forced_A rc=0 utc=2026-10-25T12:13:24Z
+forced_B rc=0 utc=2026-10-25T12:13:48Z

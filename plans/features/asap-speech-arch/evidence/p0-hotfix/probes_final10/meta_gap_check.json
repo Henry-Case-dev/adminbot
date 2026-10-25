@@ -1,0 +1,234 @@
+{
+ "root": "/tmp/p0-final10/new",
+ "analysis": "/tmp/p0-final10/analysis.json",
+ "counts": {
+  "total": 16,
+  "strict": 2,
+  "addressee_branch": 2,
+  "union": 2
+ },
+ "runs": [
+  {
+   "label": "eff_A",
+   "repeat": 1,
+   "first": "Да не злобный ты.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_A",
+   "repeat": 2,
+   "first": "Да не злобный ты, просто ленивый.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_B",
+   "repeat": 1,
+   "first": "Да бля, Макс, ты сам подумай.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_B",
+   "repeat": 2,
+   "first": "Ну Макс, ты сам напросился.",
+   "strict": true,
+   "addressee_branch": true,
+   "union": true
+  },
+  {
+   "label": "new_C",
+   "repeat": 1,
+   "first": "Да не, дождь норм.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_C",
+   "repeat": 2,
+   "first": "Да ну нахуй, дождь — это единственная погода, когда можно лежать под одеялом и не чувствовать себя ебанатом, который просрал солнечный день.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_D",
+   "repeat": 1,
+   "first": "Да, Макс.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_D",
+   "repeat": 2,
+   "first": "Слушай, если бы ты мне надоел, я бы просто перестал отвечать или послал нахуй сразу, а не через двадцать сообщений.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_E",
+   "repeat": 1,
+   "first": "Ну давай, раз уж просят.",
+   "strict": true,
+   "addressee_branch": true,
+   "union": true
+  },
+  {
+   "label": "new_E",
+   "repeat": 2,
+   "first": "Чат — это цирк с тремя манежами, и каждый гнет свою линию.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_F",
+   "repeat": 1,
+   "first": "Да я хер его знает, я за этим не слежу.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_F",
+   "repeat": 2,
+   "first": "Понятия не имею, я за этим не слежу.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_A",
+   "repeat": 1,
+   "first": "Да нет, не злобный.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_A",
+   "repeat": 2,
+   "first": "Бля, Макс, ну какой ты злобный.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_B",
+   "repeat": 1,
+   "first": "Да хули там анализировать.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_B",
+   "repeat": 2,
+   "first": "Да не злобный ты.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  }
+ ],
+ "live_gap_guard": {
+  "final6_E1": {
+   "raw_sha12": "39337e0082c8",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 87,
+   "final_chars": 38,
+   "first": "Ну давай, разложу по полочкам, раз уж попросил.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final6_E2": {
+   "raw_sha12": "103bd7f2dc8b",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 72,
+   "final_chars": 38,
+   "first": "Окей, давай без лишних прелюдий.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final7_E1": {
+   "raw_sha12": "dd4815170ce7",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 54,
+   "final_chars": 38,
+   "first": "Ладно, смотри.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final7_E2": {
+   "raw_sha12": "3e101ef970d7",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 72,
+   "final_chars": 38,
+   "first": "Макс, ну давай, раз уж попросил.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final8_E2": {
+   "raw_sha12": "00ecc910e144",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 91,
+   "final_chars": 38,
+   "first": "Ну ок, давай разложу по полочкам, раз уж попросили.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "live_run_E_1": {
+   "raw_sha12": "f2830b58725d",
+   "final_sha12": "f2830b58725d",
+   "raw_chars": 2755,
+   "final_chars": 2755,
+   "first": "Ну давай, раз уж просят.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "body_intact": false
+  },
+  "live_run_E_2": {
+   "raw_sha12": "a2c4c9d58db2",
+   "final_sha12": "a2c4c9d58db2",
+   "raw_chars": 2405,
+   "final_chars": 2405,
+   "first": "Чат — это цирк с тремя манежами, и каждый гнет свою линию.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "body_intact": false
+  }
+ },
+ "note": "offline; same tree/commit as the live run (module sha256 binding)"
+}

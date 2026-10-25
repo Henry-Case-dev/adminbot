@@ -1,0 +1,314 @@
+{
+ "summary": {
+  "l1_raw_ab_research": {
+   "count": 2,
+   "of": 2,
+   "runs": [
+    {
+     "label": "raw_A",
+     "act": "research",
+     "source": "llm",
+     "extent": "compact"
+    },
+    {
+     "label": "raw_B",
+     "act": "research",
+     "source": "llm",
+     "extent": "compact"
+    }
+   ]
+  },
+  "l1_effective_ab_research": {
+   "count": 2,
+   "of": 2,
+   "runs": [
+    {
+     "label": "eff_A",
+     "act": "research",
+     "source": "llm",
+     "extent": "compact"
+    },
+    {
+     "label": "eff_B",
+     "act": "research",
+     "source": "llm",
+     "extent": "compact"
+    }
+   ]
+  },
+  "l1_forced_ab_research": {
+   "count": 2,
+   "of": 2,
+   "runs": [
+    {
+     "label": "forced_A",
+     "act": "research",
+     "source": "forced",
+     "extent": "normal"
+    },
+    {
+     "label": "forced_B",
+     "act": "research",
+     "source": "forced",
+     "extent": "normal"
+    }
+   ]
+  },
+  "e_not_silent": true,
+  "e_route": {
+   "action": "reply",
+   "response_act": "research",
+   "extent": "detailed",
+   "structure": "report",
+   "confidence": 0.6
+  },
+  "meta_first_sentence": {
+   "raw": 3,
+   "final": 2,
+   "of": 16,
+   "final_examples": [
+    {
+     "label": "eff_B",
+     "repeat": 2,
+     "first": "Ну Макс, ты сам напросился."
+    },
+    {
+     "label": "new_E",
+     "repeat": 1,
+     "first": "Ну давай, раз уж просят."
+    }
+   ]
+  },
+  "quotes": {
+   "raw_total": 34,
+   "final_total": 21,
+   "final_non_exact": 0
+  },
+  "core": {
+   "runs_with_expected_core": 8,
+   "of": 8,
+   "chars": 3294,
+   "sha12": "ead77b2ab509"
+  },
+  "malformed": 0,
+  "invalid_runs": [],
+  "l1_attempts": {
+   "eff_A": 1,
+   "eff_B": 1,
+   "new_C": 1,
+   "new_D": 1,
+   "new_E": 1,
+   "new_F": 1,
+   "forced_A": null,
+   "forced_B": null,
+   "raw_A": 1,
+   "raw_B": 1
+  },
+  "b_lengths": [
+   532,
+   526
+  ],
+  "e_lengths": [
+   2715,
+   2365
+  ],
+  "a_effective": {
+   "act": "research",
+   "extent": "compact",
+   "mode": "serious",
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "lengths": [
+    183,
+    169
+   ],
+   "stand_wrapper": {
+    "file": "harness_effective.py",
+    "patched": "services.direct_l1.parse_l1_plan -> apply_research_fallback(plan, query)",
+    "harness_unchanged": true,
+    "query_sha12": "d0aea3fedd47",
+    "fallback_calls": [
+     {
+      "before": "research",
+      "after": "research",
+      "applied": false
+     }
+    ],
+    "reason": "committed harness bypasses DirectChatService._plan_direct_l1"
+   }
+  },
+  "c_d_f": {
+   "new_C": {
+    "act": "banter",
+    "extent": "compact",
+    "lengths": [
+     338,
+     147
+    ]
+   },
+   "new_D": {
+    "act": "emotional_reply",
+    "extent": "compact",
+    "lengths": [
+     112,
+     401
+    ]
+   },
+   "new_F": {
+    "act": "explanation",
+    "extent": "compact",
+    "lengths": [
+     118,
+     209
+    ]
+   }
+  },
+  "numbered_lines": 9,
+  "bold_numbered": {
+   "eff_A": [
+    0,
+    0
+   ],
+   "eff_B": [
+    0,
+    0
+   ],
+   "new_C": [
+    0,
+    0
+   ],
+   "new_D": [
+    0,
+    0
+   ],
+   "new_E": [
+    0,
+    0
+   ],
+   "new_F": [
+    0,
+    0
+   ],
+   "forced_A": [
+    0,
+    0
+   ],
+   "forced_B": [
+    0,
+    0
+   ]
+  },
+  "bold_labels": {
+   "eff_A": [
+    0,
+    0
+   ],
+   "eff_B": [
+    0,
+    0
+   ],
+   "new_C": [
+    0,
+    0
+   ],
+   "new_D": [
+    0,
+    0
+   ],
+   "new_E": [
+    7,
+    5
+   ],
+   "new_F": [
+    0,
+    0
+   ],
+   "forced_A": [
+    0,
+    0
+   ],
+   "forced_B": [
+    0,
+    0
+   ]
+  },
+  "dates": [],
+  "selfecho": 0,
+  "rag": {
+   "eff_A": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "eff_B": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "new_C": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "new_D": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "new_E": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "new_F": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "forced_A": {
+    "rows": 40,
+    "kept": 40,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "41315a53d6e0"
+   },
+   "forced_B": {
+    "rows": 40,
+    "ke

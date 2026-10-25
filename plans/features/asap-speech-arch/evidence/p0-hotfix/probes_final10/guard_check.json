@@ -1,0 +1,288 @@
+{
+ "root": "/tmp/p0-final10/new",
+ "guard": "strip_l2_meta_lead",
+ "cases": [
+  {
+   "name": "live_final6_E1",
+   "raw_sha12": "7dc844ef08cb",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 109,
+   "final_chars": 60,
+   "raw_first": "Ну давай, разложу по полочкам, раз уж попросил.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "live_final6_E2",
+   "raw_sha12": "25e9e17378cd",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 94,
+   "final_chars": 60,
+   "raw_first": "Окей, давай без лишних прелюдий.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "live_final7_E1",
+   "raw_sha12": "cacec8948e2e",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 76,
+   "final_chars": 60,
+   "raw_first": "Ладно, смотри.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "live_final7_E2",
+   "raw_sha12": "2f86acdfe7f0",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 94,
+   "final_chars": 60,
+   "raw_first": "Макс, ну давай, раз уж попросил.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "live_final8_E2",
+   "raw_sha12": "f7d4a638b619",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 113,
+   "final_chars": 60,
+   "raw_first": "Ну ок, давай разложу по полочкам, раз уж попросили.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "class_vocative",
+   "raw_sha12": "a6abc89a3a4c",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 87,
+   "final_chars": 60,
+   "raw_first": "Оля, разложу по полочкам.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "class_tak_posmotryu",
+   "raw_sha12": "c81de0618155",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 87,
+   "final_chars": 60,
+   "raw_first": "Так, посмотрю по порядку.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "class_seichas_proveryu",
+   "raw_sha12": "45506707307a",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 88,
+   "final_chars": 60,
+   "raw_first": "Сейчас проверю по журналу.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "positive_smotri_ka",
+   "raw_sha12": "18c595d8022c",
+   "final_sha12": "6cd1e2dca8fc",
+   "raw_chars": 79,
+   "final_chars": 60,
+   "raw_first": "Ладно, смотри-ка.",
+   "final_first": "Первый факт: конфликта в логе не было, проверено по журналу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "negative_maks_content",
+   "raw_sha12": "fde8e4143f24",
+   "final_sha12": "fde8e4143f24",
+   "raw_chars": 82,
+   "final_chars": 82,
+   "raw_first": "Макс, ты не злобный.",
+   "final_first": "Макс, ты не злобный.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_subbota",
+   "raw_sha12": "a272854ef645",
+   "final_sha12": "a272854ef645",
+   "raw_chars": 81,
+   "final_chars": 81,
+   "raw_first": "Ну давай в субботу.",
+   "final_first": "Ну давай в субботу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_ladno_colon",
+   "raw_sha12": "924e9c72cb8e",
+   "final_sha12": "924e9c72cb8e",
+   "raw_chars": 102,
+   "final_chars": 102,
+   "raw_first": "Ладно, смотри: конфликта в логе не было.",
+   "final_first": "Ладно, смотри: конфликта в логе не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_razberu_colon",
+   "raw_sha12": "d7430b14ea32",
+   "final_sha12": "d7430b14ea32",
+   "raw_chars": 108,
+   "final_chars": 108,
+   "raw_first": "Разберу твой вопрос: конфликта в логе не было.",
+   "final_first": "Разберу твой вопрос: конфликта в логе не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_fakty_colon",
+   "raw_sha12": "59e4dbf01596",
+   "final_sha12": "59e4dbf01596",
+   "raw_chars": 108,
+   "final_chars": 108,
+   "raw_first": "Давай разложу факты: конфликта в логе не было.",
+   "final_first": "Давай разложу факты: конфликта в логе не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_fakty_comma",
+   "raw_sha12": "721b15dc573c",
+   "final_sha12": "721b15dc573c",
+   "raw_chars": 107,
+   "final_chars": 107,
+   "raw_first": "Ну давай по фактам: конфликта в логе не было.",
+   "final_first": "Ну давай по фактам: конфликта в логе не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_maks_fakty",
+   "raw_sha12": "69e652b453be",
+   "final_sha12": "69e652b453be",
+   "raw_chars": 105,
+   "final_chars": 105,
+   "raw_first": "Макс, ну давай, раз уж попросил, по фактам.",
+   "final_first": "Макс, ну давай, раз уж попросил, по фактам.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_filler",
+   "raw_sha12": "81c2ca17d8b2",
+   "final_sha12": "03810b33d99a",
+   "raw_chars": 80,
+   "final_chars": 76,
+   "raw_first": "Ок, ты не молодец.",
+   "final_first": "Ты не молодец.",
+   "stats": {
+    "filler_removed": true,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  }
+ ],
+ "pass": true
+}
