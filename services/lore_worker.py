@@ -486,6 +486,18 @@ class LoreWorker:
 
     # ── прогон чата (spec §3.5) ────────────────────────────────────────────
 
+    async def _bind_turn_aliases(self, chat_id: int) -> None:
+        """P0 corrective 25.10.2026 (F3): действующий per-chat резолвер для
+        фонового прогона (chat override/инвалидация, не стартовый снапшот).
+        Fail-open: сбой привязки не роняет прогон."""
+        try:
+            from services.summary_aliases import bind_turn_aliases
+            await bind_turn_aliases(int(chat_id))
+        except Exception:
+            logger.warning(
+                "[lore_worker] alias bind failed — fallback | chat=%s",
+                chat_id, exc_info=True)
+
     async def generate_for_chat(self, chat_id: int, *,
                                 manual: bool = False) -> dict:
         """Прогон генерации лора чата (MCA-17 `lore.compile`): событие
@@ -493,6 +505,7 @@ class LoreWorker:
         сам `tick` не инструментируется). R17: только chat_id/коды/
         длительность. Тело — `_generate_for_chat_impl` (без изменений);
         контракт возврата прежний."""
+        await self._bind_turn_aliases(chat_id)
         started = time.monotonic()
         _emit("lore_compile", "start", component=_LORE_COMPONENT,
               chat_id=int(chat_id))
@@ -918,6 +931,7 @@ class LoreWorker:
         CLI-путь). Окно `smart_messages` — только ЧТЕНИЕ (инвариант сырой
         истории), формат `_format_window`, ростер `_window_names`. Возвращает
         число записанных `chat_memes` (0 — пустое окно/скип)."""
+        await self._bind_turn_aliases(chat_id)
         db = self._db
         min_chars = hot.get("limits.lore_min_message_chars",
                             settings.LORE_MIN_MESSAGE_CHARS)

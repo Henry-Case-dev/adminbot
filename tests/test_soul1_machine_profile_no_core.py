@@ -97,7 +97,11 @@ def build_service():
 
     class Stub:
         _render_current_question = D._render_current_question
-        _l1_reply_block = staticmethod(D._l1_reply_block)
+
+        def _l1_reply_block(self, message):
+            # P0 corrective 25.10.2026 (F1): метод инстанса (alias по uid).
+            return D._l1_reply_block(self, message)
+
         _l1_speech_hints = D._l1_speech_hints
         _build_speech_understanding = D._build_speech_understanding
         _attach_l1_plan_meta = D._attach_l1_plan_meta

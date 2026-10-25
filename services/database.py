@@ -3517,6 +3517,36 @@ class DatabaseService:
                            exc_info=True)
         return added
 
+    async def _ensure_protected_facts_subject_ref(self) -> int:
+        """P0 corrective 25.10.2026 (F5): аддитивная колонка
+        `protected_facts.subject_ref_id` (Telegram user ID) для существующих
+        БД — чтобы личные защищённые факты читались после переименования.
+
+        Идемпотентно (`PRAGMA table_info`-guard), `user_version` НЕ
+        поднимается. Существующие строки остаются `NULL` = привязки по ID
+        нет → чтение честно падает на прежний `user_name`. Возвращает 1 при
+        реальном добавлении, 0 на повторе."""
+        try:
+            if not await self._table_exists("protected_facts"):
+                return 0
+            cols = await self._table_columns("protected_facts")
+            if "subject_ref_id" in cols:
+                return 0
+            await self.db.execute(
+                "ALTER TABLE protected_facts ADD COLUMN subject_ref_id INTEGER")
+            await self.db.commit()
+            logger.info(
+                "[database] protected_facts.subject_ref_id добавлена "
+                "(аддитивно, user_version не менялся)")
+            return 1
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[database] protected_facts subject_ref ensure failed",
+                exc_info=True)
+            return 0
+
     async def _quarantine_known_self_echo_lore_stories(self) -> int:
         """Разовая точечная метка доказанных self-echo историй (owner §3).
 
@@ -6477,6 +6507,10 @@ class DatabaseService:
         # только доказанные строки из явного списка (без bulk-чистки).
         await self._ensure_lore_stories_provenance()
         await self._quarantine_known_self_echo_lore_stories()
+        # P0 corrective 25.10.2026 (F5): protected_facts читаются/чистятся по
+        # устойчивому Telegram ID, а не только по имени. Колонка аддитивная,
+        # идемпотентная, user_version НЕ поднимается.
+        await self._ensure_protected_facts_subject_ref()
 
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
@@ -10651,37 +10685,83 @@ class DatabaseService:
         await self.db.commit()
 
     async def get_protected_facts(self, chat_id: int, user_name: str,
-                                  include_chat_level: bool = True) -> list[str]:
+                                  include_chat_level: bool = True,
+                                  *, user_id: int | None = None) -> list[str]:
         """65.10: защищённые факты юзера (подмешиваются в контекст; /forget
         их НЕ трогает). include_chat_level=True (default, раунд 5/T-732):
         + чат-уровневые факты (user_name IS NULL — «лор чата»), они идут
         ПЕРВЫМИ (не тонут при обрезке блока). False — старое поведение
-        (только user_name = ?). Порядок: чат-уровневые → ASC по created_at, id."""
-        if include_chat_level:
-            cursor = await self.db.execute(
-                "SELECT fact FROM protected_facts "
-                "WHERE chat_id = ? AND (user_name = ? OR user_name IS NULL) "
-                "ORDER BY (user_name IS NULL) DESC, created_at ASC, id ASC",
-                (chat_id, user_name))
+        (только факты юзера). Порядок: чат-уровневые → ASC по created_at, id.
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID личные
+        строки читаются по `subject_ref_id`, а строки без ID — по прежнему
+        имени (fallback). После переименования свои факты не теряются."""
+        where = ["chat_id = ?"]
+        params: list = [chat_id]
+        if user_id is not None:
+            where.append("(subject_ref_id = ? "
+                         "OR (subject_ref_id IS NULL AND user_name = ?))")
+            params.extend([int(user_id), user_name])
+            if include_chat_level:
+                where[-1] = "(" + where[-1] + " OR user_name IS NULL)"
         else:
-            cursor = await self.db.execute(
-                "SELECT fact FROM protected_facts "
-                "WHERE chat_id = ? AND user_name = ? "
-                "ORDER BY created_at ASC, id ASC",
-                (chat_id, user_name))
+            if include_chat_level:
+                where.append("(user_name = ? OR user_name IS NULL)")
+            else:
+                where.append("user_name = ?")
+            params.append(user_name)
+        cursor = await self.db.execute(
+            "SELECT fact FROM protected_facts WHERE " + " AND ".join(where) +
+            " ORDER BY (user_name IS NULL) DESC, created_at ASC, id ASC",
+            params)
         return [row["fact"] for row in await cursor.fetchall()]
 
+    async def _user_source_ref_id(self, chat_id: int,
+                                  user_id: int | None) -> int | None:
+        """`mca_source_refs.source_ref_id` для Telegram user_id (та же связка,
+        что `_person_scope_clause`). Нет строки/ошибка → None (честный
+        fallback на имя)."""
+        if user_id is None:
+            return None
+        try:
+            cursor = await self.db.execute(
+                "SELECT source_ref_id FROM mca_source_refs WHERE "
+                "store = 'telegram' AND entity_type = 'user' AND "
+                "entity_id = ? AND COALESCE(chat_id, -1) = "
+                "COALESCE(?, -1) LIMIT 1", (str(int(user_id)), chat_id))
+            row = await cursor.fetchone()
+            return int(row["source_ref_id"]) if row is not None else None
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug("[database] user source_ref resolve failed",
+                         exc_info=True)
+            return None
+
     @_serialized_write
-    async def clear_direct_dialogue(self, chat_id: int, target_user: str) -> int:
+    async def clear_direct_dialogue(self, chat_id: int, target_user: str,
+                                    *, target_user_id: int | None = None) -> int:
         """/clear (65.5): стереть цепочки чата (bot_replies) + graph_facts с
         origin='bot_direct_reply' AND target_user=имя юзера (+FTS-строки).
-        chat_history-факты НЕ трогаем. Возвращает число удалённых фактов."""
+        chat_history-факты НЕ трогаем. Возвращает число удалённых фактов.
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID факты
+        ищутся по `subject_ref_id` (source_ref_id этого uid), строки без ID —
+        по прежнему имени. После переименования /clear находит старые
+        записи."""
         await self.db.execute("DELETE FROM bot_replies WHERE chat_id = ?", (chat_id,))
+        ref_id = await self._user_source_ref_id(chat_id, target_user_id)
+        if ref_id is not None:
+            where = ("chat_id = ? AND origin = 'bot_direct_reply' AND "
+                     "((subject_ref_id = ?) OR "
+                     "(subject_ref_id IS NULL AND target_user = ?))")
+            params = (chat_id, ref_id, target_user)
+        else:
+            where = ("chat_id = ? AND origin = 'bot_direct_reply' AND "
+                     "target_user = ?")
+            params = (chat_id, target_user)
         cursor = await self.db.execute(
-            "SELECT id FROM graph_facts "
-            "WHERE chat_id = ? AND origin = 'bot_direct_reply' AND target_user = ?",
-            (chat_id, target_user),
-        )
+            "SELECT id FROM graph_facts WHERE " + where, params)
         fact_ids = [row["id"] for row in await cursor.fetchall()]
         for fact_id in fact_ids:
             await self.db.execute(
@@ -10705,26 +10785,39 @@ class DatabaseService:
 
     @_serialized_write
     async def forget_direct_facts(self, chat_id: int, target_user: str,
-                                  phrase: str, now_ts: int) -> int:
+                                  phrase: str, now_ts: int, *,
+                                  target_user_id: int | None = None) -> int:
         """/forget (65.5/65.10): FTS-поиск по bot_direct_reply-фактам юзера →
         DELETE + запись в graph_fact_compressions (reason='forget').
         Защищённые факты (точное совпадение fact с protected_facts) НЕ
         удаляются. Fail-open: ошибка FTS → WARNING + 0. Возвращает число
-        удалённых фактов."""
+        удалённых фактов.
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID scope —
+        `subject_ref_id` этого uid; строки без ID — по имени (fallback)."""
         match_query = self._fts_forget_query(phrase)
         if not match_query:
             return 0
+        ref_id = await self._user_source_ref_id(chat_id, target_user_id)
+        if ref_id is not None:
+            scope = ("AND ((f.subject_ref_id = ?) OR "
+                     "(f.subject_ref_id IS NULL AND f.target_user = ?))")
+            scope_params: tuple = (ref_id, target_user)
+        else:
+            scope = "AND f.target_user = ?"
+            scope_params = (target_user,)
         try:
             cursor = await self.db.execute(
                 "SELECT f.id, f.fact FROM graph_facts_fts "
                 "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
                 "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
-                "AND f.origin = 'bot_direct_reply' AND f.target_user = ? "
+                "AND f.origin = 'bot_direct_reply' "
+                f"{scope} "
                 "AND (f.expires_at IS NULL OR f.expires_at > ?) "
                 "AND NOT EXISTS (SELECT 1 FROM protected_facts p "
                 "WHERE p.chat_id = f.chat_id AND p.user_name = f.target_user "
                 "AND p.fact = f.fact)",
-                (match_query, chat_id, target_user, now_ts),
+                (match_query, chat_id, *scope_params, now_ts),
             )
             rows = await cursor.fetchall()
         except Exception:

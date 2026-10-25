@@ -441,7 +441,10 @@ class MemoryMaintenanceService:
             llm = getattr(service, "llm", None) if service is not None \
                 else None
             status = await observer.observe_tick(
-                self.db, bot=self.bot, writer_service=service, llm=llm)
+                self.db, bot=self.bot, writer_service=service, llm=llm,
+                # P0 corrective 25.10.2026 (F2/F3): тот же live-резолвер, что
+                # у Direct/Summary; без него — прежние author_name.
+                alias_resolver=getattr(service, "aliases", None))
             counters = {}
             try:
                 active = await observer.get_active_observe(self.db)

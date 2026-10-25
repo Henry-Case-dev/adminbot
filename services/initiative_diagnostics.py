@@ -916,7 +916,10 @@ async def run_check(db, *, chat_id: int, hours: int = 24,
 
         # ── 2) окно наблюдения (durable, без LLM) ────────────────────────
         runner = obs.InitiativeObserverRunner(db, bot=bot, llm=llm,
-                                             writer_service=writer_service)
+                                             writer_service=writer_service,
+                                             alias_resolver=getattr(
+                                                 writer_service, "aliases",
+                                                 None))
         # INIT-ARCH-FIX (ТЗ §1.3): dry-run показывает окно ТОГО ЖЕ резолвера,
         # что боевой путь (база 10 → рост по накоплению → кап 200).
         try:

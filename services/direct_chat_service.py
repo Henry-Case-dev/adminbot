@@ -4147,20 +4147,49 @@ class DirectChatService:
 
     # ── ASAP 7 (F1, §1.1–§1.6): Direct L1 Planner pipeline ──────────────
 
-    @staticmethod
-    def _l1_reply_block(message) -> str:
+    def _l1_reply_block(self, message) -> str:
         """§1.5: компактный срез reply-цели для L1-контекста (кап 400
-        символов; имя автора + текст). Никогда не бросает."""
+        символов; имя автора + текст). Никогда не бросает.
+
+        P0 corrective 25.10.2026 (F1): автор цитаты — тот же единый каскад
+        по Telegram ID, что у окна/карты (`aliases.resolve`: chat → global →
+        nickname → username → id), а не `first_name` напрямую. В строку
+        добавляется `[user:<id>]`, чтобы L1 не путал автора цитируемого
+        сообщения с адресатом ответа."""
         try:
             reply = getattr(message, "reply_to_message", None)
             if reply is None:
                 return ""
             text = str(getattr(reply, "text", None)
                        or getattr(reply, "caption", None) or "").strip()
-            author = (getattr(getattr(reply, "from_user", None),
-                              "first_name", "") or "")
-            head = f"автор: {str(author).strip()}\n" \
-                if str(author).strip() else ""
+            user = getattr(reply, "from_user", None)
+            uid = getattr(user, "id", None)
+            head = ""
+            if uid is not None:
+                try:
+                    uid = int(uid)
+                except (TypeError, ValueError):
+                    uid = None
+            aliases = getattr(self, "aliases", None)
+            if uid is not None and aliases is not None:
+                nickname = self._build_nickname(user)
+                username = getattr(user, "username", None)
+                if not isinstance(username, str) or not username.strip():
+                    username = None
+                try:
+                    name = aliases.resolve(uid, nickname, username)
+                except Exception:      # pragma: no cover - защитная ветка
+                    name = (getattr(user, "first_name", "") or "")
+                name = str(name).strip()
+                # Резолвер отдал сам id (нет alias/ника/username) — не
+                # выдумываем «автора 12345»: прежний контракт пустого имени.
+                if name == str(uid) and not nickname and not username:
+                    name = str(getattr(user, "first_name", "") or "").strip()
+                author = f"{name} [user:{uid}]".strip() if name else ""
+            else:
+                author = str(getattr(user, "first_name", "") or "").strip()
+            if author:
+                head = f"автор: {author}\n"
             return (head + text[:_l1.L1_REPLY_BLOCK_CHARS]).strip()
         except Exception:      # pragma: no cover - защитная ветка
             return ""
@@ -5432,7 +5461,8 @@ class DirectChatService:
         # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
         # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
         active = await self._active_participants(chat_id)
-        roster, suffix_map = self._participant_roster(window, active)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
         blocks: list[tuple[str, str]] = []
         alias_map = self._alias_map_block(roster)
         if alias_map:
@@ -5502,7 +5532,8 @@ class DirectChatService:
         # <chat_lore> идёт СРАЗУ ПОСЛЕ <protected_facts> (spec §3.9).
         lore_active, lore_inner = await self._chat_lore_state(chat_id)
         protected = await self._build_protected_facts(
-            chat_id, target_name, include_chat_level=not lore_active)
+            chat_id, target_name, include_chat_level=not lore_active,
+            target_user_id=target_user_id)
         if protected:
             blocks.append(("protected", protected))
         if lore_inner:
@@ -7960,14 +7991,23 @@ class DirectChatService:
                 f"подстрой тон под это, но не переигрывай</mood>")
 
     async def _build_protected_facts(self, chat_id: int, target_name: str,
-                                     include_chat_level: bool = True) -> str:
+                                     include_chat_level: bool = True,
+                                     *, target_user_id: int | None = None) -> str:
         """65.10: защищённые факты подмешиваются в контекст (карточки-слоты —
         не размазываются при сжатии). Fail-open → без секции.
         Раунд 5 (T-732): include_chat_level=True — чат-лор виден ВСЕМ юзерам
         чата ВСЕГДА (65.10 + раунд 5). Раунд 7 (T-781/F1): при активном
         PG-лоре вызывающий передаёт include_chat_level=False — SQLite
-        chat-level канал не дублируется (дедуп ТОЛЬКО на чтении, Q1)."""
+        chat-level канал не дублируется (дедуп ТОЛЬКО на чтении, Q1).
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID личные
+        факты читаются по `subject_ref_id` (fallback — имя). Совместимость:
+        legacy-дублёры БД/тестов без `user_id` вызываются прежней формой."""
         try:
+            facts = await self.db.get_protected_facts(
+                chat_id, target_name, include_chat_level=include_chat_level,
+                user_id=target_user_id)
+        except TypeError:
             facts = await self.db.get_protected_facts(
                 chat_id, target_name, include_chat_level=include_chat_level)
         except Exception:
@@ -8061,8 +8101,15 @@ class DirectChatService:
 
     async def clear_user_dialogue(self, chat_id: int, user) -> int:
         """65.5 /clear: стереть диалог с юзером (bot_replies чата +
-        bot_direct_reply-факты юзера). Fail-open → 0."""
+        bot_direct_reply-факты юзера). Fail-open → 0.
+
+        P0 corrective 25.10.2026 (F5): uid передаётся в БД — старые факты
+        находятся по устойчивому `subject_ref_id`, а не только по имени."""
         try:
+            return await self.db.clear_direct_dialogue(
+                chat_id, self._resolve_name(user),
+                target_user_id=getattr(user, "id", None))
+        except TypeError:
             return await self.db.clear_direct_dialogue(
                 chat_id, self._resolve_name(user))
         except Exception:
@@ -8071,8 +8118,15 @@ class DirectChatService:
 
     async def forget_user_fact(self, chat_id: int, user, phrase: str) -> int:
         """65.5/65.10 /forget: удалить конкретный(е) факт(ы) юзера (FTS);
-        защищённые факты не трогаются. Fail-open → 0."""
+        защищённые факты не трогаются. Fail-open → 0.
+
+        P0 corrective 25.10.2026 (F5): uid передаётся в БД — scope по
+        `subject_ref_id`, строки без ID — по имени (fallback)."""
         try:
+            return await self.db.forget_direct_facts(
+                chat_id, self._resolve_name(user), phrase, int(time.time()),
+                target_user_id=getattr(user, "id", None))
+        except TypeError:
             return await self.db.forget_direct_facts(
                 chat_id, self._resolve_name(user), phrase, int(time.time()))
         except Exception:
@@ -8302,23 +8356,37 @@ class DirectChatService:
     # ── Участники и карта (Раунд 8: C2/T-793 активные, C3/T-794 дискриминатор) ──
 
     def _build_alias_map(self, window: list,
-                         participants: list | None = None) -> str:
+                         participants: list | None = None,
+                         usernames: dict[int, str] | None = None) -> str:
         """User Resolution Map (R51-2): «имя — user_id» (алиасы.resolve);
         блок в НАЧАЛЕ user-контента (D211). Раунд 8 (C2/T-793): источник —
         активные участники (limits.chat_map_participants_hours) + участники
         окна; формат строки «{имя} — {uid}» сохранён (Q1: в карте uid
         «столбцом», скобки избыточны). Fail-open: participants пусто/ошибка —
-        поведение только-окно (регресс)."""
-        roster, _ = self._participant_roster(window, participants)
+        поведение только-окно (регресс).
+
+        P0 corrective 25.10.2026 (D7): ``usernames`` (uid → Telegram username)
+        прокидывается в дискриминатор коллизий — два одинаковых display
+        различимы ником, а не только «#хвост»."""
+        roster, _ = self._participant_roster(window, participants, usernames)
         return self._alias_map_block(roster)
 
     @staticmethod
     def _alias_map_block(roster: list[tuple[int, str]]) -> str:
         """Строки карты из готового roster (C2.3: урезание «с конца списка» —
-        менее активные строки)."""
+        менее активные строки).
+
+        P0 corrective 25.10.2026 (F4): одна строка-инструкция внутри
+        существующего блока (без нового тега): исторический текст (конспект,
+        память, лор, старые ответы) не переписывается, поэтому актуальное
+        имя берётся из карты по user_id, а не из встреченного текста."""
         if not roster:
             return ""
         lines = [f"{display} — {uid}" for uid, display in roster]
+        lines.insert(
+            0,
+            "имена в конспекте/памяти/лоре могут быть прежними; актуальное "
+            "имя участника — по user_id из этой карты")
         return "<UserResolutionMap>\n" + "\n".join(lines) + "\n</UserResolutionMap>"
 
     async def _active_participants(self, chat_id: int) -> list:
@@ -8345,7 +8413,8 @@ class DirectChatService:
             return []
 
     def _participant_roster(self, window: list,
-                            participants: list | None = None
+                            participants: list | None = None,
+                            usernames: dict[int, str] | None = None
                             ) -> tuple[list[tuple[int, str]], dict[int, str]]:
         """Раунд 8 (C2/C3/T-793/T-794): (roster, suffix_map) для карты и
         внутренних рендеров. roster — [(uid, display)] в порядке активности
@@ -8355,7 +8424,11 @@ class DirectChatService:
         сегодня, fail-open). Cap limits.chat_map_participants_cap (150).
         suffix_map — uid → дискриминатор коллизии display.casefold() (C3):
         второй+ участник по uid ASC получает суффикс « (username)»/« (#хвост)»;
-        ТОЛЬКО на рендере контекста — чистые пути его не видят (NFR-2)."""
+        ТОЛЬКО на рендере контекста — чистые пути его не видят (NFR-2).
+
+        P0 corrective 25.10.2026 (D7): ``usernames`` (uid → Telegram username,
+        если ход его знает) передаётся в ``_collision_suffix``; без него
+        остаётся прежний «#хвост» (fallback сохранён)."""
         cap = int(hot.get("limits.chat_map_participants_cap",
                           settings.CHAT_MAP_PARTICIPANTS_CAP) or 0) or 150
         window_authors: dict[int, str] = {}
@@ -8387,11 +8460,13 @@ class DirectChatService:
         for uid, name in displays.items():
             collisions.setdefault(str(name).casefold(), []).append(uid)
         suffix_map: dict[int, str] = {}
+        names_by_uid = usernames or {}
         for group in collisions.values():
             if len(group) < 2:
                 continue
             for uid in sorted(group)[1:]:
-                suffix_map[uid] = _collision_suffix(uid)
+                # D7: ник различимее «#хвоста», если ход его знает.
+                suffix_map[uid] = _collision_suffix(uid, names_by_uid.get(uid))
         roster = [(uid, f"{displays[uid]}{suffix_map.get(uid, '')}")
                   for uid in uids]
         return roster, suffix_map
@@ -8914,6 +8989,35 @@ class DirectChatService:
             if isinstance(value, str) and value.strip():
                 parts.append(value.strip())
         return " ".join(parts) if parts else None
+
+    @staticmethod
+    def _turn_usernames(message) -> dict[int, str]:
+        """uid → Telegram username из ОБЪЕКТОВ текущего хода (без сети/БД).
+
+        P0 corrective 25.10.2026 (D7): Telegram username не хранится в БД,
+        поэтому дискриминатор коллизий получает его только там, где он реально
+        есть — автор реплики и автор цитируемого сообщения. Остальные uid
+        остаются на прежнем «#хвосте». Никогда не бросает."""
+        out: dict[int, str] = {}
+        try:
+            for holder in (message, getattr(message, "reply_to_message", None)):
+                if holder is None:
+                    continue
+                user = getattr(holder, "from_user", None)
+                uid = getattr(user, "id", None)
+                username = getattr(user, "username", None)
+                if uid is None or not isinstance(username, str):
+                    continue
+                username = username.strip().lstrip("@")
+                if not username:
+                    continue
+                try:
+                    out[int(uid)] = username
+                except (TypeError, ValueError):
+                    continue
+        except Exception:      # pragma: no cover - защитная ветка
+            return out
+        return out
 
     # ── ASAP 8 (F6, §13.2): инициативные решение/генерация СУЩЕСТВУЮЩИМ
     # Direct-контуром (L1-модель + L2 Writer). Третьего Writer нет (§13.2).

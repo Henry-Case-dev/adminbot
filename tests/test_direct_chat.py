@@ -740,7 +740,7 @@ class TestRound8RendersAndParticipants:
         service = _make_service(db=d, memory=FakeMemory(window=window))
         blocks = await service._build_user_content(CHAT_ID, _message(), "вася")
         assert blocks[0].startswith("<UserResolutionMap>")
-        assert blocks[0].count("\n") == 2         # одна строка + теги
+        assert blocks[0].count("\n") == 3         # инструкция + одна строка + теги
         await d.close()
 
     @pytest.mark.asyncio

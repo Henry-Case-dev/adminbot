@@ -880,6 +880,14 @@ class DreamWorker:
         watermark не двигается)."""
         out = {"clusters": 0, "distilled": 0, "unchanged": 0, "errors": 0,
                "window_skips": 0, "budget_stop": False, "deferred": 0}
+        # P0 corrective 25.10.2026 (F3): фоновая обработка чата привязывает
+        # действующий per-chat резолвер имён (chat override, без рестарта).
+        try:
+            from services.summary_aliases import bind_turn_aliases
+            await bind_turn_aliases(int(chat_id))
+        except Exception:
+            logger.warning("[dream] alias bind failed — fallback | chat_id=%s",
+                           chat_id, exc_info=True)
         # F7 (ADR-1018-7 D3): рубильник резолвится по КОНКРЕТНОМУ чату
         # (chat DB → global DB → env-дефолт). Авто-тик пропускает чат,
         # выключенный именно для него; ручной запуск гейт игнорирует
