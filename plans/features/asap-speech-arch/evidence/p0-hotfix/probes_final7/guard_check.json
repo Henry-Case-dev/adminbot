@@ -1,0 +1,105 @@
+{
+ "root": "/tmp/p0-final7/new",
+ "guard": "strip_l2_meta_lead",
+ "cases": [
+  {
+   "name": "final6_E1_exact",
+   "raw_sha12": "d48f6af1b46c",
+   "final_sha12": "fc74d7c880cc",
+   "raw_chars": 3067,
+   "final_chars": 3019,
+   "raw_first": "Ну давай, разложу по полочкам, раз уж попросил.",
+   "final_first": "Тут всё довольно очевидно, если не считать, что половина чата — это просто фоновый шум.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "final6_E2_exact",
+   "raw_sha12": "d1bbc0bdd2d8",
+   "final_sha12": "53f39984a90d",
+   "raw_chars": 2632,
+   "final_chars": 2599,
+   "raw_first": "Окей, давай без лишних прелюдий.",
+   "final_first": "По этому отрывку чата картина следующая:",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "negative_subbota",
+   "raw_sha12": "4c914c1216bd",
+   "final_sha12": "4c914c1216bd",
+   "raw_chars": 43,
+   "final_chars": 43,
+   "raw_first": "Ну давай в субботу.",
+   "final_first": "Ну давай в субботу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_fakty_colon",
+   "raw_sha12": "a3ea0aa5775b",
+   "final_sha12": "a3ea0aa5775b",
+   "raw_chars": 38,
+   "final_chars": 38,
+   "raw_first": "Ну давай по фактам: конфликта не было.",
+   "final_first": "Ну давай по фактам: конфликта не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_fakty_comma",
+   "raw_sha12": "22a420a87087",
+   "final_sha12": "22a420a87087",
+   "raw_chars": 39,
+   "final_chars": 39,
+   "raw_first": "Ну давай, по фактам: конфликта не было.",
+   "final_first": "Ну давай, по фактам: конфликта не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "negative_filler",
+   "raw_sha12": "c150ac9dee83",
+   "final_sha12": "400eeafb1277",
+   "raw_chars": 18,
+   "final_chars": 14,
+   "raw_first": "Ну, ты не злобный.",
+   "final_first": "Ты не злобный.",
+   "stats": {
+    "filler_removed": true,
+    "announce_removed": false
+   },
+   "removed": false,
+   "expected_removed": false,
+   "pass": true
+  }
+ ],
+ "pass": true
+}

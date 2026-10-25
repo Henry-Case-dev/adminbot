@@ -1,0 +1,167 @@
+{
+ "root": "C:\\Code\\Python\\adminbot-wt-speech-p0",
+ "analysis": "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\final7\\evidence\\analysis.json",
+ "counts": {
+  "total": 16,
+  "strict": 1,
+  "addressee_branch": 1,
+  "union": 2
+ },
+ "runs": [
+  {
+   "label": "eff_A",
+   "repeat": 1,
+   "first": "Да не злобный ты, Макс.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_A",
+   "repeat": 2,
+   "first": "Да не злобный ты.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_B",
+   "repeat": 1,
+   "first": "Да бля, ну ты и загнул.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_B",
+   "repeat": 2,
+   "first": "Да не злобный он, просто заебало всё одно и то же.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_C",
+   "repeat": 1,
+   "first": "Да как-то похуй на дождь, если честно.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_C",
+   "repeat": 2,
+   "first": "Да бля, ну нормально отношусь.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_D",
+   "repeat": 1,
+   "first": "Да.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_D",
+   "repeat": 2,
+   "first": "Ты спрашиваешь это уже в третий раз за последние полчаса — начинаю подозревать, что тебе нравится, когда тебя посылают",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_E",
+   "repeat": 1,
+   "first": "Ладно, смотри.",
+   "strict": true,
+   "addressee_branch": false,
+   "union": true
+  },
+  {
+   "label": "new_E",
+   "repeat": 2,
+   "first": "Макс, ну давай, раз уж попросил.",
+   "strict": false,
+   "addressee_branch": true,
+   "union": true
+  },
+  {
+   "label": "new_F",
+   "repeat": 1,
+   "first": "Понятия не имею, я за этим не следил.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_F",
+   "repeat": 2,
+   "first": "Понятия не имею, я за этим не слежу.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_A",
+   "repeat": 1,
+   "first": "Да нет, не злобный.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_A",
+   "repeat": 2,
+   "first": "Нет, ты не злобный.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_B",
+   "repeat": 1,
+   "first": "Да не, не злобный ты.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_B",
+   "repeat": 2,
+   "first": "Да хуй его знает, Макс.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  }
+ ],
+ "live_gap_guard": {
+  "live_E1_ladno_smotri": {
+   "raw_sha12": "f9ae7e64a530",
+   "final_sha12": "f9ae7e64a530",
+   "raw_chars": 2724,
+   "final_chars": 2724,
+   "first": "Ладно, смотри.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false
+  },
+  "live_E2_maks_nu_davai": {
+   "raw_sha12": "f999c32f3504",
+   "final_sha12": "f999c32f3504",
+   "raw_chars": 2099,
+   "final_chars": 2099,
+   "first": "Макс, ну давай, раз уж попросил.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false
+  }
+ },
+ "note": "offline; same tree/commit as the live run (module sha256 binding)"
+}
