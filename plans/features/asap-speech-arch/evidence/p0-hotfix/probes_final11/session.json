@@ -1,0 +1,331 @@
+{
+ "lane": "LIVE-FINAL-BD6D5FFF",
+ "candidate": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+ "prod_baseline": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "prod_head_before": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "started_utc": "2026-10-25T12:39:44Z",
+ "finished_utc": "2026-10-25T12:47:27Z",
+ "elapsed_s": 462.5,
+ "host": "198.46.175.136",
+ "user": "nik",
+ "staging": "/tmp/p0-final11/new",
+ "local_sha256": {
+  "new_code.tar.gz": "c3392a76ad338ca2efda697e1d5b895bc5ee7e32410714564f50119550aed8a2",
+  "harness_extra.py": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1",
+  "harness_effective.py": "5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086",
+  "analysis_final11.py": "4fb65a72524348317a7fac50f8b550fddc575945d85d180be10828422c70f0e6",
+  "guard_check_final10.py": "2e9ffa492cad38c1cb8a90349d1a43f34f0a7395bff7aa5a5567ec3d31bc2e90",
+  "guard_check_final11.py": "596ade46912a7413fe292bb911a4acfb1cbe17604906bf0babc183be6c635b49",
+  "remote_run_final11.sh": "5f77d53fad694c5ecefead86a54731105dc4c48e7ae6a46f3fb16f9646f2c3a4"
+ },
+ "commands": [
+  {
+   "label": "precheck",
+   "rc": 0,
+   "elapsed_s": 2.8,
+   "stdout": "2026-10-25T12:39:48Z\nracknerd-f4e3456\n/dev/vda2        24G   19G  3.5G  85% /\n534ac7dda6713fb407e0789fdddfa563251cdab4\n13\n/var/www/admin_bot/local_database.db 1626546176 1792931904\nNRestarts=0\nActiveState=active\n1\n/usr/bin/python3.12\n",
+   "stderr": ""
+  },
+  {
+   "label": "reset_stage",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "",
+   "stderr": ""
+  },
+  {
+   "label": "sha_uploaded",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1  harness_extra.py\n5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086  harness_effective.py\n4fb65a72524348317a7fac50f8b550fddc575945d85d180be10828422c70f0e6  analysis_final11.py\n2e9ffa492cad38c1cb8a90349d1a43f34f0a7395bff7aa5a5567ec3d31bc2e90  guard_check_final10.py\n596ade46912a7413fe292bb911a4acfb1cbe17604906bf0babc183be6c635b49  guard_check_final11.py\n",
+   "stderr": ""
+  },
+  {
+   "label": "bash_syntax",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "SYNTAX_OK\n",
+   "stderr": ""
+  },
+  {
+   "label": "start",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "started=1376479\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "2\n",
+   "stderr": "bash: line 1: /tmp/p0-final11/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "2\n",
+   "stderr": "bash: line 1: /tmp/p0-final11/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "3\n",
+   "stderr": "bash: line 1: /tmp/p0-final11/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "3\n",
+   "stderr": "bash: line 1: /tmp/p0-final11/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "3\n",
+   "stderr": "bash: line 1: /tmp/p0-final11/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "3\n",
+   "stderr": "bash: line 1: /tmp/p0-final11/raw/exits.txt: No such file or directory\n"
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "1\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "1\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "1\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "2\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "2\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "2\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "3\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "3\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "3\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "4\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "4\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.8,
+   "stdout": "5\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "5\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "5\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "6\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "7\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "7\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "8\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "8\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "9\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "9\n3\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:46:15Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:46:15Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:46:15Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.7,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:46:15Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:46:15Z\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "poll",
+   "rc": 0,
+   "elapsed_s": 0.6,
+   "stdout": "PROBES_DONE_UTC=2026-10-25T12:46:15Z\nRESULTS_READY\n10\n1\n",
+   "stderr": ""
+  },
+  {
+   "label": "run_tail",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "START_UTC=2026-10-25T12:40:38Z\nprod_head_before=534ac7dda6713fb407e0789fdddfa563251cdab4\nPROBES_DONE_UTC=2026-10-25T12:46:15Z\nresults_sha256=4fa730d5d8e7f6355d6b08d45bae391427c14bd60e532ac43bedccab845adb02\nRESULTS_READY\nEND_UTC=2026-10-25T12:47:03Z\n---\nnew_A rc=0 utc=2026-10-25T12:41:46Z\nnew_B rc=0 utc=2026-10-25T12:42:22Z\neff_A rc=0 utc=2026-10-25T12:42:53Z\neff_B rc=0 utc=2026-10-25T12:43:22Z\nnew_C rc=0 utc=2026-10-25T12:43:47Z\nnew_D rc=0 utc=2026-10-25T12:44:17Z\nnew_E rc=0 utc=2026-10-25T12:45:05Z\nnew_F rc=0 utc=2026-10-25T12:45:29Z\nforced_A rc=0 utc=2026-10-25T12:45:50Z\nforced_B rc=0 utc=2026-10-25T12:46:15Z\n---\nanalysis_rc=0\nguard10_rc=0\nguard11_rc=0\n",
+   "stderr": ""
+  },
+  {
+   "label": "cleanup",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "1\n0\n",
+   "stderr": ""
+  }
+ ]
+}
