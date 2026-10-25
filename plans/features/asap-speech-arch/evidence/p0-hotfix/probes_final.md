@@ -3,7 +3,7 @@
 - **LANE_ID:** `LIVE-FINAL-PROBE`
 - **Дата:** 2026-10-25, 04:58–05:15 UTC (локально 16:58–17:15, UTC+12).
 - **Кандидат продукта:** `task/speech-p0-hotfix` @ **`d1a44592`** (tree `957a96de25d2e9d0ce1fc457da1eea1c4aaafef6`).
-- **Пробник:** `ff65c72b` (tree `b8b42e29e48fd173773c7aff0e0f627f32023332`) — изменены **только** `probes_full/harness_probe_full.py` и evidence; продуктовые модули побайтово из `d1a44592`.
+- **Пробник:** harness из коммита **`87f621bb`** (файл `probes_full/harness_probe_full.py`, sha256 `91ff8ca5…`; авторская версия — `ff65c72b`), evidence `1d919638`; продуктовые модули побайтово из `d1a44592`.
 - **Прод (old):** `/var/www/admin_bot` @ `534ac7dda6713fb407e0789fdddfa563251cdab4` (2.58.130), unit `active/running`, `NRestarts=0`, `MainPID=1182846`. **Deploy не выполнялся.**
 - **Вердикт:** **FAILED для обязательных §1.1/§3.** Алиасы, RAG-маркировка, FREQUENT и forced-research payload подтверждены; естественный L1-маршрут нестабилен, мета-вступления/структура и неполный Core остаются. `VERIFIED` не заявляется.
 
@@ -112,5 +112,5 @@ Staging: `/tmp/p0-final` — только `*.py` + `config/*` + `info_text.md` +
 
 - **Deploy не выполнять:** обязательные §1.1/§3 не закрыты. Прод остаётся 2.58.130 @ `534ac7dd`; rollback не требуется (изменений на проде не было).
 - **Builder:** F1 (детерминированный L1-маршрут), F2 (Core), F3 (метавступления/структура), F5 (retry/injection). После исправлений — повторный live-прогон тем же harness (A/B, forced, 2 повтора) и Reviewer.
-- **Reviewer/PM:** привязать evidence к `d1a44592`/`ff65c72b`; **14 L2 raw** (8 базовых old/new × A/B по 2 повтора + 6 дополнительных forced/A2) и 9 проверок уже есть, но строки §1.1/§3 оставить FAILED/PENDING, не VERIFIED.
+- **Reviewer/PM:** привязать evidence к `d1a44592`/`87f621bb`; **14 L2 raw** (8 базовых old/new × A/B по 2 повтора + 6 дополнительных forced/A2) и 9 проверок уже есть, но строки §1.1/§3 оставить FAILED/PENDING, не VERIFIED.
 - **Evidence:** `probes_final.md` + `probes_final/*.json` (11 raw: 14 L2-ответов; old A/B, new A1/A2/B, forced A/B, 4 L1-only). Секреты не выгружались; alias-значения — только uid `42115912`.
