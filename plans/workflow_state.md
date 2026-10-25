@@ -1,33 +1,45 @@
-# Workflow State
+﻿# Workflow State
 
-Task: Полная очередь `plans/current_task.md` + новая P0 `embed-identity-compat` (реестр `plans/progress_scope.json`: 13 задач)
-Task source: current_task.md + `plans/features/embed-identity-compat/source-2026-10-23.md` (дословный снимок ТЗ владельца 23.10)
-Status: in_progress — ДЕПЛОЙ 2.58.112 ПРИДЕРЖАН: рестарт запустил бы полную перевекторизацию, что запрещено новым ТЗ
-Primary phase: build → review → delivery
+Task: P0 speech hotfix + corrective (L1/harness, aliases, old lore) — остановлено владельцем
+Task source: root chat 25.10; corrective snapshot `plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md` (book `67a9c823`; hotfix copy untracked)
+Status: paused_by_owner — новых агентов не запускать; продолжить по команде
+Primary phase: review
+Active feature: asap-speech-arch / P0 corrective
+Progress sources: `requirements-map-p0-corrective.json` (95 required, 10 slices, plan gate EXIT 0) + prior P0/speech maps
+
+Production: **2.58.130 @ `534ac7dd`**; healthz/юнит — 200/active, NRestarts 0. Нового деплоя нет.
+Code branch: `task/speech-p0-hotfix` @ **`272170e3`** (L1 `47fba465` + lore quarantine `272170e3`); evidence `9ade73bf`.
+Prod worktree: `534ac7dd`, 13 untracked leftovers, product diff пуст; deploy только явным SHA, без cleanup/reset.
 
 Active lanes:
-- W4-UI | Builder | writer web/ | asap-speech-arch W4 | bg:ses_e9bb38830ffeB8BTAG4JgtGXYA | U-01…U-09
-- PM-EMBED-IDENTITY | PM | writer plans/ | embed-identity-compat | bg:ses_e9ac3f982ffeJoPCeR5Yx5c7YF | карта + реестр
-- ARCH-EMBED-IDENTITY | Architect | read-only + design | embed-identity-compat | bg:ses_e9ac3f982ffdL6qbsCUyNrIC1i | разделение identity + canary
+- none dispatched after owner stop. Lore lane already finished and committed `272170e3` before stop; alias lane was in-flight with no visible commit. Native cancel API отсутствует; no new work.
 
-Поезд 2.58.112 (СОБРАН, НЕ ЗАДЕПЛОЕН):
-- bump `678c0616` в origin/master (база `924b3b51`), версия 2.58.112, 57 файлов, ΔDDL=0, `FACTORY_SET=24ae494ac422`.
-- Guard'ы: offline 18/18, pins24 868/0, F8 582==REGISTRY, help-sync 24, JS-unit 39, ASAP-2 155, summary 179, embed 74, B11 24; суммарно 1507 passed / 0 failed.
-- Состав: asap2 Direct Chat, factview+B-1, embed-fallback slots, summary multi-paragraph revision + фикстура, B11 честная диагностика, embed-rebuild identity.
-- Точка отката: `fbf9013d` (прод 2.58.111).
+Uncommitted / preserved:
+- `source-owner-p0-corrective-2026-10-25.md` — untracked in hotfix; source snapshot committed in book `67a9c823`.
+- Foreign `stash@{0}` («wip(f1): IA v2 round1025…») untouched; worktree has no foreign paths. Не применять.
 
-ПОЧЕМУ ПРИДЕРЖАН: текущий код (`5877810d`) при рестарте регистрирует поколение под новый fp и запускает полную перестройку ~15 819 фактов (~316 вызовов). Kill-switch OFF не спасает: OFF-путь «backfill-fill-missing» может писать новые векторы в старый индекс. Новое ТЗ запрещает перевекторизацию при смене только шлюза.
+Verified / evidence:
+- L1 `47fba465`: 261 profile tests, 7 route tests, harness `--self-check` PASS; material/history → research; quick opinion → answer; no hardcoded phrases; research exact analysis 1×. Live L1 not run.
+- Lore `272170e3`: 14 new tests + 269/208/290 profile PASS; provenance columns/filters/targeted id=3/4 quarantine; no mass delete. Not independently reviewed.
+- R1 `9650e099`: exact analysis/Writer 1× in deep/report; 44 P0 tests; active Core `ead77b2ab509` 3294→1246; current-turn excluded; L2 keep-head+marker; self-echo tentative/out of factual RAG.
+- Full L2 matrix `a97ba573`: 8 raw; real L1 A/B = casual/compact; payload 1×/0 and RAG not covered; old tree dirty; not production-equivalent.
+- Reviewer: **Needs Fixes** (`d4b3c979`, recheck `e7d67384`); no approval.
+- Prod audit `dd10de9d`: 13 untracked backups/test dumps; no product diffs.
+- Alias audit `5c2d134b`: uid `42115912` alias = «Макс» (global+chat), display = «Гипербореец»; L1 reply/Observer/background-snapshot defects; exact response `1175361` prompt not traced.
+- Old lore audit `b49f309f`: `lore_stories` id=3/4 are bot answers; no provenance; targeted quarantine.
 
-Прод-факты: 2.58.111 @ fbf9013d, healthz 200. Эмбеддинги apinet работают (200, dim 3072), квоты разведены (`apinet_paid`/`google_free_1`/`google_free_2`). Векторная память FTS-only: поколения `building` с 29.09 без активации; 4 048 фактов без векторов; 16 003 старых Google-векторов.
+Not closed:
+- Alias runtime fix F1-F7 (reply uid, Observer, worker snapshot, alias-map instruction, protected facts, memory_name, diag).
+- Live L1/harness + RAG/Memory/FREQUENT real payload.
+- Reviewer recheck, map evidence binding, deploy.
+- Corrective map rows PENDING; HARNESS map gap noted.
+- Progress % not reliable: `current_task.md` absent in code worktrees; root scope stale.
 
-Одобрено и готово к поезду: asap2 (74 VERIFIED), factview B-1, embed-fallback, summary-revision, B11, SOUL-1 фикстуры, embed-rebuild B1/B2.
-Итоги 23.10: прогресс 1113/1198 (92%); исправлены ложный «ok» диагностики, ревизия сводок по всем абзацам, per-slot адреса embedding, A→B→A и честный build_failed.
+Next on owner command:
+1. Inspect branch `272170e3` and alias work; commit only completed slices; no reset.
+2. Finish alias/live probes/Reviewer/map, then deploy.
 
-Next unlocks:
-1. ARCH-EMBED-IDENTITY дизайн → Builder реализует canary/identity-split → Reviewer.
-2. Затем объединённый поезд 2.58.113 (2.58.112 + compat) и ОДИН деплой с рестартом: canary решает «старый индекс / insufficient / миграция».
-3. W4-UI → в тот же или следующий поезд после ревью.
-
+Review: needs_fixes
+Deployment: not_deployed (prod 2.58.130)
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh (13 задач после регистрации)
-Updated: 2026-10-23 06:40 local (UTC+12)
+Updated: 2026-10-25T16:18+12:00
