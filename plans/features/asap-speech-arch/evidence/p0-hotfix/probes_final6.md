@@ -6,7 +6,7 @@
 - **Прод:** HEAD `534ac7dd` до и после, dirty 13 → 13; unit/health не трогались. **Deploy не выполнялся.**
 - **Стенд:** `/tmp/p0-final6/new`, `git archive` ровно `7ca05a92` (509 файлов, 24 MB; исключены только `plans/`, `media/`, `extra_images/`, `tests/`). `.env` и `local_database.db` — симлинки на прод.
 - **Интерпретатор:** `/var/www/admin_bot/venv/bin/python` 3.12.3 (не системный `python3`).
-- **Привязка:** 8/8 пинутых модулей и harness совпали с коммитом по sha256; harness **`d31a2875…`**, `harness_extra` **`227498af…`**, `harness_effective` **`5c9fc4c5…`**, `analysis_final6.py` **`6f9f7787…`** (v1, сервер).
+- **Привязка:** 8/8 пинутых модулей и harness совпали с коммитом по sha256; harness **`d31a2875…`**, `harness_extra` **`227498af…`**, `harness_effective` **`5c9fc4c5…`**; серверный `analysis_final6.py` v1 — **`6f9f7787…`** (его прогнал сервер), в evidence лежит v2 strict **`14fea25e…`** (тот же guard-код + исправленный счётчик markdown-нумерации).
 - **Self-check:** **PASS 21/21**, EXIT 0 (`l1_research_fallback_present`, `l2_meta_guard_present`, `l1_temperature_deterministic_zero`, `core_full_not_truncated`, `code_l1_canon_*`).
 - **Режим:** read-only PG (`transaction_read_only=on`), SQLite `mode=ro`; Telegram/запись/usage/events не задействованы; ключи не выгружались.
 - **Вердикт:** **FAILED** — мета в первом предложении после production-guard **1/16** (E1), нумерация в E (**6/5**). L1 A/B **2/2** raw и effective, A analysis 1×, meta-форма E2 снята, цитаты/Core/RAG/FREQ/alias — PASS.
@@ -106,7 +106,7 @@
 
 ## 9. Raw
 
-`probes_final6/`: 10 raw JSON (`raw_new_A/B`, `raw_eff_A/B`, `raw_new_C/D/E/F`, `raw_forced_A/B`) + 10 `.out` + 10 `.err`; `analysis.json` (строгий офлайн-пересчёт), `analysis_server_initial.json/.out/.err` (серверный v1; счётчик нумерации не видел markdown-`**1.**`, поэтому там 0 — исправлено в v2), `analysis_offline.out/.err`, `manifest.json` (sha256 всех файлов), `selfcheck_new.txt`, `session.json`, `fallback_matrix.json`, `guard_recheck_final5_texts.json`, `harness_extra.py`, `harness_effective.py`, `analysis_final6.py`, `run_final6.py`.
+`probes_final6/`: 10 raw JSON (`raw_new_A/B`, `raw_eff_A/B`, `raw_new_C/D/E/F`, `raw_forced_A/B`) + 10 `.out` + 10 `.err`; `analysis.json` (строгий офлайн-пересчёт v2), `analysis_server_initial.json/.out/.err` (серверный v1; счётчик нумерации не видел markdown-`**1.**`, поэтому там 0 — исправлено в v2), `analysis_offline.out/.err`, `manifest.json` (sha256 всех файлов), `selfcheck_new.txt`, `session.json`, `fallback_matrix.json`, `guard_recheck_final5_texts.json`, `harness_extra.py`, `harness_effective.py`, `analysis_final6.py` (v2 strict, `14fea25e…`), `run_final6.py`.
 
 - `guard_recheck_final5_texts.json` — офлайн-прогон новых guard'ов на **текстах final5**: meta raw 2 → final **0/16**, quotes 39 → 22 (0 non-exact), Core 8/8; подтверждает, что форма E2 закрыта, а E1-дыра — новая.
 - Секреты не выгружались; alias — только uid `42115912` и `Макс`.
