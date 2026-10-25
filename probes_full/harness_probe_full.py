@@ -304,9 +304,13 @@ def _service_settings():
 def self_check(root: str, json_out: bool = False) -> int:
     os.chdir(root)
     sys.path.insert(0, root)
+    from services import chat_prompts as cp
     from services import direct_l1 as l1
+    from services import prompt_composer as pcomp
     from services import prompt_style_blocks as psb
     from services import response_extent as extent
+    from services.chat_prompts import (DIRECT_L1_PLANNER_SYSTEM_PROMPT
+                                       as code_l1)
 
     pins = {"root": root, "git": git_state(root), "modules": module_pins(root)}
     # 1) счётчик по фактическому тексту = 1; ASCII-имя константы = 0
@@ -338,10 +342,30 @@ def self_check(root: str, json_out: bool = False) -> int:
             os.path.commonpath([os.path.abspath(root),
                                 os.path.abspath(p)]) == os.path.abspath(root)
             for p in (psb.__file__, l1.__file__)),
+        # P0-CORRECTIVE §1.1/§3: harness обязан исполнять code-canon кандидата
+        # (не старый PG) и не обрезать Core.
+        "code_l1_canon_material_routing": (
+            "response_act=research" in code_l1
+            and "Смотри, что человек просит сделать с материалом" in code_l1
+            and "приоритет у\n   разбора" in code_l1
+            and "проанализируй мои сообщения" not in code_l1.lower()),
+        "code_l1_canon_not_pg_stage": (
+            code_l1 != cp.PREV_DIRECT_L1_PLANNER_R3B
+            and code_l1 != cp.PREV_DIRECT_L1_PLANNER_P0CS
+            and code_l1 != cp.PREV_DIRECT_L1_PLANNER_P0CS2),
+        "core_full_not_truncated": (
+            pcomp.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT)
+            == cp.PERSONALITY_CORE_FULL_TEXT),
+        "no_meta_directive_present": (
+            psb.NO_META_STRUCTURE_TEXT in psb.MODE_DEEP_RESEARCH_BLOCK
+            and psb.NO_META_STRUCTURE_TEXT in plan_block),
     }
     ok = all(results.values())
     out = {"self_check": "PASS" if ok else "FAIL", "results": results,
            "counts": counts, "synthetic_payload": synthetic_payload,
+           "code_l1_canon": {"chars": len(code_l1), "sha12": sha12(code_l1),
+                             "prev_p0cs2_sha12": sha12(
+                                 cp.PREV_DIRECT_L1_PLANNER_P0CS2)},
            "pins": pins}
     print(json.dumps(out, ensure_ascii=False, indent=1)[:3000])
     return 0 if ok else 1
@@ -426,6 +450,9 @@ def main() -> int:
     ap.add_argument("--l1-prompt", default="code",
                     choices=("code", "pg"),
                     help="code = канон кандидата (после миграции); pg = текущий PG")
+    ap.add_argument("--use-code-l1-canon", action="store_true",
+                    help="явно взять DIRECT_L1_PLANNER_SYSTEM_PROMPT из кода "
+                         "кандидата (эквивалент --l1-prompt code)")
     args = ap.parse_args()
     if args.self_check:
         return self_check(args.root)
@@ -594,16 +621,22 @@ async def _run(args, result):
         DIRECT_L1_PLANNER_SYSTEM_PROMPT as code_l1_system)
     pg_l1_system = resolve_prompt("prompts.direct_l1_planner_system_prompt",
                                   None) or ""
-    if args.l1_prompt == "code":
+    _want_code = bool(getattr(args, "use_code_l1_canon", False)) \
+        or args.l1_prompt == "code"
+    if _want_code:
         l1_system = code_l1_system
-        source = "code_candidate"
+        canon_source = "code"
     else:
-        l1_system = (resolve_prompt("prompts.direct_l1_planner_system_prompt",
-                                    None) or code_l1_system)
-        source = "pg" if pg_l1_system else "code_default"
+        l1_system = pg_l1_system or code_l1_system
+        canon_source = "pg" if pg_l1_system else "code"
+        if pg_l1_system and pg_l1_system != code_l1_system:
+            # честная пометка: PG ещё на прежней ступени (миграция не прошла)
+            result["l1_canon_stale_pg"] = True
     result["l1_canon"] = {
         "chars": len(l1_system), "sha12": sha12(l1_system),
-        "source": source,
+        "canon_source": canon_source,
+        "source": canon_source,
+        "code_canon_requested": _want_code,
         "pg_chars": len(pg_l1_system), "pg_sha12": sha12(pg_l1_system),
         "code_chars": len(code_l1_system), "code_sha12": sha12(code_l1_system),
         "pg_matches_code": pg_l1_system == code_l1_system,

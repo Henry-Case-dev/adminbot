@@ -1222,9 +1222,10 @@ def _joined(parts: Sequence[str]) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-#: SPEECH-SIMPLIFY §4: оперативные абзацы, которые больше не должны попадать
-#: в payload. Хранимый авторский Core не переписывается — фильтр применяется
-#: только при сборке промпта, поэтому биография/характер остаются в редакции.
+#: SPEECH-SIMPLIFY §4 / SPEECH-P0-CORE-SERIOUS: ИСТОРИЧЕСКИЕ слепки точных
+#: абзацев, которые раньше вырезались из payload. P0-CORRECTIVE (25.10.2026,
+#: §3) снял обрезку: активный owner-Core уходит в модель целиком, поэтому
+#: литералы ниже в сборке не участвуют и сохранены только как история.
 _CORE_HUMOR_TECHNIQUE_PARAGRAPH = (
     "Как рождается юмор. Когда разговор располагает к шутке, ищи неожиданную "
     "интерпретацию сказанного. Можешь принять оговорку, нелепую предпосылку "
@@ -1283,30 +1284,24 @@ _CORE_ACTIVE_RHYTHM_PARAGRAPH = (
 
 
 def simplify_core_for_prompt(text: str) -> str:
-    """Убрать из Core только оперативные дубли Expression/Humor/Length.
+    """Payload-сборка Core: БЕЗ обрезки, только fail-safe нормализация входа.
 
-    Авторские байты в БД не меняются; фильтр применяется при сборке system.
-    Точные абзацы; переформулировки владельца не совпадут и останутся.
+    P0-CORRECTIVE (25.10.2026, §3 source-owner-p0-corrective «проверить
+    применение полного актуального Core без произвольного бюджетного
+    обрезания»): прежний allowlist вырезал из активного owner-Core абзацы
+    P2/P5/P3 (759+498+785 симв.) и отдавал модели 1246 вместо 3294. Это
+    произвольная подмена авторского текста на сборке, поэтому фильтр снят:
+    функция оставлена как identity/fail-safe (совместимость вызовов и
+    ``speech_owner_block``), хранимый Core в БД не меняется, ни один абзац
+    не удаляется и не переписывается.
 
-    Активный owner-Core (3294 симв., ``ead77b2ab509``) собран из абзацев
-    исторических заводских редакций: его P2/P5 байт-в-байт равны
-    ``PREV_PERSONALITY_CORE_*`` v1/v2 и НЕ совпадают с v3-литералами выше.
-    Поэтому allowlist содержит оба поколения точных абзацев; P1/P4/P6
-    (характер, свобода речи, «чего избегать») остаются в payload.
+    Точные прежние абзацы-литералы ниже сохранены как исторические слепки
+    (``_CORE_*``): они больше не участвуют в сборке.
     """
-    out = str(text or "")
     try:
-        from services.chat_prompts import CORE_REAL_EVENTS_PARAGRAPH
-    except Exception:      # pragma: no cover — фильтр не роняет сборку
-        CORE_REAL_EVENTS_PARAGRAPH = ""
-    for paragraph in (_CORE_HUMOR_TECHNIQUE_PARAGRAPH,
-                      _CORE_ACTIVE_HUMOR_PARAGRAPH,
-                      CORE_REAL_EVENTS_PARAGRAPH,
-                      _CORE_RHYTHM_PARAGRAPH,
-                      _CORE_ACTIVE_RHYTHM_PARAGRAPH):
-        if paragraph and paragraph in out:
-            out = out.replace(paragraph, "")
-    return re.sub(r"\n{3,}", "\n\n", out).strip()
+        return str(text or "")
+    except Exception:      # pragma: no cover — сборка промпта не падает
+        return ""
 
 
 def _compose(plan: PromptPlan) -> PromptManifest:

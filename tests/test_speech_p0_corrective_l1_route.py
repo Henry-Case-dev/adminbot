@@ -62,6 +62,9 @@ def test_l1_canon_separates_material_from_opinion():
     assert "разобраться в уже сказанном" in rules
     assert "response_act=research" in rules
     assert "внутренний разбор может быть глубоким" in rules
+    # смешанная просьба: разбор материала приоритетнее финальной оценки
+    assert "приоритет у\n   разбора" in rules
+    assert "оценка - его вывод, а не замена" in rules
     # ветка «только мнение/оценка» → answer без эссе
     assert "только мнение" in rules
     assert "structure=answer" in rules
@@ -125,13 +128,35 @@ def test_l1_prev_snapshot_is_previous_rule_bytes():
         cp._DIRECT_L1_PLANNER_BASE_R3 + cp._DIRECT_L1_CLARIFICATION_CONTRACT
         + cp._DIRECT_L1_CONTINUATION_R3B + cp._DIRECT_L1_PLANNER_RULES_R3B)
     assert _sha12(cp.PREV_DIRECT_L1_PLANNER_R3B) == "6c2ddc17c998"
+
+
+def test_l1_prev_p0cs2_is_previous_active_bytes():
+    """Лестница ред.2: P0CS2 — ровно активные байты редакции 1
+    (``f6f5d3b1fc1d``), R3b/P0CS не изменены."""
+    prev2 = cp.PREV_DIRECT_L1_PLANNER_P0CS2
+    assert prev2 == (cp._DIRECT_L1_PLANNER_BASE_R3
+                     + cp._DIRECT_L1_CLARIFICATION_CONTRACT
+                     + cp._DIRECT_L1_CONTINUATION_R3B
+                     + cp._DIRECT_L1_PLANNER_RULES_P0CS2)
+    assert len(prev2) == 9145 and _sha12(prev2) == "f6f5d3b1fc1d"
+    assert prev2 != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "23aae0c9499d"
+    # усиление не отменило прежние ветки
+    assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
     steps = dict(pm.PROMPT_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"])
-    assert steps[prev] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert steps[prev2] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert steps[cp.PREV_DIRECT_L1_PLANNER_P0CS] == \
+        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert steps[cp.PREV_DIRECT_L1_PLANNER_R3B] == \
+        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][0] == (
-            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev)
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev2)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][1] == (
+            prev2, cp.PREV_DIRECT_L1_PLANNER_P0CS)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────

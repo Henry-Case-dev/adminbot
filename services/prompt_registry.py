@@ -130,16 +130,19 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # P0-CORRECTIVE (25.10.2026, §1.1 corrective): маршрутизация L1 по
     # материалу просьбы, а не по объекту оценки: разбор уже сказанного →
     # response_act=research (глубина не задаёт длину), quick opinion →
-    # structure=answer без эссе; JSON — правило 9. Прежние байты —
-    # PREV_DIRECT_L1_PLANNER_P0CS.
-    "direct.base.l1_planner": "l1-planner-material-routing",
+    # structure=answer без эссе; JSON — правило 9. Ред.2: приоритет разбора
+    # в смешанной просьбе. Прежние байты — PREV_DIRECT_L1_PLANNER_P0CS2
+    # (f6f5d3b1fc1d) и PREV_DIRECT_L1_PLANNER_P0CS.
+    "direct.base.l1_planner": "l1-planner-material-priority",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
     # SPEECH-P0-A1 (25.10.2026, source-owner-p0-hotfix §3): режим разбора
     # больше не требует вывести отчёт полностью без сжатия — прямой ответ
     # первым, детали по запросу, перестройка разрешена.
-    "verbilizer.mode.deep_research": "mode-p0h-analysis",
+    # P0-CORRECTIVE (25.10.2026, §3): добавлен запрет мета-вступлений и
+    # навязанной отчётной структуры без просьбы (без лимитов длины).
+    "verbilizer.mode.deep_research": "mode-p0h-no-meta",
     "verbilizer.mode.default": "mode-r1024",
     # Factcheck / Summary / поиск
     "factcheck.base.single": "factcheck-r1022",
@@ -1759,7 +1762,16 @@ def factory_set_fingerprint() -> str:
 #: ``l1-planner-material-routing``. changed = 1 (direct.base.l1_planner).
 #: Было ``a8ae82425a33``, стало ``9de29133885a``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "9de29133885a"
+#: P0-CORRECTIVE ред.2 (25.10.2026, §1.1/§3 corrective; live `probes_final.md`
+#: §6): изменены 2 фабрики — ``direct.base.l1_planner`` (приоритет разбора
+#: накопленного материала над финальным вопросом-оценкой; метка
+#: ``l1-planner-material-priority``, прежние байты PREV_..._P0CS2) и
+#: ``verbilizer.mode.deep_research`` (добавлен запрет мета-вступлений и
+#: навязанной отчётной структуры; метка ``mode-p0h-no-meta``; лимитов длины
+#: не добавлялось). changed = 2.
+#: Было ``9de29133885a``, стало ``9f28ff7f6a77``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "9f28ff7f6a77"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

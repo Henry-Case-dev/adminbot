@@ -148,10 +148,11 @@ def test_ladder_and_rollback_chain():
     # прежние ступени стека целы
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_CLAR] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    # цепочка отката: L1 — material-routing → P0CS → R3b → R3 → 2.58.113
-    # (4 шага), L2 — 1 шаг
+    # цепочка отката: L1 — material-priority → P0CS2 → P0CS → R3b → R3 →
+    # 2.58.113 (5 шагов), L2 — 1 шаг
     assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
-        (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_P0CS),
+        (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, cp.PREV_DIRECT_L1_PLANNER_P0CS2),
+        (cp.PREV_DIRECT_L1_PLANNER_P0CS2, cp.PREV_DIRECT_L1_PLANNER_P0CS),
         (cp.PREV_DIRECT_L1_PLANNER_P0CS, cp.PREV_DIRECT_L1_PLANNER_R3B),
         (cp.PREV_DIRECT_L1_PLANNER_R3B, cp.PREV_DIRECT_L1_PLANNER_R3),
         (cp.PREV_DIRECT_L1_PLANNER_R3, cp.PREV_DIRECT_L1_PLANNER_CLAR)]
@@ -170,7 +171,7 @@ def test_labels_and_fingerprint_consistent():
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pr.factory_text("direct.base.l2_writer") == \
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
-    assert "l1-planner-material-routing" in pr.factory_revision(
+    assert "l1-planner-material-priority" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "l2-writer-clar-boundary" in pr.factory_revision(
         "direct.base.l2_writer")
@@ -207,15 +208,21 @@ async def test_migration_idempotent_rollback_custom_kept():
             cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     finally:
         hot.set_config_cache(None)
-    # откат — цепочка: 1-й вызов снимает новую редакцию правил (→ P0CS),
-    # 2-й — P0CS→R3b, 3-й — R3b→R3, 4-й — L1 до 2.58.113, 5-й — no-op
+    # откат — цепочка: 1-й вызов снимает приоритет разбора (→ P0CS2), 2-й —
+    # смысловую маршрутизацию (→ P0CS), 3-й — P0CS→R3b, 4-й — R3b→R3,
+    # 5-й — L1 до 2.58.113, 6-й — no-op
     back = _Cache({L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                    L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT})
     assert await pm.rollback_prompt_canons(back) == {
         L1_KEY: "rolled_back", L2_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS,
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS2,
         L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
+    back.apply_writes()
+    back.set_calls.clear()
+    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS}
     back.apply_writes()
     back.set_calls.clear()
     assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}

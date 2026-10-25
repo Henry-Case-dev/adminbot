@@ -1,19 +1,19 @@
 """SPEECH-P0-CORE-SERIOUS (25.10.2026) — активный Core, serious-разбор, L1.
 
 Доказывает по `plans/features/asap-speech-arch/evidence/p0-hotfix/active-core.md`
-и `source-owner-p0-hotfix-addendum-2026-10-25.md` §1:
+и `source-owner-p0-corrective-2026-10-25.md` §1.1/§3:
 
-* фильтр payload снимает из АКТИВНОГО owner-Core конкурирующие P2/P5
-  (759/498 симв.) вместе с прежним P3: остаются P1/P4/P6 — 1246 симв.,
-  ``4e67334b00ad``; хранимые байты и БД не меняются, повтор идемпотентен;
+* payload-сборка НЕ обрезает АКТИВНЫЙ owner-Core: в модель уходят все абзацы
+  P1/P2/P3/P4/P5/P6 — 3294 симв., ``ead77b2ab509``; хранимые байты и БД не
+  меняются, повтор идемпотентен (прежний фильтр P2/P5/P3 снят как
+  произвольное обрезание, P0-CORRECTIVE §3);
 * серьёзный разбор (``response_act=research`` без deep_research) получает
-  ТЕ ЖЕ дословные тексты анализа/Writer в ``<Response_Plan>``; deep-режим
-  несёт их режимным блоком, а когда его вытесняет непустой extent-блок
-  плана (SPEECH-P0-DEEP-PAYLOAD) — снова plan-блоком; ровно один раз в
-  payload, без дубля;
-* правило 7 канона L1: просьба оценить человека/мнение о нём — обычный
-  содержательный разбор (normal/compact + answer), а detailed/report только
-  при явной просьбе подробного/полного разбора; подробный анализ остаётся.
+  ТЕ ЖЕ дословные тексты анализа/Writer в ``<Response_Plan>`` плюс запрет
+  мета-вступлений и навязанной отчётной структуры; deep-режим несёт их
+  режимным блоком, а когда его вытесняет непустой extent-блок плана
+  (SPEECH-P0-DEEP-PAYLOAD) — снова plan-блоком; ровно один раз в payload;
+* правило 7 канона L1: разбор накопленного материала приоритетнее финального
+  вопроса-оценки; quick opinion остаётся answer без эссе.
 
 TEST-LIFECYCLE: CONTRACT owner=SPEECH-P0-CORE-SERIOUS/§1
 """
@@ -65,42 +65,38 @@ def test_active_core_paragraph_fingerprints_are_pinned():
     assert (len(P6), _sha12(P6)) == (486, "053124e6e67a")
 
 
-def test_active_core_payload_drops_p2_p5_p3_and_keeps_character():
+def test_active_core_payload_keeps_all_paragraphs_verbatim():
+    """P0-CORRECTIVE §3: активный owner-Core уходит в payload целиком.
+
+    Прежний allowlist вырезал P2/P5/P3 и отдавал модели 1246 вместо 3294 —
+    это произвольное обрезание авторского текста на сборке. Фильтр снят;
+    хранимые байты Core не меняются.
+    """
     out = pcomp.simplify_core_for_prompt(ACTIVE_CORE)
-    assert len(out) == 1246
-    assert _sha12(out) == "4e67334b00ad"
-    for kept in (P1, P4, P6):
+    assert out == ACTIVE_CORE
+    assert len(out) == 3294
+    assert _sha12(out) == "ead77b2ab509"
+    for kept in (P1, P2, P3, P4, P5, P6):
         assert kept in out
-    for dropped in (P2, P3, P5):
-        assert dropped not in out
-    # конкурирующие формулировки действительно ушли из payload
-    for phrase in ("развивай её, а не бросай после первой фразы",
-                   "нарастающего абсурда",
-                   "Не обрывай удачную мысль"):
-        assert phrase not in out, phrase
 
 
 def test_core_filter_is_pure_and_idempotent():
-    """Фильтр payload: хранимые байты Core не меняются, повтор — no-op."""
+    """Payload-сборка: хранимые байты Core не меняются, повтор — no-op."""
     before = ACTIVE_CORE
     once = pcomp.simplify_core_for_prompt(before)
     assert before == ACTIVE_CORE          # вход не мутирован
+    assert once == before
     assert pcomp.simplify_core_for_prompt(once) == once
-    assert pcomp.simplify_core_for_prompt(once) == pcomp.simplify_core_for_prompt(
-        pcomp.simplify_core_for_prompt(once))
 
 
-def test_factory_v3_core_still_filtered_as_before():
-    """Заводская редакция v3 фильтруется прежними точными абзацами."""
+def test_factory_core_is_not_truncated():
+    """Заводская редакция v3 тоже уходит целиком (без вырезания абзацев)."""
     out = pcomp.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT)
-    assert cp._DIRECT_L1_PLANNER_BASE_R3 not in out
-    assert pcomp._CORE_HUMOR_TECHNIQUE_PARAGRAPH not in out
-    assert pcomp._CORE_RHYTHM_PARAGRAPH not in out
-    assert cp.CORE_REAL_EVENTS_PARAGRAPH not in out
-    # характер/свобода речи v3 остаются
+    assert out == cp.PERSONALITY_CORE_FULL_TEXT
+    assert pcomp._CORE_HUMOR_TECHNIQUE_PARAGRAPH in out
+    assert pcomp._CORE_RHYTHM_PARAGRAPH in out
+    assert cp.CORE_REAL_EVENTS_PARAGRAPH in out
     assert cp.CORE_FREE_SPEECH_PARAGRAPH in out
-    # идемпотентно
-    assert pcomp.simplify_core_for_prompt(out) == out
 
 
 # ── 2. Serious-разбор получает точную analysis-инструкцию один раз ─────────
@@ -135,6 +131,29 @@ def test_serious_research_plan_block_has_exact_analysis_texts_once():
     # по умолчанию (флаг не запрошен) текстов нет — контракт прежний
     plain = l1.build_l2_plan_block(plan)
     assert psb.ANALYSIS_DIRECTIVE_TEXT not in plain
+
+
+def test_writer_no_meta_and_no_imposed_structure():
+    """P0-CORRECTIVE §3:Writer не анонсирует разбор и не навязывает структуру.
+
+    Директива не задаёт ни длины, ни формата ответа — только запрещает
+    мета-вступление и отчётную нумерацию без просьбы пользователя.
+    """
+    text = psb.NO_META_STRUCTURE_TEXT
+    assert "Не анонсируй разбор" in text
+    assert "Не нумеруй" in text
+    assert "если пользователь не просил" in text
+    # никаких приказов объёма/готовой схемы
+    for forbidden in ("символ", "абзац", "ПОЛНОСТЬЮ", "Во-первых",
+                      "markdown", "Markdown"):
+        assert forbidden not in text, forbidden
+    plan = _research_plan()
+    block = l1.build_l2_plan_block(
+        plan, include_analysis=l1.analysis_directive_needed(plan))
+    assert block.count(text) == 1
+    assert text in psb.MODE_DEEP_RESEARCH_BLOCK
+    # без include_analysis директива в план не попадает
+    assert text not in l1.build_l2_plan_block(plan)
 
 
 # TEST-LIFECYCLE: REGRESSION owner=SPEECH-P0-DEEP-PAYLOAD (rev. 25.10.2026)

@@ -1054,12 +1054,16 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                 from services import prompt_style_blocks as _psb
                 _directive = str(_psb.ANALYSIS_DIRECTIVE_TEXT or "").strip()
                 _writer = str(_psb.ANALYSIS_WRITER_TEXT or "").strip()
+                _no_meta = str(
+                    getattr(_psb, "NO_META_STRUCTURE_TEXT", "") or "").strip()
             except Exception:      # pragma: no cover - защитная ветка
-                _directive = _writer = ""
+                _directive = _writer = _no_meta = ""
             if _directive:
                 lines.append(f"как разбирать: {_directive}")
             if _writer:
                 lines.append(f"как подать разбор: {_writer}")
+            if _no_meta:
+                lines.append(f"как начать ответ: {_no_meta}")
         if low_confidence:
             lines.append("уверенность плана низкая: опирайся на контекст "
                          "разговора, а не на подсказки плана.")
