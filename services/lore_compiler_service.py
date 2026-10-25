@@ -100,6 +100,14 @@ class LoreCompilerService:
 
         previous = await self.db.get_lore_story(chat_id, topic_key)
         since = int(previous.get("last_ts") or 0) if previous else 0
+        # P0 corrective (§3, шаг 2 цепочки): помеченный self-echo НЕ подаётся
+        # как «Известная база» — иначе выдумка пересказывается снова и снова.
+        # last_ts-якорь сохраняется (старый материал повторно не читается).
+        previous_story = None
+        if previous and not (
+                int(previous.get("excluded_from_retrieval") or 0)
+                or str(previous.get("status") or "") == "rejected"):
+            previous_story = str(previous.get("story") or "")
 
         graph = await self.db.lore_graph_slice(
             chat_id, clean, depth=2, max_facts=_LORE_GRAPH_MAX_FACTS)
@@ -156,6 +164,16 @@ class LoreCompilerService:
                     "message": f"По теме «{clean}» в памяти ничего не нашлось."}
 
         if previous and not dialog_lines and not total_new:
+            if previous_story is None:
+                # P0 corrective (§3): помеченная запись не выдаётся как «база»
+                # даже в UPD-ветке без нового материала (иначе выдумка снова
+                # подаётся как сохранённая история чата).
+                logger.info("[lore] quarantined no-new-data | chat=%s",
+                            chat_id)
+                return {"status": "not_found",
+                        "message": (f"Сохранённая запись по теме «{clean}» "
+                                    "исключена из достоверных источников; "
+                                    "новых сообщений нет.")}
             # UPD-путь без нового материала: отдаём сохранённую базу без
             # повторного (дорогого) LLM-вызова — честное «ничего не изменилось».
             # MCA-15 (T-4932, §7.3): старые агрегаты истории не проверены этим
@@ -186,7 +204,7 @@ class LoreCompilerService:
                                   self.tz_name),
             last_seen=self._date(stats.get("last_seen") or dense.get("latest"),
                                  self.tz_name),
-            previous_story=(previous.get("story") if previous else None))
+            previous_story=previous_story)
         canon = LORE_STORY_SYSTEM_PROMPT.replace("{topic}", clean)
         # SOUL-AMD.2.6 (AMD26, уточнение §2.1): рассказ о лоре («истории»,
         # Летописец) — публичная авторская речь бота. Композер ON → Core +

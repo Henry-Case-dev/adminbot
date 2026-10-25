@@ -122,7 +122,12 @@ LORE_STORY_SYSTEM_PROMPT = """Ты - саркастичный летописец
 _UNCHANGED = "UNCHANGED"
 _MARKER = "\n…[обрезано]"
 _SEP = "\n---\n"
-_TAG_OVERHEAD = len("<chat_lore>\n") + len("\n</chat_lore>")
+# P0 corrective 25.10.2026 (§3): PG-лор — авторская летопись/пересказ, а не
+# источник фактов. Маркер вставляется в начало блока; текст лора НЕ
+# перегенерируется и не переписывается (owner: точечно, без mass rewrite).
+_LORE_PROVENANCE_MARKER = "(летопись чата: пересказ, не источник фактов)"
+_TAG_OVERHEAD = (len("<chat_lore>\n") + len("\n</chat_lore>")
+                 + len(_LORE_PROVENANCE_MARKER) + 1)
 
 
 def is_unchanged_response(text: str | None) -> bool:
@@ -171,9 +176,12 @@ def truncate_with_marker(text: str, limit: int) -> str:
 
 def format_lore_block(manual_lore: str, auto_lore: str, cap_chars: int) -> str:
     """Инжект-блок (spec §3.6/Q1): `<chat_lore>…</chat_lore>`, ВЕСЬ блок
-    ≤ cap_chars (теги/разделитель входят в бюджет); разделитель `---` ТОЛЬКО
-    при двух непустых полях; пустой блок — "" (не рендерится). Урезается
-    в первую очередь auto_lore, при необходимости — manual_lore; при обрезке
+    ≤ cap_chars (теги/маркер происхождения/разделитель входят в бюджет);
+    разделитель `---` ТОЛЬКО при двух непустых полях; пустой блок — ""
+    (не рендерится). Первая строка — маркер `_LORE_PROVENANCE_MARKER`:
+    лор подан как летопись/пересказ, а не как источник фактов (P0
+    corrective §3; текст самого лора не меняется). Урезается в первую
+    очередь auto_lore, при необходимости — manual_lore; при обрезке
     добавляется маркер. (XML-экранирование — на вызывающем.)"""
     manual = (manual_lore or "").strip()
     auto = (auto_lore or "").strip()
@@ -206,8 +214,11 @@ def format_lore_block(manual_lore: str, auto_lore: str, cap_chars: int) -> str:
             inner = f"{manual}{_SEP}{auto}"
         elif auto:
             inner = auto
-        return (f"<chat_lore>\n"
-                f"{truncate_with_marker(inner, budget)}\n</chat_lore>")
+        cut = truncate_with_marker(inner, budget)
+        if not cut:
+            return ""
+        return (f"<chat_lore>\n{_LORE_PROVENANCE_MARKER}\n"
+                f"{cut}\n</chat_lore>")
     return _wrap(manual, auto)
 
 
@@ -217,7 +228,10 @@ def _wrap(manual: str, auto: str) -> str:
         inner = f"{manual}{_SEP}{auto}"
     elif auto:
         inner = auto
-    return f"<chat_lore>\n{inner}\n</chat_lore>"
+    if not inner:
+        return ""
+    return (f"<chat_lore>\n{_LORE_PROVENANCE_MARKER}\n"
+            f"{inner}\n</chat_lore>")
 
 
 def format_merge_user_content(auto_lore: str, window_text: str,

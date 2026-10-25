@@ -263,8 +263,10 @@ class TestPersonaLore:
         lines = card.split("\n")
         assert lines[0] == "карточка: Вася"
         assert lines[1].startswith("знаю о тебе: ")
-        # лор — первой «строкой» (+1 к счётчику), legacy chat-level исключён
-        assert "лор чата" in lines[2]
+        # лор — первой «строкой» (+1 к счётчику), legacy chat-level исключён;
+        # P0 §3: блок лора начинается маркером «пересказ, не источник».
+        assert lines[2].startswith("1. (летопись чата: пересказ")
+        assert "лор чата" in card
         assert "факт: любит чай" in card
         assert "легаси-факт" not in card
         assert "2 фактов" in lines[1]          # факт юзера + лор (+1)

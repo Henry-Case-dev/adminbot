@@ -152,16 +152,19 @@ class TestLoreBlock:
 
     def test_manual_only(self):
         block = format_lore_block("только ручной", "", 3000)
-        assert block == "<chat_lore>\nтолько ручной\n</chat_lore>"
+        assert block == ("<chat_lore>\n(летопись чата: пересказ, не источник "
+                         "фактов)\nтолько ручной\n</chat_lore>")
 
     def test_auto_only(self):
         block = format_lore_block("", "только авто", 3000)
         assert "---" not in block
-        assert block == "<chat_lore>\nтолько авто\n</chat_lore>"
+        assert block == ("<chat_lore>\n(летопись чата: пересказ, не источник "
+                         "фактов)\nтолько авто\n</chat_lore>")
 
     def test_both_with_separator(self):
         block = format_lore_block("ручной", "авто", 3000)
-        assert block == "<chat_lore>\nручной\n---\nавто\n</chat_lore>"
+        assert block == ("<chat_lore>\n(летопись чата: пересказ, не источник "
+                         "фактов)\nручной\n---\nавто\n</chat_lore>")
 
     def test_cap_trims_auto_first_manual_intact(self):
         manual = "Ручной лор очень важный и не должен пострадать."
@@ -174,8 +177,10 @@ class TestLoreBlock:
     def test_cap_trims_manual_when_needed(self):
         manual = ("Слово повторяющееся " * 40).strip()
         auto = ("Авто-событие повторяющееся " * 40).strip()
-        block = format_lore_block(manual, auto, 80)
-        assert len(block) <= 80
+        # P0 §3: маркер происхождения входит в бюджет блока (+47 симв.),
+        # поэтому cap для проверки урезания взят с запасом.
+        block = format_lore_block(manual, auto, 200)
+        assert len(block) <= 200
         assert "…[обрезано]" in block
 
     def test_cap_zero_returns_empty(self):
