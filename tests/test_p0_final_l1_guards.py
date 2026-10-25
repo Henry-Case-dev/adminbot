@@ -183,6 +183,12 @@ def test_research_fallback_wired_into_l1_planner():
      "**Костя** — главный поставщик контента."),
     ("Ладно, давай по существу. Конфликта в логе не было.",
      "Конфликта в логе не было."),
+    # P0-FINAL-META-E1 (25.10.2026): запятая после «давай» + «разложу».
+    ("Ну давай, разложу по полочкам, раз уж попросил. "
+     "Конфликта в логе не было.",
+     "Конфликта в логе не было."),
+    ("Ну давай, разберу по фактам. Конфликта в логе не было.",
+     "Конфликта в логе не было."),
 ])
 def test_meta_guard_removes_filler_and_single_announce(raw, expected_prefix):
     out, stats = dcs.strip_l2_meta_lead(raw)
@@ -204,6 +210,10 @@ def test_meta_guard_removes_filler_and_single_announce(raw, expected_prefix):
     "Ладно, давай в субботу. Я свободен после шести.",
     "Ладно, давай по фактам: конфликта не было.",
     "Ладно, давай по фактам.",
+    # P0-FINAL-META-E1: содержательное «Ну давай …» не является анонсом.
+    "Ну давай в субботу. Я свободен после шести.",
+    "Ну давай по фактам: конфликта не было.",
+    "Ну давай, по фактам: конфликта не было.",
 ])
 def test_meta_guard_keeps_answer_and_lone_announce(raw):
     out, stats = dcs.strip_l2_meta_lead(raw)
@@ -225,6 +235,18 @@ def test_meta_guard_e2_removes_exactly_one_sentence():
     """P0-FINAL-E2: снимается ровно одно ведущее «Ладно, давай по фактам.»,
     остальной текст — байт-в-байт (включая абзацы и второй анонс)."""
     raw = ("Ладно, давай по фактам. Сейчас разберу по пунктам.\n\n"
+           "Первый факт: Костя ноет про хейт.")
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert stats["announce_removed"] is True
+    assert out == ("Сейчас разберу по пунктам.\n\n"
+                   "Первый факт: Костя ноет про хейт.")
+
+
+def test_meta_guard_e1_removes_exactly_one_sentence():
+    """P0-FINAL-META-E1: «Ну давай, разложу по полочкам, раз уж попросил.»
+    снимается как ровно одно предложение, тело — байт-в-байт."""
+    raw = ("Ну давай, разложу по полочкам, раз уж попросил. "
+           "Сейчас разберу по пунктам.\n\n"
            "Первый факт: Костя ноет про хейт.")
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert stats["announce_removed"] is True
