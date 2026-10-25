@@ -220,6 +220,60 @@ def build_window_text(rows, limit=50):
     return "\n".join(lines)
 
 
+# ── мета-метрика (P0-META-CONSECUTIVE): ДВА раздельных счётчика поверх ─────
+# strict-счётчика (он не переименовывается и не ослабляется):
+# * product_announce — guard реально снял преамбулу-анонс (0..2 предложения);
+# * lexical_prefix_only — ведущее «Ну/Ладно/Ок…» осталось перед содержанием,
+#   т.е. это не преамбула процесса, а живая частица речи.
+_META_STRICT_PREFIX_RE = re.compile(
+    r"^(?:ну|ладно|ок|окей|окэй|так|смотри|глянь|ага|угу|давай(?:те)?)\b",
+    re.IGNORECASE)
+
+
+def _meta_first_sentence(text: str) -> str:
+    head = str(text or "").split("\n", 1)[0].strip()
+    if not head:
+        return ""
+    try:
+        from services import direct_chat_service as _dcs
+        candidate, _end = _dcs._l2_first_sentence(head)
+    except Exception:                                 # noqa: BLE001
+        candidate = None
+    return candidate if candidate is not None else head
+
+
+def meta_metric(texts) -> dict:
+    """Классификация первого предложения КАЖДОГО ответа прогона."""
+    from services import direct_chat_service as _dcs
+    rows = []
+    for idx, raw in enumerate(texts or []):
+        before = _meta_first_sentence(raw)
+        after, stats = _dcs.strip_l2_meta_lead(str(raw or ""))
+        first_after = _meta_first_sentence(after)
+        strict = _META_STRICT_PREFIX_RE.match(first_after) is not None
+        product_announce = int(stats.get("announce_removed_count", 0)) > 0
+        rows.append({
+            "repeat": idx + 1,
+            "first": before,
+            "first_after": first_after,
+            "strict": strict,
+            "product_announce": product_announce,
+            "product_filler": bool(stats.get("filler_removed")),
+            "lexical_prefix_only": strict and not product_announce,
+            "announce_removed_count": int(
+                stats.get("announce_removed_count", 0)),
+        })
+    return {
+        "total": len(rows),
+        "strict": sum(1 for r in rows if r["strict"]),
+        "product_announce": sum(1 for r in rows if r["product_announce"]),
+        "product_filler": sum(1 for r in rows if r["product_filler"]),
+        "lexical_prefix_only": sum(
+            1 for r in rows if r["lexical_prefix_only"]),
+        "rows": rows,
+    }
+
+
 def text_counts(text: str, psb) -> dict:
     """Честные счётчики: фактические тексты, а не ASCII-имена констант."""
     directive = getattr(psb, "ANALYSIS_DIRECTIVE_TEXT", "") or ""
@@ -368,6 +422,16 @@ def self_check(root: str, json_out: bool = False) -> int:
     # post-guards Writer'а присутствуют в исполняемом коде кандидата.
     from services import direct_chat_service as dcs
     _dcs = dcs
+    # P0-META-CONSECUTIVE (26.10.2026, final10 E#1): две подряд ведущие
+    # преамбулы снимаются (0..2), тело — байт-в-байт; содержательные
+    # «Ну Макс, …» и обещание «Накидаю тебе ссылку в субботу.» не режутся.
+    _live_pair = (
+        "Ну давай, раз уж просят. Накидаю по свежим следам, без лишних "
+        "сополей.\n\n**Кто что пишет:** Ринтаро спамит, Костя ноет.")
+    _live_body = "**Кто что пишет:** Ринтаро спамит, Костя ноет."
+    _pair_out, _pair_stats = _dcs.strip_l2_meta_lead(_live_pair)
+    _keep_addressee = "Ну Макс, ты сам напросился. Дальше он не злой."
+    _keep_promise = "Накидаю тебе ссылку в субботу. Там всё по фактам."
     meta_guard_ok = (
         _dcs.strip_l2_meta_lead(
             "Ну, ты не злобный.")[0] == "Ты не злобный."
@@ -377,7 +441,18 @@ def self_check(root: str, json_out: bool = False) -> int:
         # P0-FINAL-E2 (final5): «Ладно, давай по фактам.» — анонс процесса.
         and _dcs.strip_l2_meta_lead(
             "Ладно, давай по фактам. Ты не злобный, просто устал."
-        )[0] == "Ты не злобный, просто устал.")
+        )[0] == "Ты не злобный, просто устал."
+        and _pair_out == _live_body
+        and _pair_stats["announce_removed_count"] == 2
+        and _dcs.strip_l2_meta_lead(_keep_addressee)[0] == _keep_addressee
+        and _dcs.strip_l2_meta_lead(_keep_promise)[0] == _keep_promise)
+    # strict-счётчик сохранён; рядом — раздельные product_announce и
+    # lexical_prefix_only на тех же двух ответах.
+    _meta_split = meta_metric([_live_pair, _keep_addressee])
+    meta_split_ok = (
+        _meta_split["strict"] == 1
+        and _meta_split["product_announce"] == 1
+        and _meta_split["lexical_prefix_only"] == 1)
     _quote_text, _quote_stats = _dcs.strip_unverified_l2_quotes(
         "Он «супермега хейтом» и «точная цитата» писал.",
         query="q", blocks=["тут точная цитата внутри"])
@@ -469,6 +544,7 @@ def self_check(root: str, json_out: bool = False) -> int:
             and _rf_casual_applied is False
             and _rf_casual_out.response_act == "answer"),
         "l2_meta_guard_present": meta_guard_ok,
+        "l2_meta_metric_split": meta_split_ok,
         "l2_quote_guard_present": quote_guard_ok,
     }
     ok = all(results.values())
@@ -597,7 +673,8 @@ def main() -> int:
     print(json.dumps({k: result.get(k) for k in
                       ("label", "case", "forced", "invalid", "fatal",
                        "l1_plan", "mode", "payload_counts", "l2_runs",
-                       "stage_errors")}, ensure_ascii=False)[:2200])
+                       "meta_metric", "stage_errors")},
+                ensure_ascii=False)[:2600])
     return 0
 
 
@@ -961,6 +1038,9 @@ async def _run(args, result):
     result["l2_runs"] = [{k: v for k, v in r.items() if k != "text"}
                          for r in l2]
     result["l2_texts"] = [r.get("text") or "" for r in l2]
+    # P0-META-CONSECUTIVE: strict-счётчик сохраняется, рядом — раздельные
+    # product_announce / lexical_prefix_only по тем же ответам.
+    result["meta_metric"] = meta_metric(result["l2_texts"])
 
 
 if __name__ == "__main__":

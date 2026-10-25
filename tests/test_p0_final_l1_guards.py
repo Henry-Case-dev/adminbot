@@ -3,7 +3,8 @@
 Покрытие (CONTRACT):
 * L1 Planner — детерминированная температура 0.0 (hot-ключ переопределяет,
   явный default уважается), 0.0 реально уходит в payload dedicated-слота;
-* direct-L2 guard: ведущий filler + ОДИН анонс процесса, без потери текста;
+* direct-L2 guard: ведущий filler + до ДВУХ анонсов процесса, без потери
+  текста (P0-META-CONSECUTIVE: live final10 E#1 — две преамбулы подряд);
 * direct-L2 guard: кавычки только для exact-фрагментов переданных источников
   (текст сохраняется, снимается только пунктуация);
 * alias hot-reload: in-process payload-ход до/после set_chat_params.
@@ -265,6 +266,19 @@ def test_meta_guard_removes_filler_and_single_announce(raw, expected_prefix):
     "Глянь, что вышло. Конфликта в логе не было.",
     "Глянь-ка, что вышло. Конфликта в логе не было.",
     "Ну ок, смотри, конфликта в логе не было.",
+    # P0-META-CONSECUTIVE: ровно live-строки, которые НЕ являются анонсами.
+    "Ну Макс, ты сам напросился.",
+    "Ну Макс, ты сам напросился. Дальше он не злой.",
+    "Ну давай в субботу.",
+    "Ладно, смотри: факты.",
+    "Смотри, как он это сделал.",
+    "Давай разложу факты: дальше по пунктам.",
+    # «накидаю/соберу/распишу» без процесс-предмета — обычное содержание.
+    "Накидаю тебе ссылку в субботу. Смотри, что там по фактам.",
+    "Накидаю тебе ссылку в субботу.",
+    "Соберу вещи и поеду. Дальше буду без связи.",
+    "Прикину бюджет на дорогу. Потом скажу точно.",
+    "Распишу тебе завтра, если хочешь. Сегодня уже поздно.",
     # «смотри/глянь» — единственная фраза без содержательного остатка.
     "Смотри.", "Глянь-ка.",
     # Остаток меньше 20 букв — анонс не снимаем (нечего оставить).
@@ -274,26 +288,28 @@ def test_meta_guard_keeps_answer_and_lone_announce(raw):
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert out == raw
     assert not stats["filler_removed"] and not stats["announce_removed"]
+    assert stats["announce_removed_count"] == 0
 
 
-def test_meta_guard_removes_only_one_announce_and_keeps_body():
+def test_meta_guard_removes_two_leading_announces_and_keeps_body():
     raw = ("Окей, глянул твою простыню. Сейчас разберу по пунктам. "
            "Первый факт: Костя ноет про хейт.")
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert stats["announce_removed"] is True
-    # Второй анонс остаётся: guard снимает РОВНО одно предложение.
-    assert out == ("Сейчас разберу по пунктам. "
-                   "Первый факт: Костя ноет про хейт.")
+    # P0-META-CONSECUTIVE: два подряд анонса снимаются, тело — байт-в-байт.
+    assert stats["announce_removed_count"] == 2
+    assert out == "Первый факт: Костя ноет про хейт."
 
 
 def test_meta_guard_e2_removes_exactly_one_sentence():
     """P0-FINAL-E2: снимается ровно одно ведущее «Ладно, давай по фактам.»,
-    остальной текст — байт-в-байт (включая абзацы и второй анонс)."""
-    raw = ("Ладно, давай по фактам. Сейчас разберу по пунктам.\n\n"
+    остальной текст — байт-в-байт (включая абзацы)."""
+    raw = ("Ладно, давай по фактам. Ринтаро спамит музыкой.\n\n"
            "Первый факт: Костя ноет про хейт.")
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert stats["announce_removed"] is True
-    assert out == ("Сейчас разберу по пунктам.\n\n"
+    assert stats["announce_removed_count"] == 1
+    assert out == ("Ринтаро спамит музыкой.\n\n"
                    "Первый факт: Костя ноет про хейт.")
 
 
@@ -301,36 +317,95 @@ def test_meta_guard_e1_removes_exactly_one_sentence():
     """P0-FINAL-META-E1: «Ну давай, разложу по полочкам, раз уж попросил.»
     снимается как ровно одно предложение, тело — байт-в-байт."""
     raw = ("Ну давай, разложу по полочкам, раз уж попросил. "
-           "Сейчас разберу по пунктам.\n\n"
+           "Ринтаро спамит музыкой.\n\n"
            "Первый факт: Костя ноет про хейт.")
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert stats["announce_removed"] is True
-    assert out == ("Сейчас разберу по пунктам.\n\n"
+    assert stats["announce_removed_count"] == 1
+    assert out == ("Ринтаро спамит музыкой.\n\n"
                    "Первый факт: Костя ноет про хейт.")
 
 
 def test_meta_guard_general_live_form_removes_exactly_one_sentence():
     """P0-GENERAL-META live-форма 25.10.2026: «Ну ок, давай разложу по
     полочкам, раз уж попросили.» — снимается ровно одно предложение,
-    остальной текст байт-в-байт (включая абзацы и второй анонс)."""
+    остальной текст байт-в-байт (включая абзацы)."""
     raw = ("Ну ок, давай разложу по полочкам, раз уж попросили. "
-           "Сейчас разберу по пунктам.\n\n"
+           "Ринтаро спамит музыкой.\n\n"
            "Первый факт: Костя ноет про хейт.")
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert stats["announce_removed"] is True
-    assert out == ("Сейчас разберу по пунктам.\n\n"
+    assert stats["announce_removed_count"] == 1
+    assert out == ("Ринтаро спамит музыкой.\n\n"
                    "Первый факт: Костя ноет про хейт.")
 
 
 def test_meta_guard_bare_look_removes_exactly_one_sentence():
     """P0-META-BARE-LOOK: «Ну ок, смотри.» снимается как ровно одно
-    предложение, остальной текст — байт-в-байт (абзацы и второй анонс)."""
-    raw = ("Ну ок, смотри. Сейчас разберу по пунктам.\n\n"
+    предложение, остальной текст — байт-в-байт (абзацы)."""
+    raw = ("Ну ок, смотри. Ринтаро спамит музыкой.\n\n"
            "Первый факт: Костя ноет про хейт.")
     out, stats = dcs.strip_l2_meta_lead(raw)
     assert stats["announce_removed"] is True
-    assert out == ("Сейчас разберу по пунктам.\n\n"
+    assert stats["announce_removed_count"] == 1
+    assert out == ("Ринтаро спамит музыкой.\n\n"
                    "Первый факт: Костя ноет про хейт.")
+
+
+# ── P0-META-CONSECUTIVE: до двух ведущих преамбул (live final10 E#1) ───────
+
+# Дословные две ведущие строки live-ответа new_E (final10, кандидат 9828a8ad).
+LIVE_FINAL10_E1_LEAD = ("Ну давай, раз уж просят. "
+                        "Накидаю по свежим следам, без лишних сополей.")
+LIVE_FINAL10_E1_BODY = ("**Кто что обычно пишет и какие темы гоняют по "
+                        "кругу:**\n\n"
+                        "**Ринтаро** — главный двигатель музыкального спама.")
+
+
+def test_meta_guard_final10_e1_removes_both_live_preambles():
+    """P0-META-CONSECUTIVE: обе live-преамбулы снимаются, тело байт-в-байт."""
+    raw = LIVE_FINAL10_E1_LEAD + "\n\n" + LIVE_FINAL10_E1_BODY
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert out == LIVE_FINAL10_E1_BODY
+    assert stats["announce_removed_count"] == 2
+    assert stats["announce_removed"] is True
+
+
+def test_meta_guard_second_sentence_not_matching_stays_byte_exact():
+    """После первого снятия нематчащееся предложение остаётся байт-в-байт."""
+    raw = ("Ну давай, раз уж просят. Костя ноет про хейт, "
+           "а Ринтаро его гасит.")
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert out == "Костя ноет про хейт, а Ринтаро его гасит."
+    assert stats["announce_removed_count"] == 1
+
+
+def test_meta_guard_removes_at_most_two_announces():
+    """Три анонса подряд: снимаются только первые два, третий остаётся."""
+    raw = ("Ну давай, раз уж просят. Накидаю по свежим следам. "
+           "Соберу по пунктам. Первый факт: Костя ноет про хейт.")
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert out == ("Соберу по пунктам. "
+                   "Первый факт: Костя ноет про хейт.")
+    assert stats["announce_removed_count"] == 2
+
+
+def test_meta_guard_does_not_cross_paragraph_for_second_announce():
+    """Второй абзац неприкосновенен: снимается только первый абзац."""
+    raw = ("Ну давай, раз уж просят.\n\n"
+           "Накидаю по свежим следам. Костя ноет про хейт.")
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert out == "Накидаю по свежим следам. Костя ноет про хейт."
+    assert stats["announce_removed_count"] == 1
+
+
+def test_meta_guard_filler_only_keeps_content_byte_exact():
+    """«Ну, ты не злобный.» — режется только междометие (P0 §3), смысл цел."""
+    raw = "Ну, ты не злобный. Просто устал, бывает."
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert out == "Ты не злобный. Просто устал, бывает."
+    assert stats["filler_removed"] is True
+    assert stats["announce_removed_count"] == 0
 
 
 @pytest.mark.parametrize("lead,verb", [

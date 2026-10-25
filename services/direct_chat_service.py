@@ -1951,16 +1951,19 @@ _L2_META_ANNOUNCE_RE = re.compile(
     # запрет «:» в кандидате.
     r"|ну\s+давай(?:те)?\s*,\s*(?:разложу|разберу|гляну"
     r"|по\s+(?:полочкам|фактам))"
-    r"(?:\s*,?\s*раз\s+уж\s+попросил(?:а)?)?"
+    r"(?:\s*,?\s*раз\s+уж\s+(?:попросил(?:а)?|просят|просили|просит))?"
     # P0-FINAL-META-LAST (25.10.2026): чистые live-преамбулы без содержания —
     # «Ладно, смотри(-ка).» и «<Имя>, ну давай(те), раз уж попросил(а).».
+    # P0-META-CONSECUTIVE (26.10.2026): хвост «раз уж …» покрывает и
+    # безличные live-формы «раз уж просят/просили/просит» (final10 E#1).
     # Обе ветки заякорены на КОНЕЦ предложения (lookahead ниже), поэтому
     # содержательный хвост в том же предложении («Ладно, смотри, конфликта
     # нет.», «Макс, ну давай, раз уж попросил, по фактам.») не режется;
     # «Ладно, смотри: …» отсекается общим запретом «:» в кандидате.
     r"|ладно\s*,\s*смотри(?:-ка)?(?=[.!?…]*$)"
     r"|(?:[А-ЯA-Z][\w\-]{1,20}\s*,\s*)?ну\s+давай(?:те)?\s*,"
-    r"\s*раз\s+уж\s+попросил(?:а)?(?=[.!?…]*$)"
+    r"\s*раз\s+уж\s+(?:попросил(?:а)?|просят|просили|просит)"
+    r"(?=[.!?…]*$)"
     # P0-GENERAL-META (25.10.2026): ОБЩИЙ класс ведущих анонсов процесса, а
     # не перечисление конкретных live-фраз. Необязательное обращение
     # («Оля,»), необязательные ведущие частицы («ну/ок/окей/ладно/так/
@@ -1976,6 +1979,22 @@ _L2_META_ANNOUNCE_RE = re.compile(
     r"(?:(?:ну|ок|окей|окэй|ладно|так|смотри|сейчас|давай(?:те)?)(?!\w)"
     r"\s*,?\s*)*"
     r"(?:разложу|разберу|гляну|посмотрю|проверю|расскажу|объясню)(?!\w)"
+    # P0-META-CONSECUTIVE (26.10.2026, final10 E#1): вторая live-преамбула
+    # «Накидаю по свежим следам, без лишних сополей.» — тот же класс
+    # «объявляю процесс», что «разложу/разберу», но глаголы
+    # «накидаю/накину/соберу/прикину/распишу/прокомментирую» без предмета
+    # легко оказываются содержанием («Накидаю тебе ссылку в субботу.»,
+    # «Соберу вещи и поеду.»), поэтому здесь обязателен процесс-предмет
+    # («по свежим/горячим следам», «по полочкам/фактам/пунктам/порядку»,
+    # «в двух словах», «коротко»). Общие gates (нет «:»/тире/кавычек, ≤90,
+    # остаток ≥20 букв) применяются как обычно.
+    r"|(?:[А-ЯЁA-Z][\w\-]{1,20}\s*,\s*)?"
+    r"(?:(?:ну|ок|окей|окэй|ладно|так|смотри|сейчас|давай(?:те)?)(?!\w)"
+    r"\s*,?\s*)*"
+    r"(?:накидаю|накину|соберу|прикину|распишу|прокомментирую)(?!\w)\s+"
+    r"(?:по\s+(?:свежим|горячим)\s+следам"
+    r"|по\s+(?:полочкам|фактам|пунктам|порядку)"
+    r"|в\s+двух\s+словах|коротко)"
     # P0-META-BARE-LOOK (25.10.2026): чистая live-преамбула «Ну ок, смотри.»
     # без содержания — необязательное обращение + частицы + «смотри(-ка)/
     # глянь(-ка)» ровно на КОНЦЕ первого предложения. Lookahead не даёт
@@ -2008,40 +2027,61 @@ def _l2_has_content(value: str, *, min_letters: int = 20) -> bool:
     return len(_L2_LETTERS_RE.findall(str(value or ""))) >= int(min_letters)
 
 
+def _l2_announce_is_safe(candidate: str, remainder: str) -> bool:
+    """Один и тот же gate для КАЖДОГО снимаемого анонса (без исключений)."""
+    return (
+        len(candidate) <= 90
+        and ":" not in candidate
+        and "—" not in candidate
+        and "–" not in candidate
+        and "«" not in candidate
+        and '"' not in candidate
+        and _L2_META_ANNOUNCE_RE.match(candidate) is not None
+        and _l2_has_content(remainder)
+    )
+
+
 def strip_l2_meta_lead(text: str) -> tuple[str, dict]:
-    """Убрать ведущий filler и ОДИН анонс процесса из начала direct-L2.
+    """Убрать ведущий filler и до ДВУХ анонсов процесса из начала direct-L2.
 
     Границы (P0 §3, «не удалять абзацы/смысл»):
     * filler — только в самом начале реплики и только перечисленный;
-    * анонс — только первое предложение первого абзаца, короткое (≤90),
-      без ``:``/тире-пояснения/кавычек, после него обязан остаться
+    * анонс — только очередное первое предложение ПЕРВОГО абзаца, короткое
+      (≤90), без ``:``/тире-пояснения/кавычек, после него обязан остаться
       содержательный текст (≥20 букв) — иначе реплика не трогается;
-    * удаляется максимум одно предложение; остальной текст байт-в-байт.
-    Возврат ``(text, stats)``; никогда не бросает.
+    * максимум два предложения (P0-META-CONSECUTIVE, final10 E#1: подряд
+      идут «Ну давай, раз уж просят.» и «Накидаю по свежим следам, без
+      лишних сополей.»); проверка на каждом шаге одна и та же, после второго
+      снятия цикл прекращается;
+    * следующий абзац не трогается: второй шаг разрешён только пока снятое
+      предложение оставило текст в том же абзаце;
+    * остальной текст — байт-в-байт; нематчащееся предложение не меняется.
+    Возврат ``(text, stats)``; ``announce_removed_count`` — 0/1/2,
+    ``announce_removed`` — прежний boolean (совместимость). Никогда не бросает.
     """
-    stats = {"filler_removed": False, "announce_removed": False}
+    stats = {"filler_removed": False, "announce_removed": False,
+             "announce_removed_count": 0}
     out = str(text or "")
     if not out.strip():
         return text, stats
-    head_end = out.find("\n")
-    head = out if head_end < 0 else out[:head_end]
-    candidate, end_index = _l2_first_sentence(head)
-    if candidate is not None:
+    for _ in range(2):
+        head_end = out.find("\n")
+        head = out if head_end < 0 else out[:head_end]
+        candidate, end_index = _l2_first_sentence(head)
+        if candidate is None:
+            break
+        # Второй шаг — только внутри того же абзаца: если снятый анонс
+        # занимал весь первый абзац, следующий абзац неприкосновенен.
+        same_paragraph = bool(head[end_index:].strip())
         remainder = (head[end_index:]
                      + (out[head_end:] if head_end >= 0 else "")).strip()
-        safe = (
-            len(candidate) <= 90
-            and ":" not in candidate
-            and "—" not in candidate
-            and "–" not in candidate
-            and "«" not in candidate
-            and '"' not in candidate
-            and _L2_META_ANNOUNCE_RE.match(candidate) is not None
-            and _l2_has_content(remainder)
-        )
-        if safe:
-            out = remainder
-            stats["announce_removed"] = True
+        if not _l2_announce_is_safe(candidate, remainder):
+            break
+        out = remainder
+        stats["announce_removed_count"] += 1
+        if not same_paragraph:
+            break
+    stats["announce_removed"] = stats["announce_removed_count"] > 0
     if not stats["announce_removed"]:
         match = _L2_META_FILLER_RE.match(out)
         if match is not None:
@@ -5171,9 +5211,10 @@ class DirectChatService:
                 or _quote_guard["quotes_unquoted"]:
             logger.info(
                 "[direct] l2 output guard | chat=%s | filler=%s | meta=%s | "
-                "quotes=%d kept=%d unquoted=%d", chat_id,
+                "meta_n=%d | quotes=%d kept=%d unquoted=%d", chat_id,
                 _meta_guard["filler_removed"],
                 _meta_guard["announce_removed"],
+                _meta_guard["announce_removed_count"],
                 _quote_guard["quotes_total"], _quote_guard["quotes_kept"],
                 _quote_guard["quotes_unquoted"])
         if not text.strip():
