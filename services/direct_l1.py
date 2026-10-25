@@ -229,8 +229,13 @@ def plan_response_mode(plan) -> str:
                 or getattr(plan, "structure", "") == "report":
             return "deep_research"
         if isinstance(plan, L1Plan):
-            if plan.is_longform() or plan.structure in (
-                    "explanation", "comparison", "summary", "steps"):
+            # P0-CORRECTIVE (§1.1): исследование уже сказанного — серьёзный
+            # разбор, а не «болтовня». В deep_research НЕ маппим: режимный
+            # PG-блок может нести прежний приказ «выведи отчёт полностью»
+            # (дефект эссе); точные analysis-тексты и так даёт plan-блок.
+            if plan.is_longform() or plan.response_act == "research" \
+                    or plan.structure in (
+                        "explanation", "comparison", "summary", "steps"):
                 return "serious"
             return "casual"
         if getattr(plan, "is_longform", lambda: False)():

@@ -149,4 +149,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
     # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 (без причинной
     # драматургии) + lore.init/merge/story (только факты, без «эпичности»).
-    assert pr.FACTORY_SET_SHA256_12 == "a8ae82425a33"
+    assert pr.FACTORY_SET_SHA256_12 == "9de29133885a"

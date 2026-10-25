@@ -225,32 +225,27 @@ def test_plan_block_analysis_survives_noise_flags():
 
 # ── 3. L1 routing: личный разбор не заказывает хронику/отчёт ───────────────
 
-def test_l1_rule_routes_personal_analysis_to_normal_answer():
-    canon = cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+def test_l1_rule_routes_material_to_research_and_opinion_to_answer():
+    """P0-CORRECTIVE §1.1: правило 7 больше не оценивает ОБЪЕКТ просьбы —
+    оно разделяет материал («уже сказанное» → research) и quick opinion
+    (→ answer без эссе). Детальные пины — test_speech_p0_corrective_l1_route."""
     rules = cp._DIRECT_L1_PLANNER_RULES
-    assert rules.count("7. Просьба оценить человека") == 1
-    assert "extent=normal или compact" in rules
+    assert "Просьба оценить человека" not in rules
+    assert "response_act=research" in rules
     assert "structure=answer" in rules
-    assert "detailed и report выбирай только при явной" in rules
-    assert "просьбе подробного или полного разбора" in rules
-    # правило стоит до дисциплины JSON и не отменяет её
-    assert rules.index("7. Просьба оценить человека") < \
-        rules.index("8. В ответе - ровно одна JSON-строка")
-    assert canon.count(rules) == 1
-    # прежние правила 1-6 байт-в-байт (только нумерация хвоста изменилась)
+    assert "9. В ответе - ровно одна JSON-строка" in rules
+    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT.count(rules) == 1
+    # прежние правила 1-6 байт-в-байт (изменился только хвост)
     assert cp._DIRECT_L1_PLANNER_RULES_R3B.split(
         "6. confidence")[0] == rules.split("6. confidence")[0]
-    # правило про подробный анализ не превратилось в запрет
-    low = rules.casefold()
-    for banned in ("запрещено подробно", "не отвечай подробно",
-                   "максимум абзац", "архетип", "обязательн"):
-        assert banned not in low, banned
 
 
 def test_l1_frozen_r3b_rules_have_no_routing_rule():
     assert "7. Просьба оценить человека" not in cp._DIRECT_L1_PLANNER_RULES_R3B
     assert "7. В ответе - ровно одна JSON-строка" in \
         cp._DIRECT_L1_PLANNER_RULES_R3B
+    assert "7. Просьба оценить человека" in \
+        cp._DIRECT_L1_PLANNER_RULES_P0CS
 
 
 # ── 4. HUMOR_TEXT: один источник ───────────────────────────────────────────

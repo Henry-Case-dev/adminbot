@@ -184,7 +184,7 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # фабрики обоих ключей = новые каноны; метки бампнуты
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
-    assert "l1-planner-analysis-routing" in pr.factory_revision(
+    assert "l1-planner-material-routing" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "l2-writer-clar-boundary" in pr.factory_revision(
         "direct.base.l2_writer")
@@ -214,10 +214,11 @@ def test_34_factory_and_ladder_and_custom_preserved():
     assert pr.is_known_canon(CANON_L1)
     # откат ведёт на непосредственный прежний канон 2.58.113 (канон W1 +
     # контракт уточнений); ступени снимаются по одной, стек цел.
-    # SPEECH-P0-CORE-SERIOUS: сначала снимается правило 7 (→ R3b), затем
-    # R3b→R3, третьим вызовом R3→2.58.113 (REL-F1: полный возврат за 3 вызова).
+    # P0-CORRECTIVE: сначала снимается новая редакция правил (→ P0CS), затем
+    # P0CS→R3b, R3b→R3, четвёртым вызовом R3→2.58.113 (полный возврат за 4).
     assert pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] \
-        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_R3B),
+        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_P0CS),
+            (cp.PREV_DIRECT_L1_PLANNER_P0CS, cp.PREV_DIRECT_L1_PLANNER_R3B),
             (cp.PREV_DIRECT_L1_PLANNER_R3B, cp.PREV_DIRECT_L1_PLANNER_R3),
             (cp.PREV_DIRECT_L1_PLANNER_R3,
              cp.PREV_DIRECT_L1_PLANNER_CLAR)]
@@ -299,18 +300,23 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
 
-    # rollback → цепочка: 1-й вызов снимает правило 7 (L1: R3b = база R3 +
-    # контракт §4.1 + продолжение + правила; L2: §3.1 + абзацы §4.2), 2-й —
-    # L1 до канона R3, 3-й — L1 до канона 2.58.113, 4-й — no-op (REL-F1)
+    # rollback → цепочка: 1-й вызов снимает новую редакцию правил (L1: P0CS =
+    # база R3 + контракт §4.1 + продолжение + прежние правила), 2-й — до R3b,
+    # 3-й — до канона R3, 4-й — до 2.58.113, 5-й — no-op (ADR-1013-3)
     back = _ClarCache({_L1_KEY: CANON_L1, _L2_KEY: CANON_L2})
     assert await pm.rollback_prompt_canons(back) == {
         _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3B,
+        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS,
         _L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
     assert {c for _k, _v, c in back.set_calls} == {"prompts"}
     back.apply_writes()
-    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_R3B
+    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_P0CS
+    back.set_calls.clear()
+    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3B}
+    back.apply_writes()
     back.set_calls.clear()
     assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
