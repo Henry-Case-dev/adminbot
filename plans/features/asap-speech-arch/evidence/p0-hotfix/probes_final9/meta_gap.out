@@ -1,0 +1,234 @@
+{
+ "root": ".",
+ "analysis": "C:\\Users\\main\\.config\\opencode\\OpenCodeScratch\\adminbot-ccef72c25768\\final9\\evidence\\analysis.json",
+ "counts": {
+  "total": 16,
+  "strict": 1,
+  "addressee_branch": 1,
+  "union": 1
+ },
+ "runs": [
+  {
+   "label": "eff_A",
+   "repeat": 1,
+   "first": "╨Ф╨░ ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣ ╤В╤Л.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_A",
+   "repeat": 2,
+   "first": "╨Ф╨░ ╨╜╨╡╤В, ╤В╤Л ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_B",
+   "repeat": 1,
+   "first": "╨Ф╨░ ╨╜╨╡╤В, ╨Ь╨░╨║╤Б, ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣ ╨╛╨╜.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "eff_B",
+   "repeat": 2,
+   "first": "╨в╤Л ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣ тАФ ╤В╤Л ╨┐╤А╨╛╤Б╤В╨╛ ╨╖╨░╤Ж╨╕╨║╨╗╨╡╨╜╨╜╤Л╨╣ ╨╜╨░ ╨╛╨┤╨╜╨╛╨╝ ╨╕ ╤В╨╛╨╝ ╨╢╨╡.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_C",
+   "repeat": 1,
+   "first": "╨б╨╝╨╛╤В╤А╤П ╨║╨░╨║╨╛╨╣ ╨┤╨╛╨╢╨┤╤М.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_C",
+   "repeat": 2,
+   "first": "╨Ф╨░ ╨╜╨╛╤А╨╝.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_D",
+   "repeat": 1,
+   "first": "╨Ф╨░, ╨Ь╨░╨║╤Б.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_D",
+   "repeat": 2,
+   "first": "╨Ф╨░, ╨Ь╨░╨║╤Б, ╤В╤Л ╨╝╨╡╨╜╤П ╤Г╨╢╨╡ ╨╖╨░╨╡╨▒╨░╨╗.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_E",
+   "repeat": 1,
+   "first": "╨б╨╝╨╛╤В╤А╨╕.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_E",
+   "repeat": 2,
+   "first": "╨Э╤Г ╨╛╨║, ╤Б╨╝╨╛╤В╤А╨╕.",
+   "strict": true,
+   "addressee_branch": true,
+   "union": true
+  },
+  {
+   "label": "new_F",
+   "repeat": 1,
+   "first": "╨Т ╤З╨░╤В╨╡ ╨╜╨╕╨║╨░╨║╨╛╨│╨╛ ╨║╨╛╨╜╤Д╨╗╨╕╨║╤В╨░ ╨╜╨╡ ╨▒╤Л╨╗╨╛ тАФ ╤В╨░╨╝ ╨▒╤Л╨╗╨░ ╤Б╤В╨░╨╜╨┤╨░╤А╤В╨╜╨░╤П ╨┤╤А╨░╨╝╨░ ╨┐╤А╨╛ ╨╝╤Г╨╖╤Л╨║╤Г ╨╕ ╨▓╨║╤Г╤Б╤Л.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "new_F",
+   "repeat": 2,
+   "first": "╨Я╨╛╨╜╤П╤В╨╕╤П ╨╜╨╡ ╨╕╨╝╨╡╤О, ╤П ╨╜╨╡ ╤Б╨╗╨╡╨╢╤Г ╨╖╨░ ╨▓╨░╤И╨╕╨╝╨╕ ╤А╨░╨╖╨▒╨╛╤А╨║╨░╨╝╨╕.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_A",
+   "repeat": 1,
+   "first": "╨Ф╨░ ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣ ╤В╤Л.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_A",
+   "repeat": 2,
+   "first": "╨Ф╨░ ╨╜╨╡╤В, ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_B",
+   "repeat": 1,
+   "first": "╨Ф╨░ ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣ ╤В╤Л.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  },
+  {
+   "label": "forced_B",
+   "repeat": 2,
+   "first": "╨Ф╨░ ╨╜╨╡ ╨╖╨╗╨╛╨▒╨╜╤Л╨╣ ╤В╤Л, ╨┐╤А╨╛╤Б╤В╨╛ ╤А╨░╨╖╨┤╤А╨░╨╢╤С╨╜╨╜╤Л╨╣.",
+   "strict": false,
+   "addressee_branch": false,
+   "union": false
+  }
+ ],
+ "live_gap_guard": {
+  "final6_E1": {
+   "raw_sha12": "39337e0082c8",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 87,
+   "final_chars": 38,
+   "first": "╨Э╤Г ╨┤╨░╨▓╨░╨╣, ╤А╨░╨╖╨╗╨╛╨╢╤Г ╨┐╨╛ ╨┐╨╛╨╗╨╛╤З╨║╨░╨╝, ╤А╨░╨╖ ╤Г╨╢ ╨┐╨╛╨┐╤А╨╛╤Б╨╕╨╗.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final6_E2": {
+   "raw_sha12": "103bd7f2dc8b",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 72,
+   "final_chars": 38,
+   "first": "╨Ю╨║╨╡╨╣, ╨┤╨░╨▓╨░╨╣ ╨▒╨╡╨╖ ╨╗╨╕╤И╨╜╨╕╤Е ╨┐╤А╨╡╨╗╤О╨┤╨╕╨╣.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final7_E1": {
+   "raw_sha12": "dd4815170ce7",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 54,
+   "final_chars": 38,
+   "first": "╨Ы╨░╨┤╨╜╨╛, ╤Б╨╝╨╛╤В╤А╨╕.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final7_E2": {
+   "raw_sha12": "3e101ef970d7",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 72,
+   "final_chars": 38,
+   "first": "╨Ь╨░╨║╤Б, ╨╜╤Г ╨┤╨░╨▓╨░╨╣, ╤А╨░╨╖ ╤Г╨╢ ╨┐╨╛╨┐╤А╨╛╤Б╨╕╨╗.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "final8_E2": {
+   "raw_sha12": "00ecc910e144",
+   "final_sha12": "74c17ac93454",
+   "raw_chars": 91,
+   "final_chars": 38,
+   "first": "╨Э╤Г ╨╛╨║, ╨┤╨░╨▓╨░╨╣ ╤А╨░╨╖╨╗╨╛╨╢╤Г ╨┐╨╛ ╨┐╨╛╨╗╨╛╤З╨║╨░╨╝, ╤А╨░╨╖ ╤Г╨╢ ╨┐╨╛╨┐╤А╨╛╤Б╨╕╨╗╨╕.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": true
+   },
+   "removed": true,
+   "body_intact": true
+  },
+  "live_run_E_1": {
+   "raw_sha12": "cf12060ea4b7",
+   "final_sha12": "cf12060ea4b7",
+   "raw_chars": 2020,
+   "final_chars": 2020,
+   "first": "╨б╨╝╨╛╤В╤А╨╕.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "body_intact": false
+  },
+  "live_run_E_2": {
+   "raw_sha12": "c6704a7ea7f3",
+   "final_sha12": "c6704a7ea7f3",
+   "raw_chars": 2756,
+   "final_chars": 2756,
+   "first": "╨Э╤Г ╨╛╨║, ╤Б╨╝╨╛╤В╤А╨╕.",
+   "guard_stats": {
+    "filler_removed": false,
+    "announce_removed": false
+   },
+   "removed": false,
+   "body_intact": false
+  }
+ },
+ "note": "offline; same tree/commit as the live run (module sha256 binding)"
+}

@@ -1,0 +1,224 @@
+{
+ "generated_utc": "2026-10-25T09:47:35Z",
+ "root": ".",
+ "files": [
+  {
+   "file": "analysis.err",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "analysis.json",
+   "bytes": 85876,
+   "sha256": "efdbf55c1d0cc7700dda33756b7391a11c28ae6a28eaec0dc9f4aa020b1edf84"
+  },
+  {
+   "file": "analysis.out",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "guard_check.err",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "guard_check.json",
+   "bytes": 8464,
+   "sha256": "c266b99b8e4020d6f951e4c07c8c8d1185e24001edc641261a0be95d7f66c84e"
+  },
+  {
+   "file": "meta_gap.err",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "meta_gap.out",
+   "bytes": 11432,
+   "sha256": "1243b6557dfb044c645f77a65f66e0c649a6c2a565669e48cf5641a24f53aef9"
+  },
+  {
+   "file": "meta_gap_check.json",
+   "bytes": 5713,
+   "sha256": "c81b3a64426887a347dc6074c3be2d0483eb68d2f7de1ce469e1013c50942bd1"
+  },
+  {
+   "file": "raw/eff_A.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/eff_A.out",
+   "bytes": 844,
+   "sha256": "0c2c4a14ee560c3eb9b11499f00cc6d9763776838aa501972274f44dcb34f5da"
+  },
+  {
+   "file": "raw/eff_B.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/eff_B.out",
+   "bytes": 850,
+   "sha256": "c6df204063878dab972d3f5a6260d0e0416f84d7c9d5bf4690f1d02aadba4cb9"
+  },
+  {
+   "file": "raw/forced_A.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/forced_A.out",
+   "bytes": 844,
+   "sha256": "fe17f6aadffa2efe10cebc0672721ae569b4c5f03c7b515672feacfe3e9d273c"
+  },
+  {
+   "file": "raw/forced_B.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/forced_B.out",
+   "bytes": 844,
+   "sha256": "39bcdf771126fb6ab092cc6be3a9f39cf41a4c96981fe012e2538c1ddef112a3"
+  },
+  {
+   "file": "raw/new_A.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/new_A.out",
+   "bytes": 841,
+   "sha256": "ccca187224feacd9daae436541b651bf883a7e58cd4e4fb2a7af774a85e25e71"
+  },
+  {
+   "file": "raw/new_B.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/new_B.out",
+   "bytes": 850,
+   "sha256": "e7ac6f16b8fc4f4abfecd0c1e7eface413b9317b31a772aadda446531aad3d89"
+  },
+  {
+   "file": "raw/new_C.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/new_C.out",
+   "bytes": 839,
+   "sha256": "66f878b1e95e37e9e1da4fcd2ad1381f2251f0cc3cb9972c3f77547ad59ffa3a"
+  },
+  {
+   "file": "raw/new_D.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/new_D.out",
+   "bytes": 848,
+   "sha256": "11643d47c3b14b643e02ba6c809a834966245d2689e0259466f293208d4f2124"
+  },
+  {
+   "file": "raw/new_E.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/new_E.out",
+   "bytes": 854,
+   "sha256": "f5fd9dbd7b081852331f2dec418018fdffbc0f2c3f7e978783ebd95e1a59b000"
+  },
+  {
+   "file": "raw/new_F.err",
+   "bytes": 1312,
+   "sha256": "4cc5fbde74a425e97464ca931071299b031189df4c04ea56e6468bfbec84037e"
+  },
+  {
+   "file": "raw/new_F.out",
+   "bytes": 846,
+   "sha256": "39795c73f51e36c7fedee787be93dc7b907a5bb344deac4bea3245d92dcffcc5"
+  },
+  {
+   "file": "raw/raw_eff_A.json",
+   "bytes": 48347,
+   "sha256": "7c0171afbdcbabb34a6f335b31816ee54ef7a6c4d2360fb5b8f9961ecdfe15aa"
+  },
+  {
+   "file": "raw/raw_eff_B.json",
+   "bytes": 50846,
+   "sha256": "0e6ba3128510f28e1ece858f02fd77a501a917f0a69a9215abf8525e95bdb38c"
+  },
+  {
+   "file": "raw/raw_forced_A.json",
+   "bytes": 47788,
+   "sha256": "73cffeae0e54e320f8d63660a5a894454e409d472db1e24f2f44b48c6f7c59d0"
+  },
+  {
+   "file": "raw/raw_forced_B.json",
+   "bytes": 47503,
+   "sha256": "188acfb7cb09c284e7b966da7aa4c16d992844dd79b34aeb0dd62540a6e14a87"
+  },
+  {
+   "file": "raw/raw_new_A.json",
+   "bytes": 45912,
+   "sha256": "eecaef4e1ad5dd9227d714f42d208f079eef6b9d1af98530d83ddc6af2af2279"
+  },
+  {
+   "file": "raw/raw_new_B.json",
+   "bytes": 50434,
+   "sha256": "89444d2252658745fe7da434bf362b44797fd4536083f9fc6fa5b7f50ab41cbb"
+  },
+  {
+   "file": "raw/raw_new_C.json",
+   "bytes": 46201,
+   "sha256": "020056d57525e4805353967b46906ae87e76ceb80354c47b52d73cff26689b7a"
+  },
+  {
+   "file": "raw/raw_new_D.json",
+   "bytes": 46246,
+   "sha256": "3231bc1d09b64ac0222a7c31f00868eaeac5aabb0d16dcaaac08dd38fa6f2d98"
+  },
+  {
+   "file": "raw/raw_new_E.json",
+   "bytes": 56168,
+   "sha256": "d54caca76c847d53a36c3d81f5ca6dab16b0cf8517f8675e3420d559cf54f775"
+  },
+  {
+   "file": "raw/raw_new_F.json",
+   "bytes": 46205,
+   "sha256": "84f3ffe01d40f225889dd2b21bf416c4b702731244590444db21529943ab8bba"
+  },
+  {
+   "file": "selfcheck_new.txt",
+   "bytes": 3001,
+   "sha256": "50b986c9f37173aa16cfc01136f643d311437ceed5b18bef151c3e87f40d4a5a"
+  },
+  {
+   "file": "session.json",
+   "bytes": 41478,
+   "sha256": "632ae67a20574283268404b06bb6764fe28bc166a76620be4e06626c4335e57f"
+  }
+ ],
+ "analysis_script": {
+  "path": "analysis_final9.py",
+  "sha256": "9bd2e2482e2e3069896d75f2cbc5b74037f18ed6bf99ff1c4c081014e100a848"
+ },
+ "harness": {
+  "probes_full/harness_probe_full.py": "d31a28759f479304301c8e8eeea3db653d170a8e9d6acdf96fd9b466fee308cc",
+  "probes_full/harness_extra.py": "",
+  "probes_full/harness_effective.py": ""
+ },
+ "pins_git": {
+  "commit": "ERR:Command '['git', '-C', '.', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+  "branch": "ERR:Command '['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+  "dirty": true,
+  "dirty_files": [
+   "ERR:Command '['git', '-C', '.', 'status', '--porcelain']' returned non-zero exit status 128."
+  ]
+ },
+ "pins_harness": "d31a28759f479304301c8e8eeea3db653d170a8e9d6acdf96fd9b466fee308cc"
+}
