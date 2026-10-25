@@ -1,8 +1,8 @@
 {
   "schema": "openworkflow-coverage-v1",
-  "source_path": "C:\\Code\\Python\\adminbot-wt-book\\plans\\features\\asap-speech-arch\\source-owner-p0-corrective-2026-10-25.md",
+  "source_path": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
   "source_sha256": "2f7ef4d743f5f7616d075435116dff3e0aee7b59446ec599baf013c4915b1c9b",
-  "candidate_commit": "",
+  "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph-p0-corrective.json",
@@ -109,8 +109,25 @@
       "acceptance": "Причина попадания явного запроса истории в casual/compact установлена по коду и логу: назван конкретный признак-решатель и точка кода; артефакт — трассировка решения до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "l1-fix.md §1 «Canon» и §2 «Mode»",
+          "observation": "Причина попадания запроса истории в casual/compact: старое правило 7 было object-based («просьба оценить человека… extent=normal/compact»), поэтому запрос анализа истории классифицировался как casual. Новое правило 7: критерий — что просят сделать с материалом; уже сказанное/история/свои слова → response_act=research. Цитата: «Old rule 7 (object-based...) is retained ONLY inside... New rules... criterion is “what the person asks to do with the material”». §2: «plan_response_mode: response_act=research on L1Plan → serious (previously casual)». Документ создан на 47fba465; этот коммит — предок bd6d5fff (проверено merge-base), код правил входит в кандидат.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/l1-fix.md",
+          "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §2",
+          "observation": "Подтверждение после исправления: два исходных запроса дают response_act=research (raw/effective 2/2), mode=serious; forced-сценарий — 2/2.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-NO-FORCED-MODE",
@@ -124,8 +141,25 @@
       "acceptance": "В приёмочном сценарии режим приходит из реального решения L1, без флага принудительного режима; артефакт — вызов и результат на неизменённом входе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json: forced=false, plan_source=llm",
+          "observation": "Фактический вызов без принудительного режима: forced=false, force_plan=null, plan_source=llm, l1_plan.response_act=research, mode=serious; l1_attempts=1.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_B.json: forced=false, plan_source=llm",
+          "observation": "Второй исходный запрос также без forced: forced=false, force_plan=null, plan_source=llm, response_act=research, mode=serious; l1_attempts=1.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_B.json",
+          "artifact_sha256": "53e7de6a696cc6688984928e24ccf02c45da848b9ec2cc8c1745644007259b1b"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-HISTORY-DEEP",
@@ -139,8 +173,25 @@
       "acceptance": "Запрос «проанализируй мои сообщения в чате» доходит до глубокого разбора истории: фактический payload содержит блок анализа истории сообщений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.payload.eff_A/eff_B",
+          "observation": "Payload эффективных прогонов содержит блок анализа: analysis_directive=1 и analysis_writer=1 для eff_A и eff_B (для casual C/D/F — 0). Ответ на запрос «проанализируй мои сообщения в чате» идёт с response_act=research.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json payload.messages[1]",
+          "observation": "В user-части фактического payload есть <Global_Context> с историей сообщений (окно 64) и <Current_Question> «Бот проанализируй мои сообщения в чате и скажи, я злобный?»; анализ истории включён (analysis_directive=1, analysis_writer=1).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-DEPTH-NOT-LENGTH",
@@ -154,8 +205,25 @@
       "acceptance": "В одном прогоне глубина анализа и длина ответа независимы: подробный разбор истории завершается короткой репликой без обрезания текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.b_lengths + summary.payload",
+          "observation": "Глубина и длина независимы: research-ответы A/B с analysis_directive=1 имеют длины 327 и 883 символа (compact/normal), E — detailed 1705/2653. Цитата probes_final11 §5: «Длины: B — 327 / 883; E — 1705 / 2653».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json: extent_scrub_removed=0",
+          "observation": "Для payload A extent_scrub_removed=0 и extent_block_chars=144: длина ответа не получена обрезанием текста.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-NO-HARDCODED",
@@ -169,8 +237,25 @@
       "acceptance": "В диффе резолвера нет литералов исходных фраз, а две перефразировки того же намерения дают исследовательский режим.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "l1-fix.md §1, строки 35–37",
+          "observation": "Цитата: «No literal request phrase (“проанализируй мои сообщения”, “злобный”, “в чате”) appears in the canon». Исправление семантики правила 7 без литералов исходных фраз; две перефразировки (A: «проанализируй мои сообщения в чате…», B: «проанализируй сообщения пользователя Ринтаро в чате…») в final11 обе дают research (eff 2/2). Документ создан на 47fba465, который является предком bd6d5fff; код канона входит в кандидат.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/l1-fix.md",
+          "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_B.json: вторая перефразировка",
+          "observation": "Вторая формулировка того же намерения («проанализируй сообщения пользователя Ринтаро в чате…») получает response_act=research, mode=serious без forced — признак семантики, а не совпадения фразы.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_B.json",
+          "artifact_sha256": "53e7de6a696cc6688984928e24ccf02c45da848b9ec2cc8c1745644007259b1b"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-TWO-SCENARIOS",
@@ -184,8 +269,25 @@
       "acceptance": "Выполнены два раздельных диагностических прогона — прямой выбор L1 и принудительный research; у каждого в артефакте свой mode и payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §2, таблица L1",
+          "observation": "Выполнены два раздельных сценария: effective A/B с plan_source=llm и forced A/B с plan_source=forced; у каждого свой mode=serious, extent и payload. Цитата: «raw 2/2, effective 2/2, forced 2/2».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_forced_A.json: forced=true",
+          "observation": "Принудительный сценарий отделён: forced=true, plan_source=forced, force_plan задан, response_act=research; payload и mode записаны отдельно от eff_A.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_forced_A.json",
+          "artifact_sha256": "0d83841ac19bb2716d0e079232b2327f6e22df0438bc6211a1dd5e3ffc17b72f"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-SAME-COMMIT",
@@ -199,8 +301,25 @@
       "acceptance": "Хэш исполняемого harness совпадает с файлом в том же commit, что и исправляемый код; артефакт — сравнение путей и хэшей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "stage_sha.txt: candidate=bd6d5fff…, probe_commit=bd6d5fff…, 14/14 sha",
+          "observation": "stage_sha.txt фиксирует candidate=bd6d5fff54d664bf5cc66e647448c3950d778fc4, probe_commit=bd6d5fff…, stage_tgz_sha256=c3392a76… и 14/14 серверных sha256. Проверка в локальном git: `git show bd6d5fff:probes_full/harness_probe_full.py` = 180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473, совпадает с pins.harness в raw JSON и probes_final11 §1.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/stage_sha.txt",
+          "artifact_sha256": "900549552d6b04f1afd157d413546eef05476c977bb99da8f3c6099ddfe5299f"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §1 «Привязка»",
+          "observation": "Цитата: «14/14 sha256 на сервере совпали с локальными (8 пинутых модулей + harness 180f55f3… + 2 обёртки + анализатор + 2 guard-скрипта)».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-CONSISTENT",
@@ -214,8 +333,25 @@
       "acceptance": "Число сценариев, исполненных запусков и счётчиков результатов совпадает; расхождение 0, артефакт — metrics.json и лог прогона.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.runs/primary_set/raw_set/meta3.total",
+          "observation": "Счётчики сходятся: runs=10, primary_set=8, raw_set=2, meta3.total=16 (8 primary × 2 повтора); расхождения нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/exits.txt: 10/10 rc=0",
+          "observation": "Лог прогонов: 10 запусков (new_A…new_F, eff_A/B, forced_A/B), у всех rc=0; времена 12:41–12:46 UTC.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/exits.txt",
+          "artifact_sha256": "ed1614dcf9d2a6bca474d6791679dc1ab06159dabb33932b67710884399da47f"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-REAL-PAYLOAD",
@@ -229,8 +365,25 @@
       "acceptance": "Фактический payload пробы содержит непустые RAG-фрагменты, Memory-фрагменты, актуальный Core и выбранный Expression; артефакт — сырой payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json: RAG/Core/Expression",
+          "observation": "Фактический payload A: RAG rows=40, kept=4, block_chars=475, block_sha12=07e30e8155ae; Core 3294 (ead77b2ab509), analysis_directive=1, analysis_writer=1; expression layer 1069; l2_summary 1117 символов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_B.json: RAG/Core/Expression",
+          "observation": "Второй payload B: RAG kept=4, block_chars=475, block_sha12=07e30e8155ae; Core 3294; analysis_directive=1; expression 1069. Непустые RAG/Memory-фрагменты и актуальный Core присутствуют.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_B.json",
+          "artifact_sha256": "53e7de6a696cc6688984928e24ccf02c45da848b9ec2cc8c1745644007259b1b"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-EQUIVALENT-CONFIG",
@@ -244,8 +397,25 @@
       "acceptance": "Конфигурация прогона совпадает с целевой (модель, режим, источники); результат в неэквивалентной конфигурации помечается недействительным, а не засчитывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json: llm/l2_runs/sources",
+          "observation": "Конфигурация прогона: llm.model=deepseek-v4-flash, base_host=nano-gpt.com; l2_runs temperature=0.7, max_tokens=2400; sources.pg_read_only=on, settings_keys=537, window_messages=64; gates unified_composer/character_core/persona/expression=true.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §1",
+          "observation": "Цитата: «L2 — deepseek-v4-flash @ nano-gpt.com, max_tokens=2400, temperature=0.7; new_E — deep_research (L1 сам), остальные — по плану L1 / forced».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROD-INVESTIGATE",
@@ -268,8 +438,17 @@
           "observation": "Read-only аудит перечисляет все 13 путей: 9 бэкапов info_text.md, осиротевший SQLite-journal, каталог pre_migration_backup, test_subs.ru.json3 и tools/_s41_precheck.py; git diff пуст, все строки git status — untracked, ни один путь не правит отслеживаемый файл продукта.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
           "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §1 в дереве bd6d5fff; prod baseline 534ac7dd",
+          "observation": "Документ входит в дерево bd6d5fff; read-only аудит production 534ac7dd перечисляет все 13 путей. Проверка относится к prod baseline, не к runtime кандидата; деплой не выполнялся.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
         }
-      ]
+      ],
+      "status_note": "Историческая read-only проверка production 534ac7dd (13 untracked путей). Не candidate-bound; для review-слайса PROD не используется."
     },
     {
       "source_id": "MAN-PROD-PROVENANCE",
@@ -328,8 +507,25 @@
       "acceptance": "Офлайн-пробы повторены с корректными L1-режимами, RAG, памятью, Expression и Core; по каждой пробе указаны mode и источники.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §1–§3",
+          "observation": "Офлайн-пробы повторены на кандидате: 10 прогонов (A/B, C/D/E/F, eff A/B, forced A/B), у каждого mode/plan_source/payload; RAG, Memory, Expression и Core присутствуют. Цитата: «10/10 rc=0».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.runs",
+          "observation": "analysis.json: runs=10, primary_set=8, raw_set=2; по каждому прогону записаны label, question, mode, l1_plan, layers, payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-SCOPE",
@@ -343,8 +539,25 @@
       "acceptance": "Проверены оба исходных проблемных запроса и не менее двух коротких повседневных сообщений; результат по каждому в артефакте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary",
+          "observation": "Проверены оба исходных запроса A/B и короткие C/D/F: A/B — research, C — banter/compact, D — emotional_reply/compact, F — clarification/compact; E — detailed/report.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §2 и §5",
+          "observation": "Цитата: «C / D / E / F — banter / emotional_reply / research / clarification»; длины C 411/247, D 120/121, F 267/283.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-REPAIR-RECHECK",
@@ -358,8 +571,25 @@
       "acceptance": "Каждый подтверждённый дефект исправлен в текущем P0 и перепроверен тем же сценарием; повторный провал остаётся FAILED.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §7 «Девять проверок §5»",
+          "observation": "Все девять проверок §5 — PASS; подтверждённые defects перепроверены: meta strict 0/16, quotes 0 non-exact, Core 8/8, FREQ 8/8. Единственное несовпадение — ожидание RAG «40/39» (факт 40→4/0), зафиксировано отдельным observation, не как технический дефект кандидата.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.meta3/quotes/core/freq",
+          "observation": "Повторная проверка: meta3.strict_final=0, quotes.final_non_exact=0, core 8/8 (ead77b2ab509), freq 8/8 true.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-NO-LIVE-SENDS",
@@ -373,8 +603,33 @@
       "acceptance": "Ни одна проба не отправляла сообщения в рабочие Telegram-чаты; артефакт — конфигурация прогона и лог без send в чат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §8 «Безопасность»",
+          "observation": "Цитата: «Записей в /var/www/admin_bot, рестартов, checkout, Telegram-вызовов и чтения ключей не было; PG-сессия и SQLite — read-only по конструкции стенда». git HEAD 534ac7dd до/после, dirty 13/13, unit active.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/prod_before.txt",
+          "observation": "Снимок до сеанса: prod HEAD 534ac7dd, dirty 13, unit active, harness-процессов 0; Telegram-вызовы не выполнялись.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/prod_before.txt",
+          "artifact_sha256": "6957d47e28f8936b8958105b508d4a273806a4bc43254a34e1989dcf47ee4963"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/prod_after.txt",
+          "observation": "Снимок после сеанса: prod HEAD 534ac7dd, dirty 13, unit active, /tmp очищен; отправок в рабочие чаты не было.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/prod_after.txt",
+          "artifact_sha256": "e3e5ca2cf71e80bb82860da9adde46aca0413ef4c7ab3fa8343349774c60bd5b"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-DEFECT",
@@ -643,8 +898,25 @@
       "acceptance": "Правильное имя доходит до модели в фактическом LLM payload, а не только отображается в админке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json payload.messages[1]",
+          "observation": "В фактическом LLM payload user-части присутствует <Target_User>Макс</Target_User>; имя дошло до модели, а не только до админки.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.alias",
+          "observation": "Тот же прогон: resolved=«Макс», source=chat; display «Гипербореец» не подставлен вместо алиаса.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-GIPERBORETS",
@@ -673,8 +945,25 @@
       "acceptance": "Ожидаемое имя получено из действующих настроек, а не угадано по тексту сообщения; артефакт — выгрузка настроек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.alias",
+          "observation": "Ожидаемое имя получено из действующих настроек: source=chat, chat_alias=«Макс», global_alias=«Макс»; значение не угадано по тексту сообщения.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §6",
+          "observation": "Цитата: «Alias: uid 42115912 → Макс (chat и global)»; настройки чата и global прочитаны в живом прогоне.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "MAN-MEMORY-REMAINING-INTRO",
@@ -718,13 +1007,13 @@
       "acceptance": "Существующий provenance-механизм не пропускает неподтверждённую старую историю в фактическое извлечение; проверено на реальной записи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
           "type": "test",
           "ref": "old-lore-audit.md §1/§3/§5 + реализация 272170e3",
-          "observation": "Аудит показывает, что legacy lore_stories шли мимо provenance; коммит 272170e3 добавляет аддитивные колонки origin/status/excluded_from_retrieval/provenance_note, единый предикат извлечения для baseline и фасада, исключение bot_self_reply/bot_direct_reply/tentative из lore_graph_slice и запрет подачи карантинного рассказа как «известной базы».",
+          "observation": "Исторический аудит: legacy lore_stories шли мимо provenance; коммит 272170e3 добавляет аддитивные колонки origin/status/excluded_from_retrieval/provenance_note и единый предикат извлечения. На реальной prod-БД миграция не применялась, поэтому это не подтверждает исправление на проде.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
           "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
         },
@@ -736,7 +1025,8 @@
           "artifact_path": "tests/test_p0_old_lore_quarantine.py",
           "artifact_sha256": "a2ec43c3b37fb8bb22e8eacef74530b5c4df2309e2c2d568f9e2d7911378eae2"
         }
-      ]
+      ],
+      "status_note": "Код 272170e3 существует в истории кандидата, но миграция/карантин на реальной prod-БД не применялись и live-проверка не выполнялась. old-lore-audit.md — исторический аудит исходных записей, а не подтверждение исправления на проде. Остаётся PENDING до деплоя/проверки."
     },
     {
       "source_id": "MAN-MEMORY-TARGETED-FIX",
@@ -1000,20 +1290,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "47fba46561e2e7abb279c2b06915955943715202",
-          "type": "test",
-          "ref": "l1-fix.md: канон правил 7/8, research→serious, 261 passed",
-          "observation": "Исправление 47fba465: критерий правила 7 переведён с оценки объекта на действие с материалом (история/свои слова → response_act=research), mode research→serious, указан sha256 harness a370c986…, исходные фразы в каноне отсутствуют; зафиксирован прогон 261 passed / 0 failed. Документ добавлен docs-коммитом 272170e3 в той же ветке; реальный прогон двух исходных запросов с payload остаётся за HARNESS/PROBES.",
-          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/l1-fix.md",
-          "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §2 «L1 (PASS)», строки 31–43",
+          "observation": "На кандидате bd6d5fff: raw 2/2, effective 2/2, forced 2/2 response_act=research. Цитата: «Итог: raw 2/2, effective 2/2, forced 2/2». eff A/B — mode=serious, plan_source=llm, l1_attempts=1; forced A/B — plan_source=forced.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
         },
         {
-          "candidate_commit": "47fba46561e2e7abb279c2b06915955943715202",
-          "type": "test",
-          "ref": "tests/test_speech_p0_corrective_l1_route.py: контрактные тесты маршрута",
-          "observation": "Тесты фиксируют research-ветку канона для уже сказанного/истории, независимость длины ответа от глубины, research-план 1×1 в payload и mode serious вместо casual. Это контракт кода, а не live-прогон исходных запросов.",
-          "artifact_path": "tests/test_speech_p0_corrective_l1_route.py",
-          "artifact_sha256": "c8833ccab1d149fc53277f66280ffc67d70e036f4b959c6092174717b4bebf45"
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.l1_*_ab_research",
+          "observation": "Счётчики анализа: l1_raw_ab_research 2/2, l1_effective_ab_research 2/2, l1_forced_ab_research 2/2; l1_malformed=0, l1_invalid_runs=[].",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
         }
       ]
     },
@@ -1121,8 +1411,17 @@
           "observation": "Живая read-only сверка прод-БД перечисляет все 4 строки lore_stories с id, чатом, размером и датами; id=3/4 подтверждены как ответы бота, id=1/2 проверены по метаданным. Это аудит старых записей, а не их исправление.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
           "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "old-lore-audit.md в дереве bd6d5fff; аудит real prod read-only",
+          "observation": "Документ old-lore-audit.md входит в дерево кандидата bd6d5fff (272170e3 — предок). Аудит перечисляет реальные записи и пути чтения; это подтверждает требование аудита, но не применение исправления на prod-БД — оно остаётся PENDING.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
         }
-      ]
+      ],
+      "status_note": "Аудит реальных записей выполнен (id=4/21255 и пути чтения). Это не подтверждение исправления на prod-БД; исправление остаётся PENDING."
     },
     {
       "source_id": "L00031",
@@ -1316,8 +1615,25 @@
       "acceptance": "`AliasResolver` проверен в runtime: возвращает ожидаемое имя по Telegram ID для тестового участника.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.alias",
+          "observation": "Runtime alias probe: uid=42115912, resolved=«Макс», source=chat, chat_alias=«Макс», global_alias=«Макс», display=«Гипербореец». Резолвер вернул ожидаемое имя по Telegram ID в фактическом прогоне.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §6 «Alias»",
+          "observation": "Цитата: «uid 42115912 → Макс (chat и global), display “Гипербореец”; в D#2 живой ответ обращается “Да, Макс, надоел.”».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "L00112",
@@ -1676,8 +1992,25 @@
       "acceptance": "В ответах на исходные запросы нет мета-вступлений о том, что бот сейчас будет анализировать; ответ начинается с сути.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.meta3",
+          "observation": "Мета-вступления: strict_final=0/16, lexical_prefix_only=0/16; единственная raw-преамбула «Давай разложу.» (new_E#2) снята продуктовым guard (product_announce=1, removed_count=1). Цитата probes_final11 §4: «strict (final) 0/16».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §4 и §7 п.1",
+          "observation": "Цитата: «Оставшихся strict-строк нет — список пуст»; new_E#1 начинается сразу с «Ринтаро льёт ссылки…».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "L00157",
@@ -1691,8 +2024,25 @@
       "acceptance": "Без просьбы пользователя ответ не содержит обязательных заголовков и списков; артефакт — три реальных ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.numbered_lines/bold_labels",
+          "observation": "Нумерация только в new_E: [4,10] (пользователь прямо просил «С примерами»); в остальных 14 ответах 0. Bold-ярлыки только new_E [0,7]. Для коротких C/D/F — 0 нумерации и 0 ярлыков; три реальных ответа есть.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §5 и §7 п.2",
+          "observation": "Цитата: «Нумерация — только E... В остальных 14 ответах нумерация/ярлыки — 0».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        }
+      ]
     },
     {
       "source_id": "L00158",
@@ -1706,8 +2056,25 @@
       "acceptance": "Фактический payload содержит полный актуальный Core без бюджетного обрезания; артефакт — размеры секций и версия Core.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.core",
+          "observation": "Core присутствует в 8/8 прогонах: chars=3294, sha12=ead77b2ab509, offset=3083 в каждом; expected_core={chars:3294,sha12:ead77b2ab509}. Признак полного Core без бюджетного обрезания.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "selfcheck_new.txt: core_full_not_truncated=true",
+          "observation": "Self-check стенда: core_full_not_truncated=true; слои core=3294, channel_contract=3081, identity=5048, expression=1069.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/selfcheck_new.txt",
+          "artifact_sha256": "746c864d1cce9b4d3d049ae6dd305dc5aedf7c367b64016c26c5fdbb6305b817"
+        }
+      ]
     },
     {
       "source_id": "L00159",
@@ -1721,8 +2088,25 @@
       "acceptance": "FREQUENT проверен именно в режиме FREQUENT (не OFF/OCCASIONAL) и работает без обязательных few-shot-примеров.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.freq",
+          "observation": "FREQ настоящий: frequent_text=true во всех 8 прогонах, occasional_text=false и off_text=false. Живые настройки: global/chat profanity=frequent, revision=2 (probes_final11 §6).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json layers/few_shot",
+          "observation": "Слой few_shot: rendered=false, chars=0; expression rendered=true, 1069 символов. FREQ работает без few-shot-примеров.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        }
+      ]
     },
     {
       "source_id": "L00160",
@@ -2040,7 +2424,67 @@
       "evidence": []
     }
   ],
-  "candidate_note": "Карта создана на этапе планирования: на тот момент candidate ещё не существовал, реализация не начиналась. При первом review-гейте candidate_commit привязывается к реальному коммиту исправлений, а каждая PENDING-строка получает evidence с artifact_path в этом же репозитории. На 25.10.2026 map-level candidate_commit пуст: VERIFIED-строки привязаны к реальным коммитам доказательств (47fba465 — L1, 272170e3 — lore/prod), а не к релизному кандидату; перед review-гейтом candidate_commit и evidence должны быть перепривязаны к SHA проверяемого кандидата. Файлы доказательств лежат в ветке task/speech-p0-hotfix (worktree adminbot-wt-speech-p0), поэтому review/release-гейт нужно запускать с --repo на каталоге кандидата, а не на book-worktree.",
-  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP: дословный снимок корректирующего ТЗ владельца (source-owner-p0-corrective-2026-10-25.md, 214 строк, sha 2f7ef4d7…); продолжение текущего P0, без нового эпика. 69 автоинвентарных строк классифицированы полностью (52 required / 12 context / 5 duplicate), плюс 59 manual-строк прозы (42 required / 17 context) — всего 94 required-строки и 84 уникальных req_id по 10 слайсам L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT. Ключевые добавления, которых не было в прежних картах: L1-ROOT-CAUSE, L1-DEPTH-NOT-LENGTH, L1-NO-HARDCODED, HARNESS-SAME-COMMIT/EQUIVALENT-CONFIG, PROD-NO-BLIND-RESET, PROD-PRESERVE-REPRODUCIBLE, ALIAS-IDENTITY-TGID, ALIAS-NAME-PRIORITY (5 ступеней), 11 runtime-путей ALIAS-RT-* + ALIAS-RT-L1L2, 11 изолированных проверок ALIAS-T01…T11, ALIAS-PAYLOAD-FACT, ALIAS-GIPERBORETS, ALIAS-EXPECTED-FROM-SETTINGS, MEMORY-LORE-AUDIT/EXISTING-ROWS/TARGETED-FIX, REV-LOOP, REV-NO-REPORT-ONLY, DEPLOY-SAFETY-FIRST, DEPLOY-STANDARD (postdeploy live) и 8 строк отчёта. Строки 20–24 (симптомы блокеров) закрыты как duplicate с указанием владеющей нормы: отдельные счётчики не создавались. Все строки verification_tier=engineering, owner_live_checks не является гейтом; на момент создания карты ни одна строка не была VERIFIED — реализация не начиналась. 25.10.2026 PM-MAP-CORRECTIVE: обратная сверка источника строка-в-строку — все непустые строки с обязательствами покрыты (5 строк — заголовки и вводные фразы без самостоятельной нормы), добавлены 2 manual-строки (L163 — отдельный фокус на старые lore_stories; L171 — запрет новых искусственных квот); слайсы HARNESS/PROD/PROBES/L1 и 9 условий §4 уже присутствовали. VERIFIED привязаны только к доказанным артефактам: L1-ROUTING-REPAIR (47fba465 + l1-fix.md + контрактные тесты), MEMORY-LORE-AUDIT (old-lore-audit.md + prod-worktree-alias.md §3), MEMORY-PROVENANCE-BLOCKS (272170e3 + old-lore-audit.md + tests/test_p0_old_lore_quarantine.py), PROD-INVESTIGATE (prod-worktree-alias.md §1). Карантин на прод-БД, live-прогоны, алиасы, REVIEW, REPORT и DEPLOY остаются PENDING.",
-  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (входящее OI-2026-10-25-REPORT-FORMAT, plans/owner_inputs/2026-10-25-report-format.md). Добавлена одна строка REPORT-PLAIN-LANGUAGE в слайс REPORT: более позднее поручение владельца уточняет формат финального отчёта (подробно, простым языком, без технических терминов, по алиасам и по остальным задачам). Пункты L203–L210 остаются обязательными в полном объёме, их статусы и evidence не менялись. Якорь source_line=201 — ближайшая норма снимка о форме отчёта (гейт сверяет hash со снимком); дословная цитата входящего сообщения — в owner_input_*, ближайшая норма — в snapshot_hint. Строка PENDING, verification_tier=engineering."
+  "candidate_note": "25.10.2026 PM-BIND-FINAL: карта привязана к кандидату bd6d5fff54d664bf5cc66e647448c3950d778fc4 (ветка task/speech-p0-hotfix), база/прод — 534ac7dda6713fb407e0789fdddfa563251cdab4 (2.58.130). Живое доказательство — probes_final11.md + probes_final11/ (10 raw JSON, analysis.json, manifest.json, selfcheck_new.txt, stage_sha.txt, prod_before/after.txt). Raw JSON не содержит git-пин (tarball без .git): идентичность кандидата подтверждается stage_sha.txt (candidate/probe_commit) и probes_final11.md §1; это ограничение зафиксировано в observations. Деплоя не было; deployed_commit пуст. VERIFIED выставлен только там, где final11 даёт проверяемый факт; alias/memory/prod/review/report/deploy остаются PENDING.",
+  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP, обновлено 26.10.2026 PM-BIND-FINAL: дословный снимок корректирующего ТЗ (source-owner-p0-corrective-2026-10-25.md, 214 строк, sha 2f7ef4d7…). 69 автоинвентарных строк + 62 manual (итого 131 запись: 98 required / 12 context / 5 duplicate / остальное manual-context) классифицированы; 90 уникальных req_id по 10 слайсам L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT. Корень — канон; book-копия синхронизирована. VERIFIED после final11: L1 7/7, CORE 4/4, HARNESS 4/4, PROBES 4/4 и 3 alias-строки (resolver, payload, settings) — только при наличии candidate-bound артефакта. MEMORY-PROVENANCE-BLOCKS снят с VERIFIED: код 272170e3 не применён/не проверен на реальной prod-БД. RAG-расхождение «40/39» и F#2 без RAG-источника — observations, не изменение требований. REVIEW/REPORT/DEPLOY/ALIASES/MEMORY/PROD остаются PENDING до независимого ревью/деплоя.",
+  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (OI-2026-10-25-REPORT-FORMAT, plans/owner_inputs/2026-10-25-report-format.md): строка REPORT-PLAIN-LANGUAGE остаётся PENDING; более позднее поручение владельца уточняет формат отчёта, не отменяя L203–L210. 26.10.2026 PM-BIND-FINAL: канон карты — корень; book-копия синхронизирована.",
+  "base_commit": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+  "production_commit": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+  "deployment_state": "NOT_DEPLOYED: production остаётся 2.58.130 @ 534ac7dd; кандидат bd6d5fff на прод не выкатывался. DEPLOY-STANDARD и всё, что зависит от выката/проверки на prod-БД, остаётся PENDING.",
+  "canonical_map": "Канон: C:\\Code\\Python\\adminbot\\plans\\features\\asap-speech-arch\\requirements-map-p0-corrective.json. Копия в adminbot-wt-book синхронизирована тем же содержимым; третьей копии нет.",
+  "observations": [
+    {
+      "id": "OBS-RAG-40-39",
+      "kind": "observation",
+      "source": "probes_final11.md §6",
+      "quote": "Ожидаемая строка «40/39» не воспроизведена; фактически 40→4 и 40→0.",
+      "detail": "rows=40 во всех 8 прогонах; after_self_filter/kept: A/B — 4, C/D/E/F — 0; блок A/B 475 симв. (sha12 07e30e8155ae), у остальных пусто (e3b0c44298fc). 4 не-self строки voice_transcript получили rank<3 и помечены «(не подтверждено)»; 36/40 (A/B) и 40/40 (C–F) — self-origin. Код RAG кандидатом не менялся; вероятная причина — ротация новейших 40 строк живого graph_facts (БД выросла ~311 КБ). Это наблюдение для Reviewer, не вывод о регрессии; требование не переписано.",
+      "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+      "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+    },
+    {
+      "id": "OBS-F2-NO-RAG-SOURCE",
+      "kind": "observation",
+      "source": "probes_final11.md §6",
+      "quote": "Наблюдение: F#2 начинает «Да не было там никакого конфликта.» без RAG-источника (RAG у F пуст) и затем пересказывает обычные роли.",
+      "detail": "F#2 — утверждение о прошлом без подтверждённого источника; RAG у F пуст, поэтому это не факт из данных. Reviewer может счесть содержательным замечанием; техническим дефектом кандидата это не является.",
+      "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+      "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+    },
+    {
+      "id": "OBS-FINAL11-GIT-PIN",
+      "kind": "observation",
+      "source": "probes_final11/raw/raw_eff_A.json pins.git + stage_sha.txt",
+      "quote": "pins.git.commit = \"ERR:Command ... git rev-parse HEAD ... not a git repository\"",
+      "detail": "Стенд собран из `git archive bd6d5fff` (tarball без .git), поэтому in-probe git-пин недоступен. Идентичность кандидата подтверждается stage_sha.txt: candidate=bd6d5fff…, probe_commit=bd6d5fff…, 14/14 sha256; это ограничение evidence, а не дефект продукта.",
+      "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/stage_sha.txt",
+      "artifact_sha256": "900549552d6b04f1afd157d413546eef05476c977bb99da8f3c6099ddfe5299f"
+    },
+    {
+      "id": "OBS-MANIFEST-ANALYSIS-OUT",
+      "kind": "observation",
+      "source": "probes_final11/manifest.json + commit 778147e5",
+      "quote": "manifest.json: analysis.out bytes=0, sha256=e3b0c44298fc…",
+      "detail": "Фактический analysis.out — 7649 байт после нормализации UTF-8 коммитом 778147e5; manifest.json зафиксировал пустой файл до нормализации. manifest.json не используется как источник финальных счётчиков; счётчики берутся из analysis.json.",
+      "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/manifest.json",
+      "artifact_sha256": "9f5ba18ea7f85c3ffab033a85226f17122b880b316510e7d45fc9c091fa4750b"
+    },
+    {
+      "id": "OBS-NO-DEPLOY",
+      "kind": "observation",
+      "source": "probes_final11.md §9",
+      "quote": "прод остаётся 2.58.130 @ 534ac7dd, rollback не требуется.",
+      "detail": "Деплой bd6d5fff не выполнялся; production HEAD до/после сеанса — 534ac7dd, dirty 13/13, unit active, NRestarts=0. DEPLOY-STANDARD и строки, зависящие от prod-БД, остаются PENDING.",
+      "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+      "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+    },
+    {
+      "id": "OBS-HISTORICAL-RUNS",
+      "kind": "observation",
+      "source": "probes_final10.md, probes_final9.md, probes_final6.md",
+      "quote": "Исторические прогоны предыдущих кандидатов.",
+      "detail": "probes_final10.md (кандидат 9828a8ad, meta 2/16 strict — FAILED), probes_final9.md и probes_final6.md — исторические прогоны, не финальное доказательство bd6d5fff. probes_final8.md в ветке кандидата отсутствует; финальное доказательство — только final11.",
+      "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final10.md",
+      "artifact_sha256": "46a0c3d9351b232cc5b6f9873c2344104c99cb0ed6bff231b5a9f5be7c57d406"
+    }
+  ]
 }

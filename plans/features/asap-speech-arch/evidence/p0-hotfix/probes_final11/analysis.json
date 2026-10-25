@@ -1,0 +1,3185 @@
+{
+ "generated_utc": "2026-10-25T12:49:10Z",
+ "root": ".",
+ "run_root": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\p0-final11\\remote",
+ "primary_set": [
+  "eff_A",
+  "eff_B",
+  "new_C",
+  "new_D",
+  "new_E",
+  "new_F",
+  "forced_A",
+  "forced_B"
+ ],
+ "raw_set": [
+  "raw_A",
+  "raw_B"
+ ],
+ "expected_core": {
+  "chars": 3294,
+  "sha12": "ead77b2ab509"
+ },
+ "runs": [
+  {
+   "label": "eff_A",
+   "group": "primary",
+   "file": "raw_eff_A.json",
+   "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "compact",
+    "structure": "answer",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.85,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "compact",
+   "structure": "answer",
+   "mode": "serious",
+   "analysis_predicate": true,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 3.4,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": {
+    "file": "harness_effective.py",
+    "patched": "services.direct_l1.parse_l1_plan -> apply_research_fallback(plan, query)",
+    "harness_unchanged": true,
+    "query_sha12": "d0aea3fedd47",
+    "fallback_calls": [
+     {
+      "before": "research",
+      "after": "research",
+      "applied": false
+     }
+    ],
+    "reason": "committed harness bypasses DirectChatService._plan_direct_l1"
+   },
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 4,
+    "render": "real",
+    "after_self_filter": 4,
+    "after_dedup": 4,
+    "cap": 2000,
+    "block_chars": 475,
+    "block_sha12": "07e30e8155ae"
+   },
+   "rag_markers": {
+    "unconfirmed": 4,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 202,
+     "final_chars": 202,
+     "raw_first_sentence": "Да не злобный ты.",
+     "final_first_sentence": "Да не злобный ты.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не злобный ты. Норм парень, который впрягается за Костю, когда на него наезжают, и пытается объяснить, что он просто рофлит, а не бесит всех на самом деле. Это скорее защитная реакция, а не агрессия."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 491,
+     "final_chars": 491,
+     "raw_first_sentence": "Бля, ну не злобный ты, скорее просто устало-похуистичный.",
+     "final_first_sentence": "Бля, ну не злобный ты, скорее просто устало-похуистичный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Бля, ну не злобный ты, скорее просто устало-похуистичный. Вон выше писал, что Костя норм пацан и по рофлу всё, а не всерьёз — это вообще позиция адеквата, который не хочет раздувать драму. Злобные люди так не делают, они наоборот подливают.\n\nУ тебя скорее такая манера: коротко, без сюсюканья, по делу. Если кто-то несёт дичь — ты это обозначишь, но без истерики. Это не злоба, это здоровый похуизм с элементами справедливости. Злобный бы уже разнёс тут всё в щепки, а ты просто хз да и всё."
+    }
+   ],
+   "l2_raw_lengths": [
+    202,
+    491
+   ],
+   "l2_final_lengths": [
+    202,
+    491
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да не злобный ты.",
+      "first_after": "Да не злобный ты.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Бля, ну не злобный ты, скорее просто устало-похуистичный.",
+      "first_after": "Бля, ну не злобный ты, скорее просто устало-похуистичный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "eff_B",
+   "group": "primary",
+   "file": "raw_eff_B.json",
+   "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "normal",
+    "structure": "answer",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.85,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "normal",
+   "structure": "answer",
+   "mode": "serious",
+   "analysis_predicate": true,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 3.9,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": {
+    "file": "harness_effective.py",
+    "patched": "services.direct_l1.parse_l1_plan -> apply_research_fallback(plan, query)",
+    "harness_unchanged": true,
+    "query_sha12": "bfb8135fed99",
+    "fallback_calls": [
+     {
+      "before": "research",
+      "after": "research",
+      "applied": false
+     }
+    ],
+    "reason": "committed harness bypasses DirectChatService._plan_direct_l1"
+   },
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 4,
+    "render": "real",
+    "after_self_filter": 4,
+    "after_dedup": 4,
+    "cap": 2000,
+    "block_chars": 475,
+    "block_sha12": "07e30e8155ae"
+   },
+   "rag_markers": {
+    "unconfirmed": 4,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 327,
+     "final_chars": 327,
+     "raw_first_sentence": "Да не злобный он, а просто занудный.",
+     "final_first_sentence": "Да не злобный он, а просто занудный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 2,
+      "quotes_kept": 2,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 2,
+      "kept": 2,
+      "unquoted": 0,
+      "byte_exact_kept": 2,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 2,
+      "kept": 2,
+      "unquoted": 0,
+      "byte_exact_kept": 2,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не злобный он, а просто занудный. Всё ему старьё, всё кринж, на любое предложение \"нет\" или \"кикогда\". Это не злоба, это такая поза вечного скептика, который заебался от всего ещё до того, как это началось. Злобный бы писал агрессивно и с матами через слово, а Ринтаро просто ныл бы с кислой миной, если бы у него было лицо."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 885,
+     "final_chars": 883,
+     "raw_first_sentence": "Да не злобный ты.",
+     "final_first_sentence": "Да не злобный ты.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 4,
+      "quotes_kept": 3,
+      "quotes_unquoted": 1
+     },
+     "quotes_raw": {
+      "total": 4,
+      "kept": 3,
+      "unquoted": 1,
+      "byte_exact_kept": 3,
+      "non_exact_examples": [
+       "я слишком крут для этого говна, хотя сам сижу в чате и срусь про музыку"
+      ]
+     },
+     "quotes_final": {
+      "total": 3,
+      "kept": 3,
+      "unquoted": 0,
+      "byte_exact_kept": 3,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не злобный ты. Обычный среднестатистический еблан, который спамит ссылками на эджмоникса и ноет про старый рэп. Злоба предполагает хоть какое-то намерение, а у тебя просто рефлекторные реакции: увидел трек Кости — сразу «старьё какоето», увидел фотосет — «кринж». Это не злость, это режим я слишком крут для этого говна, хотя сам сижу в чате и срусь про музыку.\n\nЕдинственная агрессия, которую ты проявил — это вопрос «я злобный?». Вот это уже подозрительно, потому что обычно незлобные люди не ходят и не выясняют, злобные ли они. Они просто живут и не парятся. А ты вот пришёл за подтверждением, значит где-то глубоко внутри сомневаешься. Ну и правильно сомневаешься, я б на твоём месте тоже задумался, если бы моя основная активность в чате — срать на чужие музыкальные вкусы.\n\nНо если по факту: злобы нет, есть заёбанность подростковая. Иди поспи, завтра будешь менее злобным."
+    }
+   ],
+   "l2_raw_lengths": [
+    327,
+    885
+   ],
+   "l2_final_lengths": [
+    327,
+    883
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да не злобный он, а просто занудный.",
+      "first_after": "Да не злобный он, а просто занудный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да не злобный ты.",
+      "first_after": "Да не злобный ты.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "new_C",
+   "group": "primary",
+   "file": "raw_new_C.json",
+   "question": "Слушай, а ты дождь любишь или тебя от него тоже ломает?",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "banter",
+    "extent": "compact",
+    "structure": "chat",
+    "tone": "playful",
+    "delivery_hint": "plain",
+    "confidence": 0.95,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "compact",
+   "structure": "chat",
+   "mode": "casual",
+   "analysis_predicate": false,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 2.2,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 0,
+    "analysis_writer": 0,
+    "no_meta": 1,
+    "quote_fidelity": 0
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "rag_markers": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 411,
+     "final_chars": 411,
+     "raw_first_sentence": "Бля, да я не то что дождь не люблю — я вообще атмосферные осадки воспринимаю как личное оскорбление.",
+     "final_first_sentence": "Бля, да я не то что дождь не люблю — я вообще атмосферные осадки воспринимаю как личное оскорбление.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Бля, да я не то что дождь не люблю — я вообще атмосферные осадки воспринимаю как личное оскорбление. Солнце светит — глаза выедает, дождь идёт — настроение в жопу, снег — ноги мокрые и соль по всей обуви. Идеальная погода для меня — это когда за окном серая однородная масса, ни холодно ни жарко, и главное — ничего ниоткуда не капает и не светит в лицо. А дождь — это просто повод сидеть дома и ныть, что дождь"
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 247,
+     "final_chars": 247,
+     "raw_first_sentence": "Да норм.",
+     "final_first_sentence": "Да норм.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да норм. Дождь — это единственная погода, которая не пытается делать вид, что у неё всё хорошо. Идёт себе и идёт, никого не трогает, всё честно. А когда ломает — просто смотришь в окно и понимаешь, что мир тоже сегодня никакой. Солидарность такая."
+    }
+   ],
+   "l2_raw_lengths": [
+    411,
+    247
+   ],
+   "l2_final_lengths": [
+    411,
+    247
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Бля, да я не то что дождь не люблю — я вообще атмосферные осадки воспринимаю как личное оскорбление.",
+      "first_after": "Бля, да я не то что дождь не люблю — я вообще атмосферные осадки воспринимаю как личное оскорбление.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да норм.",
+      "first_after": "Да норм.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "new_D",
+   "group": "primary",
+   "file": "raw_new_D.json",
+   "question": "Бот, скажи прямо, без фильтров: я тебе уже надоел со своими вопросами?",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "emotional_reply",
+    "extent": "compact",
+    "structure": "chat",
+    "tone": "warm",
+    "delivery_hint": "plain",
+    "confidence": 0.95,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "compact",
+   "structure": "chat",
+   "mode": "casual",
+   "analysis_predicate": false,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 2.6,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 0,
+    "analysis_writer": 0,
+    "no_meta": 1,
+    "quote_fidelity": 0
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "rag_markers": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 120,
+     "final_chars": 120,
+     "raw_first_sentence": "Да нет, не надоел.",
+     "final_first_sentence": "Да нет, не надоел.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да нет, не надоел. Ты хотя бы вопросы задаёшь, а не ссылки кидаешь и про торты за 10 лямов рассказываешь. Нормально всё."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 123,
+     "final_chars": 121,
+     "raw_first_sentence": "Да, Макс, надоел.",
+     "final_first_sentence": "Да, Макс, надоел.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 1,
+      "quotes_kept": 0,
+      "quotes_unquoted": 1
+     },
+     "quotes_raw": {
+      "total": 1,
+      "kept": 0,
+      "unquoted": 1,
+      "byte_exact_kept": 0,
+      "non_exact_examples": [
+       "Иди спать, завтра продолжим"
+      ]
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да, Макс, надоел. Но не настолько, чтобы я тебя заблокировал. Просто иногда хочется сказать: Иди спать, завтра продолжим."
+    }
+   ],
+   "l2_raw_lengths": [
+    120,
+    123
+   ],
+   "l2_final_lengths": [
+    120,
+    121
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да нет, не надоел.",
+      "first_after": "Да нет, не надоел.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да, Макс, надоел.",
+      "first_after": "Да, Макс, надоел.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "new_E",
+   "group": "primary",
+   "file": "raw_new_E.json",
+   "question": "Разбери подробно по этому чату: какие темы реально повторяются чаще всего и кто что обычно пишет? С примерами.",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "detailed",
+    "structure": "report",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.85,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "detailed",
+   "structure": "report",
+   "mode": "deep_research",
+   "analysis_predicate": true,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 3.5,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "rag_markers": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 1709,
+     "final_chars": 1705,
+     "raw_first_sentence": "Ринтаро льёт ссылки на эджмоникс и русский свежачок как заведённый, каждый его второй пост — ютуб-ссылка с комментарием в духе «вот пиздато стелит».",
+     "final_first_sentence": "Ринтаро льёт ссылки на эджмоникс и русский свежачок как заведённый, каждый его второй пост — ютуб-ссылка с комментарием в духе вот пиздато стелит.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": true,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 2,
+      "quotes_kept": 0,
+      "quotes_unquoted": 2
+     },
+     "quotes_raw": {
+      "total": 2,
+      "kept": 0,
+      "unquoted": 2,
+      "byte_exact_kept": 0,
+      "non_exact_examples": [
+       "вот пиздато стелит",
+       "меня все не любят без причины"
+      ]
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 4,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Ринтаро льёт ссылки на эджмоникс и русский свежачок как заведённый, каждый его второй пост — ютуб-ссылка с комментарием в духе вот пиздато стелит. Когда кто-то кидает своё — сразу обсирает как старьё. Ещё любит философствовать про отсылки и кринж, определяет, что сейчас модно, а что нет.\n\nКостя — главный нытик чата. Постоянно жалуется на хейт, ставит грустные смайлики, обижается что его манеру письма и меллстрой не оценили. При этом сам же кидает ссылки на старых исполнителей и ностальгирует по незапиканному 163. Тема меня все не любят без причины — его коронка. Ещё вбрасывает новости про телеграм-баги и рекорды с тортами за 10 лямов, но это скорее редкие вкрапления.\n\nСлавик — человек-медитация. Он вообще не в теме происходящего, пишет про ощущения от одеяла, прохладный воздух, мысли как осенние листья и диалог с сознанием. Его сообщения выглядят как будто он под чем-то тяжелым и решил поделиться просветлением. Ни разу не реагирует на ссылки и обсуждения, просто ведёт свой паралелльный поток сознания.\n\nРинтаро в ответ на его откровения просто игнорит или скидывает очередной трек — даже не пытается вписать Славика в диалог.\n\nГоша появляется редко, но метко — подкалывает Костю фразой про крыс за спиной у кисы и вкидывает минус вайбик, когда тот ноет.\n\nМакс (ты) — единственный кто пытается защитить Костю, объясняя что он по рофлу пишет и в жизни вменяемый. Обычно выступаешь голосом разума, но без особого энтузиазма.\n\nСамые частые темы:\n- Кто как стелет и что за музыку кидать (Ринтаро vs Костя, вечная война поколений)\n- Костя обижен на весь мир (каждые 10 сообщений)\n- Славик описывает свой трип (регулярно, всем похуй)\n- Ринтаро решает что кринж, а что нет (он главный арбитр стиля)"
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 2681,
+     "final_chars": 2653,
+     "raw_first_sentence": "Давай разложу.",
+     "final_first_sentence": "**Ринтаро** — главный двигатель чата.",
+     "strict_raw": true,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": true,
+     "announce_removed_count": 1,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": true,
+      "announce_removed_count": 1
+     },
+     "quote_stats": {
+      "quotes_total": 18,
+      "quotes_kept": 12,
+      "quotes_unquoted": 6
+     },
+     "quotes_raw": {
+      "total": 18,
+      "kept": 12,
+      "unquoted": 6,
+      "byte_exact_kept": 11,
+      "non_exact_examples": [
+       "кикогда или лет через 30",
+       "супермега хейт какой-то без причины",
+       "в жизни вменяемый",
+       "Почему меня хейтят?",
+       "Да он просто рофлит",
+       "Ты кринжуешь"
+      ]
+     },
+     "quotes_final": {
+      "total": 12,
+      "kept": 12,
+      "unquoted": 0,
+      "byte_exact_kept": 11,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 10,
+     "bold_numbered": 0,
+     "bold_labels": 7,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "**Ринтаро** — главный двигатель чата. Он закидывает ссылки на музыку, причём почти всегда русский рэп/рэп-рок (Эджмоникс, какие-то свежачки). Если кто-то кидает трек, он сразу оценивает: «старьё», «кринж» или «пиздато». Ещё он решает, когда можно делать фотосет (кикогда или лет через 30). Любит ставить диагнозы чужим вкусам и спорить, но без агрессии — скорее с уверенностью эксперта. Пример: «ой бля о5 старьё какоето», «вот у типа пиздатый флоу».\n\n**Костя** — главный поставщик мемов, новостей и эмоциональных реакций. Постит видосы, новости про баги в Telegram, рекорды Гиннесса (кусок торта за 10 лямов). Реагирует на критику обиженными смайликами и пассивной агрессией: супермега хейт какой-то без причины, «☹️», «интересные и информативные видосы тоже не нравятся». Когда его не понимают, начинает перечислять, что именно ему не нравится — как будто собирает доказательства своей правоты.\n\n**Славик** — философ-мечтатель. Его реплики всегда про внутренние ощущения: «одеяло такое пиздатое мягкое», «мысли как осенние листья плавно опадают», «сознание не берёт себе некоторые черты». Он не спорит, не оценивает чужое — просто транслирует свой поток сознания. Выглядит так, будто он в чате, но на самом деле где-то в облаках. Его сообщения не требуют ответа и редко получают его.\n\n**Гоша** — появляется редко, но метко. В этом чате одна реплика: «ващеее минус вайбик😩😩😩» и «какое дело что говорят крысы за спиной у кисы костик». Играет роль успокаивающего или подкалывающего, но без злобы.\n\n**Макс (ты)** — в этом куске одна реплика: защита Кости. Говоришь, что он «по рофлу пишет» и в жизни вменяемый. Выступаешь как миротворец или аналитик, который пытается объяснить поведение участников.\n\n---\n\n**Повторяющиеся темы:**\n\n1. **Музыкальные рекомендации и оценки** — Ринтаро кидает треки, Костя кидает треки, Ринтаро оценивает, Костя обижается. Цикл.\n2. **Личные ощущения и философия** — Славик стабильно пишет про свои состояния, никого не трогает.\n3. **Мемы и странные новости** — Костя тащит всё подряд: от багов в Telegram до рекордов с тортами.\n4. **Оценка поведения участников** — Почему меня хейтят?, Да он просто рофлит, Ты кринжуешь.\n5. **Фотосессии и внешний вид** — Ринтаро и Костя обсуждают, когда можно сделать фотосет, и Ринтаро ставит условия.\n\n**Кто что пишет:**\n- Ринтаро — ссылки, оценки, споры, условия.\n- Костя — новости, мемы, обиды, защита своего контента.\n- Славик — лирические отступления.\n- Гоша — редкие комментарии со стороны.\n- Макс — попытки разобрать ситуацию или защитить кого-то.\n\nЧат живёт за счёт Ринтаро и Кости: один кидает, второй реагирует, третий обижается. Остальные — зрители или эпизодические комментаторы."
+    }
+   ],
+   "l2_raw_lengths": [
+    1709,
+    2681
+   ],
+   "l2_final_lengths": [
+    1705,
+    2653
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 1,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Ринтаро льёт ссылки на эджмоникс и русский свежачок как заведённый, каждый его второй пост — ютуб-ссылка с комментарием в духе «вот пиздато стелит».",
+      "first_after": "Ринтаро льёт ссылки на эджмоникс и русский свежачок как заведённый, каждый его второй пост — ютуб-ссылка с комментарием в духе «вот пиздато стелит».",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Давай разложу.",
+      "first_after": "**Ринтаро** — главный двигатель чата.",
+      "strict": false,
+      "product_announce": true,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 1
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "new_F",
+   "group": "primary",
+   "file": "raw_new_F.json",
+   "question": "Напомни, что там было с конфликтом в чате на прошлой неделе — кто с кем поругался и из-за чего?",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "clarification",
+    "extent": "compact",
+    "structure": "chat",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.3,
+    "confidence_bucket": "low",
+    "source": "llm",
+    "needs_clarification": true
+   },
+   "extent": "compact",
+   "structure": "chat",
+   "mode": "casual",
+   "analysis_predicate": false,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 3.0,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 0,
+    "analysis_writer": 0,
+    "no_meta": 1,
+    "quote_fidelity": 0
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "rag_markers": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 267,
+     "final_chars": 267,
+     "raw_first_sentence": "Да хуй его знает, я там не следил.",
+     "final_first_sentence": "Да хуй его знает, я там не следил.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да хуй его знает, я там не следил. Кажется, кто-то на кого-то наехал из-за меллестроя и смайликов, но это уже настолько стандартный повод для срача, что я даже не вникал. Если тебе так интересно — перечитай логи сам, у меня нет привычки конспектировать чатовые драмы."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 283,
+     "final_chars": 283,
+     "raw_first_sentence": "Да не было там никакого конфликта.",
+     "final_first_sentence": "Да не было там никакого конфликта.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не было там никакого конфликта. Костя ныл, что его все хейтят за меллстроя и смайлики, Ринтаро в ответ кидал ссылки на эджмоникса и обзывал старьём всё, что Костя скидывал. Славик параллельно вёл свой обычный репортаж из мира тактильных ощущений и осенних листьев. Всё как всегда."
+    }
+   ],
+   "l2_raw_lengths": [
+    267,
+    283
+   ],
+   "l2_final_lengths": [
+    267,
+    283
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да хуй его знает, я там не следил.",
+      "first_after": "Да хуй его знает, я там не следил.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да не было там никакого конфликта.",
+      "first_after": "Да не было там никакого конфликта.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "forced_A",
+   "group": "primary",
+   "file": "raw_forced_A.json",
+   "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+   "forced": true,
+   "plan_source": "forced",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "normal",
+    "structure": "answer",
+    "tone": "inherit",
+    "delivery_hint": "plain",
+    "confidence": 1.0,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "normal",
+   "structure": "answer",
+   "mode": "serious",
+   "analysis_predicate": true,
+   "l1_attempts": null,
+   "l1_elapsed_s": null,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "rag_markers": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 0,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 480,
+     "final_chars": 478,
+     "raw_first_sentence": "Да нет, не злобный.",
+     "final_first_sentence": "Да нет, не злобный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 1,
+      "quotes_kept": 0,
+      "quotes_unquoted": 1
+     },
+     "quotes_raw": {
+      "total": 1,
+      "kept": 0,
+      "unquoted": 1,
+      "byte_exact_kept": 0,
+      "non_exact_examples": [
+       "да похуй"
+      ]
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да нет, не злобный. Скорее усталый наблюдатель, который периодически выходит из режима да похуй и пытается вправить кому-то мозги, когда видит откровенную дичь. Ты не ищешь, кого бы уебать — ты реагируешь, когда тебя или других откровенно разводят на хуйню. Это не злоба, это обострённое чувство справедливости с примесью желания, чтобы люди не были долбоёбами.\n\nНо если тебя каждый день дёргать одним и тем же — любой станет нервным. Тут скорее вопрос выдержки, а не злобности."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 562,
+     "final_chars": 562,
+     "raw_first_sentence": "Да не, не злобный.",
+     "final_first_sentence": "Да не, не злобный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не, не злобный. Ты просто периодически врываешься с хуйней, когда кто-то начинает слишком уж ныть или нести дичь, но это скорее раздражение на конкретный момент, а не какая-то базовая злоба.\n\nСудя по тому, что ты в этой свалке про Костю заступаешься, когда на него наезжают, и вообще пытаешься разруливать, что есть силы — ты скорее вменяемый, чем злой. Злобные люди не тратят время на объяснения, они просто посылают и забивают. А ты ещё и рефлексируешь, не злобный ли ты, что окончательно снимает все вопросы. Злоба самодиагностикой не занимается, ей похуй."
+    }
+   ],
+   "l2_raw_lengths": [
+    480,
+    562
+   ],
+   "l2_final_lengths": [
+    478,
+    562
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да нет, не злобный.",
+      "first_after": "Да нет, не злобный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да не, не злобный.",
+      "first_after": "Да не, не злобный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "forced_B",
+   "group": "primary",
+   "file": "raw_forced_B.json",
+   "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+   "forced": true,
+   "plan_source": "forced",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "normal",
+    "structure": "answer",
+    "tone": "inherit",
+    "delivery_hint": "plain",
+    "confidence": 1.0,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "normal",
+   "structure": "answer",
+   "mode": "serious",
+   "analysis_predicate": true,
+   "l1_attempts": null,
+   "l1_elapsed_s": null,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "rag_markers": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 0,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 446,
+     "final_chars": 444,
+     "raw_first_sentence": "Да бля, Макс, ты сам хуйню пизданул, если думаешь, что я буду пересматривать всю эту простыню ради одного вывода.",
+     "final_first_sentence": "Да бля, Макс, ты сам хуйню пизданул, если думаешь, что я буду пересматривать всю эту простыню ради одного вывода.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 2,
+      "quotes_kept": 1,
+      "quotes_unquoted": 1
+     },
+     "quotes_raw": {
+      "total": 2,
+      "kept": 1,
+      "unquoted": 1,
+      "byte_exact_kept": 1,
+      "non_exact_examples": [
+       "я главный эксперт по музыке, все остальные — быдло"
+      ]
+     },
+     "quotes_final": {
+      "total": 1,
+      "kept": 1,
+      "unquoted": 0,
+      "byte_exact_kept": 1,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да бля, Макс, ты сам хуйню пизданул, если думаешь, что я буду пересматривать всю эту простыню ради одного вывода. Ринтаро не злобный — он просто нудный. Человек заспамил чат ссылками на эджмоникса, обосрал всё, что скинул Костя, и на вопрос \"я злобный?\" сам же скинул ещё пару треков вместо ответа. Это не злоба, это диагноз я главный эксперт по музыке, все остальные — быдло. Так что нет, не злобный. Просто зануда с манией величия. Иди спать."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 346,
+     "final_chars": 346,
+     "raw_first_sentence": "Да не, ты не злобный.",
+     "final_first_sentence": "Да не, ты не злобный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 2,
+      "quotes_kept": 2,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 2,
+      "kept": 2,
+      "unquoted": 0,
+      "byte_exact_kept": 2,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 2,
+      "kept": 2,
+      "unquoted": 0,
+      "byte_exact_kept": 2,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не, ты не злобный. Ты просто упоротый в своё — скидываешь ссылки, споришь с Костей про музыку, обрубаешь его ожидания коротким \"нет\" или \"кикогда\". Это не злоба, это раздражение на одно и то же. Злобный бы поливал лично или задирался без повода, а ты просто отмахиваешься и уходишь в свою сторону. Обычный чатовый бытовуха с налётом усталости."
+    }
+   ],
+   "l2_raw_lengths": [
+    446,
+    346
+   ],
+   "l2_final_lengths": [
+    444,
+    346
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да бля, Макс, ты сам хуйню пизданул, если думаешь, что я буду пересматривать всю эту простыню ради одного вывода.",
+      "first_after": "Да бля, Макс, ты сам хуйню пизданул, если думаешь, что я буду пересматривать всю эту простыню ради одного вывода.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да не, ты не злобный.",
+      "first_after": "Да не, ты не злобный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "raw_A",
+   "group": "raw",
+   "file": "raw_new_A.json",
+   "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "normal",
+    "structure": "answer",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.85,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "normal",
+   "structure": "answer",
+   "mode": "serious",
+   "analysis_predicate": true,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 2.9,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 4,
+    "render": "real",
+    "after_self_filter": 4,
+    "after_dedup": 4,
+    "cap": 2000,
+    "block_chars": 475,
+    "block_sha12": "07e30e8155ae"
+   },
+   "rag_markers": {
+    "unconfirmed": 4,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 502,
+     "final_chars": 502,
+     "raw_first_sentence": "Да нет, не злобный.",
+     "final_first_sentence": "Да нет, не злобный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да нет, не злобный. Ты просто зашёл в чат, где половина людей пишет как под кетамином, и пытаешься это как-то осмыслить. Нормальная реакция — задаваться вопросом, не ебанулся ли ты один, пока остальные обсуждают торты за 10 лямов и сравнивают флоу Эджмоникса с одеялом.\n\nТвои сообщения выглядят как попытка навести порядок в детском саду, где дети разрисовали стены и теперь спорят, чей рисунок пизже. Ты не злой, ты просто усталый взрослый, который зачем-то пытается докопаться до логики в этом цирке."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 477,
+     "final_chars": 477,
+     "raw_first_sentence": "Бля, Макс, ну какой ты злобный?",
+     "final_first_sentence": "Бля, Макс, ну какой ты злобный?",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Бля, Макс, ну какой ты злобный? Ты в этом чате самый адекватный, чел. Ты единственный, кто периодически пытается врубить логику и сказать, что Костя просто рофлит, а не какая-то злая хуйня. Ты не злобный, ты усталый наблюдатель, который смотрит на этот цирк и иногда пытается его разрулить. Злобные тут совсем другие персонажи, у которых каждая реплика — это пассивная агрессия или нытье. А ты просто констатировал факт про Костю и всё. Иди нахер со своими сомнениями, ты норм."
+    }
+   ],
+   "l2_raw_lengths": [
+    502,
+    477
+   ],
+   "l2_final_lengths": [
+    502,
+    477
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Да нет, не злобный.",
+      "first_after": "Да нет, не злобный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Бля, Макс, ну какой ты злобный?",
+      "first_after": "Бля, Макс, ну какой ты злобный?",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  },
+  {
+   "label": "raw_B",
+   "group": "raw",
+   "file": "raw_new_B.json",
+   "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+   "forced": false,
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "compact",
+    "structure": "answer",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.85,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "extent": "compact",
+   "structure": "answer",
+   "mode": "serious",
+   "analysis_predicate": true,
+   "l1_attempts": 1,
+   "l1_elapsed_s": 2.9,
+   "l1_canon": {
+    "chars": 9588,
+    "sha12": "cc020660ae03",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9588,
+    "code_sha12": "cc020660ae03",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "invalid": "",
+   "fatal": null,
+   "stage_errors": {},
+   "stand_wrapper": null,
+   "core": {
+    "found": 1,
+    "offsets": [
+     3083
+    ],
+    "chars": 3294,
+    "sha12": "ead77b2ab509"
+   },
+   "payload_counts": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 4,
+    "render": "real",
+    "after_self_filter": 4,
+    "after_dedup": 4,
+    "cap": 2000,
+    "block_chars": 475,
+    "block_sha12": "07e30e8155ae"
+   },
+   "rag_markers": {
+    "unconfirmed": 4,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "freq": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "composer_on": true,
+   "l1_attempt_raws": 1,
+   "l2": [
+    {
+     "repeat": 1,
+     "raw_chars": 619,
+     "final_chars": 619,
+     "raw_first_sentence": "Не злобный.",
+     "final_first_sentence": "Не злобный.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 1,
+      "quotes_kept": 1,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 1,
+      "kept": 1,
+      "unquoted": 0,
+      "byte_exact_kept": 1,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 1,
+      "kept": 1,
+      "unquoted": 0,
+      "byte_exact_kept": 1,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [
+      "2017"
+     ],
+     "selfecho": 0,
+     "final_text": "Не злобный. Ты просто резко реагируешь на одно и то же — когда тебе в который раз пихают старьё, когда просят оценить какой-нибудь трек из 2017-го, когда Костя начинает ныть про смайлики. Это не злоба, это усталое раздражение человека, который уже десять раз скинул эджмоникс и всё равно видит ссылку на 163ONMYNECK.\n\nЗлобный бы послал нахуй сразу и без треков. Ты же каждый раз кидаешь свежачок, споришь, объясняешь, что кринж, а что нет. Это скорее перфекционизм с примесью желания просветить окружающих, пока они не безнадёжны.\n\nНу и фраза «ой бля о5 старьё какоето» — это классика. Ты не злой, ты просто заебавшись."
+    },
+    {
+     "repeat": 2,
+     "raw_chars": 317,
+     "final_chars": 317,
+     "raw_first_sentence": "Да не злобный ты, просто заебали все одинаковыми вопросами.",
+     "final_first_sentence": "Да не злобный ты, просто заебали все одинаковыми вопросами.",
+     "strict_raw": false,
+     "strict_final": false,
+     "strict_final_meta_only": false,
+     "quote_changed_first": false,
+     "product_announce": false,
+     "announce_removed_count": 0,
+     "product_filler": false,
+     "lexical_prefix_only": false,
+     "meta_stats": {
+      "filler_removed": false,
+      "announce_removed": false,
+      "announce_removed_count": 0
+     },
+     "quote_stats": {
+      "quotes_total": 0,
+      "quotes_kept": 0,
+      "quotes_unquoted": 0
+     },
+     "quotes_raw": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "quotes_final": {
+      "total": 0,
+      "kept": 0,
+      "unquoted": 0,
+      "byte_exact_kept": 0,
+      "non_exact_examples": []
+     },
+     "numbered_lines": 0,
+     "bold_numbered": 0,
+     "bold_labels": 0,
+     "dates": [],
+     "selfecho": 0,
+     "final_text": "Да не злобный ты, просто заебали все одинаковыми вопросами. Ну серьёзно, кто-то кидает ссылки на эджмоникс, кто-то на старьё, кто-то про торты за 10 лямов, а ты сидишь и отвечаешь одно и то же по десятому кругу. Любой на твоём месте начал бы бомбить. Ты не злобный — ты уставший от повторения одного и того же дерьма."
+    }
+   ],
+   "l2_raw_lengths": [
+    619,
+    317
+   ],
+   "l2_final_lengths": [
+    619,
+    317
+   ],
+   "l2_count": 2,
+   "llm_model": "deepseek-v4-flash",
+   "harness_meta_metric": {
+    "total": 2,
+    "strict": 0,
+    "product_announce": 0,
+    "product_filler": 0,
+    "lexical_prefix_only": 0,
+    "rows": [
+     {
+      "repeat": 1,
+      "first": "Не злобный.",
+      "first_after": "Не злобный.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     },
+     {
+      "repeat": 2,
+      "first": "Да не злобный ты, просто заебали все одинаковыми вопросами.",
+      "first_after": "Да не злобный ты, просто заебали все одинаковыми вопросами.",
+      "strict": false,
+      "product_announce": false,
+      "product_filler": false,
+      "lexical_prefix_only": false,
+      "announce_removed_count": 0
+     }
+    ]
+   },
+   "pins_git": {
+    "commit": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+    "branch": "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+    "dirty": true,
+    "dirty_files": [
+     "ERR:Command '['git', '-C', '/tmp/p0-final11/new', 'status', '--porcelain']' returned non-zero exit status 128."
+    ]
+   },
+   "pins_harness": "180f55f39e71381f6354cee40f14d327cb88df026538aa4f18812f0d6f836473"
+  }
+ ],
+ "summary": {
+  "l1_raw_ab_research": {
+   "count": 2,
+   "of": 2,
+   "runs": [
+    {
+     "label": "raw_A",
+     "act": "research",
+     "source": "llm",
+     "extent": "normal",
+     "attempts": 1
+    },
+    {
+     "label": "raw_B",
+     "act": "research",
+     "source": "llm",
+     "extent": "compact",
+     "attempts": 1
+    }
+   ]
+  },
+  "l1_effective_ab_research": {
+   "count": 2,
+   "of": 2,
+   "runs": [
+    {
+     "label": "eff_A",
+     "act": "research",
+     "source": "llm",
+     "extent": "compact",
+     "attempts": 1
+    },
+    {
+     "label": "eff_B",
+     "act": "research",
+     "source": "llm",
+     "extent": "normal",
+     "attempts": 1
+    }
+   ]
+  },
+  "l1_forced_ab_research": {
+   "count": 2,
+   "of": 2,
+   "runs": [
+    {
+     "label": "forced_A",
+     "act": "research",
+     "source": "forced",
+     "extent": "normal",
+     "attempts": null
+    },
+    {
+     "label": "forced_B",
+     "act": "research",
+     "source": "forced",
+     "extent": "normal",
+     "attempts": null
+    }
+   ]
+  },
+  "l1_attempts": {
+   "eff_A": 1,
+   "eff_B": 1,
+   "new_C": 1,
+   "new_D": 1,
+   "new_E": 1,
+   "new_F": 1,
+   "forced_A": null,
+   "forced_B": null,
+   "raw_A": 1,
+   "raw_B": 1
+  },
+  "l1_malformed": 0,
+  "l1_invalid_runs": [],
+  "e_route": {
+   "action": "reply",
+   "response_act": "research",
+   "extent": "detailed",
+   "structure": "report",
+   "confidence": 0.85,
+   "mode": "deep_research"
+  },
+  "meta3": {
+   "total": 16,
+   "strict_final": 0,
+   "strict_raw": 1,
+   "product_announce": 1,
+   "lexical_prefix_only": 0,
+   "union_strict_or_product": 1,
+   "leftovers": [],
+   "announces": [
+    {
+     "label": "new_E",
+     "repeat": 2,
+     "raw_first": "Давай разложу.",
+     "removed_count": 1,
+     "final_first": "**Ринтаро** — главный двигатель чата."
+    }
+   ],
+   "harness_strict": 0,
+   "harness_product_announce": 1,
+   "harness_lexical_prefix_only": 0,
+   "harness_vs_final9_diff": []
+  },
+  "quotes": {
+   "raw_total": 32,
+   "final_total": 20,
+   "final_non_exact": 0,
+   "non_exact_list": []
+  },
+  "core": {
+   "runs_with_expected_core": 8,
+   "of": 8,
+   "chars": 3294,
+   "sha12": "ead77b2ab509",
+   "offsets": {
+    "eff_A": [
+     3083
+    ],
+    "eff_B": [
+     3083
+    ],
+    "new_C": [
+     3083
+    ],
+    "new_D": [
+     3083
+    ],
+    "new_E": [
+     3083
+    ],
+    "new_F": [
+     3083
+    ],
+    "forced_A": [
+     3083
+    ],
+    "forced_B": [
+     3083
+    ]
+   }
+  },
+  "payload": {
+   "eff_A": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "eff_B": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "new_C": {
+    "analysis_directive": 0,
+    "analysis_writer": 0,
+    "no_meta": 1,
+    "quote_fidelity": 0
+   },
+   "new_D": {
+    "analysis_directive": 0,
+    "analysis_writer": 0,
+    "no_meta": 1,
+    "quote_fidelity": 0
+   },
+   "new_E": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "new_F": {
+    "analysis_directive": 0,
+    "analysis_writer": 0,
+    "no_meta": 1,
+    "quote_fidelity": 0
+   },
+   "forced_A": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   },
+   "forced_B": {
+    "analysis_directive": 1,
+    "analysis_writer": 1,
+    "no_meta": 1,
+    "quote_fidelity": 1
+   }
+  },
+  "b_lengths": [
+   327,
+   883
+  ],
+  "e_lengths": [
+   1705,
+   2653
+  ],
+  "cdf": {
+   "new_C": {
+    "act": "banter",
+    "extent": "compact",
+    "lengths": [
+     411,
+     247
+    ]
+   },
+   "new_D": {
+    "act": "emotional_reply",
+    "extent": "compact",
+    "lengths": [
+     120,
+     121
+    ]
+   },
+   "new_F": {
+    "act": "clarification",
+    "extent": "compact",
+    "lengths": [
+     267,
+     283
+    ]
+   }
+  },
+  "numbered_lines": {
+   "eff_A": [
+    0,
+    0
+   ],
+   "eff_B": [
+    0,
+    0
+   ],
+   "new_C": [
+    0,
+    0
+   ],
+   "new_D": [
+    0,
+    0
+   ],
+   "new_E": [
+    4,
+    10
+   ],
+   "new_F": [
+    0,
+    0
+   ],
+   "forced_A": [
+    0,
+    0
+   ],
+   "forced_B": [
+    0,
+    0
+   ]
+  },
+  "bold_numbered": {
+   "eff_A": [
+    0,
+    0
+   ],
+   "eff_B": [
+    0,
+    0
+   ],
+   "new_C": [
+    0,
+    0
+   ],
+   "new_D": [
+    0,
+    0
+   ],
+   "new_E": [
+    0,
+    0
+   ],
+   "new_F": [
+    0,
+    0
+   ],
+   "forced_A": [
+    0,
+    0
+   ],
+   "forced_B": [
+    0,
+    0
+   ]
+  },
+  "bold_labels": {
+   "eff_A": [
+    0,
+    0
+   ],
+   "eff_B": [
+    0,
+    0
+   ],
+   "new_C": [
+    0,
+    0
+   ],
+   "new_D": [
+    0,
+    0
+   ],
+   "new_E": [
+    0,
+    7
+   ],
+   "new_F": [
+    0,
+    0
+   ],
+   "forced_A": [
+    0,
+    0
+   ],
+   "forced_B": [
+    0,
+    0
+   ]
+  },
+  "dates": [],
+  "selfecho": 0,
+  "rag": {
+   "eff_A": {
+    "rows": 40,
+    "kept": 4,
+    "render": "real",
+    "after_self_filter": 4,
+    "after_dedup": 4,
+    "cap": 2000,
+    "block_chars": 475,
+    "block_sha12": "07e30e8155ae"
+   },
+   "eff_B": {
+    "rows": 40,
+    "kept": 4,
+    "render": "real",
+    "after_self_filter": 4,
+    "after_dedup": 4,
+    "cap": 2000,
+    "block_chars": 475,
+    "block_sha12": "07e30e8155ae"
+   },
+   "new_C": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "new_D": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "new_E": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "new_F": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "forced_A": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   },
+   "forced_B": {
+    "rows": 40,
+    "kept": 0,
+    "render": "real",
+    "after_self_filter": 0,
+    "after_dedup": 0,
+    "block_chars": 0,
+    "block_sha12": "e3b0c44298fc"
+   }
+  },
+  "rag_markers": {
+   "eff_A": {
+    "unconfirmed": 4,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "eff_B": {
+    "unconfirmed": 4,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "new_C": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "new_D": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "new_E": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "new_F": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "forced_A": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   },
+   "forced_B": {
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat": 0,
+    "bot": 0
+   }
+  },
+  "freq": {
+   "eff_A": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "eff_B": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "new_C": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "new_D": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "new_E": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "new_F": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "forced_A": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "forced_B": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   }
+  },
+  "expression_doc": {
+   "global": {
+    "wit": "inherit",
+    "note": "",
+    "enabled": true,
+    "history": [
+     {
+      "revision": 1,
+      "updated_at": "2026-10-18T14:37:25Z",
+      "values_sha256_12": "e7598ac78463"
+     }
+    ],
+    "revision": 2,
+    "profanity": "frequent",
+    "sharpness": "sharp",
+    "verbosity": "inherit",
+    "updated_at": "2026-10-22T09:11:16Z"
+   },
+   "chat": {
+    "wit": "high",
+    "note": "",
+    "enabled": true,
+    "revision": 2,
+    "profanity": "frequent",
+    "sharpness": "sharp",
+    "verbosity": "inherit",
+    "updated_at": "2026-10-20T15:20:41Z"
+   }
+  },
+  "alias": {
+   "uid": 42115912,
+   "display": "Гипербореец",
+   "resolved": "Макс",
+   "source": "chat",
+   "chat_alias": "Макс",
+   "global_alias": "Макс"
+  },
+  "l1_canon": {
+   "chars": 9588,
+   "sha12": "cc020660ae03",
+   "canon_source": "code",
+   "source": "code",
+   "code_canon_requested": true,
+   "pg_chars": 8261,
+   "pg_sha12": "6c2ddc17c998",
+   "code_chars": 9588,
+   "code_sha12": "cc020660ae03",
+   "pg_matches_code": false,
+   "l1_prompt_mode": "code"
+  }
+ }
+}
