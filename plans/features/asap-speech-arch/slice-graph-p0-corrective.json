@@ -1,0 +1,118 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "feature": "asap-speech-arch/p0-corrective",
+  "source": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
+  "notes": "Все слайсы читают общий код; write_scope фиксирует ожидаемые файлы правок и каталог артефактов. Слайсы с пересекающимся смыслом (ALIASES→CORE, PROBES→ALIASES/MEMORY) сериализованы явными рёбрами, чтобы не было двух конкурентных писателей в один файл.",
+  "slices": [
+    {
+      "id": "L1",
+      "outcome": "Явный запрос анализа истории уходит в research/deep по реальному решателю L1, без хардкода фраз и без подмены режима в приёмке.",
+      "depends_on": [],
+      "write_scope": ["services/direct_l1.py"],
+      "acceptance": "Оба исходных запроса получают research/deep-маршрут по реальному резолверу, фактический payload содержит анализ истории, а длина ответа не определяется глубиной.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Один решатель режима: диагностика, исправление семантики и два диагностических прогона нельзя разделить, иначе приёмка снова начнёт мерить несуществующий маршрут."
+    },
+    {
+      "id": "HARNESS",
+      "outcome": "Проверочный стенд исполняется из того же commit, что и код, и отдаёт фактические payload с RAG/Memory/Core/Expression без расхождения счётчиков.",
+      "depends_on": ["L1"],
+      "write_scope": ["plans/features/asap-speech-arch/evidence/p0-corrective/harness/**", "scripts/run_golden_questions.py"],
+      "acceptance": "Хэши harness и кода из одного commit совпадают, число сценариев равно числу запусков и строк счётчиков, payload содержит все четыре источника.",
+      "mode": "writer",
+      "risk": "R1",
+      "next_role": "Builder",
+      "why_one_slice": "Стенд, его счётчики и конфигурация проверяются одним прогоном; отдельная правка счётчиков без исполнения снова даст неэквивалентный результат."
+    },
+    {
+      "id": "PROD",
+      "outcome": "Происхождение 13 изменённых файлов production установлено, нужные изменения сохранены и воспроизводимо перенесены в релиз без reset/удаления.",
+      "depends_on": [],
+      "write_scope": ["plans/features/asap-speech-arch/evidence/p0-corrective/prod/**"],
+      "acceptance": "Таблица 13 файлов содержит происхождение и отличие от репозитория, развёртывание из репозитория воспроизводит тот же набор файлов, reset/удаление не выполнялись.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "DevOps",
+      "why_one_slice": "Расследование и сохранение изменений — одна операция над одним сервером; разнесение грозило бы потерей production-правок между шагами."
+    },
+    {
+      "id": "PROBES",
+      "outcome": "Повторные офлайн-пробы на корректных режимах дают фактические ответы по обоим исходным запросам и коротким сообщениям, без отправок в живые чаты.",
+      "depends_on": ["L1", "HARNESS", "PROD"],
+      "write_scope": ["plans/features/asap-speech-arch/evidence/p0-corrective/probes/**"],
+      "acceptance": "Для каждого из двух исходных запросов и не менее двух коротких сообщений есть mode, payload и ответ; при подтверждённом дефекте он исправлен и перепроверен.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Проба имеет смысл только на исправленном маршруте и исправном стенде; отдельные прогоны до готовности L1/HARNESS дали бы ложные измерения."
+    },
+    {
+      "id": "ALIASES",
+      "outcome": "Имена участников разрешаются по Telegram ID по единому приоритету во всех 12 runtime-путях, смена алиаса действует без рестарта, правильное имя доходит до модели.",
+      "depends_on": ["PROBES"],
+      "write_scope": ["services/summary_aliases.py", "services/direct_chat_service.py", "plans/features/asap-speech-arch/evidence/p0-corrective/aliases/**"],
+      "acceptance": "11 изолированных проверок и приоритет имён подтверждены runtime-прогонами, фактический payload содержит актуальное имя, источник «Гипербореец» установлен.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Все проверки идут через один резолвер и его кеш; раздельные правки разных путей снова создали бы конкурирующие источники имени."
+    },
+    {
+      "id": "MEMORY",
+      "outcome": "Старые lore_stories проверены, неподтверждённые события не выступают фактами, загрязнённые записи исправлены точечно, история и поиск по старым именам сохранены.",
+      "depends_on": ["PROBES"],
+      "write_scope": ["services/provenance.py", "services/graphrag_provenance.py", "services/lore_compiler_service.py", "plans/features/asap-speech-arch/evidence/p0-corrective/memory/**"],
+      "acceptance": "Аудит перечисляет конкретные id, provenance-механизм блокирует неподтверждённую историю в фактическом извлечении, число записей до/после не уменьшилось массово.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Аудит, provenance и точечная правка опираются на одну схему записей; разнесение привело бы к правке достоверности без проверки фактического извлечения."
+    },
+    {
+      "id": "CORE",
+      "outcome": "Фактический payload несёт полный актуальный Core и выбранный Expression/FREQUENT, а ответы не содержат мета-вступлений и навязанной структуры.",
+      "depends_on": ["ALIASES"],
+      "write_scope": ["services/chat_prompts.py", "services/prompt_composer.py", "plans/features/asap-speech-arch/evidence/p0-corrective/core/**"],
+      "acceptance": "Payload содержит полный Core без бюджетного обрезания и режим FREQUENT, три реальных ответа не имеют мета-вступлений и обязательных списков.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "Builder",
+      "why_one_slice": "Core, Expression и FREQUENT собираются в одном payload; отдельная правка любого слоя без проверки сборки не доказывает фактический результат."
+    },
+    {
+      "id": "REVIEW",
+      "outcome": "Reviewer подтверждает 9 условий §4 на артефактах кандидата и возвращает конкретный дефект при провале.",
+      "depends_on": ["PROBES", "ALIASES", "MEMORY", "CORE"],
+      "write_scope": ["plans/features/asap-speech-arch/evidence/p0-corrective/review/**"],
+      "acceptance": "Ревью-артефакт по каждому из 9 условий ссылается на candidate-bound доказательство; при провале назван дефект и выполнена повторная проверка.",
+      "mode": "writer",
+      "risk": "R1",
+      "next_role": "Reviewer",
+      "why_one_slice": "Один вердикт по одному кандидату; дробление по условиям дало бы частичные APPROVED без целостной картины."
+    },
+    {
+      "id": "DEPLOY",
+      "outcome": "Штатный production-деплой после APPROVED с подтверждённой версией, healthcheck и отсутствием ошибок запуска.",
+      "depends_on": ["REVIEW"],
+      "write_scope": ["plans/features/asap-speech-arch/evidence/p0-corrective/deploy/**"],
+      "acceptance": "Production отдаёт ожидаемую версию, /healthz 200 и чистый лог запуска; небезопасные условия устранены до выката.",
+      "mode": "writer",
+      "risk": "R2",
+      "next_role": "DevOps",
+      "why_one_slice": "Выкат и его немедленная проверка — одна операция; отдельный слайс проверки после деплоя не нужен."
+    },
+    {
+      "id": "REPORT",
+      "outcome": "Короткий отчёт отвечает на 8 вопросов §5 фактами артефактов, включая версию production и остающиеся проблемы.",
+      "depends_on": ["DEPLOY"],
+      "write_scope": ["plans/features/asap-speech-arch/evidence/p0-corrective/report/**"],
+      "acceptance": "Отчёт содержит ответы на все 8 пунктов §5 со ссылками на артефакты и честно перечисляет незакрытые проблемы.",
+      "mode": "writer",
+      "risk": "R0",
+      "next_role": "PM",
+      "why_one_slice": "Отчёт — единый текст по итогам деплоя; пофрагментная сдача не даёт связного ответа владельцу."
+    }
+  ]
+}
