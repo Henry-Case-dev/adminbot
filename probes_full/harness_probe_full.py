@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -42,7 +43,9 @@ import time
 CHAT_ID = -1002661910336
 TG_A, TG_B = 1175252, 1175255
 TS_A, TS_B = 1792873281, 1792873478
-AUTHOR = "Ринтаро"
+AUTHOR_UID = 42115912
+AUTHOR_DISPLAY = "Гипербореец"   # Telegram display; authoritative name = live alias
+AUTHOR = AUTHOR_DISPLAY          # replaced at runtime by the live resolver
 
 PINNED_MODULES = (
     "services/chat_prompts.py",
@@ -181,9 +184,11 @@ def load_sqlite(root):
         window = [dict(r) for r in cur.execute(
             "SELECT * FROM smart_messages WHERE chat_id = ? "
             "AND timestamp BETWEEN ? AND ? ORDER BY timestamp",
-            (CHAT_ID, TS_A - 5400, TS_A)).fetchall()]
-        out["window_A"] = window
-        out["window_B"] = [m for m in window if int(m["timestamp"]) < TS_B]
+            (CHAT_ID, TS_A - 5400, max(TS_A, TS_B))).fetchall()]
+        out["window_A"] = [m for m in window
+                           if int(m["timestamp"]) <= TS_A]
+        out["window_B"] = [m for m in window
+                           if int(m["timestamp"]) <= TS_B]
         for name, sql in (
             ("graph_facts", "SELECT * FROM graph_facts WHERE chat_id = ? "
                             "ORDER BY id DESC LIMIT 40"),
@@ -217,8 +222,10 @@ def build_window_text(rows, limit=50):
 
 def text_counts(text: str, psb) -> dict:
     """Честные счётчики: фактические тексты, а не ASCII-имена констант."""
-    return {"directive": text.count(psb.ANALYSIS_DIRECTIVE_TEXT),
-            "writer": text.count(psb.ANALYSIS_WRITER_TEXT),
+    directive = getattr(psb, "ANALYSIS_DIRECTIVE_TEXT", "") or ""
+    writer = getattr(psb, "ANALYSIS_WRITER_TEXT", "") or ""
+    return {"directive": text.count(directive) if directive else 0,
+            "writer": text.count(writer) if writer else 0,
             "ascii_marker": text.count("ANALYSIS_DIRECTIVE")}
 
 
@@ -235,9 +242,6 @@ def payload_counts(system: str, user_text: str, psb) -> dict:
 def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
                     hot) -> tuple[str, dict]:
     from services import provenance as _prov
-    from services.direct_chat_service import (
-        _SELF_ECHO_INSTRUCTION, _mark_rag_fact, _rag_rows_with_ranks,
-        dedup_rag_vs_global, order_rag_facts_asc)
     from services.summary_memory import build_rag_context
 
     rows = sq.get("graph_facts") or []
@@ -245,31 +249,51 @@ def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
     if not rows:
         meta["render"] = "absent"
         return "", meta
-    facts, ranks = _rag_rows_with_ranks(rows)
-    facts = [item for item in facts
-             if not _prov.is_self_referential_origin(item[0])]
-    meta["after_self_filter"] = len(facts)
-    if facts:
-        kept = dedup_rag_vs_global(facts, global_ctx)
+    try:
+        from services.direct_chat_service import (
+            _SELF_ECHO_INSTRUCTION, _mark_rag_fact, _rag_rows_with_ranks,
+            dedup_rag_vs_global, order_rag_facts_asc)
+        modern = True
+    except ImportError as exc:
+        # legacy-дерево (prod 534ac7dd): provenance-хелперов ещё нет.
+        modern = False
+        meta["legacy_import_error"] = str(exc)[:120]
+    content = ""
+    kept = []
+    if modern:
+        facts, ranks = _rag_rows_with_ranks(rows)
+        facts = [item for item in facts
+                 if not _prov.is_self_referential_origin(item[0])]
+        meta["after_self_filter"] = len(facts)
+        kept = dedup_rag_vs_global(facts, global_ctx) if facts else []
         meta["after_dedup"] = len(kept)
         if kept:
             kept = [_mark_rag_fact(item, ranks) for item in kept]
             content = build_rag_context(
                 order_rag_facts_asc(kept), origin_labels=True)
-            if not content:
-                raise RuntimeError("rag_render: empty build_rag_context")
-            if any(str(item[0]) == "bot_self_reply" for item in kept):
+            if content and any(str(item[0]) == "bot_self_reply"
+                               for item in kept):
                 content = f"{_SELF_ECHO_INSTRUCTION}\n{content}"
-            cap = int(hot.get("limits.graph_rag_context_max_chars",
-                              _service_settings().GRAPH_RAG_CONTEXT_MAX_CHARS)
-                      or 0)
-            meta["cap"] = cap
-            if cap and len(content) > cap:
-                content = content[:cap]
-            meta["kept"] = len(kept)
-            return f"<RAG_Memory>\n{content}\n</RAG_Memory>", meta
-    meta["kept"] = 0
-    return "", meta
+    else:
+        # legacy-рендер: те же реальные строки, без provenance-пометок.
+        kept = [(r.get("origin"), r.get("fact"), r.get("created_at"),
+                 r.get("target_user"), r.get("id"),
+                 r.get("forward_from") or "", False) for r in rows]
+        meta["after_self_filter"] = len(kept)
+        meta["after_dedup"] = len(kept)
+        content = build_rag_context(kept, origin_labels=True)
+        meta["render"] = "legacy"
+    if not content:
+        meta["kept"] = 0
+        return "", meta
+    cap = int(hot.get("limits.graph_rag_context_max_chars",
+                      _service_settings().GRAPH_RAG_CONTEXT_MAX_CHARS)
+              or 0)
+    meta["cap"] = cap
+    if cap and len(content) > cap:
+        content = content[:cap]
+    meta["kept"] = len(kept)
+    return f"<RAG_Memory>\n{content}\n</RAG_Memory>", meta
 
 
 def _service_settings():
@@ -352,6 +376,25 @@ def _make_llm(root, result):
     return client
 
 
+def resolve_author(pg: dict) -> tuple[str, dict]:
+    """Живой алиас автора (uid 42115912) из PG-карт; display — только nickname."""
+    from services.summary_aliases import (AliasResolver, merge_alias_maps,
+                                          parse_alias_map)
+    settings = pg.get("settings") or {}
+    chat = pg.get("chat_params") or {}
+    gmap = parse_alias_map(settings.get("limits.summary_aliases"))
+    cmap = parse_alias_map((chat.get("overrides") or {}).get(
+        "limits.summary_aliases"))
+    resolver = AliasResolver(merge_alias_maps(gmap, cmap))
+    name = resolver.resolve(AUTHOR_UID, AUTHOR_DISPLAY, None)
+    source = ("chat" if str(AUTHOR_UID) in cmap
+              else "global" if str(AUTHOR_UID) in gmap else "fallback")
+    return name, {"uid": AUTHOR_UID, "display": AUTHOR_DISPLAY,
+                  "resolved": name, "source": source,
+                  "chat_alias": cmap.get(str(AUTHOR_UID), ""),
+                  "global_alias": gmap.get(str(AUTHOR_UID), "")}
+
+
 def _plan_dict(plan):
     if plan is None:
         return None
@@ -378,6 +421,11 @@ def main() -> int:
                     choices=("compact", "normal", "auto", "detailed"))
     ap.add_argument("--force-structure", default="answer",
                     choices=("answer", "report"))
+    ap.add_argument("--l1-attempts", type=int, default=3,
+                    help="повторы L1 только при невалидном JSON (как в сервисе)")
+    ap.add_argument("--l1-prompt", default="code",
+                    choices=("code", "pg"),
+                    help="code = канон кандидата (после миграции); pg = текущий PG")
     args = ap.parse_args()
     if args.self_check:
         return self_check(args.root)
@@ -426,13 +474,20 @@ async def _run(args, result):
         "pg_read_only": pg["read_only"],
         "settings_keys": len(pg["settings"]),
         "chat_param_keys": len(pg["chat_params"]),
-        "window_messages": len(sq.get("window_A", [])),
+        "window_messages": len(sq.get("window_%s" % args.case, [])),
         "graph_facts_rows": len(sq.get("graph_facts", [])),
         "lore_stories_rows": len(sq.get("lore_stories", [])),
         "mca_lessons_rows": len(sq.get("mca_lessons", [])),
     }
     cache = ROCache(pg["settings"], pg["chat_params"])
     hot.set_config_cache(cache)
+    author, alias_meta = resolve_author(pg)
+    result["alias_probe"] = alias_meta
+    result["expression_doc"] = {
+        "global": pg["settings"].get("character.expression"),
+        "chat": (pg["chat_params"].get("overrides") or {}).get(
+            "character.expression"),
+    }
 
     from services import bot_persona
     try:
@@ -454,7 +509,7 @@ async def _run(args, result):
     win = [m for m in sq.get("window_%s" % args.case, [])
            if str(m.get("tg_message_id")) != str(tg_id)]
     question = ""
-    for m in sq.get("window_A", []):
+    for m in sq.get("window_%s" % args.case, []):
         if str(m.get("tg_message_id")) == str(tg_id):
             question = m.get("text") or ""
     result["question"] = question
@@ -535,13 +590,24 @@ async def _run(args, result):
 
     # ── L1: один реальный план (или явно помеченный forced)
     llm = _make_llm(args.root, result)
-    l1_system = resolve_prompt("prompts.direct_l1_planner_system_prompt", None)
-    source = "pg" if l1_system else "code_default"
-    if not l1_system:
-        from services.direct_chat_service import (
-            DIRECT_L1_PLANNER_SYSTEM_PROMPT as l1_system)
-    result["l1_canon"] = {"chars": len(l1_system), "sha12": sha12(l1_system),
-                          "source": source}
+    from services.direct_chat_service import (
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT as code_l1_system)
+    pg_l1_system = resolve_prompt("prompts.direct_l1_planner_system_prompt",
+                                  None) or ""
+    if args.l1_prompt == "code":
+        l1_system = code_l1_system
+        source = "code_candidate"
+    else:
+        l1_system = (resolve_prompt("prompts.direct_l1_planner_system_prompt",
+                                    None) or code_l1_system)
+        source = "pg" if pg_l1_system else "code_default"
+    result["l1_canon"] = {
+        "chars": len(l1_system), "sha12": sha12(l1_system),
+        "source": source,
+        "pg_chars": len(pg_l1_system), "pg_sha12": sha12(pg_l1_system),
+        "code_chars": len(code_l1_system), "code_sha12": sha12(code_l1_system),
+        "pg_matches_code": pg_l1_system == code_l1_system,
+        "l1_prompt_mode": args.l1_prompt}
     plan = None
     if args.force_plan:
         plan = l1mod.normalize_l1_plan({
@@ -553,7 +619,7 @@ async def _run(args, result):
         try:
             l1_context = l1mod.build_l1_context(
                 query=question, current_question=question,
-                reply_block="", window=win, speaker=AUTHOR, addressee="чат",
+                reply_block="", window=win, speaker=author, addressee=author,
                 memory_hints=rag_block, speech_hints="", capabilities=(),
                 force_line="", persona_frame=character_block, bot_replies=(),
                 history_partial=False, alias_resolver=None)
@@ -566,21 +632,30 @@ async def _run(args, result):
                               "context_chars": len(l1_context or ""),
                               "context_sha12": sha12(l1_context)}
         if l1_context is not None:
-            t0 = time.time()
-            try:
-                raw_l1 = await llm.generate(
-                    [{"role": "system", "content": l1_system},
-                     {"role": "user", "content": l1_context}],
-                    temperature=(l1mod.l1_temperature(None)
-                                 if hasattr(l1mod, "l1_temperature") else None),
-                    chat_id=None, module="probe", step="l1_planner",
-                    max_output_tokens=l1mod.l1_max_output_tokens())
-                plan = l1mod.parse_l1_plan(raw_l1)
-                result["l1_raw"] = str(raw_l1 or "")[:4000]
+            attempts = []
+            for _attempt in range(max(1, args.l1_attempts)):
+                t0 = time.time()
+                try:
+                    raw_l1 = await llm.generate(
+                        [{"role": "system", "content": l1_system},
+                         {"role": "user", "content": l1_context}],
+                        temperature=(l1mod.l1_temperature(None)
+                                     if hasattr(l1mod, "l1_temperature") else None),
+                        chat_id=None, module="probe", step="l1_planner",
+                        max_output_tokens=l1mod.l1_max_output_tokens())
+                    attempts.append(str(raw_l1 or "")[:2000])
+                    plan = l1mod.parse_l1_plan(raw_l1)
+                except Exception as exc:              # noqa: BLE001
+                    result["stage_errors"]["l1_call"] = "%s: %s" % (
+                        type(exc).__name__, str(exc)[:300])
+                    attempts.append("ERROR: %s" % str(exc)[:200])
+                    plan = None
                 result["l1_elapsed_s"] = round(time.time() - t0, 1)
-            except Exception as exc:                  # noqa: BLE001
-                result["stage_errors"]["l1_call"] = "%s: %s" % (
-                    type(exc).__name__, str(exc)[:300])
+                if plan is not None:
+                    break
+            result["l1_attempts"] = len(attempts)
+            result["l1_attempt_raws"] = attempts
+            result["l1_raw"] = attempts[-1][:4000] if attempts else ""
         if plan is None:
             # никакого fallback-плана: прогон невалиден
             result["invalid"] = result["invalid"] or "l1_plan"
@@ -598,13 +673,24 @@ async def _run(args, result):
         response_plan = plan.to_response_plan()
         extent_block = extent.render_extent_block(response_plan)
         _adn = getattr(l1mod, "analysis_directive_needed", None)
-        include_analysis = (bool(_adn(plan, modes_on=modes_on))
-                            if _adn is not None else None)
+        if _adn is not None:
+            include_analysis = bool(_adn(plan, modes_on=modes_on))
+        else:
+            # legacy-дерево (prod 534ac7dd): предиката нет — analysis-текстов
+            # в нём быть не может; это фиксируется, а не маскируется abort'ом.
+            include_analysis = False
+            result["predicate_absent"] = True
         if include_analysis is None:
             result["invalid"] = result["invalid"] or "predicate_absent"
             return
-        plan_block = l1mod.build_l2_plan_block(
-            plan, include_analysis=include_analysis)
+        _builder = l1mod.build_l2_plan_block
+        try:
+            _accepts = "include_analysis" in inspect.signature(
+                _builder).parameters
+        except (TypeError, ValueError):
+            _accepts = False
+        plan_block = (_builder(plan, include_analysis=include_analysis)
+                      if _accepts else _builder(plan))
     except Exception as exc:                          # noqa: BLE001
         result["invalid"] = result["invalid"] or "plan_build"
         result["stage_errors"]["plan_build"] = "%s: %s" % (
@@ -632,7 +718,7 @@ async def _run(args, result):
         if lessons_block:
             parts.append(lessons_block)
     parts.extend(user_blocks)
-    parts.extend(("<Target_User>%s</Target_User>" % AUTHOR,
+    parts.extend(("<Target_User>%s</Target_User>" % author,
                   "<Current_Question>\n" + question + "\n</Current_Question>"))
     user_text = "\n\n".join([p for p in parts if p])
     result["composer_on"] = _c_on
@@ -679,6 +765,18 @@ async def _run(args, result):
     result["system"] = {"chars": len(system), "sha12": sha12(system),
                         "core_marker": "<Personality_Core>" in system,
                         "expression_marker": "<Expression" in system}
+    result["author"] = author
+    try:
+        from services.mca_expression import (
+            PROFANITY_FREQUENT_TEXT, PROFANITY_OCCASIONAL_TEXT,
+            PROFANITY_OFF_TEXT)
+        result["expression_check"] = {
+            "frequent_text": PROFANITY_FREQUENT_TEXT in system,
+            "occasional_text": PROFANITY_OCCASIONAL_TEXT in system,
+            "off_text": PROFANITY_OFF_TEXT in system,
+        }
+    except Exception as exc:                          # noqa: BLE001
+        result["expression_check"] = {"error": str(exc)[:160]}
     result["user"] = {"chars": len(user_text), "sha12": sha12(user_text)}
     counts = payload_counts(system, user_text, psb)
     result["payload_counts"] = counts
