@@ -297,8 +297,79 @@ async def migrate_factcheck_context_defaults(cache) -> dict[str, str]:
     return report
 
 
-# Раунд 10.23 (F5, ADR-1023-5 §D1/§D3): дефолтный провайдер изображений
-# (Pollinations, flux, POST-режим). Сид `bot_settings` вставляет ключи
+# ── Решение владельца 25.10.2026: широкий контекст фактчека default ON ──────
+# Сохранённый `false` — наследство прежнего code-дефолта (сид `ON CONFLICT DO
+# NOTHING` его не перетирал). Одноразовая миграция поднимает его до `true` и
+# ставит маркер; после маркера ручное выключение владельцем НЕ перетирается
+# рестартами. Маркер — отдельный внутренний ключ (в каталог не входит).
+FACTCHECK_WIDE_CONTEXT_KEY = "flags.factcheck_wide_context"
+FACTCHECK_WIDE_CONTEXT_MIGRATION_MARKER = (
+    "flags.factcheck_wide_context_default_v1")
+
+
+def _threshold_bool(value) -> bool | None:
+    """bool из PG-значения; ``None``/мусор → None (не угадываем)."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in ("1", "true", "yes", "on"):
+        return True
+    if text in ("0", "false", "no", "off"):
+        return False
+    return None
+
+
+async def migrate_factcheck_wide_context_default(cache) -> dict[str, str]:
+    """Одноразовый подъём `flags.factcheck_wide_context`: false → true.
+
+    Идемпотентность: маркер
+    `flags.factcheck_wide_context_default_v1`. Первый прогон:
+      * ключа нет → ничего (hot.get отдаст новый код-дефолт `true`);
+      * сохранён `true` → маркер (мигрировать нечего);
+      * сохранён `false` → `true` + маркер (наследство прежнего дефолта);
+      * не-bool мусор → WARNING, значение не трогаем, маркер ставим.
+    Маркер есть → no-op: ручное выключение владельца сохраняется.
+    PG down → skip без маркера (повторится на следующем старте).
+    Вызывается из `bot.py main()` (fail-open)."""
+    report: dict[str, str] = {}
+    if cache is None or not getattr(cache, "pg_available", False):
+        logger.info("[factcheck_wide_context_migration] skip: PG недоступен")
+        return report
+    if cache.get(FACTCHECK_WIDE_CONTEXT_MIGRATION_MARKER) is not None:
+        logger.info("[factcheck_wide_context_migration] уже применено — no-op")
+        return report
+    current = cache.get(FACTCHECK_WIDE_CONTEXT_KEY)
+    if current is None:
+        logger.info("[factcheck_wide_context_migration] ключа нет — новый "
+                    "дефолт true применит hot.get")
+        return report
+    parsed = _threshold_bool(current)
+    try:
+        if parsed is True:
+            logger.info("[factcheck_wide_context_migration] уже true — маркер "
+                        "поставлен")
+        elif parsed is False:
+            await cache.set(FACTCHECK_WIDE_CONTEXT_KEY, True, "memory")
+            report[FACTCHECK_WIDE_CONTEXT_KEY] = "updated"
+            logger.info("[factcheck_wide_context_migration] false (прежний "
+                        "дефолт) → true; ручное выключение после маркера "
+                        "сохранится")
+        else:
+            logger.warning(
+                "[factcheck_wide_context_migration] значение не bool — "
+                "не трогаем | key=%s", FACTCHECK_WIDE_CONTEXT_KEY)
+        await cache.set(FACTCHECK_WIDE_CONTEXT_MIGRATION_MARKER, True,
+                        "memory")
+    except Exception:
+        # Fail-open: старт бота не роняем; значение/маркер повторим позже.
+        logger.warning("[factcheck_wide_context_migration] запись не удалась — "
+                       "повторится на следующем старте", exc_info=True)
+    return report
+
+
+# Раунд 10.23 (F5, ADR-1023-5 §D1/§D3): дефолтный провайдер изображений# (Pollinations, flux, POST-режим). Сид `bot_settings` вставляет ключи
 # `ON CONFLICT DO NOTHING` — уже существующий кастом владельца не перетираем.
 # Ключ `keys.image_api_key` здесь СОЗНАТЕЛЬНО отсутствует: секрет пишется
 # только из `.env`/UI (R17/R18).

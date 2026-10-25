@@ -10,6 +10,7 @@ Reply-таргеты (контракт R33-3): вердикт, 5.3 (пустой
 троттлинг 5.1 → reply на message.message_id (ВЫЗОВ, D107). Кулдаун
 FACTCHECK_COOLDOWN_SECONDS per (chat, user), независимый (CooldownTracker).
 """
+import dataclasses
 import logging
 import random
 import re
@@ -37,6 +38,8 @@ from services.smartmodule_concurrency import (
     smartmodule_wait_seconds,
 )
 from services.smartmodule_phrases import (
+    FACTCHECK_CONTEXT_EMPTY_PHRASES,
+    FACTCHECK_CONTEXT_ERROR_PHRASES,
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_ERROR_PHRASES,
     FACTCHECK_IMAGE_NO_CLAIM_PHRASES,
@@ -108,7 +111,8 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                               target: types.Message, target_text: str,
                               user_hint: str | None,
                               forward_source: str | None,
-                              publication=None) -> None:
+                              publication=None,
+                              context_feed: str | None = None) -> None:
     """MCA-20 ON-путь (D3/D9/D12): один resolver → TemporalClaimEnvelope →
     составной кеш-ключ `factcheck_temporal` (авто-bypass при unknown origin)
     → envelope-пайплайн единого сервиса. Ответ — reply на ЦЕЛЕВОЕ (5.3/5.4b/
@@ -118,7 +122,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
     handler'ом (текст альбома + материал изображений). Собранный сверх
     сохранённой строки текст передаётся в envelope как claim_text (даты/
     origin по-прежнему из серверных метаданных); честная оговорка о
-    недоступном изображении идёт в ответ, а не в тезис."""
+    недоступном изображении идёт в ответ, а не в тезис.
+
+    ``context_feed`` (уточнение №2): готовый широкий фид, когда тезис найден
+    в ОКРУЖЕНИИ пустой цели, — второй раз окно не собирается."""
     from services import mca_gates, temporal_factcheck as tf
 
     chat_id = message.chat.id
@@ -199,15 +206,18 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
         return
     try:
         async with typing_active(bot, chat_id):
-            chat_context, gate_decision = await _fetch_context_with_gate(
-                chat_id,
-                hot.get("limits.factcheck_context_before",
-                        settings.FACTCHECK_CONTEXT_BEFORE),
-                hot.get("limits.factcheck_context_after",
-                        settings.FACTCHECK_CONTEXT_AFTER),
-                target_tg_message_id=target.message_id,
-                trigger_message_id=message.message_id,
-                claim_text=target_text, user_hint=user_hint)
+            if context_feed is not None:
+                chat_context, gate_decision = context_feed, None
+            else:
+                chat_context, gate_decision = await _fetch_context_with_gate(
+                    chat_id,
+                    hot.get("limits.factcheck_context_before",
+                            settings.FACTCHECK_CONTEXT_BEFORE),
+                    hot.get("limits.factcheck_context_after",
+                            settings.FACTCHECK_CONTEXT_AFTER),
+                    target_tg_message_id=target.message_id,
+                    trigger_message_id=message.message_id,
+                    claim_text=target_text, user_hint=user_hint)
             # CFG-06 W2 (06B.3/06J.3): тезиса нет после изучения контекста —
             # короткая реплика БЕЗ псевдопроверки и БЕЗ платного поиска.
             if gate_decision is not None \
@@ -310,10 +320,12 @@ async def _fetch_chat_context(chat_id: int, before: int, after: int,
     ``before`` сообщений старше целевого + якорь + ``after`` новее (ASC),
     плюс программный граф реплаев вокруг якоря.
 
-    CFG-06 W1 (06I.2): широкий адаптивный контекст 200–500 за гейтом
-    ``flags.factcheck_wide_context`` (default OFF → байт-паритет прежнего
-    пути; включение — этап W3). Гейт ON: успешный широкий фид заменяет окно,
-    пустой/ошибка → fail-open в узкое окно ниже.
+    CFG-06 W1 (06I.2): широкий адаптивный контекст 200–500. Решение владельца
+    25.10.2026 — режим включён по умолчанию (hot-ключ
+    ``flags.factcheck_wide_context`` остаётся откатом без рестарта).
+    Гейт ON: успешный широкий фид заменяет окно, пустой/ошибка → fail-open в
+    узкое окно ниже. Пустая цель проверяет окружение ВСЕГДА (уточнение №2),
+    независимо от этого гейта.
 
     Fail-open: ЛЮБАЯ ошибка (БД/цепочка/рендер) → '' (R1023F2-03: рендер
     внутри общего try — прежнее поведение без контекста); цепочка — отдельный
@@ -477,23 +489,66 @@ async def _resolve_publication(message: types.Message, target: types.Message):
                                 caption_text=base_text or "")
 
 
-def _empty_content_phrase(publication) -> str:
+async def _probe_context(message: types.Message, target: types.Message,
+                         publication):
+    """Уточнение №2: обязательная проверка окружения пустой цели.
+
+    Широкий контекст (окно 200–300 + reply-цепочка) выполняется НЕЗАВИСИМО
+    от гейта `flags.factcheck_wide_context`: флаг — откат для НЕпустых
+    целей, а не причина ответить «проверять нечего». Возврат ``None`` —
+    окружение собрать не удалось (техническая причина)."""
+    from services.factcheck_suitability import resolve_context_claim
+    try:
+        cache = get_smart_cache()
+    except Exception:
+        cache = None
+    try:
+        return await resolve_context_claim(
+            _db, message.chat.id,
+            target_tg_message_id=target.message_id,
+            trigger_tg_message_id=message.message_id,
+            reply_to_tg_id=publication.reply_to_tg_id,
+            cache=cache)
+    except Exception:
+        logger.warning("[factcheck] context probe failed | chat=%s",
+                       message.chat.id, exc_info=True)
+        return None
+
+
+def _empty_content_phrase(publication, probe=None) -> str:
     """Почему фактчек не может идти — по фактическому состоянию входа.
 
-    §4/§5/§7: «пустота» допустима ТОЛЬКО когда данных действительно нет.
-    Изображение, которое не прочиталось технически или ещё не распознано, —
-    отдельная честная причина, а не «и че тут проверять, пустоту?»."""
+    Приоритет: техническая недоступность изображения → отдельная причина;
+    затем — окружение проверено и тезиса нет → честный отказ с указанием
+    окна (уточнение №2). «Пустота» без проверки окружения не выдаётся."""
     media = publication.media
-    if publication.album_incomplete:
-        # Альбом прочитан не полностью: утверждать «нечего проверять» нельзя.
-        return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
-    if publication.has_image:
-        if media.vision_failed:
+    if _db is None:
+        # DI-off (тесты/без БД): окружения нет — прежнее поведение.
+        if publication.album_incomplete:
             return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
-        if media.image_not_analyzed:
-            return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
-        return random.choice(FACTCHECK_IMAGE_NO_CLAIM_PHRASES)
-    return random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+        if publication.has_image:
+            if media.vision_failed:
+                return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
+            if media.image_not_analyzed:
+                return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
+            return random.choice(FACTCHECK_IMAGE_NO_CLAIM_PHRASES)
+        return random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+    if publication.album_incomplete or (
+            publication.has_image and media.vision_failed):
+        # Альбом/изображение технически недоступны — причина важнее окна.
+        return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
+    if publication.has_image and media.image_not_analyzed:
+        return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
+    if probe is None:
+        # Цель пуста, окружение прочитать не удалось — это не «фактов нет».
+        return random.choice(FACTCHECK_CONTEXT_ERROR_PHRASES)
+    scope = "цель с изображением" if publication.has_image else "цель"
+    scope_of = "цели с изображением" if publication.has_image else "цели"
+    window = max(0, int(probe.window_messages or 0))
+    if window <= 0:
+        return random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES)
+    return random.choice(FACTCHECK_CONTEXT_EMPTY_PHRASES).format(
+        scope=scope, scope_of=scope_of, window=window)
 
 
 def _with_publication_notice(text: str, publication) -> str:
@@ -570,17 +625,39 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     # фото/альбом/пересыл без caption упирались в «проверять пустоту».
     publication = await _resolve_publication(message, target)
     target_text = publication.text
-    if not target_text:                        # нет тезиса → РЕПЛАЙ НА ЦЕЛЕВОЕ, БЕЗ поиска
-        await _reply(bot, message.chat.id, _empty_content_phrase(publication),
-                     target.message_id)
-        logger.info(
-            "[factcheck] no claim text | chat=%s | target=%s | group=%s | "
-            "probed=%d | image=%s | vision_failed=%s | pending=%s",
-            message.chat.id, target.message_id, publication.media_group_id,
-            len(publication.message_ids), publication.has_image,
-            publication.media.vision_failed,
-            publication.media.image_not_analyzed)
-        return
+    context_feed = None
+    if not target_text:
+        # Уточнение №2 (owner 25.10.2026): пустая цель — не отказ. Сначала
+        # обязательный широкий контекст (цепочка ответов + окно 200–300) БЕЗ
+        # учёта гейта; материал найден → фактчек идёт по нему.
+        probe = await _probe_context(message, target, publication)
+        if probe is not None and probe.claim is not None:
+            target_text = probe.claim.text
+            context_feed = probe.feed
+            publication = dataclasses.replace(
+                publication, text=target_text, caption_text=target_text,
+                augmented=True)
+            logger.info(
+                "[factcheck] claim from context | chat=%s | target=%s | "
+                "source=%s | anchor=%s | author=%s | window=%d | chain=%d",
+                message.chat.id, target.message_id, probe.claim.source,
+                probe.claim.tg_message_id, probe.claim.author,
+                probe.window_messages, probe.chain_len)
+        else:
+            await _reply(bot, message.chat.id,
+                         _empty_content_phrase(publication, probe),
+                         target.message_id)
+            logger.info(
+                "[factcheck] no claim in target/context | chat=%s | target=%s "
+                "| group=%s | probed=%d | image=%s | vision_failed=%s | "
+                "pending=%s | window=%s | chain=%s",
+                message.chat.id, target.message_id,
+                publication.media_group_id, len(publication.message_ids),
+                publication.has_image, publication.media.vision_failed,
+                publication.media.image_not_analyzed,
+                None if probe is None else probe.window_messages,
+                None if probe is None else probe.chain_len)
+            return
     forward_source = None
     if getattr(target, "forward_origin", None) is not None:
         forward_source = _extract_forward_source(target.forward_origin)  # reuse handlers/summary.py
@@ -620,7 +697,8 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     if _temporal_on():
         await _factcheck_temporal(message, bot, target, target_text,
                                   user_hint, forward_source,
-                                  publication=publication)
+                                  publication=publication,
+                                  context_feed=context_feed)
         return
     cache = get_smart_cache()
     cache_key = cache.build_key("factcheck", target_text)
@@ -647,15 +725,18 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
     try:
         # Epic 60 (65.7, T-475): «печатает…» от контекста в ИИ до отправки.
         async with typing_active(bot, message.chat.id):
-            chat_context, gate_decision = await _fetch_context_with_gate(
-                message.chat.id,
-                hot.get("limits.factcheck_context_before",
-                        settings.FACTCHECK_CONTEXT_BEFORE),
-                hot.get("limits.factcheck_context_after",
-                        settings.FACTCHECK_CONTEXT_AFTER),
-                target_tg_message_id=target.message_id,
-                trigger_message_id=message.message_id,
-                claim_text=target_text, user_hint=user_hint)
+            if context_feed is not None:
+                chat_context, gate_decision = context_feed, None
+            else:
+                chat_context, gate_decision = await _fetch_context_with_gate(
+                    message.chat.id,
+                    hot.get("limits.factcheck_context_before",
+                            settings.FACTCHECK_CONTEXT_BEFORE),
+                    hot.get("limits.factcheck_context_after",
+                            settings.FACTCHECK_CONTEXT_AFTER),
+                    target_tg_message_id=target.message_id,
+                    trigger_message_id=message.message_id,
+                    claim_text=target_text, user_hint=user_hint)
             # CFG-06 W2 (06B.3/06J.3): короткая реплика без поиска —
             # без кеш-записи (идемпотентность 59.2 сохранена).
             if gate_decision is not None \

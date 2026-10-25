@@ -408,6 +408,7 @@ class ClaimPublication:
     augmented: bool = False
     album_incomplete: bool = False
     forward_source: str | None = None
+    reply_to_tg_id: int | None = None     # цель отвечает на это сообщение
 
     def notice(self) -> str:
         parts: list[str] = []
@@ -601,11 +602,24 @@ async def resolve_claim_publication(
         if source:
             forward_source = source
             break
+    reply_to_tg_id = None
+    reply_obj = (getattr(target, "reply_to_message", None)
+                 if target is not None else None)
+    reply_value = (getattr(reply_obj, "message_id", None)
+                   if reply_obj is not None else None)
+    if isinstance(reply_value, int) and not isinstance(reply_value, bool):
+        reply_to_tg_id = reply_value
+    if reply_to_tg_id is None:
+        try:
+            reply_to_tg_id = int(_row_value(target_row, "reply_to_id"))
+        except (TypeError, ValueError):
+            reply_to_tg_id = None
     return ClaimPublication(
         text=text, caption_text=caption_text, media=media,
         message_ids=tuple(image_ids), media_group_id=media_group_id,
         has_image=has_image, augmented=bool(text) and text != base,
-        album_incomplete=album_incomplete, forward_source=forward_source)
+        album_incomplete=album_incomplete, forward_source=forward_source,
+        reply_to_tg_id=reply_to_tg_id)
 
 
 # ── P0-FACTCHECK (§3.6): классы исхода retrieval — сбой ≠ «нет данных» ───────

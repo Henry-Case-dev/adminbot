@@ -1,11 +1,11 @@
 """CFG-06 W1 — широкий чат-контекст фактчека (06I.1–06I.9, бриф
 cfg-06-build-plan §W1).
 
-ЗАМЕНА узкого окна кап-40 (`handlers/factcheck.py::_clamp_window`) только за
-флагом отката `flags.factcheck_wide_context` / env
-`FACTCHECK_WIDE_CONTEXT_ENABLED` — default **OFF**: прод-контур фактчека не
-меняется до W3 (включение — этап W3, ПОСЛЕ независимого ревью; правило
-владельца: готовые проверенные функции включаются штатным релизом).
+Режим широкого контекста: **по умолчанию ВКЛЮЧЁН** (решение владельца
+25.10.2026). Гейт `flags.factcheck_wide_context` /
+`FACTCHECK_WIDE_CONTEXT_ENABLED` остаётся штатным откатом без рестарта:
+явное `false` возвращает прежнее узкое окно. Для ПУСТОЙ цели окружение
+проверяется всегда (уточнение владельца №2) — гейт там не читается.
 
 Требования исходника (source-cfg-addendum L310–L318):
 
@@ -68,18 +68,22 @@ _RARE_TERM_LEN = 5
 
 
 def wide_context_enabled() -> bool:
-    """Гейт отката W1 (default OFF → байт-паритет прежнего контура).
+    """Гейт широкого контекста: по умолчанию ВКЛЮЧЁН (owner 25.10.2026).
 
     Приоритет: hot-ключ ``flags.factcheck_wide_context`` (rollback без
     рестарта, паттерн CFG-01) → env ``FACTCHECK_WIDE_CONTEXT_ENABLED`` →
-    False. Никогда не бросает."""
+    **True**. Явный ``false`` (владелец выключил в админке) действует;
+    значения нет → включено. Никогда не бросает.
+
+    Для ПУСТОЙ цели гейт намеренно не читается: окружение проверяется
+    всегда (уточнение №2), флаг — откат для непустых целей."""
     try:
         default = bool(getattr(settings, "FACTCHECK_WIDE_CONTEXT_ENABLED",
-                               False))
+                               True))
         from services import hot_config as hot
         return bool(hot.get("flags.factcheck_wide_context", default))
     except Exception:      # pragma: no cover — конфиг не должен ронять
-        return False
+        return True
 
 
 def _hot_int(hot_key: str, *, settings_field: str, default: int,
@@ -471,6 +475,9 @@ async def write_slice_cache(cache, ctx: ConversationContext, *,
 # ── Сборка (единая точка входа лейна). ──────────────────────────────────────
 
 def _row_to_context_message(row, chat_id: int) -> ContextMessage:
+    # P0-FACTCHECK уточнение №2: подпись (caption) — такое же содержание
+    # сообщения, как text (раньше окно видело фото-строки пустыми и молча
+    # выбрасывало их вместе с утверждением автора).
     return ContextMessage(
         message_id=row_get(row, "id"),
         tg_message_id=row_get(row, "tg_message_id"),
@@ -480,7 +487,7 @@ def _row_to_context_message(row, chat_id: int) -> ContextMessage:
         reply_to_tg_id=row_get(row, "reply_to_id"),
         is_forward=bool(row_get(row, "is_forward")),
         forward_source=row_get(row, "forward_source"),
-        text=str(row_get(row, "text") or ""))
+        text=str(row_get(row, "text") or row_get(row, "caption") or ""))
 
 
 async def fetch_newest_message_id(db, chat_id: int) -> int | None:

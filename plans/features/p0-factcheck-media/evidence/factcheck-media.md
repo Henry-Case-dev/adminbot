@@ -1,8 +1,10 @@
 # P0 FACTCHECK MEDIA — изображения, альбомы, пересланные публикации
 
 Ветка: `task/factcheck-media`, база — production `2.58.130` (`534ac7dd`).
-Источники требований: `source-2026-10-25.md` (§1–§9) и
-`source-owner-clarification-2026-10-25.md` (уточнение владельца 25.10.2026).
+Источники требований: `source-2026-10-25.md` (§1–§9),
+`source-owner-clarification-2026-10-25.md` (уточнение №1),
+`source-owner-clarification-2-2026-10-25.md` (уточнение №2) и
+`owner-decision-wide-context-2026-10-25.md` (решение о дефолте).
 
 Живых сообщений в Telegram не отправлялось. К production/SSH/БД сервера
 подключений не было, секреты не читались, зависимостей не добавлялось.
@@ -20,7 +22,7 @@ OCR/Vision → Fact-check context → provider payload → model → response`.
 | Message storage | `summary_observer` (0a) пишет **каждый** элемент в `smart_messages` с `media_group_id`, `caption`, `media_type`, `origin_*` | durable-данные **есть**, но их никто не читал | `get_smart_messages_by_media_group` (тот же `chat_id` + `media_group_id`) |
 | Media group reconstruction | `services/media_group_buffer.py`: in-memory, TTL 60 c, только caption + `first_message_id`, **без изображений**, пуст после рестарта; при промахе — сразу «пусто» | Альбом и все фото терялись | Durable-реконструкция из `smart_messages`; буфер остаётся same-turn fast-path |
 | OCR / Vision | `mca_vision.render_media_context_async` отдаёт OCR + визуальное описание **сохранённого** анализа; активы регистрируются на приёме | В проде (temporal ON) Vision **не вызывался вообще**: `load_claim_media` был подключён только в v2 (флаг OFF) | `load_claim_media` читает все элементы публикации; вызывается из handler и v2 |
-| Fact-check context | `_extract_target_text` возвращал `None` → `FACTCHECK_EMPTY_CONTEXT_PHRASES` **до** поиска и до любого vision | «и че тут проверять, пустоту?» | Пустая фраза только при действительно пустом входе (§7) |
+| Fact-check context | `_extract_target_text` возвращал `None` → `FACTCHECK_EMPTY_CONTEXT_PHRASES` **до** поиска, vision и проверки окружения | «и че тут проверять, пустоту?» | Пусто в цели → обязательное окно 200–300 + reply-цепочка; отказ называет, что проверено (уточнение №2) |
 | Payload | `check_claim`/`build_envelope` получали только текст цели | — | Тезис = текст/подписи всей публикации + OCR + визуальное описание (помечены как данные изображения/модели) |
 | Model / response | — | — | Плюс честная оговорка о неполноте/недоступности в ответе (не в тезисе и не в поиске) |
 
@@ -40,6 +42,8 @@ failed.
 кандидат на этом же входе читает 10 элементов, берёт подпись с 1-го,
 подключает готовые анализы (5 из 10) и честно сообщает о нераспознанной
 части (тест `test_production_shape_album_10_caption_first_reply_ninth`).
+Дополнительно (уточнение №2) подпись теперь видна и в широком окне: даже
+если бы альбом не собрался, окружение отдало бы тот же тезис.
 
 ## 2. Что изменено
 
@@ -50,9 +54,15 @@ failed.
 | `services/mca_vision.py` | Аддитивный ключ `visual_descriptions` в `render_media_context_async` (описание — отдельным каналом, не OCR). Существующие потребители не затронуты. |
 | `handlers/factcheck.py` | `_resolve_publication` перед проверкой пустоты; `_empty_content_phrase` различает: пусто / изображение не прочитано / распознавание не готово / нет проверяемого утверждения; оговорка добавляется к ответу (не к тезису); claim_text для envelope при собранном тексте; атрибуция пересланной публикации из сохранённой строки. |
 | `services/factcheck_orchestrator.py` | v2 использует тот же резолвер (одна реализация), envelope получает собранный текст, notice — из публикации. |
-| `services/smartmodule_phrases.py` | Три честных пула: `FACTCHECK_MEDIA_ERROR_PHRASES`, `FACTCHECK_IMAGE_PENDING_PHRASES`, `FACTCHECK_IMAGE_NO_CLAIM_PHRASES`. `FACTCHECK_EMPTY_CONTEXT_PHRASES` — только для «данных действительно нет». |
+| `services/factcheck_context.py` | `wide_context_enabled()` → default **True** (явное `false` = откат); окно видит `caption` (раньше фото-строки с подписью молча выбрасывались из окна). |
+| `services/factcheck_suitability.py` | `ContextClaim`/`ContextProbe`, `find_context_claim` (ближайший тезис окна; триггер и цель исключены), `resolve_context_claim` (reply-цепочка через существующий `collect_thread_chain` + окно W1; гейт не читается для пустой цели). |
+| `services/smartmodule_phrases.py` | Три честных пула media + `FACTCHECK_CONTEXT_EMPTY_PHRASES` (с `{scope}`/`{scope_of}`/`{window}`) и `FACTCHECK_CONTEXT_ERROR_PHRASES`. `FACTCHECK_EMPTY_CONTEXT_PHRASES` больше не используется для пустой цели (только DI-off/совместимость). |
+| `config/settings.py` | `FACTCHECK_WIDE_CONTEXT_ENABLED` default **True** (решение владельца 25.10.2026). |
+| `services/config_migrations.py` + `bot.py` | `migrate_factcheck_wide_context_default`: одноразовый false→true с маркером `flags.factcheck_wide_context_default_v1`; после маркера ручное выключение не перетирается; PG down → skip. Вызов в `main()` рядом с миграцией окна. |
+| `services/param_catalog.py` + `plans/docs/param-registry-round1025.tsv` | Описание тумблера «Модули → Фактчек» под новый дефолт (окно 200–500, дефолт 300, откат без рестарта). Группа/вкладка не менялись; TSV переэмитирован генератором (`--check OK`, 582 строки). |
 | `services/media_group_buffer.py` | Докстринг: буфер = fast-path, источник истины — `smart_messages` (код буфера не менялся). |
-| `tests/test_factcheck_media_2026_10_25.py` | 31 unit-тест на вход пайплайна (не только на финальную фразу). |
+| `tests/test_factcheck_media_2026_10_25.py` | 40 unit-тестов на вход пайплайна (не только на финальную фразу). |
+| `tests/test_factcheck_wide_context_default_2026_10_25.py` | 11 тестов дефолта/миграции/каталога/проводки широкого контекста. |
 
 Новых LLM/OCR/Vision-провайдеров, таблиц, миграций и квот инструкций нет.
 
@@ -100,6 +110,64 @@ failed.
 5. **Границы.** Одиночное фото вне альбома/поста проверяется само (прежнее
    правило); неоднозначные/соседние сообщения не объединяются.
 
+## 3a. Уточнение №2 (25.10.2026): пустая цель → окно окружения
+
+Правило: «в цели нет проверяемого материала» — не отказ. Сначала обязательны
+reply-цепочка и окно 200–300 сообщений, и только потом возможен честный отказ
+с указанием, что проверено.
+
+Реализация (существующие механизмы, не новый):
+
+1. `handlers/factcheck.py` при пустом тезисе вызывает
+   `resolve_context_claim` **до** любой фразы отказа.
+2. Цепочка: существующий `services/thread_chain.collect_thread_chain` от
+   родителя цели (`target.reply_to_message` / `reply_to_id` строки), бот-ходы
+   тезисом не считаются.
+3. Окно: существующий `services/factcheck_context.build_wide_context`
+   (дефолт 300, кап 500, кеш 120 с, строго `chat_id`). Для пустой цели
+   гейт `wide_context_enabled` НЕ читается — режим обязателен; флаг остаётся
+   откатом для непустых целей.
+4. Кандидат: ближайшее к цели сообщение с структурным предикатом
+   (`_has_predicate`/≥6 содержательных токенов), кроме цели и сообщения-
+   команды «фактчек». Найденный текст становится тезисом, окно+цепочка —
+   `chat_context`; второй раз окно не собирается (`context_feed`).
+5. Ничего нет → `FACTCHECK_CONTEXT_EMPTY_PHRASES` с фактическим числом
+   проверенных сообщений и scope («цель» / «цель с изображением»).
+   Окно не собралось → `FACTCHECK_CONTEXT_ERROR_PHRASES` (техническая
+   причина, не «фактов нет»).
+6. Соседние сообщения вне окна/цепочки не объединяются: окно — существующий
+   `get_messages_around` по `chat_id`; caption теперь входит в окно.
+
+Тесты (в `tests/test_factcheck_media_2026_10_25.py`,
+`TestOwnerClarification2ContextWindow`): утверждение в предыдущем сообщении;
+выше по reply-цепочке (вне окна); в обсуждении дальше 6 сообщений
+(проверяется фактический `before` > 6); нигде нет утверждений → отказ с
+числом окна; чужой `chat_id` не используется; команда «фактчек …» не
+становится тезисом; проводка не зависит от гейта.
+
+## 3b. Решение владельца (25.10.2026): широкий контекст по умолчанию
+
+1. `config/settings.py`: `FACTCHECK_WIDE_CONTEXT_ENABLED` default **True**.
+2. `wide_context_enabled()`: fallback **True**; явный hot/env `false` =
+   откат без рестарта (действует и для непустых целей).
+3. Одноразовая идемпотентная миграция
+   `migrate_factcheck_wide_context_default` (существующий
+   `services/config_migrations.py`, вызов в `bot.py main()`):
+   * сохранён `false` от прежнего дефолта → `true` + маркер
+     `flags.factcheck_wide_context_default_v1`;
+   * маркер есть → no-op: ручное выключение владельца сохраняется;
+   * ключа нет → ничего (hot.get отдаст новый дефолт); PG down → skip.
+4. Каталог: тумблер уже в группе `flags_module_factcheck` (вкладка
+   `mod_factcheck`, «Модули → Фактчек»); обновлено описание под новый
+   дефолт. `tools/gen_param_registry_round1025.py --check` → OK (582
+   строки); Δ каталога = 0 (ключи/GROUPS/TAB не менялись), переутверждён
+   только hash описания в F8-инварианте. `FACTCHECK_SUITABILITY_GATE_ENABLED`
+   остаётся default OFF (решение владельца касалось только широкого окна;
+   гейт — отдельный миграционный рубильник).
+5. Проводка проверена не флагом: тест непустой цели получает широкий фид
+   (`<chat_context>` + сообщение дальше 6) и реальный `before` > 6;
+   пустая цель собирает окно даже при принудительно выключенном гейте.
+
 ## 4. Регрессия по 15 случаям §9 (+ уточнение)
 
 Все проверки — `tests/test_factcheck_media_2026_10_25.py` (реальный
@@ -121,7 +189,7 @@ failed.
 | 11 | Альбом с неполными данными | `test_album_with_missing_element_is_partial`, `test_album_group_read_failure_*` | использовано что есть; оговорка в ответе, не в тезисе |
 | 12 | Ошибка получения медиафайла | `TestMediaFailureSemantics::test_vision_error_without_text_is_technical_not_empty` | техническая фраза, НЕ пустая, `check_claim` не вызван |
 | 13 | Недоступность Vision-провайдера | `test_vision_unavailable_with_caption_still_checks_text` | проверка по подписи идёт, в ответе честная оговорка |
-| 14 | Изображение без проверяемого утверждения | `test_image_without_verifiable_claim`, `test_image_pending_is_honest_pending` | фразы «нет утверждения»/«ещё распознаю», НЕ пустая |
+| 14 | Изображение без проверяемого утверждения | `test_image_without_verifiable_claim_checks_context`, `test_image_pending_is_honest_pending` | сначала проверяется окружение; отказ называет окно; pending — отдельная честная причина |
 | 15 | Текст и изображения, которые его не подтверждают | `TestTextAndContradictingImage::test_claim_carries_text_and_image_material_separately` | в тезисе слова автора, OCR и описание (помечено «не доказывает подлинность») |
 
 Уточнение владельца 25.10:
@@ -133,24 +201,30 @@ failed.
 | Текст+подпись с разных сообщений, соседи не слиты | `test_parent_text_included_but_neighbours_not_merged` | оба текста, «соседнее сообщение» отсутствует |
 | Production-форма (10 фото, подпись 2846 на 1-м, reply на 9-е, 5 failed) | `test_production_shape_album_10_caption_first_reply_ninth` | все 10 id, длинная подпись цела, честная оговорка о части изображений, «пустоты» нет |
 
-Дополнительно: `test_truly_nothing_keeps_empty_context_phrase` (единственный
-случай с прежней фразой), `test_repost_variant_caption_command_is_not_a_claim`
+Дополнительно: `test_truly_nothing_refusal_names_checked_window` (отказ
+называет окно вместо общей фразы), `test_repost_variant_caption_command_is_not_a_claim`
 (D121 не сломан), `TestTemporalEnvelopeUsesPublication` (собранный текст
 доходит до `envelope.claim_text` на реальной БД), `TestDurableAlbumStorage`
 (SQL: порядок, отсутствие соседей), два unit-теста агрегации
-`load_claim_media`.
+`load_claim_media`, 11 тестов дефолта/миграции/каталога/проводки в
+`tests/test_factcheck_wide_context_default_2026_10_25.py`.
 
 ## 5. Прогоны (реальный вывод)
 
 ```
-$ py -3 -m pytest tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_handlers.py tests/test_factcheck_service.py tests/test_factcheck_context_cfg06.py tests/test_factcheck_deep_context_round1023.py -q
-154 passed, 2 warnings in 5.14s
+$ py -3 -m pytest tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_wide_context_default_2026_10_25.py tests/test_factcheck_handlers.py tests/test_factcheck_service.py tests/test_factcheck_context_cfg06.py tests/test_factcheck_deep_context_round1023.py tests/test_context_limits_round1019.py tests/test_webapp_round109_ui.py -q
+216 passed, 2 warnings in 6.81s
 ```
 
 ```
 $ py -3 -m pytest tests -k "factcheck or vision or media_group" -q --ignore=tests/test_p0_vision_ui_e2e.py
-1 failed, 687 passed, 15005 deselected, 4 warnings in 40.71s
+1 failed, 707 passed, 15005 deselected, 4 warnings in 36.75s
 FAILED tests/test_soul1_registry_completeness.py::test_legacy_persona_canons_are_registered_with_revision_labels
+```
+
+```
+$ py -3 tools/gen_param_registry_round1025.py --check
+CHECK OK: реестр 582 == REGISTRY, карта полна, R17-чисто, TSV/map идемпотентны.
 ```
 
 Без `--ignore` тот же прогон добавляет 7 ERROR из `test_p0_vision_ui_e2e.py`
@@ -162,7 +236,7 @@ FAILED tests/test_soul1_registry_completeness.py::test_legacy_persona_canons_are
 же (`verbilizer.mode.deep_research`, реестр промптов).
 
 ```
-$ py -3 -m py_compile handlers/factcheck.py services/factcheck_service.py services/factcheck_orchestrator.py services/database.py services/mca_vision.py services/smartmodule_phrases.py services/media_group_buffer.py tests/test_factcheck_media_2026_10_25.py
+$ py -3 -m py_compile handlers/factcheck.py services/factcheck_service.py services/factcheck_orchestrator.py services/database.py services/mca_vision.py services/smartmodule_phrases.py services/media_group_buffer.py services/factcheck_context.py services/factcheck_suitability.py services/config_migrations.py services/param_catalog.py config/settings.py bot.py tests/test_factcheck_media_2026_10_25.py tests/test_factcheck_wide_context_default_2026_10_25.py
 py_compile: OK
 ```
 
@@ -170,10 +244,10 @@ py_compile: OK
 
 1. **Production-строка PERMsoc** в БД не читалась мной (recon владельца —
    основание, SSH не использовал). Для повторной проверки после выката:
-   строка лога `[factcheck] no claim text | chat=… | target=… | group=… |
-   probed=… | image=… | vision_failed=… | pending=…`; при штатной работе —
-   отсутствие этой строки и вердикт по подписи. SQL (read-only) при
-   необходимости:
+   строка лога `[factcheck] no claim in target/context | chat=… | target=… |
+   group=… | probed=… | image=… | vision_failed=… | pending=… | window=… |
+   chain=…`; при штатной работе — отсутствие этой строки и вердикт по
+   подписи. SQL (read-only) при необходимости:
    ```sql
    SELECT tg_message_id, media_type, media_group_id, reply_to_id,
           length(caption) AS caption_len, length(text) AS text_len,
@@ -203,3 +277,14 @@ py_compile: OK
 8. Метки материала («OCR, не слова автора», «результат модели…») идут в
    поисковый запрос вместе с текстом (как и прежний OCR-путь v2). Честность
    вывода это не ломает; запрос может слегка размываться.
+9. **Кандидат из окружения выбирается детерминированно** (ближайшее сообщение
+   со структурным предикатом, без LLM-классификатора). В шумном чате ближайшее
+   утверждение может оказаться не тем, что имел в виду человек; цепочка
+   reply/окно и автор/ID видны модели в `<chat_context>`, а бот не выдумывает
+   тезис. Это осознанный компромисс против прежнего «проверять нечего».
+10. **Широкий контекст теперь дефолт**: откат — тумблер «Модули → Фактчек»
+    (hot, без рестарта). Миграция поднимает только унаследованный `false` и
+    ставит маркер; при недоступном PG она пропускается и повторится на
+    следующем старте. `FACTCHECK_EMPTY_CONTEXT_PHRASES` остаётся только для
+    DI-off/совместимости — в прод-пути пустая цель всегда сначала смотрит
+    окружение.

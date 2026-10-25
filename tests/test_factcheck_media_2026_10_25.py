@@ -1,4 +1,4 @@
-"""P0-FACTCHECK MEDIA (owner 25.10.2026 §1–§9) — регрессия 15 случаев.
+﻿"""P0-FACTCHECK MEDIA (owner 25.10.2026 §1–§9) — регрессия 15 случаев.
 
 Проверяется ВХОД пайплайна, а не только финальная фраза: какие message_id
 альбома прочитаны, какой текст/подпись/OCR/описание дошли до check_claim и
@@ -20,6 +20,8 @@ from services import mca_vision
 from services import temporal_factcheck as tf
 from services.message_identity import save_live_message
 from services.smartmodule_phrases import (
+    FACTCHECK_CONTEXT_EMPTY_PHRASES,
+    FACTCHECK_CONTEXT_ERROR_PHRASES,
     FACTCHECK_EMPTY_CONTEXT_PHRASES,
     FACTCHECK_IMAGE_NO_CLAIM_PHRASES,
     FACTCHECK_IMAGE_PENDING_PHRASES,
@@ -42,11 +44,12 @@ class FakeDb:
     """Минимальный durable-слой: строки smart_messages по (chat, tg) и группе."""
 
     def __init__(self, rows_by_tg=None, group_rows=None, reply_rows=None, *,
-                 fail_group=False, fail_target=False):
+                 around_rows=None, fail_group=False, fail_target=False):
         self.rows_by_tg = {int(k): v for k, v in (rows_by_tg or {}).items()}
         self.group_rows = {k: list(v) for k, v in (group_rows or {}).items()}
         self.reply_rows = {int(k): list(v)
                            for k, v in (reply_rows or {}).items()}
+        self.around_rows = list(around_rows) if around_rows is not None else []
         self.fail_group = fail_group
         self.fail_target = fail_target
         self.calls = []
@@ -71,6 +74,16 @@ class FakeDb:
             rows = [r for r in rows if r.get("media_group_id")]
         return rows[:int(limit)]
 
+    async def get_messages_around(self, chat_id, target_tg_message_id,
+                                  before, after):
+        self.calls.append(("around", int(chat_id), target_tg_message_id,
+                           int(before), int(after)))
+        return list(self.around_rows)
+
+    async def get_recent_messages(self, chat_id, limit):
+        self.calls.append(("recent", int(chat_id), int(limit)))
+        return list(self.around_rows[-int(limit):]) if limit else []
+
 
 def _row(tg, *, caption=None, text=None, media_type="photo", mgid=ALBUM_ID,
          forward_source=None, origin_display_name=None, reply_to_id=None):
@@ -80,6 +93,17 @@ def _row(tg, *, caption=None, text=None, media_type="photo", mgid=ALBUM_ID,
         "forward_source": forward_source,
         "origin_display_name": origin_display_name,
         "reply_to_id": reply_to_id,
+    }
+
+
+def _win(tg, text, *, author="Вася", reply_to_id=None, chat_id=CHAT_ID,
+         media_type="text", caption=None):
+    """Строка окна wide-context (поля get_messages_around)."""
+    return {
+        "id": tg, "chat_id": chat_id, "tg_message_id": tg, "text": text,
+        "caption": caption, "reply_to_id": reply_to_id,
+        "timestamp": 1792200000 + tg, "media_type": media_type,
+        "author_name": author, "is_forward": False, "forward_source": None,
     }
 
 
@@ -530,18 +554,29 @@ class TestMediaFailureSemantics:
         assert "не удалось прочитать" not in _claim_text(service)
 
     @pytest.mark.asyncio
-    async def test_image_without_verifiable_claim(self, handler_env,
-                                                  monkeypatch):
+    async def test_image_without_verifiable_claim_checks_context(
+            self, handler_env, monkeypatch):
+        """Уточнение №2: «на картинке нет тезиса» ещё не приговор —
+        окружение проверено, и отказ называет окно."""
         monkeypatch.setattr(mca_vision, "render_media_context_async",
                             _render({77: _analysis()}))
         service = _service()
         target = _make_msg(message_id=77, photo=[object()])
-        db = FakeDb(rows_by_tg={77: _row(77, mgid=None)})
+        window = [_win(74, "просто болтовня без фактов"),
+                  _win(75, "и ещё одна реплика"), _win(76, "ага")]
+        db = FakeDb(rows_by_tg={77: _row(77, mgid=None)},
+                    around_rows=window)
         await _run(handler_env, service, db, target)
         service.check_claim.assert_not_awaited()
         phrase = _reply_text(handler_env)
-        assert phrase in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
+        candidates = [p.format(scope="цель с изображением",
+                               scope_of="цели с изображением",
+                               window=len(window))
+                      for p in FACTCHECK_CONTEXT_EMPTY_PHRASES]
+        assert phrase in candidates
         assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        assert phrase not in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
+        assert str(len(window)) in phrase
 
     @pytest.mark.asyncio
     async def test_image_pending_is_honest_pending(self, handler_env,
@@ -558,17 +593,44 @@ class TestMediaFailureSemantics:
         assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
 
     @pytest.mark.asyncio
-    async def test_truly_nothing_keeps_empty_context_phrase(self, handler_env,
-                                                            monkeypatch):
+    async def test_truly_nothing_refusal_names_checked_window(
+            self, handler_env, monkeypatch):
         monkeypatch.setattr(mca_vision, "render_media_context_async",
                             _render({}))
         service = _service()
         target = _make_msg(message_id=77)
+        window = [_win(74, "просто болтовня без фактов"),
+                  _win(75, "и ещё одна реплика"), _win(76, "ага")]
         db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
-                                         mgid=None)})
+                                         mgid=None)},
+                    around_rows=window)
         await _run(handler_env, service, db, target)
         service.check_claim.assert_not_awaited()
-        assert _reply_text(handler_env) in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        phrase = _reply_text(handler_env)
+        assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        candidates = [p.format(scope="цель", scope_of="цели",
+                               window=len(window))
+                      for p in FACTCHECK_CONTEXT_EMPTY_PHRASES]
+        assert phrase in candidates
+        assert str(len(window)) in phrase
+
+    @pytest.mark.asyncio
+    async def test_context_unreadable_is_technical_not_empty(
+            self, handler_env, monkeypatch):
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+
+        class _BrokenDb(FakeDb):
+            async def get_messages_around(self, *a, **kw):
+                raise RuntimeError("db boom")
+
+        service = _service()
+        target = _make_msg(message_id=77)
+        db = _BrokenDb(rows_by_tg={77: _row(77, text=None,
+                                            media_type="text", mgid=None)})
+        await _run(handler_env, service, db, target)
+        service.check_claim.assert_not_awaited()
+        assert _reply_text(handler_env) in FACTCHECK_CONTEXT_ERROR_PHRASES
 
     @pytest.mark.asyncio
     async def test_repost_variant_caption_command_is_not_a_claim(
@@ -577,13 +639,21 @@ class TestMediaFailureSemantics:
         monkeypatch.setattr(mca_vision, "render_media_context_async",
                             _render({77: _analysis()}))
         service = _service()
-        db = FakeDb(rows_by_tg={77: _row(77, caption="фактчек", mgid=None)})
+        window = [_win(74, "обычная болтовня"), _win(75, "ага")]
+        db = FakeDb(rows_by_tg={77: _row(77, caption="фактчек", mgid=None)},
+                    around_rows=window)
         handler_env.setup_factcheck(service, db)
         msg = _make_msg(caption="фактчек", message_id=77,
                         forward_origin=_channel_origin(), photo=[object()])
         await handler_env.factcheck_handler(msg, bot=AsyncMock())
         service.check_claim.assert_not_awaited()
-        assert _reply_text(handler_env) in FACTCHECK_IMAGE_NO_CLAIM_PHRASES
+        phrase = _reply_text(handler_env)
+        assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        candidates = [p.format(scope="цель с изображением",
+                               scope_of="цели с изображением",
+                               window=len(window))
+                      for p in FACTCHECK_CONTEXT_EMPTY_PHRASES]
+        assert phrase in candidates
 
 
 # ── 15. Текст и изображения, которые его не подтверждают ────────────────────
@@ -792,6 +862,169 @@ class TestOwnerClarification2026_10_25:
         assert "пустот" not in sent
 
 
+
+
+    @pytest.mark.asyncio
+    async def test_reply_to_text_reply_does_not_pull_parent(self, handler_env,
+                                                            monkeypatch):
+        """Обычный reply на текст, который сам reply: родитель не подмешивается."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        db = FakeDb(rows_by_tg={
+            77: _row(77, text="проверяемый тезис", media_type="text",
+                     mgid=None, reply_to_id=70),
+            70: _row(70, text="родительский текст", media_type="text",
+                     mgid=None),
+        })
+        target = _make_msg(text="проверяемый тезис", message_id=77)
+        await _run(handler_env, service, db, target)
+        assert _claim_text(service) == "проверяемый тезис"
+        assert "родительский текст" not in _claim_text(service)
+
+
+# ── Уточнение №2 (25.10.2026): пустая цель → окружение целиком ──────────────
+
+class TestOwnerClarification2ContextWindow:
+    @pytest.mark.asyncio
+    async def test_claim_in_previous_message(self, handler_env, monkeypatch):
+        """Цель без текста; утверждение — в предыдущем сообщении."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        window = [
+            _win(73, "вчера обсуждали погоду"),
+            _win(75, "Объект сдан 12.10.2026 по данным мэрии"),
+            _win(76, "ага, видел"),
+        ]
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=window)
+        target = _make_msg(message_id=77)
+        await _run(handler_env, service, db, target)
+        claim = _claim_text(service)
+        assert claim == "Объект сдан 12.10.2026 по данным мэрии"
+        assert handler_env.send_chunked_reply.await_args.args[3] == 77
+        handler_env._fetch_context_with_gate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_claim_up_reply_chain(self, handler_env, monkeypatch):
+        """Утверждение выше по reply-цепочке (вне окна) — цепочка читается."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        parent = _win(70, "Утверждение из корня цепочки: мост сдан в 2024")
+        db = FakeDb(rows_by_tg={70: parent, 77: _row(
+            77, text=None, media_type="text", mgid=None)},
+            around_rows=[_win(76, "ага")])
+        target = _make_msg(message_id=77)
+        target.reply_to_message = _make_msg(message_id=70)
+        await _run(handler_env, service, db, target)
+        assert "мост сдан" in _claim_text(service)
+        assert ("target", CHAT_ID, 70) in db.calls
+
+    @pytest.mark.asyncio
+    async def test_claim_in_discussion_far_from_target(self, handler_env,
+                                                       monkeypatch):
+        """Материал дальше 6 сообщений — окно не обрезается до узкого."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        window = [_win(240 + i, "просто болтовня и флуд без фактов")
+                  for i in range(30)]
+        window[0] = _win(240, "Курс вырос на 15 процентов за неделю")
+        db = FakeDb(rows_by_tg={300: _row(300, text=None, media_type="text",
+                                          mgid=None)},
+                    around_rows=window)
+        target = _make_msg(message_id=300)
+        await _run(handler_env, service, db, target)
+        assert "Курс вырос" in _claim_text(service)
+        around = next(c for c in db.calls if c[0] == "around")
+        assert around[3] > 6            # before >> узкого окна 6
+
+    @pytest.mark.asyncio
+    async def test_no_claims_anywhere_names_window(self, handler_env,
+                                                   monkeypatch):
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        window = [_win(75, "ага"), _win(76, "ну такое")]
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=window)
+        target = _make_msg(message_id=77)
+        await _run(handler_env, service, db, target)
+        service.check_claim.assert_not_awaited()
+        phrase = _reply_text(handler_env)
+        candidates = [p.format(scope="цель", scope_of="цели", window=len(window))
+                      for p in FACTCHECK_CONTEXT_EMPTY_PHRASES]
+        assert phrase in candidates
+        assert phrase not in FACTCHECK_EMPTY_CONTEXT_PHRASES
+        assert str(len(window)) in phrase
+
+    @pytest.mark.asyncio
+    async def test_other_chat_messages_not_used(self, handler_env, monkeypatch):
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        window = [
+            _win(78, "Чужой чат: секретное утверждение 2026", chat_id=-999),
+            _win(74, "Свой чат: объект сдан 12.10.2026"),
+        ]
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=window)
+        target = _make_msg(message_id=77)
+        await _run(handler_env, service, db, target)
+        claim = _claim_text(service)
+        assert "Свой чат" in claim
+        assert "секретное" not in claim
+
+    @pytest.mark.asyncio
+    async def test_trigger_message_never_becomes_claim(self, handler_env,
+                                                       monkeypatch):
+        """Команда «фактчек …» — не публикация, даже если в ней есть тезис."""
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        window = [
+            _win(11, "фактчек, Дуров убил Claude Code"),
+            _win(75, "Сдан объект 12.10.2026"),
+        ]
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=window)
+        target = _make_msg(message_id=77)
+        handler_env.setup_factcheck(service, db)
+        msg = _make_msg(text="фактчек, Дуров убил Claude Code", message_id=11,
+                        reply_to_message=target)
+        await handler_env.factcheck_handler(msg, bot=AsyncMock())
+        claim = _claim_text(service)
+        assert "Сдан объект" in claim
+        assert "Дуров убил" not in claim
+
+    @pytest.mark.asyncio
+    async def test_context_probe_ignores_wide_gate_flag(self, handler_env,
+                                                        monkeypatch):
+        """Проводка: пустая цель смотрит окружение даже при гейте OFF."""
+        from services import factcheck_context as fcx
+        from services import factcheck_suitability as fsg
+
+        monkeypatch.setattr(fcx, "wide_context_enabled", lambda: False)
+        monkeypatch.setattr(mca_vision, "render_media_context_async",
+                            _render({}))
+        service = _service()
+        db = FakeDb(rows_by_tg={77: _row(77, text=None, media_type="text",
+                                         mgid=None)},
+                    around_rows=[_win(75, "Сдан объект 12.10.2026")])
+        target = _make_msg(message_id=77)
+        await _run(handler_env, service, db, target)
+        assert "Сдан объект" in _claim_text(service)
+        probe = await fsg.resolve_context_claim(
+            db, CHAT_ID, target_tg_message_id=77,
+            trigger_tg_message_id=11,
+            cache=handler_env.get_smart_cache())
+        assert probe is not None and probe.claim is not None
 
 
 class TestDurableAlbumStorage:

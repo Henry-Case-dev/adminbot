@@ -404,6 +404,14 @@ class TestThreadChainUtil:
 # ── handler: clamp + _fetch_chat_context + инжекция ─────────────────────────
 
 class TestHandlerWindow:
+    @pytest.fixture(autouse=True)
+    def _wide_off(self, monkeypatch):
+        # Решение владельца 25.10.2026: wide default ON. Класс проверяет
+        # узкое окно/откат — пиним выключение.
+        monkeypatch.setattr(
+            "services.factcheck_context.wide_context_enabled",
+            lambda: False)
+
     def test_clamp_defaults(self):
         from handlers import factcheck as fc
         assert fc._clamp_window(6, 6) == (6, 6)

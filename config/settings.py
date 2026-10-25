@@ -2699,11 +2699,12 @@ class Settings:
     # Жёсткий суммарный потолок окна (сообщений) — код-кап, НЕ настройка:
     # ClassVar → вне каталога/UI (Δ каталога ровно +2). Ограничивает стоимость.
     FACTCHECK_CONTEXT_TOTAL_CAP: ClassVar[int] = 40
-    # CFG-06 W1 (06I.2): широкий адаптивный контекст фактчека 200–500 —
-    # гейт отката, default OFF (прод-контур не меняется до W3). Hot-ключ
-    # отката без рестарта: flags.factcheck_wide_context.
+    # CFG-06 W1 (06I.2): широкий адаптивный контекст фактчека 200–500.
+    # Решение владельца 25.10.2026: default ON (пустая цель ОБЯЗАНА смотреть
+    # окружение; флаг — откат без рестарта). Hot-ключ отката:
+    # flags.factcheck_wide_context.
     FACTCHECK_WIDE_CONTEXT_ENABLED: bool = _env_bool(
-        "FACTCHECK_WIDE_CONTEXT_ENABLED", False)
+        "FACTCHECK_WIDE_CONTEXT_ENABLED", True)
     # CFG-06 W2 (06B/06J): suitability gate до платного поиска — гейт
     # отката, default OFF; активен только вместе с широким контекстом.
     # Hot-ключ отката: flags.factcheck_suitability_gate.

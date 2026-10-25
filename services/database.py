@@ -7595,9 +7595,9 @@ class DatabaseService:
             after = max(0, int(after or 0))
         except (TypeError, ValueError):
             before = after = 0
-        _fields = ("id, user_id, chat_id, text, reply_to_id, timestamp, "
-                   "media_type, author_name, is_forward, forward_source, "
-                   "tg_message_id")
+        _fields = ("id, user_id, chat_id, text, caption, reply_to_id, "
+                   "timestamp, media_type, author_name, is_forward, "
+                   "forward_source, tg_message_id")
         try:
             anchor_id = None
             if target_tg_message_id not in (None, "", 0):

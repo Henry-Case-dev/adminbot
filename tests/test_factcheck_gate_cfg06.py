@@ -119,6 +119,12 @@ def restore_handler_db():
 # ── OFF-паритет (откат) ──────────────────────────────────────────────────────
 
 class TestGateOffParity:
+    @pytest.fixture(autouse=True)
+    def _wide_off(self, monkeypatch):
+        # Решение владельца 25.10.2026: wide default ON. Этот класс
+        # проверяет ОТКАТ (гейт выключен) — фиксируем откат явно.
+        from services import factcheck_context as fcx
+        monkeypatch.setattr(fcx, "wide_context_enabled", lambda: False)
     @pytest.mark.asyncio
     async def test_flags_default_off_and_hot_prio(self, monkeypatch):
         old = getattr(settings, "FACTCHECK_SUITABILITY_GATE_ENABLED", False)
@@ -156,11 +162,11 @@ class TestGateOffParity:
     async def test_gate_on_requires_wide_context(
             self, restore_handler_db, monkeypatch):
         # W1 OFF + gate ON → прежний путь (гейт без структурированного
-        # контекста не создаёт решений).
+        # контекста не создаёт решений). Wide-откат уже зафиксирован
+        # autouse-фикстурой класса.
         old = getattr(settings, "FACTCHECK_SUITABILITY_GATE_ENABLED", False)
         object.__setattr__(settings, "FACTCHECK_SUITABILITY_GATE_ENABLED",
                            True)
-        object.__setattr__(settings, "FACTCHECK_WIDE_CONTEXT_ENABLED", False)
         try:
             db = FakeDB(_fixture_case_b())
             hfc._db = db
@@ -172,8 +178,6 @@ class TestGateOffParity:
                 CHAT_ID, 6, 6, target_tg_message_id=TARGET_TG,
                 trigger_message_id=TRIGGER_TG, claim_text="правда?")
         finally:
-            object.__setattr__(settings, "FACTCHECK_WIDE_CONTEXT_ENABLED",
-                               False)
             object.__setattr__(settings,
                                "FACTCHECK_SUITABILITY_GATE_ENABLED", old)
 

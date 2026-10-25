@@ -1408,6 +1408,15 @@ async def main():
     from services.config_migrations import migrate_factcheck_context_defaults
     await migrate_factcheck_context_defaults(cache)
 
+    # ── Решение владельца 25.10.2026: широкий контекст фактчека включён по
+    # умолчанию. Одноразово поднимаем сохранённый false (наследство прежнего
+    # дефолта); маркер не даёт рестартам перетирать ручное выключение.
+    # PG down → skip без маркера.
+    from services.config_migrations import (
+        migrate_factcheck_wide_context_default,
+    )
+    await migrate_factcheck_wide_context_default(cache)
+
     # ── F5 (10.23, ADR-1023-5 §D1/§D3): дефолтный провайдер генерации
     # изображений (Pollinations, flux, POST). Идемпотентно: пишем только
     # отсутствующие/пустые ключи, кастом не трогаем, ключ-секрет НЕ

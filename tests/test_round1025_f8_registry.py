@@ -168,8 +168,13 @@ PG_DB_SHA256_B07 = (
 # EXCEPTIONS в cfg03-аудите обнулён (3→1: остался group_category only);
 # TSV/meta переэмитированы генератором (--check OK, 582 строк). Хэш
 # переутверждён осознанно (L-F11S-1).
+# P0-FACTCHECK media (25.10.2026, решение владельца): Δ каталога = 0 —
+# ключи/GROUPS/TAB-маппинги не менялись; переутверждено ТОЛЬКО описание
+# `flags.factcheck_wide_context` (режим по умолчанию + окно 200–500).
+# TSV переэмитирован генератором (`--check OK`, 582 строки). Хэш
+# переутверждён осознанно (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "7e9c254430b0a95f896bf340bf8e1a865501631650ac1c8ec5c0d0eba0607887")
+    "47b29b5bb90853e387bce12d8640850dcc3b2cef8f05b5ab249deb41b7b35642")
 
 
 def _sha256(path: Path) -> str:
