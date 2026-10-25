@@ -1,0 +1,8 @@
+candidate=67ff463c
+harness_sha256=aaaa489ae07c3d6bb15e0c60f3eebf5a8e12900e954685b605ec0328a594e8b8
+analyzer_sha256=de9783ce2f685d23787d44a14b045f7d5d98c3d74677b854ff15503a957d43f8
+tgz_sha256=050ec7d20e9bcfb19c3c501f4b59cc23c14d5c451ab942eb9606d63894ea7e78
+env_link=/var/www/admin_bot/.env
+db_link=/var/www/admin_bot/local_database.db
+py=/var/www/admin_bot/venv/bin/python Python 3.12.3
+utc_cont_start=2026-10-25T10:55:13Z

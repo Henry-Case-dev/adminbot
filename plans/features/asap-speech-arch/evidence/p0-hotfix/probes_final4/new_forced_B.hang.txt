@@ -1,0 +1,1 @@
+exit_hang_after_summary=yes waited=25s
