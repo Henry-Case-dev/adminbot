@@ -312,6 +312,13 @@ def self_check(root: str, json_out: bool = False) -> int:
     from services.chat_prompts import (DIRECT_L1_PLANNER_SYSTEM_PROMPT
                                        as code_l1)
 
+    # WRITER-NO-META-FINAL: мета-фраза в НАЧАЛЕ строки промпта — это
+    # случайно попавший пример/подводка, а не перечисление запрета внутри
+    # самой директивы (там слова стоят в середине строки).
+    meta_re = re.compile(
+        r"(?im)^[ \t]*[\"'«“]?(?:ладно|ок|сейчас|давай|глянул|разложу|"
+        r"разберём)\b")
+
     pins = {"root": root, "git": git_state(root), "modules": module_pins(root)}
     # 1) счётчик по фактическому тексту = 1; ASCII-имя константы = 0
     synthetic = "a " + psb.ANALYSIS_DIRECTIVE_TEXT + " b " + \
@@ -331,6 +338,32 @@ def self_check(root: str, json_out: bool = False) -> int:
         "КАНАЛ: технический контракт.", l1.plan_response_mode(plan), "plain",
         html_safe=True, extent_block=extent_block)
     synthetic_payload = payload_counts(system, plan_block, psb)
+    # 4) WRITER-NO-META-FINAL: research/compact и casual обязаны нести
+    # директиву (план), deep/auto — режимный блок; итог ровно 1× на payload.
+    _meta = psb.NO_META_STRUCTURE_TEXT
+    research_payload = system + "\n\n" + plan_block
+    casual_extent = extent.render_extent_block(answer.to_response_plan())
+    casual_block = l1.build_l2_plan_block(answer, modes_on=True)
+    casual_system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", l1.plan_response_mode(answer),
+        "plain", html_safe=True, extent_block=casual_extent)
+    casual_payload = casual_system + "\n\n" + casual_block
+    deep_plan = l1.normalize_l1_plan({
+        "action": "reply", "response_act": "research", "extent": "auto",
+        "structure": "report", "delivery_hint": "rich", "confidence": 0.9})
+    deep_block = l1.build_l2_plan_block(deep_plan, modes_on=True)
+    deep_system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", "deep_research", "rich",
+        html_safe=True,
+        extent_block=extent.render_extent_block(deep_plan.to_response_plan()))
+    deep_payload = deep_system + "\n\n" + deep_block
+    payloads = {"research": research_payload, "casual": casual_payload,
+                "deep_auto": deep_payload}
+    meta_free = {}
+    for name, payload in payloads.items():
+        # директива сама перечисляет запрещённые слова — исключаем её из
+        # скана, чтобы проверять именно случайные мета-примеры промпта.
+        meta_free[name] = meta_re.search(payload.replace(_meta, "")) is None
     results = {
         "counts_1x1": counts["directive"] == 1 and counts["writer"] == 1,
         "ascii_marker_zero": counts["ascii_marker"] == 0,
@@ -356,13 +389,22 @@ def self_check(root: str, json_out: bool = False) -> int:
         "core_full_not_truncated": (
             pcomp.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT)
             == cp.PERSONALITY_CORE_FULL_TEXT),
-        "no_meta_directive_present": (
-            psb.NO_META_STRUCTURE_TEXT in psb.MODE_DEEP_RESEARCH_BLOCK
-            and psb.NO_META_STRUCTURE_TEXT in plan_block),
+        # WRITER-NO-META-FINAL: покрыты оба фактические ветки и casual.
+        "no_meta_research_plan_once": (
+            research_payload.count(_meta) == 1 and _meta in plan_block),
+        "no_meta_casual_plan_once": (
+            casual_payload.count(_meta) == 1 and _meta in casual_block),
+        "no_meta_deep_auto_mode_once": (
+            deep_payload.count(_meta) == 1 and _meta in deep_system),
+        "meta_phrases_absent_from_prompts": all(meta_free.values()),
     }
     ok = all(results.values())
     out = {"self_check": "PASS" if ok else "FAIL", "results": results,
            "counts": counts, "synthetic_payload": synthetic_payload,
+           "meta_check": {"free": meta_free,
+                          "payload_counts": {
+                              name: payload.count(_meta)
+                              for name, payload in payloads.items()}},
            "code_l1_canon": {"chars": len(code_l1), "sha12": sha12(code_l1),
                              "prev_p0cs2_sha12": sha12(
                                  cp.PREV_DIRECT_L1_PLANNER_P0CS2)},

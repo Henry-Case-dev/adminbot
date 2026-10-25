@@ -142,7 +142,11 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # первым, детали по запросу, перестройка разрешена.
     # P0-CORRECTIVE (25.10.2026, §3): добавлен запрет мета-вступлений и
     # навязанной отчётной структуры без просьбы (без лимитов длины).
-    "verbilizer.mode.deep_research": "mode-p0h-no-meta",
+    # WRITER-NO-META-FINAL (25.10.2026, probes_final2 §5: 5/8 ответов с
+    # преамбулой): директива назвала фактические типы преамбул и место
+    # ответа (первое содержательное предложение); те же байты едут в план
+    # для research/casual, deep/auto — режимным блоком, ровно 1×.
+    "verbilizer.mode.deep_research": "mode-no-meta-lexical",
     "verbilizer.mode.default": "mode-r1024",
     # Factcheck / Summary / поиск
     "factcheck.base.single": "factcheck-r1022",
@@ -1771,7 +1775,13 @@ def factory_set_fingerprint() -> str:
 #: не добавлялось). changed = 2.
 #: Было ``9de29133885a``, стало ``9f28ff7f6a77``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "9f28ff7f6a77"
+#: WRITER-NO-META-FINAL (25.10.2026, probes_final2 §5: 5/8 с преамбулой):
+#: директива в ``verbilizer.mode.deep_research`` усилена без лимитов/схемы
+#: (названы типы преамбул, первое содержательное предложение — ответ);
+#: changed = 1. Метка ``mode-no-meta-lexical``.
+#: Было ``9f28ff7f6a77``, стало ``ffc36e1c66db``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "ffc36e1c66db"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -134,26 +134,80 @@ def test_serious_research_plan_block_has_exact_analysis_texts_once():
 
 
 def test_writer_no_meta_and_no_imposed_structure():
-    """P0-CORRECTIVE §3:Writer не анонсирует разбор и не навязывает структуру.
+    """P0-CORRECTIVE §3 + WRITER-NO-META-FINAL: Writer не анонсирует разбор.
 
-    Директива не задаёт ни длины, ни формата ответа — только запрещает
-    мета-вступление и отчётную нумерацию без просьбы пользователя.
+    Директива не задаёт ни длины, ни формата ответа — только убирает
+    служебную подводку/обещание разбора и отчётную нумерацию без просьбы
+    пользователя. Это инструкция, а не hard postprocess ответа.
     """
     text = psb.NO_META_STRUCTURE_TEXT
     assert "Не анонсируй разбор" in text
+    assert "Первое содержательное предложение" in text
+    assert "сразу ответ или вывод" in text
     assert "Не нумеруй" in text
     assert "если пользователь не просил" in text
+    # названы фактические мета-вступления из probes_final2 §5
+    for phrase in ('"ладно"', '"ок"', '"сейчас"', '"давай"', '"глянул"',
+                   '"сейчас разложу"'):
+        assert phrase in text, phrase
     # никаких приказов объёма/готовой схемы
     for forbidden in ("символ", "абзац", "ПОЛНОСТЬЮ", "Во-первых",
-                      "markdown", "Markdown"):
+                      "markdown", "Markdown", "пунктов ровно"):
         assert forbidden not in text, forbidden
     plan = _research_plan()
     block = l1.build_l2_plan_block(
         plan, include_analysis=l1.analysis_directive_needed(plan))
     assert block.count(text) == 1
     assert text in psb.MODE_DEEP_RESEARCH_BLOCK
-    # без include_analysis директива в план не попадает
-    assert text not in l1.build_l2_plan_block(plan)
+    # директива едет и без analysis-текстов (обычный casual/serious)
+    chat = l1.L1Plan(action="reply", response_act="chat",
+                     extent="compact", structure="chat")
+    assert text in l1.build_l2_plan_block(chat)
+    # deep/auto: режимный блок уже несёт директиву — план не дублирует
+    deep_auto = _research_plan(delivery_hint="rich", extent="auto",
+                               structure="report")
+    assert text not in l1.build_l2_plan_block(deep_auto)
+
+
+def test_no_meta_reaches_writer_payload_exactly_once():
+    """WRITER-NO-META-FINAL: research/compact и casual — через план,
+    deep/auto — через режимный блок; ровно одна копия в payload."""
+    text = psb.NO_META_STRUCTURE_TEXT
+    research = _research_plan(extent="compact")
+    research_block = l1.build_l2_plan_block(
+        research, include_analysis=l1.analysis_directive_needed(research))
+    research_system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", l1.plan_response_mode(research),
+        "plain", html_safe=True,
+        extent_block=_extent.render_extent_block(research.to_response_plan()))
+    research_payload = research_system + "\n\n" + research_block
+    assert l1.plan_response_mode(research) == "serious"
+    assert text in research_block
+    assert research_payload.count(text) == 1
+
+    casual = l1.L1Plan(action="reply", response_act="chat",
+                       extent="compact", structure="chat")
+    casual_block = l1.build_l2_plan_block(casual)
+    casual_system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", l1.plan_response_mode(casual),
+        "plain", html_safe=True,
+        extent_block=_extent.render_extent_block(casual.to_response_plan()))
+    casual_payload = casual_system + "\n\n" + casual_block
+    assert text in casual_block
+    assert casual_payload.count(text) == 1
+
+    deep_auto = _research_plan(delivery_hint="rich", extent="auto",
+                               structure="report")
+    deep_block = l1.build_l2_plan_block(deep_auto)
+    deep_system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", "deep_research", "rich",
+        html_safe=True,
+        extent_block=_extent.render_extent_block(
+            deep_auto.to_response_plan()))
+    deep_payload = deep_system + "\n\n" + deep_block
+    assert l1.plan_response_mode(deep_auto) == "deep_research"
+    assert text in deep_system and text not in deep_block
+    assert deep_payload.count(text) == 1
 
 
 # TEST-LIFECYCLE: REGRESSION owner=SPEECH-P0-DEEP-PAYLOAD (rev. 25.10.2026)

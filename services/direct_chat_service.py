@@ -3770,7 +3770,10 @@ class DirectChatService:
                             l1_plan,
                             modes_on=bool(getattr(
                                 settings, "SMART_VERBALIZER_MODES_ENABLED",
-                                True))))
+                                True))),
+                        modes_on=bool(getattr(
+                            settings, "SMART_VERBALIZER_MODES_ENABLED",
+                            True)))
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -9225,7 +9228,9 @@ class DirectChatService:
                 include_analysis=_l1.analysis_directive_needed(
                     plan,
                     modes_on=bool(getattr(
-                        settings, "SMART_VERBALIZER_MODES_ENABLED", True)))) \
+                        settings, "SMART_VERBALIZER_MODES_ENABLED", True))),
+                modes_on=bool(getattr(
+                    settings, "SMART_VERBALIZER_MODES_ENABLED", True))) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             result = await self._l2_write_answer(

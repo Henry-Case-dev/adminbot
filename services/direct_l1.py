@@ -980,7 +980,8 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         clarification: bool = False,
                         low_confidence: bool = False,
                         include_delivery: bool = False,
-                        include_analysis: bool = False) -> str:
+                        include_analysis: bool = False,
+                        modes_on: bool = True) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
@@ -997,7 +998,14 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
     пересказывается, глубина не задаёт длину ответа). Флаг выставляет
     вызывающий по ``analysis_directive_needed``: у deep_research тексты уже
     в режимном блоке, но только пока его не заменил extent-блок плана
-    (SPEECH-P0-DEEP-PAYLOAD), — предикат учитывает это сам."""
+    (SPEECH-P0-DEEP-PAYLOAD), — предикат учитывает это сам.
+
+    WRITER-NO-META-FINAL (25.10.2026): ``NO_META_STRUCTURE_TEXT`` едет ровно
+    один раз на payload. Режимный блок несёт его только для deep_research и
+    только пока не вытеснен extent-блоком; во всех остальных случаях
+    (research/compact, casual, serious, modes OFF) его несёт план. Поэтому
+    ``modes_on`` нужен, чтобы не потерять директиву при выключенных режимах
+    и не продублировать её при deep/auto."""
     try:
         if plan is None:
             return ""
@@ -1049,21 +1057,31 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         # ── SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): дословные
         # тексты анализа/Writer в plan-блоке для serious-разбора. Один
         # источник (`prompt_style_blocks`), deep-режим их уже несёт.
+        try:
+            from services import prompt_style_blocks as _psb
+        except Exception:      # pragma: no cover - защитная ветка
+            _psb = None
         if include_analysis:
-            try:
-                from services import prompt_style_blocks as _psb
-                _directive = str(_psb.ANALYSIS_DIRECTIVE_TEXT or "").strip()
-                _writer = str(_psb.ANALYSIS_WRITER_TEXT or "").strip()
-                _no_meta = str(
-                    getattr(_psb, "NO_META_STRUCTURE_TEXT", "") or "").strip()
-            except Exception:      # pragma: no cover - защитная ветка
-                _directive = _writer = _no_meta = ""
+            _directive = str(getattr(_psb, "ANALYSIS_DIRECTIVE_TEXT", "")
+                             or "").strip()
+            _writer = str(getattr(_psb, "ANALYSIS_WRITER_TEXT", "")
+                          or "").strip()
             if _directive:
                 lines.append(f"как разбирать: {_directive}")
             if _writer:
                 lines.append(f"как подать разбор: {_writer}")
-            if _no_meta:
-                lines.append(f"как начать ответ: {_no_meta}")
+        # ── WRITER-NO-META-FINAL (25.10.2026): запрет мета-вступлений едет в
+        # payload РОВНО один раз. deep_research с непустым extent-блоком
+        # теряет режимный блок (SPEECH-P0-DEEP-PAYLOAD) — тогда директиву
+        # несёт план. deep/auto и modes OFF без режимного блока — тоже план.
+        _no_meta = str(getattr(_psb, "NO_META_STRUCTURE_TEXT", "")
+                       or "").strip()
+        _mode_carries_no_meta = (
+            bool(modes_on)
+            and plan_response_mode(plan) == "deep_research"
+            and not _renders_extent_block(plan))
+        if _no_meta and not _mode_carries_no_meta:
+            lines.append(f"как начать ответ: {_no_meta}")
         if low_confidence:
             lines.append("уверенность плана низкая: опирайся на контекст "
                          "разговора, а не на подсказки плана.")
