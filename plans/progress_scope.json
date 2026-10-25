@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-25T17:52:21+12:00",
+  "updated": "2026-10-25T18:16:29+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -194,7 +194,121 @@
         "plans/features/p0-factcheck-media/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "P0 FACTCHECK 25.10.2026 (root chat): изображения, альбомы, пересланные публикации, пустой ввод; добавлено в очередь без замены current_task.md. Требует карту требований и привязку к кандидату до review-гейта. | 25.10 PM: карта 137 required, plan-gate EXIT 0 (book a0cafb38)."
+      "source_note": "P0 FACTCHECK 25.10.2026 (root chat): изображения, альбомы, пересланные публикации, пустой ввод; добавлено в очередь без замены current_task.md. Требует карту требований и привязку к кандидату до review-гейта. | 25.10 PM: карта 137 required, plan-gate EXIT 0 (book a0cafb38). | 25.10 уточнение владельца: reply на фото альбома = точка входа в публикацию; проверять весь пост (текст + все фото), см. source-owner-clarification-2026-10-25.md; карту дополнить строками FC-ALBUM-* до review-гейта. | 25.10 уточнение №2: цель вне контекста — проверять окружение (reply-цепочка + окно до 200–300 сообщений, существующий factcheck_context/300); «нечего проверять» только после этого. См. source-owner-clarification-2-2026-10-25.md. | 25.10 решение владельца: flags.factcheck_wide_context включён по умолчанию, тумблер в Модули→Фактчек уже есть; миграция false→true + default True. См. owner-decision-wide-context-2026-10-25.md."
+    }
+  ],
+  "owner_inputs": [
+    {
+      "id": "OI-2026-10-25-P0-CORRECTIVE",
+      "source_path": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
+      "source_sha256": "2F7EF4D743F5F7616D075435116DFF3E0AEE7B59446EC599BAF013C4915B1C9B",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap-speech-arch"
+      ],
+      "reconciled": true,
+      "note": "Исходная P0-корректива 25.10 (L1/harness, алиасы, Core, lore). Карта 130 строк, plan-gate EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-REPORT-FORMAT",
+      "source_path": "plans/owner_inputs/2026-10-25-report-format.md",
+      "source_sha256": "83CAA6FE0FFC26FD4354607F052F3A457D18903FF666DBC5CEF4DBA93250EBCA",
+      "kind": "decision",
+      "target_task_ids": [
+        "asap-speech-arch",
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Требование к финальному отчёту: подробно, простым языком, без терминов, по алиасам и остальным задачам. Сдаётся в финальном отчёте. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-P0-FACTCHECK",
+      "source_path": "plans/features/p0-factcheck-media/source-2026-10-25.md",
+      "source_sha256": "F0F71AC03247F727F7EC5ACB771A6B95AA7332F43A79EEA64B4F70946741485A",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Корректива Fact-check (фото/альбомы/пересылка). Карта 137 required, plan-gate EXIT 0, a0cafb38.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-FC-WHOLE-POST",
+      "source_path": "plans/features/p0-factcheck-media/source-owner-clarification-2026-10-25.md",
+      "source_sha256": "5A6DEA8E25C3BC7C9AA176F106720D744EBBB2CE336F9AFFF918CACBBE6EB6E5",
+      "kind": "amendment",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Reply на фото альбома = точка входа в публикацию; проверять весь пост (текст + все фото). В реализации у Builder. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-FC-CONTEXT-WINDOW",
+      "source_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
+      "source_sha256": "26BDB48ECBEB6FE2CAAB1330FFEA46E6C149C2D78ED606A14BE2B4FBED6E0378",
+      "kind": "amendment",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Цель вне контекста: проверять окружение и reply-цепочку, окно до 200–300 сообщений, до этого не говорить «нечего проверять». | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-FC-WIDE-DEFAULT",
+      "source_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
+      "source_sha256": "4A6DD40987F8ECF4355B29829B928C29B668D32CC51B2D0C19AD9CA758F19173",
+      "kind": "decision",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Широкий контекст фактчека включён по умолчанию; тумблер в Модули→Фактчек; миграция false→true. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-PLANS-RECONCILE",
+      "source_path": "plans/owner_inputs/2026-10-25-plans-reconciliation.md",
+      "source_sha256": "64B1667C21CD89EE7F7C58932699B17D048127F5EFB9F92A19DEEB4AE94457E1",
+      "kind": "decision",
+      "target_task_ids": [],
+      "reconciled": true,
+      "note": "Сверка plans/ и восстановление достоверного прогресса. Результат: plans/reports/plans-reconciliation-2026-10-25.md, 3d77b9be.",
+      "recorded_in": "plans/reports/plans-reconciliation-2026-10-25.md",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-UNIFIED-INTAKE",
+      "source_path": "plans/owner_inputs/2026-10-25-unified-intake.md",
+      "source_sha256": "FE2C17C31FDBCBA1BFB08AEAB439B1F4DFDB449B51DA4C0598E0877458DF2A3F",
+      "kind": "decision",
+      "target_task_ids": [
+        "asap-speech-arch",
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Однократная сверка intake: регистрация ранее не учтённых поручений без пересоздания карт.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
     }
   ]
 }
