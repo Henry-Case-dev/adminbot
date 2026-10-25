@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """P0-PROMPTS-CORE — реестр, provenance и свобода речи в Personality Core.
 
 Источник: `plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md`
@@ -89,7 +89,7 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
     # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 + 3 lore-канона
     # (фактологический hotfix §4).
-    assert pr.FACTORY_SET_SHA256_12 == "ffc36e1c66db"
+    assert pr.FACTORY_SET_SHA256_12 == "e807f4ee4bec"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

@@ -117,6 +117,26 @@ def test_analysis_texts_are_single_source():
     assert psb.MODE_DEEP_RESEARCH_BLOCK.count(psb.ANALYSIS_WRITER_TEXT) == 1
 
 
+def test_quote_fidelity_text_single_source_once():
+    """P0-CORRECTIVE-3 §3: правило цитат — один носитель на payload.
+
+    Deep-режим несёт его, пока не вытеснен extent-блоком; иначе — plan-блок
+    разбора. В обычном casual-ответе директивы нет (это не общая лекция).
+    """
+    quote = psb.QUOTE_FIDELITY_TEXT
+    assert quote in psb.MODE_DEEP_RESEARCH_BLOCK
+    assert psb.MODE_DEEP_RESEARCH_BLOCK.count(quote) == 1
+    assert "не ставь кавычки" in quote
+    assert "не как реальная цитата" in quote
+    research = _research_plan()
+    block = l1.build_l2_plan_block(
+        research, include_analysis=l1.analysis_directive_needed(research))
+    assert block.count(quote) == 1
+    chat = l1.L1Plan(action="reply", response_act="chat",
+                     extent="compact", structure="chat")
+    assert quote not in l1.build_l2_plan_block(chat)
+
+
 def test_serious_research_plan_block_has_exact_analysis_texts_once():
     plan = _research_plan()
     block = l1.build_l2_plan_block(
@@ -146,12 +166,21 @@ def test_writer_no_meta_and_no_imposed_structure():
     assert "сразу ответ или вывод" in text
     assert "Не нумеруй" in text
     assert "если пользователь не просил" in text
-    # названы фактические мета-вступления из probes_final2 §5
-    for phrase in ('"ладно"', '"ок"', '"сейчас"', '"давай"', '"глянул"',
-                   '"сейчас разложу"'):
+    # P0-CORRECTIVE-3 §1/§4: позиция ответа, процессная проверка и разрешение
+    # списка при явной просьбе; «абзац» — про место, не про длину.
+    assert "первый абзац начинается" in text
+    assert "Если первая фраза говорит о процессе" in text
+    assert "список уместен" in text
+    # названы фактические мета-вступления из probes_final2 §5/probes_final3 §5
+    for phrase in ('"ну"', '"ладно"', '"ок"', '"сейчас"', '"давай"',
+                   '"глянул"', '"разложу"', '"разберём"',
+                   '"сейчас разложу"', '"да бля, ну ок"'):
         assert phrase in text, phrase
+    # один короткий bad/good пример, не готовый шаблон ответа
+    assert "Пример плохого начала" in text
+    assert "Пример хорошего" in text
     # никаких приказов объёма/готовой схемы
-    for forbidden in ("символ", "абзац", "ПОЛНОСТЬЮ", "Во-первых",
+    for forbidden in ("символ", "ПОЛНОСТЬЮ", "Во-первых",
                       "markdown", "Markdown", "пунктов ровно"):
         assert forbidden not in text, forbidden
     plan = _research_plan()
@@ -308,9 +337,12 @@ def test_l1_rule_routes_material_to_research_and_opinion_to_answer():
     assert "structure=answer" in rules
     assert "9. В ответе - ровно одна JSON-строка" in rules
     assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT.count(rules) == 1
-    # прежние правила 1-6 байт-в-байт (изменился только хвост)
+    # прежние правила 1-6 байт-в-байт (ред.3 добавила только абзац правила 3)
     assert cp._DIRECT_L1_PLANNER_RULES_R3B.split(
-        "6. confidence")[0] == rules.split("6. confidence")[0]
+        "6. confidence")[0] == \
+        cp._DIRECT_L1_PLANNER_RULES_P0CS3.split("6. confidence")[0]
+    assert "Прямой запрос - это вопрос или просьба" in rules
+    assert "Низкая уверенность" in rules
 
 
 def test_l1_frozen_r3b_rules_have_no_routing_rule():

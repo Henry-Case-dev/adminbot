@@ -385,7 +385,8 @@ def self_check(root: str, json_out: bool = False) -> int:
         "code_l1_canon_not_pg_stage": (
             code_l1 != cp.PREV_DIRECT_L1_PLANNER_R3B
             and code_l1 != cp.PREV_DIRECT_L1_PLANNER_P0CS
-            and code_l1 != cp.PREV_DIRECT_L1_PLANNER_P0CS2),
+            and code_l1 != cp.PREV_DIRECT_L1_PLANNER_P0CS2
+            and code_l1 != cp.PREV_DIRECT_L1_PLANNER_P0CS3),
         "core_full_not_truncated": (
             pcomp.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT)
             == cp.PERSONALITY_CORE_FULL_TEXT),
@@ -396,6 +397,30 @@ def self_check(root: str, json_out: bool = False) -> int:
             casual_payload.count(_meta) == 1 and _meta in casual_block),
         "no_meta_deep_auto_mode_once": (
             deep_payload.count(_meta) == 1 and _meta in deep_system),
+        # P0-CORRECTIVE-3 §1/§4: место ответа и запрет навязанной структуры
+        # заданы в самой директиве (позиция, не длина; список при явной
+        # просьбе разрешён).
+        "no_meta_first_paragraph_rule": (
+            "первый абзац начинается" in _meta
+            and "Если первая фраза говорит о процессе" in _meta
+            and "список уместен" in _meta),
+        # P0-CORRECTIVE-3 §3: цитата только из переданных данных; едет тем же
+        # носителем, что analysis-тексты (deep-режим или plan-блок), 1×.
+        "quote_fidelity_rule": (
+            "не ставь кавычки" in psb.QUOTE_FIDELITY_TEXT
+            and "не приписывай человеку слов" in psb.QUOTE_FIDELITY_TEXT
+            and "не как реальная цитата" in psb.QUOTE_FIDELITY_TEXT
+            and research_payload.count(psb.QUOTE_FIDELITY_TEXT) == 1
+            and psb.QUOTE_FIDELITY_TEXT in plan_block
+            and deep_payload.count(psb.QUOTE_FIDELITY_TEXT) == 1
+            and psb.QUOTE_FIDELITY_TEXT in deep_system
+            and psb.QUOTE_FIDELITY_TEXT not in casual_payload),
+        # P0-CORRECTIVE-3 §2: прямой запрос требует ответа, silent не
+        # выбирается из-за низкой уверенности.
+        "silent_direct_request_rule": (
+            "Прямой запрос - это вопрос или просьба" in code_l1
+            and "Низкая уверенность" in code_l1
+            and "не заменяет ответ" in code_l1),
         "meta_phrases_absent_from_prompts": all(meta_free.values()),
     }
     ok = all(results.values())

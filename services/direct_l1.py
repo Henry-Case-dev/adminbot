@@ -999,6 +999,9 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
     вызывающий по ``analysis_directive_needed``: у deep_research тексты уже
     в режимном блоке, но только пока его не заменил extent-блок плана
     (SPEECH-P0-DEEP-PAYLOAD), — предикат учитывает это сам.
+    P0-CORRECTIVE-3 (25.10.2026, §3): тем же носителем едет
+    ``QUOTE_FIDELITY_TEXT`` — цитата только из переданных данных, иначе
+    пересказ без кавычек; ровно один раз на payload.
 
     WRITER-NO-META-FINAL (25.10.2026): ``NO_META_STRUCTURE_TEXT`` едет ровно
     один раз на payload. Режимный блок несёт его только для deep_research и
@@ -1066,10 +1069,14 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                              or "").strip()
             _writer = str(getattr(_psb, "ANALYSIS_WRITER_TEXT", "")
                           or "").strip()
+            _quote = str(getattr(_psb, "QUOTE_FIDELITY_TEXT", "")
+                         or "").strip()
             if _directive:
                 lines.append(f"как разбирать: {_directive}")
             if _writer:
                 lines.append(f"как подать разбор: {_writer}")
+            if _quote:
+                lines.append(f"как цитировать: {_quote}")
         # ── WRITER-NO-META-FINAL (25.10.2026): запрет мета-вступлений едет в
         # payload РОВНО один раз. deep_research с непустым extent-блоком
         # теряет режимный блок (SPEECH-P0-DEEP-PAYLOAD) — тогда директиву

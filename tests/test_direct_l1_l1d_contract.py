@@ -191,6 +191,8 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     # P0-CORRECTIVE: верхняя ступень — текущие активные байты до правки
     from services.chat_prompts import (PREV_DIRECT_L1_PLANNER_P0CS,
                                        PREV_DIRECT_L1_PLANNER_P0CS2,
+                                       PREV_DIRECT_L1_PLANNER_P0CS3,
+                                       PREV_DIRECT_L1_PLANNER_R3B,
                                        _DIRECT_L1_PLANNER_RULES_P0CS)
     assert targets[PREV_DIRECT_L1_PLANNER_P0CS] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
@@ -205,9 +207,10 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert PREV_DIRECT_L1_PLANNER_P0CS2 not in targets.values()
     assert PREV_DIRECT_L1_PLANNER_R3B not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
-    # ADR-1013-3: цепочка отката L1 — active→P0CS2→P0CS→R3b→R3→2.58.113
+    # ADR-1013-3: цепочка отката L1 — active→P0CS3→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CS2),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CS3),
+        (PREV_DIRECT_L1_PLANNER_P0CS3, PREV_DIRECT_L1_PLANNER_P0CS2),
         (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),
         (PREV_DIRECT_L1_PLANNER_P0CS, PREV_DIRECT_L1_PLANNER_R3B),
         (PREV_DIRECT_L1_PLANNER_R3B, PREV_DIRECT_L1_PLANNER_R3),

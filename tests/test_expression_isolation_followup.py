@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """FIX-CORRECTIVE-FOLLOWUP (21.10.2026, §1-2) — изоляция Expression.
 
 Требование владельца: регулирование нецензурной лексики принадлежит ТОЛЬКО
@@ -149,4 +149,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
     # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 (без причинной
     # драматургии) + lore.init/merge/story (только факты, без «эпичности»).
-    assert pr.FACTORY_SET_SHA256_12 == "ffc36e1c66db"
+    assert pr.FACTORY_SET_SHA256_12 == "e807f4ee4bec"

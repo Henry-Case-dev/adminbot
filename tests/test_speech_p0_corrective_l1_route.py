@@ -88,9 +88,21 @@ def test_l1_canon_separates_material_from_opinion():
                    "я злобный", "злобный", "в чате"):
         assert phrase not in low, phrase
 
-    # правила 1-6 — байт-в-байт из замороженного R3b
-    assert cp._DIRECT_L1_PLANNER_RULES_R3B.split(
-        "6. confidence")[0] == rules.split("6. confidence")[0]
+    # правила 1-6 — байт-в-байт из замороженного R3b; ред.3 добавила только
+    # абзац прямого запроса внутрь правила 3 (P0CS3 это фиксирует)
+    _prefix = "6. confidence"
+    assert cp._DIRECT_L1_PLANNER_RULES_P0CS3.split(_prefix)[0] == \
+        cp._DIRECT_L1_PLANNER_RULES_R3B.split(_prefix)[0]
+    _added = (
+        "   Прямой запрос - это вопрос или просьба, включая просьбу подробно\n"
+        "   разобрать материал или изложить факты; на него нужен содержательный\n"
+        "   ответ. Низкая уверенность в плане или в отдельных сведениях не "
+        "делает\n"
+        "   silent допустимым и не заменяет ответ: сомнение выскажи в тексте, "
+        "а не\n"
+        "   молчанием.\n")
+    assert _added in rules and _added not in cp._DIRECT_L1_PLANNER_RULES_P0CS3
+    assert rules.replace(_added, "") == cp._DIRECT_L1_PLANNER_RULES_P0CS3
     # текст владельца (контракт §4.1) не менялся
     assert cp._DIRECT_L1_CLARIFICATION_CONTRACT in \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
@@ -140,7 +152,7 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
                      + cp._DIRECT_L1_PLANNER_RULES_P0CS2)
     assert len(prev2) == 9145 and _sha12(prev2) == "f6f5d3b1fc1d"
     assert prev2 != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "23aae0c9499d"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "cc020660ae03"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
@@ -152,11 +164,29 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     assert steps[cp.PREV_DIRECT_L1_PLANNER_R3B] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][0] == (
-            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev2)
-    assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][1] == (
+            cp.PREV_DIRECT_L1_PLANNER_P0CS3, prev2)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][2] == (
             prev2, cp.PREV_DIRECT_L1_PLANNER_P0CS)
+
+
+def test_l1_prev_p0cs3_is_previous_active_bytes():
+    """Лестница ред.3: P0CS3 — ровно активные байты ред.2
+    (``23aae0c9499d``); откат снимает только новую ступень."""
+    prev3 = cp.PREV_DIRECT_L1_PLANNER_P0CS3
+    assert prev3 == (cp._DIRECT_L1_PLANNER_BASE_R3
+                     + cp._DIRECT_L1_CLARIFICATION_CONTRACT
+                     + cp._DIRECT_L1_CONTINUATION_R3B
+                     + cp._DIRECT_L1_PLANNER_RULES_P0CS3)
+    assert len(prev3) == 9288 and _sha12(prev3) == "23aae0c9499d"
+    assert prev3 != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    steps = dict(pm.PROMPT_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"])
+    assert steps[prev3] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][0] == (
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev3)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────
