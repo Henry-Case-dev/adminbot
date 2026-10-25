@@ -61,6 +61,62 @@ TONE_MAX = 24              # §1.3: открытый словарь, ≤24
 CAPABILITIES_MAX = 8       # bounded список возможностей
 CLARIFY_TARGET_MAX = 64
 
+#: Канон `response_act` из схемы L1 (единственные значения, которые понимает
+#: маршрутизация; `research` включает analysis-директиву и Writer).
+RESPONSE_ACT_CANON = (
+    "answer", "agreement", "disagreement", "banter", "tease",
+    "hostile_rebuff", "emotional_reply", "support", "clarification",
+    "explanation", "research", "comparison", "summarization", "creative",
+    "historical_recall", "other",
+)
+
+#: P0C-INT R2 (25.10.2026, `probes_final4.md` §3): `response_act` остаётся
+#: открытым словарём, но ИЗВЕСТНЫЕ формы канона приводятся к каноническим
+#: значениям детерминированно. Иначе синоним (`analysis`, `review`, `разбор`)
+#: молча не равен `research`, и анализ выключался без ошибки и без лога. Это
+#: таблица соответствий, а не угадывание по смыслу: незнакомое слово
+#: сохраняется как есть.
+RESPONSE_ACT_ALIASES = {
+    # research (разбор материала)
+    "analysis": "research", "analyse": "research", "analyze": "research",
+    "analysis_of": "research", "review": "research",
+    "investigation": "research", "investigate": "research",
+    "examination": "research", "examine": "research",
+    "разбор": "research", "анализ": "research", "исследование": "research",
+    "разобрать": "research", "проанализировать": "research",
+    "deep_analysis": "research", "deep_review": "research",
+    "разбор_материала": "research",
+    # explanation
+    "explain": "explanation", "explanation_of": "explanation",
+    "объяснение": "explanation", "пояснение": "explanation",
+    # comparison
+    "compare": "comparison", "comparing": "comparison",
+    "сравнение": "comparison", "сравнить": "comparison",
+    # summarization
+    "summary": "summarization", "summarize": "summarization",
+    "summarise": "summarization", "пересказ": "summarization",
+    "конспект": "summarization", "обобщение": "summarization",
+    # historical_recall
+    "history": "historical_recall", "recall": "historical_recall",
+    "historical": "historical_recall", "история": "historical_recall",
+    # прочие канонические акты
+    "emotional": "emotional_reply", "emotion": "emotional_reply",
+    "emotional_response": "emotional_reply",
+    "эмоциональный_ответ": "emotional_reply",
+    "hostile": "hostile_rebuff", "rebuff": "hostile_rebuff",
+    "hostile_reply": "hostile_rebuff", "отпор": "hostile_rebuff",
+    "joke": "banter", "joking": "banter", "banter_reply": "banter",
+    "шутка": "banter", "подкол": "banter",
+    "teasing": "tease", "поддеть": "tease", "подколоть": "tease",
+    "supportive": "support", "утешение": "support", "поддержка": "support",
+    "agree": "agreement", "согласие": "agreement",
+    "disagree": "disagreement", "несогласие": "disagreement",
+    "спор": "disagreement",
+    "clarify": "clarification", "уточнение": "clarification",
+    "creative_writing": "creative", "творчество": "creative",
+    "response": "answer", "ответ": "answer",
+}
+
 # ASAP 8 v6 (D04, §18C.7): execution mode — закрытое множество; явное
 # значение от LLM или дет. деривация из capabilities (никогда не тихо).
 EXECUTION_MODES = ("none", "simple_tools", "adaptive_tool_chain")
@@ -126,6 +182,8 @@ INITIATIVE_LINE = ("автономная инициатива (никто бот
                    "повод наблюдателя - предложение, а не приказ")
 
 _WS_RE = re.compile(r"\s+")
+#: Разделители внутри словарных значений ("deep-analysis" → "deep_analysis").
+_WS_SEP_RE = re.compile(r"[\s\-]+")
 
 
 # ── §1.3: L1Plan ─────────────────────────────────────────────────────────────
@@ -262,6 +320,29 @@ def _clip_word(value, max_len: int, default: str) -> str:
     return candidate[:max_len]
 
 
+def canonical_response_act(value) -> str:
+    """`response_act` из плана → каноническое значение схемы (никогда не бросает).
+
+    P0C-INT R2 (25.10.2026, `probes_final4.md` §3): маршрутизация понимает
+    только канон (`research` включает analysis-директиву). Открытый словарь
+    сохранён, но известные формы приводятся к канону детерминированно:
+    `analysis`/`review`/`разбор` → `research`, `summary` → `summarization` и
+    т.д. Незнакомое слово остаётся как есть (прежнее поведение), поэтому
+    потери сигнала больше нет, а угадывания по смыслу тоже нет.
+    """
+    candidate = _WS_RE.sub(" ", str(value or "")).strip().lower()
+    if not candidate:
+        return "other"
+    if candidate in RESPONSE_ACT_CANON:
+        return candidate
+    # "deep analysis" / "deep-analysis" → "deep_analysis" для поиска в таблице
+    key = _WS_SEP_RE.sub("_", candidate).strip("_")
+    mapped = RESPONSE_ACT_ALIASES.get(key)
+    if mapped:
+        return mapped
+    return candidate[:RESPONSE_ACT_MAX]
+
+
 def confidence_bucket(confidence: float) -> str:
     """§1.3: low <0.5 / medium <0.75 / high ≥0.75."""
     if confidence < 0.5:
@@ -316,8 +397,7 @@ def normalize_l1_plan(data) -> L1Plan | None:
         from services.direct_llm_react import ALLOWED_LLM_REACTIONS
         plan.reaction = candidate if candidate in ALLOWED_LLM_REACTIONS \
             else None
-    plan.response_act = _clip_word(data.get("response_act"),
-                                   RESPONSE_ACT_MAX, "other")
+    plan.response_act = canonical_response_act(data.get("response_act"))
     plan.tone = _clip_word(data.get("tone"), TONE_MAX, "inherit")
     plan.extent = _closed(data.get("extent"), L1_EXTENTS, "auto")
     from services import response_extent as _extent

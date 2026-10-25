@@ -207,6 +207,7 @@ from services.negative_constraints import (
     verbalize_validated,
 )
 from services.prompt_style_blocks import (
+    NO_META_CLOSING_TEXT,
     compose_verbalizer_system,
     resolve_prompt,
 )
@@ -4814,6 +4815,20 @@ class DirectChatService:
                 parts.append(str(block))
         if evidence:
             parts.append("<Tool_Evidence>\n" + evidence + "\n</Tool_Evidence>")
+        # ── Реальная user-часть: блоки запроса/контекста; при пустом списке —
+        # сам вопрос (прежнее поведение). Закрывающее требование добавляется
+        # ПОСЛЕ этого, поэтому вопрос не теряется, а требование всегда
+        # последнее.
+        user_content = "\n\n".join([p for p in parts if p]) or str(query or "")
+        # P0-CORRECTIVE §3, редакция R2: краткое положительное требование —
+        # ПОСЛЕДНИЙ блок user-части (после Current_Question). Причина: сама
+        # директива в plan-блоке доезжает 1×, но дальше идут Global_Context/
+        # Target_User/Current_Question, и последнее слово остаётся за вопросом
+        # (recency) — модель открывала ответ подводкой в 2 случаях из 8. Длина,
+        # формат и схема здесь не задаются; постобработки нет.
+        _closing = str(NO_META_CLOSING_TEXT or "").strip()
+        if _closing and user_content and _closing not in user_content:
+            user_content = user_content + "\n\n" + _closing
         # ── SOUL-1 (W2, §4 п.2/§4 п.3): единый владелец сборки. Флаг OFF →
         # ветка ниже байт-в-байт прежняя; ON → тот же набор блоков через
         # композер (+Core/Style/Humor/Samples), личность — один рендер на ход.
@@ -4845,7 +4860,9 @@ class DirectChatService:
                              if not mca_gates.character_speech_enabled()
                              else "speech_absent"),
                 context_text=str(query or ""),
-                user_parts=tuple(parts))
+                # user_parts манифеста = ровно то, что уйдёт в user (включая
+                # закрывающее требование последним блоком).
+                user_parts=tuple(parts + ([_closing] if _closing else ())))
             _pcomp.emit_layer_events_once(_c_manifest)
         else:
             verbalizer_system = (
@@ -4867,8 +4884,7 @@ class DirectChatService:
                 "stage=l2_writer | removed=%d", chat_id, _scrubbed)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
-            {"role": "user",
-             "content": "\n\n".join(parts) or str(query or "")},
+            {"role": "user", "content": user_content},
         ]
         # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
         # маркер есть в ФИНАЛЬНОМ system (после scrub); нет маркера →
@@ -4907,7 +4923,7 @@ class DirectChatService:
         if fallback_budget_tokens:
             _l2_fb_adapter = _dx.build_l2_fallback_adapter(
                 system=verbalizer_system,
-                parts=[p for p in parts
+                parts=[p for p in (list(parts) + ([_closing] if _closing else ()))
                        if not p.startswith("<Tool_Evidence>")],
                 evidence=evidence, query=query,
                 fallback_budget_tokens=int(fallback_budget_tokens),

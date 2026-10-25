@@ -89,7 +89,7 @@ def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
     # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 + 3 lore-канона
     # (фактологический hotfix §4).
-    assert pr.FACTORY_SET_SHA256_12 == "ffc36e1c66db"
+    assert pr.FACTORY_SET_SHA256_12 == "50492308595e"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

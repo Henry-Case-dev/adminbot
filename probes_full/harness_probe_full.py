@@ -375,10 +375,13 @@ def text_counts(text: str, psb) -> dict:
     directive = getattr(psb, "ANALYSIS_DIRECTIVE_TEXT", "") or ""
     writer = getattr(psb, "ANALYSIS_WRITER_TEXT", "") or ""
     no_meta = getattr(psb, "NO_META_STRUCTURE_TEXT", "") or ""
+    closing = getattr(psb, "NO_META_CLOSING_TEXT", "") or ""
     return {"directive": text.count(directive) if directive else 0,
             "writer": text.count(writer) if writer else 0,
             "no_meta": text.count(no_meta) if no_meta else 0,
             "no_meta_constant": bool(no_meta),
+            "closing": text.count(closing) if closing else 0,
+            "closing_constant": bool(closing),
             "ascii_marker": text.count("ANALYSIS_DIRECTIVE")}
 
 
@@ -392,7 +395,11 @@ def payload_counts(system: str, user_text: str, psb) -> dict:
             # до Writer'а ровно один раз на разборе и ни разу на обычном
             # ответе. 0 при существующей константе — разрыв сборки, не PASS.
             "invariant_no_meta_1x1": total["no_meta"] == 1,
-            "invariant_no_meta_0": total["no_meta"] == 0}
+            "invariant_no_meta_0": total["no_meta"] == 0,
+            # P0C-INT R2 (§3 ред.2): закрывающее требование «первое
+            # предложение — суть» стоит в user-части ровно один раз и последним
+            # блоком (recency). Отсутствие при существующей константе — разрыв.
+            "invariant_closing_1x1": total["closing"] == 1}
 
 
 def core_report(manifest, system: str) -> dict:
@@ -447,10 +454,12 @@ class _RecordingMemory:
     def __init__(self, inner) -> None:
         self._inner = inner
         self.calls: list[dict] = []
+        self.last_rows: list = []
 
     async def get_rag_facts(self, chat_id, query, **kwargs):
         rows = await self._inner.get_rag_facts(chat_id, query, **kwargs)
         rows = list(rows or [])
+        self.last_rows = rows
         self.calls.append({
             "chat_id": chat_id,
             "query": str(query or ""),
@@ -481,6 +490,63 @@ def _rank_histogram(rows) -> dict:
             rank = None
         out[str(rank)] = out.get(str(rank), 0) + 1
     return out
+
+
+def _rag_service_diagnostics(rows, global_ctx: str, block: str) -> dict:
+    """Почему service-ветка вернула пустой `<RAG_Memory>` (F6 ревью/probes_final4 §5).
+
+    Живой прогон `67ff463c` показал `rows=10`, разные наборы A/B и **пустой**
+    блок: в raw не было ни origin'ов, ни промежуточных счётчиков, поэтому
+    причину нельзя было назвать. Здесь те же ПРОДУКТОВЫЕ предикаты
+    (`is_self_referential_origin`, `_rag_rows_with_ranks`, `dedup_rag_vs_global`)
+    применяются к тем же строкам только для диагностики — блок они не меняют.
+
+    Пустой блок ≠ поломка: если все строки — собственные выводы бота, P0-правило
+    self-echo требует именно пустого RAG. Причина пишется машинно
+    (`rag_empty_reason`), чтобы приёмка не считала корректный случай сбоем.
+    """
+    rows = [r for r in (rows or []) if isinstance(r, dict)]
+    report = {"rows": len(rows), "after_self_filter": 0, "after_dedup": 0,
+              "rows_detail": [], "reason": ""}
+    facts = []
+    try:
+        from services import provenance as _prov
+        from services.direct_chat_service import (
+            _rag_rows_with_ranks, dedup_rag_vs_global)
+        facts, _ranks = _rag_rows_with_ranks(rows)
+        kept_self = [f for f in facts
+                     if not _prov.is_self_referential_origin(f[0])]
+        kept = dedup_rag_vs_global(kept_self, global_ctx) if kept_self else []
+    except Exception as exc:                          # noqa: BLE001
+        report["error"] = "%s: %s" % (type(exc).__name__, str(exc)[:160])
+        kept_self, kept = [], []
+    report["after_self_filter"] = len(kept_self)
+    report["after_dedup"] = len(kept)
+    for row, fact in zip(rows, facts):
+        try:
+            from services import graphrag_provenance as _gprov
+            rank = _gprov.read_policy_rank(row)
+        except Exception:                             # noqa: BLE001
+            rank = None
+        report["rows_detail"].append({
+            "id": row.get("id"),
+            "origin": row.get("origin"),
+            "self_referential": fact not in kept_self,
+            "kept_after_dedup": fact in kept,
+            "rank": rank,
+            "expired": bool(row.get("expired")),
+        })
+    if block:
+        report["reason"] = "rendered"
+    elif not rows:
+        report["reason"] = "no_facts"
+    elif not kept_self:
+        report["reason"] = "all_self_origin"
+    elif not kept:
+        report["reason"] = "dedup_vs_global"
+    else:
+        report["reason"] = "service_empty"
+    return report
 
 
 async def service_memory(root: str, llm):
@@ -548,6 +614,8 @@ async def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
             block, hint = await service._build_rag_block(
                 CHAT_ID, _RagMessage(question), global_ctx)
             call = recorder.calls[0] if recorder.calls else {}
+            diag = _rag_service_diagnostics(
+                getattr(recorder, "last_rows", []), global_ctx, block)
             meta.update({
                 "function": "DirectChatService._build_rag_block",
                 "retrieval": "MemoryManager.get_rag_facts",
@@ -555,7 +623,18 @@ async def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
                 "rows": call.get("rows", 0),
                 "nostalgia_hint": bool(hint),
                 "empty": not bool(block),
+                "after_self_filter": diag["after_self_filter"],
+                "after_dedup": diag["after_dedup"],
+                "rows_detail": diag["rows_detail"],
             })
+            if diag.get("error"):
+                meta["diag_error"] = diag["error"]
+            if not block:
+                # Пустой блок объясняется, а не маскируется: приёмка видит
+                # причину и понимает, законна ли она (self-echo = законна).
+                meta["rag_empty_reason"] = diag["reason"]
+                meta["rag_empty_is_correct"] = diag["reason"] in (
+                    "no_facts", "all_self_origin")
             if not call:
                 # Ранний выход сервиса (флаг RAG выключен / нет данных):
                 # это НЕ эквивалентный пустой RAG по умолчанию — фиксируем.
@@ -663,14 +742,17 @@ def run_summary(result: dict) -> dict:
     """
     rag = dict(result.get("rag") or {})
     keys = ("label", "case", "question_source", "forced", "invalid", "fatal",
-            "l1_plan", "mode", "no_meta_contract", "payload_counts")
+            "l1_plan", "l1_act_raw", "l1_act_normalized", "l1_act_rewritten",
+            "mode", "no_meta_contract", "payload_counts")
     summary = {k: result.get(k) for k in keys}
     rag_source = result.get("rag_source") or rag.get("rag_source")
     summary["rag_source"] = rag_source or "unreported"
     summary["rag"] = {k: v for k, v in
                       ((k, rag.get(k)) for k in
                        ("rows", "kept", "retrieval", "block_sha12",
-                        "dump_reason")) if v is not None}
+                        "dump_reason", "rag_empty_reason",
+                        "rag_empty_is_correct", "after_self_filter",
+                        "after_dedup")) if v is not None}
     summary["rag"]["rag_source"] = summary["rag_source"]
     summary["l2_meta"] = {k: (result.get("l2_meta") or {}).get(k) for k in
                           ("flagged", "total", "analyzer")}
@@ -718,14 +800,16 @@ def self_check(root: str, json_out: bool = False) -> int:
     synthetic_payload = payload_counts(system, plan_block, psb)
     # 4) WRITER-NO-META-FINAL: research/compact и casual обязаны нести
     # директиву (план), deep/auto — режимный блок; итог ровно 1× на payload.
+    # P0C-INT R2: закрывающее требование — последним блоком user-части.
     _meta = psb.NO_META_STRUCTURE_TEXT
-    research_payload = system + "\n\n" + plan_block
+    _closing = psb.NO_META_CLOSING_TEXT
+    research_payload = system + "\n\n" + plan_block + "\n\n" + _closing
     casual_extent = extent.render_extent_block(answer.to_response_plan())
     casual_block = l1.build_l2_plan_block(answer, modes_on=True)
     casual_system = psb.compose_verbalizer_system(
         "КАНАЛ: технический контракт.", l1.plan_response_mode(answer),
         "plain", html_safe=True, extent_block=casual_extent)
-    casual_payload = casual_system + "\n\n" + casual_block
+    casual_payload = casual_system + "\n\n" + casual_block + "\n\n" + _closing
     deep_plan = l1.normalize_l1_plan({
         "action": "reply", "response_act": "research", "extent": "auto",
         "structure": "report", "delivery_hint": "rich", "confidence": 0.9})
@@ -734,7 +818,7 @@ def self_check(root: str, json_out: bool = False) -> int:
         "КАНАЛ: технический контракт.", "deep_research", "rich",
         html_safe=True,
         extent_block=extent.render_extent_block(deep_plan.to_response_plan()))
-    deep_payload = deep_system + "\n\n" + deep_block
+    deep_payload = deep_system + "\n\n" + deep_block + "\n\n" + _closing
     payloads = {"research": research_payload, "casual": casual_payload,
                 "deep_auto": deep_payload}
     meta_free = {}
@@ -742,6 +826,20 @@ def self_check(root: str, json_out: bool = False) -> int:
         # директива сама перечисляет запрещённые слова — исключаем её из
         # скана, чтобы проверять именно случайные мета-примеры промпта.
         meta_free[name] = meta_re.search(payload.replace(_meta, "")) is None
+    closing_counts = {name: payload.count(_closing)
+                      for name, payload in payloads.items()}
+    # Порядок user-части как в сервисе: ... Target_User, Current_Question,
+    # закрывающее требование. Требование обязано быть ПОСЛЕ вопроса.
+    _user_parts = ["<Global_Context>\nокно\n</Global_Context>",
+                   "<Target_User>Аня</Target_User>",
+                   "<Current_Question>\nвопрос\n</Current_Question>",
+                   _closing]
+    _user_text = "\n\n".join(_user_parts)
+    closing_last = (_user_text.rstrip().endswith(_closing)
+                    and _user_text.index(_closing)
+                    > _user_text.index("</Current_Question>"))
+    closing_in_user_only = (payload_counts(system, _user_text, psb)
+                            ["system"]["closing"] == 0)
     answer_extent = extent.render_extent_block(answer.to_response_plan())
     answer_plan_block = l1.build_l2_plan_block(answer)
     answer_system = psb.compose_verbalizer_system(
@@ -855,8 +953,9 @@ def self_check(root: str, json_out: bool = False) -> int:
         # (не старый PG) и не обрезать Core.
         "code_l1_canon_material_routing": (
             "response_act=research" in code_l1
-            and "Смотри, что человек просит сделать с материалом" in code_l1
-            and "приоритет у\n   разбора" in code_l1
+            and "разбор материала" in code_l1
+            and "не является выпадом в адрес бота" in code_l1
+            and "hostile_rebuff" in code_l1
             and "проанализируй мои сообщения" not in code_l1.lower()),
         "code_l1_canon_not_pg_stage": (
             code_l1 != cp.PREV_DIRECT_L1_PLANNER_R3B
@@ -873,6 +972,11 @@ def self_check(root: str, json_out: bool = False) -> int:
         "no_meta_deep_auto_mode_once": (
             deep_payload.count(_meta) == 1 and _meta in deep_system),
         "meta_phrases_absent_from_prompts": all(meta_free.values()),
+        # P0C-INT R2: закрывающее требование ровно 1× и последним блоком user-части.
+        "closing_once_per_payload": all(v == 1
+                                        for v in closing_counts.values()),
+        "closing_last_after_current_question": closing_last,
+        "closing_only_in_user_part": closing_in_user_only,
         # Контракт «без мета-вступления» доезжает до Writer'а один раз на
         # разборе и ни разу на обычном ответе. Позиция не важна: проверяется
         # ФАКТ присутствия в собранном payload, а не имя блока.
@@ -1113,8 +1217,21 @@ def main() -> int:
         # получает exit 1 и точную причину в stderr.
         print("RUN_INVALID=%s" % (result.get("fatal")
                                   or result.get("invalid")), file=sys.stderr)
-        return 1
-    return 0
+        _exit_now(1)
+    # Живой прогон `probes_final4` показал: после сводки процесс не завершался
+    # (aiosqlite/asyncpg держат не-daemon потоки), и `timeout 900` съедал
+    # 15 минут на кейс. JSON уже записан и закрыт, stdout сброшен — выходим
+    # принудительно, иначе каждый повтор матрицы стоит кратно дороже.
+    _exit_now(0)
+
+
+def _exit_now(code: int) -> None:
+    """Завершить процесс после записи отчёта, не дожидаясь чужих потоков."""
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    finally:
+        os._exit(code)
 
 
 async def _run(args, result):
@@ -1342,6 +1459,20 @@ async def _run(args, result):
             return
         result["plan_source"] = "llm"
     result["l1_plan"] = _plan_dict(plan)
+    # P0C-INT R2: что именно вернула модель и что получилось после нормализации.
+    # Если живой прогон даст синоним (`analysis`/`review`/`разбор`), здесь будет
+    # видно: `act_raw` ≠ `act_normalized`, и анализ уже не выключается молча.
+    if result.get("plan_source") == "llm":
+        try:
+            _raw_plan = jload(result.get("l1_raw") or "", {}) or {}
+            result["l1_act_raw"] = str(_raw_plan.get("response_act") or "")
+            result["l1_act_normalized"] = str(
+                getattr(plan, "response_act", "") or "")
+            result["l1_act_rewritten"] = (
+                result["l1_act_raw"].strip().lower()
+                != result["l1_act_normalized"])
+        except Exception:                             # noqa: BLE001
+            result["l1_act_raw"] = ""
 
     # ── ОДИН план на весь payload
     if plan is None:
@@ -1407,6 +1538,11 @@ async def _run(args, result):
     parts.extend(user_blocks)
     parts.extend(("<Target_User>%s</Target_User>" % author,
                   "<Current_Question>\n" + question + "\n</Current_Question>"))
+    # P0C-INT R2: закрывающее требование — ПОСЛЕДНИЙ блок user-части, после
+    # Current_Question (recency). В сервисе это делает `_l2_write_answer`.
+    _closing = str(getattr(psb, "NO_META_CLOSING_TEXT", "") or "").strip()
+    if _closing:
+        parts.append(_closing)
     user_text = "\n\n".join([p for p in parts if p])
     result["composer_on"] = _c_on
     result["summary_injection"] = {"chars": len(summary_text),

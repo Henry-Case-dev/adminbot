@@ -112,7 +112,8 @@ def test_l1_rule1_and_schema_byte_preserved():
     # (P0-CORRECTIVE заменил правило 7 смысловым критерием маршрутизации,
     # поэтому JSON-строка сдвинулась на номер 9; её текст не менялся)
     old_head = old_rules.split("6. confidence")[1].split("7. В ответе")[0]
-    new_head = new_rules.split("6. confidence")[1].split("7. Смотри")[0]
+    new_head = new_rules.split("6. confidence")[1].split(
+        "7. Сначала определи")[0]
     assert old_head == new_head
     assert new_rules.split("9. В ответе")[1] == old_rules.split("7. В ответе")[1]
     # правило 5: единственная дельта против замороженных правил W1 —

@@ -1781,7 +1781,13 @@ def factory_set_fingerprint() -> str:
 #: changed = 1. Метка ``mode-no-meta-lexical``.
 #: Было ``9f28ff7f6a77``, стало ``ffc36e1c66db``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "ffc36e1c66db"
+#: P0C-INT R2 (25.10.2026, живой `probes_final4.md` §3): канон L1 — редакция 3
+#: ``direct.base.l1_planner`` (просьба разобрать материал = research даже при
+#: добавленном вопросе-оценке; разбор не выбирает hostile_rebuff; оценка без
+#: разбора материала остаётся answer). changed = 1. Метка
+#: ``l1-planner-material-first``. Было ``ffc36e1c66db``, стало ``50492308595e``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "50492308595e"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

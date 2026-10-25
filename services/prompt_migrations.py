@@ -54,6 +54,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_R3B,
     PREV_DIRECT_L1_PLANNER_P0CS,
     PREV_DIRECT_L1_PLANNER_P0CS2,
+    PREV_DIRECT_L1_PLANNER_P0CINT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
@@ -241,6 +242,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # P0-CORRECTIVE ред.2 (25.10.2026, §1.1): приоритет разбора в
         # смешанной просьбе («разбери накопленное + скажи оценку») — ступени
         # узнают и редакцию 1 (P0CS2, ``f6f5d3b1fc1d``), и прежние P0CS/R3b.
+        # P0C-INT R2 (25.10.2026, `probes_final4.md` §3): редакция 3 —
+        # просьба разобрать материал = research независимо от вопроса-оценки
+        # в конце; разбор не выбирает hostile_rebuff. Верхняя ступень —
+        # редакция 2 (PREV_..._P0CINT, 9288/``23aae0c9499d``).
+        (PREV_DIRECT_L1_PLANNER_P0CINT, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_R3B, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
@@ -432,17 +438,21 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # правило 7 маршрутизации личного разбора.
     # P0-CORRECTIVE (25.10.2026, §1.1): правило 7 заменено смысловой связкой
     # «материал/история → research; мнение → answer» (JSON — 9). Ред.2 добавила
-    # приоритет разбора в смешанной просьбе. Откат снимает ТОЛЬКО новую
-    # редакцию — на активные байты ред.1 (P0CS2), затем на P0CS; стек прежних
-    # ступеней цел (ADR-1013-3).
+    # приоритет разбора в смешанной просьбе. P0C-INT R2 (25.10.2026,
+    # `probes_final4.md` §3): ред.3 — разбор материала не отменяется вопросом-
+    # оценкой и не выбирает hostile_rebuff. Откат снимает ТОЛЬКО новую
+    # редакцию — на активные байты ред.2 (P0CINT, 9288), затем P0CS2; стек
+    # прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0: активный канон ред.2 → P0CS2 (активные байты ред.1)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CS2),
-        # ступень 1: P0CS2 → P0CS (правило 7 старой редакции)
+        # ступень 0: активный канон ред.3 → P0CINT (активные байты ред.2)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINT),
+        # ступень 1: P0CINT → P0CS2 (активные байты ред.1)
+        (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),
+        # ступень 2: P0CS2 → P0CS (правило 7 старой редакции)
         (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),
-        # ступень 2: P0CS → R3b (прод-байты без правила 7)
+        # ступень 3: P0CS → R3b (прод-байты без правила 7)
         (PREV_DIRECT_L1_PLANNER_P0CS, PREV_DIRECT_L1_PLANNER_R3B),
-        # ступень 3: R3b → канон R3 (база R3 + контракт §4.1 + правила)
+        # ступень 4: R3b → канон R3 (база R3 + контракт §4.1 + правила)
         (PREV_DIRECT_L1_PLANNER_R3B, PREV_DIRECT_L1_PLANNER_R3),
         # ступень 4: R3 → прод-канон 2.58.113 (контракт уточнений).
         # Полный откат до 2.58.113 = пять вызовов rollback_prompt_canons.

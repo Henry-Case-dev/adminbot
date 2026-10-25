@@ -69,9 +69,9 @@ def test_canon_schema_has_delivery_fields():
     assert '"delivery": "chat|reply|null"' in canon
     assert '"target_message_id": null' in canon
     assert '"target_user_id": null' in canon
-    # правила 1-6 прежние; 7-8 — семантика P0-CORRECTIVE; JSON — 9
+    # правила 1-6 прежние; 7-8 — семантика P0-CORRECTIVE (ред.3 P0C-INT); JSON — 9
     assert "1. Решение семантическое" in canon
-    assert "7. Смотри, что человек просит сделать с материалом" in canon
+    assert "7. Сначала определи, что человек просит сделать" in canon
     assert "response_act=research" in canon
     assert "9. В ответе - ровно одна JSON-строка" in canon
     assert "8. В ответе - ровно одна JSON-строка" not in canon
@@ -191,10 +191,13 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     # P0-CORRECTIVE: верхняя ступень — текущие активные байты до правки
     from services.chat_prompts import (PREV_DIRECT_L1_PLANNER_P0CS,
                                        PREV_DIRECT_L1_PLANNER_P0CS2,
+                                       PREV_DIRECT_L1_PLANNER_P0CINT,
                                        _DIRECT_L1_PLANNER_RULES_P0CS)
     assert targets[PREV_DIRECT_L1_PLANNER_P0CS] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert targets[PREV_DIRECT_L1_PLANNER_P0CS2] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert targets[PREV_DIRECT_L1_PLANNER_P0CINT] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert PREV_DIRECT_L1_PLANNER_P0CS == (
         _DIRECT_L1_PLANNER_BASE_R3 + _DIRECT_L1_CLARIFICATION_CONTRACT
@@ -203,11 +206,14 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     # ступени-источники не являются целями прямого маппинга (нет циклов)
     assert PREV_DIRECT_L1_PLANNER_P0CS not in targets.values()
     assert PREV_DIRECT_L1_PLANNER_P0CS2 not in targets.values()
+    assert PREV_DIRECT_L1_PLANNER_P0CINT not in targets.values()
     assert PREV_DIRECT_L1_PLANNER_R3B not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
-    # ADR-1013-3: цепочка отката L1 — active→P0CS2→P0CS→R3b→R3→2.58.113
+    # ADR-1013-3: цепочка отката L1 —
+    # active→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CS2),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINT),
+        (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),
         (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),
         (PREV_DIRECT_L1_PLANNER_P0CS, PREV_DIRECT_L1_PLANNER_R3B),
         (PREV_DIRECT_L1_PLANNER_R3B, PREV_DIRECT_L1_PLANNER_R3),
