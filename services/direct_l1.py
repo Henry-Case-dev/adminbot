@@ -983,6 +983,44 @@ def analysis_directive_needed(plan, response_mode: str = "",
         return False
 
 
+def apply_research_fallback(plan, query) -> tuple:
+    """P0-CORRECTIVE (25.10.2026, §1.1): дет. fallback смыслового акта.
+
+    Если Planner выбрал ``action=reply``, но его ``response_act`` НЕ research,
+    а СУЩЕСТВУЮЩИЙ классификатор ``response_extent.classify_request`` видит в
+    запросе явный материал-анализ (``task_kind=research``: «проанализируй…»,
+    «исследуй…», «полный обзор…», «собери данные…»), — повышается ТОЛЬКО
+    ``response_act`` до ``research``.
+
+    Границы (дефект final5: A снова ``answer/compact``):
+    * extent/structure/delivery/tone Planner'а НЕ меняются — глубина
+      внутреннего разбора не задаёт длину ответа (§1.1);
+    * новых списков слов/регулярок нет: используется тот же классификатор,
+      что и в legacy-пути (§1.1 «не добавляя хардкод слов и фраз»);
+    * casual/opinion не форсируются: повышение возможно ТОЛЬКО при
+      ``task_kind=research`` (болтовня/мнение классифицируются иначе);
+    * только ``action=reply`` и без реального уточнения — silent/react/
+      clarification не трогаются.
+
+    Возврат ``(plan, applied)``; никогда не бросает.
+    """
+    try:
+        if plan is None or getattr(plan, "action", "") != "reply":
+            return plan, False
+        if getattr(plan, "needs_clarification", False) is True:
+            return plan, False
+        if str(getattr(plan, "response_act", "") or "") == "research":
+            return plan, False
+        from services import response_extent as _extent
+        legacy = _extent.classify_request(query)
+        if str(getattr(legacy, "task_kind", "") or "") != "research":
+            return plan, False
+        plan.response_act = "research"
+        return plan, True
+    except Exception:      # pragma: no cover - защитная ветка
+        return plan, False
+
+
 def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         clarification: bool = False,
                         low_confidence: bool = False,
@@ -1299,6 +1337,6 @@ __all__ = [
     "infer_fallback_capabilities", "build_l1_context", "render_window_lines",
     "build_evidence_packet", "fallback_plan", "plan_response_mode",
     "emit_l1_plan_event", "build_l2_plan_block",
-    "analysis_directive_needed", "rejected_note",
+    "analysis_directive_needed", "apply_research_fallback", "rejected_note",
     "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
 ]

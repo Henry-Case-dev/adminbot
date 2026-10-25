@@ -16,6 +16,8 @@ import pytest
 from services import chat_params
 from services import direct_chat_service as dcs
 from services import direct_l1 as l1
+from services import prompt_style_blocks as psb
+from services import response_extent as extent
 from services import summary_aliases as sa
 
 
@@ -79,6 +81,86 @@ async def test_l1_zero_temperature_reaches_payload(monkeypatch):
     assert llm.payload["temperature"] == 0.0
 
 
+# ── L1: дет. fallback смыслового акта (P0 §1.1, probes_final5 A) ─────────────
+
+# Дословный запрос A и план, который L1 вернул на final5 (`answer/compact`).
+QUERY_A = "Бот проанализируй мои сообщения в чате и скажи, я злобный?"
+PLAN_A = {"action": "reply", "response_act": "answer", "extent": "compact",
+          "structure": "answer", "tone": "neutral",
+          "delivery_hint": "plain", "confidence": 0.85}
+
+
+def test_research_fallback_upgrades_act_and_keeps_extent():
+    plan = l1.normalize_l1_plan(dict(PLAN_A))
+    out, applied = l1.apply_research_fallback(plan, QUERY_A)
+    assert applied is True
+    assert out is plan
+    assert out.response_act == "research"
+    # Выбранные Planner'ом форма/длина не подменяются (§1.1).
+    assert out.extent == "compact"
+    assert out.structure == "answer"
+    assert out.delivery_hint == "plain"
+
+
+def test_research_fallback_payload_gets_analysis_once():
+    plan = l1.normalize_l1_plan(dict(PLAN_A))
+    l1.apply_research_fallback(plan, QUERY_A)
+    assert l1.plan_response_mode(plan) == "serious"
+    assert l1.analysis_directive_needed(plan) is True
+    block = l1.build_l2_plan_block(plan, include_analysis=True)
+    assert block.count(psb.ANALYSIS_DIRECTIVE_TEXT) == 1
+    assert block.count(psb.ANALYSIS_WRITER_TEXT) == 1
+    assert block.count(psb.QUOTE_FIDELITY_TEXT) == 1
+    assert block.count(psb.NO_META_STRUCTURE_TEXT) == 1
+    # Тот же путь сборки, что в `_run`: отрезок serious/compact не дублирует
+    # analysis/NO_META (итог ровно 1× на payload, extent остаётся compact).
+    system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", l1.plan_response_mode(plan), "plain",
+        html_safe=True,
+        extent_block=extent.render_extent_block(plan.to_response_plan()))
+    payload = system + "\n\n" + block
+    assert payload.count(psb.ANALYSIS_DIRECTIVE_TEXT) == 1
+    assert payload.count(psb.ANALYSIS_WRITER_TEXT) == 1
+    assert payload.count(psb.QUOTE_FIDELITY_TEXT) == 1
+    assert payload.count(psb.NO_META_STRUCTURE_TEXT) == 1
+
+
+@pytest.mark.parametrize("query", [
+    # casual / opinion без маркеров материала — research НЕ форсируется.
+    "Бот, ты дождь любишь или тебя от него ломает?",
+    "Бот, я тебе уже сильно надоел?",
+    "Как думаешь, я злобный?",
+])
+def test_research_fallback_leaves_casual_and_opinion(query):
+    plan = l1.normalize_l1_plan(dict(PLAN_A))
+    out, applied = l1.apply_research_fallback(plan, query)
+    assert applied is False
+    assert out.response_act == "answer"
+    assert l1.analysis_directive_needed(out) is False
+
+
+def test_research_fallback_is_noop_for_research_and_non_reply():
+    already = l1.normalize_l1_plan({"action": "reply",
+                                    "response_act": "research",
+                                    "extent": "normal"})
+    assert l1.apply_research_fallback(already, QUERY_A) == (already, False)
+
+    silent = l1.normalize_l1_plan({"action": "silent", "extent": "auto"})
+    out, applied = l1.apply_research_fallback(silent, QUERY_A)
+    assert applied is False and out.response_act != "research"
+
+    clarify = l1.normalize_l1_plan({"action": "reply", "extent": "auto",
+                                    "needs_clarification": True,
+                                    "clarification_target": "какие сообщения"})
+    out, applied = l1.apply_research_fallback(clarify, QUERY_A)
+    assert applied is False and out.response_act != "research"
+
+
+def test_research_fallback_wired_into_l1_planner():
+    src = inspect.getsource(dcs.DirectChatService._plan_direct_l1)
+    assert "apply_research_fallback(" in src
+
+
 # ── direct-L2: meta guard ────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("raw,expected_prefix", [
@@ -94,6 +176,13 @@ async def test_l1_zero_temperature_reaches_payload(monkeypatch):
      "Конфликта в логе не было."),
     ("Ну, давай без лишних церемоний.\n\n**Костя** — главный поставщик.",
      "**Костя** — главный поставщик."),
+    # P0-FINAL-E2 (probes_final5): «ладно + давай» без глагола из списка.
+    ("Ладно, давай по фактам. Ты не злобный, просто устал.",
+     "Ты не злобный, просто устал."),
+    ("Ладно, давай по фактам.\n\n**Костя** — главный поставщик контента.",
+     "**Костя** — главный поставщик контента."),
+    ("Ладно, давай по существу. Конфликта в логе не было.",
+     "Конфликта в логе не было."),
 ])
 def test_meta_guard_removes_filler_and_single_announce(raw, expected_prefix):
     out, stats = dcs.strip_l2_meta_lead(raw)
@@ -111,6 +200,10 @@ def test_meta_guard_removes_filler_and_single_announce(raw, expected_prefix):
     "Конфликта не было. Костя просто ныл.",
     # Анонс без содержательного продолжения — не режем (нечего оставить).
     "Давай без лишних церемоний.",
+    # P0-FINAL-E2: содержательное «ладно, давай ...» не является анонсом.
+    "Ладно, давай в субботу. Я свободен после шести.",
+    "Ладно, давай по фактам: конфликта не было.",
+    "Ладно, давай по фактам.",
 ])
 def test_meta_guard_keeps_answer_and_lone_announce(raw):
     out, stats = dcs.strip_l2_meta_lead(raw)
@@ -125,6 +218,17 @@ def test_meta_guard_removes_only_one_announce_and_keeps_body():
     assert stats["announce_removed"] is True
     # Второй анонс остаётся: guard снимает РОВНО одно предложение.
     assert out == ("Сейчас разберу по пунктам. "
+                   "Первый факт: Костя ноет про хейт.")
+
+
+def test_meta_guard_e2_removes_exactly_one_sentence():
+    """P0-FINAL-E2: снимается ровно одно ведущее «Ладно, давай по фактам.»,
+    остальной текст — байт-в-байт (включая абзацы и второй анонс)."""
+    raw = ("Ладно, давай по фактам. Сейчас разберу по пунктам.\n\n"
+           "Первый факт: Костя ноет про хейт.")
+    out, stats = dcs.strip_l2_meta_lead(raw)
+    assert stats["announce_removed"] is True
+    assert out == ("Сейчас разберу по пунктам.\n\n"
                    "Первый факт: Костя ноет про хейт.")
 
 

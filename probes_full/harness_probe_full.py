@@ -373,7 +373,11 @@ def self_check(root: str, json_out: bool = False) -> int:
             "Ну, ты не злобный.")[0] == "Ты не злобный."
         and _dcs.strip_l2_meta_lead(
             "Окей, глянул твою простыню. Дальше по фактам всё ровно."
-        )[0].startswith("Дальше по фактам"))
+        )[0].startswith("Дальше по фактам")
+        # P0-FINAL-E2 (final5): «Ладно, давай по фактам.» — анонс процесса.
+        and _dcs.strip_l2_meta_lead(
+            "Ладно, давай по фактам. Ты не злобный, просто устал."
+        )[0] == "Ты не злобный, просто устал.")
     _quote_text, _quote_stats = _dcs.strip_unverified_l2_quotes(
         "Он «супермега хейтом» и «точная цитата» писал.",
         query="q", blocks=["тут точная цитата внутри"])
@@ -382,6 +386,18 @@ def self_check(root: str, json_out: bool = False) -> int:
         and "супермега хейтом" in _quote_text
         and "«точная цитата»" in _quote_text
         and _quote_stats["quotes_unquoted"] == 1)
+    _rf_plan = l1.normalize_l1_plan({"action": "reply",
+                                     "response_act": "answer",
+                                     "extent": "compact",
+                                     "structure": "answer"})
+    _rf_applied = l1.apply_research_fallback(
+        _rf_plan, "Бот проанализируй мои сообщения в чате, я злобный?")[1]
+    _rf_casual = l1.normalize_l1_plan({"action": "reply",
+                                       "response_act": "answer",
+                                       "extent": "compact",
+                                       "structure": "chat"})
+    _rf_casual_out, _rf_casual_applied = l1.apply_research_fallback(
+        _rf_casual, "Бот, ты дождь любишь или тебя от него ломает?")
     results = {
         "counts_1x1": counts["directive"] == 1 and counts["writer"] == 1,
         "ascii_marker_zero": counts["ascii_marker"] == 0,
@@ -442,6 +458,16 @@ def self_check(root: str, json_out: bool = False) -> int:
         "meta_phrases_absent_from_prompts": all(meta_free.values()),
         # P0-CORRECTIVE-FINAL: guard presence (байт-поведение на примерах).
         "l1_temperature_deterministic_zero": l1.l1_temperature(None) == 0.0,
+        # P0-CORRECTIVE §1.1 (final5 A): fallback смыслового акта через
+        # существующий classify_request; extent Planner'а не подменяется,
+        # casual/opinion остаются answer.
+        "l1_research_fallback_present": (
+            _rf_applied is True
+            and _rf_plan.response_act == "research"
+            and _rf_plan.extent == "compact"
+            and l1.analysis_directive_needed(_rf_plan) is True
+            and _rf_casual_applied is False
+            and _rf_casual_out.response_act == "answer"),
         "l2_meta_guard_present": meta_guard_ok,
         "l2_quote_guard_present": quote_guard_ok,
     }

@@ -1925,6 +1925,10 @@ _L2_META_FILLER_RE = re.compile(
     r"^(?:ну|ок|окей|окэй|ага|угу)\s*[,!]\s*", re.IGNORECASE)
 # Анонс процесса (мета-вступление), а не факт/ответ: «Давай без лишних
 # церемоний.», «Окей, глянул твою простыню.», «Сейчас разберу.».
+# P0-FINAL-E2 (25.10.2026): сюда же ведущее «Ладно, давай по фактам.» —
+# сочетание «ладно» + «давай» без глагола из списка (final5 E2 пережил
+# guard). Ветка узкая: только процесс-предмет («по фактам/делу/существу/
+# порядку»), поэтому содержательные «Ладно, давай в субботу.» не режутся.
 _L2_META_ANNOUNCE_RE = re.compile(
     r"^(?:(?:ну|ок|окей|окэй|ага|угу)\s*[,!]\s*)?(?:"
     r"давай(?:те)?\s+(?:без|начн|разбер|разлож|посмотр|гляд|перейд"
@@ -1935,6 +1939,9 @@ _L2_META_ANNOUNCE_RE = re.compile(
     r"|проверю|приступ)"
     r"|(?:сейчас|сразу|для\s+начала)\s+(?:разбер|разлож|посмотр|гляд"
     r"|провер|начн|пойд)"
+    r"|(?:окей|ок|так|итак|ладно|ну\s+что\s+ж|что\s+ж)?\s*,?\s*"
+    r"давай(?:те)?\s+(?:по\s+(?:фактам|факту|делу|существу|порядку)"
+    r"|к\s+(?:делу|сути))"
     r")", re.IGNORECASE)
 _L2_SENTENCE_END_RE = re.compile(r"[.!?…]+(?=\s|$)")
 _L2_LETTERS_RE = re.compile(r"[^\W\d_]", re.UNICODE)
@@ -4580,6 +4587,14 @@ class DirectChatService:
                     "source=%s | error=%s", chat_id, label,
                     type(exc).__name__)
         latency_ms = int((time.monotonic() - started) * 1000)
+        # ── P0-CORRECTIVE (25.10.2026, §1.1): дет. fallback смыслового акта.
+        # Planner вернул reply, но запрос — явный материал-анализ: повышается
+        # ТОЛЬКО response_act (extent/структура/delivery Planner'а остаются,
+        # глубина разбора не задаёт длину), источник — существующий
+        # response_extent.classify_request, без новых списков слов.
+        plan, _research_fallback = _l1.apply_research_fallback(plan, query)
+        if _research_fallback:
+            meta["research_fallback"] = "response_extent"
         fallback_flag = "deterministic" if plan is None else ""
         if plan is None:
             logger.warning(
@@ -4603,6 +4618,7 @@ class DirectChatService:
             temperature_unsupported=bool(
                 meta.get("temperature_unsupported")),
             repair=int(meta.get("repair") or 0),
+            research_fallback=str(meta.get("research_fallback") or ""),
             fallback=fallback_flag)
         # F2-FOLLOWUP (§1.10): durable plan_meta на usage-строке — все ходы
         # (reply/silent/react) идут через этот единственный вызов, строка
