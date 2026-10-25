@@ -1,0 +1,64 @@
+{
+ "candidate": "c0d5a3d3fc65f15a81f337bd322d1dd9ff2c226d",
+ "branch": "task/speech-p0-hotfix",
+ "prod_old": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "ssh_probe_utc": "2026-10-25T06:25:30Z/2026-10-25T06:30:45Z",
+ "files": {
+  "analysis.json": {
+   "sha256": "097de24fbe3476e3ef71cf589cf4634c898a9eb7df10bfcde1153f59df4fd0e0",
+   "bytes": 67443
+  },
+  "raw_forced_A.json": {
+   "sha256": "4ff5eaba4a7e9fc927daba6e1e6cb27baac63bcd633a59502315cd469792111b",
+   "bytes": 46574
+  },
+  "raw_forced_B.json": {
+   "sha256": "5346dac724afe0322fbb93f7435b005c312d1e74e0434d1322af9230dc8e80c7",
+   "bytes": 46768
+  },
+  "raw_new_A.json": {
+   "sha256": "0a8026a1bf46c6ab70c75072ae4e13d19f7c2e067a869f56033992b942a15a3b",
+   "bytes": 48119
+  },
+  "raw_new_B.json": {
+   "sha256": "7a1554b9bb552eb7aad628ac636f2b3c34824cc428680f6a8dd8853514fe94c0",
+   "bytes": 49757
+  },
+  "raw_new_C.json": {
+   "sha256": "b43733dddb50b600b24e9b31d798e6352f251f826b01cc3ceefda2a74bca4043",
+   "bytes": 45149
+  },
+  "raw_new_D.json": {
+   "sha256": "4635c481868b1420fa6b0be0ea5a12a9d8dd9edb5bedc841481ee084e7f0278f",
+   "bytes": 45395
+  },
+  "raw_new_E.json": {
+   "sha256": "a742b14b64f0fcba47dc96cacbe4a9de96dcd9b71a4109c770d45e74eb348dc2",
+   "bytes": 54886
+  },
+  "raw_new_F.json": {
+   "sha256": "dea9bdb36653d50a4b3cff89c18b88e53f6cdc3b31c575376d82b10c3e5dd62b",
+   "bytes": 45768
+  },
+  "raw_old_A.json": {
+   "sha256": "b6dce259e843dff1838d923538a7e7997329e5c896fb0c1d4025c10fcf0f6450",
+   "bytes": 43979
+  },
+  "raw_old_B.json": {
+   "sha256": "58b96584becba5034aa6aaede67b86f9e54ead40f71250b142cdaf093a039151",
+   "bytes": 44656
+  },
+  "ssh_session.json": {
+   "sha256": "c80c382729e6c66f0acc66daf8ac7f71aa49aba0563aa054e5b9fadbb3cc7747",
+   "bytes": 29504
+  },
+  "harness_probe_full.py": {
+   "sha256": "e5a29e796928d273fa52d0ef2f3296d27e83ba2f9a7cf2e7bfae8c1cc73f0732",
+   "source": "probes_full/harness_probe_full.py @ c0d5a3d3"
+  },
+  "harness_extra.py": {
+   "sha256": "5269948e55043cb3e9d9d64aeb9de30bd803f4ea37e9bc7070390226005ff382",
+   "source": "probe stand wrapper (not product)"
+  }
+ }
+}
