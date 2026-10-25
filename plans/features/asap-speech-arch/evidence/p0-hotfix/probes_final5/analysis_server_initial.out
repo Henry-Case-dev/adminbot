@@ -1,0 +1,100 @@
+{
+ "summary": {
+  "l1_natural_ab_research": {
+   "count": 1,
+   "of": 2,
+   "runs": [
+    {
+     "label": "new_A",
+     "act": "answer",
+     "source": "llm",
+     "extent": "compact"
+    },
+    {
+     "label": "new_B",
+     "act": "research",
+     "source": "llm",
+     "extent": "normal"
+    }
+   ]
+  },
+  "l1_forced_ab_research": {
+   "count": 2,
+   "of": 2
+  },
+  "e_not_silent": true,
+  "e_route": {
+   "action": "reply",
+   "response_act": "research",
+   "extent": "detailed",
+   "structure": "report",
+   "confidence": 0.7
+  },
+  "meta_first_sentence": {
+   "raw": 1,
+   "final": 0,
+   "of": 16
+  },
+  "quotes": {
+   "raw_total": 39,
+   "final_total": 22,
+   "final_non_exact": 0
+  },
+  "core": {
+   "runs_with_expected_core": 8,
+   "of": 8,
+   "chars": 3294,
+   "sha12": "ead77b2ab509"
+  },
+  "malformed": 0,
+  "invalid_runs": [],
+  "l1_attempts": {
+   "new_A": 1,
+   "new_B": 1,
+   "new_C": 1,
+   "new_D": 1,
+   "new_E": 1,
+   "new_F": 1,
+   "forced_A": null,
+   "forced_B": null
+  },
+  "b_lengths": [
+   539,
+   643
+  ],
+  "e_lengths": [
+   2178,
+   2490
+  ],
+  "c_d_f": {
+   "new_C": {
+    "act": "banter",
+    "extent": "compact",
+    "lengths": [
+     279,
+     199
+    ]
+   },
+   "new_D": {
+    "act": "emotional_reply",
+    "extent": "compact",
+    "lengths": [
+     201,
+     369
+    ]
+   },
+   "new_F": {
+    "act": "clarification",
+    "extent": "compact",
+    "lengths": [
+     158,
+     192
+    ]
+   }
+  }
+ },
+ "harness": {
+  "probes_full/harness_probe_full.py": "3c75652c15e5d984b17196769965d44186ca7af127455f8c1584528e10718dbd",
+  "probes_full/harness_extra.py": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1"
+ }
+}

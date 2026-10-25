@@ -1,0 +1,178 @@
+{
+ "generated_utc": "2026-10-25T08:04:05Z",
+ "root": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\wt-final5",
+ "files": [
+  {
+   "file": "analysis.json",
+   "bytes": 63315,
+   "sha256": "aa3121e2cd6412c099a1c2c5aa815fa127c8c35c727af3483f7e85b50917a340"
+  },
+  {
+   "file": "analysis_server_initial.err",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "analysis_server_initial.out",
+   "bytes": 1657,
+   "sha256": "0908f19150793c6e9b7c6a767f522924fdcc7f129330d84dfadd7b4e0775e0e9"
+  },
+  {
+   "file": "harness_extra.py",
+   "bytes": 2376,
+   "sha256": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1"
+  },
+  {
+   "file": "raw/forced_A.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/forced_A.out",
+   "bytes": 844,
+   "sha256": "d0ed401b3281515b8b6a1e7d9600363ba011a0c5e40b084d6738d73a93ed1de8"
+  },
+  {
+   "file": "raw/forced_B.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/forced_B.out",
+   "bytes": 844,
+   "sha256": "6691c6f9e1e500f52e30fb710e331149a09167c605d713b131621fa6f8cc5854"
+  },
+  {
+   "file": "raw/new_A.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/new_A.out",
+   "bytes": 841,
+   "sha256": "220e61b4f9034d12d1ff296152d0715c434c19f2261e1c684139d1ac537f58fa"
+  },
+  {
+   "file": "raw/new_B.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/new_B.out",
+   "bytes": 843,
+   "sha256": "e9d3809049202dbfcb99fb30f4fc62dfc6b31dc00166842b744bf9bec52e1c9b"
+  },
+  {
+   "file": "raw/new_C.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/new_C.out",
+   "bytes": 839,
+   "sha256": "4cafbbc35d04fa9cca07c0d96b3dcf7ccfca41b7a2f03ca072b4b159def7c71b"
+  },
+  {
+   "file": "raw/new_D.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/new_D.out",
+   "bytes": 845,
+   "sha256": "ceb72f043e9b39a8f40223b5f9e3e7061c574f9c39133a36edc89abc8f097b7a"
+  },
+  {
+   "file": "raw/new_E.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/new_E.out",
+   "bytes": 855,
+   "sha256": "d22b270ad7f5bbb33e542818e7eb3924ed2498e4707ff6d3919643aa60877c17"
+  },
+  {
+   "file": "raw/new_F.err",
+   "bytes": 1312,
+   "sha256": "c6a298fd4e9c545439178ebdf686681761c41fc6c955f55166ec17e0d03cc800"
+  },
+  {
+   "file": "raw/new_F.out",
+   "bytes": 845,
+   "sha256": "2b1789a23403bd603c5970c5f22fae9c8826236f360f4ba0f4236c588dda8c40"
+  },
+  {
+   "file": "raw/raw_forced_A.json",
+   "bytes": 47431,
+   "sha256": "9acdf641fa34921506fa17897a2dbdc0c173f461dd95dfe7ef7fbc28c42e07d2"
+  },
+  {
+   "file": "raw/raw_forced_B.json",
+   "bytes": 48086,
+   "sha256": "96dd2c083380401034ab2cf3a0de15a59ac6beb8442b196fc524844b4d989cbe"
+  },
+  {
+   "file": "raw/raw_new_A.json",
+   "bytes": 47277,
+   "sha256": "cd679d7137f0bc9471ff06216d9d97362e21874abbc072698f886b6c98117ad3"
+  },
+  {
+   "file": "raw/raw_new_B.json",
+   "bytes": 49511,
+   "sha256": "6c103fb6660267ff054195fa027aac77d9324b2291a21d1382b12640ba452e9f"
+  },
+  {
+   "file": "raw/raw_new_C.json",
+   "bytes": 46141,
+   "sha256": "6a32c488324436c3001514835b0cea40c72f5f0f21e95ca4756cb4fac32df896"
+  },
+  {
+   "file": "raw/raw_new_D.json",
+   "bytes": 46404,
+   "sha256": "a4dec366590a72d32d50d805c9f69e41719551064f7c28a98e7bb345a20479ba"
+  },
+  {
+   "file": "raw/raw_new_E.json",
+   "bytes": 56299,
+   "sha256": "88381c0f8e6dd73e90840be2d65815fcc7865949b70387f4b783e930c2e1f742"
+  },
+  {
+   "file": "raw/raw_new_F.json",
+   "bytes": 46109,
+   "sha256": "b6a458b407c913bce8b5fcce333b5d16135fb0b68742fbed05ce16ad440b088b"
+  },
+  {
+   "file": "selfcheck_new.txt",
+   "bytes": 2962,
+   "sha256": "aafd7961f011c11506d5c867556978b8804ad0e8055c7f68c957b9b7b0ccd1ad"
+  },
+  {
+   "file": "session_attempt1_failed.json",
+   "bytes": 13216,
+   "sha256": "fcff6112f5652dea33369e32cde9ea682cc366ed08ae06120e6170e314901d0f"
+  },
+  {
+   "file": "session_attempt2.json",
+   "bytes": 27617,
+   "sha256": "2b932171b6607f205966f140056f27459b6a2cc662a611b4b6a1578439fe193a"
+  }
+ ],
+ "analysis_script": {
+  "path": "analysis_final5.py",
+  "sha256": "6de32e925ff52c4306363609e2f964c650fdb5b19129c0e445c3320f77fdfe60"
+ },
+ "harness": {
+  "probes_full/harness_probe_full.py": "3c75652c15e5d984b17196769965d44186ca7af127455f8c1584528e10718dbd",
+  "probes_full/harness_extra.py": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1"
+ },
+ "pins_git": {
+  "commit": "ERR:Command '['git', '-C', '.', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+  "branch": "ERR:Command '['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+  "dirty": true,
+  "dirty_files": [
+   "ERR:Command '['git', '-C', '.', 'status', '--porcelain']' returned non-zero exit status 128."
+  ]
+ },
+ "pins_harness": "3c75652c15e5d984b17196769965d44186ca7af127455f8c1584528e10718dbd"
+}

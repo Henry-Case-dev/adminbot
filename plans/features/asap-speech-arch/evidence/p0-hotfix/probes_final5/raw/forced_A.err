@@ -1,0 +1,24 @@
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/tmp/p0-final5/new/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-final5/new/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-final5/new/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/tmp/p0-final5/new/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-final5/new/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-final5/new/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'

@@ -1,0 +1,111 @@
+{
+ "self_check": "PASS",
+ "results": {
+  "counts_1x1": true,
+  "ascii_marker_zero": true,
+  "payload_1x1": true,
+  "predicate_research": true,
+  "predicate_answer": true,
+  "mode_research_serious": true,
+  "modules_under_root": true,
+  "code_l1_canon_material_routing": true,
+  "code_l1_canon_not_pg_stage": true,
+  "core_full_not_truncated": true,
+  "no_meta_research_plan_once": true,
+  "no_meta_casual_plan_once": true,
+  "no_meta_deep_auto_mode_once": true,
+  "no_meta_first_paragraph_rule": true,
+  "quote_fidelity_rule": true,
+  "silent_direct_request_rule": true,
+  "meta_phrases_absent_from_prompts": true,
+  "l1_temperature_deterministic_zero": true,
+  "l2_meta_guard_present": true,
+  "l2_quote_guard_present": true
+ },
+ "counts": {
+  "directive": 1,
+  "writer": 1,
+  "ascii_marker": 0
+ },
+ "synthetic_payload": {
+  "system": {
+   "directive": 0,
+   "writer": 0,
+   "ascii_marker": 0
+  },
+  "user": {
+   "directive": 1,
+   "writer": 1,
+   "ascii_marker": 0
+  },
+  "total": {
+   "directive": 1,
+   "writer": 1,
+   "ascii_marker": 0
+  },
+  "invariant_1x1": true,
+  "invariant_0x0": false
+ },
+ "meta_check": {
+  "free": {
+   "research": true,
+   "casual": true,
+   "deep_auto": true
+  },
+  "payload_counts": {
+   "research": 1,
+   "casual": 1,
+   "deep_auto": 1
+  }
+ },
+ "code_l1_canon": {
+  "chars": 9588,
+  "sha12": "cc020660ae03",
+  "prev_p0cs2_sha12": "f6f5d3b1fc1d"
+ },
+ "pins": {
+  "root": ".",
+  "git": {
+   "commit": "ERR:Command '['git', '-C', '.', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+   "branch": "ERR:Command '['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+   "dirty": true,
+   "dirty_files": [
+    "ERR:Command '['git', '-C', '.', 'status', '--porcelain']' returned non-zero exit status 128."
+   ]
+  },
+  "modules": {
+   "services/chat_prompts.py": {
+    "sha256": "d6cba9a7639f7841fb86f4068678e8eb0b66c10d747b5ecd5633a0acd454cbae",
+    "chars": 163957
+   },
+   "services/direct_l1.py": {
+    "sha256": "aca23de7933dd3c3cf7eca0d555e34dfbe0b5b6b30b3465bb4ba16d458d3fb91",
+    "chars": 73186
+   },
+   "services/prompt_style_blocks.py": {
+    "sha256": "9e0a5293d70be44f4be9bfdefda9bb5917aff8fc2fddff6400e70d00bc9e275a",
+    "chars": 54049
+   },
+   "services/response_extent.py": {
+    "sha256": "c97c7b33c130596b83b96946336b4a2b59694ff603a33659d9798a0c24cc9a1e",
+    "chars": 45011
+   },
+   "services/direct_chat_service.py": {
+    "sha256": "03b50c2e039b9dcf75bea087f429bb08f55a37a521c6166a617b2162dc9fb9dc",
+    "chars": 633011
+   },
+   "services/summary_memory.py": {
+    "sha256": "1c3810b7506574bce324739de4c9e5d513509fad8d68939262e79acb73fe9d6b",
+    "chars": 312387
+   },
+   "services/prompt_composer.py": {
+    "sha256": "60fada1200d2ba8099a6d2f170fdc02154a964bfa3d6dbe9450c2c4515d3661f",
+    "chars": 120446
+   },
+   "services/prompt_registry.py": {
+    "sha256": "6ff70744b85ab084a5ffa45954e42c665d2db7cba1870a0ae7f9f381fb5acc2c",
+    "chars": 178287
+   }
+  }
+ }
+}
