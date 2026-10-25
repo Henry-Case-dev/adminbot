@@ -497,16 +497,23 @@ def l1_max_output_tokens() -> int:
 
 
 def l1_temperature(default=None):
-    """§1.6: температура L1 (дефолт — как у Stage-1: None → температура
-    хода). Каталог-ключ добавит F2."""
+    """§1.6 + P0 corrective 25.10.2026 (§1.1): L1 Planner — ДЕТЕРМИНИРОВАННЫЙ
+    выбор маршрута.
+
+    Маршрут L1 (research/answer/extent) — решение планировщика, а не
+    творческая генерация: без явно заданного значения температура 0.0
+    (ключ реально уходит в payload: ``is not None``). Каталог-ключ
+    ``limits.direct_l1_temperature`` (hot, правится из UI/PG) переопределяет
+    дефолт без рестарта; явно переданный ``default`` (тесты/DI) уважается.
+    Stage-1/L2 не затронуты — у них собственная температура хода."""
     try:
         from services import hot_config as hot
         value = hot.get("limits.direct_l1_temperature", None)
-        if value is None:
-            return default
-        return float(value)
+        if value is not None:
+            return float(value)
     except Exception:      # pragma: no cover - защитная ветка
-        return default
+        pass
+    return 0.0 if default is None else default
 
 
 def resolve_l1_model(chat_id: int | None = None, *, hot_get=None,

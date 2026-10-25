@@ -364,6 +364,24 @@ def self_check(root: str, json_out: bool = False) -> int:
         # директива сама перечисляет запрещённые слова — исключаем её из
         # скана, чтобы проверять именно случайные мета-примеры промпта.
         meta_free[name] = meta_re.search(payload.replace(_meta, "")) is None
+    # P0-CORRECTIVE-FINAL §1.1/§3: детерминированная L1-температура и
+    # post-guards Writer'а присутствуют в исполняемом коде кандидата.
+    from services import direct_chat_service as dcs
+    _dcs = dcs
+    meta_guard_ok = (
+        _dcs.strip_l2_meta_lead(
+            "Ну, ты не злобный.")[0] == "Ты не злобный."
+        and _dcs.strip_l2_meta_lead(
+            "Окей, глянул твою простыню. Дальше по фактам всё ровно."
+        )[0].startswith("Дальше по фактам"))
+    _quote_text, _quote_stats = _dcs.strip_unverified_l2_quotes(
+        "Он «супермега хейтом» и «точная цитата» писал.",
+        query="q", blocks=["тут точная цитата внутри"])
+    quote_guard_ok = (
+        "«супермега хейтом»" not in _quote_text
+        and "супермега хейтом" in _quote_text
+        and "«точная цитата»" in _quote_text
+        and _quote_stats["quotes_unquoted"] == 1)
     results = {
         "counts_1x1": counts["directive"] == 1 and counts["writer"] == 1,
         "ascii_marker_zero": counts["ascii_marker"] == 0,
@@ -422,6 +440,10 @@ def self_check(root: str, json_out: bool = False) -> int:
             and "Низкая уверенность" in code_l1
             and "не заменяет ответ" in code_l1),
         "meta_phrases_absent_from_prompts": all(meta_free.values()),
+        # P0-CORRECTIVE-FINAL: guard presence (байт-поведение на примерах).
+        "l1_temperature_deterministic_zero": l1.l1_temperature(None) == 0.0,
+        "l2_meta_guard_present": meta_guard_ok,
+        "l2_quote_guard_present": quote_guard_ok,
     }
     ok = all(results.values())
     out = {"self_check": "PASS" if ok else "FAIL", "results": results,

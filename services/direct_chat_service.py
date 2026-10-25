@@ -1913,6 +1913,145 @@ def _mark_rag_fact(item, ranks: dict):
         return item
 
 
+# ── SPEECH-P0-CORRECTIVE (25.10.2026, §3): узкие output-guards direct-L2 ─────
+# Только детерминированное исполнение УЖЕ действующих инструкций Writer'а:
+# (1) ведущий междометный filler и ОДИН анонс процесса; (2) кавычки вокруг
+# фрагментов, которых нет в переданных источниках. Текст не сокращается,
+# абзацы/смысл не меняются, второго LLM-фактчекера нет (переиспользуются
+# чистые утилиты summary_l2_writer).
+
+# Междометие в начале реплики: «Ну, …», «Ок, …», «Окей, …».
+_L2_META_FILLER_RE = re.compile(
+    r"^(?:ну|ок|окей|окэй|ага|угу)\s*[,!]\s*", re.IGNORECASE)
+# Анонс процесса (мета-вступление), а не факт/ответ: «Давай без лишних
+# церемоний.», «Окей, глянул твою простыню.», «Сейчас разберу.».
+_L2_META_ANNOUNCE_RE = re.compile(
+    r"^(?:(?:ну|ок|окей|окэй|ага|угу)\s*[,!]\s*)?(?:"
+    r"давай(?:те)?\s+(?:без|начн|разбер|разлож|посмотр|гляд|перейд"
+    r"|пройд|пойд|провер)"
+    r"|без\s+(?:лишних\s+)?(?:церемоний|прелюдий|воды|вступлений)"
+    r"|(?:окей|ок|так|итак|ладно|ну\s+что\s+ж|что\s+ж)\s*,?\s*"
+    r"(?:глянул|посмотрел|смотрю|разберу|разберём|начну|начнём|пойду"
+    r"|проверю|приступ)"
+    r"|(?:сейчас|сразу|для\s+начала)\s+(?:разбер|разлож|посмотр|гляд"
+    r"|провер|начн|пойд)"
+    r")", re.IGNORECASE)
+_L2_SENTENCE_END_RE = re.compile(r"[.!?…]+(?=\s|$)")
+_L2_LETTERS_RE = re.compile(r"[^\W\d_]", re.UNICODE)
+
+
+def _l2_first_sentence(head: str):
+    """(candidate, end_index) первого предложения строки/абзаца или (None,
+    0). Конец — только по знаку предложения на границе слова (точки в
+    сокращениях внутри предложения не режут)."""
+    match = _L2_SENTENCE_END_RE.search(head)
+    if match is None:
+        return None, 0
+    candidate = head[:match.end()].strip()
+    if not candidate:
+        return None, 0
+    return candidate, match.end()
+
+
+def _l2_has_content(value: str, *, min_letters: int = 20) -> bool:
+    """Есть ли в остатке содержательное предложение (не пустой хвост)."""
+    return len(_L2_LETTERS_RE.findall(str(value or ""))) >= int(min_letters)
+
+
+def strip_l2_meta_lead(text: str) -> tuple[str, dict]:
+    """Убрать ведущий filler и ОДИН анонс процесса из начала direct-L2.
+
+    Границы (P0 §3, «не удалять абзацы/смысл»):
+    * filler — только в самом начале реплики и только перечисленный;
+    * анонс — только первое предложение первого абзаца, короткое (≤90),
+      без ``:``/тире-пояснения/кавычек, после него обязан остаться
+      содержательный текст (≥20 букв) — иначе реплика не трогается;
+    * удаляется максимум одно предложение; остальной текст байт-в-байт.
+    Возврат ``(text, stats)``; никогда не бросает.
+    """
+    stats = {"filler_removed": False, "announce_removed": False}
+    out = str(text or "")
+    if not out.strip():
+        return text, stats
+    head_end = out.find("\n")
+    head = out if head_end < 0 else out[:head_end]
+    candidate, end_index = _l2_first_sentence(head)
+    if candidate is not None:
+        remainder = (head[end_index:]
+                     + (out[head_end:] if head_end >= 0 else "")).strip()
+        safe = (
+            len(candidate) <= 90
+            and ":" not in candidate
+            and "—" not in candidate
+            and "–" not in candidate
+            and "«" not in candidate
+            and '"' not in candidate
+            and _L2_META_ANNOUNCE_RE.match(candidate) is not None
+            and _l2_has_content(remainder)
+        )
+        if safe:
+            out = remainder
+            stats["announce_removed"] = True
+    if not stats["announce_removed"]:
+        match = _L2_META_FILLER_RE.match(out)
+        if match is not None:
+            rest = out[match.end():]
+            if rest.strip():
+                if rest[:1].islower():
+                    rest = rest[0].upper() + rest[1:]
+                out = rest
+                stats["filler_removed"] = True
+    return out, stats
+
+
+def strip_unverified_l2_quotes(text: str, *, query: str = "",
+                               blocks=None, evidence: str = ""
+                               ) -> tuple[str, dict]:
+    """Снять кавычки с фрагментов, которых НЕТ в источниках хода.
+
+    Источники (ровно переданные в Writer): текущий запрос, user-блоки
+    (история/RAG/память) и evidence. Сравнение — существующими
+    ``summary_l2_writer._normalize_quote/_quote_matches_pool``; снятие —
+    ``_strip_quotes`` (текст остаётся, меняется только пунктуация).
+    HTML-теги/пустые/безбуквенные вставки не трогаются. Пустой пул
+    источников → текст без изменений (нечего проверять). Никогда не
+    бросает; возврат ``(text, stats)``."""
+    stats = {"quotes_total": 0, "quotes_kept": 0, "quotes_unquoted": 0}
+    out = str(text or "")
+    if not out:
+        return text, stats
+    try:
+        from services import summary_l2_writer as _sl2
+        pool_texts = [str(query or ""), str(evidence or "")]
+        pool_texts.extend(str(block or "") for block in (blocks or []))
+        pool = [_sl2._normalize_quote(item) for item in pool_texts
+                if str(item or "").strip()]
+        if not pool:
+            return text, stats
+
+        def _replace(match):
+            quote = match.group(0)
+            before = out[:match.start()]
+            # Внутри HTML-разметки (атрибуты) кавычки — синтаксис, не цитата.
+            if before.rfind("<") > before.rfind(">"):
+                return quote
+            inner = _sl2._strip_quotes(quote)
+            if (not inner.strip() or "<" in quote or ">" in quote
+                    or not any(ch.isalpha() for ch in inner)):
+                return quote
+            stats["quotes_total"] += 1
+            if _sl2._quote_matches_pool(quote, pool):
+                stats["quotes_kept"] += 1
+                return quote
+            stats["quotes_unquoted"] += 1
+            return inner
+
+        out = _sl2._QUOTE_RE.sub(_replace, out)
+    except Exception:      # pragma: no cover - защитная ветка
+        return text, stats
+    return out, stats
+
+
 class DirectChatService:
     """Контекст-партишн (58.6) + ответ строго Reply-ом (58.4) + memorize-hook."""
 
@@ -4960,6 +5099,24 @@ class DirectChatService:
             "retries=%d | hits=%d | fallback=%s", chat_id, response_mode,
             stats.get("attempts", 0), stats.get("retries", 0),
             len(stats.get("hits") or []), bool(stats.get("fallback")))
+        if not text.strip():
+            return None
+        # ── SPEECH-P0-CORRECTIVE (25.10.2026, §3): узкие guards соблюдения
+        # уже действующих инструкций Writer'а. Только direct-L2; текст не
+        # сокращается: снимается ведущий filler/один анонс процесса и
+        # кавычки с фрагментов, которых нет в переданных источниках.
+        text, _meta_guard = strip_l2_meta_lead(text)
+        text, _quote_guard = strip_unverified_l2_quotes(
+            text, query=query, blocks=user_blocks, evidence=evidence)
+        if _meta_guard["filler_removed"] or _meta_guard["announce_removed"] \
+                or _quote_guard["quotes_unquoted"]:
+            logger.info(
+                "[direct] l2 output guard | chat=%s | filler=%s | meta=%s | "
+                "quotes=%d kept=%d unquoted=%d", chat_id,
+                _meta_guard["filler_removed"],
+                _meta_guard["announce_removed"],
+                _quote_guard["quotes_total"], _quote_guard["quotes_kept"],
+                _quote_guard["quotes_unquoted"])
         if not text.strip():
             return None
         # §6 `postprocess_changed`: raw-флаги хода — только флаги/числа
