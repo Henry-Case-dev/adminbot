@@ -1,7 +1,8 @@
 # P0 CORRECTIVE — полный Core, Writer без мета-структуры, code-canon L1
 
 - **LANE_ID:** `P0-FINAL-CORE-WRITER` (Builder, writer-only; без прода/Telegram/LLM).
-- **Worktree:** `C:\Code\Python\adminbot-wt-speech-p0`, база `52061e3f`, ветка `task/speech-p0-hotfix`.
+- **Worktree:** `C:\Code\Python\adminbot-wt-speech-p0`, ветка `task/speech-p0-hotfix`.
+- **Кандидат:** commit `0428c271` (родитель — `f42e2257`, F7-алиасы), запушен в `origin/task/speech-p0-hotfix`.
 - **Источник:** `source-owner-p0-corrective-2026-10-25.md` §1.1/§3; `evidence/p0-hotfix/probes_final.md`; `l1-harness-audit.md`.
 - **Статус:** код + офлайн-проверки готовы; live A/B на новом каноне и независимое ревью остаются.
 
