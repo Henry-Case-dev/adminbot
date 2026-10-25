@@ -1,0 +1,224 @@
+{
+ "generated_utc": "2026-10-25T08:41:09Z",
+ "root": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\final6\\t",
+ "files": [
+  {
+   "file": "analysis.json",
+   "bytes": 85837,
+   "sha256": "315794ef9e30cd501ec8c09cacd54397cc3399ebd39f6049885201c9cdea29ff"
+  },
+  {
+   "file": "analysis_offline.err",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "analysis_offline.out",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "analysis_server_initial.err",
+   "bytes": 0,
+   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+   "file": "analysis_server_initial.json",
+   "bytes": 81532,
+   "sha256": "d42ab9511af2dfefb06e9a505ac24c3f02e61d329b6e7cb9c4a865b7faa2fc0a"
+  },
+  {
+   "file": "analysis_server_initial.out",
+   "bytes": 5038,
+   "sha256": "304aeb4a582d313f74a60e9571a20edf01a3b4e560a799d83822925482fe9eab"
+  },
+  {
+   "file": "fallback_matrix.json",
+   "bytes": 1059,
+   "sha256": "f80b2b8a72140e721f1beb22ccbe3f6ea511819c346e8e61bc6d41616a36bbc0"
+  },
+  {
+   "file": "guard_recheck_final5_texts.json",
+   "bytes": 83957,
+   "sha256": "7d7c92ec0a450f78f09c2bee437e46d00c409bef28d1bc7923e325170a93eadd"
+  },
+  {
+   "file": "raw/eff_A.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/eff_A.out",
+   "bytes": 844,
+   "sha256": "f71bcb3da414e23e28cc680fe0452ac15d70ee72ba37338c2c0bc094d4dac0b0"
+  },
+  {
+   "file": "raw/eff_B.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/eff_B.out",
+   "bytes": 844,
+   "sha256": "a24a993615ad4d5bbeb42f9c8987488b75274a25feaf22b9bdedb6cb6fd07b7e"
+  },
+  {
+   "file": "raw/forced_A.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/forced_A.out",
+   "bytes": 844,
+   "sha256": "043ce3755c091a9058770315ec0275cee2d0b951d1af57093996e8c22a6b32f3"
+  },
+  {
+   "file": "raw/forced_B.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/forced_B.out",
+   "bytes": 844,
+   "sha256": "8a1388b036b5f6eaade2b2483b4554f6741eb6e62bc51b70218adb4939a494fa"
+  },
+  {
+   "file": "raw/new_A.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/new_A.out",
+   "bytes": 844,
+   "sha256": "9946d72ca67a9f711f17746d4b1b6c2252aa5c7723999ca05668e415e5d7a208"
+  },
+  {
+   "file": "raw/new_B.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/new_B.out",
+   "bytes": 843,
+   "sha256": "6a02c3412a6cf13f2120606916e8d41b41768919e37684dc562fd71cf876ea49"
+  },
+  {
+   "file": "raw/new_C.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/new_C.out",
+   "bytes": 839,
+   "sha256": "a6265c5dfab07e5cf0d753b134cd661761c3a08686a90f34df979ee6d8dd4983"
+  },
+  {
+   "file": "raw/new_D.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/new_D.out",
+   "bytes": 848,
+   "sha256": "62cc52c4d47da3d6c07e8d153d82785f4cfa62d4d175c514580688eb94eea2f5"
+  },
+  {
+   "file": "raw/new_E.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/new_E.out",
+   "bytes": 857,
+   "sha256": "ad14e3d4b769fd3e2b8c0d18f35c9e1c31b983819db1676ddaa53b9eef68a885"
+  },
+  {
+   "file": "raw/new_F.err",
+   "bytes": 1312,
+   "sha256": "568332e1931c23019407c714922b0887d2afa19e4bdccaebadb1f636016b8d88"
+  },
+  {
+   "file": "raw/new_F.out",
+   "bytes": 850,
+   "sha256": "fe8f7821513dbda760dd9c5d72faa1ed228248bb351f1d4c8c2177e015478b12"
+  },
+  {
+   "file": "raw/raw_eff_A.json",
+   "bytes": 48371,
+   "sha256": "f6c94ee716da09d1369fc7b4181ae0c444134e6df008b6c38f5e020d693ef264"
+  },
+  {
+   "file": "raw/raw_eff_B.json",
+   "bytes": 48637,
+   "sha256": "ff205d44ca072b7d84d4d18244e0f311dc555de9e33c2775db2376b6601d9b22"
+  },
+  {
+   "file": "raw/raw_forced_A.json",
+   "bytes": 47920,
+   "sha256": "573d08377e90843bcf45cc5fe9563aecb0fd9b09beec532144378c2f16a9260e"
+  },
+  {
+   "file": "raw/raw_forced_B.json",
+   "bytes": 48092,
+   "sha256": "74adb18e4a01b01590694a95b643dddb08aa7b86bcdabeea50b2867568d6abde"
+  },
+  {
+   "file": "raw/raw_new_A.json",
+   "bytes": 48204,
+   "sha256": "f8a6643d64fe4bf4ec8d0e862ee8075f27072034afe23774c79e296ee8722a71"
+  },
+  {
+   "file": "raw/raw_new_B.json",
+   "bytes": 49092,
+   "sha256": "6504c388598f7689ef268e16bb74b4e96fb726c47a9560b5c8484ffc104f85ce"
+  },
+  {
+   "file": "raw/raw_new_C.json",
+   "bytes": 45845,
+   "sha256": "f54f6ea308ad2028dfa485b9884a7278d45fb44a4d9dbc4c2e12327b2243802f"
+  },
+  {
+   "file": "raw/raw_new_D.json",
+   "bytes": 46378,
+   "sha256": "e41edd8ea15f22fcd092e76c7b6eceb3a0434a56affd245e0cb6291a2a13c8c3"
+  },
+  {
+   "file": "raw/raw_new_E.json",
+   "bytes": 58026,
+   "sha256": "c7156590b9883bac24052b5cb547ce3ebaa82b9060bb11a3041d1f0bb5a892e0"
+  },
+  {
+   "file": "raw/raw_new_F.json",
+   "bytes": 46283,
+   "sha256": "f3667eb133b6a564fb376ea232898e7b3bfc6027e9dcd06a8bbd828c01b7e1f3"
+  },
+  {
+   "file": "selfcheck_new.txt",
+   "bytes": 3001,
+   "sha256": "bab2affed8cca45a3ff964711bedde18355abcd95b26fd2b3713cda9a242d2dd"
+  },
+  {
+   "file": "session.json",
+   "bytes": 33533,
+   "sha256": "a64405ed2c1f254ad334e430137e3578cde35d0abb548fd17a1716a9d538fed8"
+  }
+ ],
+ "analysis_script": {
+  "path": "analysis_final6.py",
+  "sha256": "14fea25e3a3e8d4f3980d080fc2718102b98ea8153bd918ea47624e28be07a43"
+ },
+ "harness": {
+  "probes_full/harness_probe_full.py": "d31a28759f479304301c8e8eeea3db653d170a8e9d6acdf96fd9b466fee308cc",
+  "probes_full/harness_extra.py": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1",
+  "probes_full/harness_effective.py": "5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086"
+ },
+ "pins_git": {
+  "commit": "ERR:Command '['git', '-C', '.', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+  "branch": "ERR:Command '['git', '-C', '.', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+  "dirty": true,
+  "dirty_files": [
+   "ERR:Command '['git', '-C', '.', 'status', '--porcelain']' returned non-zero exit status 128."
+  ]
+ },
+ "pins_harness": "d31a28759f479304301c8e8eeea3db653d170a8e9d6acdf96fd9b466fee308cc"
+}

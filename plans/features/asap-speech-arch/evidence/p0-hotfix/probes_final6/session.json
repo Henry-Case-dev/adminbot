@@ -1,0 +1,202 @@
+{
+ "lane": "LIVE-FINAL-DETERMINISTIC",
+ "candidate": "7ca05a92727480c9c1290845cd339b7f80a820c5",
+ "prod_baseline": "534ac7dda6713fb407e0789fdddfa563251cdab4",
+ "started_utc": "2026-10-25T08:26:28Z",
+ "finished_utc": "2026-10-25T08:34:35Z",
+ "elapsed_s": 486.2,
+ "host": "198.46.175.136",
+ "user": "nik",
+ "staging": "/tmp/p0-final6/new",
+ "pybin": "/var/www/admin_bot/venv/bin/python",
+ "local_sha256": {
+  "tar": "b4662aedc2be8399df0ca04cee4e28493c41b90179f3099d944ad1955ad64019",
+  "extra": "227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1",
+  "effective": "5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086",
+  "analysis": "6f9f7787ea0173c709fa02f6d46f9218f0de9cff3fb6559172f61298e9215ef5",
+  "harness": "d31a28759f479304301c8e8eeea3db653d170a8e9d6acdf96fd9b466fee308cc"
+ },
+ "binding": {
+  "modules_ok": true,
+  "harness_ok": true,
+  "extras_ok": true
+ },
+ "commands": [
+  {
+   "label": "clock",
+   "cmd": "date -u +%FT%TZ; hostname; df -h /tmp | tail -1",
+   "rc": 0,
+   "elapsed_s": 2.1,
+   "stdout": "2026-10-25T08:26:32Z\nracknerd-f4e3456\n/dev/vda2        24G   19G  3.7G  84% /\n",
+   "stderr": ""
+  },
+  {
+   "label": "prod_before",
+   "cmd": "cd /var/www/admin_bot && git rev-parse HEAD && git status --porcelain | wc -l && stat -c '%Y %s' local_database.db && readlink -f .env && readlink -f local_database.db",
+   "rc": 0,
+   "elapsed_s": 1.1,
+   "stdout": "534ac7dda6713fb407e0789fdddfa563251cdab4\n13\n1792916382 1624825856\n/var/www/admin_bot/.env\n/var/www/admin_bot/local_database.db\n",
+   "stderr": ""
+  },
+  {
+   "label": "reset_stage",
+   "cmd": "rm -rf /tmp/p0-final6 && mkdir -p /tmp/p0-final6/raw",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "",
+   "stderr": ""
+  },
+  {
+   "label": "extract",
+   "cmd": "mkdir -p /tmp/p0-final6/new && tar -xzf /tmp/p0-final6/new.tar.gz -C /tmp/p0-final6/new",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "",
+   "stderr": ""
+  },
+  {
+   "label": "stage",
+   "cmd": "ln -sfn /var/www/admin_bot/.env /tmp/p0-final6/new/.env; ln -sfn /var/www/admin_bot/local_database.db /tmp/p0-final6/new/local_database.db; printf '%s' '7ca05a92727480c9c1290845cd339b7f80a820c5' > /tmp/p0-final6/new/PROBE_COMMIT; find /tmp/p0-final6/new -type f | wc -l; du -sh /tmp/p0-final6/new; readlink -f /tmp/p0-final6/new/.env; readlink -f /tmp/p0-final6/new/local_database.db",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "509\n24M\t/tmp/p0-final6/new\n/var/www/admin_bot/.env\n/var/www/admin_bot/local_database.db\n",
+   "stderr": ""
+  },
+  {
+   "label": "sha_server",
+   "cmd": "cd /tmp/p0-final6/new && sha256sum services/chat_prompts.py services/direct_l1.py services/prompt_style_blocks.py services/response_extent.py services/direct_chat_service.py services/summary_memory.py services/prompt_composer.py services/prompt_registry.py probes_full/harness_probe_full.py probes_full/harness_extra.py probes_full/harness_effective.py analysis_final6.py",
+   "rc": 0,
+   "elapsed_s": 1.1,
+   "stdout": "d6cba9a7639f7841fb86f4068678e8eb0b66c10d747b5ecd5633a0acd454cbae  services/chat_prompts.py\n23d608dabc149c66a6843ece215a0e476feee6141ac196c856883eb3d6cba432  services/direct_l1.py\n9e0a5293d70be44f4be9bfdefda9bb5917aff8fc2fddff6400e70d00bc9e275a  services/prompt_style_blocks.py\nc97c7b33c130596b83b96946336b4a2b59694ff603a33659d9798a0c24cc9a1e  services/response_extent.py\n97889b11ba9310f85560c98be9f75e953504ae2b2642f84901967874cc579e9e  services/direct_chat_service.py\n1c3810b7506574bce324739de4c9e5d513509fad8d68939262e79acb73fe9d6b  services/summary_memory.py\n60fada1200d2ba8099a6d2f170fdc02154a964bfa3d6dbe9450c2c4515d3661f  services/prompt_composer.py\n6ff70744b85ab084a5ffa45954e42c665d2db7cba1870a0ae7f9f381fb5acc2c  services/prompt_registry.py\nd31a28759f479304301c8e8eeea3db653d170a8e9d6acdf96fd9b466fee308cc  probes_full/harness_probe_full.py\n227498afdb7e155b0327340405be3b15a72c7fbdd3ca79ce3b1de5b0f47a0ea1  probes_full/harness_extra.py\n5c9fc4c522299c78b1b4ee8b4d0efb1b28dd170e44c702d1fe3d21e9d326a086  probes_full/harness_effective.py\n6f9f7787ea0173c709fa02f6d46f9218f0de9cff3fb6559172f61298e9215ef5  analysis_final6.py\n",
+   "stderr": ""
+  },
+  {
+   "label": "detect_pybin",
+   "cmd": "PYBIN=''; for cand in /var/www/admin_bot/venv/bin/python /var/www/admin_bot/.venv/bin/python /var/www/admin_bot/venv/bin/python3 /var/www/admin_bot/.venv/bin/python3; do if [ -x \"$cand\" ] && \"$cand\" -c 'import aiosqlite, dotenv, aiogram, asyncpg' 2>/dev/null; then PYBIN=\"$cand\"; break; fi; done; if [ -z \"$PYBIN\" ]; then echo NO_PYBIN; ls -l /var/www/admin_bot/venv/bin/python* /var/www/admin_bot/.venv/bin/python* 2>&1; exit 9; fi; echo PYBIN=$PYBIN; \"$PYBIN\" -V",
+   "rc": 0,
+   "elapsed_s": 9.9,
+   "stdout": "PYBIN=/var/www/admin_bot/venv/bin/python\nPython 3.12.3\n",
+   "stderr": ""
+  },
+  {
+   "label": "reset_raw",
+   "cmd": "rm -rf /tmp/p0-final6/raw && mkdir -p /tmp/p0-final6/raw",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "",
+   "stderr": ""
+  },
+  {
+   "label": "selfcheck",
+   "cmd": "cd /tmp/p0-final6/new && /var/www/admin_bot/venv/bin/python probes_full/harness_probe_full.py --root . --self-check > /tmp/p0-final6/selfcheck_new.txt 2>&1; RC=$?; head -c 600 /tmp/p0-final6/selfcheck_new.txt; echo; grep -c '\"self_check\": \"PASS\"' /tmp/p0-final6/selfcheck_new.txt; echo SELFCHECK_RC=$RC",
+   "rc": 0,
+   "elapsed_s": 14.8,
+   "stdout": "{\n \"self_check\": \"PASS\",\n \"results\": {\n  \"counts_1x1\": true,\n  \"ascii_marker_zero\": true,\n  \"payload_1x1\": true,\n  \"predicate_research\": true,\n  \"predicate_answer\": true,\n  \"mode_research_serious\": true,\n  \"modules_under_root\": true,\n  \"code_l1_canon_material_routing\": true,\n  \"code_l1_canon_not_pg_stage\": true,\n  \"core_full_not_truncated\": true,\n  \"no_meta_research_plan_once\": true,\n  \"no_meta_casual_plan_once\": true,\n  \"no_meta_deep_auto_mode_once\": true,\n  \"no_meta_first_paragraph_rule\": true,\n  \"quote_fidelity_rule\": true,\n  \"silent_direct_request_rule\": true,\n  \"meta_phrases_absent_from_p\n1\nSELFCHECK_RC=0\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_new_A",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_probe_full.py --root . --label new_A --case A --repeats 2 --use-code-l1-canon --out /tmp/p0-final6/raw/raw_new_A.json > /tmp/p0-final6/raw/new_A.out 2> /tmp/p0-final6/raw/new_A.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/new_A.out; tail -c 500 /tmp/p0-final6/raw/new_A.err",
+   "rc": 0,
+   "elapsed_s": 26.9,
+   "stdout": "RC=0\n{\"label\": \"new_A\", \"case\": \"A\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"compact\", \"structure\": \"answer\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.85, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"serious\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 275, \"sha12\": \"0cd41f04c422\", \"elapsed_s\": 2.8}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 401, \"sha12\": \"46b6acfb5a7a\", \"elapsed_s\": 3.8}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_new_B",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_probe_full.py --root . --label new_B --case B --repeats 2 --use-code-l1-canon --out /tmp/p0-final6/raw/raw_new_B.json > /tmp/p0-final6/raw/new_B.out 2> /tmp/p0-final6/raw/new_B.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/new_B.out; tail -c 500 /tmp/p0-final6/raw/new_B.err",
+   "rc": 0,
+   "elapsed_s": 27.1,
+   "stdout": "RC=0\n{\"label\": \"new_B\", \"case\": \"B\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"normal\", \"structure\": \"answer\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.85, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"serious\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 578, \"sha12\": \"8428424032b6\", \"elapsed_s\": 4.1}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 405, \"sha12\": \"fa00bd29a753\", \"elapsed_s\": 3.3}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_eff_A",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_effective.py --name A --root . --repeats 2 --out /tmp/p0-final6/raw/raw_eff_A.json > /tmp/p0-final6/raw/eff_A.out 2> /tmp/p0-final6/raw/eff_A.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/eff_A.out; tail -c 500 /tmp/p0-final6/raw/eff_A.err",
+   "rc": 0,
+   "elapsed_s": 35.3,
+   "stdout": "RC=0\n{\"label\": \"eff_A\", \"case\": \"A\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"compact\", \"structure\": \"answer\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.85, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"serious\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 352, \"sha12\": \"2faa42c995d3\", \"elapsed_s\": 4.1}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 166, \"sha12\": \"f96ddb7280ac\", \"elapsed_s\": 3.4}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_eff_B",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_effective.py --name B --root . --repeats 2 --out /tmp/p0-final6/raw/raw_eff_B.json > /tmp/p0-final6/raw/eff_B.out 2> /tmp/p0-final6/raw/eff_B.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/eff_B.out; tail -c 500 /tmp/p0-final6/raw/eff_B.err",
+   "rc": 0,
+   "elapsed_s": 25.3,
+   "stdout": "RC=0\n{\"label\": \"eff_B\", \"case\": \"B\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"compact\", \"structure\": \"answer\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.85, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"serious\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 263, \"sha12\": \"fe660d8cf79d\", \"elapsed_s\": 2.2}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 214, \"sha12\": \"84861f51eb21\", \"elapsed_s\": 3.5}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_new_C",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_extra.py --name C --root . --repeats 2 --out /tmp/p0-final6/raw/raw_new_C.json > /tmp/p0-final6/raw/new_C.out 2> /tmp/p0-final6/raw/new_C.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/new_C.out; tail -c 500 /tmp/p0-final6/raw/new_C.err",
+   "rc": 0,
+   "elapsed_s": 24.3,
+   "stdout": "RC=0\n{\"label\": \"new_C\", \"case\": \"A\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"answer\", \"extent\": \"compact\", \"structure\": \"chat\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.95, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"casual\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"total\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"invariant_1x1\": false, \"invariant_0x0\": true}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 123, \"sha12\": \"2ad7eea99fb6\", \"elapsed_s\": 2.6}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 196, \"sha12\": \"56ce450d4274\", \"elapsed_s\": 3.1}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_new_D",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_extra.py --name D --root . --repeats 2 --out /tmp/p0-final6/raw/raw_new_D.json > /tmp/p0-final6/raw/new_D.out 2> /tmp/p0-final6/raw/new_D.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/new_D.out; tail -c 500 /tmp/p0-final6/raw/new_D.err",
+   "rc": 0,
+   "elapsed_s": 29.1,
+   "stdout": "RC=0\n{\"label\": \"new_D\", \"case\": \"A\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"emotional_reply\", \"extent\": \"compact\", \"structure\": \"chat\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.95, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"casual\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"total\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"invariant_1x1\": false, \"invariant_0x0\": true}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 293, \"sha12\": \"4002bbbde7db\", \"elapsed_s\": 5.5}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 259, \"sha12\": \"f4d0afbe2e40\", \"elapsed_s\": 4.1}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_new_E",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_extra.py --name E --root . --repeats 2 --out /tmp/p0-final6/raw/raw_new_E.json > /tmp/p0-final6/raw/new_E.out 2> /tmp/p0-final6/raw/new_E.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/new_E.out; tail -c 500 /tmp/p0-final6/raw/new_E.err",
+   "rc": 0,
+   "elapsed_s": 47.2,
+   "stdout": "RC=0\n{\"label\": \"new_E\", \"case\": \"A\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"detailed\", \"structure\": \"report\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.65, \"confidence_bucket\": \"medium\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"deep_research\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 3067, \"sha12\": \"d48f6af1b46c\", \"elapsed_s\": 12.8}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 2632, \"sha12\": \"d1bbc0bdd2d8\", \"elapsed_s\": 11.4}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_new_F",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_extra.py --name F --root . --repeats 2 --out /tmp/p0-final6/raw/raw_new_F.json > /tmp/p0-final6/raw/new_F.out 2> /tmp/p0-final6/raw/new_F.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/new_F.out; tail -c 500 /tmp/p0-final6/raw/new_F.err",
+   "rc": 0,
+   "elapsed_s": 28.3,
+   "stdout": "RC=0\n{\"label\": \"new_F\", \"case\": \"A\", \"forced\": false, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"historical_recall\", \"extent\": \"compact\", \"structure\": \"answer\", \"tone\": \"neutral\", \"delivery_hint\": \"plain\", \"confidence\": 0.3, \"confidence_bucket\": \"low\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"casual\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"total\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"invariant_1x1\": false, \"invariant_0x0\": true}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 207, \"sha12\": \"59d53e8988be\", \"elapsed_s\": 3.2}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 241, \"sha12\": \"2061d5de97d0\", \"elapsed_s\": 3.2}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_forced_A",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_probe_full.py --root . --label forced_A --case A --repeats 2 --use-code-l1-canon --force-plan research --force-extent normal --force-structure answer --out /tmp/p0-final6/raw/raw_forced_A.json > /tmp/p0-final6/raw/forced_A.out 2> /tmp/p0-final6/raw/forced_A.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/forced_A.out; tail -c 500 /tmp/p0-final6/raw/forced_A.err",
+   "rc": 0,
+   "elapsed_s": 42.5,
+   "stdout": "RC=0\n{\"label\": \"forced_A\", \"case\": \"A\", \"forced\": true, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"normal\", \"structure\": \"answer\", \"tone\": \"inherit\", \"delivery_hint\": \"plain\", \"confidence\": 1.0, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"serious\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 457, \"sha12\": \"152a19607054\", \"elapsed_s\": 6.9}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 669, \"sha12\": \"e86c936c9e55\", \"elapsed_s\": 5.5}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "probe_forced_B",
+   "cmd": "cd /tmp/p0-final6/new && timeout 420 /var/www/admin_bot/venv/bin/python probes_full/harness_probe_full.py --root . --label forced_B --case B --repeats 2 --use-code-l1-canon --force-plan research --force-extent normal --force-structure answer --out /tmp/p0-final6/raw/raw_forced_B.json > /tmp/p0-final6/raw/forced_B.out 2> /tmp/p0-final6/raw/forced_B.err; echo RC=$?; tail -c 900 /tmp/p0-final6/raw/forced_B.out; tail -c 500 /tmp/p0-final6/raw/forced_B.err",
+   "rc": 0,
+   "elapsed_s": 28.1,
+   "stdout": "RC=0\n{\"label\": \"forced_B\", \"case\": \"B\", \"forced\": true, \"invalid\": \"\", \"fatal\": null, \"l1_plan\": {\"action\": \"reply\", \"response_act\": \"research\", \"extent\": \"normal\", \"structure\": \"answer\", \"tone\": \"inherit\", \"delivery_hint\": \"plain\", \"confidence\": 1.0, \"confidence_bucket\": \"high\", \"source\": \"llm\", \"needs_clarification\": false}, \"mode\": \"serious\", \"payload_counts\": {\"system\": {\"directive\": 0, \"writer\": 0, \"ascii_marker\": 0}, \"user\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"total\": {\"directive\": 1, \"writer\": 1, \"ascii_marker\": 0}, \"invariant_1x1\": true, \"invariant_0x0\": false}, \"l2_runs\": [{\"repeat\": 1, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 400, \"sha12\": \"a6341da5b325\", \"elapsed_s\": 4.6}, {\"repeat\": 2, \"temperature\": 0.7, \"max_tokens\": 2400, \"chars\": 623, \"sha12\": \"38710481d7ee\", \"elapsed_s\": 7.0}], \"stage_errors\": {}}\nons\n    rows = await service.list_lessons(chat_id=int(chat_id),\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 1869, in list_lessons\n    return await self.store.list_lessons(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/tmp/p0-final6/new/services/mca_experience.py\", line 631, in list_lessons\n    cursor = await self._db.db.execute(\n                   ^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'db'\n",
+   "stderr": ""
+  },
+  {
+   "label": "analysis",
+   "cmd": "cd /tmp/p0-final6/new && /var/www/admin_bot/venv/bin/python analysis_final6.py /tmp/p0-final6/new /tmp/p0-final6 > /tmp/p0-final6/analysis.out 2> /tmp/p0-final6/analysis.err; echo RC=$?; tail -c 3500 /tmp/p0-final6/analysis.out; tail -c 900 /tmp/p0-final6/analysis.err",
+   "rc": 0,
+   "elapsed_s": 27.0,
+   "stdout": "RC=0\n\"invalid_runs\": [],\n  \"l1_attempts\": {\n   \"eff_A\": 1,\n   \"eff_B\": 1,\n   \"new_C\": 1,\n   \"new_D\": 1,\n   \"new_E\": 1,\n   \"new_F\": 1,\n   \"forced_A\": null,\n   \"forced_B\": null,\n   \"raw_A\": 1,\n   \"raw_B\": 1\n  },\n  \"b_lengths\": [\n   263,\n   212\n  ],\n  \"e_lengths\": [\n   3049,\n   2595\n  ],\n  \"a_effective\": {\n   \"act\": \"research\",\n   \"extent\": \"compact\",\n   \"mode\": \"serious\",\n   \"payload_counts\": {\n    \"analysis_directive\": 1,\n    \"analysis_writer\": 1,\n    \"no_meta\": 1,\n    \"quote_fidelity\": 1\n   },\n   \"lengths\": [\n    352,\n    166\n   ],\n   \"stand_wrapper\": {\n    \"file\": \"harness_effective.py\",\n    \"patched\": \"services.direct_l1.parse_l1_plan -> apply_research_fallback(plan, query)\",\n    \"harness_unchanged\": true,\n    \"query_sha12\": \"d0aea3fedd47\",\n    \"fallback_calls\": [\n     {\n      \"before\": \"research\",\n      \"after\": \"research\",\n      \"applied\": false\n     }\n    ],\n    \"reason\": \"committed harness bypasses DirectChatService._plan_direct_l1\"\n   }\n  },\n  \"c_d_f\": {\n   \"new_C\": {\n    \"act\": \"answer\",\n    \"extent\": \"compact\",\n    \"lengths\": [\n     123,\n     196\n    ]\n   },\n   \"new_D\": {\n    \"act\": \"emotional_reply\",\n    \"extent\": \"compact\",\n    \"lengths\": [\n     293,\n     259\n    ]\n   },\n   \"new_F\": {\n    \"act\": \"historical_recall\",\n    \"extent\": \"compact\",\n    \"lengths\": [\n     207,\n     241\n    ]\n   }\n  },\n  \"numbered_lines\": 0,\n  \"dates\": [],\n  \"selfecho\": 0,\n  \"rag\": {\n   \"eff_A\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"eff_B\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"new_C\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"new_D\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"new_E\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"new_F\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"forced_A\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   },\n   \"forced_B\": {\n    \"rows\": 40,\n    \"kept\": 40,\n    \"render\": \"real\",\n    \"after_self_filter\": 40,\n    \"after_dedup\": 40,\n    \"cap\": 2000,\n    \"block_chars\": 2027,\n    \"block_sha12\": \"d88fc1c1ec56\"\n   }\n  },\n  \"rag_markers\": {\n   \"eff_A\": {\n    \"unconfirmed\": 18,\n    \"assumption\": 0,\n    \"chat\": 18,\n    \"bot\": 0\n   },\n   \"eff_B\": {\n    \"unconfirmed\": 18,\n    \"assumption\": 0,\n    \"chat\": 18,\n    \"bot\": 0\n   },\n   \"new_C\": {\n    \"unconfirmed\": 18,\n    \"assumption\": 0,\n    \"chat\": 18,\n    \"bot\": 0\n   },\n   \"new_D\": {\n    \"unconfirmed\": 18,\n    \"assumption\": 0,\n    \"chat\": 18,\n    \"bot\": 0\n   },\n   \"new_E\": {\n    \"unconfirmed\": 18,\n    \"assumption\": 0,\n    \"chat\": 18,\n    \"bot\": 0\n   },\n   \"\n",
+   "stderr": ""
+  },
+  {
+   "label": "prod_after",
+   "cmd": "cd /var/www/admin_bot && git rev-parse HEAD && git status --porcelain | wc -l && stat -c '%Y %s' local_database.db; date -u +%FT%TZ",
+   "rc": 0,
+   "elapsed_s": 1.1,
+   "stdout": "534ac7dda6713fb407e0789fdddfa563251cdab4\n13\n1792917051 1624875008\n2026-10-25T08:33:29Z\n",
+   "stderr": ""
+  },
+  {
+   "label": "raw_list",
+   "cmd": "ls -l /tmp/p0-final6/raw | head -40; sha256sum /tmp/p0-final6/raw/*.json | head -20",
+   "rc": 0,
+   "elapsed_s": 0.9,
+   "stdout": "total 572\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:29 eff_A.err\n-rw-rw-r-- 1 nik nik   844 Oct 25 08:29 eff_A.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:29 eff_B.err\n-rw-rw-r-- 1 nik nik   844 Oct 25 08:29 eff_B.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:32 forced_A.err\n-rw-rw-r-- 1 nik nik   844 Oct 25 08:32 forced_A.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:32 forced_B.err\n-rw-rw-r-- 1 nik nik   844 Oct 25 08:32 forced_B.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:28 new_A.err\n-rw-rw-r-- 1 nik nik   844 Oct 25 08:28 new_A.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:28 new_B.err\n-rw-rw-r-- 1 nik nik   843 Oct 25 08:28 new_B.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:29 new_C.err\n-rw-rw-r-- 1 nik nik   839 Oct 25 08:30 new_C.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:30 new_D.err\n-rw-rw-r-- 1 nik nik   848 Oct 25 08:30 new_D.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:30 new_E.err\n-rw-rw-r-- 1 nik nik   857 Oct 25 08:31 new_E.out\n-rw-rw-r-- 1 nik nik  1312 Oct 25 08:31 new_F.err\n-rw-rw-r-- 1 nik nik   850 Oct 25 08:31 new_F.out\n-rw-rw-r-- 1 nik nik 48371 Oct 25 08:29 raw_eff_A.json\n-rw-rw-r-- 1 nik nik 48637 Oct 25 08:29 raw_eff_B.json\n-rw-rw-r-- 1 nik nik 47920 Oct 25 08:32 raw_forced_A.json\n-rw-rw-r-- 1 nik nik 48092 Oct 25 08:32 raw_forced_B.json\n-rw-rw-r-- 1 nik nik 48204 Oct 25 08:28 raw_new_A.json\n-rw-rw-r-- 1 nik nik 49092 Oct 25 08:28 raw_new_B.json\n-rw-rw-r-- 1 nik nik 45845 Oct 25 08:30 raw_new_C.json\n-rw-rw-r-- 1 nik nik 46378 Oct 25 08:30 raw_new_D.json\n-rw-rw-r-- 1 nik nik 58026 Oct 25 08:31 raw_new_E.json\n-rw-rw-r-- 1 nik nik 46283 Oct 25 08:31 raw_new_F.json\nf6c94ee716da09d1369fc7b4181ae0c444134e6df008b6c38f5e020d693ef264  /tmp/p0-final6/raw/raw_eff_A.json\nff205d44ca072b7d84d4d18244e0f311dc555de9e33c2775db2376b6601d9b22  /tmp/p0-final6/raw/raw_eff_B.json\n573d08377e90843bcf45cc5fe9563aecb0fd9b09beec532144378c2f16a9260e  /tmp/p0-final6/raw/raw_forced_A.json\n74adb18e4a01b01590694a95b643dddb08aa7b86bcdabeea50b2867568d6abde  /tmp/p0-final6/raw/raw_forced_B.json\nf8a6643d64fe4bf4ec8d0e862ee8075f27072034afe23774c79e296ee8722a71  /tmp/p0-final6/raw/raw_new_A.json\n6504c388598f7689ef268e16bb74b4e96fb726c47a9560b5c8484ffc104f85ce  /tmp/p0-final6/raw/raw_new_B.json\nf54f6ea308ad2028dfa485b9884a7278d45fb44a4d9dbc4c2e12327b2243802f  /tmp/p0-final6/raw/raw_new_C.json\ne41edd8ea15f22fcd092e76c7b6eceb3a0434a56affd245e0cb6291a2a13c8c3  /tmp/p0-final6/raw/raw_new_D.json\nc7156590b9883bac24052b5cb547ce3ebaa82b9060bb11a3041d1f0bb5a892e0  /tmp/p0-final6/raw/raw_new_E.json\nf3667eb133b6a564fb376ea232898e7b3bfc6027e9dcd06a8bbd828c01b7e1f3  /tmp/p0-final6/raw/raw_new_F.json\n",
+   "stderr": ""
+  }
+ ]
+}

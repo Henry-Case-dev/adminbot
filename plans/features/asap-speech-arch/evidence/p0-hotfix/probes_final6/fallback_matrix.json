@@ -1,0 +1,48 @@
+{
+ "candidate": "7ca05a92",
+ "script": "offline on exact commit tree",
+ "cases": {
+  "A": {
+   "task_kind": "research",
+   "applied": true,
+   "act_after": "research",
+   "extent_after": "compact",
+   "query_sha12": "d0aea3fedd47"
+  },
+  "B": {
+   "task_kind": "research",
+   "applied": true,
+   "act_after": "research",
+   "extent_after": "compact",
+   "query_sha12": "bfb8135fed99"
+  },
+  "C": {
+   "task_kind": "social_chat",
+   "applied": false,
+   "act_after": "answer",
+   "extent_after": "compact",
+   "query_sha12": "5eccb137e404"
+  },
+  "D": {
+   "task_kind": "social_chat",
+   "applied": false,
+   "act_after": "answer",
+   "extent_after": "compact",
+   "query_sha12": "8f8a8c43a1b8"
+  },
+  "E": {
+   "task_kind": "explanation",
+   "applied": false,
+   "act_after": "answer",
+   "extent_after": "compact",
+   "query_sha12": "d19daf59360c"
+  },
+  "F": {
+   "task_kind": "social_chat",
+   "applied": false,
+   "act_after": "answer",
+   "extent_after": "compact",
+   "query_sha12": "5b27faa19dcc"
+  }
+ }
+}
