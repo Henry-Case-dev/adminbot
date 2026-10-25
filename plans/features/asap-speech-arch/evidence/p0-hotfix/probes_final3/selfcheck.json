@@ -1,0 +1,194 @@
+{
+ "self_check": "PASS",
+ "results": {
+  "counts_1x1": true,
+  "ascii_marker_zero": true,
+  "payload_1x1": true,
+  "predicate_research": true,
+  "predicate_answer": true,
+  "mode_research_serious": true,
+  "modules_under_root": true,
+  "code_l1_canon_material_routing": true,
+  "code_l1_canon_not_pg_stage": true,
+  "core_full_not_truncated": true,
+  "no_meta_research_plan_once": true,
+  "no_meta_casual_plan_once": true,
+  "no_meta_deep_auto_mode_once": true,
+  "meta_phrases_absent_from_prompts": true,
+  "no_meta_directive_1x1_research": true,
+  "no_meta_directive_1x1_answer": true,
+  "core_report_chars": true,
+  "core_report_revision": true,
+  "core_report_in_system": true,
+  "core_report_sha12": true,
+  "case_a_unchanged": true,
+  "case_c_synthetic": true,
+  "case_c_same_window_as_a": true,
+  "case_c_short_single_line": true,
+  "meta_detector_catches_second_sentence": true,
+  "meta_detector_clean_answer": true,
+  "rag_service_function_real": true,
+  "rag_service_retrieval_kwargs": true,
+  "rag_service_query_passed": true,
+  "rag_service_block_rendered": true,
+  "rag_dump_marked": true
+ },
+ "counts": {
+  "directive": 1,
+  "writer": 1,
+  "no_meta": 0,
+  "no_meta_constant": true,
+  "ascii_marker": 0
+ },
+ "synthetic_payload": {
+  "system": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0,
+   "no_meta_constant": true,
+   "ascii_marker": 0
+  },
+  "user": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "ascii_marker": 0
+  },
+  "total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "ascii_marker": 0
+  },
+  "invariant_1x1": true,
+  "invariant_0x0": false,
+  "invariant_no_meta_1x1": true,
+  "invariant_no_meta_0": false
+ },
+ "meta_detector": {
+  "bad": [
+   "announce: Ладно, глянул твои сообщения.",
+   "leadin: Ладно, глянул твои сообщения."
+  ],
+  "ok": []
+ },
+ "meta_check": {
+  "free": {
+   "research": true,
+   "casual": true,
+   "deep_auto": true
+  },
+  "payload_counts": {
+   "research": 1,
+   "casual": 1,
+   "deep_auto": 1
+  }
+ },
+ "answer_payload": {
+  "system": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0,
+   "no_meta_constant": true,
+   "ascii_marker": 0
+  },
+  "user": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "ascii_marker": 0
+  },
+  "total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "ascii_marker": 0
+  },
+  "invariant_1x1": false,
+  "invariant_0x0": true,
+  "invariant_no_meta_1x1": true,
+  "invariant_no_meta_0": false
+ },
+ "core_report": {
+  "revision": "abc123def456",
+  "detail": "full:owner_setting",
+  "chars": 53,
+  "rendered": true,
+  "skip_reason": "",
+  "sha12": "cbc484f32fe8",
+  "text_chars": 53,
+  "in_system": true
+ },
+ "case_inputs": {
+  "A": {
+   "window_key": "A",
+   "target_ts": 1792873281,
+   "tg_id": 1175252,
+   "question": "запрос A",
+   "question_source": "db",
+   "question_note": ""
+  },
+  "C": {
+   "window_key": "A",
+   "target_ts": 1792873281,
+   "tg_id": 1175252,
+   "question": "Слушай, а ты дождь любишь или тебя от него тоже ломает?",
+   "question_source": "synthetic_case_c",
+   "question_note": "synthetic: короткая бытовая реплика в том же окне, что у A; режим не навязан — решение L1 записано как есть"
+  }
+ },
+ "code_l1_canon": {
+  "chars": 9288,
+  "sha12": "23aae0c9499d",
+  "prev_p0cs2_sha12": "f6f5d3b1fc1d"
+ },
+ "pins": {
+  "root": "/tmp/p0c-int/tree",
+  "git": {
+   "commit": "ERR:Command '['git', '-C', '/tmp/p0c-int/tree', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+   "branch": "ERR:Command '['git', '-C', '/tmp/p0c-int/tree', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+   "dirty": true,
+   "dirty_files": [
+    "ERR:Command '['git', '-C', '/tmp/p0c-int/tree', 'status', '--porcelain']' returned non-zero exit status 128."
+   ]
+  },
+  "modules": {
+   "services/chat_prompts.py": {
+    "sha256": "8909c1aaa2ddeac1bf23db5bdf6da87b79df2c26f99067a65b78bcecaf6b46db",
+    "chars": 161721
+   },
+   "services/direct_l1.py": {
+    "sha256": "0a8dd2e01d56993a22e35f4584af00298ed93b1c033c6580cc27311dc3554bc6",
+    "chars": 72079
+   },
+   "services/prompt_style_blocks.py": {
+    "sha256": "ce15e5fa84a0a587278c282883b873690a1eeacf0d62bc09302bf72a78b91516",
+    "chars": 51530
+   },
+   "services/response_extent.py": {
+    "sha256": "c97c7b33c130596b83b96946336b4a2b59694ff603a33659d9798a0c24cc9a1e",
+    "chars": 45011
+   },
+   "services/direct_chat_service.py": {
+    "sha256": "3c9ecc4d82b3648686e38ee30bce2a8e29161a1f3255d33ec2dcca6a690cbe0a",
+    "chars": 624380
+   },
+   "services/summary_memory.py": {
+    "sha256": "1c3810b7506574bce324739de4c9e5d513509fad8d68939262e79acb73fe9d6b",
+    "chars": 312387
+   },
+   "services/prompt_composer.py": {
+    "sha256": "60fada1200d2ba8099a6d2f170fdc02154a964bfa3d6dbe9450c2c4515d3661f",
+    "chars": 120446
+   },
+   "services/prompt_registry.py": {
+    "sha256": "33fece48bda6f9e7094d9d4d37cf3c5a6745ae01464b405a8aa443a3649eaf20",
+    "chars": 177250
+   }
+  }
+ }
+}

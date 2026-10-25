@@ -1,0 +1,14 @@
+# state after the probe session (read-only capture)
+# taken 2026-10-25T08:33:51Z in a separate read-only session, because the
+# orchestrating run.sh stopped early (see probes_final3.md §2)
+/var/www/admin_bot/local_database.db|2026-10-25 08:30:51.522006249 +0000|1624875008
+/var/www/admin_bot/local_database.db-wal|2026-10-25 08:33:43.688795491 +0000|4457872
+/var/www/admin_bot/local_database.db-shm|2026-10-25 08:33:25.649340655 +0000|32768
+head=534ac7dda6713fb407e0789fdddfa563251cdab4
+dirty=13
+unit=active
+NRestarts=0 ActiveEnterTimestamp=Sat 2026-10-24 21:03:19 UTC
+health_https=000
+health_http=308
+# pgrep -af harness_probe_full -> only the pgrep/bash -c command line itself
+# rm -rf /tmp/p0c-int -> CLEANED, GONE
