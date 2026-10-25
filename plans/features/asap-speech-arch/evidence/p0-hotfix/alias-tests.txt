@@ -1,0 +1,69 @@
+# P0 corrective — alias / reply / observer / protected runtime tests
+
+- Date/time: 2026-10-26 01:01–01:08 +12:00
+- Candidate code: `bd6d5fff54d664bf5cc66e647448c3950d778fc4`
+- Worktree HEAD: `778147e5f4c1f2a5ac74a3efd4e8b0fdafd43707` (docs-only normalization on top of candidate)
+- Code identity check: `git diff --name-only bd6d5fff 778147e5 -- services tests probes_full` → empty
+- Mode: read-only for product code; no Telegram sends; no product files changed.
+
+## Commands and results
+
+[RUN-1] `py -3 -m pytest tests/test_p0_alias_runtime_2026_10_25.py -q -p no:cacheprovider`
+RESULT: `ERROR: file or directory not found: tests/test_p0_alias_runtime_2026_10_25.py`; EXIT=4.
+NOTE: exact requested file does not exist in this branch. History: it existed at `d1a44592` (337 lines) and was removed at `f42e2257`, which added +311 lines to `tests/test_asap3_identity_aliases.py`; `f42e2257` is an ancestor of `bd6d5fff`. The real alias runtime contract is therefore `tests/test_asap3_identity_aliases.py` (RUN-2); this failed probe is not counted as a pass.
+
+[RUN-2] `py -3 -m pytest tests/test_asap3_identity_aliases.py -q -p no:cacheprovider`
+RESULT: `35 passed, 2 warnings in 4.63s`; EXIT=0.
+
+[RUN-3] `py -3 -m pytest tests/test_p0_initfix_initiative_observer.py tests/test_p0_init_arch_fix_observer.py -q -p no:cacheprovider`
+RESULT: `27 passed, 2 warnings in 7.58s`; EXIT=0.
+
+[RUN-4] `py -3 -m pytest tests/test_p0_old_lore_quarantine.py -q -p no:cacheprovider`
+RESULT: `14 passed, 2 warnings in 3.84s`; EXIT=0.
+
+[RUN-5] `py -3 -m pytest tests/test_summary_aliases.py tests/test_aliases_render_round1022.py tests/test_aliases_render_round1024.py -q -p no:cacheprovider`
+RESULT: `32 passed, 3 warnings in 5.50s`; EXIT=0.
+
+[RUN-6] `py -3 -m pytest tests/test_speech_p0_a2_memory.py -q -p no:cacheprovider`
+RESULT: `9 passed, 2 warnings in 3.01s`; EXIT=0.
+
+TOTAL: **117 passed, 0 failed** in five successful runs; one requested-file probe failed with EXIT=4 because the file does not exist.
+
+## Test-to-behavior markers
+
+[A1] `tests/test_asap3_identity_aliases.py::test_a1_global_alias_beats_nickname_username_memory` — global alias beats nickname, username and memory; PASS in RUN-2.
+[A2] `tests/test_asap3_identity_aliases.py::test_a2_chat_alias_wins_only_in_its_chat` — chat alias wins only in its chat; PASS in RUN-2.
+[A3] `tests/test_asap3_identity_aliases.py::test_a3_partial_chat_map_inherits_global_aliases` — partial chat map inherits global by uid; PASS in RUN-2.
+[A4] `tests/test_asap3_identity_aliases.py::test_a4_global_change_applies_next_turn` — global change applies next turn; PASS in RUN-2.
+[A5] `tests/test_asap3_identity_aliases.py::test_a5_chat_change_applies_next_turn_without_restart` — chat change applies next turn without restart; PASS in RUN-2.
+[A6] `tests/test_asap3_identity_aliases.py::test_a6_after_restart_saved_aliases_apply` — saved aliases apply after restart; PASS in RUN-2.
+[A7] `tests/test_asap3_identity_aliases.py::test_a7_delete_chat_override_returns_global` — deleting chat override returns global; PASS in RUN-2.
+[A8] `tests/test_asap3_identity_aliases.py::test_a8_delete_global_alias_returns_next_source` — fallback to nickname → username → id; PASS in RUN-2.
+[A10] `tests/test_asap3_identity_aliases.py::test_a10_old_author_name_does_not_override_alias` — client/old author name does not override alias; PASS in RUN-2.
+[A11] `tests/test_asap3_identity_aliases.py::test_a11_old_graphrag_name_does_not_override_in_resolution_map` — old GraphRAG name does not override resolution map; PASS in RUN-2.
+[A13] `tests/test_asap3_identity_aliases.py::test_a13_direct_summary_tool_and_media_share_one_order` — direct/summary/tool/media share one alias order; PASS in RUN-2.
+[A13INIT] `tests/test_asap3_identity_aliases.py::test_a13_initiative_l1_and_l2_use_alias_not_author_name` — Initiative L1 context and L2 window use alias by uid; PASS in RUN-2.
+[A16] `tests/test_asap3_identity_aliases.py::test_a16_harness_telegram_id_to_context_and_result` — Telegram ID → effective alias → resolution map → name; PASS in RUN-2.
+[A17] `tests/test_asap3_identity_aliases.py::test_a17_reply_block_uses_alias_and_uid` — reply author uses alias + `[user:id]`; hot change applies on next turn; PASS in RUN-2.
+[A18] `tests/test_asap3_identity_aliases.py::test_a18_observer_eval_uses_alias_not_author_name` — Observer eval/digest use alias, not frozen author_name; PASS in RUN-2.
+[A19] `tests/test_asap3_identity_aliases.py::test_a19_background_job_sees_chat_override_without_restart` — background worker sees chat override without restart; PASS in RUN-2.
+[A20] `tests/test_asap3_identity_aliases.py::test_a20_old_name_in_rag_does_not_replace_map_name` — old RAG name does not replace current alias map; PASS in RUN-2.
+[A21] `tests/test_asap3_identity_aliases.py::test_a21_two_uids_same_display_not_merged` — two uids with same display are not merged; PASS in RUN-2.
+[A22] `tests/test_asap3_identity_aliases.py::test_a22_history_searchable_by_old_name` — old-name history search works, text not rewritten, current alias is canonical; PASS in RUN-2.
+[A25] `tests/test_asap3_identity_aliases.py::test_a25_third_party_mention_keeps_addressee` — third-party mention does not replace addressee; PASS in RUN-2.
+[DOSSIER] `tests/test_asap3_identity_aliases.py::test_dossier_keeps_fact_with_stable_uid_after_rename` — dossier reads facts by `subject_ref_id`, not only old name; PASS in RUN-2.
+[F5A] `tests/test_asap3_identity_aliases.py::test_f5_protected_facts_read_by_subject_ref_id` — protected facts read by `subject_ref_id`; PASS in RUN-2.
+[F5B] `tests/test_asap3_identity_aliases.py::test_f5_protected_subject_ref_migration_is_idempotent` — `subject_ref_id` migration idempotent; PASS in RUN-2.
+[F5C] `tests/test_asap3_identity_aliases.py::test_f5_clear_and_forget_scope_by_subject_ref_id` — clear/forget scoped by `subject_ref_id`; PASS in RUN-2.
+[SUM-NICK] `tests/test_summary_aliases.py::TestAliasResolver::test_nickname_second` — nickname before username; PASS in RUN-5.
+[SUM-USER] `tests/test_summary_aliases.py::TestAliasResolver::test_username_third_without_at` — username without `@`; PASS in RUN-5.
+[M-EXIST] `tests/test_p0_old_lore_quarantine.py::TestTargetedQuarantine::test_audited_row_marked_once_and_text_preserved` — existing `lore_stories.id=4` marked once, text preserved, row not deleted; PASS in RUN-4.
+[M-LCP] `tests/test_p0_old_lore_quarantine.py::TestTargetedQuarantine::test_lcp_guard_marks_only_verified_candidate` — only verified candidate `id=3` is marked; PASS in RUN-4.
+[M-NOFP] `tests/test_p0_old_lore_quarantine.py::TestTargetedQuarantine::test_no_false_positive_on_unrelated_or_unlisted_rows` — no false positives on unrelated/unlisted rows; PASS in RUN-4.
+[M-FILTER] `tests/test_p0_old_lore_quarantine.py::TestRetrievalFilterParity::test_baseline_and_facade_hide_marked_row_but_keep_it` — baseline and facade hide marked row but keep it; PASS in RUN-4.
+[M-GRAPH] `tests/test_p0_old_lore_quarantine.py::TestGraphSliceProvenance::test_self_origin_and_tentative_facts_excluded` — self-origin and tentative facts excluded from graph slice; PASS in RUN-4.
+[M-GUARD] `tests/test_p0_old_lore_quarantine.py::TestCompilerSelfEchoGuard::test_quarantined_story_not_fed_back_as_known_base` — quarantined story not fed back as known base; PASS in RUN-4.
+[M-L2] `tests/test_speech_p0_a2_memory.py::TestLevel2KeepHead::test_parts_keep_head_and_marker` — L2 keep-head plus marker «пересказ, не источник»; PASS in RUN-6.
+[M-SELF] `tests/test_speech_p0_a2_memory.py::TestSelfEchoNotFactual::test_self_and_direct_reply_not_in_rag` — self/direct bot replies excluded from factual RAG, confirmed chat fact present; PASS in RUN-6.
+[M-RAG] `tests/test_speech_p0_a2_memory.py::TestProvenanceInDirectRag::test_read_policy_rank_marks` — confirmed RAG fact rendered; unconfirmed/legacy marked; PASS in RUN-6.
+[M-META] `tests/test_speech_p0_a2_memory.py::TestProvenanceInDirectRag::test_with_meta_carries_provenance_fields` — `with_meta` carries provenance fields and rank 3 for confirmed; PASS in RUN-6.
