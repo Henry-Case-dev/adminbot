@@ -41,6 +41,7 @@ F6 (прежний прогон): `manifest.versions.core` — ревизия, �
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import hashlib
 import inspect
@@ -81,6 +82,109 @@ PINNED_MODULES = (
 
 def sha12(text) -> str:
     return hashlib.sha256(str(text or "").encode("utf-8")).hexdigest()[:12]
+
+
+#: Абсолютный путь стенда, зафиксированный при импорте: `self_check` делает
+#: `os.chdir(root)`, после чего относительный `__file__` уже не разрешается.
+HARNESS_PATH = os.path.abspath(__file__)
+
+
+def unbound_local_findings(source: str) -> list:
+    """AST-проверка: имя прочитано в функции раньше своего присваивания.
+
+    Python считает имя локальным, если оно присвоено ГДЕ УГОДНО в функции;
+    чтение до первого присваивания даёт `UnboundLocalError` в рантайме. Ровно
+    так живой прогон `e0a46414` потерял RAG и не дошёл до L2: `llm` читался на
+    строке 1030, а `llm = _make_llm(...)` стоял на 1072, — и `--self-check`
+    этого не видел, потому что не вызывал `_run`.
+
+    Области видимости соблюдаются: параметры, `global`/`nonlocal`, вложенные
+    функции/лямбды/классы (их тела исполняются позже) и включения (у цели своя
+    область) не дают ложных срабатываний. Возвращает список находок; пусто =
+    чисто.
+    """
+    findings: list = []
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        return [{"function": "<module>", "name": "<syntax>",
+                 "line": getattr(exc, "lineno", 0), "first_assign": 0}]
+
+    def scan(fn) -> None:
+        params = set()
+        for group in (fn.args.posonlyargs, fn.args.args, fn.args.kwonlyargs):
+            params.update(a.arg for a in group)
+        if fn.args.vararg:
+            params.add(fn.args.vararg.arg)
+        if fn.args.kwarg:
+            params.add(fn.args.kwarg.arg)
+        assigned: dict = {}
+        loads: list = []
+        declared: set = set()
+
+        def note(name: str, line: int) -> None:
+            if name not in assigned or line < assigned[name]:
+                assigned[name] = line
+
+        def outer_loads(node) -> None:
+            """Загрузки поддерева вне области включения (итератор for)."""
+            for sub in ast.walk(node):
+                if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                    ast.Lambda)):
+                    continue
+                if isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
+                    loads.append((sub.id, sub.lineno))
+
+        def walk(node) -> None:
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    note(child.name, child.lineno)   # имя связывается здесь
+                    continue                         # тело — другая область
+                if isinstance(child, ast.Lambda):
+                    continue
+                if isinstance(child, ast.ClassDef):
+                    note(child.name, child.lineno)
+                    continue
+                if isinstance(child, (ast.ListComp, ast.SetComp, ast.DictComp,
+                                      ast.GeneratorExp)):
+                    if child.generators:             # только внешний итератор
+                        outer_loads(child.generators[0].iter)
+                    continue
+                if isinstance(child, ast.Global):
+                    declared.update(child.names)
+                    continue
+                if isinstance(child, ast.Nonlocal):
+                    declared.update(child.names)
+                    continue
+                if isinstance(child, ast.ExceptHandler) and child.name:
+                    note(child.name, child.lineno)
+                if isinstance(child, ast.Import):
+                    for alias in child.names:
+                        note((alias.asname or alias.name).split(".")[0],
+                             child.lineno)
+                if isinstance(child, ast.ImportFrom):
+                    for alias in child.names:
+                        note(alias.asname or alias.name, child.lineno)
+                if isinstance(child, ast.Name):
+                    if isinstance(child.ctx, ast.Store):
+                        note(child.id, child.lineno)
+                    elif isinstance(child.ctx, ast.Load):
+                        loads.append((child.id, child.lineno))
+                walk(child)
+
+        walk(fn)
+        for name, line in loads:
+            first = assigned.get(name)
+            if first is None or name in params or name in declared:
+                continue
+            if line < first:
+                findings.append({"function": fn.name, "name": name,
+                                 "line": line, "first_assign": first})
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            scan(node)
+    return findings
 
 
 def sha256_file(path: str) -> str:
@@ -548,6 +652,33 @@ class _HotStub:
         return default
 
 
+def run_summary(result: dict) -> dict:
+    """Компактная сводка прогона. Никогда не бросает.
+
+    `rag_source` обязан отражать ФАКТИЧЕСКИЙ путь сборки блока: `service` или
+    `dump`. `null`/отсутствие здесь означало бы «стенд не знает, чем собрал
+    RAG» — ровно так дефект `e0a46414` выглядел в отчёте. Значение берётся из
+    `rag.rag_source`, а если по какой-то причине его нет — пишется
+    `unreported`, а не пусто.
+    """
+    rag = dict(result.get("rag") or {})
+    keys = ("label", "case", "question_source", "forced", "invalid", "fatal",
+            "l1_plan", "mode", "no_meta_contract", "payload_counts")
+    summary = {k: result.get(k) for k in keys}
+    rag_source = result.get("rag_source") or rag.get("rag_source")
+    summary["rag_source"] = rag_source or "unreported"
+    summary["rag"] = {k: v for k, v in
+                      ((k, rag.get(k)) for k in
+                       ("rows", "kept", "retrieval", "block_sha12",
+                        "dump_reason")) if v is not None}
+    summary["rag"]["rag_source"] = summary["rag_source"]
+    summary["l2_meta"] = {k: (result.get("l2_meta") or {}).get(k) for k in
+                          ("flagged", "total", "analyzer")}
+    summary["l2_chars"] = [r.get("chars") for r in result.get("l2_runs") or []]
+    summary["stage_errors"] = result.get("stage_errors") or {}
+    return summary
+
+
 def self_check(root: str, json_out: bool = False) -> int:
     os.chdir(root)
     sys.path.insert(0, root)
@@ -685,6 +816,30 @@ def self_check(root: str, json_out: bool = False) -> int:
                                              str(exc)[:200])
         _rag_hint = ""
     rag_call = (fake.calls or [{}])[0]
+    # Guard полосы «UnboundLocalError в _run»: (а) реальный файл стенда,
+    # (б) образец с дефектом того же вида, (в) корректный образец.
+    _unbound_file_err = ""
+    try:
+        with open(HARNESS_PATH, encoding="utf-8") as fh:
+            _harness_src = fh.read()
+    except OSError as exc:                            # noqa: BLE001
+        _harness_src = ""
+        _unbound_file_err = str(exc)[:160]
+    _unbound_current = (unbound_local_findings(_harness_src)
+                        if _harness_src else
+                        [{"function": "<file>", "name": "<unreadable>",
+                          "line": 0, "first_assign": 0,
+                          "error": _unbound_file_err}])
+    _unbound_bad = unbound_local_findings(
+        "def run(args, result):\n"
+        "    block, meta = make(result, llm=llm)\n"
+        "    llm = build(args)\n"
+        "    return block\n")
+    _unbound_ok = unbound_local_findings(
+        "def run(args, result):\n"
+        "    llm = build(args)\n"
+        "    block, meta = make(result, llm=llm)\n"
+        "    return block\n")
     results = {
         "counts_1x1": counts["directive"] == 1 and counts["writer"] == 1,
         "ascii_marker_zero": counts["ascii_marker"] == 0,
@@ -769,10 +924,30 @@ def self_check(root: str, json_out: bool = False) -> int:
             rag_block.startswith("<RAG_Memory>")
             and "Макс заступился за Костю" in rag_block),
         "rag_dump_marked": _dump_marker_ok(),
+        # ── регрессия живого прогона e0a46414 (UnboundLocalError) ────────────
+        # Guard обязан (а) молчать на этом файле, (б) ловить именно этот
+        # класс дефекта на образце, (в) не срабатывать на корректном образце.
+        "no_use_before_assignment": not _unbound_current,
+        "unbound_guard_catches_pattern": (
+            [f["name"] for f in _unbound_bad] == ["llm"]
+            and _unbound_bad[0]["line"] < _unbound_bad[0]["first_assign"]),
+        "unbound_guard_clean_pattern": not _unbound_ok,
+        # rag_source в сводке = фактический путь сборки, никогда не null.
+        "summary_rag_source_service": (
+            run_summary({"rag": {"rag_source": RAG_SERVICE}})["rag_source"]
+            == RAG_SERVICE),
+        "summary_rag_source_dump": (
+            run_summary({"rag": {"rag_source": RAG_DUMP}})["rag_source"]
+            == RAG_DUMP),
+        "summary_rag_source_never_null": (
+            run_summary({})["rag_source"] == "unreported"),
     }
     ok = all(results.values())
     out = {"self_check": "PASS" if ok else "FAIL", "results": results,
            "counts": counts, "synthetic_payload": synthetic_payload,
+           "unbound_guard": {"file_findings": _unbound_current,
+                             "bad_sample": _unbound_bad,
+                             "harness": HARNESS_PATH},
            "meta_detector": {"bad": meta_bad["meta"], "ok": meta_ok["meta"]},
            "meta_check": {"free": meta_free,
                           "payload_counts": {
@@ -860,6 +1035,9 @@ def main() -> int:
     ap.add_argument("--root", default=os.path.dirname(
         os.path.dirname(os.path.abspath(__file__))))
     ap.add_argument("--self-check", action="store_true")
+    ap.add_argument("--ast-check", default="",
+                    help="проверить произвольный python-файл на чтение имени "
+                         "до присваивания в функции (exit 1 при находках)")
     ap.add_argument("--label", default="probe")
     ap.add_argument("--case", default="A", choices=("A", "B", "C"),
                     help="A/B — реальные сообщения чата; C — короткая бытовая "
@@ -889,6 +1067,15 @@ def main() -> int:
                     help="явно взять DIRECT_L1_PLANNER_SYSTEM_PROMPT из кода "
                          "кандидата (эквивалент --l1-prompt code)")
     args = ap.parse_args()
+    if args.ast_check:
+        path = os.path.abspath(args.ast_check)
+        with open(path, encoding="utf-8") as fh:
+            found = unbound_local_findings(fh.read())
+        for item in found:
+            print("%(function)s: '%(name)s' читается стр. %(line)s, "
+                  "присваивается стр. %(first_assign)s" % item)
+        print("ast_check %s findings=%d" % (path, len(found)))
+        return 0 if not found else 1
     if args.self_check:
         return self_check(args.root)
     if not args.out:
@@ -917,17 +1104,16 @@ def main() -> int:
         result["traceback"] = traceback.format_exc()[-2500:]
     json.dump(result, open(args.out, "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)
-    out_keys = ("label", "case", "question_source", "forced", "invalid",
-                "fatal", "l1_plan", "mode", "no_meta_contract", "rag_source",
-                "payload_counts", "l2_meta", "l2_chars", "stage_errors")
-    summary = {k: result.get(k) for k in out_keys}
-    summary["rag"] = {k: (result.get("rag") or {}).get(k) for k in
-                      ("rag_source", "rows", "kept", "retrieval",
-                       "block_sha12")}
-    summary["l2_meta"] = {k: (result.get("l2_meta") or {}).get(k) for k in
-                          ("flagged", "total", "analyzer")}
-    summary["l2_chars"] = [r.get("chars") for r in result.get("l2_runs") or []]
-    print(json.dumps(summary, ensure_ascii=False)[:2500])
+    summary = run_summary(result)
+    # Сводка печатается целиком (payload внутри нет): её парсят скрипты
+    # сопровождения, обрезанный JSON для них бесполезен.
+    print(json.dumps(summary, ensure_ascii=False))
+    if result.get("fatal") or result.get("invalid"):
+        # Невалидный прогон не должен выглядеть зелёным: вызывающий скрипт
+        # получает exit 1 и точную причину в stderr.
+        print("RUN_INVALID=%s" % (result.get("fatal")
+                                  or result.get("invalid")), file=sys.stderr)
+        return 1
     return 0
 
 
@@ -1024,6 +1210,10 @@ async def _run(args, result):
                             "sha12": sha12(summary_text) if summary_text else ""}
 
     # ── реальный RAG (ошибка рендера = invalid, без fallback-строк)
+    # LLM-клиент нужен УЖЕ здесь: реальный retrieval делает query-embedding
+    # тем же клиентом, что и прод. Клиент создаётся до первого использования
+    # (иначе `llm` — локальная переменная, прочитанная до присваивания).
+    llm = _make_llm(args.root, result)
     window_text = build_window_text(win)
     try:
         rag_block, rag_meta = await build_rag_block(
@@ -1037,6 +1227,10 @@ async def _run(args, result):
             type(exc).__name__, str(exc)[:220])
     result["rag"] = dict(rag_meta, block_chars=len(rag_block),
                          block_sha12=sha12(rag_block))
+    # Фактический источник RAG виден и на верхнем уровне отчёта: `null` здесь
+    # означал бы «стенд не знает, чем собрал блок» — так быть не должно.
+    result["rag_source"] = ((result["rag"] or {}).get("rag_source")
+                            or "unreported")
 
     # ── реальные lessons (SQLite) через реальный рендерер
     lessons_block = ""
@@ -1067,9 +1261,6 @@ async def _run(args, result):
                         "expression_examples_enabled", "humor_library_enabled",
                         "humor_craft_enabled")}
     modes_on = bool(getattr(gates, "smart_verbalizer_modes_enabled", True))
-    # LLM-клиент нужен и RAG-пути (embed запроса для реального retrieval),
-    # поэтому создаётся до сборки RAG, а не только перед L1.
-    llm = _make_llm(args.root, result)
 
     # ── L1: один реальный план (или явно помеченный forced)
     from services.direct_chat_service import (

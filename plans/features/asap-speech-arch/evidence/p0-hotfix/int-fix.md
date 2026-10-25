@@ -2,8 +2,8 @@
 
 - **LANE:** `SPEECH-INT-FIX`, один писатель, worktree `C:\Code\Python\adminbot-wt-speech-int`,
   ветка `task/p0c-int`.
-- **Кандидат:** `e0a46414` (merge `505c0422` + F2/F4/F5/F6; docs-коммит сверху
-  код и тесты не меняет).
+- **Кандидат:** `e0a46414` + фикс стенда ниже (merge `505c0422` + F2/F4/F5/F6;
+  docs-коммит сверху код и тесты не меняет).
 - **База сравнения:** `534ac7dd` (прод 2.58.130).
 - **Источник:** `review-speech-core-l1.md` (скопирован в это дерево), блокирующие находки F2–F6.
 - **Вердикт по моей части:** все F2–F6 закрыты кодом/данными; живой прогон
@@ -37,7 +37,8 @@
    расходился с продуктом.
 
 ```
-py -3 probes_full/harness_probe_full.py --self-check  => PASS, 31/31 checks
+py -3 probes_full/harness_probe_full.py --self-check  => PASS, 37/37 checks
+(31 базовая проверка merge/детектора/RAG + 3 AST-guard + 3 rag_source)
 code_l1_canon = 9288 / 23aae0c9499d
 ```
 
@@ -232,14 +233,83 @@ tests/test_soul1_composer_parity_off.py::test_l2_on_without_plan_keeps_mode_bloc
 `core.chars=8413`. Это улучшение контракта «инструкции не обрезаются», а не
 новая квота: новых лимитов/обрезок в диффе нет.
 
-Новый файл тестов: `tests/test_speech_p0_meta_detector.py` — 5 passed.
+tests/test_speech_p0_meta_detector.py — 5 passed.
+Новый файл тестов гарда: `tests/test_speech_p0_harness_guard.py` — 4 passed.
 
-## 8. Что осталось (честные пробелы)
+## 8. Harness UnboundLocalError fix (блокер живого прогона `e0a46414`)
+
+**Симптом (production-прогон, `probes_final3.md`):** RAG-вызов падал с
+`UnboundLocalError`, `invalid=rag_render`, `rag_source=dump`, `block_chars=0`,
+`l2_chars=[]` — L2 не вызывался вообще. `--self-check` был зелёным.
+
+**Причина.** В `_run` вызов `build_rag_block(..., llm=llm, ...)` стоял на
+строке 1030, а единственное присваивание `llm = _make_llm(...)` — на 1072.
+Python считает имя локальным, если оно присвоено ГДЕ УГОДНО в функции, поэтому
+чтение до присваивания — `UnboundLocalError`, а не `NameError` из внешней
+области. Мой `except Exception` вокруг RAG переводил это в помеченный `dump` и
+останавливал прогон по `invalid` — то есть ошибка была видна в JSON, но
+`--self-check` её не воспроизводил, потому что `_run` не вызывает.
+
+**Фикс (без заглушек, без изменения продукта):**
+1. `llm = _make_llm(args.root, result)` поднят НАД первым использованием — сразу
+   перед сборкой RAG (строка 1214), позднее присваивание удалено. Клиент
+   создаётся после `hot.set_config_cache(...)` (1145), поэтому embed-настройки
+   берутся из реальных PG-settings, как в проде.
+2. Добавлен детерминированный AST-guard `unbound_local_findings(source)`:
+   находит имена, прочитанные в функции раньше первого присваивания; учитывает
+   параметры, `global`/`nonlocal`, вложенные функции/лямбды/классы и включения
+   (своя область) — поэтому не даёт ложных срабатываний.
+3. Guard в `--self-check`: `no_use_before_assignment` (реальный файл стенда),
+   `unbound_guard_catches_pattern` (образец с дефектом обязан дать ровно
+   `llm`), `unbound_guard_clean_pattern` (корректный образец — чисто).
+4. Отдельный вход `--ast-check FILE` — проверка любого файла, exit 1 при находках.
+5. `rag_source` в отчёте: верхнеуровневое `result["rag_source"]` +
+   `run_summary().rag_source` берутся из фактического `rag.rag_source`
+   (`service`/`dump`); если данных нет вовсе — пишется `unreported`, никогда
+   `null`. Сводка печатает источник и `dump_reason`.
+6. Невалидный/фатальный прогон теперь возвращает **exit 1**
+   (`RUN_INVALID=<причина>` в stderr), а не 0 — «зелёного» вида у сломанного
+   прогона больше нет.
+
+**Доказательство, что guard ловит старую версию (и не ломает новую):**
+
+```
+$ py -3 probes_full/harness_probe_full.py --ast-check <старый e0a46414>
+_run: 'llm' читается стр. 1030, присваивается стр. 1072
+ast_check ...\old_harness.py findings=1
+exit=1
+
+$ py -3 probes_full/harness_probe_full.py --ast-check probes_full/harness_probe_full.py
+ast_check ...\probes_full\harness_probe_full.py findings=0
+exit=0
+```
+
+(старый файл получен как `git show e0a46414:probes_full/harness_probe_full.py`.)
+
+```
+py -3 probes_full/harness_probe_full.py --self-check  => PASS, 37/37 checks
+unbound_guard.file_findings = [] , bad_sample = ['llm'], harness = <abs path>
+
+py -3 probes_full/harness_probe_full.py --case C --out dry.json
+=> fatal: FileNotFoundError .env; RUN_INVALID=... ; exit=1
+   summary: "rag_source": "unreported", "rag": {"rag_source": "unreported"}
+```
+
+Регрессия: `tests/test_speech_p0_harness_guard.py` (4 проверки) — реальный файл
+чист, образец дефекта ловится, корректный порядок/области не флагуются,
+`rag_source` в сводке равен фактическому пути и никогда не `null`.
+
+Наборы тестов после фикса: `4 failed, 84 passed` (набор 1) и
+`4 failed, 808 passed` (набор 2) — те же 4 предсуществующих падения паритета,
+что и на базе `534ac7dd`.
+
+## 9. Что осталось (честные пробелы)
 
 1. **Живой прогон A/B/C на сервере** тем же harness (`--case A/B/C`,
-   `--rag-source service`) — единственное, что закрывает: 0/8 меты на
-   кандидате, case C (короткий ответ без обрезания), RAG-блоки A≠B из реального
-   retrieval, `core.chars=3294` в отчёте. Локально нет `.env`/БД.
+   `--rag-source service`) — разблокирован этим фиксом и остаётся за DevOps:
+   закрывает 0/8 меты на кандидате, case C (короткий ответ без обрезания),
+   RAG-блоки A≠B из реального retrieval, `core.chars=3294` в отчёте.
+   Локально нет `.env`/БД, поэтому сам прогон здесь невыполним.
 2. В raw живого прогона должны остаться `pins.harness.sha256` (файл стенда) и
    `l2_meta.analyzer_sha256` (детектор) — именно это закрывает претензию
    «исполнялся не тот harness»; снять их нужно на сервере, здесь их взять неоткуда.
