@@ -23,6 +23,18 @@ PG через read-only сессию, SQLite через mode=ro; без Telegram
   защищённые `user_parts`;
 * сбой L1/сборки — `invalid`, а не детерминированный fallback-план.
 
+`--case C` (P0-CORRECTIVE §1.4/§3, проверка 8) — короткая бытовая реплика
+как СЛЕДУЮЩЕЕ сообщение в том же историческом окне, что у A: та же история,
+та же точка времени, отличается только текущая реплика. Стенд не навязывает
+режим: маршрут L1 пишется как есть (`research` у C — это находка, не сбой
+стенда). Текст C синтетический — это фиксируется полем `question_source`.
+A/B идут прежним путём (`question_source=db`, реальные сообщения окна).
+
+F6 (прежний прогон): `manifest.versions.core` — ревизия, а не текст, и
+читалась как атрибут mapping (всегда пусто → 0). Теперь размер core берётся
+из реально отрендеренного слоя (`layers[block_id=core]`), ревизия/редакция —
+из `versions`, плюс `sha12`/`in_system` фактического текста.
+
 `--self-check` — офлайн-проверка счётчиков/предиката/пинов на целевом дереве;
 обязателен перед серверным сеансом.
 """
@@ -46,6 +58,14 @@ TS_A, TS_B = 1792873281, 1792873478
 AUTHOR_UID = 42115912
 AUTHOR_DISPLAY = "Гипербореец"   # Telegram display; authoritative name = live alias
 AUTHOR = AUTHOR_DISPLAY          # replaced at runtime by the live resolver
+
+#: `--case C` (P0-CORRECTIVE §1.4/§3, проверка 8): короткая бытовая реплика.
+#: Одна строка, обычный разговорный вопрос, БЕЗ просьбы разбирать историю или
+#: переписку. Никакого отношения к маршрутизации: L1 решает сам, стенд только
+#: фиксирует решение (`mode`, `analysis_predicate`, `l1_plan`).
+CASE_C_QUESTION = "Слушай, а ты дождь любишь или тебя от него тоже ломает?"
+CASE_C_NOTE = ("synthetic: короткая бытовая реплика в том же окне, что у A; "
+               "режим не навязан — решение L1 записано как есть")
 
 PINNED_MODULES = (
     "services/chat_prompts.py",
@@ -106,6 +126,32 @@ def jload(raw, default=None):
         return json.loads(raw)
     except Exception:
         return default
+
+
+def case_inputs(case, rows) -> dict:
+    """Вход текущего хода для `--case A/B/C`. Никогда не бросает.
+
+    A/B: реальное сообщение чата из окна `window_A`/`window_B` (прежний путь
+    байт-в-байт). C: та же точка времени и та же история, что у A (сообщение
+    запроса A из истории исключено), а текущая реплика — короткая бытовая
+    `CASE_C_QUESTION`; её происхождение фиксируется (`question_source`).
+    """
+    name = str(case or "A").upper()
+    key = "A" if name == "C" else name
+    target_ts = TS_A if key == "A" else TS_B
+    tg_id = TG_A if key == "A" else TG_B
+    if name == "C":
+        return {"window_key": key, "target_ts": target_ts, "tg_id": tg_id,
+                "question": CASE_C_QUESTION,
+                "question_source": "synthetic_case_c",
+                "question_note": CASE_C_NOTE}
+    question = ""
+    for m in rows or ():
+        if str(m.get("tg_message_id")) == str(tg_id):
+            question = m.get("text") or ""
+    return {"window_key": key, "target_ts": target_ts, "tg_id": tg_id,
+            "question": question, "question_source": "db",
+            "question_note": ""}
 
 
 class ROCache:
@@ -224,8 +270,11 @@ def text_counts(text: str, psb) -> dict:
     """Честные счётчики: фактические тексты, а не ASCII-имена констант."""
     directive = getattr(psb, "ANALYSIS_DIRECTIVE_TEXT", "") or ""
     writer = getattr(psb, "ANALYSIS_WRITER_TEXT", "") or ""
+    no_meta = getattr(psb, "NO_META_STRUCTURE_TEXT", "") or ""
     return {"directive": text.count(directive) if directive else 0,
             "writer": text.count(writer) if writer else 0,
+            "no_meta": text.count(no_meta) if no_meta else 0,
+            "no_meta_constant": bool(no_meta),
             "ascii_marker": text.count("ANALYSIS_DIRECTIVE")}
 
 
@@ -234,7 +283,36 @@ def payload_counts(system: str, user_text: str, psb) -> dict:
     total = text_counts(system + "\n\n" + user_text, psb)
     return {"system": s, "user": u, "total": total,
             "invariant_1x1": (total["directive"], total["writer"]) == (1, 1),
-            "invariant_0x0": (total["directive"], total["writer"]) == (0, 0)}
+            "invariant_0x0": (total["directive"], total["writer"]) == (0, 0),
+            # P0-CORRECTIVE §3: контракт «без мета-вступления» должен доехать
+            # до Writer'а ровно один раз на разборе и ни разу на обычном
+            # ответе. 0 при существующей константе — разрыв сборки, не PASS.
+            "invariant_no_meta_1x1": total["no_meta"] == 1,
+            "invariant_no_meta_0": total["no_meta"] == 0}
+
+
+def core_report(manifest, system: str) -> dict:
+    """Реально отрендеренный core-слой, а не поле versions (фикс F6).
+
+    `manifest.versions["core"]` — РЕВИЗИЯ (строка), текст лежит в
+    `layers[block_id="core"].text`; прежняя версия читала mapping как объект
+    с атрибутом и всегда получала 0. Здесь размер/sha берутся из слоя,
+    ревизия и редакция — из `versions`; `in_system` показывает, что именно
+    этот текст физически вошёл в финальный system.
+    """
+    versions = dict(getattr(manifest, "versions", {}) or {})
+    layers = tuple(getattr(manifest, "layers", ()) or ())
+    trace = next((t for t in layers
+                  if str(getattr(t, "block_id", "")) == "core"), None)
+    text = str(getattr(trace, "text", "") or "")
+    return {"revision": str(versions.get("core") or ""),
+            "detail": versions.get("core_detail"),
+            "chars": int(getattr(trace, "chars", 0) or 0),
+            "rendered": bool(getattr(trace, "rendered", False)),
+            "skip_reason": str(getattr(trace, "skip_reason", "") or ""),
+            "sha12": sha12(text) if text else "",
+            "text_chars": len(text),
+            "in_system": bool(text) and text in str(system or "")}
 
 
 # ── RAG: реальная цепочка прод-сервиса (без самодельного рендера) ───────────
@@ -331,6 +409,27 @@ def self_check(root: str, json_out: bool = False) -> int:
         "КАНАЛ: технический контракт.", l1.plan_response_mode(plan), "plain",
         html_safe=True, extent_block=extent_block)
     synthetic_payload = payload_counts(system, plan_block, psb)
+    answer_extent = extent.render_extent_block(answer.to_response_plan())
+    answer_plan_block = l1.build_l2_plan_block(answer)
+    answer_system = psb.compose_verbalizer_system(
+        "КАНАЛ: технический контракт.", l1.plan_response_mode(answer), "plain",
+        html_safe=True, extent_block=answer_extent)
+    answer_payload = payload_counts(answer_system, answer_plan_block, psb)
+    # F6-regression: отчёту о core нужен размер ОТРЕНДЕРЕННОГО слоя, а не
+    # атрибут mapping `versions` (прежняя версия всегда давала 0).
+    core_text = "<Personality_Core>контрольный слой</Personality_Core>"
+    fake_manifest = pcomp.PromptManifest(
+        system="<Channel_Canon/>\n\n" + core_text,
+        versions={"core": "abc123def456", "core_detail": "full:owner_setting"},
+        layers=(pcomp.LayerTrace(layer="core", block_id="core",
+                                 chars=len(core_text), rendered=True,
+                                 text=core_text),))
+    core_rep = core_report(fake_manifest, fake_manifest.system)
+    # `--case C`: тот же вход, что у A, отличается только текущая реплика.
+    row_a = [{"tg_message_id": TG_A, "text": "запрос A"},
+             {"tg_message_id": 999, "text": "прочее"}]
+    cin_a = case_inputs("A", row_a)
+    cin_c = case_inputs("C", row_a)
     results = {
         "counts_1x1": counts["directive"] == 1 and counts["writer"] == 1,
         "ascii_marker_zero": counts["ascii_marker"] == 0,
@@ -356,13 +455,39 @@ def self_check(root: str, json_out: bool = False) -> int:
         "core_full_not_truncated": (
             pcomp.simplify_core_for_prompt(cp.PERSONALITY_CORE_FULL_TEXT)
             == cp.PERSONALITY_CORE_FULL_TEXT),
-        "no_meta_directive_present": (
-            psb.NO_META_STRUCTURE_TEXT in psb.MODE_DEEP_RESEARCH_BLOCK
-            and psb.NO_META_STRUCTURE_TEXT in plan_block),
+        # Контракт «без мета-вступления» доезжает до Writer'а один раз на
+        # разборе и ни разу на обычном ответе. Позиция не важна: проверяется
+        # ФАКТ присутствия в собранном payload, а не имя блока.
+        "no_meta_directive_1x1_research": (
+            synthetic_payload["system"]["no_meta_constant"]
+            and synthetic_payload["invariant_no_meta_1x1"]),
+        "no_meta_directive_0_answer": (
+            answer_payload["invariant_no_meta_0"]),
+        # F6: отчётность по core — из отрендеренного слоя.
+        "core_report_chars": core_rep["chars"] == len(core_text),
+        "core_report_revision": core_rep["revision"] == "abc123def456",
+        "core_report_in_system": core_rep["in_system"] is True,
+        "core_report_sha12": core_rep["sha12"] == sha12(core_text),
+        # --case C: проводка входа.
+        "case_a_unchanged": (cin_a["question"] == "запрос A"
+                             and cin_a["question_source"] == "db"
+                             and cin_a["target_ts"] == TS_A
+                             and cin_a["tg_id"] == TG_A),
+        "case_c_synthetic": (cin_c["question"] == CASE_C_QUESTION
+                             and cin_c["question_source"]
+                             == "synthetic_case_c"),
+        "case_c_same_window_as_a": (cin_c["window_key"] == "A"
+                                    and cin_c["target_ts"] == TS_A
+                                    and cin_c["tg_id"] == TG_A),
+        "case_c_short_single_line": (
+            "\n" not in CASE_C_QUESTION and len(CASE_C_QUESTION) <= 120),
     }
     ok = all(results.values())
     out = {"self_check": "PASS" if ok else "FAIL", "results": results,
            "counts": counts, "synthetic_payload": synthetic_payload,
+           "answer_payload": answer_payload,
+           "core_report": core_rep,
+           "case_inputs": {"A": cin_a, "C": cin_c},
            "code_l1_canon": {"chars": len(code_l1), "sha12": sha12(code_l1),
                              "prev_p0cs2_sha12": sha12(
                                  cp.PREV_DIRECT_L1_PLANNER_P0CS2)},
@@ -434,9 +559,13 @@ def main() -> int:
         os.path.dirname(os.path.abspath(__file__))))
     ap.add_argument("--self-check", action="store_true")
     ap.add_argument("--label", default="probe")
-    ap.add_argument("--case", default="A", choices=("A", "B"))
+    ap.add_argument("--case", default="A", choices=("A", "B", "C"),
+                    help="A/B — реальные сообщения чата; C — короткая бытовая "
+                         "реплика в том же окне, что у A (синтетический текст, "
+                         "режим решает L1)")
     ap.add_argument("--out", default="")
-    ap.add_argument("--repeats", type=int, default=2)
+    ap.add_argument("--repeats", type=int, default=None,
+                    help="L2-повторов на прогон (A/B: 2, C: 1 по умолчанию)")
     ap.add_argument("--skip-l2", action="store_true")
     ap.add_argument("--temperature", type=float, default=0.7)
     ap.add_argument("--force-plan", default="",
@@ -459,6 +588,9 @@ def main() -> int:
     if not args.out:
         print("--out is required (no silent console-only run)", file=sys.stderr)
         return 2
+    # Короткий бытовой case C — один L2-вызов по умолчанию (A/B прежние 2).
+    if args.repeats is None:
+        args.repeats = 1 if args.case == "C" else 2
 
     os.chdir(args.root)
     sys.path.insert(0, args.root)
@@ -480,9 +612,10 @@ def main() -> int:
     json.dump(result, open(args.out, "w", encoding="utf-8"),
               ensure_ascii=False, indent=1)
     print(json.dumps({k: result.get(k) for k in
-                      ("label", "case", "forced", "invalid", "fatal",
-                       "l1_plan", "mode", "payload_counts", "l2_runs",
-                       "stage_errors")}, ensure_ascii=False)[:2200])
+                      ("label", "case", "question_source", "forced", "invalid",
+                       "fatal", "l1_plan", "mode", "no_meta_contract",
+                       "payload_counts", "l2_runs", "stage_errors")},
+                     ensure_ascii=False)[:2200])
     return 0
 
 
@@ -497,11 +630,17 @@ async def _run(args, result):
 
     pg = await load_pg(args.root)
     sq = load_sqlite(args.root)
+    # --case C: та же история и точка времени, что у A (сообщение запроса A из
+    # истории исключено); отличается только текущая реплика. A/B — прежний
+    # путь без изменений.
+    cinfo = case_inputs(args.case, sq.get("window_%s" % (
+        "A" if args.case == "C" else args.case), []))
     result["sources"] = {
         "pg_read_only": pg["read_only"],
         "settings_keys": len(pg["settings"]),
         "chat_param_keys": len(pg["chat_params"]),
-        "window_messages": len(sq.get("window_%s" % args.case, [])),
+        "window_key": cinfo["window_key"],
+        "window_messages": len(sq.get("window_%s" % cinfo["window_key"], [])),
         "graph_facts_rows": len(sq.get("graph_facts", [])),
         "lore_stories_rows": len(sq.get("lore_stories", [])),
         "mca_lessons_rows": len(sq.get("mca_lessons", [])),
@@ -531,15 +670,15 @@ async def _run(args, result):
     except Exception as exc:                          # noqa: BLE001
         result["stage_errors"]["persona_pool"] = str(exc)[:200]
 
-    target_ts = TS_A if args.case == "A" else TS_B
-    tg_id = TG_A if args.case == "A" else TG_B
-    win = [m for m in sq.get("window_%s" % args.case, [])
+    target_ts = cinfo["target_ts"]
+    tg_id = cinfo["tg_id"]
+    rows = sq.get("window_%s" % cinfo["window_key"], [])
+    win = [m for m in rows
            if str(m.get("tg_message_id")) != str(tg_id)]
-    question = ""
-    for m in sq.get("window_%s" % args.case, []):
-        if str(m.get("tg_message_id")) == str(tg_id):
-            question = m.get("text") or ""
+    question = cinfo["question"]
     result["question"] = question
+    result["question_source"] = cinfo["question_source"]
+    result["question_note"] = cinfo["question_note"]
     result["target_ts"] = target_ts
 
     # ── identity / persona (PG pool + real renderers)
@@ -785,10 +924,7 @@ async def _run(args, result):
                              "chars": t.chars, "rendered": bool(t.rendered),
                              "skip_reason": t.skip_reason}
                             for t in manifest.layers]
-        result["core"] = {"chars": len(getattr(manifest.versions, "core", "")
-                                       or ""),
-                          "detail": getattr(manifest.versions, "core_detail",
-                                            None)}
+        result["core"] = core_report(manifest, system)
     except Exception as exc:                          # noqa: BLE001
         result["invalid"] = result["invalid"] or "compose_system"
         result["stage_errors"]["compose_system"] = "%s: %s" % (
@@ -818,6 +954,22 @@ async def _run(args, result):
         result["invalid"] = result["invalid"] or "counter_invariant"
     if not research and not include_analysis and not counts["invariant_0x0"]:
         result["invalid"] = result["invalid"] or "counter_invariant"
+    # Контракт «без мета-вступления» (§3): на разборе он обязан доехать до
+    # Writer'а ровно один раз, на обычном ответе — ни разу. Требование
+    # считается по фактическому носителю: plan-блок (include_analysis) ИЛИ
+    # режимный блок deep_research (когда extent-блок его не заменил).
+    # Проверяется ФАКТ в собранном payload, поэтому перенос блока в другое
+    # место не проходит молча: разрыв помечается invalid, а не зелёным
+    # прогоном. Legacy-дерево без константы инвариант не применяет.
+    _no_meta_on = bool(counts["system"]["no_meta_constant"])
+    _need = 1 if (include_analysis or response_mode == "deep_research") else 0
+    result["no_meta_contract"] = {
+        "applies": _no_meta_on,
+        "count": counts["total"]["no_meta"],
+        "required": _need,
+    }
+    if _no_meta_on and counts["total"]["no_meta"] != _need:
+        result["invalid"] = result["invalid"] or "no_meta_invariant"
     result["payload"] = {"messages": [
         {"role": "system", "content": system},
         {"role": "user", "content": user_text}]}
