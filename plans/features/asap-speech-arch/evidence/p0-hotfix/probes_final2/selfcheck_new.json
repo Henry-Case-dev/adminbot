@@ -1,0 +1,90 @@
+{
+ "self_check": "PASS",
+ "results": {
+  "counts_1x1": true,
+  "ascii_marker_zero": true,
+  "payload_1x1": true,
+  "predicate_research": true,
+  "predicate_answer": true,
+  "mode_research_serious": true,
+  "modules_under_root": true,
+  "code_l1_canon_material_routing": true,
+  "code_l1_canon_not_pg_stage": true,
+  "core_full_not_truncated": true,
+  "no_meta_directive_present": true
+ },
+ "counts": {
+  "directive": 1,
+  "writer": 1,
+  "ascii_marker": 0
+ },
+ "synthetic_payload": {
+  "system": {
+   "directive": 0,
+   "writer": 0,
+   "ascii_marker": 0
+  },
+  "user": {
+   "directive": 1,
+   "writer": 1,
+   "ascii_marker": 0
+  },
+  "total": {
+   "directive": 1,
+   "writer": 1,
+   "ascii_marker": 0
+  },
+  "invariant_1x1": true,
+  "invariant_0x0": false
+ },
+ "code_l1_canon": {
+  "chars": 9288,
+  "sha12": "23aae0c9499d",
+  "prev_p0cs2_sha12": "f6f5d3b1fc1d"
+ },
+ "pins": {
+  "root": "/tmp/p0-final2/new",
+  "git": {
+   "commit": "ERR:Command '['git', '-C', '/tmp/p0-final2/new', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+   "branch": "ERR:Command '['git', '-C', '/tmp/p0-final2/new', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+   "dirty": true,
+   "dirty_files": [
+    "ERR:Command '['git', '-C', '/tmp/p0-final2/new', 'status', '--porcelain']' returned non-zero exit status 128."
+   ]
+  },
+  "modules": {
+   "services/chat_prompts.py": {
+    "sha256": "8909c1aaa2ddeac1bf23db5bdf6da87b79df2c26f99067a65b78bcecaf6b46db",
+    "chars": 161721
+   },
+   "services/direct_l1.py": {
+    "sha256": "e625bd4e9576664b7afe0e5b69363913d7ae3e14bbaefc660646c20523aaf081",
+    "chars": 70776
+   },
+   "services/prompt_style_blocks.py": {
+    "sha256": "27ef9c0a79cbabac994036d43541a22ce3544288fc45bc5338db34d204cf56e8",
+    "chars": 50787
+   },
+   "services/response_extent.py": {
+    "sha256": "c97c7b33c130596b83b96946336b4a2b59694ff603a33659d9798a0c24cc9a1e",
+    "chars": 45011
+   },
+   "services/direct_chat_service.py": {
+    "sha256": "82c17c17820d25c20ca7828f0efe7c6cff7f89c9207c008fd0c08ff4737b8410",
+    "chars": 624114
+   },
+   "services/summary_memory.py": {
+    "sha256": "1c3810b7506574bce324739de4c9e5d513509fad8d68939262e79acb73fe9d6b",
+    "chars": 312387
+   },
+   "services/prompt_composer.py": {
+    "sha256": "60fada1200d2ba8099a6d2f170fdc02154a964bfa3d6dbe9450c2c4515d3661f",
+    "chars": 120446
+   },
+   "services/prompt_registry.py": {
+    "sha256": "23f62d1e4a49b7ad1c0fb5372eb117fd645c0a7ae6095ee70df8b874377239f1",
+    "chars": 176319
+   }
+  }
+ }
+}

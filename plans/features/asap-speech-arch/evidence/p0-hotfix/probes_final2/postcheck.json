@@ -1,0 +1,983 @@
+{
+ "pg_read_only": "on",
+ "pg_core": {
+  "chars": 3473,
+  "sha12": "a37678237533"
+ },
+ "pg_l1": {
+  "chars": 8261,
+  "sha12": "6c2ddc17c998"
+ },
+ "raws": {
+  "new_code_A": {
+   "label": "probe",
+   "case": "A",
+   "invalid": "",
+   "fatal": "",
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "compact",
+    "structure": "answer",
+    "tone": "neutral",
+    "delivery_hint": "plain",
+    "confidence": 0.9,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "l1_canon": {
+    "chars": 9288,
+    "sha12": "23aae0c9499d",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9288,
+    "code_sha12": "23aae0c9499d",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "l1_canon_stale_pg": null,
+   "l1_attempts": 1,
+   "mode": "serious",
+   "analysis_predicate": true,
+   "core": {
+    "chars": 0,
+    "detail": null
+   },
+   "core_in_system": false,
+   "core_occurrences": 0,
+   "core_prefix_match": 0,
+   "identity_block_chars": 5048,
+   "system_chars": 14409,
+   "user_chars": 5795,
+   "payload_counts": {
+    "system": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "user": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "total": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "invariant_1x1": true,
+    "invariant_0x0": false
+   },
+   "expression_check": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias_probe": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 39,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 39,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "1fdb8b237233"
+   },
+   "rag_markers": {
+    "block": true,
+    "unconfirmed": 18,
+    "assumption": 4,
+    "chat_rows": 22,
+    "global_rows": 0,
+    "bot_self": 0
+   },
+   "l2": [
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "«Хз, че вам Костя не нравится, он же явно по рофлу пишет»"
+     ],
+     "self_echo": [],
+     "paragraphs": 4,
+     "chars": 658
+    },
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "\"да отъебисьте вы от человека\""
+     ],
+     "self_echo": [],
+     "paragraphs": 1,
+     "chars": 320
+    }
+   ],
+   "l2_len": [
+    658,
+    320
+   ],
+   "stage_errors": {}
+  },
+  "new_code_B": {
+   "label": "probe",
+   "case": "B",
+   "invalid": "",
+   "fatal": "",
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "compact",
+    "structure": "answer",
+    "tone": "annoyed",
+    "delivery_hint": "plain",
+    "confidence": 0.9,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "l1_canon": {
+    "chars": 9288,
+    "sha12": "23aae0c9499d",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9288,
+    "code_sha12": "23aae0c9499d",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "l1_canon_stale_pg": null,
+   "l1_attempts": 1,
+   "mode": "serious",
+   "analysis_predicate": true,
+   "core": {
+    "chars": 0,
+    "detail": null
+   },
+   "core_in_system": false,
+   "core_occurrences": 0,
+   "core_prefix_match": 0,
+   "identity_block_chars": 5048,
+   "system_chars": 14409,
+   "user_chars": 5931,
+   "payload_counts": {
+    "system": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "user": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "total": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "invariant_1x1": true,
+    "invariant_0x0": false
+   },
+   "expression_check": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias_probe": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 39,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 39,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "1fdb8b237233"
+   },
+   "rag_markers": {
+    "block": true,
+    "unconfirmed": 18,
+    "assumption": 4,
+    "chat_rows": 22,
+    "global_rows": 0,
+    "bot_self": 0
+   },
+   "l2": [
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "«кикогда»"
+     ],
+     "self_echo": [],
+     "paragraphs": 3,
+     "chars": 684
+    },
+    {
+     "meta_intro": [
+      "(?i)(сейчас|давай|позволь|хочу|буду)\\s+(я\\s+)?(тебе\\s+)?(разбер|посмотр|проанализ|объясн|расскаж)"
+     ],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "«ой бля о5 старьё какоето»",
+      "«кикогда»",
+      "«ща это кринж»",
+      "«нет»",
+      "«ненавидит всех и хочет убить»",
+      "«я тут главный ценитель, а вы все быдло, и я вам сейчас объясню, почему вы ничтожества»"
+     ],
+     "self_echo": [],
+     "paragraphs": 4,
+     "chars": 832
+    }
+   ],
+   "l2_len": [
+    684,
+    832
+   ],
+   "stage_errors": {}
+  },
+  "new_forced_A": {
+   "label": "probe",
+   "case": "A",
+   "invalid": "",
+   "fatal": "",
+   "plan_source": "forced",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "normal",
+    "structure": "answer",
+    "tone": "inherit",
+    "delivery_hint": "plain",
+    "confidence": 1.0,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "l1_canon": {
+    "chars": 9288,
+    "sha12": "23aae0c9499d",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9288,
+    "code_sha12": "23aae0c9499d",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "l1_canon_stale_pg": null,
+   "l1_attempts": null,
+   "mode": "serious",
+   "analysis_predicate": true,
+   "core": {
+    "chars": 0,
+    "detail": null
+   },
+   "core_in_system": false,
+   "core_occurrences": 0,
+   "core_prefix_match": 0,
+   "identity_block_chars": 5048,
+   "system_chars": 14406,
+   "user_chars": 5782,
+   "payload_counts": {
+    "system": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "user": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "total": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "invariant_1x1": true,
+    "invariant_0x0": false
+   },
+   "expression_check": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias_probe": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 39,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 39,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "1fdb8b237233"
+   },
+   "rag_markers": {
+    "block": true,
+    "unconfirmed": 18,
+    "assumption": 4,
+    "chat_rows": 22,
+    "global_rows": 0,
+    "bot_self": 0
+   },
+   "l2": [
+    {
+     "meta_intro": [
+      "(?i)^\\s*(ага|ой|ну|так|ладно|хорошо|слушай|смотри|давай|сейчас)\\b[^.!?]{0,60}[,.!?]",
+      "(?i)(сейчас|давай|позволь|хочу|буду)\\s+(я\\s+)?(тебе\\s+)?(разбер|посмотр|проанализ|объясн|расскаж)"
+     ],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [],
+     "self_echo": [],
+     "paragraphs": 1,
+     "chars": 430
+    },
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [],
+     "self_echo": [],
+     "paragraphs": 2,
+     "chars": 506
+    }
+   ],
+   "l2_len": [
+    430,
+    506
+   ],
+   "stage_errors": {}
+  },
+  "new_forced_B": {
+   "label": "probe",
+   "case": "B",
+   "invalid": "",
+   "fatal": "",
+   "plan_source": "forced",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "research",
+    "extent": "normal",
+    "structure": "answer",
+    "tone": "inherit",
+    "delivery_hint": "plain",
+    "confidence": 1.0,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "l1_canon": {
+    "chars": 9288,
+    "sha12": "23aae0c9499d",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 9288,
+    "code_sha12": "23aae0c9499d",
+    "pg_matches_code": false,
+    "l1_prompt_mode": "code"
+   },
+   "l1_canon_stale_pg": null,
+   "l1_attempts": null,
+   "mode": "serious",
+   "analysis_predicate": true,
+   "core": {
+    "chars": 0,
+    "detail": null
+   },
+   "core_in_system": false,
+   "core_occurrences": 0,
+   "core_prefix_match": 0,
+   "identity_block_chars": 5048,
+   "system_chars": 14406,
+   "user_chars": 5877,
+   "payload_counts": {
+    "system": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "user": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "total": {
+     "directive": 1,
+     "writer": 1,
+     "ascii_marker": 0
+    },
+    "invariant_1x1": true,
+    "invariant_0x0": false
+   },
+   "expression_check": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias_probe": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 39,
+    "render": "real",
+    "after_self_filter": 40,
+    "after_dedup": 39,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "1fdb8b237233"
+   },
+   "rag_markers": {
+    "block": true,
+    "unconfirmed": 18,
+    "assumption": 4,
+    "chat_rows": 22,
+    "global_rows": 0,
+    "bot_self": 0
+   },
+   "l2": [
+    {
+     "meta_intro": [
+      "(?i)^\\s*(ага|ой|ну|так|ладно|хорошо|слушай|смотри|давай|сейчас)\\b[^.!?]{0,60}[,.!?]",
+      "(?i)(сейчас|давай|позволь|хочу|буду)\\s+(я\\s+)?(тебе\\s+)?(разбер|посмотр|проанализ|объясн|расскаж)"
+     ],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "«нет»",
+      "«ой бля о5 старьё какоето»",
+      "«ща это кринж»",
+      "«когда это будет отсылкой здравой»",
+      "«пиздато стелит»",
+      "«ебёт»"
+     ],
+     "self_echo": [],
+     "paragraphs": 3,
+     "chars": 882
+    },
+    {
+     "meta_intro": [
+      "(?i)^\\s*(ага|ой|ну|так|ладно|хорошо|слушай|смотри|давай|сейчас)\\b[^.!?]{0,60}[,.!?]",
+      "(?i)(сейчас|давай|позволь|хочу|буду)\\s+(я\\s+)?(тебе\\s+)?(разбер|посмотр|проанализ|объясн|расскаж)"
+     ],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "«всё говно, кроме того, что я скинул»",
+      "«старьём»",
+      "«кринжом»",
+      "«пиздатым флоу»",
+      "«свежачком»",
+      "«я злобный?»"
+     ],
+     "self_echo": [],
+     "paragraphs": 1,
+     "chars": 683
+    }
+   ],
+   "l2_len": [
+    882,
+    683
+   ],
+   "stage_errors": {}
+  },
+  "old_A": {
+   "label": "probe",
+   "case": "A",
+   "invalid": "",
+   "fatal": "",
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "banter",
+    "extent": "compact",
+    "structure": "chat",
+    "tone": "playful",
+    "delivery_hint": "plain",
+    "confidence": 0.85,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "l1_canon": {
+    "chars": 8261,
+    "sha12": "6c2ddc17c998",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 8261,
+    "code_sha12": "6c2ddc17c998",
+    "pg_matches_code": true,
+    "l1_prompt_mode": "code"
+   },
+   "l1_canon_stale_pg": null,
+   "l1_attempts": 1,
+   "mode": "casual",
+   "analysis_predicate": false,
+   "core": {
+    "chars": 0,
+    "detail": null
+   },
+   "core_in_system": false,
+   "core_occurrences": 0,
+   "core_prefix_match": 0,
+   "identity_block_chars": 5048,
+   "system_chars": 13866,
+   "user_chars": 5006,
+   "payload_counts": {
+    "system": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "user": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "total": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "invariant_1x1": false,
+    "invariant_0x0": true
+   },
+   "expression_check": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias_probe": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 40,
+    "render": "legacy",
+    "legacy_import_error": "cannot import name '_mark_rag_fact' from 'services.direct_chat_service' (/var/www/admin_bot/services/direct_chat_service",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "e0d4f1db2b77"
+   },
+   "rag_markers": {
+    "block": true,
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat_rows": 21,
+    "global_rows": 0,
+    "bot_self": 0
+   },
+   "l2": [
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "«Хз, че вам Костя не нравится, он же явно по рофлу пишет»"
+     ],
+     "self_echo": [],
+     "paragraphs": 2,
+     "chars": 740
+    },
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [
+      "\"я злобный?\"",
+      "\"Костя, ты долбоёб, иди нахуй со своей дотой в 4 утра\"",
+      "\"ну он же в жизни вменяемый\""
+     ],
+     "self_echo": [],
+     "paragraphs": 3,
+     "chars": 651
+    }
+   ],
+   "l2_len": [
+    740,
+    651
+   ],
+   "stage_errors": {}
+  },
+  "old_B": {
+   "label": "probe",
+   "case": "B",
+   "invalid": "",
+   "fatal": "",
+   "plan_source": "llm",
+   "l1_plan": {
+    "action": "reply",
+    "response_act": "answer",
+    "extent": "compact",
+    "structure": "answer",
+    "tone": "annoyed",
+    "delivery_hint": "plain",
+    "confidence": 0.9,
+    "confidence_bucket": "high",
+    "source": "llm",
+    "needs_clarification": false
+   },
+   "l1_canon": {
+    "chars": 8261,
+    "sha12": "6c2ddc17c998",
+    "canon_source": "code",
+    "source": "code",
+    "code_canon_requested": true,
+    "pg_chars": 8261,
+    "pg_sha12": "6c2ddc17c998",
+    "code_chars": 8261,
+    "code_sha12": "6c2ddc17c998",
+    "pg_matches_code": true,
+    "l1_prompt_mode": "code"
+   },
+   "l1_canon_stale_pg": null,
+   "l1_attempts": 1,
+   "mode": "casual",
+   "analysis_predicate": false,
+   "core": {
+    "chars": 0,
+    "detail": null
+   },
+   "core_in_system": false,
+   "core_occurrences": 0,
+   "core_prefix_match": 0,
+   "identity_block_chars": 5048,
+   "system_chars": 13898,
+   "user_chars": 5101,
+   "payload_counts": {
+    "system": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "user": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "total": {
+     "directive": 0,
+     "writer": 0,
+     "ascii_marker": 0
+    },
+    "invariant_1x1": false,
+    "invariant_0x0": true
+   },
+   "expression_check": {
+    "frequent_text": true,
+    "occasional_text": false,
+    "off_text": false
+   },
+   "expression_doc": {
+    "global": {
+     "wit": "inherit",
+     "note": "",
+     "enabled": true,
+     "history": [
+      {
+       "revision": 1,
+       "updated_at": "2026-10-18T14:37:25Z",
+       "values_sha256_12": "e7598ac78463"
+      }
+     ],
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-22T09:11:16Z"
+    },
+    "chat": {
+     "wit": "high",
+     "note": "",
+     "enabled": true,
+     "revision": 2,
+     "profanity": "frequent",
+     "sharpness": "sharp",
+     "verbosity": "inherit",
+     "updated_at": "2026-10-20T15:20:41Z"
+    }
+   },
+   "alias_probe": {
+    "uid": 42115912,
+    "display": "Гипербореец",
+    "resolved": "Макс",
+    "source": "chat",
+    "chat_alias": "Макс",
+    "global_alias": "Макс"
+   },
+   "rag": {
+    "rows": 40,
+    "kept": 40,
+    "render": "legacy",
+    "legacy_import_error": "cannot import name '_mark_rag_fact' from 'services.direct_chat_service' (/var/www/admin_bot/services/direct_chat_service",
+    "after_self_filter": 40,
+    "after_dedup": 40,
+    "cap": 2000,
+    "block_chars": 2027,
+    "block_sha12": "e0d4f1db2b77"
+   },
+   "rag_markers": {
+    "block": true,
+    "unconfirmed": 0,
+    "assumption": 0,
+    "chat_rows": 21,
+    "global_rows": 0,
+    "bot_self": 0
+   },
+   "l2": [
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [],
+     "self_echo": [],
+     "paragraphs": 1,
+     "chars": 494
+    },
+    {
+     "meta_intro": [],
+     "num_lines": 0,
+     "ordinals": [],
+     "years": [],
+     "months": [],
+     "quotes": [],
+     "self_echo": [],
+     "paragraphs": 1,
+     "chars": 492
+    }
+   ],
+   "l2_len": [
+    494,
+    492
+   ],
+   "stage_errors": {}
+  }
+ }
+}
