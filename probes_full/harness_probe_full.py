@@ -455,6 +455,7 @@ class _RecordingMemory:
         self._inner = inner
         self.calls: list[dict] = []
         self.last_rows: list = []
+        self.rerank_calls: list[dict] = []
 
     async def get_rag_facts(self, chat_id, query, **kwargs):
         rows = await self._inner.get_rag_facts(chat_id, query, **kwargs)
@@ -476,6 +477,36 @@ class _RecordingMemory:
     def __getattr__(self, name):
         return getattr(self._inner, name)
 
+    async def rerank_rag_facts(self, query, facts):
+        """F4-реранк: записываем вход/выход и исход стадии из продукта.
+
+        P0C-INT R3 (`probes_final5-rerun.md` §8): RAG пустел после реранка, но
+        в raw не было ни counts, ни статуса. Теперь виден каждый шаг: сколько
+        кандидатов пришло, сколько вернул реранк, что решил парсер
+        (`ok|empty|empty_response|invalid|timeout|error`), был ли это
+        `fallback` и с какой задержкой.
+        """
+        from services import summary_memory as _sm
+        before = dict(getattr(_sm, "_RERANK_LAST", {}) or {})
+        out = await self._inner.rerank_rag_facts(query, facts)
+        out = list(out or [])
+        last = dict(getattr(_sm, "_RERANK_LAST", {}) or {})
+        # Если продукт не обновил снимок (кастомная память в тестах) —
+        # показываем это честно, а не подставляем чужие числа.
+        fresh = last != before or bool(last.get("status"))
+        self.rerank_calls.append({
+            "query": str(query or ""),
+            "candidates": len(facts or ()),
+            "selected": len(out),
+            "status": last.get("status") if fresh else "unreported",
+            "response_format": last.get("response_format", "") if fresh else "",
+            "fallback": bool(last.get("fallback")) if fresh else False,
+            "latency_ms": last.get("latency_ms") if fresh else None,
+            "provider": last.get("provider", "") if fresh else "",
+            "model": last.get("model", "") if fresh else "",
+        })
+        return out
+
 
 def _rank_histogram(rows) -> dict:
     """Распределение read-policy ранга по фактическим строкам retrieval."""
@@ -492,7 +523,8 @@ def _rank_histogram(rows) -> dict:
     return out
 
 
-def _rag_service_diagnostics(rows, global_ctx: str, block: str) -> dict:
+def _rag_service_diagnostics(rows, global_ctx: str, block: str,
+                             rerank: dict | None = None) -> dict:
     """Почему service-ветка вернула пустой `<RAG_Memory>` (F6 ревью/probes_final4 §5).
 
     Живой прогон `67ff463c` показал `rows=10`, разные наборы A/B и **пустой**
@@ -545,7 +577,18 @@ def _rag_service_diagnostics(rows, global_ctx: str, block: str) -> dict:
     elif not kept:
         report["reason"] = "dedup_vs_global"
     else:
-        report["reason"] = "service_empty"
+        # После дедупа факты ЕСТЬ, но блок пуст. Единственный шаг, способный
+        # обнулить непустой набор, — реранк (probes_final5-rerun §8). Разбираем
+        # по его фактическому статусу, а не догадкой.
+        status = str((rerank or {}).get("status") or "")
+        if status == "empty":
+            report["reason"] = "rerank_rejected"      # явный пустой выбор модели
+        elif status in ("invalid", "timeout", "error", "empty_response"):
+            report["reason"] = "rerank_failed_empty"  # сбой + fallback, но пусто
+        elif status in ("ok", "legacy_ok"):
+            report["reason"] = "service_empty"
+        else:
+            report["reason"] = "service_empty"
     return report
 
 
@@ -614,8 +657,11 @@ async def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
             block, hint = await service._build_rag_block(
                 CHAT_ID, _RagMessage(question), global_ctx)
             call = recorder.calls[0] if recorder.calls else {}
+            rerank_calls = list(getattr(recorder, "rerank_calls", []))
+            rerank = rerank_calls[0] if rerank_calls else {}
             diag = _rag_service_diagnostics(
-                getattr(recorder, "last_rows", []), global_ctx, block)
+                getattr(recorder, "last_rows", []), global_ctx, block,
+                rerank=rerank)
             meta.update({
                 "function": "DirectChatService._build_rag_block",
                 "retrieval": "MemoryManager.get_rag_facts",
@@ -626,15 +672,20 @@ async def build_rag_block(root: str, sq: dict, question: str, global_ctx: str,
                 "after_self_filter": diag["after_self_filter"],
                 "after_dedup": diag["after_dedup"],
                 "rows_detail": diag["rows_detail"],
+                # P0C-INT R3: исход реранка (вход/выход/статус/fallback).
+                "rerank": dict(rerank, called=bool(rerank)),
+                "rerank_fallback": bool(rerank.get("fallback")),
             })
             if diag.get("error"):
                 meta["diag_error"] = diag["error"]
             if not block:
                 # Пустой блок объясняется, а не маскируется: приёмка видит
-                # причину и понимает, законна ли она (self-echo = законна).
+                # причину и понимает, законна ли она (self-echo — законна;
+                # явный пустой выбор реранка — законная отбраковка, A05;
+                # сбой реранка после fallback — нет).
                 meta["rag_empty_reason"] = diag["reason"]
                 meta["rag_empty_is_correct"] = diag["reason"] in (
-                    "no_facts", "all_self_origin")
+                    "no_facts", "all_self_origin", "rerank_rejected")
             if not call:
                 # Ранний выход сервиса (флаг RAG выключен / нет данных):
                 # это НЕ эквивалентный пустой RAG по умолчанию — фиксируем.
@@ -752,7 +803,7 @@ def run_summary(result: dict) -> dict:
                        ("rows", "kept", "retrieval", "block_sha12",
                         "dump_reason", "rag_empty_reason",
                         "rag_empty_is_correct", "after_self_filter",
-                        "after_dedup")) if v is not None}
+                        "after_dedup", "rerank", "rerank_fallback")) if v is not None}
     summary["rag"]["rag_source"] = summary["rag_source"]
     summary["l2_meta"] = {k: (result.get("l2_meta") or {}).get(k) for k in
                           ("flagged", "total", "analyzer")}
@@ -954,7 +1005,8 @@ def self_check(root: str, json_out: bool = False) -> int:
         "code_l1_canon_material_routing": (
             "response_act=research" in code_l1
             and "разбор материала" in code_l1
-            and "не является выпадом в адрес бота" in code_l1
+            and "меняют ТОЛЬКО tone" in code_l1
+            and "только когда материала" in code_l1
             and "hostile_rebuff" in code_l1
             and "проанализируй мои сообщения" not in code_l1.lower()),
         "code_l1_canon_not_pg_stage": (

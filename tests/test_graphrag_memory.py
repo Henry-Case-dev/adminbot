@@ -2514,8 +2514,12 @@ class TestChatRagRerankF4:
 
     @pytest.mark.asyncio
     async def test_valid_empty_does_not_return_all_candidates(self):
-        """A05: валидный пустой выбор → ПУСТО, а не все кандидаты."""
-        for response in ("", "[]", "  "):
+        """A05: явный пустой выбор модели → ПУСТО, а не все кандидаты.
+
+        P0C-INT R3: пустой ОТВЕТ провайдера больше НЕ считается «валидным
+        пустым» — он идёт в bounded fallback (см. `test_speech_p0_rerank_contract`).
+        """
+        for response in ('{"selected": []}', "[]"):
             llm = _RerankLLM(response=response)
             kept = await self._memory(llm).rerank_rag_facts("дроны",
                                                             list(self.FACTS))

@@ -27,8 +27,11 @@ import harness_probe_full as H  # noqa: E402
 
 
 class _Hot:
+    def __init__(self, **overrides):
+        self._overrides = overrides
+
     def get(self, key, default=None):
-        return default
+        return self._overrides.get(key, default)
 
 
 class _Memory:
@@ -42,6 +45,29 @@ class _Memory:
         return list(self._rows)
 
 
+class _RerankMemory(_Memory):
+    """Память с реранком: отдаёт заданный выход и пишет исход стадии."""
+
+    def __init__(self, rows, out, status, *, fallback=False):
+        super().__init__(rows)
+        self._out = list(out)
+        self._status = status
+        self._fallback = fallback
+        self.rerank_seen: list = []
+
+    async def rerank_rag_facts(self, query, facts):
+        from services import summary_memory as sm
+        self.rerank_seen.append({"query": query, "facts": len(facts)})
+        sm._RERANK_LAST.clear()
+        sm._RERANK_LAST.update({
+            "status": self._status, "fallback": self._fallback,
+            "candidate_count": len(facts),
+            "selected_count": len(self._out),
+            "response_format": "json", "latency_ms": 12,
+            "provider": "probe.example", "model": "probe-model"})
+        return list(self._out)
+
+
 def _row(idx: int, origin: str, fact: str) -> dict:
     return {"id": 20000 + idx, "origin": origin, "fact": fact,
             "rag_ts": 1792873000 + idx, "message_timestamp": 1792873000 + idx,
@@ -53,8 +79,8 @@ def _row(idx: int, origin: str, fact: str) -> dict:
             "attribution_method": "speaker", "provenance_channel": "chat"}
 
 
-def _run(rows, global_ctx=""):
-    memory = _Memory(rows)
+def _run(rows, global_ctx="", memory=None, hot=None):
+    memory = memory if memory is not None else _Memory(rows)
     saved = H.service_memory
 
     async def _stub(root, llm):
@@ -65,10 +91,21 @@ def _run(rows, global_ctx=""):
     H.service_memory = _stub
     try:
         return asyncio.run(H.build_rag_block(
-            ROOT, {}, "вопрос", global_ctx, _Hot(), llm=None,
+            ROOT, {}, "вопрос", global_ctx, hot or _Hot(), llm=None,
             source=H.RAG_SERVICE))
     finally:
         H.service_memory = saved
+
+
+def _rerank_on(monkeypatch):
+    """Как в живом PG: реранк включён (`_build_rag_block` читает hot-флаг)."""
+    import services.hot_config as hot
+    original = hot.get
+    monkeypatch.setattr(
+        hot, "get",
+        lambda key, default=None: (True
+                                   if key == "flags.chat_rag_rerank_enabled"
+                                   else original(key, default)))
 
 
 def test_ten_self_origin_rows_give_empty_block_with_reason():
@@ -131,3 +168,70 @@ def test_self_echo_protection_is_not_weakened():
     rows = [_row(i, "bot_self_reply", "бот сказал #%d" % i) for i in range(3)]
     block, _ = _run(rows)
     assert "бот сказал" not in block
+
+
+# ── P0C-INT R3: пустой блок после реранка — сбой или решение? ───────────────
+
+def _facts_rows(n: int = 3):
+    return [_row(i, "chat_history", "факт про Костю #%d" % i) for i in range(n)]
+
+
+def _facts_tuples(rows):
+    """Ровно тот контракт, что продукт отдаёт реранку (tuple, не dict)."""
+    return [(r["origin"], r["fact"], r["rag_ts"], r["target_user"],
+             r["item_id"], r["forward_from"], r["expired"]) for r in rows]
+
+
+def test_rerank_rejection_is_a_legitimate_reason(monkeypatch):
+    """Модель явно вернула пустой выбор (A05): причина названа, счётчики есть."""
+    from services import summary_memory as sm
+    _rerank_on(monkeypatch)
+    rows = _facts_rows()
+    memory = _RerankMemory(rows, [], "empty", fallback=False)
+    try:
+        block, meta = _run(rows, memory=memory)
+    finally:
+        sm._RERANK_LAST.clear()
+    assert block == ""
+    assert memory.rerank_seen and memory.rerank_seen[0]["facts"] == 3
+    assert meta["rag_empty_reason"] == "rerank_rejected"
+    assert meta["rag_empty_is_correct"] is True
+    assert meta["rerank"]["called"] is True
+    assert meta["rerank"]["status"] == "empty"
+    assert meta["rerank"]["candidates"] == 3
+    assert meta["rerank"]["selected"] == 0
+    assert meta["rerank"]["fallback"] is False
+
+
+def test_rerank_fallback_is_marked_and_not_sold_as_relevance(monkeypatch):
+    """Пустой ответ провайдера → bounded fallback с пометкой, блок не пуст."""
+    from services import summary_memory as sm
+    _rerank_on(monkeypatch)
+    rows = _facts_rows()
+    facts_out = _facts_tuples(rows)  # fallback = pre-rerank порядок
+    memory = _RerankMemory(rows, facts_out, "empty_response", fallback=True)
+    try:
+        block, meta = _run(rows, memory=memory)
+    finally:
+        sm._RERANK_LAST.clear()
+    assert block.startswith("<RAG_Memory>")
+    assert meta["rerank_fallback"] is True
+    assert meta["rerank"]["status"] == "empty_response"
+    assert meta["rerank"]["selected"] == 3
+    assert "rag_empty_reason" not in meta
+
+
+def test_rerank_failed_and_empty_is_not_marked_correct(monkeypatch):
+    """Альтернативная память вернула пусто на сбое: это НЕ «законный» пустой."""
+    from services import summary_memory as sm
+    _rerank_on(monkeypatch)
+    rows = _facts_rows()
+    memory = _RerankMemory(rows, [], "invalid", fallback=True)
+    try:
+        block, meta = _run(rows, memory=memory)
+    finally:
+        sm._RERANK_LAST.clear()
+    assert block == ""
+    assert meta["rag_empty_reason"] == "rerank_failed_empty"
+    assert meta["rag_empty_is_correct"] is False
+    assert meta["rerank"]["fallback"] is True

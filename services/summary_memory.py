@@ -699,20 +699,24 @@ def parse_rerank_selected(raw) -> tuple[str, tuple[int, ...], str]:
 
     Возвращает ``(kind, numbers, response_mode)``:
       * kind: ``ok`` (есть числа — range валидирует `select_by_rerank`:
-        вне диапазона → invalid → bounded fallback), ``empty`` (валидный
-        пустой: пустой/blank ответ, `{"selected":[]}`, `[]`), ``invalid``
-        (НЕпустой ответ без корректных номеров — §10);
+        вне диапазона → invalid → bounded fallback), ``empty`` (**явный**
+        пустой выбор модели: `{"selected":[]}`, `[]`), ``empty_response``
+        (пустой/blank ОТВЕТ провайдера — это сбой, а не решение),
+        ``invalid`` (НЕпустой ответ без корректных номеров — §10);
       * response_mode: ``json | json_fenced | json_substring | numeric |
         prose | none`` (observability §12; raw-текст НЕ логируется).
 
     Семантика §10/якоря F4: ``invalid`` ⇔ ответ НЕпустой и из него не
-    удалось получить корректные candidate numbers; пустой/blank — валидный
-    empty (НЕ fallback); «0» — непустой ответ с некорректным (вне диапазона)
-    номером → invalid → bounded fallback (прод-наблюдение §10).
-    Acceptance ТОЛЬКО in-range candidate IDs."""
+    удалось получить корректные candidate numbers; «0» — непустой ответ с
+    некорректным (вне диапазона) номером → invalid → bounded fallback
+    (прод-наблюдение §10). **P0C-INT R3** (`probes_final5-rerun.md` §8):
+    раньше пустая строка от провайдера тоже считалась «валидным пустым
+    выбором» и молча обнуляла RAG-блок — теперь это отдельный ``empty_response``
+    → bounded fallback с `fallback=true`, чтобы сбой не выдавался за
+    осознанную отбраковку. Acceptance ТОЛЬКО in-range candidate IDs."""
     text = str(raw or "").strip()
     if not text:
-        return "empty", (), "none"
+        return "empty_response", (), "none"
     for mode, probe in _json_probes(text):
         try:
             data = json.loads(probe)
@@ -4146,12 +4150,25 @@ class MemoryManager:
         latency_ms = int((time.monotonic() - started) * 1000)
         if typed:
             return self._typed_rerank_apply(facts, raw, latency_ms)
+        provider, model = _llm_identity(self.llm)
         picked = {int(n) for n in re.findall(r"\d+", str(raw or ""))
                   if 1 <= int(n) <= len(facts)}
         if not picked:
+            # typed OFF: прежнее fail-open (все факты), но исход фиксируется,
+            # чтобы отчёт прогона не читал чужой/устаревший `_RERANK_LAST`.
+            _record_rerank_outcome(
+                "empty", status="legacy_empty_failopen", provider=provider,
+                model=model, latency_ms=latency_ms,
+                candidate_count=len(facts), selected_count=len(facts),
+                response_format="numeric", fallback=False)
             logger.info(
                 "graphrag RAG: chat rerank parsed no numbers — original facts")
             return facts
+        _record_rerank_outcome(
+            "ok", status="legacy_ok", provider=provider, model=model,
+            latency_ms=latency_ms, candidate_count=len(facts),
+            selected_count=len(picked), response_format="numeric",
+            fallback=False)
         logger.info("graphrag RAG: chat rerank OK | %d -> %d facts",
                     len(facts), len(picked))
         return [item for i, item in enumerate(facts, 1) if i in picked]
@@ -4166,6 +4183,16 @@ class MemoryManager:
         safe-полями §12 (БЕЗ raw-текста/фактов — Q9)."""
         provider, model = _llm_identity(self.llm)
         kind, numbers, mode = parse_rerank_selected(raw)
+        if kind == "empty_response":
+            # P0C-INT R3: пустой ОТВЕТ провайдера — сбой, не решение модели.
+            # Детерминированный bounded pre-rerank-fallback + пометка
+            # `fallback=true`; за «релевантный результат» это не выдаётся.
+            logger.warning("graphrag RAG: chat rerank(typed) EMPTY RESPONSE "
+                           "| %d facts -> bounded pre-rerank fallback",
+                           len(facts))
+            return self._typed_rerank_fallback(
+                facts, "empty_response", None, latency_ms=latency_ms,
+                response_format=mode, provider=provider, model=model)
         if kind == "empty":
             _record_rerank_outcome("empty", status="empty",
                                    provider=provider, model=model,
@@ -4226,7 +4253,8 @@ class MemoryManager:
         кандидаты» и НЕ валидный пустой список."""
         limit = _mca_rc.fallback_top_k(len(facts))
         fallback = facts[:limit]
-        reason = {"timeout": "rerank_timeout", "invalid": "rerank_invalid"}.get(
+        reason = {"timeout": "rerank_timeout", "invalid": "rerank_invalid",
+                  "empty_response": "rerank_empty_response"}.get(
             status, "rerank_invalid")
         _record_rerank_outcome(
             "timeout" if status == "timeout" else

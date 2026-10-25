@@ -55,6 +55,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CS,
     PREV_DIRECT_L1_PLANNER_P0CS2,
     PREV_DIRECT_L1_PLANNER_P0CINT,
+    PREV_DIRECT_L1_PLANNER_P0CINTR2,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
@@ -246,6 +247,10 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # просьба разобрать материал = research независимо от вопроса-оценки
         # в конце; разбор не выбирает hostile_rebuff. Верхняя ступень —
         # редакция 2 (PREV_..._P0CINT, 9288/``23aae0c9499d``).
+        # P0C-INT R3 (26.10.2026, `probes_final5-rerun.md` §4): редакция 4 —
+        # `response_act` отделён от `tone` (грубость меняет только манеру);
+        # верхняя ступень — редакция 3 (PREV_..._P0CINTR2, 9391).
+        (PREV_DIRECT_L1_PLANNER_P0CINTR2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CINT, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
@@ -444,9 +449,11 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # редакцию — на активные байты ред.2 (P0CINT, 9288), затем P0CS2; стек
     # прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0: активный канон ред.3 → P0CINT (активные байты ред.2)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINT),
-        # ступень 1: P0CINT → P0CS2 (активные байты ред.1)
+        # ступень 0: активный канон ред.4 → P0CINTR2 (активные байты ред.3)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        # ступень 1: P0CINTR2 → P0CINT (активные байты ред.2)
+        (PREV_DIRECT_L1_PLANNER_P0CINTR2, PREV_DIRECT_L1_PLANNER_P0CINT),
+        # ступень 2: P0CINT → P0CS2 (активные байты ред.1)
         (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),
         # ступень 2: P0CS2 → P0CS (правило 7 старой редакции)
         (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),

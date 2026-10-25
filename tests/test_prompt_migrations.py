@@ -47,6 +47,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CS,
     PREV_DIRECT_L1_PLANNER_P0CS2,
     PREV_DIRECT_L1_PLANNER_P0CINT,
+    PREV_DIRECT_L1_PLANNER_P0CINTR2,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -293,7 +294,7 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # P0-CORRECTIVE (25.10.2026): верхняя ступень — смысловая маршрутизация
     # L1; откат снимает только её → текущие активные байты P0CS. Ред.2:
     # первый откат снимает приоритет разбора → P0CS2 (f6f5d3b1fc1d).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_P0CINT,
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_P0CINTR2,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -767,18 +768,25 @@ class TestMca23Migration:
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("ca1ba3049991", "83ff62bbee40")
+            ("422e9d73d316", "83ff62bbee40")
 
-        # шаг 1: снимается редакция 3 L1 (→ P0CINT, байты ред.2) и ступень
+        # шаг 1: снимается редакция 4 L1 (→ P0CINTR2, байты ред.3) и ступень
         # R3b L2
         assert await rollback_prompt_canons(cache) == {
             l1_key: "rolled_back", l2_key: "rolled_back"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CINTR2
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+        assert sha12(cache.values[l1_key]) == "ca1ba3049991"
+
+        # шаг 2: снимается редакция 3 L1 (→ P0CINT, байты ред.2)
+        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
         cache.apply_writes()
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CINT
         assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
         assert sha12(cache.values[l1_key]) == "23aae0c9499d"
 
-        # шаг 2: снимается приоритет разбора L1 (→ P0CS2); L2 уже на 2.58.113
+        # шаг 3: снимается приоритет разбора L1 (→ P0CS2); L2 уже на 2.58.113
         assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
         cache.apply_writes()
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CS2

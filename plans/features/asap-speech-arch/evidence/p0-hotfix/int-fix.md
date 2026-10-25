@@ -464,7 +464,151 @@ origin каждой из 10 строк. Если причина `all_self_origin
 стабы, webapp/outgoing, samples several). Новых падений не добавлено; 3 теста
 лестницы миграций обновлены под новый шаг (`P0CINT`), не ослаблены.
 
-## 10. Что осталось (честные пробелы)
+## 10. Живой прогон `fe1e514a` (второй сэмпл) — R3: tone≠act и пустой RAG
+
+Источник — `probes_final5-rerun.md` (кандидат `fe1e514a`, 7 прогонов, `invalid`
+пусто). Зелёные: мета 0/9, Core 3294, FREQ, payload 1×1/0×0, closing 1×, case C,
+завершение стенда. Красные два пункта: L1 B = `disagreement` (A/B → research 1/2)
+и `rag.block_chars=0` в 4/5 при непустых фактах (`service_empty`).
+
+### 10.1 A. L1 — `response_act` путался с тональностью
+
+**Диагноз.** Запрос B начинается грубой претензией боту и лишь затем просит
+разобрать чужие сообщения. Канон редакции 3 уже запрещал `hostile_rebuff/
+banter/disagreement` для разбора материала, но не разделял **сущность** и
+**манеру**: модель выбирала `response_act=disagreement` (человек спорит с ботом)
++ `tone=annoyed`, то есть трактовала `response_act` как классификацию входящей
+реплики, а не как собственное действие по существу просьбы. Правила про
+«оценку человека» в каноне нет с редакции 2 — конфликта правил не было, был
+концептуальный пробел в определении поля.
+
+**Исправление (редакция 4 канона, без списков фраз запроса):**
+* `response_act` — «то, что ты ДЕЛАЕШЬ по существу просьбы», `tone` — манера;
+  грубость/оскорбление/спор/провокация «меняют ТОЛЬКО tone… но никогда не
+  меняют response_act»;
+* приоритет внутри правила: тон → материал → оценка; «Материал важнее оценки:
+  если в конце добавлен вопрос-оценка, сперва разбор, а оценка — его вывод»;
+* `disagreement/hostile_rebuff/banter` — только когда «материала для разбора в
+  просьбе нет: это ответ на выпад или спор, а не способ разобрать чужое
+  поведение».
+
+**Ступени/пины:** `PREV_DIRECT_L1_PLANNER_P0CINTR2` = ровно байты предыдущего
+кандидата (9391/`ca1ba3049991`), `PREV_..._P0CINT` (9288/`23aae0c9499d`)
+сохранён; активный канон **9750/`422e9d73d316`**; `PROMPT_MIGRATIONS` и
+`ROLLBACK_MIGRATIONS` получили новый шаг (7 ступеней); `FACTORY_SET_SHA256_12`
+`50492308595e` → **`3d82f756dd5a`** (метка `l1-planner-tone-separation`).
+`test_prompt_migrations` — 43 passed.
+
+**Синтетические кейсы** (`tests/test_speech_p0_l1_canonical.py`, 32 проверки):
+
+```
+rule7: tone-раздел раньше материала, материал раньше оценки (индексы)
+case B  (research)              → mode serious, analysis 1×1, «как разбирать:»
+        + tone=annoyed в том же плане НЕ меняет response_act
+«ты мудак» без материала        → hostile_rebuff/emotional_reply/other: анализа нет;
+        action=react → анализа нет
+материал + вопрос-оценка        → research/analysis/разбор → research, анализ есть
+```
+
+Стенд печатает `l1_act_raw` / `l1_act_normalized` / `l1_act_rewritten`, поэтому
+следующий raw покажет, был ли это выбор модели или работа таблицы синонимов.
+
+### 10.2 B. RAG — «пусто» объяснено и разделено на сбой/отбраковку
+
+**Диагноз (по коду + данным прогона).** После self-фильтра и дедупа остаются
+3/7/8 фактов; дальше единственный шаг, способный обнулить набор, — LLM-реранк
+(`flags.chat_rag_rerank_enabled=True`, typed-ветка A05). Точная причина пустоты
+не была видна, потому что в raw не было ни счётчиков, ни статуса. Плюс найден
+реальный дефект: `parse_rerank_selected("")` возвращал `empty` («валидный пустой
+выбор»), поэтому **пустой ответ провайдера** молча обнулял RAG-блок и выглядел
+как осознанное решение модели (`probes_final5-rerun` §8).
+
+**Исправление:**
+* `parse_rerank_selected`: пустой/blank ответ и `None` → новый статус
+  `empty_response`; явные `{"selected":[]}` / `[]` остаются `empty` (A05).
+* `_typed_rerank_apply`: `empty_response` → детерминированный bounded
+  pre-rerank-fallback (`fallback_top_k`), событие `reranker/failed`,
+  `reason_code=rerank_empty_response`, `fallback=true`. За «релевантный
+  результат» это не выдаётся: пометка едет в raw.
+* Наблюдаемость: каждый исход пишется в `_RERANK_LAST` (counts, status,
+  response_format, fallback, latency, provider/model), включая legacy-ветку
+  (`legacy_ok`/`legacy_empty_failopen`) — раньше успешный typed-OFF вызов
+  оставлял снимок от предыдущего запроса.
+* Стенд: `_RecordingMemory.rerank_rag_facts` фиксирует `candidates/selected/
+  status/response_format/fallback/latency/model`; `_rag_service_diagnostics`
+  ставит `rag_empty_reason`:
+  `rerank_rejected` (явный пустой выбор → `rag_empty_is_correct=true`),
+  `rerank_failed_empty` (сбой+fallback, но пусто → `false`), `service_empty`
+  (причина не установлена). `rerank_fallback=true` виден и при непустом блоке.
+* `self_check`/инварианты не менялись; self-echo и provenance-фильтры не
+  тронуты.
+
+**Тесты:** `tests/test_speech_p0_rerank_contract.py` (8):
+`{"selected":[]}` → `[]` + `status=empty/fallback=false`;
+`""`/`"   "`/`"\n"` → fallback=все факты + `status=empty_response/fallback=true`;
+prose → `invalid`; валидный выбор → порядок оценки; ошибка провайдера →
+fallback; парсер различает blank и явный пустой; fallback остаётся bounded.
+`tests/test_speech_p0_rag_diag.py` (8): `rerank_rejected` (correct=true, счётчики
+3→0), fallback-пометка при непустом блоке, `rerank_failed_empty` (correct=false).
+Обновлены ожидания `test_rerank_contract_asap32.py` и
+`test_graphrag_memory.py`: blank больше не «валидный пустой».
+
+**End-to-end проверка через РЕАЛЬНЫЙ код продукта** (реальный
+`MemoryManager.rerank_rag_facts` + подменённый только LLM-ответ):
+
+```
+провайдер вернул ""               → block 212 симв., 3 факта из fallback,
+                                    rerank.status=empty_response, fallback=true,
+                                    rerank_fallback=true, rag_empty_reason=нет
+провайдер вернул {"selected": []} → block 0, rerank.status=empty,
+                                    rerank.selected=0, fallback=false,
+                                    response_format=json,
+                                    rag_empty_reason=rerank_rejected,
+                                    rag_empty_is_correct=true
+```
+
+То есть сбой больше не выглядит как отбраковка, а отбраковка не выглядит как
+сбой — и обе видны в raw по счётчикам.
+
+### 10.3 Тесты: delta против `fe1e514a`
+
+| Набор | `fe1e514a` (до R3) | этот кандидат |
+|---|---|---|
+| `tests -k "speech_p0 or direct_l1 or prompt or composer or rerank or graphrag"` | 4 failed, 1172 passed (те же 4) | **4 failed, 1172 passed** |
+| `test_prompt_migrations` | 43 passed | **43 passed** |
+| новые/обновлённые целевые файлы | — | l1_canonical 32, rerank_contract 8, rag_diag 8, meta_closing 4, detector 5, guard 4 |
+| `--self-check` | PASS 40/40 | **PASS 40/40** |
+
+### 10.4 Полный прогон (без UI-e2e): delta против `fe1e514a`
+
+```
+fe1e514a : 37 failed, 15749 passed, 1 skipped, 7 errors  (13:22)
+candidate: 38 failed, 15768 passed, 1 skipped, 7 errors  (13:42)
+```
+
+Все 37 прежних падений присутствуют и не изменились (4 паритетных
+`test_tool_phase_*`/`test_l2_on_*` + 33 предсуществующих в посторонних файлах:
+t5150-миграции, fallback-recompose-стабы, webapp/outgoing, samples, registry,
+summary-*). Добавилось ровно одно имя:
+
+```
+tests/test_asap8_initreply_binding.py::test_case6b_invalid_reaction_is_honest_silence
+```
+
+Оно **не связано с R3** и является order-flaky в этом окружении:
+* изолированно — `1 passed`; весь модуль — `14 passed`;
+* в паре `test_asap7_direct_settings.py + test_asap8_initreply_binding.py`
+  модуль падает и на кандидате, и на `fe1e514a`, причём **разными** тестами
+  (`case6b` здесь, `case4_transport_never_picks_addressee` на `fe1e514a`);
+  в логе перед этим — `random_source reserve read failed` и
+  `database_connection_unrecoverable` от предыдущего файла;
+* мой diff не касается react/reply-binding путей (только канон L1, миграции,
+  реестр, реранк RAG и стенд).
+
+Итог: новых падений, вызванных изменениями, нет; 7 `errors` — те же teardown-
+ошибки предсуществующих файлов, что и в прогоне `fe1e514a`.
+
+## 11. Что осталось (честные пробелы)
 
 1. **Повторный живой прогон A/B/C + forced** на этом кандидате: он один
    закрывает выбор L1 (research 2/2 или честная недетерминированность),

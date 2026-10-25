@@ -63,10 +63,13 @@ def test_l1_canon_separates_material_from_opinion():
     assert "response_act=research" in rules
     # смешанная просьба: разбор материала не отменяется вопросом-оценкой
     assert "вопрос-оценка" in rules
-    assert "оценка - вывод разбора, а не замена разбора" in rules
+    assert "оценка - его вывод, не замена" in rules
+    # тональность не меняет акт: грубость — только tone
+    assert "меняют ТОЛЬКО tone" in rules
+    assert "response_act - это то, что ты ДЕЛАЕШЬ по существу" in rules
     # ветка «только мнение/оценка» → answer без эссе
     assert "structure=answer" in rules
-    assert "без хроники, биографии и отчёта" in rules
+    assert "без хроники, биографии и" in rules
     # глубина не задаёт длину; detailed/report — только по явной просьбе
     assert "Глубина разбора не задаёт длину ответа" in rules
     assert "Обычная просьба - compact или" in rules
@@ -129,9 +132,16 @@ def test_l1_prev_snapshot_is_previous_rule_bytes():
 
 
 def test_l1_prev_p0cs2_is_previous_active_bytes():
-    """Лестница ред.3: P0CINT — ровно активные байты редакции 2
-    (9288/``23aae0c9499d`` — канон живого прогона `probes_final4.md`),
-    P0CS2 — редакция 1 (``f6f5d3b1fc1d``), R3b/P0CS не изменены."""
+    """Лестница ред.4: P0CINTR2 — ровно активные байты редакции 3
+    (9391/``ca1ba3049991`` — канон живого прогона `probes_final5-rerun.md`),
+    P0CINT — редакция 2 (9288/``23aae0c9499d``), P0CS2 — редакция 1
+    (``f6f5d3b1fc1d``), R3b/P0CS не изменены."""
+    prev4 = cp.PREV_DIRECT_L1_PLANNER_P0CINTR2
+    assert prev4 == (cp._DIRECT_L1_PLANNER_BASE_R3
+                     + cp._DIRECT_L1_CLARIFICATION_CONTRACT
+                     + cp._DIRECT_L1_CONTINUATION_R3B
+                     + cp._DIRECT_L1_PLANNER_RULES_P0CINTR2)
+    assert len(prev4) == 9391 and _sha12(prev4) == "ca1ba3049991"
     prev3 = cp.PREV_DIRECT_L1_PLANNER_P0CINT
     assert prev3 == (cp._DIRECT_L1_PLANNER_BASE_R3
                      + cp._DIRECT_L1_CLARIFICATION_CONTRACT
@@ -144,14 +154,15 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
                      + cp._DIRECT_L1_CONTINUATION_R3B
                      + cp._DIRECT_L1_PLANNER_RULES_P0CS2)
     assert len(prev2) == 9145 and _sha12(prev2) == "f6f5d3b1fc1d"
-    assert prev2 != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert prev3 != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "ca1ba3049991"
+    for prev in (prev2, prev3, prev4):
+        assert prev != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "422e9d73d316"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
     steps = dict(pm.PROMPT_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"])
+    assert steps[prev4] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps[prev3] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps[prev2] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps[cp.PREV_DIRECT_L1_PLANNER_P0CS] == \
@@ -160,10 +171,10 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][0] == (
-            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev3)
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev4)
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][1] == (
-            prev3, prev2)
+            prev4, prev3)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────

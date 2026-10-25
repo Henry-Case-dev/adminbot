@@ -152,6 +152,8 @@ def test_ladder_and_rollback_chain():
     # 2.58.113 (5 шагов), L2 — 1 шаг
     assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
         (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+         cp.PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        (cp.PREV_DIRECT_L1_PLANNER_P0CINTR2,
          cp.PREV_DIRECT_L1_PLANNER_P0CINT),
         (cp.PREV_DIRECT_L1_PLANNER_P0CINT,
          cp.PREV_DIRECT_L1_PLANNER_P0CS2),
@@ -211,16 +213,22 @@ async def test_migration_idempotent_rollback_custom_kept():
             cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     finally:
         hot.set_config_cache(None)
-    # откат — цепочка: 1-й вызов снимает редакцию 3 (→ P0CINT), 2-й —
-    # приоритет разбора (→ P0CS2), 3-й — смысловую маршрутизацию (→ P0CS),
-    # 4-й — P0CS→R3b, 5-й — R3b→R3, 6-й — L1 до 2.58.113, 7-й — no-op
+    # откат — цепочка: 1-й вызов снимает редакцию 4 (→ P0CINTR2), 2-й —
+    # редакцию 3 (→ P0CINT), 3-й — приоритет разбора (→ P0CS2), 4-й —
+    # смысловую маршрутизацию (→ P0CS), 5-й — P0CS→R3b, 6-й — R3b→R3,
+    # 7-й — L1 до 2.58.113, 8-й — no-op
     back = _Cache({L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                    L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT})
     assert await pm.rollback_prompt_canons(back) == {
         L1_KEY: "rolled_back", L2_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINT,
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINTR2,
         L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
+    back.apply_writes()
+    back.set_calls.clear()
+    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINT}
     back.apply_writes()
     back.set_calls.clear()
     assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
