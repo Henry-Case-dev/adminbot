@@ -367,6 +367,195 @@ def _replied_tg(ctx: ConversationContext) -> int | None:
     return None
 
 
+# ── Уточнение владельца №2 (25.10.2026): пустая цель → обязательный контекст ─
+# «В цели ничего» — не отказ: проверяются reply-цепочка и окно 200–300
+# сообщений (W1), и только потом возможен честный отказ с указанием, что
+# именно проверено. Новых механизмов нет: reuse W1 ContextMessage + предикат.
+
+_CONTEXT_CLAIM_MIN_CHARS = 4
+_CONTEXT_CLAIM_MIN_TOKENS = 2
+# Review fix (25.10.2026): recall-ориентированный структурный предикат для
+# контекстного probe. Глагольные формы (в т.ч. возвратные) — достаточный
+# признак утверждения: «Мост обрушился вчера» не должен теряться из-за
+# длины/словаря. Числа/даты — значимы независимо от длины («Курс 95»).
+_VERB_FORM_RE = re.compile(
+    r"(?:л|ла|ло|ли|лся|лась|лось|лись|ет|ют|ит|ат|ят|"
+    r"ется|ются|ует|ирует|ал|ял|ил|ел)\b", re.IGNORECASE)
+_COMMAND_TEXT_RE = re.compile(r"^\s*фактчек\b", re.IGNORECASE)
+# Реакции/филлеры — НЕ повод для фактчека (консервативный список).
+_FILLER_WORDS = frozenset({
+    "лол", "ага", "угу", "ок", "ok", "ну", "такое", "ясно", "понятно",
+    "хм", "хз", "да", "нет", "конечно", "пф", "хех", "ахах", "кек",
+    "норм", "бывает", "серьезно", "серьёзно", "ааа", "ооо",
+})
+_WORD_TOKEN_RE = re.compile(r"[0-9a-zа-яё]+", re.IGNORECASE)
+
+
+@dataclasses.dataclass(frozen=True)
+class ContextClaim:
+    """Найденный в окружении тезис-кандидат (цель — только точка входа)."""
+    text: str
+    source: str                      # reply_to | window
+    author: str | None = None
+    tg_message_id: int | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class ContextProbe:
+    """Результат обязательной проверки окружения для пустой цели."""
+    feed: str                        # готовый <chat_context> (+ цепочка)
+    claim: ContextClaim | None
+    window_messages: int
+    window_before: int
+    window_after: int
+    chain_len: int = 0
+
+
+def _claim_like_text(text: str) -> bool:
+    """Структурный признак проверяемого утверждения (recall-ориентированный).
+
+    Review fix (25.10.2026): не терять короткие факты.
+    * числа/даты — значимы независимо от длины («Курс 95», «12.10.2026»);
+    * предикат W2 (лексика/копула/цитата) — как раньше;
+    * глагольная форма + ≥2 содержательных токена («Мост обрушился вчера»).
+    Без LLM-классификатора. Филлеры («ага», «ну такое») отсекаются отдельно
+    в ``is_conservatively_irrelevant``.
+    """
+    clean = str(text or "").strip()
+    if len(clean) < _CONTEXT_CLAIM_MIN_CHARS:
+        return False
+    if re.search(r"\d", clean):
+        return True
+    if _has_predicate(clean):
+        return True
+    if len(tokenize_for_relevance(clean)) < _CONTEXT_CLAIM_MIN_TOKENS:
+        return False
+    return bool(_VERB_FORM_RE.search(clean))
+
+
+def is_conservatively_irrelevant(text: str) -> bool:
+    """Консервативно нерелевантная непустая цель («лол», «ага», эмодзи).
+
+    Только явные филлеры/реакции (≤24 симв., без цифр, не claim-like):
+    такой текст — повод проверить окружение, а не тезис. Всё остальное
+    (даже короткое) считается материалом и идёт обычным путём."""
+    clean = str(text or "").strip()
+    if not clean:
+        return True
+    if len(clean) > 24 or re.search(r"\d", clean):
+        return False
+    if _claim_like_text(clean):
+        return False
+    words = _WORD_TOKEN_RE.findall(clean.lower())
+    if not words:
+        return True                  # только эмодзи/пунктуация
+    return all(word in _FILLER_WORDS for word in words)
+
+
+def find_context_claim(ctx: ConversationContext | None, *,
+                       trigger_tg_message_id=None) -> ContextClaim | None:
+    """Ближайший к цели тезис в окне (детерминированно, без LLM).
+
+    Цель и сообщения-команды «фактчек …» исключаются: команда — не
+    публикация. Расстояние — по ``tg_message_id``; при равенстве выбирается
+    более раннее сообщение. Текст подписи доступен в окне (W1 caption-фикс)."""
+    if ctx is None or not ctx.messages:
+        return None
+    target = ctx.target_tg_message_id
+    candidates = [m for m in ctx.messages
+                  if str(m.text or "").strip()
+                  and m.tg_message_id != target
+                  and m.tg_message_id != trigger_tg_message_id
+                  and not _COMMAND_TEXT_RE.match(str(m.text or ""))
+                  and _claim_like_text(m.text)]
+    if not candidates:
+        return None
+
+    def _distance(m: ContextMessage):
+        try:
+            return abs(int(m.tg_message_id) - int(target))
+        except (TypeError, ValueError):
+            return 10 ** 9
+
+    best = min(candidates, key=lambda m: (_distance(m),
+                                          m.tg_message_id or 0))
+    return ContextClaim(text=str(best.text).strip(), source="window",
+                        author=best.author,
+                        tg_message_id=best.tg_message_id)
+
+
+async def resolve_context_claim(
+        db, chat_id: int | None, *,
+        target_tg_message_id=None,
+        trigger_tg_message_id=None,
+        reply_to_tg_id: int | None = None,
+        cache=None) -> ContextProbe | None:
+    """Обязательная проверка окружения пустой цели (уточнение №2).
+
+    Порядок: reply-цепочка (существующий ``collect_thread_chain``) → окно
+    W1 (``build_wide_context``: 200–300 сообщений, кап 500, кеш). Гейт
+    ``wide_context_enabled`` здесь НАМЕРЕННО не читается: для пустой цели
+    широкий контекст обязателен, флаг остаётся откатом для непустых целей.
+
+    Возврат ``None`` — окружение собрать не удалось (пусто/сбой): это
+    техническая причина, вызывающий обязан не выдавать её за «фактов нет»."""
+    if db is None or chat_id in (None, 0):
+        return None
+    try:
+        ctx = await build_wide_context(
+            db, int(chat_id), target_tg_message_id=target_tg_message_id,
+            trigger_tg_message_id=trigger_tg_message_id, claim_text="",
+            cache=cache)
+    except Exception:
+        logger.warning("[factcheck_suitability] wide context failed | chat=%s",
+                       chat_id, exc_info=True)
+        return None
+    feed = ctx.render_feed() if ctx is not None else ""
+    chain_claim = None
+    chain_len = 0
+    if reply_to_tg_id not in (None, "", 0):
+        chain = []
+        try:
+            from config.settings import settings
+            from services import hot_config as hot
+            from services.thread_chain import (collect_thread_chain,
+                                               render_reply_chains)
+            depth = hot.get("limits.chat_thread_max_depth",
+                            settings.CHAT_THREAD_MAX_DEPTH)
+            chain = await collect_thread_chain(
+                db, int(chat_id), int(reply_to_tg_id), int(depth or 0))
+            chain_len = len(chain)
+            for item in chain:               # от текущего (родителя) к корню
+                if item.is_bot:
+                    continue                 # ответы бота — не тезис
+                if _COMMAND_TEXT_RE.match(str(item.text or "")):
+                    continue                 # «фактчек …» — команда, не тезис
+                if _claim_like_text(item.text):
+                    chain_claim = ContextClaim(
+                        text=str(item.text).strip(), source="reply_to",
+                        author=item.name)
+                    break
+            if chain_claim is not None and chain:
+                block = render_reply_chains(chain, trigger_tg_message_id)
+                if block:
+                    feed = f"{feed}\n\n{block}".strip()
+        except Exception:
+            logger.warning("[factcheck_suitability] reply chain failed | "
+                           "chat=%s", chat_id, exc_info=True)
+    if ctx is None and chain_claim is None:
+        return None
+    claim = chain_claim or find_context_claim(
+        ctx, trigger_tg_message_id=trigger_tg_message_id)
+    return ContextProbe(
+        feed=feed, claim=claim,
+        window_messages=len(ctx.messages) if ctx is not None else 0,
+        window_before=int(ctx.window.get("before") or 0)
+        if ctx is not None else 0,
+        window_after=int(ctx.window.get("after") or 0)
+        if ctx is not None else 0,
+        chain_len=chain_len)
+
+
 def _contextual_item(ctx: ConversationContext, m: ContextMessage,
                      source: str, confidence: float) -> ClaimItem:
     del confidence

@@ -2455,17 +2455,19 @@ _TEMPORAL: list[ParamSpec] = [
 # (services/factcheck_context.py / factcheck_suitability.py /
 # factcheck_orchestrator.py / factcheck_planner.py) → pg_id-ренейм,
 # прецедент product-осей §3.3 (flags.initiative_enabled…).
-# Все default False — v2-конвейер за миграционным рубильником (выкат OFF,
-# hot-включение владельцем после смоука; REGISTRY 579→582).
+# Широкий контекст — default True (решение владельца 25.10.2026: пустая цель
+# обязана смотреть окружение), выключение — откат без рестарта. Suitability
+# gate и конвейер v2 остаются default False (миграционные рубильники).
 _FACTCHECK_V2: list[ParamSpec] = [
     ParamSpec("FACTCHECK_WIDE_CONTEXT_ENABLED", "FACTCHECK_WIDE_CONTEXT_ENABLED",
               CATEGORY_FLAGS, "Фактчек: широкий контекст", "bool",
               pg_id="flags.factcheck_wide_context",
               group="flags_module_factcheck",
-              description="Расширенное адаптивное окно контекста фактчека "
-                          "(200–500 сообщений с якорями тейков). Гейт "
-                          "отката: выключено — работает прежнее окно; "
-                          "переключение без рестарта."),
+              description="Широкое окно контекста фактчека 200–500 сообщений "
+                          "(дефолт 300) с якорями тейков и reply-цепочкой. "
+                          "Активен по умолчанию: ответ «фактчек» на пустое "
+                          "сообщение сначала проверяет окружение. Ручной "
+                          "откат — прежнее узкое окно, без рестарта."),
     ParamSpec("FACTCHECK_SUITABILITY_GATE_ENABLED",
               "FACTCHECK_SUITABILITY_GATE_ENABLED",
               CATEGORY_FLAGS, "Фактчек: гейт осмысленности", "bool",

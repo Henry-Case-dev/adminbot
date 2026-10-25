@@ -7595,9 +7595,9 @@ class DatabaseService:
             after = max(0, int(after or 0))
         except (TypeError, ValueError):
             before = after = 0
-        _fields = ("id, user_id, chat_id, text, reply_to_id, timestamp, "
-                   "media_type, author_name, is_forward, forward_source, "
-                   "tg_message_id")
+        _fields = ("id, user_id, chat_id, text, caption, reply_to_id, "
+                   "timestamp, media_type, author_name, is_forward, "
+                   "forward_source, tg_message_id")
         try:
             anchor_id = None
             if target_tg_message_id not in (None, "", 0):
@@ -7669,6 +7669,61 @@ class DatabaseService:
             (chat_id, tg_message_id),
         )
         return await cursor.fetchone()
+
+    async def get_smart_messages_by_media_group(self, chat_id: int,
+                                                media_group_id: str) -> list:
+        """P0-FACTCHECK media (owner 25.10.2026 §3.3): все сохранённые
+        элементы альбома ОДНОГО чата, хронологически ASC по ``tg_message_id``.
+
+        Durable-источник реконструкции публикации: Telegram кладёт caption
+        только на один элемент media group, а in-memory
+        ``media_group_buffer`` живёт 60 с и пуст после рестарта. Запрос строго
+        по ``media_group_id`` в том же ``chat_id`` — соседние сообщения вне
+        группы не подмешиваются по построению.
+
+        ``reply_to_id`` нужен уточнению владельца 25.10.2026: текст поста
+        может быть ОТДЕЛЬНЫМ сообщением, на которое отвечает альбом.
+
+        Ошибка БД пробрасывается (вызывающий сам решает, как честно пометить
+        неполноту); пустой список — «элементов не сохранено», не ошибка."""
+        cursor = await self.db.execute(
+            "SELECT id, chat_id, tg_message_id, text, caption, media_type, "
+            "author_name, is_forward, forward_source, sent_at, timestamp, "
+            "origin_type, origin_sent_at, origin_display_name, "
+            "media_group_id, reply_to_id FROM smart_messages "
+            "WHERE chat_id = ? AND media_group_id = ? "
+            "AND tg_message_id IS NOT NULL "
+            "ORDER BY tg_message_id ASC",
+            (int(chat_id), str(media_group_id)),
+        )
+        return list(await cursor.fetchall())
+
+    async def get_smart_messages_reply_to(self, chat_id: int,
+                                          reply_to_id: int, *,
+                                          media_only: bool = False,
+                                          limit: int = 10) -> list:
+        """Сообщения одного чата, отвечающие на ``reply_to_id`` (ASC).
+
+        Уточнение владельца 25.10.2026: ответ «Фактчек» на ТЕКСТОВУЮ часть
+        поста обязан дать тот же охват, что ответ на любое его фото. Если
+        альбом прикреплён ответом к текстовому сообщению, его элементы
+        находятся здесь по структурной связи ``reply_to_id`` — не по
+        соседству (соседние сообщения вне поста не объединяются).
+
+        ``media_only`` → только элементы медиагрупп (альбом публикации).
+        Ошибка БД пробрасывается; пустой список — связей нет."""
+        sql = ("SELECT id, chat_id, tg_message_id, text, caption, media_type, "
+               "author_name, is_forward, forward_source, sent_at, timestamp, "
+               "origin_type, origin_sent_at, origin_display_name, "
+               "media_group_id, reply_to_id FROM smart_messages "
+               "WHERE chat_id = ? AND reply_to_id = ? "
+               "AND tg_message_id IS NOT NULL ")
+        if media_only:
+            sql += "AND media_group_id IS NOT NULL "
+        sql += "ORDER BY tg_message_id ASC LIMIT ?"
+        cursor = await self.db.execute(
+            sql, (int(chat_id), int(reply_to_id), int(limit)))
+        return list(await cursor.fetchall())
 
     # ── Раунд 10.27 (MCA Wave 1, `mca-03-message-identity`, ADR-1027-4) ─────
     # Канонический get-or-create/версии/mapping. Все доменные записи — через

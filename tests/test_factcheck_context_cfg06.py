@@ -111,14 +111,13 @@ def restore_handler_db():
 
 class TestWideGateOffParity:
     @pytest.mark.asyncio
-    async def test_flag_default_off_and_hot_prio(self, monkeypatch):
-        # default OFF (env-поле не задано в тестовом Settings);
-        # Settings — frozen dataclass → патч инстанса через object.__setattr__
-        old = getattr(settings, "FACTCHECK_WIDE_CONTEXT_ENABLED", False)
+    async def test_flag_off_and_hot_prio(self, monkeypatch):
+        # явное false (владелец выключил) → откат; hot-ключ перекрывает env
+        # без рестарта (паттерн CFG-01).
+        old = getattr(settings, "FACTCHECK_WIDE_CONTEXT_ENABLED", True)
         object.__setattr__(settings, "FACTCHECK_WIDE_CONTEXT_ENABLED", False)
         try:
             assert fcx.wide_context_enabled() is False
-            # hot-ключ перекрывает env без рестарта (паттерн CFG-01)
             monkeypatch.setattr(
                 hot, "get",
                 lambda key, default=None: True
@@ -129,8 +128,10 @@ class TestWideGateOffParity:
                                "FACTCHECK_WIDE_CONTEXT_ENABLED", old)
 
     @pytest.mark.asyncio
-    async def test_flag_off_byte_parity_with_old_path(self,
-                                                      restore_handler_db):
+    async def test_flag_off_byte_parity_with_old_path(
+            self, restore_handler_db, monkeypatch):
+        # Решение владельца 25.10.2026: default ON → откат пиним явно.
+        monkeypatch.setattr(fcx, "wide_context_enabled", lambda: False)
         rows = _dispute_rows()
         db = FakeDB(rows)
         hfc._db = db
