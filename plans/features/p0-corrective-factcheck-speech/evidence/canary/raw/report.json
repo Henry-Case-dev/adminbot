@@ -1,0 +1,346 @@
+{
+ "kind": "p0_canary",
+ "utc": "2026-10-24T03:40:18Z",
+ "chat_id": -1004482340693,
+ "blocks": {
+  "core_expression": {
+   "core_revision": "r8.ead77b2ab509",
+   "core_source": "global",
+   "core_detail": "full",
+   "core_chars": 3294,
+   "free_speech_para": 1,
+   "real_events_para": 1,
+   "system_free_speech": 1,
+   "system_real_events": 1,
+   "expression_chars": 998,
+   "expression_skip": "",
+   "expression_enabled": true,
+   "expression_head": "<Expression_Settings>\nПРАВИЛА МАНЕРЫ РЕЧИ\nПрименяй перечисленные ниже параметры к собственной речи в готовом ответе. Это действующие инструкции по выражению, а не описание настроек и не пожелания. Они не меняют факты, не дополняют память и не отменяют требования конкретной задачи к содержанию. Прямую цитату передавай без стилистической подмены. Если задан режим нецензурной лексики, руководствуйся именно им; не перено",
+   "gates": {
+    "unified_composer": true,
+    "character_core": true,
+    "character_layers": true
+   },
+   "system_chars": 7565,
+   "system_sha12": "0415bcef13fe",
+   "layers": [
+    {
+     "layer": "channel_contract",
+     "block_id": "channel_canon",
+     "chars": 3081,
+     "skip": ""
+    },
+    {
+     "layer": "channel_contract",
+     "block_id": "mode_block",
+     "chars": 186,
+     "skip": ""
+    },
+    {
+     "layer": "core",
+     "block_id": "core",
+     "chars": 3294,
+     "skip": ""
+    },
+    {
+     "layer": "identity",
+     "block_id": "identity",
+     "chars": 0,
+     "skip": "identity_absent"
+    },
+    {
+     "layer": "self_model_traits",
+     "block_id": "self_model_traits",
+     "chars": 0,
+     "skip": "self_model_folded_into_identity"
+    },
+    {
+     "layer": "context_lessons",
+     "block_id": "context_lessons",
+     "chars": 0,
+     "skip": "lessons_absent"
+    },
+    {
+     "layer": "response_plan",
+     "block_id": "response_plan",
+     "chars": 0,
+     "skip": "response_plan_absent"
+    },
+    {
+     "layer": "expression",
+     "block_id": "expression",
+     "chars": 998,
+     "skip": ""
+    },
+    {
+     "layer": "humor_craft",
+     "block_id": "humor_craft",
+     "chars": 0,
+     "skip": "humor_no_strategy"
+    },
+    {
+     "layer": "few_shot",
+     "block_id": "expression_examples",
+     "chars": 0,
+     "skip": "expression_examples_absent"
+    },
+    {
+     "layer": "few_shot",
+     "block_id": "few_shot",
+     "chars": 0,
+     "skip": "samples_absent"
+    },
+    {
+     "layer": "style_policy_hint",
+     "block_id": "style_policy_hint",
+     "chars": 0,
+     "skip": "budget_excluded"
+    },
+    {
+     "layer": "channel_output",
+     "block_id": "channel_output",
+     "chars": 0,
+     "skip": "channel_output_not_required"
+    }
+   ],
+   "frequent_marker_in_system": {
+    "FREQUENT": 0,
+    "frequent": 0,
+    "привычк": 0,
+    "мат": 2
+   },
+   "expression_block": "<Expression_Settings>\nПРАВИЛА МАНЕРЫ РЕЧИ\nПрименяй перечисленные ниже параметры к собственной речи в готовом ответе. Это действующие инструкции по выражению, а не описание настроек и не пожелания. Они не меняют факты, не дополняют память и не отменяют требования конкретной задачи к содержанию. Прямую цитату передавай без стилистической подмены. Если задан режим нецензурной лексики, руководствуйся именно им; не переноси ограничения или разрешения из других речевых слоёв.\n- Резкость: Резче и прямее: жёсткость формулировок и оценок, а не переход на личность собеседника.\n- Мат: Пиши живым разговорным языком, в котором мат — привычная и заметная часть твоей собственной речи. Он обыденно звучит в оценках, междометиях, усилениях и связках, как у человека, который так разговаривает всегда, а не изредка ради эффекта. Не прячь его за цензурными эвфемизмами и не смягчай ради приличий. Мат остаётся живой речью, а не механической вставкой: смысл и уместность реплики важнее.\n</Expression_Settings>"
+  },
+  "frequent": {
+   "runs": [
+    {
+     "i": 0,
+     "stimulus": "бот, ну что думаешь про понедельник?",
+     "reply": "Понедельник — это среда, которая решила, что она особенная. Ничего хорошего: все злые, кофе не помогает, а календарь как будто издевается. Марина права — день не задался ещё до того, как начался, что, в общем-то, признак честного пиздеца.",
+     "chars": 238,
+     "mat_roots": 1,
+     "mat": true,
+     "dash": {
+      "em": 2,
+      "en": 0,
+      "hyphen_minus": 0,
+      "chars": 238
+     },
+     "elapsed_s": 2.0
+    },
+    {
+     "i": 1,
+     "stimulus": "как тебе эта погода, задолбала уже?",
+     "reply": "Погода — это такое государство в государстве, где министр не ты, а небо. Задолбала — да, но она хотя бы честно не притворяется, что станет лучше.",
+     "chars": 145,
+     "mat_roots": 0,
+     "mat": false,
+     "dash": {
+      "em": 2,
+      "en": 0,
+      "hyphen_minus": 0,
+      "chars": 145
+     },
+     "elapsed_s": 1.5
+    },
+    {
+     "i": 2,
+     "stimulus": "слушай, а правда что ты всё время в сети?",
+     "reply": "Игорь, я в сети как таракан в щели — формально не видно, но стоит отвернуться, и я уже тут. Марина, а что случилось-то? Понедельник средь недели устроил?",
+     "chars": 153,
+     "mat_roots": 0,
+     "mat": false,
+     "dash": {
+      "em": 1,
+      "en": 0,
+      "hyphen_minus": 0,
+      "chars": 153
+     },
+     "elapsed_s": 1.5
+    },
+    {
+     "i": 3,
+     "stimulus": "и что мне теперь делать с этим отчётом?",
+     "reply": "Марин, ну а что ты хотела — вторник же. День по определению бракованный, его ещё на заводе таким собрали.\n\nИгорь, а с отчётом всё просто: делаешь вид, что он готов, и ждёшь, пока кто-нибудь спросит. Если не спросят — значит, никто его и не читал, а ты сэкономил себе вечер.",
+     "chars": 273,
+     "mat_roots": 0,
+     "mat": false,
+     "dash": {
+      "em": 2,
+      "en": 0,
+      "hyphen_minus": 0,
+      "chars": 273
+     },
+     "elapsed_s": 2.2
+    }
+   ],
+   "mat": 1,
+   "n": 4,
+   "temperature": 0.7
+  },
+  "checkup": {
+   "used_fallback": true,
+   "log_chars": 1304,
+   "log_lines": 9,
+   "fetch_s": 0.9,
+   "journalctl_cmd": "journalctl -u admin_bot -n 300 --no-pager",
+   "fetcher_log": [
+    {
+     "lg": "services.system_logs_fetcher",
+     "lv": "WARNING",
+     "msg": "[checkup fetcher] sql api failed → journalctl fallback | error=Client error '401 Unauthorized' for url 'https://us-west-2a.betterstackdata.com?output_format_pretty_row_numbers=0'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401"
+    },
+    {
+     "lg": "services.system_logs_fetcher",
+     "lv": "INFO",
+     "msg": "[checkup fetcher] journalctl ok | lines=9"
+    }
+   ],
+   "system_chars": 7776,
+   "system_sha12": "17dbe60530e4",
+   "sut_v_analiza": 1,
+   "lowercase_rule": 0,
+   "style_mention": 1,
+   "prompt_source_head": "СИСТЕМНАЯ РОЛЬ И ЗАДАЧА:\nТы составляешь отчёт о состоянии Adminbot по переданным логам Betterstack или локальным журналам и метрикам. Установи, что действительно произошло: ошибки, предупреждения, усп",
+   "out_chars": 2321,
+   "out": "Ночь с 24 октября выдалась томной: Betterstack встретил нас гордым 401 и захлопнул дверь перед носом, так что весь этот цирк - из локального journalctl, читается он прекрасно, сервер жив, никто не упал, кроме надежд на облако. А вот в самом журнале - сплошная песня про `services.mca_vision` и её `claim sweep`, который второй час подряд ползёт со скоростью 5-8 секунд на один проход. Девять предупреждений за девять минут, ни одной ошибки, ни одного exceptions - то есть сервис формально не умирал, он просто медитировал над каждой задачей, как бухгалтер в пятницу.\n\nСмотри, что тут на самом деле происходит. `claim sweep` - это цикл, который обходит очередь заявок своих и чужих: кто-то застолбил работу, пора перепроверить и забрать зависшие. Норма для такой операции - доли секунды, а тут стабильно шесть-семь. Это классический симптом того, что где-то под капотом кончился кислород: узкое место в БД, лок на таблице, или GC в питоне решил, что сегодня он главный. Никаких доказательств у меня нет, но частота и разброс - от 5.19 до 7.88 - говорят именно про общий ресурс, а не про одного тяжёлого клиента: будь это один жирный запрос, время скакало бы хаотично, а тут ровное нехорошо с редкими выбросами.\n\nХуже всего то, что сам сервис этого не считает проблемой. WARNING и WARNING - то есть он уведомляет и продолжает работать. Он даже не думает никого убивать и никого перезапускать. Знаешь, на что это похоже? На лифт, который едет, двери открываются, кнопки светятся - но между этажами он делает двухминутную паузу подышать. Формально ты доехал. Формально лифт рабочий. Практически - застолбление заявок в такой системе это твой бутылочное горлышко, и если поток задач вырастет, эта медитация превратится в очередь.\n\nОстальное молчит. Ни флуда, ни падений, ни ретраев, ни следов паники. Модуль `mca_vision` терпеливо сообщает о каждом замедлении и продолжает грести. Пока это не пожар, а стойкий запах горелого: следующий шаг - смотреть, что там под `claim sweep` - запросы к БД, размер таблицы заявок, лок воркеров. Если через сутки число WARNING удвоится, а средняя длительность поползёт вверх, бутылочное горлышко станет уже не милым, а скучным. А 401 от Betterstack - отдельная история: там просто закончился токен или его отозвали, к нашей ночной медитации отношения не имеет, не путай причину с совпадением",
+   "dash_out": {
+    "em": 0,
+    "en": 0,
+    "hyphen_minus": 13,
+    "chars": 2321
+   },
+   "style_applied_flag": true,
+   "style_probe": {
+    "in": "Это проверка — тире в тексте.",
+    "out": "Это проверка - тире в тексте",
+    "applied": true
+   },
+   "elapsed_s": 6.5,
+   "llm_log": [
+    {
+     "lg": "services.checkup_service",
+     "lv": "INFO",
+     "msg": "checkup LLM OK | out_chars=2328 | latency_ms=6530 | used_fallback=True"
+    }
+   ]
+  },
+  "factcheck": {
+   "claim": "Вышла новая версия Telegram с функцией автоматического перевода голосовых сообщений. Внутри используются модели Whisper и Deepgram, а Google с 1 октября закрыл бесплатный доступ к своему API распознавания речи. Эксперты уверены, что это конец рынка расшифровки. По-моему, это полный провал.",
+   "tf_version": "tf3",
+   "planner_enabled": true,
+   "parts_planned": [
+    {
+     "text": "Вышла новая версия Telegram с функцией автоматического перевода голосовых сообщений.",
+     "verifiable": null
+    },
+    {
+     "text": "Внутри используются модели Whisper и Deepgram, а Google с 1 октября закрыл бесплатный доступ к своему API распознавания речи.",
+     "verifiable": null
+    },
+    {
+     "text": "Эксперты уверены, что это конец рынка расшифровки.",
+     "verifiable": null
+    },
+    {
+     "text": "По-моему, это полный провал.",
+     "verifiable": null
+    }
+   ],
+   "plan": {
+    "queries": [],
+    "needs_web": null
+   },
+   "elapsed_s": 18.0,
+   "verdict": {
+    "factual": "mixed",
+    "temporal": "unknown",
+    "uncertainty": {
+     "summary": "Доступны только две релевантные выдержки, обе без распознанной даты публикации; временной контекст утверждения полностью неизвестен (ни original_published_at, ни repost_received_at, ни claim_period). Только p1 частично подтверждена (факт функции транскрипции голосовых в Telegram, ~декабрь 2023). Технические детали (Whisper/Deepgram внутри Telegram, дата 1 октября и закрытие Google API) и оценочные части (консенсус экспертов, 'провал') не подтверждены. Возможное ретроспективное рассмотрение: если утверждение оценивается на момент 2025 г., данные 2023 г. могут быть устаревшими, но без меток свежести это не выдаётся за обман.",
+     "dates_unresolved": "дата публикации оригинала не определена — временная оценка ограничена"
+    },
+    "reason": null,
+    "as_of": 1792813245,
+    "evaluated_period": "{'from': None, 'to': None, 'precision': 'unknown'}",
+    "fallback_used": false,
+    "parts": [
+     {
+      "text": "",
+      "verdict": null,
+      "reason": null
+     },
+     {
+      "text": "",
+      "verdict": null,
+      "reason": null
+     },
+     {
+      "text": "",
+      "verdict": null,
+      "reason": null
+     },
+     {
+      "text": "",
+      "verdict": null,
+      "reason": null
+     }
+    ],
+    "evidence_refs": []
+   },
+   "evidence_rows": [
+    {
+     "url": "https://www.theverge.com/2023/12/1/23983851/telegram-update-voice-transcription-similar-channels-feature",
+     "support": "Telegram is also introducing Similar Channels, which provides a list of other public channels that may be of interest when users join a new channel. These suggested channels are automatically recommended based on similarities in their subscriber bases, which may make it easier to find like-minded folks to cha\nhttps://www.theverge.com/2023/12/1/23983851/telegram-update-voice-transcription-similar-channels-feature",
+     "kind": "secondary"
+    },
+    {
+     "url": "https://deepgram.com/learn/whisper-issues-smart-formatting",
+     "support": "OpenAI's Whisper: Reading the Fine Print - Deepgram Blog ⚡️\nIn September 2022, OpenAI released Whisper, its general-purpose, open source model for automatic speech recognition (ASR) and translation tasks. OpenAI researchers developed Whisper to study speech processing systems trained under large-scale weak supervision and, in Open AI’s own words, for “AI researchers studying robustness, generalization, capabilities, biases, and constraints of the current model.” In contrast, Deepgram has developed a Language AI platform that includes speech-to-text APIs [...] to use Whisper, use Deepgram Whisper Cloud. But if you need the most accurate model, use Deepgram Nova. [...] Figure 1: The figure above compares the average Word Error Rate (WER) of our Nova and Whisper models with OpenAI’s Whisper Large model across three audio domains: video/media/podcast, meeting, and phone call. It uses a boxplot chart, which is a type of chart often used to visually show the distribution of numerical data and skewness. The chart displays the five-number summary of each dataset, including the minimum value, first quartile (median of the lower half), median, third quartile (median\nhttps://deepgram.com/lear",
+     "kind": "secondary"
+    }
+   ],
+   "text": "Ну что, разбор пришёл, и он неумолим, как очередь в поликлинике. Из четырёх кусков утверждения подтвердился ровно один, и тот с оговоркой \"старовато, но живое\". Функция транскрипции в Telegram действительно была, факт зафиксирован, тут спорить не о чем. Остальное - чистое поле для фантазии автора: ни Whisper с Deepgram внутри мессенджера, ни закрытие гуглового API с 1 октября, ни хор экспертов, дружно оплакивающий рынок расшифровки. Про \"полный провал\" вообще молчу - это не факт, это настроение.\n\nЗабавно тут другое. Человек выдал целую конструкцию - с техническими потрохами, датами, экспертным консенсусом и драматическим финалом - а под ней бетона на один камешек. Прямо как отчёт о запуске ракеты, где ракета - это картинка ракеты, а дата запуска - день, когда автор её нарисовал. Причём дата публикации оригинала вообще не определяется, так что неизвестно даже, в каком году эта ракета должна была взлететь.\n\nОтдельно веселит ловкость, с какой оценка \"старое, но валидное\" прилеплена к 2023 году. Кусок правды есть, но он уже успел состариться, пока остальные три куска никто не родил.",
+   "dash": {
+    "em": 0,
+    "en": 0,
+    "hyphen_minus": 6,
+    "chars": 1095
+   },
+   "search_log": [
+    {
+     "lg": "services.search_aggregator",
+     "lv": "WARNING",
+     "msg": "SearchAggregator: level failed → fallback | provider=tavily | error="
+    },
+    {
+     "lg": "services.search_aggregator",
+     "lv": "INFO",
+     "msg": "SearchAggregator: level ok | provider=exa | latency_ms=2241 | chars=10276"
+    },
+    {
+     "lg": "services.search_aggregator",
+     "lv": "INFO",
+     "msg": "SearchAggregator: level ok | provider=tavily | latency_ms=1174 | chars=6331"
+    }
+   ]
+  }
+ },
+ "limits": {
+  "telegram": 0,
+  "db_writes": 0
+ },
+ "config": {
+  "settings_rows": 537,
+  "load_s": 0.18,
+  "app_version": "",
+  "llm_model": "deepseek/deepseek-v4.1-flash",
+  "postgres_dsn_present": true
+ },
+ "all_logs_sample": [
+  {
+   "lg": "services.mca_events",
+   "lv": "ERROR",
+   "msg": "mca_event=safe_fetch | ts=1792813254 | event_name=safe_fetch | outcome=failed | level=ERROR | component=safe_fetch | duration_ms=367 | stage=stream | reason_code=too_many_bytes | error_json={\"type\": \"SafeFetchError\", \"code\": \"too_many_bytes\", \"stage\": \"stream\", \"retryable\": false}"
+  }
+ ]
+}

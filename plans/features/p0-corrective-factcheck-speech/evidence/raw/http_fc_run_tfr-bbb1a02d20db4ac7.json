@@ -1,0 +1,290 @@
+{
+ "status": 200,
+ "json": {
+  "run": {
+   "run_id": "tfr-bbb1a02d20db4ac7",
+   "created_at": 1792442329,
+   "chat_id": -1004482340693,
+   "trigger_tg_message_id": 2801,
+   "target_tg_message_id": 2724,
+   "target_revision": 1,
+   "source_type": "text",
+   "origin_type": "channel",
+   "repost_received_at": 1792424789,
+   "original_published_at": 1792419951,
+   "original_published_precision": "day",
+   "claim_period_from": null,
+   "claim_period_to": null,
+   "date_source": "telegram_origin",
+   "requested_mode": "contextual",
+   "assessment_mode": "contextual",
+   "analysis_as_of": 1792442291,
+   "factual_verdict": "insufficient_evidence",
+   "temporal_status": "unknown",
+   "fallback_used": false,
+   "cache_hit": false,
+   "pipeline_version": "tf1",
+   "tz_resolution_version": "tzr1",
+   "reason": null,
+   "claim_text": "Настроения в мире айти всё мрачнее: разработчики, которые ещё 2-3 года назад были уверены в своём будущем, теперь не могут найти работу и даже задумываются о самовыпиле.\n\nМногие лишились высокооплачиваемых должностей из-за сокращений на фоне внедрения ИИ. При этом даже большой опыт и разнообразные навыки не помогают им найти новое место.\n\nВ комментах на Hacker News 44-летний разработчик рассказал, что сидит без работы с июля и уже не видит смысла продолжать жить. Недавно он долго стоял на мосту, размышляя о своей жизни.\n\nПо его словам, для многих специалистов карьера в IT фактически закончилась, а дальше ситуация будет только ухудшаться. При этом он пожелал всем, кто оказался в похожем положении, найти что-то, ради чего стоит жить.",
+   "claim_span": null,
+   "attribution": {
+    "author": "Двач"
+   },
+   "date_timezone": null,
+   "date_uncertainty": {},
+   "related_asset_id": null,
+   "related_analysis_revision": null,
+   "evaluated_period": {
+    "from": null,
+    "precision": "unknown",
+    "to": null
+   },
+   "verdict_text": "История про 44-летнего разработчика, мост и прощальное пожелание - это красивая виньетка, в которую хочется верить, потому что она бьёт точно в нерв. Только вот самого комментария на Hacker News в разборе нет. Ни одной цитаты, ни ссылки, ни следа. Есть выдержки про настроения, про сокращения на фоне внедрения ИИ (Сбербанк, Positive Technologies, Яндекс), про то, что опытные специалисты месяцами ищут работу и конкуренция выросла - всё это подтверждается. А вот человек на мосту появляется из ниоткуда и уходит в никуда.\n\nПериод проверки не определён. Даты публикации у части материалов отсутствуют, метаданные из Telegram указывают на октябрь 2026, при этом сами тексты говорят про первую половину того же года - то есть взгляд может быть ретроспективным, и тогда \"теперь\" и \"сейчас\" в претензии повисают в воздухе. Актуальность по отдельным кускам определить нельзя: где-то она текущая, где-то неизвестна вовсе.\n\nПо фактам картина рваная. Сокращения из-за AI - да, подтверждено. Долгий поиск работы при большом опыте - да, тоже. Массовые суицидальные настроения среди айтишников - нет, такого в разборе нет, это личное горе одного безымянного человека, растянутое на общий тренд. И тезис \"карьера в IT закончилась\" не держится: тут же рядом лежат свидетельства о дефиците специалистов и развороте в сторону старших. Одно другому противоречит, и автор претензии выбирает только тёмную половину.\n\nТак что вердикт - доказательств недостаточно. Не потому, что в IT всё хорошо. А потому, что самая громкая часть истории держится на честном слове. Горе реальное, статистика - нет. Когда личную трагедию одного разработчика выкатывают как диагноз всей индустрии, это уже не репортаж, а литература.",
+   "verdict_uncertainty": {
+    "summary": "Первичный источник (комментарий на Hacker News) в evidence отсутствует; часть выдержек не имеет дат публикации, а Telegram-метаданные указывают на октябрь 2026, тогда как материалы упоминают первую половину 2026 — возможна retrospective-перспектива; численные и личные детали (44 года, июль, мост) не верифицированы."
+   },
+   "stage_trace": [
+    {
+     "outcome": "success",
+     "stage": "target_resolve"
+    },
+    {
+     "outcome": "success",
+     "stage": "origin_date_resolve"
+    },
+    {
+     "outcome": "success",
+     "stage": "claim_decompose"
+    },
+    {
+     "outcome": "success",
+     "stage": "temporal_search"
+    },
+    {
+     "outcome": "success",
+     "stage": "evidence_validate"
+    },
+    {
+     "outcome": "success",
+     "stage": "verdict"
+    },
+    {
+     "outcome": "validated",
+     "stage": "verdict"
+    },
+    {
+     "outcome": "success",
+     "stage": "verbalize"
+    }
+   ],
+   "revision": 1
+  },
+  "evidence": [
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Состояние IT-индустрии в 2026 году: что изменилось, что сломалось и что дальше / Хабр\n> Гергей: «Раз уж мы о работе разработчиков: вы сказали вещь, которая многих задела. На AI Engineer Summit вы заявили, что если ты до сих пор пользуешься IDE, ты плохой инженер».\n>\n> Стив: «Ну да, немного провокации не повредит. Скажу так. Ладно, плохим инженером я тебя называть не буду, потому что знаю очень, очень хороших инженеров, лучше меня, которые до сих пор сидят на первом-втором уровне моей шкалы [использования ИИ]. Но мне их искренне жаль.\n> [...] Доклад целиком (29 минут) можно посмотреть на YouTube.",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "### 1. Скорость изменений",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Людям из IT к переменам не привыкать. На наших глазах интернет из диковинки превратился в нечто само собой разумеющееся, случилась мобильная революция и взлетели смартфоны, облака перестали быть нишей, появились Go и Rust, фреймворки вроде React для веба и Jetpack Compose для Android. [...] > «Постоянно переключаешь контекст: всегда есть ещё один агент, который ждёт твоего ответа.\n>\n> И работы просто стало больше. Когда ИИ только набирал обороты, я чувствовал себя продуктивнее коллег: за час делал то, на что у других уходил день. Теперь от всех ждут, что они будут вести несколько задач параллельно. В итоге ощущение такое, что работы у меня больше, чем до ИИ».",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://habr.com/ru/articles/1092354",
+    "support": "#### Руководители разработки уходят в творческий отпуск\nhttps://habr.com/ru/articles/1092354",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Рынок труда 2026: гид по выживанию для IT-специалистов — Кинжал\nЗаключение: главные принципы выживания и развития",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Рынок труда — 2026: руководство по выживанию и развитию 1",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "## Короткое резюме: что нас ждёт",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Прогнозы на 2026 год не самые радужные — но и не катастрофические. Мы в зоне турбулентности, и она будет продолжаться, это точно. В IT редко бывает спокойно — и эту волну мы тоже переживём. [...] Токсичное окружение убивает мотивацию. Если все вокруг твердят, что рынок ужасен и вы ничего не добьётесь, — шансы найти работу резко падают. Если семья давит: «Ты ещё без работы? А как же ипотека?» — это не помогает, а парализует.",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Окружите себя людьми, которые поддерживают, а не обесценивают ваши усилия. Найдите комьюнити, где можно делиться опытом, получать советы и просто знать, что вы не одни. Окружение сильно влияет на настрой — и в итоге на результат. [...] Рынок разворачивается в сторону людей постарше, и этот разворот будет заметным. Эйджизма станет меньше по простой причине — демография. Молодых специалистов численно меньше, и в какой-то момент их может не хватить на все вакансии.\nht",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "IT-пузырь лопнул: почему одни айтишники не могут найти работу, а других всё равно не хватает / Хабр\nАналитика",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "В начале 2026 года произошло что-то странное. Количество IT-вакансий упало на треть, кандидаты месяцами не могут найти работу, джуны рассылают по сотне откликов без ответа - и при этом 64% российских работодателей говорят, что им катастрофически не хватает IT-специалистов.",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Это не противоречие. Это новая реальность российского IT-рынка, в которой одновременно верны два тезиса: людей слишком много и людей катастрофически не хватает. [...] Сбербанк в феврале 2026 года прямо сказал): 20% сокращений персонала связаны с внедрением AI. Positive Technologies в 2025 году сократила 17% сотрудников. Яндекс, Софтлайн, МойОфис объявили о сокращениях в начале 2026 года. [...] При этом количество активных резюме выросло более чем на четверть. На одну IT-вакансию в 2025 году в среднем приходилось 12-15 кандидатов - против 2-3 кандидатов на пике дефицита в 2021-2022.",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Рост кол-ва кандидатов на одну IT-вакансию",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Рост кол-ва кандидатов на одну IT-вакансию",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://habr.com/ru/articles/1054450",
+    "support": "Для понимания масштаба: ещё два года назад middle+-разработчик мог выбирать из десятка офферов. Сейчас даже опытные специалисты ищут работу месяцами.\nhttps://habr.com/ru/articles/1054450",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://www.youtube.com/watch?v=iKYnMmuUzT0",
+    "support": "What will a programmer be like in 2026 in the AI ​​era?\n[12:00] параметры. Это конкуренция, то, что их стало слишком много, потом все начали массово крутить опыт, и понятно, что минимальная планка сразу повысилась до\n[12:07] медла. И второе - это кризис. И они в наибольшей степени повлияли на число вакансий, на то, что жуны никому не нужны и что даже среди медлов и и сеньоров довольно-таки большая [...] [12:16] конкуренция. влияние и на число вакансии, оно минимально. Так что поверьте, что и пока на стороне кандидатов, но возможно через год эта ситуация может уже поменяться.\n[12:25] Единственная только компания, которая, возможно, и нейронка могла сыграть роль - это зелёный банк, в котором как раз-таки были увольнения, потому что [...] [12:48] Итак, Жунами Иишко мы разобрались. Идём дальше. И теперь давайте про хайpe. И давайте вспомним вообще, какие темы были сначала на хайпе. Это, разумеется, Web\n[12:56] 3.0, крипта, это, разумеется, VR и, конечно, мультивселенная. И согласись, что сейчас а нет такого всплеска вакансий, нет такого всплеска компаний.\n[13:06] То есть эти темы знатно подгорели.\nhttps://www.youtube.com/watch?v=iKYnMmuUzT0",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Is IT Jobless? The Truth About the Market in 2026\nРЫНОК АЙТИ НИКОГДА НЕ ВЕРНТСЯ? Стоит ли ид",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792442300,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   }
+  ]
+ }
+}

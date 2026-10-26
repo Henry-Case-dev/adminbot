@@ -1,0 +1,170 @@
+{
+ "status": 200,
+ "json": {
+  "run": {
+   "run_id": "tfr-b900e314f9024379",
+   "created_at": 1792571795,
+   "chat_id": -1002661910336,
+   "trigger_tg_message_id": 1168989,
+   "target_tg_message_id": 1168987,
+   "target_revision": 1,
+   "source_type": "text",
+   "origin_type": "channel",
+   "repost_received_at": 1792570765,
+   "original_published_at": 1792563662,
+   "original_published_precision": "day",
+   "claim_period_from": null,
+   "claim_period_to": null,
+   "date_source": "telegram_origin",
+   "requested_mode": "contextual",
+   "assessment_mode": "contextual",
+   "analysis_as_of": 1792571769,
+   "factual_verdict": "insufficient_evidence",
+   "temporal_status": "unknown",
+   "fallback_used": false,
+   "cache_hit": false,
+   "pipeline_version": "tf1",
+   "tz_resolution_version": "tzr1",
+   "reason": null,
+   "claim_text": "🚭Смертельную болезнь лёгких начали находить у молодых вейперов, врачи предупреждают о всплеске ХОБЛ. \n\nК медикам всё чаще обращаются любители электронных сигарет от 16 до 40 лет с кашлем, одышкой и свистом в груди, пишут СМИ. Пульмонолог рассказал, что за год число россиян с осложнениями после вейпов выросло на 30%. \n\nВрачи опасаются, что длительное парение может повысить риск хронических заболеваний лёгких, включая ХОБЛ, которая приводит к необратимому нарушению дыхания.\n\n‼️ЧП Пермь @chp_159_59\n✉️Прислать новость @chp_admin59\n⚡️Наш чат (делимся заправками без очереди) -https://clck.ru/3UaHza",
+   "claim_span": null,
+   "attribution": {
+    "author": "ЧП Пермь"
+   },
+   "date_timezone": null,
+   "date_uncertainty": {},
+   "related_asset_id": null,
+   "related_analysis_revision": null,
+   "evaluated_period": {
+    "from": null,
+    "precision": "unknown",
+    "to": null
+   },
+   "verdict_text": "Ну вот опять: \"врачи предупреждают\", \"СМИ пишут\", \"пульмонолог рассказал\". Классическая конструкция - где-то кто-то что-то сказал, а ты сиди попробуй проверь. И ведь направление-то здравое: EVALI реально существует, реально валит лёгкие в мясо, включая летальные исходы. Тут не поспоришь.\n\nА вот дальше начинается цирк с конями. \"От 16 до 40 лет\" - откуда цифры? \"Плюс 30% за год\" - плюс тридцать процентов чего, к какой базе, по чьей статистике? В выдержках этих чисел нет вообще. Ни одного. Их как будто достали из кармана вместе с \"всплеском ХОБЛ\", про который в источниках тоже молчок - там про EVALI, а не про хроническую обструктивную.\n\nСвежесть тоже висит в воздухе: даты не распарсились, период непонятен. Одна ссылка с апреля 2026 - и та сама по себе цифры не подтверждает, просто кивает в сторону оригинала.\n\nИтого: каркас правильный, а начинка - на честном слове пульмонолога и заправках без очереди в рекламном чате. Хочешь серьёзный разговор про вейпы - тащи первичку, а не пересказ пересказа с восклицательными знаками.",
+   "verdict_uncertainty": {
+    "summary": "Направление тезиса (вейпы → тяжёлое поражение лёгких, включая смертельные случаи) подтверждается источниками об EVALI, однако конкретные числа (16–40 лет, +30% за год, «всплеск ХОБЛ») в выдержках не встречаются — им нужна отдельная проверка по первичному СМИ/пульмонологу. Даты публикаций выдержек не распарсились, поэтому период не определён. Часть ссылок (e1.ru) датируется апрелем 2026, что согласуется с датой оригинала, но сама выдержка не подтверждает цифры."
+   },
+   "stage_trace": [
+    {
+     "outcome": "success",
+     "stage": "target_resolve"
+    },
+    {
+     "outcome": "success",
+     "stage": "origin_date_resolve"
+    },
+    {
+     "outcome": "success",
+     "stage": "claim_decompose"
+    },
+    {
+     "outcome": "success",
+     "stage": "temporal_search"
+    },
+    {
+     "outcome": "success",
+     "stage": "evidence_validate"
+    },
+    {
+     "outcome": "success",
+     "stage": "verdict"
+    },
+    {
+     "outcome": "corrected",
+     "stage": "verdict"
+    },
+    {
+     "outcome": "success",
+     "stage": "verbalize"
+    }
+   ],
+   "revision": 1
+  },
+  "evidence": [
+   {
+    "claim_part": null,
+    "url": "https://volrb.by/ru/zdorovie/stati/read/bolezn-vejperov-evali-v-2026-godu-chto-my-znaem-segodnja.html",
+    "support": "«Болезнь вейперов (EVALI) в 2026 году: что мы знаем ...\nИтогом может стать воспалительный процесс и накопление жидкости в легких, что приведет к развитию так называемой «липоидной пневмонии», развивающейся при\nhttps://volrb.by/ru/zdorovie/stati/read/bolezn-vejperov-evali-v-2026-godu-chto-my-znaem-segodnja.html",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://ru.wikipedia.org/wiki/%D0%91%D0%BE%D0%BB%D0%B5%D0%B7%D0%BD%D1%8C_%D0%B2%D0%B5%D0%B9%D0%BF%D0%B5%D1%80%D0%BE%D0%B2",
+    "support": "Болезнь вейперов — Википедия\n«Болезнь вейперов» (англ. EVALI, от E-cigarette and Vaping use-Associated Lung Injury = повреждение легких, ассоциированное с курением электронных сигарет и вейпов) — неинфекционное респираторное заболевание, связанное с использованием электронных сигарет. Наиболее сходно с экзогенной липоидной пневмонией или химическим пневмонитом. В международной медицинской литературе употребляются аббревиатуры EVALI, VAPI (от англ. Vaping-associated pulmonary injury) и VALI (от англ. vaping-associated lung [...] Талькоз \"Талькоз (пневмокониоз)\")   Следствие аллергических реакций: Экзогенный аллергический альвеолит   + Багассоз, Биссиноз\"), Лёгкое птицевода\"), Альвеолит   прочее: Саркоидоз  Идиопатический фиброзирующий альвеолит  Лёгочный альвеолярный протеиноз\")  Альвеолярный микролитиаз\") | | Другие болезни лёгких |  ОРДС  Отёк лёгких  Эозинофильная пневмония  Аллергический бронхолёгочный аспергиллёз\")  Ателектаз  Лёгочная эмболия  Лёгочная гипертензия | | | [...] Лучевой гепатит\"), Аутоимунный гепатит\"), Стеатогепатит  Панкреатит   + острый, хронический   Желчевыводящие пути: Холецистит   + острый\"), хронический\")  Холангит   Брюшина: Перитонит | | |\nhttps://ru.wi",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://www.instagram.com/reel/DMxZ6qzM_vn?hl=en",
+    "support": "🚭 ЭВАЛИ — болезнь вейперов, о которой должны знать ...\nЭВАЛИ (от англ. EVALI — e-cigarette or vaping product use-associated lung injury) — это тяжёлое поражение лёгких, вызванное употреблением вейпов\nhttps://www.instagram.com/reel/DMxZ6qzM_vn?hl=en",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://www.e1.ru/text/health/2026/04/23/76381840",
+    "support": "По России распространяется новая опасная болезнь\nEVALI (E-cigarette and Vaping use-Associated Lung Injury) — это неинфекционное заболевание легких, которое появляется из-за курения электронных\nhttps://www.e1.ru/text/health/2026/04/23/76381840",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://www.takzdorovo.ru/stati/smertelno-opasnaya-bolezn-veyperov",
+    "support": "Смертельно опасная болезнь вейперов\n95% пострадавших с EVALI нуждаются в госпитализации в отделение пульмонологии или интенсивной терапии, 1/3 требуется искусственная вентиляция легких (ИВЛ).\nhttps://www.takzdorovo.ru/stati/smertelno-opasnaya-bolezn-veyperov",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": "date_parse_failed",
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": "https://www.currenttime.tv/a/vapes-mystery/30192031.html",
+    "support": "От чего умирают вейперы. И означает ли это, что электронные сигареты опасны\nКак сообщает The New England Journal of Medicine, вейп-индуцированное заболевание легких (его также называют \"вейп-ассоциированным заболеванием\") отличает острое начало. Болезнь развивается внезапно и сопровождается не только стандартными симптомами – кашлем и общей слабостью, но и специфическими: одышкой, растущей дыхательной недостаточностью и формированием двусторонних инфильтратов на легких. [...] Всего в Соединенных Штатах зарегистрировано более 530 случаев болезни легких, связанных с использованием вейпов. Более половины всех заболевших младше 25 лет. Помимо летальных исходов есть случаи комы и инвалидности. \"Легкие 18-летнего Адама Хергенредера выглядят как легкие 70-летнего человека\", – говорят врачи, которые спасли курильщика вейпа из Иллинойса. Его стаж курения – полтора года. [...] \"С точки зрения анатомии, описанные изменения в легких пока что не укладываются в варианты заболеваний, связанных с классическим курением, – подчеркивает врач. – Хотя сигареты, помимо долгосрочных последствий для здоровья в виде рака легких и эмфиземы, также могут в более редких случаях приводить к болезням, которые им",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Болезнь вейперов — Википедия\n«Болезнь вейперов» (англ. EVALI, от E-cigarette and Vaping use-Associated Lung Injury = повреждение легких, ассоциированное с курением электронных сигарет и вейпов) — неинфекционное респираторное заболевание, связанное с использованием электронных сигарет. Наиболее сходно с экзогенной липоидной пневмонией или химическим пневмонитом. В международной медицинской литературе употребляются аббревиатуры EVALI, VAPI (от англ. Vaping-associated pulmonary injury) и VALI (от англ. vaping-associated lung [...] Причины и механизм развития заболевания не изучены, известно только, что причиной является накопление в клетках лёгочной ткани масляных компонентов аэрозоля электронных сигарет, наиболее вероятными кандидатами являются ацетат витамина E и тетрагидроканнабинол. Симптомы заболевания типичны для классической липидной (липоидной) пневмонии\")( \"en:Lipid pneumonia\") и включают кашель, боль в груди, затруднённое дыхание, тошноту, рвоту и диарею, а также другие респираторные, конституциональные и [...] Несмотря на сбор данных о клинических особенностях «болезни вейперов», её пат",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792571780,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   }
+  ]
+ }
+}
