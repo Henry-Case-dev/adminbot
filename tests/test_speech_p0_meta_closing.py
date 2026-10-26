@@ -99,12 +99,29 @@ async def test_plain_answer_also_gets_closing_but_no_analysis_texts():
 
 
 @pytest.mark.asyncio
-async def test_closing_is_positive_and_keeps_no_length_or_schema():
+async def test_closing_is_announcement_only_and_keeps_no_length_or_schema():
+    """Решение владельца 26.10.2026: хвост запрещает только анонс.
+
+    Никакого «первое предложение — суть», никакой композиции: только
+    «не сообщай, что сейчас сделаешь».
+    """
     text = psb.NO_META_CLOSING_TEXT
-    first_sentence = text.split(". ")[0]
-    assert "первое предложение" in first_sentence.lower()
-    assert first_sentence.lower().startswith("первое предложение")
-    # Никаких квот/схем: требование не задаёт длину и не перечисляет фразы.
-    for banned in ("символ", "токен", "не длиннее", "не короче", "пункт"):
-        assert banned not in text.lower()
-    assert '"' not in text
+    assert "анонс" in text.lower()
+    assert "сейчас сделаешь" in text.lower()
+    # снятая формула и любое управление композицией/длиной
+    for banned in ("первое предложение", "сразу суть", "сразу", "вывод",
+                   "заключ", "начинай", "начни", "порядок", "символ",
+                   "токен", "не длиннее", "не короче", "пункт"):
+        assert banned not in text.lower(), banned
+
+
+@pytest.mark.asyncio
+async def test_payload_has_no_start_with_conclusion_formula():
+    """В собранном payload нет формулы «начинай с вывода/заключения»."""
+    for act in ("research", "answer"):
+        _, user = await _run_writer(act)
+        low = user.lower()
+        for banned in ("первое предложение", "сразу суть", "сразу вывод",
+                       "начинай с вывода", "начни с вывода",
+                       "начинай с заключения"):
+            assert banned not in low, (act, banned)

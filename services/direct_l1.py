@@ -1161,7 +1161,7 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
             and plan_response_mode(plan) == "deep_research"
             and not _renders_extent_block(plan))
         if _no_meta and not _mode_carries_no_meta:
-            lines.append(f"как начать ответ: {_no_meta}")
+            lines.append(f"без служебных подводок: {_no_meta}")
         if low_confidence:
             lines.append("уверенность плана низкая: опирайся на контекст "
                          "разговора, а не на подсказки плана.")

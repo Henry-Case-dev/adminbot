@@ -65,7 +65,7 @@ def test_normalized_plan_enables_the_analysis_path():
     assert l1.analysis_directive_needed(plan) is True
     assert l1.plan_response_mode(plan) == "serious"
     block = l1.build_l2_plan_block(plan, include_analysis=True, modes_on=True)
-    assert "как разбирать:" in block and "как начать ответ:" in block
+    assert "как разбирать:" in block and "без служебных подводок:" in block
 
 
 def test_plain_answer_plan_stays_answer():
