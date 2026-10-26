@@ -149,4 +149,8 @@ def test_fingerprint_constant_matches_recomputed_registry():
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
     # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 (без причинной
     # драматургии) + lore.init/merge/story (только факты, без «эпичности»).
-    assert pr.FACTORY_SET_SHA256_12 == "28e6c619b937"
+    # ASAP5 W1-бамп 27.10.2026 (source-2026-10-26 §4/§6/§8): канон
+    # internal.nostalgia.candidate — директива владельца §8 дословно,
+    # provenance «Переслано» и форма отказа ровно UNCHANGED (метка
+    # nostalgia-asap5-w1-source; прежние байты R1 — PREV_*_1026).
+    assert pr.FACTORY_SET_SHA256_12 == "82031ca737ed"
