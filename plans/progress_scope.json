@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-27T04:06:24+12:00",
+  "updated": "2026-10-27T04:15:45+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -390,8 +390,8 @@
       "target_task_ids": [
         "post-asap5-corrective"
       ],
-      "reconciled": false,
-      "note": "Задача зарегистрирована в САМЫЙ КОНЕЦ очереди (после asap5-multimodal). Порядок: текущий релиз-цикл → P0 DELTA → остатки → asap5-multimodal → post-asap5-corrective. Реализация не начинается; карта при старте.",
+      "reconciled": true,
+      "note": "Задача зарегистрирована в САМЫЙ КОНЕЦ очереди (после asap5-multimodal). Порядок: текущий релиз-цикл → P0 DELTA → остатки → asap5-multimodal → post-asap5-corrective. Реализация не начинается; карта при старте. | Intake согласован: pre-start карта 27 секций, гейт EXIT 0 (6f81adf9).",
       "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5026)",
       "received": "2026-10-27"
     }
