@@ -1964,3 +1964,102 @@ async def test_asap5_album_mixed_media_fields_preserved(tmp_path):
                                                   "large")]
     finally:
         await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_bot_media_intake_via_observer(tmp_path):
+    """INTEGRATION (ASAP5 REQ-MEDIA-PIPELINE, шов 1): медиа, созданное самим
+    ботом (observer скипает собственные сообщения), регистрируется в
+    каноническом intake-реестре ТЕМ ЖЕ путём, что медиа пользователей
+    (register_intake_assets → durable-очередь); строка бота в контент чата
+    НЕ пишется (прежний дизайн); автор актива — честно бот (payload
+    user_id = bot id); representation доступна tool-пути (reply-target →
+    готовый анализ). Новый пайплайн не создаётся."""
+    from aiogram.dispatcher.event.bases import UNHANDLED
+    import handlers.summary as summary_mod
+    from aiogram.types import Chat, Message, PhotoSize, User
+    import datetime as _dt
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        bot_msg = Message(
+            message_id=884,
+            date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+            chat=Chat(id=CHAT, type="supergroup", title="T"),
+            from_user=User(id=999, is_bot=True, first_name="Bot"),
+            photo=[PhotoSize(file_id="fid_9", file_unique_id="uniq_9",
+                             width=800, height=600, file_size=12345)])
+        summary_mod._db = db
+        summary_mod._aliases = types.SimpleNamespace(resolve=lambda *a, **k: "")
+        summary_mod._bot_id = 999
+        try:
+            result = await summary_mod.summary_observer(bot_msg)
+        finally:
+            summary_mod._db = None
+            summary_mod._aliases = None
+            summary_mod._bot_id = None
+        assert result is UNHANDLED
+        # (1) прежний дизайн сохранён: сообщение бота НЕ в контенте чата
+        assert await db.get_smart_window(CHAT, 0, 10) == []
+        # (2) актив зарегистрирован тем же intake-путём
+        rows = await db.get_media_assets_for_message(CHAT, 884)
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["chat_id"] == CHAT and row["tg_message_id"] == 884
+        assert row["asset_kind"] == "photo"
+        assert row["file_id"] == "fid_9"
+        assert row["message_key"] == f"{CHAT}:884"
+        # (3) автор — бот: durable job несёт user_id = bot id (provenance)
+        await mca_vision.enqueue_intake_jobs(db, bot_msg, [row["asset_id"]])
+        queued = await _active_vision(db, "queued")
+        assert queued
+        payload = json.loads(str(queued[0].get("payload") or "{}"))
+        assert payload.get("user_id") == 999
+        # (4) representation: job → ready → tool-путь резолвит именно этот
+        # актив без ручного пересказа содержимого
+        jid = queued[0]["job_id"]
+        job = await _claimed_job(db, jid)
+        await mca_vision.process_asset_job(
+            job, db=db, bot=_FakeBot({"fid_9": make_png()}),
+            transport=Transport(default=(200, ASYNC_ANALYSIS_BODY)))
+        res = await mca_vision.recognize_target(
+            db, chat_id=CHAT, reply_tg_id=884, wait_seconds=0)
+        assert res["status"] == "ready"
+        assert res["asset_id"] == row["asset_id"]
+        assert res["asset_kind"] == "photo"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_bot_text_message_not_intake_not_saved(tmp_path):
+    """CONTRACT (шов 1 границы): текстовое сообщение бота — прежнее
+    поведение байт-в-байт: ни строки контента, ни активов."""
+    from aiogram.dispatcher.event.bases import UNHANDLED
+    import handlers.summary as summary_mod
+    from aiogram.types import Chat, Message, User
+    import datetime as _dt
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        bot_text = Message(
+            message_id=885,
+            date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+            chat=Chat(id=CHAT, type="supergroup", title="T"),
+            from_user=User(id=999, is_bot=True, first_name="Bot"),
+            text="я бот, это мой текст")
+        summary_mod._db = db
+        summary_mod._aliases = types.SimpleNamespace(resolve=lambda *a, **k: "")
+        summary_mod._bot_id = 999
+        try:
+            result = await summary_mod.summary_observer(bot_text)
+        finally:
+            summary_mod._db = None
+            summary_mod._aliases = None
+            summary_mod._bot_id = None
+        assert result is UNHANDLED
+        assert await db.get_smart_window(CHAT, 0, 10) == []
+        assert await db.get_media_assets_for_message(CHAT, 885) == []
+    finally:
+        await db.close()

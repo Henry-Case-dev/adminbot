@@ -331,6 +331,28 @@ async def summary_observer(message: types.Message):
         if user is None:
             return UNHANDLED
         if _bot_id is not None and user.id == _bot_id:
+            # ASAP5 (REQ-MEDIA-PIPELINE, шов 1): собственные медиа-выводы
+            # бота (например, результат генерации изображений) попадают в
+            # канонический реестр/очередь intake ТЕМ ЖЕ путём, что медиа
+            # пользователей (register_intake_assets → durable-джобы);
+            # новый пайплайн не создаётся. Сообщение бота в контент чата
+            # НЕ пишется (прежний дизайн), автор актива — честно бот
+            # (from_user.id = bot id в payload job'а). Fail-open: сбой
+            # реестра не роняет observer (всегда UNHANDLED).
+            if _db is not None:
+                try:
+                    from services import mca_vision as _mca_vision
+                    _bot_assets = await _mca_vision.register_intake_assets(
+                        _db, message, message_row_id=None)
+                    await _mca_vision.enqueue_intake_jobs(
+                        _db, message, _bot_assets)
+                except Exception:
+                    logger.warning(
+                        "SmartModule observer: bot media intake failed "
+                        "| chat=%s",
+                        getattr(getattr(message, "chat", None), "id", None),
+                        exc_info=True,
+                    )
             return UNHANDLED
         command_text = message.text or message.caption
         if command_text and command_text.lstrip().startswith("/summary"):
