@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
-  "source_sha256": "04afc181029ef7963ab92a10f2515fe81f2e18fcb3777842893b06b155a3878e",
+  "source_sha256": "2bd56c9f15e90aad62c81654ec0d9f4b325f0bcea58a8eedd71cf6513bfe6978",
   "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
   "deployed_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
   "strict_evidence": true,
@@ -1893,7 +1893,7 @@
       "acceptance": "Сравнена цепочка effective configuration -> LLM payload -> raw output -> postprocessed output -> outbound с артефактом по каждому звену.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -1902,6 +1902,13 @@
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md",
           "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A REQ-EX-DIAG-CHAIN",
+          "observation": "Live-матрица на деплое 2.58.134 (SHA 076f7391, read-only, реальный LLM deepseek-v4.1-flash): цепочка захвачена по каждому звену с артефактами — effective config (PG frequent, source=global; OFF — in-process override продакшн-билдером, effective_mode=off) → payload (frequent_text/off_text маркеры, <Expression_Settings>, final_header, examples_block=false) → raw output → postprocessed (3/4 байт-равны raw; в M4 numeric_claim_mismatch=2 → retry → numeric_claim_fallback=true — числовой гвард сработал по контракту CFG-07D.5/K2) → outbound-ready (FakeBot, 1 сообщение). FREQUENT×4 + OFF×4. Честная оговорка: исходящий hop в Telegram в read-only лейне не тестируем — зафиксирован outbound-ready текст, реальный send_message не выполнялся.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md"
         }
       ]
     },
@@ -2022,7 +2029,7 @@
       "acceptance": "Сравнено несколько разнообразных разговорных ситуаций и разные режимы Expression (матрица прогонов).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -2031,6 +2038,13 @@
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md",
           "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §B REQ-EX-PROBE-MATRIX",
+          "observation": "Матрица 8/8 на деплое 2.58.134 (076f7391, read-only, реальный LLM): 4 разнообразные ситуации (M1 бытовая / M2 вопрос о прошлом чата с реальным retrieval / M3 мягкая провокация / M4 нейтральный фактологический) × FREQUENT/OFF; payload-маркеры в каждом прогоне (freq_text/off_text/header/settings, examples_block=false во всех 8), ошибки выполнения 0/8. Направление отличия подтверждено: профанация FREQUENT 1/4 (единственный контекстный случай — зеркалит провокацию) vs OFF 0/4; механической вставки мата нет ни в одном ответе. Честная пометка: 3/4 FREQUENT-ответов без мата — документированный статистический остаток REQ-EX-STABLE-EFFECT (остаётся FAILED по решению владельца frequent-decision.md), этой матрицей не «зеленится».",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md"
         }
       ]
     },
@@ -2046,7 +2060,7 @@
       "acceptance": "Сравнено несколько разнообразных разговорных ситуаций и разные режимы Expression (матрица прогонов).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -2055,6 +2069,13 @@
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md",
           "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §B REQ-EX-PROBE-MATRIX",
+          "observation": "Не ограничено одним примером: матрица 8 прогонов на деплое 2.58.134 (076f7391) — 4 ситуации × FREQUENT/OFF, ответы от 136 до 643 знаков, разнообразие исходов зафиксировано (contextual profanity 1/4 FREQUENT, honest-refusal retrieval в M2, numeric-fallback в M4 в обоих режимах). Направление подтверждено (FREQUENT 1/4 vs OFF 0/4), механической вставки нет, examples_block=false везде. 3/4 FREQUENT-ответов без мата — документированный статистический остаток REQ-EX-STABLE-EFFECT (остаётся FAILED), не скрывается.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md"
         }
       ]
     },
@@ -19747,10 +19768,11 @@
     "reason": "ADDENDUM #3 был интегрирован в карту из current_task.md L3673-EOF, но снимок источника не был расширен; release-gate не мог сверить 326 ручных строк (L807-1316).",
     "method": "Дословное добавление current_task.md L3668-4177 к существующим 807 строкам снимка; сверка всех 707 source_text_sha256/excerpt дала 0 расхождений.",
     "source_line_map": "строка снимка N (807..1316) = current_task.md строка N + 2861",
-    "added": "2026-10-24 PM-BIND-258125"
+    "added": "2026-10-24 PM-BIND-258125",
+    "source_sha256_rebind": "27.10.2026 PM-BIND-LIVE-258134: поле source_sha256 карты обновлено 04afc181… → 2bd56c9f… — фактический SHA расширенного снимка (расширение сделано дословно этим же проходом ADDENDUM #3, сверка строк 0 расхождений, но поле не было обновлено — gate FAIL «authoritative source changed»); requirements_gate check --stage plan после ребинда: errors=0."
   },
   "status": "BUILDING",
-  "status_note": "25.10.2026: релиз 2.58.127 (b2ac3fa5, speech-simplify e44a30b4) закрыл EX/DIAG-строки о наличии <Expression_Settings> и о реальных офлайн-пробах. Остаются открытыми: полный путь настройка→payload→постобработка, сравнение с постобработкой, семантика FREQUENT (B 1/2), устойчивость эффекта (REQ-EX-STABLE-EFFECT/EX-01/EX-02 FAILED) и REQ-DONE-MAIN-CRITERION. P0 не DONE.",
+  "status_note": "25.10.2026: релиз 2.58.127 (b2ac3fa5, speech-simplify e44a30b4) закрыл EX/DIAG-строки о наличии <Expression_Settings> и о реальных офлайн-пробах. 27.10.2026: live-матрица на деплое 2.58.134 (076f7391; plans/features/residuals-asap23/evidence/live-verify-258134.md) закрыла REQ-EX-DIAG-CHAIN и REQ-EX-PROBE-MATRIX ×2 (VERIFIED): цепочка по звеньям с артефактами (FREQUENT×4+OFF×4, numeric-guard по контракту в M4), матрица 8/8, направление подтверждено (FREQUENT 1/4 контекстный vs OFF 0/4, без механической вставки, examples_block=false); outbound-to-Telegram не тестируем read-only лейном — зафиксирован outbound-ready текст. 3/4 FREQUENT-ответов без мата — статистический остаток REQ-EX-STABLE-EFFECT (остаётся FAILED). Остаются открытыми: устойчивость эффекта (REQ-EX-STABLE-EFFECT/EX-01/EX-02 FAILED) и REQ-DONE-MAIN-CRITERION. P0 не DONE.",
   "release_bindings": [
     {
       "release": "2.58.127",

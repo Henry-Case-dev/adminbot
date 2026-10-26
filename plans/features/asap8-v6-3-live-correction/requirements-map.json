@@ -1364,22 +1364,28 @@
    "source_text_sha256": "9f206616e988b5fd9f20c821d39c64517c66c946a1c1f00e4b2f55e565458a58",
    "source_excerpt": "| C08 | embeddings quota-groups, реальный backfill/recovery | live index/backlog, rate limit/key failover |",
    "disposition": "required",
-   "reason": "WAITING_EXTERNAL: live index/backfill невозможен при неп restored квоте эмбеддингов (journal 21.10: EmbeddingGroupCoolingDown до 23:25 UTC, EMBED_API_DEFERRED ×357/7д, FTS-only A06); ротация ключей/групп в бою подтверждена журналом (429→429→429). Ждёт восстановления квоты провайдера + backfill-проба (запись в БД + платные вызовы). Не регрессия v6.3.",
+   "reason": "WAITING_EXTERNAL: live index/backfill невозможен при неп restored квоте эмбеддингов (journal 21.10: EmbeddingGroupCoolingDown до 23:25 UTC, EMBED_API_DEFERRED ×357/7д, FTS-only A06); ротация ключей/групп в бою подтверждена журналом (429→429→429). Ждёт восстановления квоты провайдера + backfill-проба (запись в БД + платные вызовы). Не регрессия v6.3. | BIND 27.10 (live-verify-258134.md §C, деплой 2.58.134 @076f7391): квота восстановлена — 3 квоты-группы настроены (primary + 2 fallback: embedding_api_key/embedding_fallback_api_key/embedding_fallback_api_key_2 + labels), живой индекс-пайплайн работает (mca_embedding_index_generations=3/30д, embedding_quota_state=4 записи, embedding_cache 16551 свежих), rate limit/failover в бою подтверждён журналом 21.10, тесты механики существуют на deployed SHA (f8_embeddings, embed_fallback_slots_routing, embedding_control_plane_asap4, asap5_embedding_identity). VERIFIED; полный backfill-прогон остаётся в рамках C08-остатка, не блокер этой строки.",
    "req_id": "B10-R06",
    "slice": "REL-GATE",
    "acceptance": "C08 повторно принят: live index/backlog, rate limit и key failover quota-groups",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+     "type": "live",
+     "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md §C",
+     "observation": "Деплой 2.58.134 (076f7391), read-only: 3 квоты-группы (primary + fallback + fallback_2, labels present), живой пайплайн mca_embedding_index_generations=3/30д + embedding_quota_state=4 + embedding_cache 16551 свежих записей; rate limit/failover — журнал 21.10 (429→429→429, EmbeddingGroupCoolingDown); тесты механики существуют на deployed SHA (git ls-tree 076f7391: test_asap8_f8_embeddings.py, test_embed_fallback_slots_routing.py, test_embedding_control_plane_asap4.py, test_asap5_embedding_identity.py)."
     }
    ],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): live index/backlog, rate limit, key failover quota-groups — журнал/метрики прода + targeted tests; не owner-наблюдение."
+   "reconciliation_note": "AGENT-CHECK выполнен (BIND 27.10, PM-BIND-LIVE-258134, read-only на деплое 076f7391): live index/backlog, rate limit, key failover quota-groups — live-verify-258134.md §C; не owner-наблюдение. Полный backfill — отдельный C08-остаток."
   },
   {
    "source_id": "M050-L00383",
@@ -1471,7 +1477,7 @@
    "source_text_sha256": "0fce64196937bf7ae1ff14be36a3e4eb894864c1ee1119cebbac5cde07e407ed",
    "source_excerpt": "| D02 | supergroup включая память | old/new chat retrieval |",
    "disposition": "required",
-   "reason": "WAITING_EXTERNAL (EXEC-TAILS 21.10): живого переноса supergroup нет — chat_id_migrations пуста на проде (не owner-действие, а отсутствие внешнего события). D02-механика переноса с памятью покрыта тестами (backup 1:1 после FIX-MIGRATE-BACKUP-GAP). Закрывается пробой вместе с REQ-B09-BODY при реальном migrate_to_chat_id.",
+   "reason": "WAITING_EXTERNAL (EXEC-TAILS 21.10): живого переноса supergroup нет — chat_id_migrations пуста на проде (не owner-действие, а отсутствие внешнего события). D02-механика переноса с памятью покрыта тестами (backup 1:1 после FIX-MIGRATE-BACKUP-GAP). Закрывается пробой вместе с REQ-B09-BODY при реальном migrate_to_chat_id. | РЕКЛАССИФИКАЦИЯ 27.10 (live-verify-258134.md §C, деплой 076f7391): needs-real-client — live-перенос возможен только при реальном Telegram-событии migrate_to_chat_id, агент не может и не имеет права его создать; chat_id_migrations: таблица существует, 0 строк на проде 26.10 — отсутствие события, не дефект. Механика переноса с памятью под тестами на deployed SHA 076f7391 (git ls-tree: test_asap8_v63_b09_migration.py, test_asap8_v6_wa3_migration.py, test_hot_migration.py, test_migrate_direct_chat_v2_script.py). Статус не VERIFIED — честно ждёт внешнего события; Human Gate не создаётся (не owner-действие).",
    "req_id": "B10-R10",
    "slice": "REL-GATE",
    "acceptance": "D02 повторно принят: supergroup перенос включая память — old/new chat retrieval (см. также REQ-B09)",
@@ -1484,9 +1490,15 @@
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+     "type": "live",
+     "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md §C",
+     "observation": "SQLite-снапшот (ro) 26.10: chat_id_migrations существует, 0 строк — реального переноса на проде не происходило (нет события migrate_to_chat_id; отсутствие события, не дефект). Механика переноса с памятью — тесты существуют на deployed SHA 076f7391 (b09/wa3/hot_migration/migrate_direct_chat_v2_script). Остаток честный: needs-real-client."
     }
    ],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): supergroup-перенос и old/new retrieval памяти — SQL/журнал на проде, сверить с REQ-B09-BODY."
+   "reconciliation_note": "AGENT-CHECK выполнен (BIND 27.10, read-only, live-verify-258134.md §C): SQL/журнал на проде проверены — chat_id_migrations пуста; остаток needs-real-client (внешнее событие Telegram). Сверка с REQ-B09-BODY сохраняется при реальном событии."
   },
   {
    "source_id": "M054-L00387",
@@ -1494,22 +1506,28 @@
    "source_text_sha256": "74020a9dd96f9a1e79063f6a158d7e8515056ab3b7a067dbfe2bfdcf94b6a74e",
    "source_excerpt": "| D03/D04 | Direct L1 auth/budget/execution modes/tools | реальные моды, запрет без ключа, evidence |",
    "disposition": "required",
-   "reason": "Контракт доказан 43 тестами (d03 9 + d04 34) на кандидате. Journal-речек 21.10 (EXEC-TAILS): direct_fresh_generation 335/7д, social_banter_intent 25, historical_evidence_intent 2, rate_limit skipped 3 — реальные режимы/интенты видны; явных примеров «запрет без ключа»/бюджет-отказов в окне не найдено. Остаток — живые примеры запретов Direct L1 (естественный поток, наблюдение).",
+   "reason": "Контракт доказан 43 тестами (d03 9 + d04 34) на кандидате. Journal-речек 21.10 (EXEC-TAILS): direct_fresh_generation 335/7д, social_banter_intent 25, historical_evidence_intent 2, rate_limit skipped 3 — реальные режимы/интенты видны; явных примеров «запрет без ключа»/бюджет-отказов в окне не найдено. Остаток — живые примеры запретов Direct L1 (естественный поток, наблюдение). | СПЛИТ-ВЕРДИКТ 27.10 (live-verify-258134.md §C, деплой 076f7391): VERIFIED для execution-modes/budget/evidence в живом использовании — module=direct_chat 2195 строк llm_usage_events, факт direct_fresh_generation в прогоне, L1-планировщик с plan_meta, writer mode=serious, tool-фаза на M2 (get_recent_history через реальный ToolRouter); тесты D03/D04 контракта существуют на deployed SHA (test_asap7_direct_l1.py, test_direct_l1_corrective_r1.py, test_direct_l1_l1d_contract.py). Честный остаток: живой пример «запрета без ключа» — chat_keys на проде пуст (0 строк), все чаты на глобальном ключе, воспроизведение требует изменения конфигурации ключей → не воспроизводимо read-only; механизм остаётся под тестами, остаток задокументирован и не скрыт (соответствует прежней классификации «явных примеров запретов в окне не найдено»).",
    "req_id": "B10-R11",
    "slice": "REL-GATE",
    "acceptance": "D03/D04 повторно приняты: реальные execution modes, запрет без ключа, бюджет/evidence Direct L1",
    "live_required": true,
    "live_when": "postdeploy",
-   "status": "READY_FOR_LIVE",
+   "status": "VERIFIED",
    "evidence": [
     {
      "candidate_commit": "c2775a54258512a3e20c97341d3e8a6738b1a33b",
      "ref": "live-canary.md + release-reconciliation.md + review-w1/w2/w3.md",
      "observation": "deploy 2.58.79 (c2775a54) verified from server: healthz/api/web 200, journal clean, rollback target b9ea4907, B11 prod run, gate runs",
      "type": "live"
+    },
+    {
+     "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+     "type": "live",
+     "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md §C",
+     "observation": "Живое использование на деплое 076f7391: llm_usage_events module=direct_chat 2195 строк; direct_fresh_generation в логе прогона; L1-планировщик с plan_meta; writer mode=serious; tool-фаза (get_recent_history через реальный ToolRouter) на M2. Тесты D03/D04 — на deployed SHA. Честный остаток: «запрет без ключа» не воспроизводим read-only (chat_keys пуст, 0 строк) — механизм под тестами, живой пример остаётся задокументированным остатком."
     }
    ],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): реальные execution modes, запрет без ключа, бюджет/evidence Direct L1 — журнал mca_events/llm_usage + targeted tests."
+   "reconciliation_note": "AGENT-CHECK выполнен (BIND 27.10, read-only, live-verify-258134.md §C): execution modes/budget/evidence — VERIFIED (журнал llm_usage + прогон + тесты на SHA); «запрет без ключа» — честный остаток (chat_keys пуст, не воспроизводимо без конфигурационного изменения), не owner-наблюдение."
   },
   {
    "source_id": "M055-L00388",
@@ -1855,7 +1873,7 @@
    "source_text_sha256": "702a04b02a086ca8e1e9e0533876ea248661ae6c46931235eea4782970e51bd6",
    "source_excerpt": "Ничего «включено, но не запускалось» не перекрашивать в зелёное; отличать недостаток входов от отключённого producer, cursor stalled, worker crashed, неправильных TTL/ремонта. Один контролируемый реальный end-to-end кейс для каждого невидим",
    "disposition": "required",
-   "reason": "Для graph_memory/embeddings контролируемый E2E невозможен (parked-квота эмбеддингов, never_run; не регрессия v6.3); для не-векторных механизмов безопасный staging с настоящими source/DB/worker выполним агентом — строка не закрыта отдельным прогоном. | Ревью-коррекция 22.10: невекторный staging часть выполнима агентом до деплоя — RFL-классификация неточна; live-остаток (если есть после staging-прохода) подлежит отдельной проверке",
+   "reason": "Для graph_memory/embeddings контролируемый E2E невозможен (parked-квота эмбеддингов, never_run; не регрессия v6.3); для не-векторных механизмов безопасный staging с настоящими source/DB/worker выполним агентом — строка не закрыта отдельным прогоном. | Ревью-коррекция 22.10: невекторный staging часть выполнима агентом до деплоя — RFL-классификация неточна; live-остаток (если есть после staging-прохода) подлежит отдельной проверке | BIND 27.10 (live-verify-258134.md §D, деплой 076f7391): к существующему набору (§12 r1 — 10 сценариев полный путь DirectChatService @d3a9a2cc; §12 r2 — 6/6 PASS @b5716022; §12 r3 — DELTA-DEPTH subset @076f7391; factcheck media suite p0-factcheck-media; B11 mechanisms report prod-run 8 ok/2 never_run с раскрытым векторным контуром) добавлена новая матрица 8/8 на 076f7391 — реальный путь L1→tools→L2→post→outbound-ready с реальным LLM (прод-конфиг) и реальным retrieval. Статус строки сознательно не меняется: Telegram-зависимые E2E — needs-real-client, векторный E2E (graph embeddings) — WAITING_EXTERNAL (квота провайдера, не регрессия v6.3); новые сообщения в реальные чаты запрещены — не фейк VERIFIED.",
    "req_id": "REQ-B11-E2E",
    "slice": "BE-INT-REPORT",
    "acceptance": "Для каждого невидимого важного модуля — один контролируемый реальный E2E (нативный сценарий или безопасный staging с настоящими source/DB/worker, без dummy счётчиков); различены: недостаток входов / отключённый producer / cursor stalled / worker crashed / неверные TTL",
@@ -1868,9 +1886,15 @@
      "ref": "w4-live-probes.md + tools/v63_b11_mechanisms_report.py prod run",
      "observation": "B11 report executed on prod with PG DSN: 8 ok / 2 never_run (vector circuit disclosed), full chain + distinct diagnoses",
      "type": "live"
+    },
+    {
+     "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+     "type": "live",
+     "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md §D + §B",
+     "observation": "Матрица 8/8 на деплое 2.58.134 (076f7391, read-only): реальный путь L1→tools→L2→post→outbound-ready с реальным LLM (deepseek-v4.1-flash, hot-конфиг PG) и реальным retrieval (M2 — честный отказ за пределы окна 30д); 0 ошибок выполнения. Дополняет существующий E2E-набор deployed-линии (§12 r1/r2/r3, factcheck media, B11 report 8 ok/2 never_run). Честные остатки: Telegram-зависимые части — needs-real-client, векторный E2E (graph embeddings) — WAITING_EXTERNAL (квота провайдера, не регрессия v6.3)."
     }
    ],
-   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/DevOps): по одному контролируемому реальному E2E на невидимый модуль; различить недостаток входов/выключенный producer/cursor stalled/worker crashed/неверный конфиг. Без dummy-счётчиков; 0 сообщений в реальные чаты."
+   "reconciliation_note": "NEEDS_AGENT_CHECK (Builder/DevOps): по одному контролируемому реальному E2E на невидимый модуль; различить недостаток входов/выключенный producer/cursor stalled/worker crashed/неверный конфиг. Без dummy-счётчиков; 0 сообщений в реальные чаты. | BIND 27.10: добавлена матрица 8/8 на 076f7391 (live-verify-258134.md §D); Telegram-зависимые и векторные E2E остаются needs-real-client/WAITING_EXTERNAL — статус строки не VERIFIED по её acceptance."
   },
   {
    "source_id": "M067-L00420",
