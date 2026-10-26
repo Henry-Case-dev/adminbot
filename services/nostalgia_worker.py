@@ -43,9 +43,12 @@ ChatLoreStore.list_active_chat_ids, Q13; PG down/пусто → no-op WARNING):
   кандидат = максимум веса (равенство → «год назад»). Порог 0.3 +
   nostalgia_aggressiveness*0.5 (дефолт 0.3 → 0.45) → ниже skip threshold;
   LLM (1 облачный вызов, NOSTALGIA_PROMPT): UNCHANGED → skipped unchanged
-  (дневной лимит не тратится); текст: trim + cap nostalgia_max_send_chars,
-  пустой → skipped empty; отправка bot.send_message (plain, Q13);
-  сбой → status='error'; успех → status='sent'.
+  (дневной лимит не тратится); текст, сообщающий, что история не годится
+  («не та история», «вспоминать нечего» без поворота) → skipped
+  self_decline (ASAP5 W1, source §5 — отказ до публикации); текст: trim +
+  cap nostalgia_max_send_chars, пустой → skipped empty; отправка
+  bot.send_message (plain, Q13); сбой → status='error'; успех →
+  status='sent'.
 
 Fail-open (NFR-4): ошибка чата — WARNING, тик жив; бот не падает.
 """
@@ -72,6 +75,7 @@ from services.nostalgia_prompts import (
     contains_unchanged_token,
     format_golden_line,
     format_year_back_line,
+    is_self_declining_text,
     is_unchanged_response,
 )
 
@@ -586,6 +590,22 @@ class NostalgiaWorker:
             out["skipped"] += 1
             logger.info(
                 "[nostalgia] UNCHANGED echo — skip | chat=%s | kind=%s",
+                chat_id, candidate["kind"])
+            return
+        # ASAP5 W1 (27.10.2026, source §4/§5): текст, который сам сообщает,
+        # что история не годится для воспоминания («это не та история...»), —
+        # это отказ, и он НЕ публикуется (инцидент: публикация противоречила
+        # собственному выводу). Узкий страж is_self_declining_text —
+        # ироничные формы «…нечего, кроме…» не блокируются (запрет владельца
+        # на универсальный словесный бан).
+        if is_self_declining_text(text):
+            await self._log(chat_id, now, candidate["kind"],
+                            candidate.get("fact_id"), _STATUS_SKIPPED,
+                            {**self._candidate_meta(candidate),
+                             "reason": "self_decline", "llm_skipped": True})
+            out["skipped"] += 1
+            logger.info(
+                "[nostalgia] self-decline text — skip | chat=%s | kind=%s",
                 chat_id, candidate["kind"])
             return
         meta = {**self._candidate_meta(candidate), "reason": "sent"}

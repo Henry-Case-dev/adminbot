@@ -187,7 +187,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.lore.init": "lore-init-p0-factual",
     "internal.lore.merge": "lore-merge-p0-factual",
     "internal.lore.story": "lore-story-p0-factual",
-    "internal.nostalgia.candidate": "nostalgia",
+    # ASAP5 W1 (27.10.2026, source-2026-10-26 §4/§6/§8): каноны ностальгии —
+    # директива владельца §8 дословно (повод/связь, запрет склейки, промолчать
+    # при несостоявшейся мысли), provenance «Переслано» (§6) и форма отказа
+    # ровно UNCHANGED без публикации текста-самоотказа (§5). Прежние байты —
+    # PREV_NOSTALGIA_PROMPT_1026 / PREV_NOSTALGIA_CORE_CANON_1026.
+    "internal.nostalgia.candidate": "nostalgia-asap5-w1-source",
     "internal.dossier.system": "dossier-system",
     "internal.dossier.layer_a": "dossier-layer-a",
     "internal.dossier.layer_b": "dossier-layer-b",
@@ -1800,7 +1805,16 @@ def factory_set_fingerprint() -> str:
 #: (``style.format.plain_html``); NO_META/MODE_CASUAL — вне factory_texts.
 #: Метка ``owner-26-10-no-templates``. Было ``3d82f756dd5a``, стало
 #: ``28e6c619b937``. Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "28e6c619b937"
+#: ASAP5 W1 (27.10.2026, source-2026-10-26 §4/§6/§8): канон ностальгии
+#: ``internal.nostalgia.candidate`` — директива владельца §8 дословно
+#: (естественный повод/связь, запрет склейки несвязанных событий, промолчать
+#: при несостоявшейся мысли), provenance «Переслано» (§6, инцидент «репост
+#: новости ≠ смерть участницы чата») и форма отказа ровно UNCHANGED без
+#: публикации текста-самоотказа (§5, инцидент «это не та история, из которой
+#: делают кстати»). changed = 1. Метка ``nostalgia-asap5-w1-source``.
+#: Было ``28e6c619b937``, стало ``82031ca737ed``. Переутверждено осознанно
+#: (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "82031ca737ed"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

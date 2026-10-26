@@ -1,0 +1,121 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "note": "ASAP 5 build order. Waves: W1 ASAP5-MEDIA-RECOGNITION ∥ ASAP5-NOSTALGIA; W2 ASAP5-VISION; W3 ASAP5-IMAGE-GEN ∥ ASAP5-ADMIN; W4 ASAP5-INTEGRATION; W5 ASAP5-CLOSE. QUEUE уже выполнен (дедуп-карта), является предком всех слайсов. Тестовые файлы объявлены точными путями (не glob), чтобы параллельные слайсы имели непересекающиеся write_scope; общий каталог tests/ наследуется только зависимым слайсам (INTEGRATION).",
+  "slices": [
+    {
+      "id": "ASAP5-QUEUE",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/asap5-multimodal/requirements-map.json",
+        "plans/features/asap5-multimodal/slice-graph.json"
+      ],
+      "acceptance": "Дедуп-сверка §0 выполнена: карта с классификациями и dup_of, гейт plan EXIT 0; очерёдность ASAP 5 последним подтверждается глобальным scope перед началом билда."
+    },
+    {
+      "id": "ASAP5-MEDIA-RECOGNITION",
+      "depends_on": [
+        "ASAP5-QUEUE"
+      ],
+      "write_scope": [
+        "services/mca_vision.py",
+        "services/media_download.py",
+        "tests/test_slavik_media_types.py",
+        "tests/test_vision_adapt.py",
+        "tests/test_vision_dl_fix.py",
+        "tests/test_p0_vision_fix_core.py",
+        "tests/test_media_download.py"
+      ],
+      "acceptance": "Матрица типов медиа §9-§11: каждый тип (фото, документы, стикеры, GIF, Animation, TGS, WebM, превью видео/видеосообщений, альбомы) имеет проверенную поддержку и корректное представление; reply направляет обработку на конкретное медиа; harness-тесты зелёные."
+    },
+    {
+      "id": "ASAP5-NOSTALGIA",
+      "depends_on": [
+        "ASAP5-QUEUE"
+      ],
+      "write_scope": [
+        "services/nostalgia_worker.py",
+        "services/nostalgia_prompts.py",
+        "tests/test_nostalgia_worker.py",
+        "tests/test_nostalgia_prompts.py",
+        "tests/test_nostalgia_layer_a.py",
+        "tests/test_nostalgia_revamp_round1015.py",
+        "tests/test_nostalgia_corrective_r1.py",
+        "tests/test_smoke_round1016_nostalgia_persona.py",
+        "tests/test_p0_followup_nostalgia_ab.py"
+      ],
+      "acceptance": "Ностальгия §1-§8: расследование источника события, семантический выбор с правом на молчание, целостность мысли, отказ до публикации, provenance-разделение, проверка delegated-маршрута, готовая директива при подтверждённом аудите; harness-сценарии зелёные; цензура не введена."
+    },
+    {
+      "id": "ASAP5-VISION",
+      "depends_on": [
+        "ASAP5-MEDIA-RECOGNITION"
+      ],
+      "write_scope": [
+        "services/mca_vision.py",
+        "services/tool_router.py",
+        "services/direct_l1.py",
+        "services/chat_context.py",
+        "services/canonical_context.py",
+        "tests/test_p0_vision_fix_core.py",
+        "tests/test_native_reply_media_context_round1024.py"
+      ],
+      "acceptance": "Состояния Vision §12-§17: 11 различий на существующих статусах, честный pending, актуальное состояние между сообщениями, обработка гонки завершения, никаких выдуманных обещаний; harness-сценарии зелёные."
+    },
+    {
+      "id": "ASAP5-IMAGE-GEN",
+      "depends_on": [
+        "ASAP5-MEDIA-RECOGNITION",
+        "ASAP5-VISION"
+      ],
+      "write_scope": [
+        "services/media_execution.py",
+        "services/capability_registry.py",
+        "services/direct_capabilities.py",
+        "services/image_capabilities.py",
+        "services/image_context_memory.py",
+        "services/tool_router.py",
+        "tests/test_media_execution_asap32.py",
+        "tests/test_extra_image_capabilities_compiler.py"
+      ],
+      "acceptance": "Генерация/редактирование §18-§21: причины противоречивых заявлений устранены, маршрут Direct Chat подключён к submit_edit, контекст мультимодального диалога сохраняется; harness-матрица зелёная."
+    },
+    {
+      "id": "ASAP5-ADMIN",
+      "depends_on": [
+        "ASAP5-VISION"
+      ],
+      "write_scope": [
+        "config/settings.py",
+        "web/app.js",
+        "web/index.html",
+        "tests/test_p0_vision_ui_e2e.py"
+      ],
+      "acceptance": "Админка §22: подраздел «Типы медиа» с пятью переключателями в существующем Vision-разделе и диагностика очереди; hot-reload и приоритет главного переключателя сохранены; UI-тест зелёный."
+    },
+    {
+      "id": "ASAP5-INTEGRATION",
+      "depends_on": [
+        "ASAP5-NOSTALGIA",
+        "ASAP5-VISION",
+        "ASAP5-IMAGE-GEN",
+        "ASAP5-ADMIN"
+      ],
+      "write_scope": [
+        "tests/"
+      ],
+      "acceptance": "Интеграционные матрицы §23-§26: 16 сценариев Ностальгии, 22 сценария Vision, 14 сценариев генерации/редактирования, Reviewer-доказательства по реальным контрактам; без живых проверок в рабочих чатах."
+    },
+    {
+      "id": "ASAP5-CLOSE",
+      "depends_on": [
+        "ASAP5-INTEGRATION"
+      ],
+      "write_scope": [
+        "config/settings.py",
+        "plans/reports/",
+        "plans/features/asap5-multimodal/requirements-map.json"
+      ],
+      "acceptance": "Завершение §27-§29: регрессия сохраняемых подсистем зелёная, штатный production deployment с проверкой версии/healthcheck/компонентов, финальный отчёт в существующем формате с 10 объяснениями."
+    }
+  ]
+}

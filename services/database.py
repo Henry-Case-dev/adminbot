@@ -10090,9 +10090,15 @@ class DatabaseService:
         с timestamp ∈ [ts_from, ts_to] (год назад ± окно), непустой текст.
         Строки импорта истории (user_id NULL) участвуют — главный источник
         год-назад-контента (edge 7); бот-строки в smart_messages не пишутся
-        (observer). Ближайшие к center_ts (abs) — первыми, ≤ limit строк."""
+        (observer). Ближайшие к center_ts (abs) — первыми, ≤ limit строк.
+        ASAP5 W1 (27.10.2026, source §6): в выборку добавлены is_forward/
+        forward_source (Epic 28) — provenance репостов доходит до рендера
+        кандидата (format_year_back_line), репост не выглядит как реплика
+        участника. Вызов легаси-строк без этих колонок совместим: поля просто
+        отсутствуют в row."""
         cursor = await self.db.execute(
-            "SELECT id, user_id, chat_id, text, timestamp, author_name "
+            "SELECT id, user_id, chat_id, text, timestamp, author_name, "
+            "is_forward, forward_source "
             "FROM smart_messages "
             "WHERE chat_id = ? AND timestamp BETWEEN ? AND ? "
             "AND text IS NOT NULL AND TRIM(text) != '' "

@@ -601,3 +601,220 @@ class TestTickFlow:
         assert stats["chats"] == 2
         assert stats["sent"] == 1           # второй чат пуст — кандидатов нет
         assert len(bot.calls) == 1
+
+
+class TestAsap5W1SourceDecline:
+    """ASAP5 W1 (source-2026-10-26 §1-§6): инцидент «не та история».
+
+    Пул: репост внешней новости (is_forward, forward_source) + посторонняя
+    реплика. Модель склеивает их в текст с самоотказом («это не та история,
+    из которой делают кстати») — такой текст НЕ публикуется (skip
+    self_decline, отказ до отправки); связный эпизод — публикуется штатно;
+    provenance репоста доходит до LLM."""
+
+    async def _incident_pool(self, db) -> None:
+        # «тишина» за окном сценария + год-назад пул: репост новости и
+        # посторонняя реплика участника
+        await _add_user_msg(db, "в чате тишина", ts=NOW - 30 * 3600)
+        await db.save_smart_message(
+            USER_ID, CHAT_ID, "Вера Косачева умерла за 300 метров до финиша",
+            None, NOW - 365 * 86400 + 3000, "text", "Вася",
+            is_forward=True, forward_source="Спорт-Новости")
+        await _add_user_msg(db, "а я тогда писал про тромбы, жесть",
+                            ts=NOW - 365 * 86400 - 40000)
+
+    @pytest.mark.asyncio
+    async def test_incident_shape_declined_not_posted(self, db, monkeypatch):
+        """РЕПРО ИНЦИДЕНТА: склейка репоста + посторонней реплики с
+        самоотказом не уходит в чат; бот молчит; дневной лимит не тратится."""
+        _patch_time(monkeypatch)
+        await self._incident_pool(db)
+        incident = ("Вспоминать тут особо нечего, кроме того, что Вера "
+                    "Косачева умерла за 300 метров до финиша, а Вася тогда "
+                    "написал про тромбы, жесть. Это не та история, из "
+                    "которой делают кстати")
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM(incident), monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert bot.calls == []              # НИЧЕГО не опубликовано
+        assert out["sent"] == 0
+        rows = await _log_rows(db)
+        assert not [r for r in rows if r["status"] == "sent"]
+        skip = [r for r in rows if r["status"] == "skipped"]
+        assert skip and \
+            json.loads(skip[-1]["meta"])["reason"] == "self_decline"
+        assert await _sent_count(db) == 0   # отказ не тратит дневной лимит
+
+    @pytest.mark.asyncio
+    async def test_unchanged_decline_still_works(self, db, monkeypatch):
+        """Существующий отказ UNCHANGED сохранён (source §5): skip unchanged,
+        без публикации."""
+        _patch_time(monkeypatch)
+        await self._incident_pool(db)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("UNCHANGED"), monkeypatch=monkeypatch,
+                    bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert bot.calls == [] and out["sent"] == 0
+        rows = await _log_rows(db)
+        skip = [r for r in rows if r["status"] == "skipped"]
+        assert skip and \
+            json.loads(skip[-1]["meta"])["reason"] == "unchanged"
+
+    @pytest.mark.asyncio
+    async def test_coherent_episode_posted_naturally(self, db, monkeypatch):
+        """Связный эпизод (одна связанная история) — публикуется штатно
+        (не подавлен стражем/цензурой)."""
+        _patch_time(monkeypatch)
+        await _add_user_msg(db, "тишина", ts=NOW - 30 * 3600)
+        await _add_user_msg(db, "год назад уронили торт у Васи",
+                            ts=NOW - 365 * 86400 + 2000)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM(
+            "кстати, год назад торт у васи пол отвесил, до сих пор смешно"),
+            monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 1 and len(bot.calls) == 1
+        rows = await _log_rows(db)
+        meta = json.loads(
+            [r for r in rows if r["status"] == "sent"][0]["meta"])
+        assert meta["reason"] == "sent"
+
+    @pytest.mark.asyncio
+    async def test_forward_provenance_reaches_llm(self, db, monkeypatch):
+        """ASAP5 W1 (source §6): provenance репоста («Переслано: источник»)
+        доходит до user-блока LLM — модель различает репост и реплику
+        участника."""
+        _patch_time(monkeypatch)
+        await self._incident_pool(db)
+        llm = _FakeLLM("UNCHANGED")
+        w = _worker(db, llm, monkeypatch=monkeypatch)
+        await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert len(llm.calls) == 1
+        user_text = llm.calls[0][0][1]["content"]
+        assert "Переслано: Спорт-Новости" in user_text
+        # репост маркирован, обычная реплика участника — без лейбла
+        news_line = [l for l in user_text.splitlines()
+                     if "Косачева" in l][0]
+        ordinary_line = [l for l in user_text.splitlines()
+                         if "тромбы" in l][0]
+        assert "| Переслано: Спорт-Новости]" in news_line
+        assert "Переслано" not in ordinary_line
+        assert ordinary_line.startswith("[Вася ")
+
+
+class TestAsap5W1Delegation:
+    """ASAP5 W1 (source §7): делегированный маршрут (единый Decision) —
+    решение о публикации, происхождение кандидата и отказ Decision; второго
+    пути отправки нет."""
+
+    async def _pool(self, db) -> None:
+        await _add_user_msg(db, "живая беседа", ts=NOW - 300)
+        await _add_user_msg(db, "год назад был концерт",
+                            ts=NOW - 365 * 86400 + 4000)
+
+    @pytest.mark.asyncio
+    async def test_delegate_sent_no_double_send(self, db, monkeypatch):
+        """K1+K3 ON: кандидат уходит в единый Decision с происхождением
+        (nostalgia:*), отправка логируется sent; legacy-отправки нет."""
+        _patch_time(monkeypatch)
+        await self._pool(db)
+        monkeypatch.setattr(nw, "_intent_delegation_enabled", lambda: True)
+        captured: dict = {}
+
+        async def _spy(*, bot, chat_id, situation, candidates,
+                       prepared_text=None, db=None, correlation_id=None,
+                       writer_service=None):
+            captured["text"] = prepared_text
+            captured["ref"] = candidates[0].prepared_text_ref
+            return {"status": "sent", "delivery_kind": "text"}
+
+        from services import direct_chat_service as dcs
+        monkeypatch.setattr(dcs, "handle_initiative", _spy)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("кстати, помню концерт"),
+                    monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 1
+        assert len(captured) == 2           # ровно один вызов Decision
+        assert captured["text"] == "кстати, помню концерт"
+        assert captured["ref"].startswith("nostalgia:")   # origin не потерян
+        assert bot.calls == []              # второго send-пути нет
+        rows = await _log_rows(db)
+        meta = json.loads(
+            [r for r in rows if r["status"] == "sent"][0]["meta"])
+        assert meta["path"] == "initiative"
+        assert meta["candidate"] == "year_back"
+
+    @pytest.mark.asyncio
+    async def test_delegate_silent_declines_without_send(self, db,
+                                                         monkeypatch):
+        """Общий Decision отказался (silent) → skipped, бот молчит, без
+        повторной отправки (fallback-контура нет)."""
+        _patch_time(monkeypatch)
+        await self._pool(db)
+        monkeypatch.setattr(nw, "_intent_delegation_enabled", lambda: True)
+
+        async def _spy(**kwargs):
+            return {"status": "silent"}
+
+        from services import direct_chat_service as dcs
+        monkeypatch.setattr(dcs, "handle_initiative", _spy)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("кстати, помню концерт"),
+                    monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 0 and out["errors"] == 0
+        assert bot.calls == []
+        rows = await _log_rows(db)
+        skip = [r for r in rows if r["status"] == "skipped"]
+        assert skip and \
+            json.loads(skip[-1]["meta"])["reason"] == "initiative_silent"
+
+    @pytest.mark.asyncio
+    async def test_delegate_error_no_legacy_fallback(self, db, monkeypatch):
+        """Сбой единственного транспорта → честный error; legacy direct-send
+        НЕ вызывается (второго пути отправки нет — T-5038)."""
+        _patch_time(monkeypatch)
+        await self._pool(db)
+        monkeypatch.setattr(nw, "_intent_delegation_enabled", lambda: True)
+
+        async def _spy(**kwargs):
+            return {"status": "error"}
+
+        from services import direct_chat_service as dcs
+        monkeypatch.setattr(dcs, "handle_initiative", _spy)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("кстати, помню концерт"),
+                    monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["errors"] == 1 and out["sent"] == 0
+        assert bot.calls == []
+
+    @pytest.mark.asyncio
+    async def test_self_decline_guards_delegated_path(self, db, monkeypatch):
+        """Страж самоотказа стоит ДО делегирования: текст-самоотказ не доходит
+        ни до Decision, ни до чата."""
+        _patch_time(monkeypatch)
+        await self._pool(db)
+        monkeypatch.setattr(nw, "_intent_delegation_enabled", lambda: True)
+        calls: list = []
+
+        async def _spy(**kwargs):
+            calls.append(kwargs)
+            return {"status": "sent"}
+
+        from services import direct_chat_service as dcs
+        monkeypatch.setattr(dcs, "handle_initiative", _spy)
+        bot = _FakeBot()
+        incident = ("Вспоминать тут особо нечего, кроме того, что Вера "
+                    "Косачева умерла за 300 метров до финиша. Это не та "
+                    "история, из которой делают кстати")
+        w = _worker(db, _FakeLLM(incident), monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert calls == []                  # Decision не вызывался
+        assert bot.calls == [] and out["sent"] == 0
+        rows = await _log_rows(db)
+        skip = [r for r in rows if r["status"] == "skipped"]
+        assert skip and \
+            json.loads(skip[-1]["meta"])["reason"] == "self_decline"
