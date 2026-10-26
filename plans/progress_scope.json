@@ -1,29 +1,29 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-26T01:20:00+12:00",
+  "updated": "2026-10-26T18:57:33+12:00",
   "tasks": [
     {
       "id": "soul-1",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
+      "source_sha256": "6AF3784C08A22CEC841EFCE83C9DA0FC62015BB4900E14142A05EBAE1ADFB27E",
       "maps": [
         "plans/features/soul-1/requirements-map.json",
         "plans/features/soul-1/requirements-map-amendment.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались. | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались. | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись."
     },
     {
       "id": "asap8-v6.3",
       "status": "BUILDING",
       "source_path": "plans/current_task.md",
-      "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
+      "source_sha256": "6AF3784C08A22CEC841EFCE83C9DA0FC62015BB4900E14142A05EBAE1ADFB27E",
       "maps": [
         "plans/features/asap8-v6-3-live-correction/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner). | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner). | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись."
     },
     {
       "id": "cfg-01-07",
@@ -84,23 +84,23 @@
       "id": "add-tr-2026-10-19",
       "status": "VERIFIED",
       "source_path": "plans/current_task.md",
-      "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
+      "source_sha256": "6AF3784C08A22CEC841EFCE83C9DA0FC62015BB4900E14142A05EBAE1ADFB27E",
       "maps": [
         "plans/features/add-tr/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись."
     },
     {
       "id": "add-exp-2026-10-19",
       "status": "READY_FOR_LIVE",
       "source_path": "plans/current_task.md",
-      "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
+      "source_sha256": "6AF3784C08A22CEC841EFCE83C9DA0FC62015BB4900E14142A05EBAE1ADFB27E",
       "maps": [
         "plans/features/add-exp/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
+      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись."
     },
     {
       "id": "samples-ux",
@@ -206,6 +206,17 @@
       ],
       "coverage_complete": true,
       "source_note": "P0 DELTA 26.10: маршрутизация анализа (разговорный vs исторический), релевантность памяти, субъект анализа, lore-обход Writer, запрет шаблонизации. Добавлено в очередь без замены current_task.md; требует карту и привязку до review-гейта. | Конфликт с текущей правкой: NO_META_CLOSING_TEXT требует «первое предложение — сразу вывод», что новый §1 запрещает («всегда начинать с вывода»). Снять универсальную формулу, оставить только запрет служебного анонса. Правку делать после коммита активного speech-лейна. | Карта: 133 required, план-гейт EXIT 0, 36c8f1ab."
+    },
+    {
+      "id": "asap5-multimodal",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-10-26-asap5-current_task-excerpt.md",
+      "source_sha256": "E8CB2B1ED3B96721B6D19D47E970410B3C9A0E5C121FC21F423C0FCF887604A8",
+      "maps": [
+        "plans/features/asap5-multimodal/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "ASAP 5 (current_task.md L4180-5023): Ностальгия, универсальное распознавание медиа, Vision, генерация/редактирование изображений, админка, интеграционные проверки. Выполняется ПОСЛЕДНИМ среди задач очереди на момент регистрации; перед стартом — сверка дублирования с Vision/Fact-check/Memory/Speech/Image. Владелец: сейчас к реализации не приступать. | Статус PENDING = в очереди, не начата. | Pre-start инвентаризация: 9 секций, гейт EXIT 0, 288a682c. Декомпозиция при старте."
     }
   ],
   "owner_inputs": [
@@ -347,6 +358,19 @@
       "reconciled": true,
       "note": "NO_META запрещает только служебные вступления/анонсы/метакомментарии; убрать «сразу вывод»; проверить остальные инструкции на скрытые шаблоны. Выполнить после активного Builder, без нового эпика. | mapped: 36c8f1ab (133 required).",
       "origin": "root chat 26.10.2026",
+      "received": "2026-10-26"
+    },
+    {
+      "id": "OI-2026-10-26-ASAP5-QUEUED",
+      "source_path": "plans/owner_inputs/2026-10-26-asap5-current_task-excerpt.md",
+      "source_sha256": "E8CB2B1ED3B96721B6D19D47E970410B3C9A0E5C121FC21F423C0FCF887604A8",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap5-multimodal"
+      ],
+      "reconciled": true,
+      "note": "ASAP 5 поставлен в конец очереди (после всех задач, зарегистрированных ранее). Реализация не начинается до завершения текущего релиза и оставшихся задач; перед стартом — сверка против готовых исправлений. | Intake согласован: зарегистрировано в конец очереди (asap5-multimodal, PENDING), карта будет создана при старте задачи.",
+      "origin": "root chat 26.10.2026 (регистрация задания из plans/current_task.md)",
       "received": "2026-10-26"
     }
   ]
