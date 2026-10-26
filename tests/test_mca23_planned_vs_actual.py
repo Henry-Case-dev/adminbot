@@ -68,8 +68,12 @@ def _clean_store():
 
 class TestPlannedLayer:
     def test_fanfic_plan_axes(self):
-        plan = ext.classify_request("бот, напиши фанфик про космос")
-        assert plan.task_kind == "creative_writing"
+        # REQ-DELTA-02: категорию/extent назначает L1 Planner; fallback
+        # слов не маршрутизирует. Планы для графа строятся явно, оси рендерит
+        # planned-слой (предмет теста - граф, не классификатор).
+        plan = ext.ResponsePlan(task_kind="creative_writing",
+                                extent="longform", structure="story",
+                                tool_policy="none")
         egs.record_response_plan("run-b", plan=plan, action="reply")
         planned = egs.get_planned("run-b")
         assert planned is not None
@@ -161,8 +165,8 @@ class TestPlannedVsActual:
             summary["extra"] == 0
 
     def test_delivery_fallback_rich_to_text_is_deviated(self):
-        plan = ext.classify_request(
-            "бот, сделай глубокий анализ и собери данные")
+        plan = ext.ResponsePlan(task_kind="research", extent="detailed",
+                                structure="report", delivery_hint="rich")
         assert plan.delivery_hint == "rich"
         graph = _run_graph(
             "r2", plan, "reply",
@@ -192,7 +196,8 @@ class TestPlannedVsActual:
         assert rows["writer"]["reason_ru"]
 
     def test_extra_tools_when_policy_none(self):
-        plan = ext.classify_request("бот, напиши рассказ")
+        plan = ext.ResponsePlan(task_kind="creative_writing",
+                                tool_policy="none")
         assert plan.tool_policy == "none"
         graph = _run_graph(
             "r4", plan, "reply",
@@ -261,8 +266,8 @@ class TestPlannedVsActual:
 
 class TestRecentWindow:
     def test_aggregates_real_runs(self):
-        egs.record_response_plan("w1", plan=ext.classify_request(
-            "бот, напиши фанфик"), action="reply")
+        egs.record_response_plan("w1", plan=ext.ResponsePlan(
+            task_kind="creative_writing", extent="longform"), action="reply")
         egs.record_agentic_event("DECISION_COMPLETE", run_id="w1",
                                  action="reply", duration_ms=100)
         egs.record_response_plan("w2", plan=ext.ResponsePlan(),

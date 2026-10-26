@@ -1,8 +1,11 @@
 """MCA-23 (Wave 3) — Unified Response Orchestrator: ядро.
 
 Покрытие лейна W3-M-mca23:
-* Golden-классификация §44: A micro / B fanfic / C detailed no-tools /
-  L explicit short vs long (детерминированный ResponsePlan, 0 LLM).
+* Golden-классификация: semantic-neutral fallback (REQ-DELTA-02-NO-WORD-
+  HARDCODE) - структурный сигнал короткого вопроса -> micro, литеральные
+  словесные триггеры категорий сняты; категорию/extent назначает L1 Planner,
+  явная форма - ``explicit_form_override`` поверх L1-плана (§2.5).
+* source-scan тела классификатора: без литеральных слов запроса.
 * §5 compat-алиасы casual/serious/deep_research -> оси плана.
 * §11 Verbalizer = исполнитель плана: extent-блок вместо mode-блока;
   prompt-conflict scrub старого cap-текста (PG-кастом) из финальной сборки.
@@ -39,44 +42,68 @@ from services.response_extent import ResponsePlan
 from services.tool_loop import ToolLoopResult
 
 
-# ── A/B/C/L. Golden-классификация (§44) ──────────────────────────────────────
+# ── Golden-классификация (бывш. §44): semantic-neutral fallback ──────────────
 
 class TestClassifyRequestGoldens:
-    def test_a_micro_yes_no(self):
-        """A: «бот, да или нет?» -> micro, один вызов fast path."""
+    """REQ-DELTA-02-NO-WORD-HARDCODE: ``classify_request`` - semantic-neutral
+    fallback БЕЗ ветвлений по словам запроса. Категорию задачи (fanfic/
+    analysis/research/media) и extent назначает L1 Planner; словесные
+    golden-пины §44 сняты - обязательны только структурные сигналы."""
+
+    def test_a_short_question_micro(self):
+        """A: структурный сигнал «бот, да или нет?» -> micro, fast path."""
         plan = rext.classify_request("бот, да или нет?")
         assert plan.extent == "micro"
         assert plan.task_kind == "direct_answer"
         assert plan.structure == "answer"
         assert plan.delivery_hint == "plain"
 
-    def test_b_fanfic_longform(self):
-        """B: «бот, напиши фанфик...» -> creative_writing/longform/story,
-        tools не нужны (§9/§16)."""
+    def test_no_word_routing_analysis(self):
+        """Маркерные слова анализа НЕ маршрутизируют fallback: нейтральный
+        дефолт (категорию определяет L1 Planner, REQ-DELTA-02)."""
+        for query in ("бот, проанализируй мои сообщения за десять лет",
+                      "почему участники такие разные, но вместе?",
+                      "сделай полный обзор по теме X"):
+            plan = rext.classify_request(query)
+            assert plan.task_kind == "social_chat"
+            assert plan.extent == "compact"
+            assert plan.structure == "chat"
+            assert plan.delivery_hint == "plain"
+            assert plan.source == "default"
+            assert not plan.is_longform()
+
+    def test_no_word_routing_media(self):
+        """«скачай/нарисуй» не маршрутизируют fallback: media-план приходит
+        только из L1/tool-плана (§18-I/§23), delivery нейтральный."""
+        for query in ("скачай https://v.example/watch?v=x",
+                      "бот, нарисуй дракона", "транскрибируй"):
+            plan = rext.classify_request(query)
+            assert plan.task_kind == "social_chat"
+            assert plan.delivery_hint == "plain"
+            assert plan.tool_policy == "auto"
+
+    def test_b_fanfic_neutral_in_fallback(self):
+        """B (бывш. fanfic-longform golden): словесный триггер снят; творческую
+        категорию и longform/story назначает L1, fallback нейтрален."""
         plan = rext.classify_request("бот, напиши фанфик про дракона")
-        assert plan.task_kind == "creative_writing"
-        assert plan.extent == "longform"
-        assert plan.structure == "story"
-        assert plan.tool_policy == "none"
-        assert plan.is_longform()
+        assert plan.task_kind == "social_chat"
+        assert plan.extent == "compact"
+        assert plan.structure == "chat"
+        assert not plan.is_longform()
 
-    def test_c_detailed_no_tools(self):
-        """C: «бот, подробно объясни X» -> longform-семейство, не cap."""
-        plan = rext.classify_request("бот, подробно объясни каналы в Go")
-        assert plan.task_kind == "explanation"
-        assert plan.is_longform()
-        assert plan.structure == "explanation"
-        assert plan.delivery_hint == "plain"
-
-    def test_l_explicit_short_vs_long(self):
-        """L: одна тема, разные инструкции -> разные extent."""
+    def test_l_explicit_words_neutral_in_fallback(self):
+        """L (бывш. explicit short-vs-long golden): явные слова длины НЕ
+        перекраивают fallback-план (обе инструкции дают нейтральный compact);
+        контракт явной формы живёт в ``explicit_form_override`` (§2.5) и
+        применяется поверх L1-плана в primary path."""
         short = rext.classify_request("бот, коротко про каналы Go")
         long = rext.classify_request("бот, распиши подробно каналы Go")
-        assert short.source == "explicit"
-        assert long.source == "explicit"
-        assert short.extent == "compact"
-        assert long.extent == "longform"
-        assert short.extent != long.extent
+        assert short.extent == long.extent == "compact"
+        assert short.source == long.source == "default"
+        assert rext.explicit_form_override("бот, коротко про каналы Go") \
+            == "compact"
+        assert rext.explicit_form_override("бот, распиши подробно каналы Go") \
+            == "longform"
 
     def test_chat_default_compact(self):
         plan = rext.classify_request("бот, как дела?")
@@ -86,21 +113,56 @@ class TestClassifyRequestGoldens:
         assert plan.structure in ("chat", "answer")
         assert not plan.is_longform()
 
-    def test_research_report_wants_rich(self):
-        plan = rext.classify_request("бот, сделай полный обзор по теме X")
-        assert plan.task_kind == "research"
-        assert plan.structure == "report"
-        assert plan.delivery_hint == "rich"
-
-    def test_explicit_short_beats_task_kind(self):
-        plan = rext.classify_request("бот, напиши коротко рассказ")
-        assert plan.task_kind == "creative_writing"
-        assert plan.extent == "compact"
-
     def test_empty_query_default_plan(self):
         plan = rext.classify_request("")
         assert plan == ResponsePlan()
         assert not plan.is_longform()
+
+
+# ── REQ-DELTA-02-NO-WORD-HARDCODE: source-scan тела классификатора ───────────
+
+class TestFallbackNoWordHardcode:
+    """Прецедент: tests/test_speech_p0_corrective_l1_route.py (запрет
+    литеральных фраз-триггеров). Здесь - по ИСХОДНИКУ функции: в решающей
+    логике fallback-классификатора нет литеральных слов запроса и ссылок на
+    словесные regex-константы."""
+
+    _BANNED_WORDS = (
+        "проанализируй", "почему", "за десять лет", "десять лет",
+        "объясни", "объяснить", "разбери", "что такое", "как работает",
+        "сравни", "что лучше", "отличи", "фанфик", "рассказ", "сочини",
+        "придумай", "стих", "скачай", "сгрузи", "нарисуй", "сделай картинку",
+        "транскрибируй", "расшифруй", "помнишь", "помните", "саммари",
+        "перескажи", "выжимк", "сократи", "конспект", "доклад", "исследован",
+        "изучи", "глубокий анализ", "полный обзор", "по шагам", "пошагов",
+        "инструкци", "коротко", "кратко", "подробн", "детальн", "распиши",
+        "развернут", "развёрнут", "исчерпывающ", "напиши статью",
+        "посмотри в интернете", "поищи", "погугли", "да или нет",
+    )
+
+    @staticmethod
+    def _classifier_source() -> str:
+        import inspect
+        return inspect.getsource(rext.classify_request)
+
+    def test_no_request_word_literals_in_fallback_classifier(self):
+        source = self._classifier_source().casefold()
+        for word in self._BANNED_WORDS:
+            assert word not in source, word
+
+    def test_no_word_regex_references_in_fallback_classifier(self):
+        """В теле классификатора нет ссылок и на словесные regex-константы
+        (включая оставшиеся в модуле для primary-путей §2.5/§17): категория
+        задачи и extent в fallback словами не определяются. Разрешены только
+        нормализация адресата и структурный счёт слов."""
+        source = self._classifier_source()
+        for name in ("_EXPLAIN_", "_COMPARE_", "_RESEARCH_", "_CREATIVE_",
+                     "_SUMMARY_", "_STEPS_", "_NOSTALGIA_", "_MEDIA_",
+                     "_TRANSCRIBE_", "_YESNO_", "_EXTENT_OF_TASK",
+                     "_EXPLICIT_", "_TOOL_HINT_", "_MULTI_READ_"):
+            assert name not in source, name
+        for allowed in ("_PEER_PREFIX_RE", "_WORD_SPLIT_RE"):
+            assert allowed in source, allowed
 
 
 # ── §5: compat-алиасы режимов ────────────────────────────────────────────────
@@ -358,11 +420,14 @@ class TestCoordinatorDecisionPlan:
         return build_coordinator_decision(**defaults)
 
     def test_plan_fields_filled_from_query(self):
+        """plan=None -> оси из semantic-neutral fallback (classify_request).
+        REQ-DELTA-02: слова запроса fallback не маршрутизируют - оси
+        нейтральные; semantic-класс задачи даёт L1-план (passthrough ниже)."""
         decision = self._decision()
-        assert decision.task_kind == "creative_writing"
-        assert decision.extent == "longform"
-        assert decision.structure == "story"
-        assert decision.tool_policy == "none"
+        assert decision.task_kind == "social_chat"
+        assert decision.extent == "compact"
+        assert decision.structure == "chat"
+        assert decision.tool_policy == "auto"
         assert decision.action == "reply"
 
     def test_plan_passthrough(self):

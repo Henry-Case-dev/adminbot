@@ -8,10 +8,17 @@ MCA-23 §4: ``task_kind`` / ``extent`` / ``structure`` / ``delivery`` /
 Разделение осей (§4): ``complexity`` и ``extent`` не смешиваются - класс-
 вопрос может требовать двух предложений, простой фанфик - длинного ответа.
 
-Явная инструкция пользователя о длине (§12) имеет высокий приоритет:
-«коротко/в двух словах» и «подробно/распиши/полный разбор» перекрывают
-семантическую подсказку task-kind (фанфик/объяснение -> longform-семейство,
-болтовня -> compact).
+Semantic-классификация задачи (task_kind/extent/structure) - работа L1
+Planner (services/direct_l1). Явная форма длины от пользователя (§2.5/§12)
+применяется детерминированно ПОВЕРХ L1-плана (``explicit_form_override`` +
+``L1Plan.apply_form_override``).
+
+REQ-DELTA-02-NO-WORD-HARDCODE: 0-LLM классификатор ``classify_request`` -
+только semantic-neutral fallback (legacy ``DIRECT_L1_ENABLED=false`` и
+L1-outage ``direct_l1.fallback_plan``). Ветвлений по словам запроса
+(«проанализируй», «почему», «скачай», …) в нём нет; остаются только
+структурные сигналы самого сообщения: пустой текст и короткий вопрос
+(<=3 слов, заканчивается на «?» -> micro fast path §8).
 
 Здесь же - канон Direct extent-блоков для Вербализатора (§11: unconditional
 «Коротко: одно-два предложения» заменён extent-блоком) и детерминированный
@@ -222,7 +229,13 @@ def plan_from_response_mode(mode: str) -> ResponsePlan | None:
     return MODE_ALIAS_PLANS.get(candidate)
 
 
-# ── §12: детерминированная классификация (0 LLM) ─────────────────────────────
+# ── §12/§2.5: детерминированные структурные сигналы и явная форма (0 LLM) ────
+# REQ-DELTA-02-NO-WORD-HARDCODE: словесные триггеры категорий задачи
+# (_EXPLAIN/_COMPARE/_RESEARCH/_CREATIVE/_MEDIA/_SUMMARY/... ) удалены из
+# fallback-классификатора. Остались: peer-префикс (нормализация адресата,
+# не роутинг), структурный счёт слов, ЯВНЫЕ формы длины пользователя
+# (§2.5 ``explicit_form_override`` - применяется поверх L1-плана в primary
+# path) и маркеры мульти-чтения §17 для ``build_tool_plan``.
 
 _PEER_PREFIX_RE = re.compile(
     r"^(?:(?:бот(?:ина|яра|ик)?|@[\w_]+)[,:]?\s+)+", re.IGNORECASE)
@@ -235,30 +248,6 @@ _EXPLICIT_SHORT_RE = re.compile(
     r"коротко|короче|кратко|вкратце|в двух словах|пару слов|"
     r"пару предложений|одним предложением|одной фразой|одним словом|"
     r"только вывод|tl;?dr", re.IGNORECASE)
-_CREATIVE_RE = re.compile(
-    r"фанфик|истори[ю]|рассказ|новелл|повесть|сценарий|стих|поэм|хокку|"
-    r"пьес|придумай|сочини", re.IGNORECASE)
-_EXPLAIN_RE = re.compile(
-    r"объясни|объяснить|как работает|как устроен|почему|в ч[её]м разниц|"
-    r"разниц[ау]\s|чем отличает|разбери|что такое|расскажи про|расскажи о|"
-    r"как сделать", re.IGNORECASE)
-_COMPARE_RE = re.compile(
-    r"сравни|что лучше|vs\.?\s|отличи\b|против\b", re.IGNORECASE)
-_RESEARCH_RE = re.compile(
-    r"исследован|доклад|отч[её]т\b|отчет\b|глубокий анализ|проанализируй|"
-    r"полный обзор|изучи|собери (?:вс[её]|данные|инфу)", re.IGNORECASE)
-_SUMMARY_RE = re.compile(
-    r"выжимк|перескажи|саммари|краткое содержание|сократи|конспект", re.IGNORECASE)
-_STEPS_RE = re.compile(r"по шагам|пошагов|инструкци|how-?to", re.IGNORECASE)
-_NOSTALGIA_RE = re.compile(
-    r"помнишь|помните|как мы тогда|что было с|кто был тот|год назад|"
-    r"лет назад", re.IGNORECASE)
-_MEDIA_DL_RE = re.compile(r"скачай|сгрузи|загрузи видео|сохрани видео", re.IGNORECASE)
-_MEDIA_GEN_RE = re.compile(
-    r"нарисуй|сгенерируй (?:картин|изображ)|сделай картинку|сделай изображение",
-    re.IGNORECASE)
-_TRANSCRIBE_RE = re.compile(
-    r"транскрибируй|расшифруй видео|транскрипц", re.IGNORECASE)
 _TOOL_HINT_RE = re.compile(
     r"посмотри в интернете|поищи|погугли|прочитай ссылку|найди в интернете|"
     r"проверь в сети|проверь в интернете|свежие данные|актуальные новости",
@@ -269,123 +258,41 @@ _MULTI_READ_RE = re.compile(
     r"сравни|сравнение|что лучше|отличи|разниц|vs\.?\s|прочитай|изучи|"
     r"перескажи|выжимк|саммари|обе ссылки|что в (?:этих|обеих)", re.IGNORECASE)
 _URL_STRIP_RE = re.compile(r"https?://\S+")
-_YESNO_RE = re.compile(r"^\s*да\s*(?:или|/|-)\s*нет\b", re.IGNORECASE)
 
 _WORD_SPLIT_RE = re.compile(r"\s+")
 
-_EXTENT_OF_TASK = {
-    "creative_writing": ("longform", "story"),
-    "research": ("detailed", "report"),
-    "comparison": ("detailed", "comparison"),
-    "explanation": ("detailed", "explanation"),
-    "summarization": ("compact", "summary"),
-    "historical_recall": ("normal", "answer"),
-    "media_download": ("normal", "answer"),
-    "media_generation": ("normal", "answer"),
-    "transcription": ("normal", "answer"),
-}
-
 
 def classify_request(query) -> ResponsePlan:
-    """Детерминированный план по тексту запроса (никогда не бросает).
+    """Semantic-neutral fallback-план по структурным сигналам (никогда не
+    бросает).
 
-    Приоритет: (1) task-kind по маркерам; (2) явная инструкция длины (§12)
-    перекрывает extent task-kind'а; (3) короткий вопрос без маркеров -> micro;
-    (4) болтовня -> compact. R17: текст не логируется.
+    REQ-DELTA-02-NO-WORD-HARDCODE: ветвлений по словам запроса НЕТ -
+    литеральные триггеры категорий задачи удалены из этого классификатора
+    (примеры слов - в карте требований, не в коде; source-scan тест держит
+    тело функции чистым). Остаются только структурные сигналы самого
+    сообщения:
 
-    ASAP 7 (§1.8 demote): в primary path (``flags.direct_l1_enabled=ON``)
-    НЕ вызывается — semantic brain теперь L1 Planner
-    (services/direct_l1). Осталась как safe fallback при L1 outage
-    (direct_l1.fallback_plan) и в legacy-ветке
-    (``DIRECT_L1_ENABLED=false``, байт-паритет)."""
+    * пустой/пробельный текст -> дефолт social_chat/compact/chat;
+    * короткий вопрос (<=3 слов, заканчивается на «?») -> micro/
+      direct_answer (§8 fast path: без плана такой вопрос остаётся micro).
+
+    Semantic-классификацию задачи делает L1 Planner (services/direct_l1);
+    явная форма длины пользователя доезжает через ``explicit_form_override``
+    поверх L1-плана (§2.5) и в fallback-outage-пути не теряется
+    (``direct_chat`` применяет его к ``fallback_plan``). Legacy
+    (``DIRECT_L1_ENABLED=false``) и L1-outage получают нейтральный план:
+    Writer/Вербализатор работают на канон-дефолтах. R17: текст запроса
+    не логируется."""
     text = str(query or "").strip()
-    plan = ResponsePlan(source="default")
     if not text:
-        return plan
+        return ResponsePlan(source="default")
     stripped = _PEER_PREFIX_RE.sub("", text).strip() or text
-    low = stripped.lower()
-
-    task_kind = ""
-    structure = "answer"
-    tool_policy = "auto"
-    if _MEDIA_DL_RE.search(low):
-        task_kind = "media_download"
-    elif _MEDIA_GEN_RE.search(low):
-        task_kind = "media_generation"
-    elif _TRANSCRIBE_RE.search(low):
-        task_kind = "transcription"
-    elif _RESEARCH_RE.search(low):
-        task_kind = "research"
-    elif _CREATIVE_RE.search(low):
-        task_kind = "creative_writing"
-    elif _SUMMARY_RE.search(low):
-        task_kind = "summarization"
-    elif _COMPARE_RE.search(low):
-        task_kind = "comparison"
-    elif _EXPLAIN_RE.search(low):
-        task_kind = "explanation"
-    elif _NOSTALGIA_RE.search(low):
-        task_kind = "historical_recall"
-    elif _STEPS_RE.search(low):
-        task_kind = "explanation"
-
-    explicit_short = bool(_EXPLICIT_SHORT_RE.search(low))
-    explicit_long = bool(_EXPLICIT_LONG_RE.search(low))
-    wants_tools = bool(_TOOL_HINT_RE.search(low))
-
-    if task_kind:
-        extent, structure = _EXTENT_OF_TASK.get(
-            task_kind, ("normal", "answer"))
-    else:
-        extent, structure = "normal", "answer"
-
-    if task_kind == "creative_writing":
-        tool_policy = "none"       # §16: фанфик не требует web/memory
-    if wants_tools or task_kind in ("research", "comparison", "media_download",
-                                    "media_generation", "transcription",
-                                    "summarization"):
-        tool_policy = "auto"
-
-    # §12: явная инструкция длины имеет высокий приоритет над task-kind.
-    if explicit_short and not explicit_long:
-        extent = "compact"
-        source = "explicit"
-    elif explicit_long:
-        extent = "longform"
-        source = "explicit"
-    elif task_kind:
-        source = "task-kind"
-    else:
-        source = "default"
-
-    # (3) короткий вопрос без семантических маркеров -> micro (§8 fast path).
-    if task_kind == "" and not explicit_long and not explicit_short \
-            and stripped.endswith("?") \
+    if stripped.endswith("?") \
             and len(_WORD_SPLIT_RE.split(stripped)) <= 3:
-        task_kind = "direct_answer"
-        extent = "micro"
-        structure = "answer"
-        source = "default"
-
-    if task_kind == "direct_answer":
-        if _YESNO_RE.match(low):
-            extent = "micro"
-
-    if task_kind == "":
-        task_kind = "social_chat"
-        structure = "chat"
-        if extent == "normal":
-            extent = "compact"
-
-    # §23 Delivery Router policy: media-задача → media-канал (тул доставляет
-    # медиа сам; Writer-регенерация не нужна при успехе, §18-I).
-    delivery = "rich" if (task_kind == "research"
-                          or structure == "report") else "plain"
-    if task_kind in ("media_download", "media_generation"):
-        delivery = "media"
-    return ResponsePlan(task_kind=task_kind, extent=extent,
-                        structure=structure, delivery_hint=delivery,
-                        tool_policy=tool_policy, source=source)
+        return ResponsePlan(task_kind="direct_answer", extent="micro",
+                            structure="answer", delivery_hint="plain",
+                            tool_policy="auto", source="default")
+    return ResponsePlan(source="default")
 
 
 # ── ASAP 7 (§1.8/§2.5): explicit-form parser — deterministic override ────────

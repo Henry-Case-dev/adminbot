@@ -504,13 +504,15 @@ class TestToolPathMaxTokens:
 # ── §18-I/§23: media-ветка Delivery Router ──────────────────────────────────
 
 class TestMediaDelivery:
-    def test_classify_media_tasks_route_to_media_channel(self):
+    def test_fallback_classify_neutral_media_from_l1_only(self):
+        """REQ-DELTA-02-NO-WORD-HARDCODE: fallback-классификатор не угадывает
+        media-задачу по словам («скачай», «нарисуй») - media-план приходит
+        только из L1/tool-плана (§18-I/§23), delivery остаётся plain."""
         dl = rext.classify_request("скачай https://v.example/watch?v=x")
-        assert dl.task_kind == "media_download"
-        assert dl.delivery_hint == "media"
+        assert dl.task_kind == "social_chat"
+        assert dl.delivery_hint == "plain"
         gen = rext.classify_request("бот, нарисуй дракона")
-        assert gen.task_kind == "media_generation"
-        assert gen.delivery_hint == "media"
+        assert gen.delivery_hint == "plain"
         # не-media планы не менялись
         assert rext.classify_request("бот, как дела?").delivery_hint == "plain"
 
@@ -547,29 +549,33 @@ class TestMediaDelivery:
 # ── §20: clarification — один конкретный вопрос ──────────────────────────────
 
 class TestClarification:
+    """§20: контракт clarification_question - план-дривен (поля task_kind).
+    REQ-DELTA-02: fallback-классификатор слова не маршрутизирует, поэтому
+    media/transcription-планы для контракта строятся явно (в проде их даёт
+    L1 Planner; clarification-гейт в сервисе - legacy/fallback §1.9)."""
+
     def test_missing_target_one_concrete_question(self):
-        plan = rext.classify_request("скачай это")
-        assert plan.task_kind == "media_download"
+        plan = ResponsePlan(task_kind="media_download")
         question = rext.clarification_question(plan, has_target=False)
         assert question
         assert "уточн" not in question.lower()   # не «уточните пожалуйста»
         assert "ссылк" in question.lower()       # конкретика: что нужно
 
     def test_resolvable_target_no_question(self):
-        plan = rext.classify_request("скачай https://v.example/1")
+        plan = ResponsePlan(task_kind="media_download")
         assert rext.clarification_question(plan, has_target=True) == ""
 
     def test_media_generation_needs_no_target(self):
-        plan = rext.classify_request("бот, нарисуй дракона")
+        plan = ResponsePlan(task_kind="media_generation")
         assert rext.clarification_question(plan, has_target=False) == ""
 
     def test_non_media_plan_no_question(self):
         plan = rext.classify_request("бот, подробно объясни каналы Go")
+        assert plan.task_kind == "social_chat"
         assert rext.clarification_question(plan, has_target=False) == ""
 
     def test_transcription_without_target_asks(self):
-        plan = rext.classify_request("транскрибируй")
-        assert plan.task_kind == "transcription"
+        plan = ResponsePlan(task_kind="transcription")
         assert rext.clarification_question(plan, has_target=False)
 
 

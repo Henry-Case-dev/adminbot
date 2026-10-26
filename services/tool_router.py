@@ -198,6 +198,29 @@ _TIME_RANGE_LABELS = {
     "all": "за всё время",
 }
 
+# ── P0-DELTA (26.10.2026, дефекты 2/4 аудита p0-delta-analysis) ─────────
+# «Мои сообщения» = uid говорящего (ctx.user_id); значение author/person
+# «123»/«id:123»/«user:123» — явный Telegram uid. Похожие ники НЕ сливаются.
+_ME_ALIASES = frozenset({"me", "self", "myself", "я", "себя", "мои"})
+_UID_RE = re.compile(r"^(?:id:|user:)?(\d{3,})$")
+
+# Происхождение фактов dig (дефект 5/provenance): пересказ/вывод не выдаются
+# за независимые свидетельства и за дословные сообщения (kind="msg"
+# сниппеты — прямые цитаты корпуса). Неизвестный origin — сам origin.
+_DIG_FACT_ORIGIN_LABELS = {
+    "chat_history": "[пересказ из чата]",
+    "derived_belief": "[вывод бота]",
+    "user_memory": "[запомнено]",
+    "history_import": "[импорт истории]",
+    "search_fact": "[из поиска]",
+    "web_content": "[из статьи]",
+    "youtube_content": "[из видео]",
+    "video_transcript": "[из видео]",
+    "voice_transcript": "[из голосового]",
+    "bot_self_reply": "[прошлые слова бота]",
+    "bot_direct_reply": "[прошлые слова бота]",
+}
+
 _TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
 
 # Валидация ссылок инструментов (F8): только http(s)-URL.
@@ -757,33 +780,74 @@ class ToolRouter:
             # прежний путь байт-в-байт.
             return await self._query_chat_memory_stats(arguments, stats_arg,
                                                        ctx)
-        time_range = str(arguments.get("time_range") or "all")
-        if time_range not in _TIME_RANGE_SECONDS:
-            time_range = "all"
-        since = _time_range_since(time_range)
+        # P0-DELTA (дефект 4): author в ОБЫЧНОМ режиме — тот же единый
+        # резолв субъекта, что в stats/dig (Telegram uid → «me/self» = uid
+        # говорящего → алиас/имя set-семантикой). Не найден/неоднозначен →
+        # честный unsupported: поиск без фильтра автора не выполняется,
+        # чужие сообщения не выдаются за сообщения субъекта.
+        author_ids: tuple[int, ...] = ()
+        author_arg = self._dig_person_text(arguments.get("author"))
+        if author_arg is not None:
+            uid, detail, _terms = self._resolve_person_identity(author_arg,
+                                                                ctx)
+            if uid is None:
+                return self._identity_unsupported_payload(
+                    "query_chat_memory", "author", author_arg, detail)
+            author_ids = (uid,)
+        # P0-DELTA (дефект 2): произвольный период year_from/year_to (годы)
+        # пересекается с legacy time_range (since = max). Инвалидный явный
+        # период → честный unsupported, не молчаливое игнорирование.
+        time_range, since, until, year_from, year_to, invalid = \
+            self._parse_memory_period(arguments)
+        if invalid:
+            return self._period_unsupported_payload(year_from, year_to)
         lines: list[str] = []
+        indirect_lines: list[str] = []
 
-        # 1. FTS по L1-сообщениям (search_long_term) с пост-фильтром окна.
+        # 1. FTS по L1-сообщениям (search_long_term): фильтры окна/автора —
+        # В SQL ДО LIMIT (P0-DELTA дефект 3: top-40 по rank больше не съедает
+        # узкое окно/автора пост-фильтром; пост-фильтр ниже — страховка для
+        # memory-заглушек без SQL-фильтров). Новые kwargs передаются только
+        # при реально заданном фильтре: дефолтный вызов — прежний байт-в-байт.
+        search_kwargs: dict = {}
+        if since:
+            search_kwargs["since_ts"] = since
+        if until:
+            search_kwargs["until_ts"] = until
+        if author_ids:
+            search_kwargs["author_ids"] = author_ids
         rows = await self.deps.memory.search_long_term(
-            ctx.chat_id, keywords(query), limit=_MEMORY_FTS_LIMIT)
+            ctx.chat_id, keywords(query), limit=_MEMORY_FTS_LIMIT,
+            **search_kwargs)
         # T-678 (прод-лог): реальные строки — aiosqlite.Row, у которого НЕТ
         # .get (AttributeError в проде) → нормализация в dict ДО обработки.
         rows = [dict(row) for row in rows]
         for row in rows:
-            ts = _format_timestamp(row.get("timestamp"))
-            if since and int(row.get("timestamp") or 0) < since:
+            ts = int(row.get("timestamp") or 0)
+            if since and ts < since:
+                continue
+            if until and ts > until:
                 continue
             name = self._resolve_name(row)
-            stamp = f" [{ts}]" if ts else ""
+            ts_fmt = _format_timestamp(row.get("timestamp"))
+            stamp = f" [{ts_fmt}]" if ts_fmt else ""
             text = str(row.get("text") or "").strip()
             if text:
                 lines.append(f"[{name}{stamp}]: {text}")
+        fts_shown = len(lines)
 
-        # 1b. Счётчик + диапазон дат (best-effort; ошибка не роняет результат).
+        # 1b. Счётчик + диапазон дат (best-effort; ошибка не роняет результат)
+        # — ТЕ ЖЕ фильтры, что у сниппетов (один источник, показ и число
+        # согласованы). `since_ts` — легаси-kwargs, новые — при фильтре.
         stats = None
         try:
+            count_kwargs: dict = {"since_ts": since}
+            if until:
+                count_kwargs["until_ts"] = until
+            if author_ids:
+                count_kwargs["author_ids"] = author_ids
             stats = await self.deps.memory.count_mentions(
-                ctx.chat_id, keywords(query), since_ts=since)
+                ctx.chat_id, keywords(query), **count_kwargs)
         except Exception:
             logger.warning("[tools] query_chat_memory count failed | query=%r",
                            query, exc_info=True)
@@ -791,25 +855,35 @@ class ToolRouter:
             logger.info("[tools] query_chat_memory | query=%r | count=%d | since_ts=%d",
                         query, stats["count"], since)
 
-        # 2. Векторный поиск по фактам архива/графа (только широкие окна).
-        if not lines and time_range in ("last_month", "all"):
+        # 2. Векторный поиск по фактам архива/графа (только широкие окна и
+        # БЕЗ фильтра автора: vector/RAG не умеют фильтровать по автору —
+        # честно не смешиваем). P0-DELTA (дефект 5/provenance): производные
+        # факты — обобщения/пересказы, рендерятся отдельным маркированным
+        # блоком, не как дословные сообщения.
+        if not lines and not author_ids \
+                and time_range in ("last_month", "all"):
             facts = await self.deps.memory.vector_search(
                 ctx.chat_id, query, limit=_MEMORY_VEC_LIMIT)
-            lines.extend(str(fact).strip() for fact in facts if str(fact).strip())
+            indirect_lines.extend(str(fact).strip() for fact in facts
+                                  if str(fact).strip())
 
-        # 3. Гибридный RAG-контекст, если всё ещё пусто.
-        if not lines:
+        # 3. Гибридный RAG-контекст, если всё ещё пусто (тот же запрет
+        # смешивания при фильтре автора).
+        if not lines and not indirect_lines and not author_ids:
             # 10.20 (БЛОК 2.6, ADR-1020-2): ASC-хронология перед рендером.
             rag = await self.deps.memory.get_rag_context(
                 ctx.chat_id, query, sort_by_timestamp=True)
             if rag and str(rag).strip():
-                lines.append(str(rag).strip())
+                indirect_lines.append(str(rag).strip())
 
-        if not lines and not (isinstance(stats, dict) and stats.get("count")):
+        if not lines and not indirect_lines and not \
+                (isinstance(stats, dict) and stats.get("count")):
             return f"По запросу «{query}» в памяти ничего не найдено."
         parts: list[str] = []
         if isinstance(stats, dict) and stats.get("count"):
             period = _TIME_RANGE_LABELS.get(time_range, "за всё время")
+            if year_from is not None or year_to is not None:
+                period = self._period_label(year_from, year_to, period)
             stamp = ""
             if stats.get("first_seen") or stats.get("last_seen"):
                 first = _format_timestamp(stats.get("first_seen"))
@@ -827,7 +901,19 @@ class ToolRouter:
                 parts.append(
                     f"Найдено {stats['count']} упоминаний «{query}» "
                     f"{period}{stamp}")
+            # P0-DELTA (дефект 3): честное покрытие показа — счётчик
+            # корпус-полный, сниппеты — верх по релевантности; модель не
+            # принимает показанное за весь корпус.
+            if fts_shown and int(stats["count"]) > fts_shown:
+                parts.append(
+                    f"Показано {fts_shown} из {stats['count']} сообщений "
+                    f"(верх по релевантности); при необходимости сузь "
+                    f"период или автора.")
         parts.extend(lines)
+        if indirect_lines:
+            parts.append("Контекст из памяти (обобщённые факты и пересказ, "
+                         "не дословные сообщения):")
+            parts.extend(indirect_lines)
         return _truncate("\n".join(parts), _MEMORY_MAX_SYMBOLS)
 
     # ── query_chat_memory stats-режим (MCA-15 T-4929, ADR-1028-12 D3/D4) ──
@@ -851,6 +937,146 @@ class ToolRouter:
             return matches.pop(), ""
         return None, ("author_ambiguous" if len(matches) > 1
                       else "author_unresolved")
+
+    # ── P0-DELTA (26.10.2026, дефекты 2/4 аудита p0-delta-analysis) ─────
+
+    def _resolve_person_identity(self, raw, ctx: ToolContext
+                                 ) -> tuple[int | None, str, list[str]]:
+        """Единый резолв субъекта анализа для author/person-аргументов
+        инструментов памяти (дефект 4: «искать по Telegram ID, а не имени»).
+
+        Порядок: Telegram uid («123», «id:123», «user:123») → «me/self/я» =
+        uid говорящего (``ctx.user_id``) → алиас/имя (set-семантика
+        `_resolve_author_id`: ровно одно совпадение; 0 → author_unresolved;
+        >1 → author_ambiguous — похожие ники НЕ сливаются, «первое
+        совпадение побеждает» устранено).
+
+        Возвращает (uid|None, detail, name_terms): name_terms — OR-токены
+        имени (для facts/target_user-фильтров); у uid/me — пусто (вызывающий
+        добавляет каноническое имя резолвенного uid). Никогда не бросает."""
+        text = str(raw or "").strip()
+        if not text:
+            return None, "", []
+        low = text.casefold()
+        if low in _ME_ALIASES:
+            uid = getattr(ctx, "user_id", None)
+            try:
+                uid = int(uid) if uid is not None else None
+            except (TypeError, ValueError):
+                uid = None
+            if uid is None:
+                return None, "caller_unknown", []
+            return uid, "", []
+        m = _UID_RE.match(low)
+        if m:
+            return int(m.group(1)), "", []
+        resolved, detail = self._resolve_author_id(text)
+        return resolved, detail, keywords(text)
+
+    @staticmethod
+    def _identity_unsupported_payload(tool: str, argument: str, value: str,
+                                      detail: str) -> str:
+        """Дефект 4: честный JSON-отказ, когда субъект анализа НЕ
+        идентифицирован. Фильтр автора не исчезает молча (прежний путь
+        превращал имя в OR-токены и выдавал упоминания разными людьми за
+        «сообщения субъекта»); поиск без фильтра не выполняется. Reasons —
+        существующий словарь идентичности (stats-контракт)."""
+        message = {
+            "author_ambiguous":
+                f"«{value}» соответствует нескольким участникам чата "
+                f"(похожие имена не объединяются): уточни точное "
+                f"имя/алиас или укажи Telegram id",
+            "caller_unknown":
+                "«мои сообщения»: на этом ходу неизвестен uid говорящего",
+        }.get(detail,
+              f"субъект «{value}» не найден в алиасах чата: фильтр по "
+              f"автору НЕ применён; уточни точное имя/алиас, укажи "
+              f"Telegram id (или «me») либо убери {argument} для поиска "
+              f"по упоминаниям разными людьми")
+        return json.dumps({
+            "status": "unsupported",
+            "reason": (detail or "subject_unresolved"),
+            "tool": tool,
+            "argument": argument,
+            "value": value,
+            "message": message,
+        }, ensure_ascii=False)
+
+    @staticmethod
+    def _optional_year(raw) -> tuple[int | None, bool]:
+        """(year|None, was_given) для period-параметров инструментов памяти
+        (дефект 2). Отсутствует/пусто → (None, False). Присутствует, но вне
+        [2000, текущий] или не число → (None, True) — вызывающий отвечает
+        честным unsupported вместо молчаливого игнорирования периода."""
+        if raw in (None, ""):
+            return None, False
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            return None, True
+        if value < _DIG_YEAR_MIN or value > datetime.datetime.now().year:
+            return None, True
+        return value, False
+
+    @classmethod
+    def _parse_memory_period(cls, arguments: dict) -> tuple:
+        """(time_range, since, until, year_from, year_to, invalid) — окно
+        инструментов памяти (дефект 2). time_range — legacy enum; годовой
+        диапазон year_from/year_to аддитивен: since = max(...), until =
+        конец года year_to. Явно инвалидный период (вне диапазона/год_to <
+        year_from) → invalid=True (вызывающий отвечает unsupported)."""
+        time_range = str(arguments.get("time_range") or "all")
+        if time_range not in _TIME_RANGE_SECONDS:
+            time_range = "all"
+        since = _time_range_since(time_range)
+        year_from, given_from = cls._optional_year(arguments.get("year_from"))
+        year_to, given_to = cls._optional_year(arguments.get("year_to"))
+        invalid = ((given_from and year_from is None)
+                   or (given_to and year_to is None)
+                   or (year_from is not None and year_to is not None
+                       and year_to < year_from))
+        if year_from is not None:
+            start = cls._year_bounds(year_from)[0]
+            since = max(since, start) if since else start
+        until = cls._year_bounds(year_to)[1] if year_to is not None else 0
+        return time_range, since, until, year_from, year_to, invalid
+
+    @staticmethod
+    def _period_unsupported_payload(year_from, year_to) -> str:
+        """Честный отказ на инвалидный период (дефект 2): окно не исчезает
+        молча, модель может повторить с валидными годами."""
+        return json.dumps({
+            "status": "unsupported",
+            "reason": "invalid_period",
+            "period": {"year_from": year_from, "year_to": year_to},
+            "message": ("период задан неверно: годы вне [2000, текущий] "
+                        "или year_to раньше year_from; повтори с "
+                        "year_from <= year_to"),
+        }, ensure_ascii=False)
+
+    @staticmethod
+    def _period_label(year_from, year_to, fallback: str) -> str:
+        """Человечная метка явного периода для заголовка счётчика."""
+        if year_from is not None and year_to is not None:
+            if year_from == year_to:
+                return f"за {year_from} год"
+            return f"за {year_from}-{year_to} годы"
+        if year_from is not None:
+            return f"с {year_from} года"
+        if year_to is not None:
+            return f"до {year_to} года"
+        return fallback
+
+    @staticmethod
+    def _fact_origin_label(row: dict) -> str:
+        """Дефект 5 (provenance): метка происхождения факта графа в рендере
+        dig — пересказ/вывод не выдаются за дословные сообщения и за
+        независимые свидетельства. Неизвестный origin — сам origin; пустой —
+        честная «память»."""
+        origin = str(row.get("origin") or "").strip()
+        if not origin:
+            return "[память]"
+        return _DIG_FACT_ORIGIN_LABELS.get(origin, f"[{origin}]")
 
     @staticmethod
     def _stats_unsupported_payload(metric: str, reason: str,
@@ -876,10 +1102,6 @@ class ToolRouter:
         from services import chat_statistics as _cs
         db = self.deps.db if self.deps.db is not None \
             else getattr(self.deps.memory, "db", None)
-        time_range = str(arguments.get("time_range") or "all")
-        if time_range not in _TIME_RANGE_SECONDS:
-            time_range = "all"
-        since = _time_range_since(time_range)
         metric = str(stats_arg.get("metric") or _cs.METRIC_MESSAGES).strip()
         match_mode = str(stats_arg.get("match_mode")
                          or _cs.MATCH_TOKEN).strip()
@@ -898,13 +1120,25 @@ class ToolRouter:
         quote_forward = str(stats_arg.get("quote_forward")
                             or _cs.QUOTE_INCLUDE).strip()
         sender = str(stats_arg.get("sender") or _cs.SENDER_ANY).strip()
+        # P0-DELTA (дефект 2): годовой диапазон в точной статистике — те же
+        # year_from/year_to, что в обычном режиме (interval_to SQL-фильтр).
+        time_range, since, until, year_from, year_to, invalid = \
+            self._parse_memory_period(arguments)
+        if invalid:
+            return self._stats_unsupported_payload(
+                metric, "invalid_period",
+                f"year_from={year_from} year_to={year_to}")
         author_ids: tuple[int, ...] = ()
         author_name = str(stats_arg.get("author") or "").strip()
         if author_name:
-            resolved, detail = self._resolve_author_id(author_name)
+            # P0-DELTA (дефект 4): тот же единый резолв субъекта (uid →
+            # «me/self» → алиас/имя). R16/mca-03: имя — подпись, не ключ;
+            # не угадываем и не сливаем двух людей. Reason — существующий
+            # `ambiguous_identity` (detail различает
+            # ambiguous/unresolved/caller_unknown).
+            resolved, detail, _terms = self._resolve_person_identity(
+                author_name, ctx)
             if resolved is None:
-                # R16/mca-03: имя — подпись, не ключ; не угадываем и не
-                # сливаем двух людей. Reason — существующий `ambiguous_identity`.
                 _mca_events.emit_mca_event(
                     "chat_statistics", outcome="skipped",
                     component="tool_router", stage="measurement",
@@ -918,7 +1152,8 @@ class ToolRouter:
         query = _cs.StatsQuery(
             chat_id=ctx.chat_id, metric=metric, match_mode=match_mode,
             text=text, terms=query_terms, author_ids=author_ids,
-            interval_from=(since or None), quote_forward=quote_forward,
+            interval_from=(since or None), interval_to=(until or None),
+            quote_forward=quote_forward,
             sender_kinds=sender)
         try:
             result = await _cs.measure(db, query)
@@ -957,11 +1192,52 @@ class ToolRouter:
             # major-2(а): query «(\d+|несколько|пару) лет назад» без year →
             # год = now.year − N (spec §3.2.1 п.3(б), фикс-раунд).
             year = self._dig_year_from_query(query)
+        # P0-DELTA (дефект 2): опциональный year_to — период [year..year_to],
+        # а не один календарный год (многолетний диапазон выразим без
+        # второго роутера). Инвалидный явный период → честный unsupported.
+        year_to = None
+        year_to_raw = arguments.get("year_to")
+        if year_to_raw not in (None, ""):
+            year_to = self._dig_year(year_to_raw)
+            if year_to is None:
+                return json.dumps({
+                    "status": "unsupported", "reason": "invalid_period",
+                    "message": "year_to указан, но вне диапазона [2000, "
+                               "текущий год]; повтори с валидным годом"},
+                    ensure_ascii=False)
         bounds = self._year_bounds(year) if year is not None else None
         if year is not None and bounds is None:
             logger.warning("[tools] dig year вне диапазона | year=%s", year)
+        if year_to is not None:
+            if year is not None and year_to < year:
+                return json.dumps({
+                    "status": "unsupported", "reason": "invalid_period",
+                    "message": f"период задан неверно: year_to ({year_to}) "
+                               f"раньше year ({year}); нужен year <= year_to"},
+                    ensure_ascii=False)
+            start = bounds[0] if bounds else 0
+            bounds = (start, self._year_bounds(year_to)[1])
         person = self._dig_person_text(arguments.get("person"))
-        person_uid, person_terms = self._dig_person_terms(person)
+        # P0-DELTA (дефект 4): единый резолв субъекта (Telegram uid →
+        # «me/self» = uid говорящего → алиас/имя set-семантикой, дубликаты
+        # имён обнаруживаются). Ненайден/неоднозначен → честный unsupported:
+        # фильтр автора НЕ исчезает молча и имя не превращается в OR-токены
+        # (чужие сообщения не выдаются за сообщения субъекта).
+        person_uid = None
+        person_terms: list[str] = []
+        if person is not None:
+            person_uid, person_detail, person_terms = \
+                self._resolve_person_identity(person, ctx)
+            if person_uid is None:
+                return self._identity_unsupported_payload(
+                    "dig_into_lore", "person", person, person_detail)
+            # каноническое имя резолвенного uid — в name-формы для
+            # facts/target_user-фильтров (uid в тексте не встречается).
+            canonical = self._resolve_name(
+                {"user_id": person_uid, "author_name": ""})
+            for word in keywords(canonical):
+                if word and word not in person_terms:
+                    person_terms.append(word)
         tokens = keywords(query)
         # Имена-формы (person) расширяют запрос OR-токенами (spec п.2).
         merged = list(dict.fromkeys(tokens + person_terms))
@@ -1019,8 +1295,20 @@ class ToolRouter:
         #     пост-фильтр периода/user_id; рендер «[Имя YYYY-MM-DD]: текст».
         if mode in ("messages", "both"):
             try:
+                # P0-DELTA (дефекты 2-3): фильтры окна/автора — В SQL ДО
+                # LIMIT (top-40 по rank больше не теряет старые периоды и
+                # сообщения персоны); пост-фильтры ниже — страховка для
+                # memory-заглушек без SQL-фильтров. Новые kwargs — только
+                # при заданном фильтре (дефолтный вызов прежний).
+                dig_search_kwargs: dict = {}
+                if bounds:
+                    dig_search_kwargs["since_ts"] = bounds[0]
+                    dig_search_kwargs["until_ts"] = bounds[1]
+                if person_uid is not None:
+                    dig_search_kwargs["author_ids"] = (person_uid,)
                 rows = await self.deps.memory.search_long_term(
-                    ctx.chat_id, merged, limit=_MEMORY_FTS_LIMIT)
+                    ctx.chat_id, merged, limit=_MEMORY_FTS_LIMIT,
+                    **dig_search_kwargs)
                 rows = [dict(row) for row in rows]     # T-678: aiosqlite.Row
                 for row in rows:
                     ts = int(row.get("timestamp") or 0)
@@ -1128,14 +1416,23 @@ class ToolRouter:
                             # канонический рендер факта (§2.2, kind="fact"):
                             # «[ММ.ГГГГ | Автор | fact:ID]: текст (+ устарело)».
                             # Автор — target_user строки (R16, не выдумываем).
+                            # P0-DELTA (дефект 5/provenance): метка
+                            # происхождения — пересказ/вывод бота не
+                            # выдаются за дословные сообщения и независимые
+                            # свидетельства; архивные убеждения помечены.
                             ts_render = ts if ts else None
-                            fact_lines.append(format_context_item(
+                            line = format_context_item(
                                 ts=ts_render,
                                 author=row.get("target_user"),
                                 item_id=resolve_item_id(
                                     fact_id=row.get("id")),
                                 text=text, kind="fact",
-                                stale=bool(_stale_suffix(ts_render))))
+                                stale=bool(_stale_suffix(ts_render)))
+                            if str(row.get("status") or "") \
+                                    == "archived_belief":
+                                line = f"{line} (архивное убеждение)"
+                            fact_lines.append(
+                                f"{self._fact_origin_label(row)} {line}")
                             if len(fact_lines) >= max_facts:
                                 break
             except asyncio.CancelledError:
@@ -1262,6 +1559,15 @@ class ToolRouter:
                 "authors": authors_list,
                 "first_seen": first_seen or None,
                 "last_seen": last_seen or None,
+                # P0-DELTA (дефект 3): честное покрытие показа — счётчик
+                # корпус-полный, сниппеты/факты — верх по релевантности;
+                # показанное не выдаётся за весь корпус.
+                "coverage": {
+                    "messages_total": int(total_mentions),
+                    "messages_shown": len(msg_lines),
+                    "facts_shown": len(fact_lines),
+                    "sampling": "top_by_relevance",
+                },
                 "snippets": msg_lines,
                 "facts": fact_lines,
             }
@@ -1276,6 +1582,13 @@ class ToolRouter:
             "mentions_by_authors": mentions_by_authors,
             "first_seen": first_seen or None,
             "last_seen": last_seen or None,
+            # P0-DELTA (дефект 3): честное покрытие показа (см. K1-ветку).
+            "coverage": {
+                "messages_total": int(total_mentions),
+                "messages_shown": len(msg_lines),
+                "facts_shown": len(fact_lines),
+                "sampling": "top_by_relevance",
+            },
             "snippets": msg_lines,
             "facts": fact_lines,
         }
@@ -3345,27 +3658,6 @@ class ToolRouter:
         if not text:
             return None
         return text[:_DIG_PERSON_MAX_CHARS]
-
-    def _dig_person_terms(self, person: str | None
-                          ) -> tuple[int | None, list[str]]:
-        """(user_id|None, OR-токены) для person: алиас-значение (casefold) →
-        user_id (фильтр по user_id строк FTS); формы имени — OR-токены
-        (ключевые слова = person-имя; фолбэк каскада в обратную сторону)."""
-        if person is None:
-            return None, []
-        aliases = self.deps.aliases
-        mapping = getattr(aliases, "_aliases", None)
-        person_uid = None
-        if isinstance(mapping, dict) and mapping:
-            low = person.casefold()
-            for key, value in mapping.items():
-                if str(value).casefold() == low:
-                    try:
-                        person_uid = int(key)
-                    except (TypeError, ValueError):
-                        person_uid = None
-                    break
-        return person_uid, keywords(person)
 
     # ── helpers ───────────────────────────────────────────────────
 
