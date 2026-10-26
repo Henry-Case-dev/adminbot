@@ -214,8 +214,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00070",
@@ -231,8 +239,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00072",
@@ -248,8 +264,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00083",
@@ -333,8 +357,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00124",
@@ -350,8 +382,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00126",
@@ -367,8 +407,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00128",
@@ -384,8 +432,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00130",
@@ -401,8 +457,16 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
+        }
+      ]
     },
     {
       "source_id": "M00136",
@@ -3455,7 +3519,7 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PARTIAL",
+      "status": "VERIFIED",
       "evidence": [
         {
           "ref": "Кодо-путь инцидента + runtime-верификация источника фактов: пул year_back → композиция → send/delegation; provenance-лейбл «Переслано: источник» (is_forward/forward_source, Epic 28) доходит до LLM; канон отделяет новости от событий чата; self-echo golden по origin (ADR-1014-2 D6).",
@@ -3463,9 +3527,16 @@
           "type": "test",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-nostalgia.md",
           "artifact_sha256": "aafe632cec511a36c6b36334a35ba312e8217804fff23b2a1dbe93ab99c33947"
+        },
+        {
+          "ref": "Прод-верификация источника инцидента 26.10 (read-only SQLite mode=ro, 3 одиночных SSH-прогона с соблюдением fail2ban-интервалов): производитель однозначно установлен — Ностальгия year_back→initiative (nostalgia_log id=354, kind=year_back, path=initiative, ts за 4 c до отправки); пост mca_bot_outputs output_id=898 (tg 1177388, delivered); эпизоды-источники smart_messages 494691 (is_forward=1, forward_source «☠️Мертвые страницы☠️» — репост внешней новости о смерти спортсменки, гипотеза владельца подтверждена) и 494693 (реплика Vasek); year_lines тика совпадают с исходными сообщениями дословно.",
+          "observation": "Цепочка пост→тик→year_lines→исходные сообщения верифицирована по прод-данным с точным текстовым совпадением; атрибуция маршрута однозначна (source_feature=mca09_intents — канал доставки, не производитель). На проде 2.58.134 provenance-лейбл «Переслано» живёт в chat-context/facts, но year_back-путь подал строки без метки (в year_lines тика 354 маркера нет) — forward-природа новости была невидима LLM. При семантике кандидата 9473a5fa репост 494691 получил бы «Переслано: ☠️Мертвые страницы☠️» и был бы помечен как внешняя новость. Self-decline guard на проде отсутствует (is_self_declining_text: grep 0/0) — текст инцидента матчится вердикт-регэкспом кандидата, юнит-тест test_incident_shape_declined_not_posted (tests/test_nostalgia_worker.py:627) ассертит decline до отправки (bot.calls == []). Исправление направлено на фактический маршрут (nostalgia worker), отдельный исправляющий маршрут не создан.",
+          "type": "test",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/nost-source-verify.md",
+          "artifact_sha256": "6840891cfdc5e6a2ab46ffdffb82413ec4515717cda6b3ad5d64f86692b6f365"
         }
       ],
-      "evidence_note": "PARTIAL: реализована runtime-верификация источника и документирован код-путь; прод-лог инцидента — остаток для лайна с prod-доступом."
+      "evidence_note": "VERIFIED: остаток PARTIAL закрыт — прод-логи инцидента сняты read-only (output_id 898, nostalgia_log 354, smart_messages 494691/494693); producer-цепочка и provenance верифицированы на прод-данных; runtime-лейбл и guard-тест подтверждены на кандидате 9473a5fa (guard на проде 2.58.134 ещё не задеплоен)."
     },
     {
       "source_id": "L00110",
