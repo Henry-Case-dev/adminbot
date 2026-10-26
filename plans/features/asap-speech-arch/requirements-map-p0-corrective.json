@@ -3430,9 +3430,34 @@
       "acceptance": "Отчёт объясняет, почему предыдущий деплой был остановлен, со ссылкой на артефакт причины.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Честный пробел: доставленный отчёт (§1–§8) не содержит объяснения, почему был остановлен предыдущий деплой, и не ссылается на артефакт причины (release-ревью review-release-p0.md §4: честный FAILED meta residual 1/8 до исправления DELTA-DEPTH). Нужен точечный абзац-дополнение отчёта; остальной цикл это не блокирует."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md §4 «Честные остатки»",
+          "observation": "Причина остановки выката зафиксирована как честный FAILED-остаток: meta 1/8 на hostile_rebuff-ответе (new_code_B вариант #2, анонс «Ну давай…», критерий «0 из 8» не достигнут), строка CORR CORE-META-INTRO-REMOVE = FAILED, live-evidence probes_release.md критерий 1, правка направлена в P0 DELTA.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md «Вердикт: PASS - residual 0/6»",
+          "observation": "Повторная контрольная проба после DELTA-DEPTH на проде 2.58.134: meta-анонсов 0/6 по всем шести ответам (TOTAL 0/6, meta_report.txt/json) — причина остановки устранена, выкат выполнен после перепроверки.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        },
+        {
+          "candidate_commit": "ebdb6136fcbc6ad9d0a6a505ed93444e3f293f72",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §8 «Почему был остановлен предыдущий деплой»",
+          "observation": "Отчёт объясняет остановку: релиз-кандидат 86ef2a64 остановлен контрольной живой пробой (1 из 8 — анонс «Ну давай…» на грубом плане hostile_rebuff, критерий «0 из 8» не достигнут), кандидат исправлен (DELTA-DEPTH), выкат 2.58.134 выполнен после повторной проверки (анонсов 0 из 6, грубая форма уходит в разбор); ссылки на review-release-p0.md §4 и meta-reprobe-258134.md присутствуют.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "6d09259420fcdf1759df7423b23c85874e979e05a38ba1f07abe4e43a01473b0"
+        }
+      ],
+      "status_note": "Закрыто дополнением отчёта (ebdb6136): §8 называет причину остановки и ссылается на артефакты (review-release-p0.md §4, meta-reprobe-258134.md). Факт-база пост-кандидатная по времени (остановка произошла после bd6d5fff; review/probes/reprobe созданы в эпоху релиза 86ef2a64→076f7391), поэтому bd6d5fff-биндинга нет — ожидаемая структурная пометка review-гейта того же класса, что REPORT-VERSION/RESIDUAL/PLAIN-LANGUAGE."
     },
     {
       "source_id": "L00204",
@@ -3478,9 +3503,26 @@
       "acceptance": "Отчёт сообщает, что обнаружено в 13 изменённых файлах production, с итогом по каждому.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Честный пробел: доставленный отчёт (§1–§8) не упоминает проверку 13 изменённых файлов production (итог аудита: 13 untracked-остатков — бэкапы info_text эпиков, осиротевший journal, отложенные медиа, тест-дамп, одноразовый скрипт; git diff пуст, правок продукта нет — prod-worktree-alias.md §1). Нужен точечный абзац-дополнение отчёта."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §1 (таблица 13 файлов) + §4",
+          "observation": "Факт-база итога: все 13 путей — untracked-остатки августа–октября (9 бэкапов info_text.md эпохи epic44–epic83, осиротевший SQLite-journal миграционной подготовки 01.10, pre_migration_backup/ с отложенными медиа 2.58.50, тестовый дамп подписок 27.08, одноразовый pre-check скрипт 03.10); git diff пуст — ни один не правит отслеживаемый файл продукта; документ входит в дерево bd6d5fff.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "ebdb6136fcbc6ad9d0a6a505ed93444e3f293f72",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §8 «Итог по 13 файлам production»",
+          "observation": "Отчёт приводит итог по каждому классу 13 файлов (бэкапы info_text эпиков, осиротевший journal, каталог отложенных картинок 2.58.50, тестовый дамп подписок, одноразовый скрипт пре-чек), констатирует отсутствие продуктовых патчей (git diff пуст), сохранение без удалений и деплой явным checkout SHA без reset/clean/stash; ссылка на prod-worktree-alias.md §1 присутствует.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "6d09259420fcdf1759df7423b23c85874e979e05a38ba1f07abe4e43a01473b0"
+        }
+      ],
+      "status_note": "Закрыто дополнением отчёта (ebdb6136): §8 даёт итог по классам 13 untracked-остатков со ссылкой на prod-worktree-alias.md §1; устойчивость сохранения подтверждена деплоями 2.58.131–134 (release-258134/deploy.md «Pre-state»)."
     },
     {
       "source_id": "L00206",
@@ -3526,9 +3568,26 @@
       "acceptance": "Отчёт сообщает, что сделано со старыми недостоверными воспоминаниями, с id записей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Честный пробел: отчёт §4 описывает меру («старые выдуманные истории помечены provenance, собственные прошлые ответы исключены из фактического RAG»), но не приводит id записей (lore_stories id=3, id=4 — точечный карантин, текст сохранён; см. old-lore-audit.md §3), как требует приёмка. Нужен точечный абзац-дополнение отчёта."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "old-lore-audit.md §1–§3 (provenance-аудит, id=4, self-echo)",
+          "observation": "Факт-база: lore_stories id=4 — 1071 из 1658 символов (65%) текста дословно совпадают с доставленным ответом бота tg 1175257 (lcp=1071, story_in_bot=false); у старых lore_stories не было provenance-колонок (database.py:2317-2327), self-echo-строки попадали в payload без меток; вывод аудита — точечный provenance-карантин вместо mass delete.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        },
+        {
+          "candidate_commit": "ebdb6136fcbc6ad9d0a6a505ed93444e3f293f72",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §8 «Старые выдуманные истории: конкретные записи»",
+          "observation": "Отчёт называет конкретные записи: lore_stories id=3 и id=4 — подтверждённые самоповторы (LCP 2186 и 1071 символов с исходящими ответами), помечены точечно provenance-механизмом (карантин фактического извлечения), записи сохранены, массовой чистки не было, на проде применено и проверено в журнале деплоя 2.58.131; ссылки на old-lore-audit.md и deploy.md присутствуют. Применение id=3 (lcp=2186) / id=4 (lcp=1071), origin=bot_self_echo, status=rejected, записи сохранены — задокументировано в release-258131/deploy.md «Lore quarantine» (коммит 08d78678, ветка release/p0-2026-10-26; в master-дереве файл отсутствует, поэтому в артефакты карты не включён — ref-пометка).",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "6d09259420fcdf1759df7423b23c85874e979e05a38ba1f07abe4e43a01473b0"
+        }
+      ],
+      "status_note": "Закрыто дополнением отчёта (ebdb6136): §8 приводит id записей (lore_stories id=3 и id=4, LCP 2186/1071), точечный provenance-карантин без массовой чистки и применение на проде в 2.58.131; факт-база — old-lore-audit.md (bd6d5fff) + журнал деплоя 2.58.131 на ветке release/p0-2026-10-26."
     },
     {
       "source_id": "L00208",
@@ -3636,8 +3695,8 @@
     }
   ],
   "candidate_note": "25.10.2026 PM-BIND-FINAL: карта привязана к кандидату bd6d5fff54d664bf5cc66e647448c3950d778fc4 (task/speech-p0-hotfix), база/прод — 534ac7dda6713fb407e0789fdddfa563251cdab4 (2.58.130). Живое доказательство — probes_final11.md + probes_final11/; исполняемые тесты — alias-tests.txt (worktree HEAD 778147e5 — docs-only поверх bd6d5fff; diff services/tests/probes_full пуст). Raw final11 JSON не содержит git-пин (tarball без .git): идентичность кандидата — stage_sha.txt и final11 §1. Деплоя не было; deployed_commit пуст. VERIFIED — только при candidate-bound артефакте и конкретном тесте/факте.",
-  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP, обновлено 26.10.2026 PM-BIND-FINAL: source-owner-p0-corrective-2026-10-25.md (214 строк, sha 2f7ef4d7…). 69 автоинвентарных + 62 manual (131 запись; 98 required / 12 context / 5 duplicate / 16 manual-context; 90 уникальных req_id по 10 слайсам). Корень — канон; book-копия синхронизирована. Текущий счёт: VERIFIED=95, PENDING=3 (98 required; 3 PENDING — только честные пробелы отчёта REPORT-WHY-STOPPED/PROD-13/MEMORY). L1 7/7, CORE 4/4, HARNESS 4/4, PROBES 4/4; ALIASES 43/43 (27.10.2026: открытые 12 строк закрыты ревью review-alias.md (Approved 11/11, f42e2257 — предок bd6d5fff), живым прод-аудитом prod-worktree-alias.md и постдеплойной пробой meta-reprobe-258134.md); MEMORY 9/9 (NO-MASS-WIPE: 4/4 строк lore сохранены + guard-тесты карантина + frequent-decision; NO-NEW-QUOTAS: ревью §9 + полный Core/Expression в payload); PROD 4/4 (происхождение 13 файлов, read-only-режим, деплой явным SHA с пинами 6/6); REPORT 6/9 (отчёт c3fa08bb) — REPORT-WHY-STOPPED/PROD-13/MEMORY честно PENDING: отчёт не покрывает причину остановки предыдущего деплоя, итог по 13 файлам и id записей памяти; REVIEW 12/12, DEPLOY 2/2 — 2.58.134 @ 076f7391. Тестовое доказательство alias/reply/observer/protected: alias-tests.txt (117 passed, 0 failed; requested test_p0_alias_runtime_2026_10_25.py отсутствует — зафиксировано как EXIT=4). Guard-тесты карантина памяти — tests/test_p0_old_lore_quarantine.py (коммит 272170e3, в дереве деплоя 076f7391). RAG «40/39» и F#2 — observations, требования не переписаны.",
-  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (OI-2026-10-25-REPORT-FORMAT): REPORT-PLAIN-LANGUAGE остаётся PENDING. 26.10.2026 PM-BIND-FINAL: канон карты — корень; book-копия синхронизирована; alias-tests.txt — исполняемые тесты. 27.10.2026 PM-BIND-REPORT-CLOSE: REPORT-PLAIN-LANGUAGE VERIFIED (отчёт c3fa08bb); REPORT-WHY-STOPPED/PROD-13/MEMORY честно PENDING — отчёт не покрывает причину остановки предыдущего деплоя, итог по 13 файлам и id записей памяти (нужно точечное дополнение отчёта).",
+  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP, обновлено 26.10.2026 PM-BIND-FINAL: source-owner-p0-corrective-2026-10-25.md (214 строк, sha 2f7ef4d7…). 69 автоинвентарных + 62 manual (131 запись; 98 required / 12 context / 5 duplicate / 16 manual-context; 90 уникальных req_id по 10 слайсам). Корень — канон; book-копия синхронизирована. Текущий счёт: VERIFIED=98, PENDING=0 (98 required; отчётные пробелы REPORT-WHY-STOPPED/PROD-13/MEMORY закрыты дополнением отчёта ebdb6136). L1 7/7, CORE 4/4, HARNESS 4/4, PROBES 4/4; ALIASES 43/43 (27.10.2026: открытые 12 строк закрыты ревью review-alias.md (Approved 11/11, f42e2257 — предок bd6d5fff), живым прод-аудитом prod-worktree-alias.md и постдеплойной пробой meta-reprobe-258134.md); MEMORY 9/9 (NO-MASS-WIPE: 4/4 строк lore сохранены + guard-тесты карантина + frequent-decision; NO-NEW-QUOTAS: ревью §9 + полный Core/Expression в payload); PROD 4/4 (происхождение 13 файлов, read-only-режим, деплой явным SHA с пинами 6/6); REPORT 9/9 (отчёт c3fa08bb + дополнение ebdb6136: причина остановки деплоя §8, итог по 13 файлам §8, id записей памяти lore id=3/id=4 §8); REVIEW 12/12, DEPLOY 2/2 — 2.58.134 @ 076f7391. Тестовое доказательство alias/reply/observer/protected: alias-tests.txt (117 passed, 0 failed; requested test_p0_alias_runtime_2026_10_25.py отсутствует — зафиксировано как EXIT=4). Guard-тесты карантина памяти — tests/test_p0_old_lore_quarantine.py (коммит 272170e3, в дереве деплоя 076f7391). RAG «40/39» и F#2 — observations, требования не переписаны.",
+  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (OI-2026-10-25-REPORT-FORMAT): REPORT-PLAIN-LANGUAGE остаётся PENDING. 26.10.2026 PM-BIND-FINAL: канон карты — корень; book-копия синхронизирована; alias-tests.txt — исполняемые тесты. 27.10.2026 PM-BIND-REPORT-CLOSE: REPORT-PLAIN-LANGUAGE VERIFIED (отчёт c3fa08bb); REPORT-WHY-STOPPED/PROD-13/MEMORY честно PENDING — отчёт не покрывает причину остановки предыдущего деплоя, итог по 13 файлам и id записей памяти (нужно точечное дополнение отчёта). 27.10.2026 PM-CLOSE-REPORT-3: три REPORT-строки VERIFIED — отчёт дополнен (ebdb6136 §8), строки забиндены на отчёт + артефакты фактов; REPORT 9/9.",
   "base_commit": "534ac7dda6713fb407e0789fdddfa563251cdab4",
   "production_commit": "534ac7dda6713fb407e0789fdddfa563251cdab4",
   "deployment_state": "DEPLOYED: production 2.58.134 @ 076f7391a01157bad106372d405d109085a78dbc (release-258134/deploy.md: healthz 200 loopback+внешний, NRestarts 0, пины 6/6, DeltaDDL=0; откат на 2.58.130 задокументирован, не требовался). Кандидат карты bd6d5fff входит в линию разработки через f42e2257 (предок bd6d5fff и 076f7391); тождество задеплоенного дерева подтверждено пинами (deploy.md 6/6 = meta-reprobe-258134.md 6/6). Постдеплойное живое доказательство: meta-reprobe-258134.md, live-s03-reprobe.md, live-verify-258134.md.",
