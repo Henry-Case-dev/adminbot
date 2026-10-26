@@ -695,6 +695,57 @@ class TestAdtrEntryEarlierImageRef:
         assert markers == ("[медиа: photo tg:490]",)
 
     @pytest.mark.asyncio
+    async def test_video_preview_kind_resolves_as_earlier_target(self):
+        """ASAP5 (шов 2): превью-покрытое видео в реестре — consistent
+        auto-target с reply/tool-путями (обложка kind video_preview)."""
+        rows = [{"tg_message_id": 500, "asset_kind": "video_preview",
+                 "created_at": 1_800_000_000}]
+        svc = self._svc(rows)
+        markers = await svc._resolve_earlier_image_markers(
+            CHAT_ID, self._ask_msg())
+        assert markers == ("[медиа: video_preview tg:500]",)
+
+    @pytest.mark.asyncio
+    async def test_animation_preview_kind_resolves_as_earlier_target(self):
+        """ASAP5 (шов 2): обложка GIF/TGS/WebM-стикера (kind
+        animation_preview, вкл. size_variant sticker_preview — отдельного
+        kind sticker_preview в реестре нет) — тот же consistent auto-target."""
+        rows = [{"tg_message_id": 501, "asset_kind": "animation_preview",
+                 "created_at": 1_800_000_000}]
+        svc = self._svc(rows)
+        markers = await svc._resolve_earlier_image_markers(
+            CHAT_ID, self._ask_msg())
+        assert markers == ("[медиа: animation_preview tg:501]",)
+
+    @pytest.mark.asyncio
+    async def test_gif_rows_resolve_via_cover_only(self):
+        """GIF в реестре = animation (unsupported-хвост) + animation_preview
+        (обложка) с одним tg_message_id: цель резолвится ПО ОБЛОЖКЕ,
+        unsupported-kind кандидатом не становится и двусмысленности не
+        создаёт."""
+        rows = [{"tg_message_id": 502, "asset_kind": "animation_preview",
+                 "created_at": 1_800_000_000},
+                {"tg_message_id": 502, "asset_kind": "animation",
+                 "created_at": 1_800_000_000}]
+        svc = self._svc(rows)
+        markers = await svc._resolve_earlier_image_markers(
+            CHAT_ID, self._ask_msg())
+        assert markers == ("[медиа: animation_preview tg:502]",)
+
+    @pytest.mark.asyncio
+    async def test_two_preview_media_ambiguous_no_marker(self):
+        """Однозначность не ослабляется: два preview-покрытых медиа в окне —
+        цели НЕТ (уточнение — штатный путь)."""
+        rows = [{"tg_message_id": 500, "asset_kind": "video_preview",
+                 "created_at": 1_800_000_000},
+                {"tg_message_id": 490, "asset_kind": "animation_preview",
+                 "created_at": 1_799_999_000}]
+        svc = self._svc(rows)
+        markers = await svc._resolve_earlier_image_markers(
+            CHAT_ID, self._ask_msg())
+        assert markers == ()
+
+    @pytest.mark.asyncio
     async def test_db_error_fail_open(self):
         class _Boom:
             async def execute(self, sql, params=()):

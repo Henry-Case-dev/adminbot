@@ -289,8 +289,16 @@ _PROTECTED_SPAN_RESERVE_BUDGET = 48
 _EARLIER_IMAGE_WINDOW_SECONDS = 1800
 _EARLIER_IMAGE_SCAN_LIMIT = 24
 # Поддерживаемые kind'ы = резолвимые `mca_vision.SUPPORTED_ASSET_KINDS`
-# (photo/document/sticker); animation — честный unsupported-кандидат MCA-19.
-_IMAGE_REF_KINDS = frozenset({"photo", "document", "sticker"})
+# (photo/document/sticker; animation — честный unsupported-кандидат MCA-19)
+# + preview-kind ASAP5 W1 (video_preview / animation_preview): видео, GIF,
+# TGS/WebM-стикер покрыты кадром-обложкой и резолвятся им — consistent с
+# reply/tool-путями (REQ-MEDIA-PIPELINE, шов 2). NB: превью стикера в
+# реестре хранится как animation_preview (size_variant sticker_preview) —
+# отдельного kind sticker_preview не существует.
+_IMAGE_REF_KINDS = frozenset({
+    "photo", "document", "sticker",
+    "video_preview", "animation_preview",
+})
 
 # ASAP 7 (F2-FOLLOWUP, §1.10): durable plan_meta на usage-строках L1 Planner.
 # Primary main-путь пишет usage через llm.generate (без plan_meta), dedicated-
