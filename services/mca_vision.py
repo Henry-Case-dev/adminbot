@@ -101,13 +101,18 @@ UNTRUSTED_DATA_CHANNEL = "untrusted_image_data"
 # (thumbnail из Bot API). Это РАСТР, поэтому он проходит через существующий
 # Vision-пайплайн как обычное изображение; честная маркировка «превью, не
 # полный просмотр» — на слое представления (render/recognize), а не вида.
+# kind `animation_preview` — растровая обложка GIF/Telegram Animation/TGS/WebM
+# (§10: анимации получают корректное визуальное представление для текущей
+# модели через существующий пайплайн; движение честно НЕ заявляется).
 ASSET_KIND_PHOTO = "photo"
 ASSET_KIND_DOCUMENT = "document"
 ASSET_KIND_STICKER = "sticker"
 ASSET_KIND_ANIMATION = "animation"
 ASSET_KIND_VIDEO_PREVIEW = "video_preview"
+ASSET_KIND_ANIMATION_PREVIEW = "animation_preview"
 SUPPORTED_ASSET_KINDS = frozenset({ASSET_KIND_PHOTO, ASSET_KIND_DOCUMENT,
-                                   ASSET_KIND_STICKER, ASSET_KIND_VIDEO_PREVIEW})
+                                   ASSET_KIND_STICKER, ASSET_KIND_VIDEO_PREVIEW,
+                                   ASSET_KIND_ANIMATION_PREVIEW})
 SUPPORTED_IMAGE_MIMES = frozenset({"image/jpeg", "image/png", "image/gif",
                                    "image/webp", "image/bmp"})
 
@@ -1309,6 +1314,12 @@ def extract_image_assets(message) -> list[dict]:
             "width": getattr(sticker, "width", None),
             "height": getattr(sticker, "height", None),
         })
+        if animated:
+            # ASAP5 §10: анимированный (TGS) / видео (WebM) стикер — байты
+            # не для Vision; растровая обложка (Bot API ≥7.2) — кандидат.
+            _append_preview_candidate(assets, sticker,
+                                      size_variant="sticker_preview",
+                                      default_mime="image/webp")
 
     animation = getattr(message, "animation", None)
     if animation is not None and getattr(animation, "file_unique_id", None):
@@ -1322,32 +1333,50 @@ def extract_image_assets(message) -> list[dict]:
             "width": getattr(animation, "width", None),
             "height": getattr(animation, "height", None),
         })
+        # ASAP5 §10: GIF/Telegram Animation — байты mp4 не для Vision;
+        # растровая обложка — корректное визуальное представление (кадр).
+        _append_preview_candidate(assets, animation,
+                                  size_variant="animation_preview",
+                                  default_mime="image/jpeg")
 
     # ASAP5 §9/§10: превью обычных видео и видеосообщений. Кадр-обложка —
     # raster (jpeg), доступен Bot API по своему file_id; полный кадр видео
     # Vision-пайплайном не скачивается и не выдаётся за полный просмотр.
     for attr, size_variant in (("video", "video_preview"),
                                ("video_note", "video_note_preview")):
-        video = getattr(message, attr, None)
-        if video is None:
-            continue
-        thumb = getattr(video, "thumbnail", None)
-        if thumb is None:      # aiogram <3 alias / прямые моки
-            thumb = getattr(video, "thumb", None)
-        if (thumb is None or not getattr(thumb, "file_unique_id", None)
-                or not getattr(thumb, "file_id", None)):
-            continue           # превью нет — честное отсутствие, не выдумка
-        assets.append({
-            "asset_kind": ASSET_KIND_VIDEO_PREVIEW,
-            "file_id": getattr(thumb, "file_id", None),
-            "file_unique_id": getattr(thumb, "file_unique_id", None),
-            "size_variant": size_variant,
-            "mime": "image/jpeg",
-            "byte_size": getattr(thumb, "file_size", None),
-            "width": getattr(thumb, "width", None),
-            "height": getattr(thumb, "height", None),
-        })
+        _append_preview_candidate(assets, getattr(message, attr, None),
+                                  size_variant=size_variant,
+                                  default_mime="image/jpeg")
     return assets
+
+
+def _append_preview_candidate(assets: list[dict], owner, *,
+                              size_variant: str, default_mime: str) -> None:
+    """ASAP5 §9/§10: общий адаптер растровой обложки (thumbnail носителя).
+    Без thumbnail/file_id/file_unique_id — честный пропуск (превью нет —
+    кандидата нет, ничего не выдумываем). file_id кандидата = file_id
+    ОБЛОЖКИ, не носителя."""
+    if owner is None:
+        return
+    thumb = getattr(owner, "thumbnail", None)
+    if thumb is None:                  # alias для прямых моков/старых версий
+        thumb = getattr(owner, "thumb", None)
+    if (thumb is None or not getattr(thumb, "file_unique_id", None)
+            or not getattr(thumb, "file_id", None)):
+        return
+    assets.append({
+        "asset_kind": (ASSET_KIND_VIDEO_PREVIEW
+                       if size_variant in ("video_preview",
+                                           "video_note_preview")
+                       else ASSET_KIND_ANIMATION_PREVIEW),
+        "file_id": getattr(thumb, "file_id", None),
+        "file_unique_id": getattr(thumb, "file_unique_id", None),
+        "size_variant": size_variant,
+        "mime": default_mime,
+        "byte_size": getattr(thumb, "file_size", None),
+        "width": getattr(thumb, "width", None),
+        "height": getattr(thumb, "height", None),
+    })
 
 
 # Честные уровни представления (ASAP5 §10): что система реально умеет
@@ -3187,6 +3216,10 @@ RECONSTRUCTION_MARK = "нынешняя реконструкция"
 # объявляется полностью недоступным.
 VIDEO_PREVIEW_NOTE = ("видео: проанализировано превью (кадр-обложка), "
                       "не полный просмотр")
+# §10: обложка GIF/анимации/стикера — честное визуальное представление;
+# понимание движения не реализовано и не заявляется.
+ANIMATION_PREVIEW_NOTE = ("анимация: проанализировано превью (кадр-обложка), "
+                          "движение не анализируется")
 # Честный уровень «отсутствие доступного видеосодержимого» (медиа-строка
 # без визуальных кандидатов, напр. видео без кадра-обложки).
 NO_VISUAL_CONTENT_LINE = "визуальное содержимое недоступно (превью нет)"
@@ -3316,6 +3349,10 @@ async def render_media_context_async(db, *, chat_id: int,
     analysis_revision = None
     scope = access_scope_for(int(chat_id))
     analyses: list[dict | None] = []
+    has_preview_candidate = any(
+        str(a.get("asset_kind") or "") in (ASSET_KIND_VIDEO_PREVIEW,
+                                           ASSET_KIND_ANIMATION_PREVIEW)
+        for a in image_assets)
     for asset in image_assets:
         analysis = await resolve_ready_for_asset(db, asset, scope)
         if replay_before is not None:
@@ -3328,22 +3365,31 @@ async def render_media_context_async(db, *, chat_id: int,
                 continue
         analyses.append(analysis)
         kind = str(asset.get("asset_kind") or "")
-        is_preview = kind == ASSET_KIND_VIDEO_PREVIEW
+        is_video_preview = kind == ASSET_KIND_VIDEO_PREVIEW
+        is_anim_preview = kind == ASSET_KIND_ANIMATION_PREVIEW
         if analysis is None:
             if kind == ASSET_KIND_ANIMATION:
-                # D18: анимация/видео — своим медиапайплайнам; unsupported
-                # помечается явно (не «ещё не распознано»).
-                lines.append("анимация/видео — распознавание изображений "
-                             "не применимо")
-            elif is_preview:
+                # D18: байты mp4/TGS/WebM — своим медиапайплайнам. Если в
+                # этом же блоке есть обложка (ASAP5 §10), представление даёт
+                # она — противоречивая строка «не применимо» не нужна.
+                if not has_preview_candidate:
+                    lines.append("анимация/видео — распознавание изображений "
+                                 "не применимо")
+            elif is_video_preview:
                 lines.append("превью видео, содержание ещё не распознано")
+            elif is_anim_preview:
+                lines.append("превью анимации, содержание ещё не распознано")
             else:
                 lines.append(PENDING_LINE)
             continue
-        if is_preview:
+        if is_video_preview:
             # ASAP5 §10: анализ превью ≠ полный просмотр; маркировка
             # обязательна и предшествует содержимому кадра.
             lines.append(VIDEO_PREVIEW_NOTE)
+        elif is_anim_preview:
+            # §10: обложка анимации — честное визуальное представление без
+            # заявки на понимание движения.
+            lines.append(ANIMATION_PREVIEW_NOTE)
         analysis_revision = int(analysis.get("revision") or 0) \
             if analysis_revision is None else analysis_revision
         completed = int(analysis.get("completed_at") or 0)

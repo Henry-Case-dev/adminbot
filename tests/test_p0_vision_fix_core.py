@@ -1545,8 +1545,9 @@ def _asap5_video_note(tg_id, serial=1, *, with_thumb=True):
                                         if with_thumb else None)))
 
 
-def _asap5_sticker(tg_id, *, is_animated=False, is_video=False):
-    from aiogram.types import Chat, Message, Sticker, User
+def _asap5_sticker(tg_id, *, is_animated=False, is_video=False,
+                   with_thumb=False):
+    from aiogram.types import Chat, Message, PhotoSize, Sticker, User
     import datetime as _dt
     return Message(
         message_id=tg_id,
@@ -1556,10 +1557,12 @@ def _asap5_sticker(tg_id, *, is_animated=False, is_video=False):
         sticker=Sticker(file_id="asap_st_fid", file_unique_id="asap_st_uniq",
                         width=512, height=512,
                         is_animated=is_animated, is_video=is_video,
-                        type="regular"))
+                        type="regular",
+                        thumbnail=(_asap5_thumb(90 + tg_id % 100)
+                                   if with_thumb else None)))
 
 
-def _asap5_animation(tg_id, serial=1):
+def _asap5_animation(tg_id, serial=1, *, with_thumb=True):
     from aiogram.types import Animation, Chat, Message, User
     import datetime as _dt
     return Message(
@@ -1571,7 +1574,9 @@ def _asap5_animation(tg_id, serial=1):
                             file_unique_id=f"asap_gif_uniq_{serial}",
                             width=320, height=240, duration=3,
                             mime_type="video/mp4", file_name="gif.mp4",
-                            file_size=100_000))
+                            file_size=100_000,
+                            thumbnail=(_asap5_thumb(serial)
+                                       if with_thumb else None)))
 
 
 def _asap5_document_message(tg_id, *, mime="image/jpeg",
@@ -1623,13 +1628,17 @@ def _asap5_matrix_cases() -> dict:
         # §9: статические стикеры
         "sticker_static": (_asap5_sticker(803),
                            [("sticker", "sticker", V)]),
-        # §9: GIF / Telegram Animation — честный unsupported (D18)
+        # §9: GIF / Telegram Animation — источник честный unsupported (D18),
+        # растровая обложка — корректное визуальное представление (§10)
         "gif_animation": (_asap5_animation(804),
-                          [("animation", "animation", U)]),
-        # §9: анимированные TGS-стикеры — честный unsupported
+                          [("animation", "animation", U),
+                           ("animation_preview", "animation_preview", V)]),
+        # §9: анимированные TGS-стикеры — источник honest unsupported +
+        # обложка Vision (с Bot API ≥7.2; без обложки — только honest строка)
         "tgs_sticker": (_asap5_sticker(805, is_animated=True),
                         [("animation", "sticker", U)]),
-        # §9: видеостикеры WebM — честный unsupported
+        # §9: видеостикеры WebM — источник honest unsupported (обложка —
+        # только при наличии thumbnail, как у TGS)
         "webm_video_sticker": (_asap5_sticker(806, is_video=True),
                                [("animation", "sticker", U)]),
         # §9: превью обычных видеозаписей — растровый кандидат Vision
@@ -1790,8 +1799,8 @@ async def test_asap5_video_without_thumb_honest_no_content(tmp_path):
 @pytest.mark.asyncio
 async def test_asap5_reply_targets_exact_media_not_neighbor(tmp_path):
     """INTEGRATION (ASAP5 §11): reply направляет обработку именно на
-    адресованное медиа: фото → его актив; видео → ЕГО превью; GIF → честный
-    unsupported (никакого случайного соседнего файла)."""
+    адресованное медиа: фото → его актив; видео/GIF → ЕГО обложку; соседние
+    файлы не подмешиваются."""
     db = await _fresh_db(tmp_path)
     try:
         mca_vision.bind_runtime(db)
@@ -1815,11 +1824,107 @@ async def test_asap5_reply_targets_exact_media_not_neighbor(tmp_path):
         assert preview["asset_kind"] == mca_vision.ASSET_KIND_VIDEO_PREVIEW
         assert preview["tg_message_id"] == 873          # не соседний файл
         assert preview["file_id"] == "asap_thumb_fid_3"
+        # reply на GIF → обложка ИМЕННО этого GIF (§10: корректное
+        # визуальное представление); байты mp4 — честный unsupported-хвост
         r = await mca_vision.resolve_target_assets(db, chat_id=CHAT,
                                                    reply_tg_id=874)
-        assert r["status"] == "unsupported"
+        assert r["status"] == "ok"
+        assert r["assets"][0]["asset_kind"] == \
+            mca_vision.ASSET_KIND_ANIMATION_PREVIEW
+        assert r["assets"][0]["tg_message_id"] == 874
+        assert r["assets"][0]["file_id"] == "asap_thumb_fid_4"
         assert [a["asset_kind"] for a in r["unsupported"]] == ["animation"]
-        assert r["assets"] == []
+    finally:
+        await db.close()
+
+
+def test_asap5_animation_preview_distinct_and_honest():
+    """CONTRACT (ASAP5 §9/§10): обложки GIF/TGS/WebM регистрируются как
+    отдельные растровые кандидаты (kind animation_preview), file_id —
+    обложки; без обложки — только честный unsupported-источник."""
+    gif = _asap5_animation(824, serial=4)
+    cands = mca_vision.extract_image_assets(gif)
+    assert [(c["asset_kind"], c["size_variant"]) for c in cands] == [
+        ("animation", "animation"),
+        (mca_vision.ASSET_KIND_ANIMATION_PREVIEW, "animation_preview")]
+    assert cands[1]["file_id"] == "asap_thumb_fid_4"
+    assert cands[1]["file_id"] != getattr(gif.animation, "file_id")
+    # TGS/WebM с обложкой: источник + preview; статический стикер — без preview
+    tgs = _asap5_sticker(825, is_animated=True, with_thumb=True)
+    kinds = [(c["asset_kind"], c["size_variant"])
+             for c in mca_vision.extract_image_assets(tgs)]
+    assert kinds == [("animation", "sticker"),
+                     (mca_vision.ASSET_KIND_ANIMATION_PREVIEW,
+                      "sticker_preview")]
+    static = _asap5_sticker(826)
+    kinds = [c["asset_kind"] for c in mca_vision.extract_image_assets(static)]
+    assert kinds == ["sticker"]
+    # GIF без обложки — только честный unsupported-источник (ничего не выдумываем)
+    bare = _asap5_animation(827, serial=7, with_thumb=False)
+    kinds = [c["asset_kind"] for c in mca_vision.extract_image_assets(bare)]
+    assert kinds == ["animation"]
+    ids = {c["asset_kind"]: c for c in mca_vision.extract_image_assets(gif)}
+    vid = mca_vision.make_asset_id(CHAT, 851, "asap_thumb_uniq_1",
+                                   "video_preview")
+    anim = mca_vision.make_asset_id(
+        CHAT, 824, ids[mca_vision.ASSET_KIND_ANIMATION_PREVIEW
+                       ]["file_unique_id"], "animation_preview")
+    assert vid != anim
+
+
+@pytest.mark.asyncio
+async def test_asap5_animation_preview_render_honesty(tmp_path):
+    """CONTRACT (ASAP5 §10): при проанализированной обложке GIF рендер даёт
+    честную заметку «превью анимации, движение не анализируется» и НЕ даёт
+    противоречивую строку «не применимо»; без обложки — честная строка
+    D18 сохраняется."""
+    from services import message_identity
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        # GIF с обложкой: intake → job → ready → рендер
+        msg = _asap5_animation(831, serial=1)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        assert len(assets) == 2          # источник (unsupported) + обложка
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)
+        store = await _store(db)
+        for jid in [j["job_id"] for j in await _active_vision(db, "queued")]:
+            job = await _claimed_job(db, jid)
+            import json as _json
+            payload = _json.loads(str(job.get("payload") or "{}"))
+            if payload.get("file_id") == "asap_thumb_fid_1":
+                await mca_vision.process_asset_job(
+                    job, db=db,
+                    bot=_FakeBot({"asap_thumb_fid_1": make_png()}),
+                    transport=Transport(default=(200, ASYNC_ANALYSIS_BODY)))
+            else:
+                # mp4-байты GIF не валидны как изображение — честный fail
+                await mca_vision.process_asset_job(
+                    job, db=db, bot=_FakeBot({}), transport=Transport(
+                        default=(200, ASYNC_ANALYSIS_BODY)))
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="animation", author_name="Sergey", tg_message_id=831)
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=831)
+        assert rendered is not None
+        assert mca_vision.ANIMATION_PREVIEW_NOTE in rendered["lines"]
+        assert "не применимо" not in rendered["text"]
+        assert rendered["visual_descriptions"]
+        # GIF без обложки: честная строка D18 сохраняется
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="animation", author_name="Sergey", tg_message_id=832)
+        bare = _asap5_animation(832, serial=2, with_thumb=False)
+        await mca_vision.register_intake_assets(db, bare)
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=832)
+        assert rendered is not None
+        assert "не применимо" in rendered["text"]
+        assert rendered["visual_descriptions"] == []
     finally:
         await db.close()
 
