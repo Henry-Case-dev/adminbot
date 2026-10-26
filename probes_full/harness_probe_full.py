@@ -376,12 +376,17 @@ def text_counts(text: str, psb) -> dict:
     writer = getattr(psb, "ANALYSIS_WRITER_TEXT", "") or ""
     no_meta = getattr(psb, "NO_META_STRUCTURE_TEXT", "") or ""
     closing = getattr(psb, "NO_META_CLOSING_TEXT", "") or ""
+    delta = getattr(psb, "DELTA_READY_INSTRUCTION_TEXT", "") or ""
+    delta_sub = getattr(psb, "DELTA_SUBSTANCE_TEXT", "") or ""
     return {"directive": text.count(directive) if directive else 0,
             "writer": text.count(writer) if writer else 0,
             "no_meta": text.count(no_meta) if no_meta else 0,
             "no_meta_constant": bool(no_meta),
             "closing": text.count(closing) if closing else 0,
             "closing_constant": bool(closing),
+            "delta": text.count(delta) if delta else 0,
+            "delta_sub": text.count(delta_sub) if delta_sub else 0,
+            "delta_constant": bool(delta),
             "ascii_marker": text.count("ANALYSIS_DIRECTIVE")}
 
 
@@ -396,6 +401,11 @@ def payload_counts(system: str, user_text: str, psb) -> dict:
             # ответе. 0 при существующей константе — разрыв сборки, не PASS.
             "invariant_no_meta_1x1": total["no_meta"] == 1,
             "invariant_no_meta_0": total["no_meta"] == 0,
+            # DELTA-DEPTH (26.10.2026, §11): дословная инструкция владельца
+            # едет РОВНО один раз на research/deep-ответе и ни разу на
+            # casual/answer (носитель один — план-блок).
+            "invariant_delta_1x1": total["delta"] == 1,
+            "invariant_delta_0": total["delta"] == 0,
             # P0C-INT R2 (§3 ред.2): закрывающее требование «первое
             # предложение — суть» стоит в user-части ровно один раз и последним
             # блоком (recency). Отсутствие при существующей константе — разрыв.
@@ -844,7 +854,9 @@ def self_check(root: str, json_out: bool = False) -> int:
         "structure": "chat", "confidence": 0.8})
     # 3) тот же путь сборки, что в _run: mode/extent/plan из одного плана
     extent_block = extent.render_extent_block(plan.to_response_plan())
-    plan_block = l1.build_l2_plan_block(plan, include_analysis=True)
+    plan_block = l1.build_l2_plan_block(
+        plan, include_analysis=True,
+        include_delta=l1.delta_instruction_needed(plan))
     system = psb.compose_verbalizer_system(
         "КАНАЛ: технический контракт.", l1.plan_response_mode(plan), "plain",
         html_safe=True, extent_block=extent_block)
@@ -854,9 +866,15 @@ def self_check(root: str, json_out: bool = False) -> int:
     # P0C-INT R2: закрывающее требование — последним блоком user-части.
     _meta = psb.NO_META_STRUCTURE_TEXT
     _closing = psb.NO_META_CLOSING_TEXT
+    # DELTA-DEPTH (26.10.2026, §11): инструкция владельца — план-блок,
+    # ровно 1× на research/deep-ответе и 0 на casual.
+    _delta = getattr(psb, "DELTA_READY_INSTRUCTION_TEXT", "") or ""
+    _delta_sub = getattr(psb, "DELTA_SUBSTANCE_TEXT", "") or ""
     research_payload = system + "\n\n" + plan_block + "\n\n" + _closing
     casual_extent = extent.render_extent_block(answer.to_response_plan())
-    casual_block = l1.build_l2_plan_block(answer, modes_on=True)
+    casual_block = l1.build_l2_plan_block(
+        answer, modes_on=True,
+        include_delta=l1.delta_instruction_needed(answer))
     casual_system = psb.compose_verbalizer_system(
         "КАНАЛ: технический контракт.", l1.plan_response_mode(answer),
         "plain", html_safe=True, extent_block=casual_extent)
@@ -864,7 +882,9 @@ def self_check(root: str, json_out: bool = False) -> int:
     deep_plan = l1.normalize_l1_plan({
         "action": "reply", "response_act": "research", "extent": "auto",
         "structure": "report", "delivery_hint": "rich", "confidence": 0.9})
-    deep_block = l1.build_l2_plan_block(deep_plan, modes_on=True)
+    deep_block = l1.build_l2_plan_block(
+        deep_plan, modes_on=True,
+        include_delta=l1.delta_instruction_needed(deep_plan))
     deep_system = psb.compose_verbalizer_system(
         "КАНАЛ: технический контракт.", "deep_research", "rich",
         html_safe=True,
@@ -1042,6 +1062,26 @@ def self_check(root: str, json_out: bool = False) -> int:
             answer_payload["invariant_no_meta_1x1"]
             and answer_payload["user"]["no_meta"] == 1
             and answer_payload["system"]["no_meta"] == 0),
+        # DELTA-DEPTH (26.10.2026, §11): дословная инструкция владельца —
+        # ровно 1× на research (план) и deep/auto (план; режимный блок её
+        # не несёт), 0 на casual; требование выводов по существу — рядом.
+        "delta_research_plan_once": (
+            bool(_delta) and research_payload.count(_delta) == 1
+            and _delta in plan_block
+            and research_payload.count(_delta_sub) == 1),
+        "delta_casual_absent": (
+            bool(_delta) and casual_payload.count(_delta) == 0
+            and casual_payload.count(_delta_sub) == 0),
+        "delta_deep_auto_plan_once": (
+            bool(_delta) and deep_payload.count(_delta) == 1
+            and _delta in deep_block
+            and deep_payload.count(_delta_sub) == 1
+            and _delta not in deep_system),
+        "delta_no_composition_mandate": all(
+            phrase not in (_delta + _delta_sub)
+            for phrase in ("Во-первых", "разделы", "подзаголовки",
+                           "начинай с", "начни с", "Первое предложение",
+                           "пунктов ровно", "markdown", "Markdown")),
         # F6: отчётность по core — из отрендеренного слоя.
         "core_report_chars": core_rep["chars"] == len(core_text),
         "core_report_revision": core_rep["revision"] == "abc123def456",
@@ -1551,11 +1591,24 @@ async def _run(args, result):
                 _builder).parameters
             _accepts_modes = "modes_on" in inspect.signature(
                 _builder).parameters
+            _accepts_delta = "include_delta" in inspect.signature(
+                _builder).parameters
         except (TypeError, ValueError):
-            _accepts = _accepts_modes = False
+            _accepts = _accepts_modes = _accepts_delta = False
+        # DELTA-DEPTH (26.10.2026, §11): тот же предикат, что у сервиса;
+        # в legacy-дереве предиката нет — дельта-текстов там быть не может.
+        _din = getattr(l1mod, "delta_instruction_needed", None)
+        try:
+            delta_needed = bool(_din(plan)) if _din is not None else False
+        except Exception:                             # noqa: BLE001
+            delta_needed = False
+        if delta_needed and _din is None:
+            result["delta_predicate_absent"] = True
         _kwargs = {}
         if _accepts:
             _kwargs["include_analysis"] = include_analysis
+        if _accepts_delta:
+            _kwargs["include_delta"] = delta_needed
         if _accepts_modes:
             # WRITER-NO-META-FINAL: носитель директивы зависит от режимов,
             # поэтому стенд обязан передавать реальный флаг, как сервис.
@@ -1685,6 +1738,21 @@ async def _run(args, result):
     }
     if _no_meta_on and counts["total"]["no_meta"] != _need:
         result["invalid"] = result["invalid"] or "no_meta_invariant"
+    # DELTA-DEPTH (26.10.2026, §11): инструкция владельца едет РОВНО один раз
+    # на research/deep-ответе и ни разу на casual/answer. Носитель один —
+    # план-блок; и дубль, и потеря помечаются invalid, а не зелёным прогоном.
+    _delta_on = bool(counts["total"]["delta_constant"])
+    _delta_need = 1 if delta_needed else 0
+    result["delta_contract"] = {
+        "applies": _delta_on,
+        "count": counts["total"]["delta"],
+        "substance_count": counts["total"]["delta_sub"],
+        "required": _delta_need,
+    }
+    if _delta_on and counts["total"]["delta"] != _delta_need:
+        result["invalid"] = result["invalid"] or "delta_invariant"
+    if _delta_on and delta_needed and counts["total"]["delta_sub"] != 1:
+        result["invalid"] = result["invalid"] or "delta_invariant"
     result["payload"] = {"messages": [
         {"role": "system", "content": system},
         {"role": "user", "content": user_text}]}

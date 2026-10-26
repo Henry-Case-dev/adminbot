@@ -280,3 +280,88 @@ creative/historical_recall пути (S04/S09), фактчек (уже False, S10
   test_direct_fallback_recompose_asap32 ×5; проверено stash-прогоном),
   pre-existing, к micro-fix не относятся — дельта дефектов = 0.
 - Прод/SSH/Telegram/LLM не трогались.
+
+---
+
+## DELTA-DEPTH fix (27.10.2026) — вербатим-инструкция §11 + выводы Writer вместо coverage-стаба
+
+Закрывает открытые строки карты: **M00128** (NO-NEW-LAYER), **M00129**
+(READY-INSTRUCTION-VERBATIM), **M00136** (NO-MANDATORY-STRUCTURES),
+**M00026** (HISTORICAL-CHECKLIST, writer-часть) и note-row **S03**
+(writer-conclusions). База — release-ветка `683905b7` (merge 2.58.133+
+res23 fast-forward поверх `eaabb66f`).
+
+**Куда вставлено** (существующий Analysis/Writer путь, БЕЗ нового слоя/
+компонента/LLM-вызова):
+- `services/prompt_style_blocks.py:284` — `DELTA_READY_INSTRUCTION_TEXT`:
+  текст строк 129-134 source-2026-10-26.md ДОСЛОВНО (тест сверяет
+  байт-в-байт с снапшотом источника:
+  `test_delta_instruction_is_verbatim_from_source`).
+- `services/prompt_style_blocks.py:294` — `DELTA_SUBSTANCE_TEXT`:
+  смежное требование выводов по существу вместо отчёта о покрытии (S03),
+  без чисел/схем/обязательной композиции.
+- `services/direct_l1.py:1115` — предикат `delta_instruction_needed`
+  (research act/task_kind ИЛИ режим deep_research; casual/answer — нет).
+- `services/direct_l1.py:1247` — вставка в существующий
+  `build_l2_plan_block` (новый опц. флаг `include_delta`), строки
+  план-блока «как отвечать: …» и «по существу: …». Носитель ОДИН —
+  план-блок: режимный блок дельта-текст не содержит, поэтому «ровно один
+  раз» держится без координации носителей; фабричные тексты реестра не
+  тронуты (FACTORY_SET_SHA256_12 без изменений, лестница не нужна).
+- Call-sites: `services/direct_chat_service.py:3841` (основной ответ) и
+  `:9321` (инициатива) — тот же предикат, что у сервиса.
+
+**Правило области**: research/deep_research ответы получают инструкцию
+ровно 1× на payload; короткие бытовые ответы (casual/answer) остаются без
+неё (payload лёгкий, §11 «ориентир, не новый слой»). NO_META не затронут
+(по-прежнему только запрет анонсов) — конфликта нет
+(`test_no_conflict_with_no_meta`).
+
+**Before/after payload** (research-план, extent=normal, tool evidence,
+сборка system+plan+closing как у Writer):
+- до: delta=0, substance=0, payload 1310 зн. — Writer получал только
+  analysis-директивы, на неполном покрытии отвечал coverage-стабом
+  (живая находка S03: 125 зн. чисел покрытия вместо выводов);
+- после: delta=1, substance=1, payload 1978 зн.; прежние инварианты целы —
+  analysis 1×1, NO_META 1×, closing 1× (последний блок user-части).
+  Добавленные строки план-блока:
+  - «как отвечать: Отвечай на действительный запрос, используя
+    релевантные сведения из разговора, истории и памяти. …Сохраняй
+    свободу разговорной речи, юмора и индивидуальной манеры.»
+  - «по существу: Сделай выводы по существу вопроса на основе найденного;
+    при неполном покрытии честно скажи, что установлено и за какой период,
+    и дай лучшие наблюдения вместо отчёта о покрытии.»
+- casual: delta_needed=False, дельта-текстов в блоке нет.
+
+**M00136**: к инструкции не дописаны структуры/схемы/примеры/числа —
+пинится тестами `test_no_mandatory_structures_numbers_examples` (нет
+цифр, маркеров списков, приказов композиции/старта/структуры) и
+`delta_no_composition_mandate` в self-check harness. Смежное предложение
+— поведенческое требование выводов (S03/M00026), не структура: без
+количеств, порядка и обязательных форм.
+
+**Верификация** (кандидат vs база 683905b7, LLM/прод/SSH/Telegram не
+трогались):
+- новый `tests/test_p0_delta_depth_instruction.py` — 11 passed
+  (CONTRACT/REGRESSION): вербатим сверкой с источником, матрица предиката,
+  ровно-1× на research/deep (пустой и непустой extent), 0 на casual,
+  S03-юнит (промпт требует выводы и честную оговорку покрытия), без
+  структур, NO_META-конфликт отсутствует, wiring обоих call-sites;
+- фокусные наборы брифа: `test_p0_delta_routing.py`,
+  `test_speech_p0_meta_closing.py`, `test_speech_p0_core_serious.py`,
+  `test_p0_prompts_core.py`, `test_prompt_migrations.py` —
+  138 passed / 0 failed;
+- harness `probes_full/harness_probe_full.py --self-check` — PASS,
+  счётчики расширены (delta/delta_sub + инварианты 1×/0), новые
+  self-check ключи: delta_research_plan_once / delta_casual_absent /
+  delta_deep_auto_plan_once / delta_no_composition_mandate = True;
+  в `_run` контракт delta проверяется по факту payload (и дубль, и
+  потеря → invalid), предикат передаётся как в сервисе;
+- смежные швы: `test_asap2_clar_contract`,
+  `test_direct_l1_l1d_contract`, `test_cfg07_backstage_contract`,
+  `test_soul1_style_policy`, `test_p0_initfix_initiative_observer`,
+  `test_p0_init_arch_fix_observer` — 183 passed;
+  `test_soul1_composer_parity_off.py` — 4 failed, воспроизводятся
+  stash-прогоном на ЧИСТОЙ базе 683905b7 без правок — pre-existing,
+  к дельте не относятся (дельта дефектов = 0);
+- `py -m compileall services tests probes_full` — exit 0.
