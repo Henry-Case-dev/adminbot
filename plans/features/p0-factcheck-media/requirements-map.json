@@ -2955,6 +2955,14 @@
           "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
         },
         {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "deploy.md §Post-deploy проверки (deployed fa74ecf8 = candidate 86ef2a64 + release-chore pins)",
+          "artifact_path": "plans/features/asap-speech-arch/release-258131/deploy.md",
+          "artifact_sha256": "b260ef5f14e3db3b84d2107701902e6ffa82a9bcd8e6e609300ab20524474c05",
+          "observation": "Тумблер подтверждён по деплой-байтам fa74ecf8: спек flags.factcheck_wide_context присутствует в REGISTRY прод-каталога (grep=1 на сервере по services/param_catalog.py), группа flags_module_factcheck, не hidden -> ключ отдаётся /api/config/params-meta; текст тумблера с «по умолчанию включён» и описанием 200-500 закреплён тестом test_catalog_spec_visible_in_modules_factcheck (свежий прогон на deployed-байтах: 64 passed). Прямой HTTP-рендер TMA из CLI недоступен (auth initData); ручная device-приёмка — owner_optional (waived); playwright-приёмка витрины — preprod review R2. Details: plans/features/asap-speech-arch/release-258131/deploy.md."
+        },
+        {
           "candidate_commit": "fa74ecf8e1ee69a59483a34cef3de3702be5d7a4",
           "type": "production",
           "ref": "deploy.md §Деплой (прод) + §Post-deploy проверки",
