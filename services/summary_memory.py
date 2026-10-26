@@ -2950,12 +2950,23 @@ class MemoryManager:
 
     # ── L2 RAG (FTS5, no extra LLM call — A7) ──────────────────
 
-    async def search_long_term(self, chat_id: int, keywords: list[str], limit: int) -> list:
+    async def search_long_term(self, chat_id: int, keywords: list[str], limit: int,
+                               *, since_ts: int = 0, until_ts: int = 0,
+                               author_ids=None) -> list:
+        """L2-RAG / фоллбек: FTS5 по raw messages (top-N по rank).
+
+        P0-DELTA (дефекты 2-3 аудита p0-delta-analysis): аддитивные
+        keyword-only фильтры `since_ts/until_ts/author_ids` — В SQL ДО LIMIT
+        (прецедент `db.search_messages_fts`, MCA-15 D1). Дефолты → прежнее
+        поведение байт-в-байт: узкое окно больше не съедает top-40
+        пост-фильтром."""
         query = build_fts_query(keywords)
         if not query:
             logger.info("SmartModule L2: no keywords — skipping RAG | chat_id=%s", chat_id)
             return []
-        rows = await self.db.search_messages_fts(chat_id, query, limit)
+        rows = await self.db.search_messages_fts(
+            chat_id, query, limit, since_ts=since_ts, until_ts=until_ts,
+            author_ids=author_ids)
         logger.info(
             "SmartModule L2: rag_hits=%d | chat_id=%s | query_len=%d",
             len(rows), chat_id, len(query),
@@ -2963,16 +2974,22 @@ class MemoryManager:
         return rows
 
     async def count_mentions(self, chat_id: int, keywords_: list[str],
-                             since_ts: int = 0) -> dict | None:
+                             since_ts: int = 0, *,
+                             until_ts: int = 0, author_ids=None) -> dict | None:
         """Счётчик совпадений по тем же токенам, что search_long_term.
         None — пустой FTS-запрос (нечего считать). Ошибки БД — наружу
         (ToolRouter ловит → fail-open текст). Bugfix 04.09.2026 (Часть 2,
-        FR-19): точный count + диапазон дат для query_chat_memory."""
+        FR-19): точный count + диапазон дат для query_chat_memory.
+
+        P0-DELTA: аддитивные `until_ts/author_ids` — те же фильтры, что у
+        сниппетов (один источник, счётчик и показ согласованы)."""
         query = build_fts_query(keywords_)
         if not query:
             return None
         try:
-            return await self.db.search_messages_fts_count(chat_id, query, since_ts)
+            return await self.db.search_messages_fts_count(
+                chat_id, query, since_ts, until_ts=until_ts,
+                author_ids=author_ids)
         except Exception:
             logger.warning("SmartModule L2: count failed | chat_id=%s", chat_id, exc_info=True)
             raise
