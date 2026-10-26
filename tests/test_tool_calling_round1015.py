@@ -669,12 +669,14 @@ class TestDirectChatContext:
         assert len(captured["tools"]) == 14
 
     @pytest.mark.asyncio
-    async def test_targetless_media_request_asks_link_without_llm(
+    async def test_targetless_media_word_request_normal_tool_path(
             self, monkeypatch):
-        """MCA-23 фаза 2 (P2-A §20): media-запрос без разрешимой цели —
-        ОДИН детерминированный уточняющий вопрос, chat_with_tools НЕ
-        вызывается (0 LLM; цель разрешима из reply/ссылки → не спрашиваем —
-        см. соседний тест с ссылкой в тексте)."""
+        """MCA-23 фаза 2 §20 -> ASAP 7 §1.9 demote + REQ-DELTA-02-NO-WORD-
+        HARDCODE: fixed-фраза clarification в legacy-ветке держалась на
+        словесном триггере fallback-классификатора. Словесных триггеров
+        больше нет: запрос без разрешимой цели идёт обычным tool-путём
+        (0 дополнительных LLM-вызовов не нарушено; в L1-пути уточнение
+        решает L1 семантически, формулирует L2)."""
         from tests.test_direct_chat import (
             _bot as dc_bot,
             _make_service,
@@ -690,12 +692,12 @@ class TestDirectChatContext:
             if key == "flags.bot_self_awareness_enabled"
             else real_get(key, default))
 
-        async def _must_not_call(*args, **kwargs):
-            raise AssertionError("chat_with_tools не должен вызываться на "
-                                 "§20 clarification-исходе")
+        async def _fake_chat_with_tools(llm, payload, *, tools, router, ctx,
+                                        temperature, chat_id=None, **kwargs):
+            return "обычный ответ tool-пути"
 
         monkeypatch.setattr("services.direct_chat_service.chat_with_tools",
-                            _must_not_call)
+                            _fake_chat_with_tools)
         service = _make_service(tool_router=MagicMock())
         bot = dc_bot()
         user = dc_user()
@@ -704,5 +706,8 @@ class TestDirectChatContext:
         await service.handle(bot, msg, user)
         bot.send_message.assert_awaited_once()
         ask = bot.send_message.await_args
-        assert CLARIFY_MEDIA_TARGET.split(" — ")[0] in str(
-            ask.args[1] if len(ask.args) > 1 else ask.kwargs.get("text", ""))
+        sent = str(ask.args[1] if len(ask.args) > 1
+                   else ask.kwargs.get("text", ""))
+        # обычный путь: ответ tool-пути, а не fixed clarify-вопрос
+        assert "обычный ответ tool-пути" in sent
+        assert CLARIFY_MEDIA_TARGET.split(" — ")[0] not in sent

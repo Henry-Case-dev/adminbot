@@ -158,3 +158,64 @@ extent/длина НЕ являются сигналом маршрутизац�
   поведение анализа защищает гейт доставки.
 - `after_id`/`max_id` watermark stats в схему инструмента не проброшен
   (вне списка дефектов этого lane).
+
+## EXTENT-NO-WORDS micro-fix (26.10.2026, review-находка REQ-DELTA-02-NO-WORD-HARDCODE)
+
+**Дефект**: legacy 0-LLM fallback-классификатор
+`services/response_extent.classify_request` ветвился по литеральным словам
+запроса («проанализируй», «почему», «скачай», «фанфик», …) — 12 словесных
+regex-триггеров категорий (_EXPLAIN/_COMPARE/_RESEARCH/_CREATIVE/_SUMMARY/
+_STEPS/_NOSTALGIA/_MEDIA_DL/_MEDIA_GEN/_TRANSCRIBE/_YESNO/_EXTENT_OF_TASK)
+нарушали REQ-DELTA-02-NO-WORD-HARDCODE (карта p0-delta-analysis, M00032:
+«в коде маршрутизации нет ветвлений по словам …; поиск по коду подтверждает
+отсутствие таких литералов в решающей логике»).
+
+**Стало**: fallback semantic-neutral — только структурные сигналы сообщения:
+пустой текст → дефолт social_chat/compact/chat; короткий вопрос (≤3 слов,
+«?») → micro/direct_answer (§8 fast path, прежнее поведение). Semantic-класс
+задачи назначает L1 Planner; явная форма длины пользователя доезжает через
+`explicit_form_override` поверх L1-плана (§2.5, primary path не тронут —
+regex'ы явных форм и multi-read §17 в модуле сохранены для
+`explicit_form_override`/`build_tool_plan`).
+
+**Не тронуто**: L1-driven путь, `build_tool_plan`, `explicit_form_override`,
+extent-блоки/scrub, `CLARIFY_MEDIA_TARGET` (функция план-дривен и жива в
+L1-пути через планы L1: сервисный вызов direct_chat_service:3834 получает
+L1-производный план).
+
+**Осознанные behavioral deltas (fallback/legacy-only, L1-путь без изменений)**:
+- L1-outage: маркерные слова больше не придают fallback-плану
+  research/explanation/report-структуру → `lore_story_delivery_allowed`
+  возвращается к своему задокументированному контракту fail-open для
+  fallback-планов (докстринг гейта: «интенция полями плана не определена … →
+  True»; словесная утечка структуры была недокументированным side-effect);
+  защита дефекта 1 в healthy-пути (semantic L1-план) без изменений.
+- L1-outage/legacy: «коротко/подробно» в запросе больше не перекраивают
+  extent fallback-плана (нейтральный compact; в L1-пути явная форма
+  применяется `apply_form_override` поверх outage-fallback — проверено
+  test_asap7_direct_l1::test_form_override_semantics).
+- Legacy (DIRECT_L1_ENABLED=false): media-слова («скачай» без цели) больше не
+  рождают fixed §20-clarify — ход идёт обычным tool-путём (ASAP 7 §1.9 уже
+  демотировал fixed-фразу; в L1-пути уточнение решает L1 семантически);
+  media-план с URL/реплаем доставляется как раньше (URL — структурный сигнал,
+  тул-модель не менялась). `clarification_question`/`media_writer_needed`
+  остаются план-дривен контрактами (пины переведены на явные планы).
+- Coordinator-метаданные при plan=None — нейтральные (внутренний trace, R17
+  без текста).
+
+**Тесты**: source-scan по телу `classify_request` (прецедент
+test_speech_p0_corrective_l1_route.py): 51 запрещённый литерал + запрет
+ссылок на словесные regex-константы в теле (TestFallbackNoWordHardcode);
+word-пины §44 переведены на semantic-neutral контракт
+(test_mca23_response_plan), clarification/media/planned-граф пины — на
+явные планы (test_mca23_phase2, test_mca23_planned_vs_actual), legacy §20 —
+на обычный tool-путь (test_tool_calling_round1015), coordinator-оси — на
+нейтральные (test_mca23_response_plan::TestCoordinatorDecisionPlan).
+
+**Верификация**: фокусный набор `-k "extent or response_plan or direct_l1"`
+— база `2ac20bf3`: 151 passed / 0 failed; кандидат: 152 passed / 0 failed
+(+1 net: +2 source-scan, +2 word-routing, -3 снятых словесных golden);
+direct-chat шов (27 файлов, legacy+L1): база 1109 passed / 0 failed,
+кандидат 1110 passed / 0 failed — все расхождения тестов объяснены
+переводом word-пинов, collateral-падений нет. `py -3 -m compileall services`
+— OK. Прод/SSH/Telegram/LLM не трогались.
