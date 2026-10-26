@@ -2453,8 +2453,33 @@
           "observation": "RUN-6: M-L2 — L2 keep-head содержит маркер «пересказ, не источник»; M-SELF — bot_self_reply/bot_direct_reply не попадают в фактический RAG, подтверждённый chat_history остаётся. 9 passed.",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
           "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "d454ad934d244f3fd19508e47625739b59d5f025",
+          "type": "test",
+          "ref": "p0-delta-analysis/evidence/impl.md «Дефект 5» + test_p0_delta_routing.py:723-786",
+          "observation": "P0 DELTA закрывает дефект 5 аудита (read-side провенанс не доезжал до модели в memory-тулах): dig facts рендерит каждую строку с origin-меткой ([пересказ из чата]/[вывод бота]/[запомнено]/[прошлые слова бота]…, tool_router.py:210-221, :1424-1435, суффикс «(архивное убеждение)»); vector/RAG fallback — отдельный блок «Контекст из памяти (обобщённые факты и пересказ, не дословные сообщения):» (:912-915); msg-сниппеты остаются дословными первичными записями без меток. Тесты routing: chat_history→[пересказ из чата], derived_belief→[вывод бота], unknown→origin, archived_belief→суффикс — зелёные (impl.md «Верификация»: 54 новых теста, фокус 496 passed).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
+          "artifact_sha256": "43934fd093fdeee5aa7fbfb7faccab29b8001f6ea41ba20755f02b2242aabd8d"
+        },
+        {
+          "candidate_commit": "d454ad934d244f3fd19508e47625739b59d5f025",
+          "type": "audit",
+          "ref": "p0-delta-analysis/evidence/review-delta.md: Per-fix таблица D5 CLOSED, вердикт Approved",
+          "observation": "Независимое ревью P0 DELTA (2ac20bf3, база release 87ad5908/2.58.131): «Five fixes D1-D5 подтверждены по коду и тестам», D5 L2-пересказы как свидетельства — CLOSED (origin-метки database.py:10190-10196, tool_router.py:210-221/1071-1079/1424-1435, vector/RAG блок :907-912, без author-каналов :858-883), сценарная матрица владельца §12 12/12 PASS.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "d454ad934d244f3fd19508e47625739b59d5f025",
+          "type": "audit",
+          "ref": "evidence/p0-delta-bind/l2-not-evidence-verify.md: file:line на release tip lineage",
+          "observation": "Speech-side на задеплоенной линии (d454ad93 — предок tip 297bc5d8, APP_VERSION 2.58.134): L2-пересказ в payload помечен «широкий фон: пересказ, не источник:» и конспект «фон: конспект из N сообщений, ниже дословно свежий хвост — пересказ, не источник» (direct_chat_service.py:5795/5810, legacy-билдер :8835/8838); direct-RAG `<RAG_Memory>` рендерится с origin-метками build_rag_context(origin_labels=True) (summary_memory.py:1390-1412, вызов :8671); выводы бота исключены из фактического RAG, rank-метки «(не подтверждено)»/«(предположение)» (SPEECH-P0-A2, :1899-1907, :8587); self-echo инструкция при self-строках (:8682, summary_memory.py:614-617); lore-маркер «(летопись чата: пересказ, не источник фактов)» (lore_prompts.py:128). Обе части acceptance закрыты, гэпа нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-delta-bind/l2-not-evidence-verify.md",
+          "artifact_sha256": "74dc0b09600c22011766799e4af8e668358f838504daade500262c5b2c55d1da"
         }
-      ]
+      ],
+      "status_note": "VERIFIED на bd6d5fff (RUN-6 M-L2/M-SELF); привязка расширена 27.10.2026 доказательствами P0 DELTA на d454ad93 (released 2.58.134): закрыт дефект 5 аудита p0-delta-analysis (origin-метки в memory-тулах), speech-side метки «пересказ, не источник» подтверждены на обоих композерах payload."
     },
     {
       "source_id": "L00173",
