@@ -97,12 +97,17 @@ UNTRUSTED_DATA_CHANNEL = "untrusted_image_data"
 
 # Поддерживаемые растровые входы (D18). animation/video — своим пайплайнам;
 # kind `animation` регистрируется честно как unsupported-кандидат.
+# ASAP5 §9/§10 (wave W1): kind `video_preview` — кадр-обложка video/video_note
+# (thumbnail из Bot API). Это РАСТР, поэтому он проходит через существующий
+# Vision-пайплайн как обычное изображение; честная маркировка «превью, не
+# полный просмотр» — на слое представления (render/recognize), а не вида.
 ASSET_KIND_PHOTO = "photo"
 ASSET_KIND_DOCUMENT = "document"
 ASSET_KIND_STICKER = "sticker"
 ASSET_KIND_ANIMATION = "animation"
+ASSET_KIND_VIDEO_PREVIEW = "video_preview"
 SUPPORTED_ASSET_KINDS = frozenset({ASSET_KIND_PHOTO, ASSET_KIND_DOCUMENT,
-                                   ASSET_KIND_STICKER})
+                                   ASSET_KIND_STICKER, ASSET_KIND_VIDEO_PREVIEW})
 SUPPORTED_IMAGE_MIMES = frozenset({"image/jpeg", "image/png", "image/gif",
                                    "image/webp", "image/bmp"})
 
@@ -1254,9 +1259,11 @@ def _last_photo(message) -> object | None:
 
 
 def extract_image_assets(message) -> list[dict]:
-    """Кандидаты активов из сообщения (D18): photo (крупнейший вариант),
-    документ-изображение, статический стикер; animation — честный
-    unsupported-кандидат. БЕЗ байтов — только идентификаторы/геометрия."""
+    """Кандидаты активов из сообщения (D18 + ASAP5 §9): photo (крупнейший
+    вариант), документ-изображение, статический стикер; animation — честный
+    unsupported-кандидат; video/video_note — их кадр-обложка (thumbnail)
+    как растровый кандидат kind `video_preview` (превью, НЕ само видео).
+    БЕЗ байтов — только идентификаторы/геометрия."""
     assets: list[dict] = []
 
     photo = _last_photo(message)
@@ -1315,7 +1322,79 @@ def extract_image_assets(message) -> list[dict]:
             "width": getattr(animation, "width", None),
             "height": getattr(animation, "height", None),
         })
+
+    # ASAP5 §9/§10: превью обычных видео и видеосообщений. Кадр-обложка —
+    # raster (jpeg), доступен Bot API по своему file_id; полный кадр видео
+    # Vision-пайплайном не скачивается и не выдаётся за полный просмотр.
+    for attr, size_variant in (("video", "video_preview"),
+                               ("video_note", "video_note_preview")):
+        video = getattr(message, attr, None)
+        if video is None:
+            continue
+        thumb = getattr(video, "thumbnail", None)
+        if thumb is None:      # aiogram <3 alias / прямые моки
+            thumb = getattr(video, "thumb", None)
+        if (thumb is None or not getattr(thumb, "file_unique_id", None)
+                or not getattr(thumb, "file_id", None)):
+            continue           # превью нет — честное отсутствие, не выдумка
+        assets.append({
+            "asset_kind": ASSET_KIND_VIDEO_PREVIEW,
+            "file_id": getattr(thumb, "file_id", None),
+            "file_unique_id": getattr(thumb, "file_unique_id", None),
+            "size_variant": size_variant,
+            "mime": "image/jpeg",
+            "byte_size": getattr(thumb, "file_size", None),
+            "width": getattr(thumb, "width", None),
+            "height": getattr(thumb, "height", None),
+        })
     return assets
+
+
+# Честные уровни представления (ASAP5 §10): что система реально умеет
+# для каждого типа. Значения — контракт матрицы возможностей (тесты §9
+# и evidence читают ровно эти токены):
+#   vision            — актив проходит существующий Vision (OCR+описание);
+#   registered_unsupported — актив зарегистрирован честно, но визуальное
+#                        содержимое не анализируется (animation/TGS/WebM);
+#   none              — визуального кандидата нет (честное отсутствие).
+REPRESENTATION_VISION = "vision"
+REPRESENTATION_UNSUPPORTED = "registered_unsupported"
+REPRESENTATION_NONE = "none"
+
+
+def media_capability(message) -> dict:
+    """Честная матрица возможностей по факту сообщения (ASAP5 §9, read-only).
+
+    Единственный источник истины для capability-тестов и evidence: что
+    реально детектируется, каким адаптером, каким путём представления.
+    Никогда не бросает; НЕ регистрирует активы и НЕ делает вызовов."""
+    detected: list[dict] = []
+    try:
+        assets = extract_image_assets(message)
+    except Exception:
+        assets = []
+    for cand in assets:
+        kind = str(cand.get("asset_kind") or "")
+        variant = str(cand.get("size_variant") or "")
+        if kind == ASSET_KIND_ANIMATION:
+            path = REPRESENTATION_UNSUPPORTED
+            # GIF/Telegram Animation/TGS/WebM-стикер — один честный токен.
+            source = "animation"
+            if variant == "sticker":
+                source = "animated_sticker"   # TGS или WebM-видеостикер
+        elif kind in SUPPORTED_ASSET_KINDS:
+            path = REPRESENTATION_VISION
+            source = variant if variant else kind
+        else:
+            path = REPRESENTATION_NONE
+            source = kind
+        detected.append({"asset_kind": kind, "size_variant": variant,
+                         "source": source, "representation": path,
+                         "file_id_present": bool(cand.get("file_id")),
+                         "file_unique_id_present":
+                             bool(cand.get("file_unique_id"))})
+    album = bool(str(getattr(message, "media_group_id", "") or ""))
+    return {"detected": detected, "album": album}
 
 
 async def register_intake_assets(db, message, *, message_row_id=None) -> list[str]:
@@ -3103,6 +3182,29 @@ OCR_LINE_LABEL = "Текст на изображении (OCR, не слова �
 DESC_LABEL = "Визуальное описание (результат модели)"
 PENDING_LINE = "изображение, содержание ещё не распознано"
 RECONSTRUCTION_MARK = "нынешняя реконструкция"
+# ASAP5 §10: честная маркировка уровня «анализ превью» — превью (кадр-обложка)
+# НЕ выдаётся за полный просмотр видео, и видео с пригодным превью не
+# объявляется полностью недоступным.
+VIDEO_PREVIEW_NOTE = ("видео: проанализировано превью (кадр-обложка), "
+                      "не полный просмотр")
+# Честный уровень «отсутствие доступного видеосодержимого» (медиа-строка
+# без визуальных кандидатов, напр. видео без кадра-обложки).
+NO_VISUAL_CONTENT_LINE = "визуальное содержимое недоступно (превью нет)"
+
+
+def _row_field(row, key):
+    """Row dict/sqlite.Row → значение по ключу (None при отсутствии)."""
+    value = None
+    try:
+        value = row.get(key) if isinstance(row, dict) else None
+    except Exception:
+        value = None
+    if value is None and hasattr(row, "keys"):
+        try:
+            value = row[key]
+        except Exception:
+            value = None
+    return value
 
 
 def _fmt_ts(ts) -> str | None:
@@ -3139,6 +3241,36 @@ async def render_media_context_async(db, *, chat_id: int,
                     if str(a.get("asset_kind")) in SUPPORTED_ASSET_KINDS
                     or str(a.get("asset_kind")) == ASSET_KIND_ANIMATION]
     if not image_assets:
+        # ASAP5 §10 (честный уровень «отсутствие доступного содержимого»):
+        # медиа-строка без визуальных кандидатов (например, видео без
+        # кадра-обложки) не претендует на анализ и не молчит как «нет медиа»
+        # — явная честная строка. Текстовые/голосовые строки не трогаем
+        # (у голосовых свой STT-пайплайн).
+        row_media_type = str(_row_field(row, "media_type") or "")
+        if row_media_type in ("video", "animation", "sticker"):
+            sender0 = str(_row_field(row, "author_name")
+                          or _row_field(row, "sender_user_name") or "")
+            if not sender0:
+                uid0 = _row_field(row, "user_id")
+                sender0 = f"user {uid0}" if uid0 else "участник"
+            event_time0 = _row_field(row, "sent_at") \
+                or _row_field(row, "timestamp")
+            header0 = (f"[{_fmt_ts(event_time0) or 'время недоступно'} | "
+                       f"{sender0} | msg:{chat_id}:{tg_message_id} | "
+                       f"{row_media_type}]")
+            return {
+                "message_key": f"{chat_id}:{tg_message_id}",
+                "event_time": int(event_time0 or 0) or None,
+                "knowledge_time": None,
+                "sender": sender0,
+                "caption": None,
+                "forward_source": None,
+                "untrusted_ocr_texts": [],
+                "visual_descriptions": [],
+                "lines": [header0, NO_VISUAL_CONTENT_LINE],
+                "text": f"{header0}\n{NO_VISUAL_CONTENT_LINE}",
+                "replay_mode": bool(replay_before is not None),
+            }
         return None
 
     def _row_get(key):
@@ -3195,16 +3327,23 @@ async def render_media_context_async(db, *, chat_id: int,
                 lines.append(PENDING_LINE)
                 continue
         analyses.append(analysis)
+        kind = str(asset.get("asset_kind") or "")
+        is_preview = kind == ASSET_KIND_VIDEO_PREVIEW
         if analysis is None:
-            kind = str(asset.get("asset_kind") or "")
             if kind == ASSET_KIND_ANIMATION:
                 # D18: анимация/видео — своим медиапайплайнам; unsupported
                 # помечается явно (не «ещё не распознано»).
                 lines.append("анимация/видео — распознавание изображений "
                              "не применимо")
+            elif is_preview:
+                lines.append("превью видео, содержание ещё не распознано")
             else:
                 lines.append(PENDING_LINE)
             continue
+        if is_preview:
+            # ASAP5 §10: анализ превью ≠ полный просмотр; маркировка
+            # обязательна и предшествует содержимому кадра.
+            lines.append(VIDEO_PREVIEW_NOTE)
         analysis_revision = int(analysis.get("revision") or 0) \
             if analysis_revision is None else analysis_revision
         completed = int(analysis.get("completed_at") or 0)
@@ -3576,6 +3715,7 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
             "analysis_revision": int(ready.get("revision") or 1),
             "analysis_id": int(ready.get("id") or 0),
             "asset_id": asset_id,
+            "asset_kind": str(asset.get("asset_kind") or ""),
             "message_key": f"{chat_id}:{asset.get('tg_message_id')}",
             "source_ref_ids": refs,
             "ocr_blocks": analysis_from_row(ready).ocr_blocks,
@@ -3631,6 +3771,7 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
                     "analysis_revision": int(ready.get("revision") or 1),
                     "analysis_id": int(ready.get("id") or 0),
                     "asset_id": asset_id,
+                    "asset_kind": str(asset.get("asset_kind") or ""),
                     "message_key": f"{chat_id}:{asset.get('tg_message_id')}",
                     "ocr_blocks": analysis_from_row(ready).ocr_blocks,
                     "visual_description": str(

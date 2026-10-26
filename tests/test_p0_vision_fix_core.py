@@ -1481,3 +1481,381 @@ async def test_fix2_backfill_rearms_transient_terminal_job(tmp_path,
         assert fifth["processed"] == 0
     finally:
         await db.close()
+
+# ════════════════════════════════════════════════════════════════════════════
+# ASAP5 §9-§11 (wave W1, slice ASAP5-MEDIA-RECOGNITION): честная матрица
+# возможностей типов медиа; адаптеры превью video/video_note; единый путь
+# представления (intake → job → render → reply/tool) без нового пайплайна.
+# TEST-LIFECYCLE: CONTRACT owner=ASAP5-MEDIA-RECOGNITION (capability matrix)
+# TEST-LIFECYCLE: INTEGRATION owner=ASAP5-MEDIA-RECOGNITION (preview intake →
+#                  job → honest render → reply/tool targeting)
+# ════════════════════════════════════════════════════════════════════════════
+
+def _asap5_thumb(serial: int):
+    from aiogram.types import PhotoSize
+    return PhotoSize(file_id=f"asap_thumb_fid_{serial}",
+                     file_unique_id=f"asap_thumb_uniq_{serial}",
+                     width=320, height=240, file_size=4321)
+
+
+def _asap5_photo_message(tg_id, serial=1, *, caption=None,
+                         media_group_id=None):
+    from aiogram.types import Chat, Message, PhotoSize, User
+    import datetime as _dt
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        photo=[PhotoSize(file_id=f"fid_{serial}",
+                         file_unique_id=f"uniq_{serial}",
+                         width=800, height=600, file_size=12345)],
+        caption=caption, media_group_id=media_group_id)
+
+
+def _asap5_video(tg_id, serial=1, *, with_thumb=True, media_group_id=None):
+    from aiogram.types import Chat, Message, User, Video
+    import datetime as _dt
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        video=Video(file_id=f"asap_vid_fid_{serial}",
+                    file_unique_id=f"asap_vid_uniq_{serial}",
+                    width=1280, height=720, duration=42,
+                    mime_type="video/mp4", file_size=2_000_000,
+                    thumbnail=(_asap5_thumb(serial) if with_thumb else None)),
+        media_group_id=media_group_id)
+
+
+def _asap5_video_note(tg_id, serial=1, *, with_thumb=True):
+    from aiogram.types import Chat, Message, User, VideoNote
+    import datetime as _dt
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        video_note=VideoNote(file_id=f"asap_vn_fid_{serial}",
+                             file_unique_id=f"asap_vn_uniq_{serial}",
+                             length=360, duration=15,
+                             file_size=800_000,
+                             thumbnail=(_asap5_thumb(serial)
+                                        if with_thumb else None)))
+
+
+def _asap5_sticker(tg_id, *, is_animated=False, is_video=False):
+    from aiogram.types import Chat, Message, Sticker, User
+    import datetime as _dt
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        sticker=Sticker(file_id="asap_st_fid", file_unique_id="asap_st_uniq",
+                        width=512, height=512,
+                        is_animated=is_animated, is_video=is_video,
+                        type="regular"))
+
+
+def _asap5_animation(tg_id, serial=1):
+    from aiogram.types import Animation, Chat, Message, User
+    import datetime as _dt
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        animation=Animation(file_id=f"asap_gif_fid_{serial}",
+                            file_unique_id=f"asap_gif_uniq_{serial}",
+                            width=320, height=240, duration=3,
+                            mime_type="video/mp4", file_name="gif.mp4",
+                            file_size=100_000))
+
+
+def _asap5_document_message(tg_id, *, mime="image/jpeg",
+                            file_name="pic.jpg"):
+    from aiogram.types import Chat, Document, Message, User
+    import datetime as _dt
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        document=Document(file_id="asap_doc_fid",
+                          file_unique_id="asap_doc_uniq",
+                          file_name=file_name, mime_type=mime,
+                          file_size=3000))
+
+
+def _asap5_voice_or_audio(tg_id, *, audio=False):
+    from aiogram.types import Audio, Chat, Message, User, Voice
+    import datetime as _dt
+    media = (Audio(file_id="asap_au_fid", file_unique_id="asap_au_uniq",
+                   duration=180)
+             if audio else
+             Voice(file_id="asap_vo_fid", file_unique_id="asap_vo_uniq",
+                   duration=7))
+    return Message(
+        message_id=tg_id,
+        date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+        chat=Chat(id=CHAT, type="supergroup", title="T"),
+        from_user=User(id=42, is_bot=False, first_name="Sergey"),
+        **({"audio": media} if audio else {"voice": media}))
+
+
+def _asap5_matrix_cases() -> dict:
+    """Честная матрица §9: (type → [(asset_kind, size_variant, representation)]).
+
+    Источник истины — `mca_vision.media_capability` (тот же код, что и
+    intake); ожидания зафиксированы по владельческому списку типов §9."""
+    V = mca_vision.REPRESENTATION_VISION
+    U = mca_vision.REPRESENTATION_UNSUPPORTED
+    N = mca_vision.REPRESENTATION_NONE
+    return {
+        # §9: фото
+        "photo": (_asap5_photo_message(801, serial=1),
+                  [("photo", "large", V)]),
+        # §9: изображения, отправленные документами
+        "document_image": (_asap5_document_message(802),
+                           [("document", "document", V)]),
+        # §9: статические стикеры
+        "sticker_static": (_asap5_sticker(803),
+                           [("sticker", "sticker", V)]),
+        # §9: GIF / Telegram Animation — честный unsupported (D18)
+        "gif_animation": (_asap5_animation(804),
+                          [("animation", "animation", U)]),
+        # §9: анимированные TGS-стикеры — честный unsupported
+        "tgs_sticker": (_asap5_sticker(805, is_animated=True),
+                        [("animation", "sticker", U)]),
+        # §9: видеостикеры WebM — честный unsupported
+        "webm_video_sticker": (_asap5_sticker(806, is_video=True),
+                               [("animation", "sticker", U)]),
+        # §9: превью обычных видеозаписей — растровый кандидат Vision
+        "video_with_thumb": (_asap5_video(807, serial=1),
+                             [("video_preview", "video_preview", V)]),
+        # §10: видео без превью — честное отсутствие (ничего не выдумываем)
+        "video_no_thumb": (_asap5_video(808, serial=2, with_thumb=False),
+                           []),
+        # §9: превью видеосообщений (кружочки)
+        "video_note_with_thumb": (_asap5_video_note(809, serial=3),
+                                  [("video_preview", "video_note_preview",
+                                    V)]),
+        # §9: доступные медиа внутри альбомов
+        "album_photo": (_asap5_photo_message(810, serial=4,
+                                             media_group_id="grp-80"),
+                        [("photo", "large", V)]),
+        # вне визуальной матрицы: голосовые/аудио — свой STT-пайплайн
+        "voice": (_asap5_voice_or_audio(811), []),
+        "audio": (_asap5_voice_or_audio(812, audio=True), []),
+        # не-изображение документом — визуального кандидата нет
+        "document_non_image": (_asap5_document_message(813,
+                                                       mime="application/pdf",
+                                                       file_name="doc.pdf"),
+                               []),
+    }
+
+
+@pytest.mark.parametrize("case", [
+    "photo", "document_image", "sticker_static", "gif_animation",
+    "tgs_sticker", "webm_video_sticker", "video_with_thumb",
+    "video_no_thumb", "video_note_with_thumb", "album_photo",
+    "voice", "audio", "document_non_image",
+])
+def test_asap5_capability_matrix(case):
+    """CONTRACT (ASAP5 §9): матрица фактической поддержки по каждому типу —
+    детект/адаптер/путь представления/маркеры payload. Один источник
+    истины: `media_capability` поверх `extract_image_assets`."""
+    msg, expected = _asap5_matrix_cases()[case]
+    cap = mca_vision.media_capability(msg)
+    got = [(d["asset_kind"], d["size_variant"], d["representation"])
+           for d in cap["detected"]]
+    assert got == expected, f"{case}: {got} != {expected}"
+    for d in cap["detected"]:
+        if d["representation"] == mca_vision.REPRESENTATION_VISION:
+            assert d["asset_kind"] in mca_vision.SUPPORTED_ASSET_KINDS
+            assert d["file_id_present"] and d["file_unique_id_present"]
+        else:
+            assert d["asset_kind"] not in mca_vision.SUPPORTED_ASSET_KINDS
+    if case == "album_photo":
+        assert cap["album"] is True
+    if case in ("voice", "audio", "video_no_thumb", "document_non_image"):
+        assert cap["detected"] == []          # честное отсутствие кандидатов
+
+
+def test_asap5_preview_candidate_binds_thumb_not_video():
+    """§10 (адаптер без случайного файла): кандидат превью несёт file_id
+    кадра-обложки, а НЕ file_id самого видео."""
+    msg = _asap5_video(807, serial=1)
+    cand = mca_vision.extract_image_assets(msg)[0]
+    assert cand["file_id"] == "asap_thumb_fid_1"
+    assert cand["file_unique_id"] == "asap_thumb_uniq_1"
+    assert cand["file_id"] != getattr(msg.video, "file_id")
+    assert cand["mime"] == "image/jpeg"
+    # превью видео и превью кружочка — разные size_variant → разные asset_id
+    a = mca_vision.make_asset_id(CHAT, 807, "asap_thumb_uniq_1",
+                                 "video_preview")
+    b = mca_vision.make_asset_id(CHAT, 809, "asap_thumb_uniq_3",
+                                 "video_note_preview")
+    assert a != b
+
+
+@pytest.mark.asyncio
+async def test_asap5_video_preview_intake_job_render(tmp_path):
+    """INTEGRATION (ASAP5 §9/§10): превью видео проходит СУЩЕСТВУЮЩИЙ путь
+    intake → durable job → Vision (один вызов на актив) → ready-анализ;
+    рендер честно маркирует уровень «анализ превью», не полный просмотр."""
+    from services import message_identity
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        msg = _asap5_video(851, serial=1)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        assert len(assets) == 1
+        row = (await db.get_media_assets_for_message(CHAT, 851))[0]
+        # §11: chat_id/message_id/asset_id/file_id и связь с сообщением
+        assert row["chat_id"] == CHAT and row["tg_message_id"] == 851
+        assert row["asset_id"] == assets[0]
+        assert row["file_id"] == "asap_thumb_fid_1"
+        assert row["message_key"] == f"{CHAT}:851"
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)
+        jid = (await _active_vision(db, "queued"))[0]["job_id"]
+        job = await _claimed_job(db, jid)
+        t = Transport(default=(200, ASYNC_ANALYSIS_BODY))
+        await mca_vision.process_asset_job(
+            job, db=db,
+            bot=_FakeBot({"asap_thumb_fid_1": make_png()}), transport=t)
+        assert (await (await _store(db)).get(jid))["status"] == "completed"
+        ready = await db.get_ready_analysis(
+            assets[0], mca_vision.access_scope_for(CHAT))
+        assert ready is not None and ready["status"] == "ready"
+        # честный рендер: заметка о превью + содержимое кадра
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="video", author_name="Sergey", tg_message_id=851)
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=851)
+        assert rendered is not None
+        assert mca_vision.VIDEO_PREVIEW_NOTE in rendered["lines"]
+        assert rendered["visual_descriptions"]
+        assert f"msg:{CHAT}:851" in rendered["text"]
+        # tool-путь: reply-target → готовый анализ с маркером вида актива
+        res = await mca_vision.recognize_target(
+            db, chat_id=CHAT, reply_tg_id=851, wait_seconds=0)
+        assert res["status"] == "ready"
+        assert res["asset_kind"] == mca_vision.ASSET_KIND_VIDEO_PREVIEW
+        assert res["asset_id"] == assets[0]
+        assert res["cache_hit"] is True
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_video_without_thumb_honest_no_content(tmp_path):
+    """CONTRACT (ASAP5 §10): видео без превью — честный уровень «нет
+    доступного содержимого», без выдуманного анализа; текстовые/голосовые
+    строки по-прежнему не попадают в media-рендер (None)."""
+    from services import message_identity
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        msg = _asap5_video(861, serial=2, with_thumb=False)
+        assert await mca_vision.register_intake_assets(db, msg) == []
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="video", author_name="Sergey", tg_message_id=861)
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=861)
+        assert rendered is not None
+        assert mca_vision.NO_VISUAL_CONTENT_LINE in rendered["lines"]
+        assert rendered["knowledge_time"] is None
+        assert not rendered["visual_descriptions"]
+        assert not rendered["untrusted_ocr_texts"]
+        # текстовая строка — прежнее поведение (None, нет media-блока)
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text="просто текст",
+            caption=None, timestamp=1760000000, sent_at=1760000000,
+            ingested_at=1760000000, media_type="text", author_name="Sergey",
+            tg_message_id=862)
+        assert await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=862) is None
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_reply_targets_exact_media_not_neighbor(tmp_path):
+    """INTEGRATION (ASAP5 §11): reply направляет обработку именно на
+    адресованное медиа: фото → его актив; видео → ЕГО превью; GIF → честный
+    unsupported (никакого случайного соседнего файла)."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        await mca_vision.register_intake_assets(
+            db, _asap5_photo_message(871, serial=1))
+        await mca_vision.register_intake_assets(
+            db, _asap5_photo_message(872, serial=2))
+        await mca_vision.register_intake_assets(
+            db, _asap5_video(873, serial=3))
+        await mca_vision.register_intake_assets(
+            db, _asap5_animation(874, serial=4))
+        r = await mca_vision.resolve_target_assets(db, chat_id=CHAT,
+                                                   reply_tg_id=872)
+        assert r["status"] == "ok"
+        assert r["assets"][0]["asset_id"] == mca_vision.make_asset_id(
+            CHAT, 872, "uniq_2", "large")
+        r = await mca_vision.resolve_target_assets(db, chat_id=CHAT,
+                                                   reply_tg_id=873)
+        assert r["status"] == "ok"
+        preview = r["assets"][0]
+        assert preview["asset_kind"] == mca_vision.ASSET_KIND_VIDEO_PREVIEW
+        assert preview["tg_message_id"] == 873          # не соседний файл
+        assert preview["file_id"] == "asap_thumb_fid_3"
+        r = await mca_vision.resolve_target_assets(db, chat_id=CHAT,
+                                                   reply_tg_id=874)
+        assert r["status"] == "unsupported"
+        assert [a["asset_kind"] for a in r["unsupported"]] == ["animation"]
+        assert r["assets"] == []
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_album_mixed_media_fields_preserved(tmp_path):
+    """INTEGRATION (ASAP5 §11): медиагруппа (фото+фото+видео) — у каждого
+    актива сохраняются chat_id, message_id, asset_id, file_id и связь с
+    исходным сообщением через media_group_id; caption не теряется из
+    реестра (хранится в smart_messages)."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        group = "asap-grp-88"
+        msgs = (_asap5_photo_message(881, serial=1, caption="подпись альбома",
+                                     media_group_id=group),
+                _asap5_photo_message(882, serial=2, media_group_id=group),
+                _asap5_video(883, serial=3, media_group_id=group))
+        ids: set[str] = set()
+        for m in msgs:
+            ids.update(await mca_vision.register_intake_assets(db, m))
+        assert len(ids) == 3                   # каждый item — свой актив
+        for tg, serial, kind in ((881, 1, "photo"), (882, 2, "photo"),
+                                 (883, 3, mca_vision.ASSET_KIND_VIDEO_PREVIEW)):
+            for row in await db.get_media_assets_for_message(CHAT, tg):
+                assert row["chat_id"] == CHAT
+                assert row["tg_message_id"] == tg
+                assert row["media_group_id"] == group
+                assert row["asset_id"] == mca_vision.make_asset_id(
+                    CHAT, tg, row["file_unique_id"], row["size_variant"])
+                assert row["file_id"]
+                if kind == "photo":
+                    assert row["asset_kind"] == "photo"
+        # повторный observer того же сообщения — идемпотентно (без дублей)
+        again = await mca_vision.register_intake_assets(db, msgs[0])
+        assert again == [mca_vision.make_asset_id(CHAT, 881, "uniq_1",
+                                                  "large")]
+    finally:
+        await db.close()
