@@ -39,8 +39,18 @@
       "source_line": 24,
       "source_text_sha256": "6ed8bc9256f394f8f9b9fbacb73f80ddc1f537d7ac88de222c441f74730dd023",
       "source_excerpt": "Перед изменениями сверить фактический production-код, активные настройки PostgreSQL, заводские значения и реальный путь их применения.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
+          "type": "audit",
+          "ref": "evidence/audit-prod-verify.md (консолидированная матрица)",
+          "observation": "Аудит-документ фиксирует по каждому из трёх дефектов (P1 обрезка hint 400/5, P2 скрытый override/имена, P3 скрытые лимиты) все четыре атрибута: фактический код (style-phase1 §1.1-1.4 file:line до/после; limits-inventory §1-2; identity-phase; final-report §2/4/5), активные значения PostgreSQL (release-258114 deploy §10 style.policy rev 12 + §11 diag aliases — 39 пользователей, chat-override effective), заводские значения (HINT_LIMIT_OFF=0, потолок 64, синтез dash.hard.factory, отсутствие ручного списка имён) и реальный путь применения (effective_style_policy -> resolve_style_policy_ref -> композер -> egress-verify; set_chat_params+NOTIFY+bind_turn_aliases; compile_style_prompt на проде по release-258130). Документ только консолидирует уже принятые read-only факты; нового доступа к прод в полосе не было. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/audit-prod-verify.md",
+          "artifact_sha256": "69f2098c31ce6f1576adccf3e1efbd3265a72d6ce3f27bc9a313f5ef79c8160f",
+          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "AUD-PROD-VERIFY",
@@ -48,8 +58,8 @@
       "acceptance": "Аудит-документ фиксирует фактический код, активные значения PostgreSQL, заводские значения и реальный путь применения по каждому из трёх дефектов.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "PENDING",
-      "next_check": "Не классифицировано в этом прогоне — требует отдельного слайса."
+      "classification": "VERIFIED",
+      "next_check": ""
     },
     {
       "source_id": "MAN-L0026",
@@ -6245,10 +6255,29 @@
       "acceptance": "Настройки default/global/chat согласованы; эффективное значение проверено на каждом уровне.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "next_check": "Read-only проверка эффективного значения на трёх уровнях (factory/global/chat) не выполнялась: нужен `SELECT` style.policy для global + chat-документа тестового чата и сверка effective по `migration.md` §5; только после этого строка закрывается.",
-      "classification": "WAITING_EXTERNAL"
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
+          "type": "production",
+          "ref": "release-258114/deploy.md §10, §11 (read-only)",
+          "observation": "Read-only проверка effective на уровнях выполнена на проде: SELECT style.policy (rev 12) — global-документ прочитан (rules владельца emoji/quotation/trailing enabled; hint_limits отсутствует -> OFF); заводской уровень сверен с effective: строки dash у владельца нет -> синтез заводского dash.hard.factory (enabled=True) по коду style_policy.py:947-970,1019 -> «dash активен» (сверка effective по migration.md §5 — план §10.9 выполнен). Chat-документов стиля на проде не существовало -> effective(chat)==global+factory, что и подтверждено. Согласованность того же стека скопов на живых данных: diag aliases — chat-override uid=529151103 (chat=Папаха / global=Толян -> effective=Папаха) при 39 сохранённых глобальных. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
+        },
+        {
+          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
+          "type": "test",
+          "ref": "evidence/acceptance.md §3 S4/S5/S8/S9/S10; tests/test_asap3_acceptance.py + tests/test_asap3_style_hint_limits.py",
+          "observation": "Механика chat-уровня проверена end-to-end на реальном save-пути: test_s4_saved_limit_applies_next_resolve_without_restart (реальный chat_params.set_chat_params -> инвалидация -> effective_style_policy без рестарта), S5 изоляция чатов, S8 chat-правило тире, S9 Inspector = фактическая сборка global+chat (source=chat), S10 техбюджет не маскируется под лимит владельца. Прогон 27.10.2026 на этой базе: 24 passed (оба файла). Граница: chat-level style-документ на проде отсутствовал на момент аудита; при появлении владельческого chat-override достаточно одного read-only SELECT.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
+        }
+      ],
+      "next_check": "",
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00502",
