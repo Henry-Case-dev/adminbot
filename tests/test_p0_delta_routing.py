@@ -19,7 +19,8 @@ from config.settings import settings
 from services import chat_statistics as _cs
 from services import mca_gates
 from services.database import DatabaseService
-from services.direct_chat_service import lore_story_override
+from services.direct_chat_service import lore_story_override, \
+    lore_verbatim_allowed
 from services.direct_l1 import (
     L1Plan,
     lore_story_delivery_allowed,
@@ -177,6 +178,184 @@ class TestLoreBypassIntentGate:
         src = inspect.getsource(_dcs)
         assert "lore_story_override(tool_ctx, l1_plan, response_plan)" in src
         assert "strip_reasoning_tags(lore_story)" in src
+
+
+# ── LORE-VERBATIM-GATE micro-fix: «верни ДОСЛОВНО» = тот же гейт ──────────
+
+
+def _l1_plan(act: str, structure: str) -> L1Plan:
+    return normalize_l1_plan({
+        "action": "reply", "response_act": act, "structure": structure,
+        "extent": "auto", "tool_policy": "auto",
+        "capabilities_needed": ["historical_search"],
+    })
+
+
+class _RP:
+    """Легаси response_plan (существующее поле task_kind)."""
+
+    def __init__(self, kind):
+        self.task_kind = kind
+
+
+class _StoryLLM:
+    """LLM-фейк синтеза «Летописца» (канон test_lore_compiler_round1020)."""
+
+    def __init__(self, story="<b>История</b> про Толяна."):
+        self.story = story
+        self.calls = 0
+
+    async def generate(self, messages, temperature=None, chat_id=None):
+        self.calls += 1
+        return self.story
+
+
+async def _dispatch_with_call_site_ctx(plan, rp, query):
+    """Конструкция ToolContext РОВНО как в call-site direct_chat_service
+    (гейт инструкции) + реальный dispatch compile_lore_story: БД in-memory,
+    синтез — фейк-LLM. Возвращает (ctx, tool-output)."""
+    from services.database import DatabaseService
+    db = DatabaseService(":memory:")
+    await db.initialize()
+    try:
+        await db.save_smart_message(1, CHAT_ID, "мем тут", None,
+                                    int(time.time()), "text", "Толян")
+        router = ToolRouter(ToolDeps(search=MagicMock(), memory=MagicMock(),
+                                     db=db, llm=_StoryLLM()))
+        ctx = ToolContext(
+            CHAT_ID, query,
+            lore_verbatim_instruction=lore_verbatim_allowed(plan, rp))
+        out = await router.dispatch("compile_lore_story", {"topic": "мем"},
+                                    ctx)
+        return ctx, out
+    finally:
+        await db.close()
+
+
+class TestLoreVerbatimInstructionGate:
+    """LORE-VERBATIM-GATE (P0-DELTA micro-fix): инструкция «верни story
+    ДОСЛОВНО» включается в tool-payload ТОЛЬКО при story-интенции хода —
+    тем же гейтом, что и детерминированная подмена (lore_story_override).
+    До фикса инструкция летела в payload на ЛЮБОМ интенте: Writer эхом
+    возвращал скомпилированную историю на analysis-ходах (S03/S05/S07/S10,
+    live-scenarios §Находка) — D1 не выполнялся фактически. CONTRACT."""
+
+    def test_verbatim_iff_delivery_allowed(self):
+        for act, structure in (("creative", "story"),
+                               ("historical_recall", "chat"),
+                               ("answer", "chat")):      # fail-open
+            assert lore_verbatim_allowed(_l1_plan(act, structure)), \
+                (act, structure)
+        for act in ("research", "explanation", "comparison",
+                    "summarization", "clarification"):
+            assert not lore_verbatim_allowed(_l1_plan(act, "chat")), act
+        for structure in ("report", "explanation", "comparison", "summary",
+                          "steps"):
+            assert not lore_verbatim_allowed(
+                _l1_plan("answer", structure)), structure
+
+    def test_legacy_response_plan_kinds(self):
+        assert not lore_verbatim_allowed(None, _RP("research"))
+        assert not lore_verbatim_allowed(None, _RP("summarization"))
+        assert lore_verbatim_allowed(None, _RP("creative_writing"))
+        assert lore_verbatim_allowed(None, _RP("historical_recall"))
+        assert lore_verbatim_allowed(None, _RP("social_chat"))
+
+    def test_no_plan_fails_open(self):
+        assert lore_verbatim_allowed(None, None)
+
+    def test_kill_switch_off_restores_legacy(self, monkeypatch):
+        from config.settings import Settings
+        monkeypatch.setattr(Settings, "LORE_STORY_INTENT_GATE_ENABLED",
+                            False)
+        assert lore_verbatim_allowed(_l1_plan("research", "report"))
+
+    def test_call_site_wires_gate_into_tool_context(self):
+        """REGRESSION-пин: construction ToolContext в direct_chat_service
+        резолвит инструкцию гейтом (безвозврат к дефолту True на любом
+        интенте)."""
+        import inspect
+
+        from services import direct_chat_service as _dcs
+        src = inspect.getsource(_dcs)
+        assert "lore_verbatim_instruction=" in src
+        assert "lore_verbatim_allowed(" in src
+
+    # ── четыре живых сценария (S03/S05/S07/S10) — Writer-композиция ──
+
+    @pytest.mark.asyncio
+    async def test_s03_period_research_no_verbatim(self):
+        # S03 «за период …»: research/report → инструкция отсутствует,
+        # story остаётся provenance-материалом тул-результата.
+        plan = _l1_plan("research", "report")
+        ctx, out = await _dispatch_with_call_site_ctx(
+            plan, plan.to_response_plan(), "что обсуждали за период 2023-2024")
+        assert ctx.lore_compiled is True
+        assert ctx.lore_verbatim_instruction is False
+        assert "ДОСЛОВНО" not in out
+        assert '"story"' in out          # provenance сохранён
+
+    @pytest.mark.asyncio
+    async def test_s05_meta_essay_summarization_no_verbatim(self):
+        # S05 (мета-эссе о чате): summarization → без инструкции.
+        plan = _l1_plan("summarization", "summary")
+        ctx, out = await _dispatch_with_call_site_ctx(
+            plan, plan.to_response_plan(),
+            "напиши эссе о том, как менялся наш чат")
+        assert ctx.lore_verbatim_instruction is False
+        assert "ДОСЛОВНО" not in out
+        assert '"story"' in out
+
+    @pytest.mark.asyncio
+    async def test_s05_legacy_response_plan_kind_no_verbatim(self):
+        # Легаси-путь (l1-плана нет): task_kind=summarization гейтит.
+        ctx, out = await _dispatch_with_call_site_ctx(
+            None, _RP("summarization"), "суммируй, как мы общались")
+        assert ctx.lore_verbatim_instruction is False
+        assert "ДОСЛОВНО" not in out
+
+    @pytest.mark.asyncio
+    async def test_s07_two_person_comparison_no_verbatim(self):
+        # S07 (отношения двух людей): comparison → без инструкции.
+        plan = _l1_plan("comparison", "comparison")
+        ctx, out = await _dispatch_with_call_site_ctx(
+            plan, plan.to_response_plan(),
+            "как общались вася и петя между собой")
+        assert ctx.lore_verbatim_instruction is False
+        assert "ДОСЛОВНО" not in out
+        assert '"story"' in out
+
+    @pytest.mark.asyncio
+    async def test_s10_out_of_range_period_no_verbatim(self):
+        # S10 (вне-периодный запрос): research/explanation → без инструкции.
+        plan = _l1_plan("research", "explanation")
+        ctx, out = await _dispatch_with_call_site_ctx(
+            plan, plan.to_response_plan(), "что было в 1990-м году")
+        assert ctx.lore_verbatim_instruction is False
+        assert "ДОСЛОВНО" not in out
+        assert '"story"' in out
+
+    # ── story-интенции не сужаются (S04/S09) ──────────────────────────
+
+    @pytest.mark.asyncio
+    async def test_s04_creative_story_keeps_verbatim(self):
+        # S04 (просьба рассказать историю): creative/story → инструкция на
+        # месте (мягкая страховка доставки детерминированного HTML).
+        plan = _l1_plan("creative", "story")
+        ctx, out = await _dispatch_with_call_site_ctx(
+            plan, plan.to_response_plan(), "расскажи историю про мем")
+        assert ctx.lore_compiled is True
+        assert ctx.lore_verbatim_instruction is True
+        assert "ДОСЛОВНО" in out
+
+    @pytest.mark.asyncio
+    async def test_s09_historical_recall_keeps_verbatim(self):
+        # S09: historical_recall → инструкция на месте.
+        plan = _l1_plan("historical_recall", "chat")
+        ctx, out = await _dispatch_with_call_site_ctx(
+            plan, plan.to_response_plan(), "а вспомни, как мы шут про Толяна")
+        assert ctx.lore_verbatim_instruction is True
+        assert "ДОСЛОВНО" in out
 
 
 # ── дефект 2: период выразим без второго роутера ──────────────────────────

@@ -1341,6 +1341,32 @@ def lore_story_override(tool_ctx, l1_plan=None, response_plan=None) -> str:
     return ""
 
 
+def lore_verbatim_allowed(l1_plan=None, response_plan=None) -> bool:
+    """LORE-VERBATIM-GATE (P0-DELTA micro-fix, 27.10.2026): служебная
+    инструкция «верни story ДОСЛОВНО» включается в tool-payload
+    `compile_lore_story` ТОЛЬКО при story-интенции хода — той же семантикой
+    гейта `direct_l1.lore_story_delivery_allowed`, что и детерминированная
+    подмена в `lore_story_override`.
+
+    До фикса инструкция попадала в payload на ЛЮБОМ интенте (дефолт
+    ToolContext=True): на analysis/research-ходах Writer видел «верни
+    ДОСЛОВНО» и эхом возвращал скомпилированную историю, сводя гейт подмены
+    к нулю (требование D1 «lore story не подменяет analysis-ответ» не
+    выполнялось фактически; живое подтверждение — S03/S05/S07/S10,
+    live-scenarios §Находка, prod 2.58.132).
+
+    При заблокированной доставке инструкция не добавляется: история остаётся
+    в tool-output как provenance-материал (метки происхождения не трогаются),
+    ответ компонует Writer по плану. Kill-switch
+    `LORE_STORY_INTENT_GATE_ENABLED` OFF → True (прежнее поведение: подмена
+    байт-в-байт на любом ходе). Fail-open при неопределённой интенции/
+    легаси — как основной гейт (story-интенции S04/S09 не сужаются).
+    Никогда не бросает."""
+    if not bool(getattr(settings, "LORE_STORY_INTENT_GATE_ENABLED", True)):
+        return True               # OFF → прежнее поведение (инструкция везде)
+    return _l1.lore_story_delivery_allowed(l1_plan, response_plan)
+
+
 def decision_making_enabled() -> bool:
     """Kill-switch A7 `DIRECT_DECISION_MAKING_ENABLED` (env-only, default ON).
 
@@ -3302,7 +3328,17 @@ class DirectChatService:
                                    # image' на этом же ходу вернёт skipped
                                    # даже если модель его вызовет.
                                    image_request_handled=
-                                   image_pre_gate_fired)
+                                   image_pre_gate_fired,
+                                   # LORE-VERBATIM-GATE (P0-DELTA micro-fix):
+                                   # «верни story ДОСЛОВНО» — только при
+                                   # story-интенции (тот же гейт, что у
+                                   # подмены ниже); analysis-ходы получают
+                                   # payload без дословного возврата, история
+                                   # остаётся provenance-материалом тул-
+                                   # результата, ответ компонует Writer.
+                                   lore_verbatim_instruction=
+                                   lore_verbatim_allowed(
+                                       l1_plan, response_plan))
             # MCA-07 (T-3852): тот же единственный bundle доступен инструментам
             # (REUSE: контракт, не второй сборщик; R17 — ссылки/refs).
             tool_ctx.evidence_bundle = evidence_bundle
