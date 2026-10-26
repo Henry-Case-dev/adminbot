@@ -3,7 +3,7 @@
   "source_path": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
   "source_sha256": "2f7ef4d743f5f7616d075435116dff3e0aee7b59446ec599baf013c4915b1c9b",
   "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
-  "deployed_commit": "",
+  "deployed_commit": "076f7391a01157bad106372d405d109085a78dbc",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph-p0-corrective.json",
   "additional_requirements": [
@@ -1189,8 +1189,33 @@
       "acceptance": "При провале Reviewer возвращает конкретный дефект Builder/DevOps с адресом и повторяет проверку после исправления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §7 «Девять проверок §5»",
+          "observation": "На кандидате bd6d5fff цикл выполнен: независимое ревью вернуло дефекты (L1 A, meta, quotes) → исправления → повторная проверка final11: девять проверок 9/9 PASS, meta strict 0/16, quotes 0 non-exact, Core 8/8, FREQ 8/8.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md §4 «Честные остатки», §7",
+          "observation": "Ревью вернуло конкретный дефект с адресом: meta 1/8 (new_code_B повтор #2, категория announce, текст в probes_release.md критерий 1) → маршрутизация «правка — P0 DELTA», честный FAILED.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2, §4",
+          "observation": "После исправления проверка повторена на развёрнутом дереве: 0/6 мета-анонсов, включая 2 повтора ранее падавшей формы Case B; residual resolved.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ]
     },
     {
       "source_id": "MAN-REV-NO-REPORT-ONLY",
@@ -1204,8 +1229,25 @@
       "acceptance": "Задача не считается закрытой отчётом: она остаётся в работе, пока нет APPROVED-ревью и подтверждённого production-деплоя.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md (вердикт, §7)",
+          "observation": "Workflow не закрыт отчётом: вердикт «Approved for controlled deployment, parent not DONE» — предписаны постдеплойные проверки и --stage release при закрытии.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Итог»",
+          "observation": "Условие приёмки выполнено: после APPROVED выполнен штатный production deployment (healthz 2.58.134/200, NRestarts 0) и постдеплойные пробы — задача доведена до подтверждённого деплоя, а не остановлена отчётом.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        }
+      ]
     },
     {
       "source_id": "MAN-OWNER-LIVE-NOT-GATE",
@@ -1234,8 +1276,17 @@
       "acceptance": "Реальные инженерные проверки не обойдены ради формального DONE: ни одна required-строка не помечена VERIFIED без артефакта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md §3–§4",
+          "observation": "Проверки не обойдены: все 195 evidence-путей VERIFIED-строк существуют, «VERIFIED-строки без артефакта не обнаружены»; остатки честно зафиксированы (meta FAILED, FREQUENT FAILED, postdeploy READY_FOR_LIVE).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        }
+      ]
     },
     {
       "source_id": "MAN-DEPLOY-SAFETY-FIRST",
@@ -1249,8 +1300,25 @@
       "acceptance": "Если деплой технически небезопасен, причина устранена до выката; состояние небезопасности зафиксировано и закрыто проверкой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Guard'ы», DeltaDDL, «Откат»",
+          "observation": "Безопасность деплоя проверена до и после выката: registry --check OK, compileall OK, DeltaDDL=0 (живой журнал: user_version=37, pending=[], 0.0s), 6/6 артефакт-пинов, откат задокументирован, NRestarts 0.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md §4",
+          "observation": "Известное небезопасное состояние (meta residual 1/8) не проигнорировано: зафиксировано честным FAILED и устранено ДО выката (DELTA-DEPTH d167d686 в кандидате деплоя), подтверждено re-probe 0/6.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        }
+      ]
     },
     {
       "source_id": "MAN-DEPLOY-STANDARD",
@@ -1264,8 +1332,33 @@
       "acceptance": "После APPROVED выполнен штатный production-деплой; версия, healthcheck и ошибки запуска подтверждены на production.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Деплой», «Итог»",
+          "observation": "После APPROVED (review-release-p0) выполнен штатный production deployment 076f7391 (2.58.134): healthz 200 loopback + внешний, unit active/running, NRestarts=0, журнал 0 ERROR/CRITICAL/Traceback, migrations user_version=37 pending=[], артефакт-пины 6/6.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §1 «Стенд»",
+          "observation": "Постдеплойная верификация на 2.58.134: внешний healthz 200 до и после пробы, прод-HEAD 076f7391 не изменён, NRestarts=0, MainPID 308006 стабилен; пины стенда 6/6 = пины деплоя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md",
+          "observation": "Постдеплойная live-проба на проде 2.58.134 (read-only, реальный LLM, ноль Telegram): S03 PASS — 3/3 критерия, S06 sanity PASS.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "MAN-REPORT-INTRO",
@@ -1374,6 +1467,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта).",
       "owner_input_path": "plans/owner_inputs/2026-10-25-report-format.md",
       "owner_input_line": 6,
       "owner_input_quote": "> подробно, но простым языком без технических терминов, так же по другим задачам",
@@ -2309,8 +2403,17 @@
           "observation": "Цитата: «Оставшихся strict-строк нет — список пуст»; new_E#1 начинается сразу с «Ринтаро льёт ссылки…».",
           "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
           "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2–§4 (прод 2.58.134)",
+          "observation": "Re-probe residual на развёрнутом проде 2.58.134 (076f7391): TOTAL 0/6 мета-анонсов, включая оба повтора ранее падавшей hostile-формы Case B (теперь deep_research/research, оба ответа чистые); анализатор de9783ce (self-check PASS, негативный контроль 5/5); стенд 6/6 пинов деплоя; residual 1/8 релиз-пробы 86ef2a64 устранён DELTA-DEPTH (d167d686) до выката.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
         }
-      ]
+      ],
+      "status_note": "VERIFIED на bd6d5fff (final11 strict 0/16); релиз-проба 86ef2a64 выявила residual 1/8 (probes_release.md, честный FAILED) → DELTA-DEPTH; на задеплоенном 2.58.134 re-probe 0/6 (вкл. 2 повтора Case B) — residual закрыт, строка подтверждена и на деплое."
     },
     {
       "source_id": "L00157",
@@ -2508,8 +2611,33 @@
       "acceptance": "Reviewer подтверждает, что исходные проблемные запросы проверены на корректных маршрутах, с приложенным mode и payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §2 «L1»",
+          "observation": "На кандидате bd6d5fff оба исходных запроса идут в research во всех трёх сценариях: raw 2/2, effective 2/2 (plan_source=llm, mode=serious), forced 2/2; mode из резолвера и payload записаны в raw-артефактах.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (прод 2.58.134)",
+          "observation": "На задеплоенном дереве маршруты корректны: natural A → serious/research, B → deep_research/research ×2, C → casual/answer (research-ложняк не взят), forced A → research; по каждому прогону mode и payload записаны.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md §S03/S06",
+          "observation": "Лейны DELTA-DEPTH на проде: S03 — research/detailed/report (период-анализ идёт в research); S06 — answer/chat/micro (короткое бытовое остаётся casual).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "L00178",
@@ -2523,8 +2651,33 @@
       "acceptance": "Reviewer подтверждает соответствие фактического payload выбранным режимам и настройкам по артефактам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.payload/meta3/core",
+          "observation": "Payload соответствует режимам: у research-прогонов analysis_directive=1/analysis_writer=1 и delta-счётчики 1×1, у casual C/D/F — 0; RAG kept=4, Core 3294/ead77b2ab509, expression 1069; mode/l1_plan/layers записаны по каждому прогону.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2–§3",
+          "observation": "На проде payload соответствует планам: no_meta 1×1 (носитель plan_block) во всех 4 NO_META-прогонах, delta 1×1+substance 1×1 на research (3/3), C-casual 0×0 (req=0); Core 3294 6/6; RAG пуст только где законно (forced/C: rerank_rejected, rag_empty_is_correct=true).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md §S03(a), §S06",
+          "observation": "Полный захваченный payload Writer: DELTA_READY_INSTRUCTION_TEXT ровно 1 (только plan_block, остальные 7 полей 0), substance 1; S06 casual: total_delta=0, total_delta_sub=0 при predicate_expect=false.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "L00179",
@@ -2538,8 +2691,33 @@
       "acceptance": "В итоговых ответах нет неподтверждённых дат и цитат; проверка зафиксирована в ревью-артефакте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.quotes",
+          "observation": "Проверка цитат: quotes.final_non_exact=0 — ни одной неточной цитаты в финальных ответах на кандидате.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md §S03(c)",
+          "observation": "S03 на проде: выдуманных дат/цитат нет — вместо изобретения ответ честно отказывается («дай мне архив за 22-25, а то я тебе сейчас нафантазирую…»); story не подменяет ответ (delivery_allowed=false, similarity 0.089).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §3",
+          "observation": "Story echo на проде: 5-граммные пересечения ответов с <chat_lore> — 0 во всех 6 прогонах.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ]
     },
     {
       "source_id": "L00180",
@@ -2553,8 +2731,33 @@
       "acceptance": "Краткость достигнута естественным поведением, а не обрезанием текста; подтверждено сравнением payload и ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.b_lengths + payload",
+          "observation": "Глубина и длина независимы: research-ответы A/B с analysis_directive=1 — 327/883 симв., E (detailed) 1705/2653; краткость не получена урезанием контекста.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json extent_scrub_removed=0",
+          "observation": "Обрезания текста нет: extent_scrub_removed=0, extent_block_chars=144 — длина ответа естественная.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2",
+          "observation": "На проде естественная вариативность длины при одинаковых контрактах payload: 331/546 (B), 460/374 (A), 206 (forced_A), 250 (C casual), 58 (S06) — без признаков обрезания; краткость следует из режима.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ]
     },
     {
       "source_id": "L00181",
@@ -2568,8 +2771,41 @@
       "acceptance": "FREQUENT работает без обязательных few-shot-примеров; подтверждено прогоном в режиме FREQUENT.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/analysis.json summary.freq",
+          "observation": "FREQUENT работает из живого конфига без few-shot-подстановки: frequent_text=true 8/8 прогонов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/analysis.json",
+          "artifact_sha256": "1ba49cfcc7349dae4dff80ab447f3aeb3d5c4fe6dd08be1885844cc6464c2fd5"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §3 критерий 5",
+          "observation": "Релиз-проба: FREQ из живого конфига 5/5 PASS (frequent_text=true 5/5, baseline 2/2), без обязательных few-shot-примеров.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "frequent-decision.md",
+          "observation": "Решение по FREQUENT: статистическая остаточная вариативность задокументирована, приёмка без few-shot, «в VERIFIED не переводятся, релиз не блокируется».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §3",
+          "observation": "Постдеплойно: FREQ frequent_text=true 4/4 прогонов из живого конфига.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ]
     },
     {
       "source_id": "L00182",
@@ -2583,8 +2819,25 @@
       "acceptance": "Алиасы корректно разрешаются по Telegram ID во всех проверенных путях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-2]+[A16]+[A13INIT]+[A25]",
+          "observation": "Runtime: Telegram ID — ключ идентичности: test_a16 uid 1001 → «Гипербореец» в alias map; test_a13_initiative — uid в L1/L2; test_a25 — адресат по uid, не по имени. 35 passed.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §1 «Вердикт»",
+          "observation": "Независимое ревью: Approved для alias/identity-скоупа §2.1–§2.3 — все 11 обязательных проверок подтверждены кодом и независимыми прогонами.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00183",
@@ -2598,8 +2851,25 @@
       "acceptance": "Изменение алиаса действует без рестарта; подтверждено runtime-прогоном.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-2]+[A4]+[A5]+[A17]",
+          "observation": "Runtime: смена алиаса действует без рестарта — test_a4 глобальная смена на следующем ходе, test_a5 чатовая смена без рестарта, test_a17 тот же экземпляр сервиса видит новый алиас. 35 passed.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §1 «Вердикт»",
+          "observation": "Независимое ревью подтверждает hot-reload без рестарта в скоупе §2.1–§2.3 (Approved).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00184",
@@ -2613,8 +2883,33 @@
       "acceptance": "Fallback, retry и существующие технические ограничения сохранены; подтверждено диффом и прогоном.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md §2",
+          "observation": "Дифф-проверка слияния: кодовые файлы bit-identичны автослиянию git, «случайных поведенческих правок сверх разрешения конфликтов нет» — fallback/retry-логика не тронута.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §3 (реранн-вариативность и шум стенда)",
+          "observation": "Fallback-поведение живое: graceful-fallback предупреждения read-only-контура (embedding cache → FTS fallback, graphrag touch/KNN → FTS), rerank_rejected при законно пустом RAG; критический путь не задет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md «Red flags»",
+          "observation": "Деградация честная: partial coverage назван прямо, блокирующих red flags нет; PG read-only fail-open telemetry — контракт контура.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "L00185",
@@ -2628,8 +2923,41 @@
       "acceptance": "Новые исправления не нарушили ранее закрытые требования P0; подтверждено повторной проверкой затронутых сценариев.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §7 «Девять проверок §5»",
+          "observation": "На кандидате bd6d5fff повторно проверены затронутые сценарии: девять проверок §5 — PASS (meta strict 0/16, quotes 0 non-exact, Core 8/8 ead77b2ab509, FREQ 8/8, alias-проверки); ранее проваленные пункты закрыты.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §3 «Регрессии (все чистые)»",
+          "observation": "Повторная проверка на проде: analysis-инварианты 1×1/0×0, Core 3294/ead77b2ab509 6/6, DELTA-DEPTH substance 3/3 research и 0×0 casual, story echo 0, NO_META 4/4, FREQ 4/4, L1-маршруты — всё чисто.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-release-p0.md §1",
+          "observation": "Тесты на слитой ветке: 734 passed (новых падений против премерж-прогонов нет) + 29 passed реестра; registry --check OK; маркеров конфликта 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-release-p0.md",
+          "artifact_sha256": "97e4f77e4f7e167c559aa8d84a91160092191183b6243b8abf72caf0d987346f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md §S03/S06",
+          "observation": "Ранее закрытые лейны DELTA на проде: S03 PASS (3/3 критерия), S06 sanity PASS — регрессии нет.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "L00199",
@@ -2659,7 +2987,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00204",
@@ -2674,7 +3003,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00205",
@@ -2689,7 +3019,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00206",
@@ -2704,7 +3035,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00207",
@@ -2719,7 +3051,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00208",
@@ -2734,7 +3067,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00209",
@@ -2749,7 +3083,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     },
     {
       "source_id": "L00210",
@@ -2764,7 +3099,8 @@
       "live_required": false,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [],
+      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
     }
   ],
   "candidate_note": "25.10.2026 PM-BIND-FINAL: карта привязана к кандидату bd6d5fff54d664bf5cc66e647448c3950d778fc4 (task/speech-p0-hotfix), база/прод — 534ac7dda6713fb407e0789fdddfa563251cdab4 (2.58.130). Живое доказательство — probes_final11.md + probes_final11/; исполняемые тесты — alias-tests.txt (worktree HEAD 778147e5 — docs-only поверх bd6d5fff; diff services/tests/probes_full пуст). Raw final11 JSON не содержит git-пин (tarball без .git): идентичность кандидата — stage_sha.txt и final11 §1. Деплоя не было; deployed_commit пуст. VERIFIED — только при candidate-bound артефакте и конкретном тесте/факте.",
