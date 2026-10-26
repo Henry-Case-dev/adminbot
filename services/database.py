@@ -8862,6 +8862,23 @@ class DatabaseService:
                            "chat=%s", chat_id, exc_info=True)
             return dict(empty)
 
+    async def _dense_dialog_hits_asc(self, chat_id: int, match: str,
+                                     since: int, scan_cap: int) -> list[int]:
+        """Хронологический ASC-скан совпадений (легаси-путь и фолбэк
+        stride-сэмпла; один источник запроса)."""
+        sql = ("SELECT m.id, m.timestamp FROM smart_messages m "
+               "WHERE m.chat_id = ? AND m.id IN "
+               "(SELECT rowid FROM smart_messages_fts "
+               "WHERE smart_messages_fts MATCH ?)")
+        params: list = [chat_id, match]
+        if since:
+            sql += " AND m.timestamp > ?"
+            params.append(since)
+        sql += " ORDER BY m.timestamp ASC, m.id ASC LIMIT ?"
+        params.append(scan_cap)
+        cursor = await self.db.execute(sql, tuple(params))
+        return [int(r["timestamp"] or 0) for r in await cursor.fetchall()]
+
     async def lore_dense_dialogs(self, chat_id: int, match_query: str, *,
                                  max_dialogs: int = 3,
                                  window_minutes: int = 30,
@@ -8877,7 +8894,15 @@ class DatabaseService:
 
         ``since_ts>0`` — UPD-режим: только новые сообщения ``ts > since_ts``.
         Возврат ``{"earliest", "latest", "total", "dialogs": [[row, ...], ...]}``
-        (окна — ASC по началу). НЕ бросает: ошибка → пустая структура."""
+        (окна — ASC по началу). НЕ бросает: ошибка → пустая структура.
+
+        P0-DELTA (дефект 3 аудита p0-delta-analysis): когда совпадений
+        больше ``max_scan``, скан берёт СТРАЙД-СЭМПЛ по всему периоду
+        (ROW_NUMBER % stride по точному ``total``), а не «первые max_scan
+        ASC» — поздние периоды больше не выпадают из окон «Летописца» у
+        темы с тысячами упоминаний. total <= max_scan → прежний полный ASC
+        скан байт-в-байт; ошибка window-функции (SQLite < 3.25) → fail-open
+        на прежний ASC-скан."""
         empty = {"earliest": None, "latest": None, "total": 0, "dialogs": []}
         match = str(match_query or "").strip()
         if not match:
@@ -8901,18 +8926,43 @@ class DatabaseService:
             latest = row["last_ts"] if row else None
             if not total:
                 return dict(empty)
-            sql = ("SELECT m.id, m.timestamp FROM smart_messages m "
-                   "WHERE m.chat_id = ? AND m.id IN "
-                   "(SELECT rowid FROM smart_messages_fts "
-                   "WHERE smart_messages_fts MATCH ?)")
-            params = [chat_id, match]
-            if since:
-                sql += " AND m.timestamp > ?"
-                params.append(since)
-            sql += " ORDER BY m.timestamp ASC, m.id ASC LIMIT ?"
-            params.append(max(1, int(max_scan)))
-            cursor = await self.db.execute(sql, tuple(params))
-            hits = [int(r["timestamp"] or 0) for r in await cursor.fetchall()]
+            scan_cap = max(1, int(max_scan))
+            stride = max(1, -(-total // scan_cap))
+            if stride > 1:
+                # Страйд-сэмпл по всему периоду (P0-DELTA дефект 3):
+                # ~scan_cap совпадений, равномерно по хронологии.
+                sql = (
+                    "SELECT id, timestamp FROM ("
+                    "SELECT m.id AS id, m.timestamp AS timestamp, "
+                    "ROW_NUMBER() OVER (ORDER BY m.timestamp ASC, m.id ASC) "
+                    "AS rn "
+                    "FROM smart_messages m "
+                    "WHERE m.chat_id = ? AND m.id IN "
+                    "(SELECT rowid FROM smart_messages_fts "
+                    "WHERE smart_messages_fts MATCH ?)")
+                params = [chat_id, match]
+                if since:
+                    sql += " AND m.timestamp > ?"
+                    params.append(since)
+                sql += ") WHERE rn % ? = 0 " \
+                       "ORDER BY timestamp ASC, id ASC LIMIT ?"
+                params.extend([stride, scan_cap])
+                try:
+                    cursor = await self.db.execute(sql, tuple(params))
+                    hits = [int(r["timestamp"] or 0)
+                            for r in await cursor.fetchall()]
+                except Exception:
+                    # SQLite без window-функций → прежний ASC-скан (fail-open)
+                    logger.warning("[database] lore_dense_dialogs stride "
+                                   "sample failed — legacy ASC scan",
+                                   exc_info=True)
+                    hits = []
+                if not hits:
+                    hits = await self._dense_dialog_hits_asc(
+                        chat_id, match, since, scan_cap)
+            else:
+                hits = await self._dense_dialog_hits_asc(
+                    chat_id, match, since, scan_cap)
             if not hits:
                 return {"earliest": earliest, "latest": latest, "total": total,
                         "dialogs": []}
