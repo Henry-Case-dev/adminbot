@@ -488,3 +488,314 @@ async def test_a16_harness_telegram_id_to_context_and_result():
     assert f"Леха — {OTHER}" in alias_map
     assert "Игорь из Telegram" not in alias_map
     assert result == "Гипербореец"
+
+
+# ── A17–A25: P0 corrective 25.10.2026 — reply/observer/фон/RAG/коллизии ────
+
+def _reply(user, text="цитируемая реплика"):
+    return SimpleNamespace(
+        reply_to_message=SimpleNamespace(from_user=user, text=text,
+                                         caption=None))
+
+
+@pytest.mark.asyncio
+async def test_a17_reply_block_uses_alias_and_uid():
+    """§2.3-7 (F1): автор цитаты — тот же каскад по uid + [user:<id>];
+    first_name клиента как источник имени не используется, а смена алиаса
+    применяется без рестарта."""
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+    service = _service(view)
+    await bind_turn_aliases(CHAT_A)
+    block = service._l1_reply_block(_reply(_user(first="Игорь из клиента")))
+    assert f"автор: Гипербореец [user:{UID}]" in block
+    assert "Игорь из клиента" not in block
+    assert block.endswith("цитируемая реплика")
+    # §2.3-4: тот же экземпляр сервиса видит новый алиас на следующем ходе.
+    _set_chat(CHAT_A, {str(UID): "Новое Имя"})
+    await bind_turn_aliases(CHAT_A)
+    updated = service._l1_reply_block(_reply(_user(first="Игорь из клиента")))
+    assert f"автор: Новое Имя [user:{UID}]" in updated
+    assert "Гипербореец" not in updated
+
+
+@pytest.mark.asyncio
+async def test_a18_observer_eval_uses_alias_not_author_name():
+    """§2.3-11 (F2): Observer-промпт берёт актуальное имя по uid, а не
+    замороженный author_name; окно и дайджест — один рендер."""
+    from services.initiative_observer import (
+        build_digest_user_prompt,
+        build_eval_user_prompt,
+    )
+
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+    await bind_turn_aliases(CHAT_A)
+    row = _row(author="Игорь (имя из клиента)")
+    prompt = build_eval_user_prompt([row], alias_resolver=view)
+    assert f"[user:{UID}] Гипербореец: сообщение" in prompt
+    assert "Игорь (имя из клиента)" not in prompt
+    digest = build_digest_user_prompt([row], alias_resolver=view)
+    assert f"[user:{UID}] Гипербореец: сообщение" in digest
+    assert "Игорь (имя из клиента)" not in digest
+
+
+def test_a18_observer_without_resolver_keeps_author_name_bytes():
+    """F2-контракт: без резолвера вывод байт-в-байт прежний."""
+    from services.initiative_observer import (
+        build_digest_user_prompt,
+        build_eval_user_prompt,
+    )
+
+    row = _row(author="Старое имя")
+    assert f"[user:{UID}] Старое имя: сообщение" in build_eval_user_prompt(
+        [row])
+    assert f"[user:{UID}] Старое имя: сообщение" in build_digest_user_prompt(
+        [row])
+
+
+class _LoreStore:
+    """Минимальный list_active_chats для фонового тика (без PG)."""
+
+    def __init__(self, chats):
+        self._chats = list(chats)
+
+    async def list_active_chats(self):
+        return list(self._chats)
+
+
+@pytest.mark.asyncio
+async def test_a19_background_job_sees_chat_override_without_restart():
+    """§2.3-4/5 (F3/D3): фоновый тик видит chat override и смену настройки
+    без рестарта; стартовый снапшот не является источником имени."""
+    from services.lore_worker import LoreWorker
+
+    _set_chat(CHAT_A, {str(UID): "Первый"})
+    view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+    seen: dict = {}
+    worker = LoreWorker(_LoreStore([CHAT_A]), aliases=view)
+
+    async def _impl(chat_id, *, manual=False):
+        seen["name"] = view.resolve(UID, "Игорь", None)
+        return {"status": "ok"}
+
+    worker._generate_for_chat_impl = _impl
+    await worker.tick()
+    assert seen["name"] == "Первый"
+    _set_chat(CHAT_A, {str(UID): "Второй"})
+    await worker.tick()
+    assert seen["name"] == "Второй"
+
+
+@pytest.mark.asyncio
+async def test_a20_startup_snapshot_not_used_for_chat_bound_paths():
+    """§2.3-5 (F3): chat-bound путь получает резолвер чата, а стартовый
+    снапшот остаётся fallback'ом и не мутируется."""
+    from services.lore_worker import LoreWorker
+
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    startup = AliasResolver(dict(GLOBAL))
+    view = LiveAliasView(startup)
+    seen: dict = {}
+    worker = LoreWorker(_LoreStore([CHAT_A]), aliases=view)
+
+    async def _impl(chat_id, *, manual=False):
+        current = summary_aliases.current_alias_resolver()
+        seen["bound"] = current.resolve(UID) if current is not None else None
+        seen["fallback"] = startup.resolve(UID)
+        return {"status": "ok"}
+
+    worker._generate_for_chat_impl = _impl
+    await worker.tick()
+    assert seen["bound"] == "Гипербореец"   # chat override, без рестарта
+    assert seen["fallback"] == "Макс"       # стартовый снапшот не тронут
+
+
+@pytest.mark.asyncio
+async def test_a20_old_name_in_rag_does_not_replace_map_name():
+    """§2.3-10 (F4): старое имя из RAG не вытесняет карту; в блоке есть
+    инструкция брать актуальное имя по user_id."""
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+    service = _service(view)
+    await bind_turn_aliases(CHAT_A)
+    block = service._build_alias_map([_row(author="Игорь из RAG")])
+    assert f"Гипербореец — {UID}" in block
+    assert "Игорь из RAG" not in block
+    assert "актуальное имя участника — по user_id" in block
+
+
+@pytest.mark.asyncio
+async def test_a21_two_uids_same_display_not_merged():
+    """§2.3-9 (D7): одинаковый display у двух uid — две личности и
+    различимый суффикс; при известном username — ник, иначе «#хвост»."""
+    resolver = AliasResolver({str(UID): "Лёха", str(OTHER): "Лёха"})
+    summary_aliases.set_turn_alias_resolver(resolver)
+    service = _service(LiveAliasView(resolver))
+    rows = [_row(uid=UID, author="Лёха"), _row(uid=OTHER, author="Лёха")]
+    block = service._build_alias_map(rows, usernames={OTHER: "leha_two"})
+    assert f"Лёха — {UID}" in block
+    assert f"Лёха (leha_two) — {OTHER}" in block
+    assert resolver.canon_name("Лёха", UID) == "Лёха"
+    assert resolver.canon_name("Лёха", OTHER) == "Лёха"
+    # D7 fallback: username неизвестен — прежний «#хвост», без слияния.
+    block_plain = service._build_alias_map(rows)
+    assert f"Лёха (#{str(OTHER)[-4:]}) — {OTHER}" in block_plain
+
+
+@pytest.mark.asyncio
+async def test_a22_history_searchable_by_old_name(tmp_path):
+    """§2.3-6/10: старый текст остаётся в FTS/истории, но текущее имя —
+    канонический алиас по uid, а карта требует предпочитать её."""
+    from services.database import DatabaseService
+
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    db = DatabaseService(str(tmp_path / "alias-fts.db"))
+    await db.initialize()
+    try:
+        await db.save_smart_message(
+            UID, CHAT_A, "Гипербореец вчера обещал разобраться", None,
+            1000, "text", "Гипербореец")
+        rows = await db.search_messages_fts(CHAT_A, "Гипербореец", 5)
+        assert rows, "историческое упоминание должно находиться поиском"
+        row = rows[0]
+        assert "Гипербореец вчера" in str(row["text"])   # текст не переписан
+        view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+        await bind_turn_aliases(CHAT_A)
+        assert view.resolve(UID, "Игорь", "igor") == "Гипербореец"
+        alias_map = _service(view)._build_alias_map([{
+            "user_id": row["user_id"], "author_name": row["author_name"]}])
+        assert f"Гипербореец — {UID}" in alias_map
+        assert "актуальное имя участника — по user_id" in alias_map
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_a25_third_party_mention_keeps_addressee():
+    """§2.3-8 (F1): автор цитаты (третье лицо) не подменяет адресата."""
+    from services.direct_l1 import build_l1_context
+
+    _set_chat(CHAT_A, {str(OTHER): "Леха-другой"})
+    view = LiveAliasView(AliasResolver(dict(GLOBAL)))
+    service = _service(view)
+    await bind_turn_aliases(CHAT_A)
+    target = _user(uid=UID, first="Игорь", username="igor")
+    reply_block = service._l1_reply_block(
+        _reply(_user(uid=OTHER, first="Лёша", username="leha")))
+    assert f"автор: Леха-другой [user:{OTHER}]" in reply_block
+    assert f"[user:{UID}]" not in reply_block
+    payload = build_l1_context(
+        query="что он сказал?", current_question="что он сказал?",
+        reply_block=reply_block,
+        window=[_row(uid=OTHER, author="Лёша")],
+        speaker="Макс", addressee=service._resolve_name(target),
+        with_ids=True, alias_resolver=view)
+    assert f"автор: Леха-другой [user:{OTHER}]" in payload
+    assert "Адресат: Макс" in payload
+    assert f"[user:{OTHER}] Леха-другой:" in payload
+
+
+# ── F5/F7: protected/clear/forget по устойчивому id + R17-safe диагностика ──
+
+@pytest.mark.asyncio
+async def test_f5_protected_facts_read_by_subject_ref_id(tmp_path):
+    from services.database import DatabaseService
+
+    db = DatabaseService(str(tmp_path / "alias-protected.db"))
+    await db.initialize()
+    try:
+        await db.db.execute(
+            "INSERT INTO protected_facts "
+            "(chat_id, user_name, fact, created_at, subject_ref_id) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (CHAT_A, "Игорь Старый", "любит кофе", time.time(), UID))
+        await db.db.commit()
+        found = await db.get_protected_facts(
+            CHAT_A, "Игорь Новый", include_chat_level=False, user_id=UID)
+        assert found == ["любит кофе"]
+        # Legacy-контракт без uid: строка с привязкой по id не находится по
+        # чужому имени (и не выдаётся за факт другого человека).
+        assert await db.get_protected_facts(
+            CHAT_A, "Игорь Новый", include_chat_level=False) == []
+        # Чат-уровневые (user_name IS NULL) остаются доступны всем.
+        await db.db.execute(
+            "INSERT INTO protected_facts (chat_id, user_name, fact, "
+            "created_at) VALUES (?, NULL, ?, ?)",
+            (CHAT_A, "лор чата", time.time()))
+        await db.db.commit()
+        both = await db.get_protected_facts(
+            CHAT_A, "Игорь Новый", include_chat_level=True, user_id=UID)
+        assert both[0] == "лор чата" and "любит кофе" in both
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_f5_protected_subject_ref_migration_is_idempotent(tmp_path):
+    from services.database import DatabaseService
+
+    db = DatabaseService(str(tmp_path / "alias-migrate.db"))
+    await db.initialize()
+    try:
+        cols = await db._table_columns("protected_facts")
+        assert "subject_ref_id" in cols          # аддитивная колонка есть
+        cursor = await db.db.execute("PRAGMA user_version")
+        version = (await cursor.fetchone())[0]
+        assert await db._ensure_protected_facts_subject_ref() == 0
+        assert await db._ensure_protected_facts_subject_ref() == 0
+        cursor = await db.db.execute("PRAGMA user_version")
+        assert (await cursor.fetchone())[0] == version   # user_version цел
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_f5_clear_and_forget_scope_by_subject_ref_id(tmp_path):
+    from services import provenance
+    from services.database import DatabaseService
+
+    db = DatabaseService(str(tmp_path / "alias-clear.db"))
+    await db.initialize()
+    try:
+        ref = await provenance.resolve_source_ref(
+            db, provenance.user_source_ref(CHAT_A, UID))
+        assert ref is not None
+        now = int(time.time())
+        await db.insert_graph_fact(
+            CHAT_A, "Игорь любит кофе", "bot_direct_reply", None,
+            target_user="Игорь Старый", subject_ref_id=int(ref))
+        removed = await db.forget_direct_facts(
+            CHAT_A, "Игорь Старый", "кофе", now + 1, target_user_id=UID)
+        assert removed == 1
+        await db.insert_graph_fact(
+            CHAT_A, "Игорь любит чай", "bot_direct_reply", None,
+            target_user="Игорь Старый", subject_ref_id=int(ref))
+        cleared = await db.clear_direct_dialogue(
+            CHAT_A, "Игорь Старый", target_user_id=UID)
+        assert cleared >= 1
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_f7_alias_source_is_r17_safe():
+    """F7: диагностика отдаёт слой имени по uid, но не значения алиасов."""
+    from services.database import DatabaseService  # noqa: F401  (импорт-сеть)
+    from web.api.routes import _alias_diagnostics_payload
+
+    _set_chat(CHAT_A, {str(UID): "Гипербореец"})
+    resolver = await build_alias_resolver(CHAT_A)
+    assert resolver.scope_report["by_uid"] == {
+        UID: "chat", OTHER: "global", 1003: "global"}
+    payload = _alias_diagnostics_payload(
+        resolver.scope_report, resolver.aliases)
+    assert payload["scope"] == "merged"
+    assert payload["per_uid"] == [
+        {"user_id": UID, "alias_source": "chat", "name_present": True},
+        {"user_id": OTHER, "alias_source": "global", "name_present": True},
+        {"user_id": 1003, "alias_source": "global", "name_present": True},
+    ]
+    dumped = json.dumps(payload, ensure_ascii=False)
+    assert "Гипербореец" not in dumped          # R17: без значений имён
+    assert "Макс" not in dumped

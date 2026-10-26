@@ -1,0 +1,128 @@
+{
+ "variant": "new",
+ "case": "B",
+ "route": {
+  "response_mode": "deep_research",
+  "task_kind": "research",
+  "extent": "detailed",
+  "structure": "report",
+  "l1_plan_block": true
+ },
+ "sources": {
+  "core_raw_chars": 3294,
+  "core_sha12": "ead77b2ab509",
+  "core_revision": 8,
+  "base_prompt_chars": 3081,
+  "base_prompt_sha12": "83ff62bbee40",
+  "expression_chars": 750,
+  "expression_sha12": "fe5cfe76a034",
+  "extent_block_chars": 204,
+  "extent_block_sha12": "6c51997992f7",
+  "window_messages_used": 59,
+  "window_from": "1792868191",
+  "window_to": "1792873345"
+ },
+ "layers": [
+  {
+   "layer": "channel_contract",
+   "block_id": "channel_canon",
+   "chars": 3081,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "core",
+   "block_id": "core",
+   "chars": 1246,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "identity",
+   "block_id": "identity",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "identity_absent"
+  },
+  {
+   "layer": "self_model_traits",
+   "block_id": "self_model_traits",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "self_model_folded_into_identity"
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "context_lessons",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "lessons_absent"
+  },
+  {
+   "layer": "response_plan",
+   "block_id": "response_plan",
+   "chars": 204,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "expression",
+   "block_id": "expression",
+   "chars": 968,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "humor_craft",
+   "block_id": "humor_craft",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "humor_no_strategy"
+  },
+  {
+   "layer": "few_shot",
+   "block_id": "expression_examples",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "expression_examples_absent"
+  },
+  {
+   "layer": "few_shot",
+   "block_id": "few_shot",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "samples_disabled"
+  },
+  {
+   "layer": "style_policy_hint",
+   "block_id": "style_policy_hint",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "style_policy_absent"
+  },
+  {
+   "layer": "channel_output",
+   "block_id": "channel_output",
+   "chars": 358,
+   "rendered": true,
+   "skip_reason": ""
+  }
+ ],
+ "system_chars": 6648,
+ "system_sha12": "e106b09b6e9f",
+ "user_chars": 3659,
+ "user_sha12": "6ef34938ff15",
+ "messages_sha12": [
+  {
+   "role": "system",
+   "chars": 6648,
+   "sha12": "e106b09b6e9f"
+  },
+  {
+   "role": "user",
+   "chars": 3659,
+   "sha12": "6ef34938ff15"
+  }
+ ],
+ "note": "full system/user text is reproducible from the committed harness + PG/SQLite snapshots; private chat fragments are not copied into the repo"
+}

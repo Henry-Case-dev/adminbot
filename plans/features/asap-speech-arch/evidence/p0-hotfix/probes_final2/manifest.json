@@ -1,0 +1,74 @@
+{
+ "lane": "LIVE-FINAL-CODE-CANON",
+ "utc": "2026-10-25T05:52:02Z/2026-10-25T05:54:45Z",
+ "candidate": {
+  "branch": "task/speech-p0-hotfix",
+  "commit": "be24e28f5badddb4f56b4ae467ff5db66fbae582",
+  "tree": "8a80f62f100187337609ea8571e7e6afb2449573",
+  "code_commit": "0428c271daef02366e84af6c4ed6506e6f7e52ab",
+  "code_tree": "c64d2bc1619617a3143d4464670b5d3a3557b85f"
+ },
+ "harness": {
+  "path": "probes_full/harness_probe_full.py",
+  "sha256": "9420ce0cbad2956675a935cd18af4b02a55730e2ac1b3ab38f28dd49192064ae",
+  "self_check": "PASS",
+  "code_l1_canon": {
+   "chars": 9288,
+   "sha12": "23aae0c9499d"
+  },
+  "prev_p0cs2_sha12": "f6f5d3b1fc1d"
+ },
+ "prod_old": {
+  "root": "/var/www/admin_bot",
+  "commit": "534ac7dd",
+  "dirty_files": 13,
+  "local_database_mtime_unchanged": true
+ },
+ "staging": {
+  "root": "/tmp/p0-final2/new",
+  "files": 415,
+  "size_mb": 15,
+  "git_present": false,
+  "env_symlink": "/var/www/admin_bot/.env",
+  "sqlite_symlink": "/var/www/admin_bot/local_database.db"
+ },
+ "ssh_sessions": 3,
+ "files": {
+  "analysis.json": {
+   "bytes": 26849,
+   "sha256": "70aa10e8ae7fb57b0350b383371681ebd421e9241bd66d8b48d1500187bcabeb"
+  },
+  "postcheck.json": {
+   "bytes": 21973,
+   "sha256": "32ef2f99413206732f3c919a579ec639d397a52a6710bd5a5523bd34bf882614"
+  },
+  "raw_new_code_A.json": {
+   "bytes": 47107,
+   "sha256": "8e8baab1aa5c8e1cc47ad16b0e0d0b7dbaeb7ca678d8d98e8240a2003964dc23"
+  },
+  "raw_new_code_B.json": {
+   "bytes": 48471,
+   "sha256": "e6dfcc84445af069a6916f3696f05d12474e06734b69272b57db8b7b0d424dee"
+  },
+  "raw_new_forced_A.json": {
+   "bytes": 45873,
+   "sha256": "600dc140a809d51d0294b27a63b369fc051b487564b1298973d340edf47b5c61"
+  },
+  "raw_new_forced_B.json": {
+   "bytes": 47366,
+   "sha256": "8ff685dcd9ddc68d01c319e7a5aab7b1359343b1041382427bbc86a6f5ccf010"
+  },
+  "raw_old_A.json": {
+   "bytes": 45392,
+   "sha256": "70c01dc139414fa5aaa875f79bff4e799cd163923013479fe15503373e47e171"
+  },
+  "raw_old_B.json": {
+   "bytes": 45069,
+   "sha256": "d45c82bbe44ac348d88ef53556950b6019124e01b39ee7697a7cede671e68fc4"
+  },
+  "selfcheck_new.json": {
+   "bytes": 2512,
+   "sha256": "afccf6e23b1ddf6a64ca957e5529130728396a3abeff893ec1a7ad1952f9bfad"
+  }
+ }
+}

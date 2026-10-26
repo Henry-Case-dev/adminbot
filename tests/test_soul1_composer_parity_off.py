@@ -160,7 +160,11 @@ def build_service():
 
     class Stub:
         _render_current_question = D._render_current_question
-        _l1_reply_block = staticmethod(D._l1_reply_block)
+
+        def _l1_reply_block(self, message):
+            # P0 corrective 25.10.2026 (F1): метод инстанса (alias по uid).
+            return D._l1_reply_block(self, message)
+
         _l1_speech_hints = D._l1_speech_hints
         _build_speech_understanding = D._build_speech_understanding
         _attach_l1_plan_meta = D._attach_l1_plan_meta
@@ -631,7 +635,11 @@ async def test_l2_on_has_single_copy_of_speech_and_lessons_in_payload(
         correlation_id="run-dup-2", lessons_block=LESSONS,
         speech_block=SPEECH)
     cap2 = llm2.captured[-1]["messages"]
-    assert cap2[1]["content"] == "второй вопрос"
+    # user-часть: сам вопрос + закрывающее требование (P0C-INT R2) последним
+    # блоком — второй копии speech/lessons по-прежнему нет.
+    assert cap2[1]["content"].startswith("второй вопрос")
+    assert cap2[1]["content"].rstrip().endswith(
+        psb.NO_META_CLOSING_TEXT.strip())
     assert cap2[0]["content"].count(SPEECH) == 1
     assert cap2[0]["content"].count(LESSONS) == 1
 

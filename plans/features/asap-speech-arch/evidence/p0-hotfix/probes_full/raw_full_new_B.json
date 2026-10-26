@@ -1,0 +1,233 @@
+{
+ "label": "new",
+ "root": "/tmp/p0-full-new",
+ "case": "B",
+ "chat_id": -1002661910336,
+ "stage_errors": {},
+ "sources": {
+  "pg_read_only": "on",
+  "settings_keys": 537,
+  "chat_param_keys": 6,
+  "window_messages": 64,
+  "graph_facts_rows": 40,
+  "lore_stories_rows": 2,
+  "mca_lessons_rows": 2
+ },
+ "persona_pool": "injected",
+ "question": "",
+ "identity_block_chars": 5048,
+ "l2_summary": {
+  "chars": 1117,
+  "sha12": "ec7a5231c9ba",
+  "runs": [
+   {
+    "created_at": "1792890003",
+    "updated_at": "1792890737"
+   },
+   {
+    "created_at": "1792868401",
+    "updated_at": "1792869264"
+   },
+   {
+    "created_at": "1792846800",
+    "updated_at": "1792847592"
+   },
+   {
+    "created_at": "1792825205",
+    "updated_at": "1792825804"
+   }
+  ],
+  "levels": 0
+ },
+ "rag_block_chars": 0,
+ "lessons_block_chars": 141,
+ "base_prompt": {
+  "chars": 3081,
+  "sha12": "83ff62bbee40",
+  "source": "global"
+ },
+ "gates": {
+  "unified_composer_enabled": true,
+  "character_core_enabled": true,
+  "persona_enabled": true,
+  "character_layers_enabled": true,
+  "smart_verbalizer_modes_enabled": true,
+  "expression_examples_enabled": true,
+  "humor_library_enabled": true,
+  "humor_craft_enabled": true
+ },
+ "layers": [
+  {
+   "layer": "channel_contract",
+   "block_id": "channel_canon",
+   "chars": 3081,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "core",
+   "block_id": "core",
+   "chars": 1246,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "identity",
+   "block_id": "identity",
+   "chars": 5048,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "self_model_traits",
+   "block_id": "self_model_traits",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "self_model_folded_into_identity"
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "style_requests",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "lessons_absent"
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "verified_lessons",
+   "chars": 141,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "context_lessons",
+   "block_id": "speech_understanding",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "speech_absent"
+  },
+  {
+   "layer": "response_plan",
+   "block_id": "response_plan",
+   "chars": 204,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "expression",
+   "block_id": "expression",
+   "chars": 968,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "humor_craft",
+   "block_id": "humor_craft",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "humor_no_strategy"
+  },
+  {
+   "layer": "few_shot",
+   "block_id": "expression_examples",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "expression_examples_absent"
+  },
+  {
+   "layer": "few_shot",
+   "block_id": "few_shot",
+   "chars": 0,
+   "rendered": false,
+   "skip_reason": "samples_absent"
+  },
+  {
+   "layer": "style_policy_hint",
+   "block_id": "style_policy_hint",
+   "chars": 980,
+   "rendered": true,
+   "skip_reason": ""
+  },
+  {
+   "layer": "channel_output",
+   "block_id": "channel_output",
+   "chars": 358,
+   "rendered": true,
+   "skip_reason": ""
+  }
+ ],
+ "core": {
+  "chars": 0,
+  "detail": null
+ },
+ "system": {
+  "chars": 12823,
+  "sha12": "47be05aae9cc",
+  "core_blocks": 0,
+  "analysis_directive": 0,
+  "analysis_writer": 0,
+  "persona_marker": true,
+  "mode_block": false
+ },
+ "system_chars": 12823,
+ "user_blocks_chars": 1148,
+ "llm": {
+  "model": "deepseek-v4-flash",
+  "base_host": "nano-gpt.com"
+ },
+ "l1_input": {
+  "system_chars": 8261,
+  "system_sha12": "6c2ddc17c998",
+  "context_chars": 2892,
+  "context_sha12": "59d19eae1ce9"
+ },
+ "l1_raw": "{\"action\": \"reply\", \"reaction\": null, \"delivery\": \"reply\", \"target_message_id\": null, \"target_user_id\": null, \"response_act\": \"banter\", \"extent\": \"compact\", \"tone\": \"playful\", \"emotional_mirroring\": \"light\", \"structure\": \"chat\", \"delivery_hint\": \"plain\", \"tool_policy\": \"none\", \"capabilities_needed\": [], \"needs_clarification\": false, \"clarification_target\": null, \"confidence\": 0.85, \"future_intent\": null}",
+ "l1_plan": {
+  "action": "reply",
+  "response_act": "banter",
+  "extent": "compact",
+  "structure": "chat",
+  "tone": "playful",
+  "delivery_hint": "plain",
+  "confidence": 0.85,
+  "confidence_bucket": "high",
+  "source": "llm",
+  "needs_clarification": false
+ },
+ "l1_elapsed_s": 3.8,
+ "l1_parse_failed": false,
+ "plan_block": {
+  "chars": 131,
+  "sha12": "75c5f277e7e6",
+  "analysis_directive": 0,
+  "analysis_writer": 0
+ },
+ "user": {
+  "chars": 4067,
+  "sha12": "9c7d57e381d3",
+  "analysis_directive": 0,
+  "analysis_writer": 0
+ },
+ "l2_runs": [
+  {
+   "repeat": 1,
+   "temperature": 0.7,
+   "max_tokens": 2400,
+   "chars": 871,
+   "sha12": "1799eb66c5a9",
+   "elapsed_s": 4.8
+  },
+  {
+   "repeat": 2,
+   "temperature": 0.7,
+   "max_tokens": 2400,
+   "chars": 1165,
+   "sha12": "37ad1e852be6",
+   "elapsed_s": 5.9
+  }
+ ],
+ "l2_texts": [
+  "Ринтаро, ты хочешь, чтобы я проанализировал твои сообщения и сказал, злобный ли ты?\n\nСмотри, я вижу только часть чата — последние сообщения. Ты тут активно кидаешь ссылки на эджмоникса, споришь с Костиком про \"старьё\", говоришь, что его фотосет будет кринжом ещё лет 30. В целом тон у тебя — уверенный, с лёгким пренебрежением к тому, что не заходит, и с явным желанием продвинуть своё. Злобный? Не сказал бы. Скорее, ты просто не стесняешься в выражениях и имеешь своё чёткое мнение, которое готов отстаивать. Это не злоба, это обычная чатовая уверенность с долей высокомерия.\n\nНо если тебе нужно полное досье по твоей истории в чате — старые логи я не вижу, так что картина будет неполной. По текущему срезу — ты просто парень, который знает, что ему нравится, и не боится это показать, даже если это кому-то не нравится. Никакой особой агрессии или злобы я не заметил.",
+  "Ринтаро, ну ты даёшь. Серьёзно, хочешь досье на самого себя? Ладно, держи краткую выжимку, раз уж сам напросился.\n\nТы — местный проповедник свежего звука. Твой основной конёк: засирать всё, что старше недели, и впаривать всем вокруг эджмоникса. Чувак реально ебёт, как ты говоришь. Костя пытается впарить какой-нибудь старый трек с незапиканным 163 — ты его шлёшь нахуй со словами «старьё». Твоя позиция по музыке ясна: либо новый русский свежачок, либо иди нахуй.\n\nПо тону общения — ты не злобный, ты просто заебавшись. Ты не лезешь в драмы, не оскорбляешь людей просто так, но и политесы разводить не собираешься. Твоя основная реакция на любой высер — «нет», «кринж», «старьё». Это не злоба, это усталое презрение к тому, что ты считаешь говном. Ты скорее как сварливый дед, который сидит на лавочке и бурчит, что молодёжь не то слушает.\n\nЕдинственный раз, когда ты реально проявил какую-то эмоцию — когда начал объяснять, почему фотосет будет кринжом сейчас и норм только лет через 30. Тут ты даже аргументировал, а не просто послал.\n\nТак что нет, ты не злобный. Ты просто зануда с четкими музыкальными вкусами и низким порогом толерантности к хуйне. Иди спать."
+ ]
+}

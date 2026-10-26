@@ -51,6 +51,11 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_DIRECT_L1_PLANNER_CLAR,
     PREV_DIRECT_L1_PLANNER_R3,
+    PREV_DIRECT_L1_PLANNER_R3B,
+    PREV_DIRECT_L1_PLANNER_P0CS,
+    PREV_DIRECT_L1_PLANNER_P0CS2,
+    PREV_DIRECT_L1_PLANNER_P0CINT,
+    PREV_DIRECT_L1_PLANNER_P0CINTR2,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
@@ -108,6 +113,7 @@ from services.summary_prompts import (
     PREV_SUMMARY_L2_WRITER_R1028,
     PREV_SUMMARY_L2_WRITER_R1028_ASAP4,
     PREV_SUMMARY_L2_WRITER_R1029_ASAP41,
+    PREV_SUMMARY_L2_WRITER_R1030_P0,
     PREV_SUMMARY_NARRATOR_R1023,
     PREV_SUMMARY_NARRATOR_R1028,
     PREV_SUMMARY_NARRATOR_LEGFIX,
@@ -226,6 +232,29 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # (база R3 + контракт §4.1 + правила) ведёт на канон с узким
         # усилением продолжения после ответа на уточнение. Только точное
         # совпадение байт; правила и секция участия не менялись.
+        # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): канон R3b
+        # (база R3 + контракт §4.1 + продолжение + правила) доведён до правила 7
+        # маршрутизации личного разбора. Ступень узнаёт прод-байты R3b целиком;
+        # кастомы владельца не перетираются.
+        # P0-CORRECTIVE (25.10.2026, §1.1 corrective): правило 7 заменено
+        # смысловым критерием «разбор уже сказанного → research; мнение →
+        # answer», JSON — 9. Верхняя ступень узнаёт ТЕКУЩИЕ активные байты
+        # (P0CS) точно и ведёт на новую редакцию.
+        # P0-CORRECTIVE ред.2 (25.10.2026, §1.1): приоритет разбора в
+        # смешанной просьбе («разбери накопленное + скажи оценку») — ступени
+        # узнают и редакцию 1 (P0CS2, ``f6f5d3b1fc1d``), и прежние P0CS/R3b.
+        # P0C-INT R2 (25.10.2026, `probes_final4.md` §3): редакция 3 —
+        # просьба разобрать материал = research независимо от вопроса-оценки
+        # в конце; разбор не выбирает hostile_rebuff. Верхняя ступень —
+        # редакция 2 (PREV_..._P0CINT, 9288/``23aae0c9499d``).
+        # P0C-INT R3 (26.10.2026, `probes_final5-rerun.md` §4): редакция 4 —
+        # `response_act` отделён от `tone` (грубость меняет только манеру);
+        # верхняя ступень — редакция 3 (PREV_..._P0CINTR2, 9391).
+        (PREV_DIRECT_L1_PLANNER_P0CINTR2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        (PREV_DIRECT_L1_PLANNER_P0CINT, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        (PREV_DIRECT_L1_PLANNER_P0CS2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        (PREV_DIRECT_L1_PLANNER_P0CS, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        (PREV_DIRECT_L1_PLANNER_R3B, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_R3, DIRECT_L1_PLANNER_SYSTEM_PROMPT)],
     "prompts.summary_system_prompt": [
         (PREV_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT),
@@ -353,7 +382,11 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # ASAP 4.1 волна 3 (T-4609, ADR-1028-8 D4/AM-4): ступень
         # R1029→R1030 — блок источника (Full SourceWindow первоклассно,
         # FactPackage = derived view).
-        (PREV_SUMMARY_L2_WRITER_R1029_ASAP41, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
+        (PREV_SUMMARY_L2_WRITER_R1029_ASAP41, SUMMARY_L2_WRITER_SYSTEM_PROMPT),
+        # SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4,
+        # MEMORY-NO-UNSUPPORTED-CAUSAL-STORY): прод-канон 2.58.130 (R1030
+        # байт-в-байт) ведёт на канон без обязательной причинной драматургии.
+        (PREV_SUMMARY_L2_WRITER_R1030_P0, SUMMARY_L2_WRITER_SYSTEM_PROMPT)],
     # 10.28 (ASAP-2.1, контракт (g)/§25): ступени Рассказчика — шиза выбирает
     # модель (строка опциональна); прежние каноны R1023/R1028 ведут на новый.
     # LEGFIX (22.10.2026, закрытие backlog «narrator-канон identity-фраза»,
@@ -406,11 +439,30 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # канон W1 + контракт уточнений); стек ступеней цел.
     # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
     # канон R3 (PREV_DIRECT_L1_PLANNER_R3: база R3 + контракт §4.1 + правила).
+    # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): верхняя ступень —
+    # правило 7 маршрутизации личного разбора.
+    # P0-CORRECTIVE (25.10.2026, §1.1): правило 7 заменено смысловой связкой
+    # «материал/история → research; мнение → answer» (JSON — 9). Ред.2 добавила
+    # приоритет разбора в смешанной просьбе. P0C-INT R2 (25.10.2026,
+    # `probes_final4.md` §3): ред.3 — разбор материала не отменяется вопросом-
+    # оценкой и не выбирает hostile_rebuff. Откат снимает ТОЛЬКО новую
+    # редакцию — на активные байты ред.2 (P0CINT, 9288), затем P0CS2; стек
+    # прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 1: R3b → канон R3 (база R3 + контракт §4.1 + правила)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3),
-        # ступень 2: R3 → прод-канон 2.58.113 (контракт уточнений).
-        # Полный откат до 2.58.113 = два вызова rollback_prompt_canons.
+        # ступень 0: активный канон ред.4 → P0CINTR2 (активные байты ред.3)
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        # ступень 1: P0CINTR2 → P0CINT (активные байты ред.2)
+        (PREV_DIRECT_L1_PLANNER_P0CINTR2, PREV_DIRECT_L1_PLANNER_P0CINT),
+        # ступень 2: P0CINT → P0CS2 (активные байты ред.1)
+        (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),
+        # ступень 2: P0CS2 → P0CS (правило 7 старой редакции)
+        (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),
+        # ступень 3: P0CS → R3b (прод-байты без правила 7)
+        (PREV_DIRECT_L1_PLANNER_P0CS, PREV_DIRECT_L1_PLANNER_R3B),
+        # ступень 4: R3b → канон R3 (база R3 + контракт §4.1 + правила)
+        (PREV_DIRECT_L1_PLANNER_R3B, PREV_DIRECT_L1_PLANNER_R3),
+        # ступень 4: R3 → прод-канон 2.58.113 (контракт уточнений).
+        # Полный откат до 2.58.113 = пять вызовов rollback_prompt_canons.
         (PREV_DIRECT_L1_PLANNER_R3, PREV_DIRECT_L1_PLANNER_CLAR)],
     # ASAP W1 (P0-F «точечно»): откат — на прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
@@ -483,8 +535,14 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # цитат; rollback-паритет с kill-switch SUMMARY_L2_REVIEW_ENABLED=false).
     # ASAP 4.1 волна 3 (T-4609): откат блока источника — на канон R1029
     # (прод 2.58.46; parity с SUMMARY_WRITER_SOURCE_INPUT_ENABLED=false).
-    "prompts.summary_l2_writer_system_prompt":
-        [(SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1029_ASAP41)],
+    # SPEECH-P0-B2 (25.10.2026): новая верхняя ступень — P0-фактологический
+    # канон; первый вызов снимает ТОЛЬКО её (на прод-байты 2.58.130 —
+    # PREV_SUMMARY_L2_WRITER_R1030_P0), второй — историческую ступень
+    # источника (R1029, 2.58.46). Стек ступеней цел (ADR-1013-3).
+    "prompts.summary_l2_writer_system_prompt": [
+        (SUMMARY_L2_WRITER_SYSTEM_PROMPT, PREV_SUMMARY_L2_WRITER_R1030_P0),
+        (PREV_SUMMARY_L2_WRITER_R1030_P0,
+         PREV_SUMMARY_L2_WRITER_R1029_ASAP41)],
     # 10.28 (ASAP-2.1): откат Рассказчика — на прежний канон R1028 (до правки
     # §25); ключ в PG не удаляется.
     # LEGFIX (22.10.2026): откат снимает ТОЛЬКО ступень LEGFIX — на
@@ -811,7 +869,7 @@ async def rollback_prompt_canons(cache) -> dict[str, str]:
     Кастом юзера не трогаем (WARNING), ключ отсутствует / PG down — skip.
     Вызывается вручную (runbook @DevOps) при откате `git revert` — столько
     раз, сколько ступеней нужно снять (L1 R3b: 2 вызова до канона 2.58.113,
-    L2 R3b: 1 вызов)."""
+    L2: 2 вызова — P0-канон → прод-байты 2.58.130 → R1029/2.58.46)."""
     report: dict[str, str] = {}
     if cache is None or not getattr(cache, "pg_available", False):
         logger.info("[prompt_rollback] skip: PG недоступен")

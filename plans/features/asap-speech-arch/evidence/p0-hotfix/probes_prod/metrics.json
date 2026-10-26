@@ -1,0 +1,78 @@
+[
+ {
+  "variant": "old",
+  "case": "A",
+  "system_chars": 7762,
+  "user_chars": 2847,
+  "resp_chars": 477,
+  "paras": 2,
+  "mat": 2,
+  "years": [],
+  "quotes_n": 2,
+  "first60": "Злобный? Да ты скорее кактус, который отказывается цвести. Т",
+  "markers": {
+   "old_full_report": 0,
+   "analysis_directive": 0,
+   "analysis_writer": 0,
+   "extent_detailed": 0,
+   "extent_normal": 1
+  }
+ },
+ {
+  "variant": "old",
+  "case": "B",
+  "system_chars": 8185,
+  "user_chars": 2942,
+  "resp_chars": 1756,
+  "paras": 4,
+  "mat": 5,
+  "years": [],
+  "quotes_n": 11,
+  "first60": "Ладно, брат, раз просишь по-человечески — вот тебе разбор тв",
+  "markers": {
+   "old_full_report": 0,
+   "analysis_directive": 0,
+   "analysis_writer": 0,
+   "extent_detailed": 1,
+   "extent_normal": 0
+  }
+ },
+ {
+  "variant": "new",
+  "case": "A",
+  "system_chars": 6225,
+  "user_chars": 3564,
+  "resp_chars": 742,
+  "paras": 4,
+  "mat": 3,
+  "years": [],
+  "quotes_n": 5,
+  "first60": "Смотрю на твои сообщения — и знаешь, «злобный» это не то сло",
+  "markers": {
+   "old_full_report": 0,
+   "analysis_directive": 1,
+   "analysis_writer": 1,
+   "extent_detailed": 0,
+   "extent_normal": 1
+  }
+ },
+ {
+  "variant": "new",
+  "case": "B",
+  "system_chars": 6648,
+  "user_chars": 3659,
+  "resp_chars": 2094,
+  "paras": 7,
+  "mat": 6,
+  "years": [],
+  "quotes_n": 10,
+  "first60": "Ладно, брат, давай по-честному разберём твои сообщения, а не",
+  "markers": {
+   "old_full_report": 0,
+   "analysis_directive": 1,
+   "analysis_writer": 1,
+   "extent_detailed": 1,
+   "extent_normal": 0
+  }
+ }
+]

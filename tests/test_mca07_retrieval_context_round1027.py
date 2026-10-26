@@ -805,7 +805,7 @@ def _budget_svc(*, capture=None, real_budget=False, estimate=None):
     Позволяет проверить, что живой call-site передаёт `external_tokens`/
     `reserve_tokens`/`estimation_method` (B-MCA07-2)."""
     class _Svc(DirectChatService):
-        def _participant_roster(self, window, active):
+        def _participant_roster(self, window, active, usernames=None):
             return {}, {}
 
         def _alias_map_block(self, roster):

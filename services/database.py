@@ -26,6 +26,7 @@ from services.graph_stoplist import (
     is_center_stopword,
     is_metafact_stopword,
 )
+from services.provenance import BOT_ORIGINS
 from services.user_relations import decay_weight, decide_stage, \
     relations_limits, stage_candidate
 
@@ -1979,6 +1980,65 @@ _LORE_TOKEN_RE = re.compile(r"[а-яёa-z0-9]+", re.IGNORECASE)
 _LORE_NODE_SCAN_LIMIT = 2000
 
 
+# ── P0 corrective 25.10.2026 (§3): provenance старых `lore_stories` ────────
+# Владелец: «летопись» нельзя массово чистить/удалять, но неподтверждённые
+# старые истории не должны становиться фактическими свидетельствами.
+# Поэтому — аддитивные nullable-колонки (user_version НЕ поднимается,
+# прецедент bot_reply_parents/chat_summary_levels) + единый предикат чтения.
+_LORE_STORIES_PROVENANCE_COLUMNS = (
+    ("origin", "TEXT"),
+    ("status", "TEXT"),
+    ("excluded_from_retrieval", "INTEGER DEFAULT 0"),
+    ("provenance_note", "TEXT"),
+)
+# ЕДИНЫЙ предикат извлечения: baseline (`list_lore_stories`) и legacy-ветка
+# фасада (`mca_episodes.list_stories_for_retrieval`) обязаны фильтровать
+# одинаково, иначе при выключенном гейте фасада контент возвращается
+# (класс дефекта mca_retrieval_context.py:741-749). NULL = legacy/unknown
+# (weak hint, как `provenance_backed=False` в mca-07), НЕ rejected.
+LORE_STORIES_RETRIEVAL_PREDICATE = (
+    "COALESCE(excluded_from_retrieval, 0) = 0 "
+    "AND COALESCE(status, '') != 'rejected'")
+
+# Разовая ТОЧЕЧНАЯ метка только доказанных bot-answer строк (owner §3:
+# «точечное исправление достоверности или исключение из фактического
+# извлечения с сохранением исторических данных»). Не bulk-UPDATE по legacy.
+# Каждая запись: (chat_id, story_id, created_at, story_chars, min_lcp, note).
+# identity-гард (created_at + длина текста) не даёт метке лечь на
+# перезаписанную/другую строку; `mca_bot_outputs` (durable ledger собственных
+# доставленных ответов) даёт LCP-подтверждение ≥ min_lcp И ≥ 25% рассказа.
+# created_at/story_chars=None → только LCP-гард (без audit-отпечатка).
+_LORE_SELF_ECHO_QUARANTINE = (
+    (-1002661910336, 4, 1792873555, 1660, 400,
+     "audit 25.10.2026: lcp=1071/1658 vs own delivered tg=1175257 "
+     "(выдуманная ретро-датировка «декабрь 2022»); источник-строка "
+     "сохранена, исключена из извлечения"),
+    (-1002661910336, 3, None, None, 400,
+     "кандидат по LCP-критерию (>=400 симв. и >=25% рассказа совпадают "
+     "с собственным доставленным ответом); метка только при совпадении"),
+)
+_LORE_SELF_ECHO_ORIGIN = "bot_self_echo"
+_LORE_SELF_ECHO_MIN_RATIO = 0.25
+_LORE_SELF_ECHO_QUARANTINE_NOTE_PREFIX = "p0-corrective-2026-10-25"
+
+
+def _lcp_length(a: str, b: str) -> int:
+    """Длина наибольшей общей ПОДСТРОКИ (longest common substring) двух
+    текстов — критерий self-echo из аудита P0 (рассказ дословно повторяет
+    доставленный ответ бота). Не префикс: совпадение начинается в середине."""
+    a = str(a or "")
+    b = str(b or "")
+    if not a or not b:
+        return 0
+    if len(a) < len(b):
+        a, b = b, a
+    # difflib: O(n*m) на одном вызове; вызывается только для явного списка
+    # id и только пока строка не помечена (разово, не на каждом чтении).
+    import difflib
+    matcher = difflib.SequenceMatcher(None, a, b, autojunk=False)
+    return int(matcher.find_longest_match(0, len(a), 0, len(b)).size)
+
+
 def _lore_fact_row(row: dict) -> dict:
     """Строка ``graph_facts`` → структурный факт «Летописца» (R16).
 
@@ -2323,8 +2383,18 @@ class DatabaseService:
             last_ts    INTEGER NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
+            origin                 TEXT,
+            status                 TEXT,
+            excluded_from_retrieval INTEGER DEFAULT 0,
+            provenance_note        TEXT,
             UNIQUE (chat_id, topic_key)
         );
+        -- P0 corrective 25.10.2026 (§3): provenance старых историй
+        -- аддитивно (nullable, user_version НЕ поднимается; прецедент
+        -- bot_reply_parents/chat_summary_levels). Существующие строки
+        -- остаются с NULL = честный unknown; «летопись» не удаляется.
+        -- Для уже созданных БД колонки досоздаёт
+        -- `_ensure_lore_stories_provenance` (идемпотентно).
 
         -- ── Раунд 9 (AGI Memory, spec §3.4.1, T-824): «сон» — DreamWorker ──
         -- Аддитивные структуры, user_version НЕ поднимается (RUNTIME WARNING;
@@ -3413,6 +3483,170 @@ class DatabaseService:
         """Имена колонок произвольной таблицы (guard для ALTER ADD COLUMN)."""
         cursor = await self.db.execute(f"PRAGMA table_info({table})")
         return {r["name"] for r in await cursor.fetchall()}
+
+    async def _ensure_lore_stories_provenance(self) -> int:
+        """P0 corrective 25.10.2026 (§3): аддитивные provenance-колонки
+        `lore_stories` (`origin`/`status`/`excluded_from_retrieval`/
+        `provenance_note`) для УЖЕ существующих БД.
+
+        Идемпотентно (`PRAGMA table_info`-guard), `user_version` НЕ
+        поднимается (прецедент `bot_reply_parents`/`chat_summary_levels`).
+        НИ ОДНОГО UPDATE/DELETE существующих строк: старые истории остаются
+        `NULL` = честный unknown. Возвращает число реально добавленных
+        колонок (0 на повторном прогоне)."""
+        added = 0
+        try:
+            if not await self._table_exists("lore_stories"):
+                return 0
+            cols = await self._table_columns("lore_stories")
+            for name, decl in _LORE_STORIES_PROVENANCE_COLUMNS:
+                if name in cols:
+                    continue
+                await self.db.execute(
+                    f"ALTER TABLE lore_stories ADD COLUMN {name} {decl}")
+                added += 1
+            if added:
+                await self.db.commit()
+                logger.info(
+                    "[database] lore_stories provenance: %d колонок добавлено "
+                    "(аддитивно, user_version не менялся)", added)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("[database] lore_stories provenance ensure failed",
+                           exc_info=True)
+        return added
+
+    async def _ensure_protected_facts_subject_ref(self) -> int:
+        """P0 corrective 25.10.2026 (F5): аддитивная колонка
+        `protected_facts.subject_ref_id` (Telegram user ID) для существующих
+        БД — чтобы личные защищённые факты читались после переименования.
+
+        Идемпотентно (`PRAGMA table_info`-guard), `user_version` НЕ
+        поднимается. Существующие строки остаются `NULL` = привязки по ID
+        нет → чтение честно падает на прежний `user_name`. Возвращает 1 при
+        реальном добавлении, 0 на повторе."""
+        try:
+            if not await self._table_exists("protected_facts"):
+                return 0
+            cols = await self._table_columns("protected_facts")
+            if "subject_ref_id" in cols:
+                return 0
+            await self.db.execute(
+                "ALTER TABLE protected_facts ADD COLUMN subject_ref_id INTEGER")
+            await self.db.commit()
+            logger.info(
+                "[database] protected_facts.subject_ref_id добавлена "
+                "(аддитивно, user_version не менялся)")
+            return 1
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning(
+                "[database] protected_facts subject_ref ensure failed",
+                exc_info=True)
+            return 0
+
+    async def _quarantine_known_self_echo_lore_stories(self) -> int:
+        """Разовая точечная метка доказанных self-echo историй (owner §3).
+
+        Только записи из явного списка `_LORE_SELF_ECHO_QUARANTINE` И только
+        при совпадении identity-гарда (chat/id/created_at/длина текста) —
+        никакого bulk по legacy. Строка НЕ удаляется и не переписывается:
+        ставится `origin='bot_self_echo'`, `status='rejected'`,
+        `excluded_from_retrieval=1`, `provenance_note` — и она уходит из
+        фактического извлечения (baseline + фасад), оставаясь в БД/админке.
+        Повторный прогон — no-op (уже помеченные пропускаются).
+        Обратимость: `UPDATE … SET status=NULL, excluded_from_retrieval=0`.
+        Возвращает число помеченных строк."""
+        marked = 0
+        try:
+            if not await self._table_exists("lore_stories"):
+                return 0
+            cols = await self._table_columns("lore_stories")
+            if not {"origin", "status", "excluded_from_retrieval",
+                    "provenance_note"}.issubset(cols):
+                return 0
+            ledger = await self._table_exists("mca_bot_outputs")
+            for (chat_id, story_id, created_at, story_chars,
+                 min_lcp, note) in _LORE_SELF_ECHO_QUARANTINE:
+                cursor = await self.db.execute(
+                    "SELECT id, chat_id, story, created_at, origin, status, "
+                    "excluded_from_retrieval FROM lore_stories "
+                    "WHERE chat_id = ? AND id = ?",
+                    (int(chat_id), int(story_id)))
+                row = await cursor.fetchone()
+                if row is None:
+                    continue
+                if int(row["excluded_from_retrieval"] or 0) and str(
+                        row["status"] or "") == "rejected":
+                    continue                    # уже помечена (idempotent)
+                if created_at is not None and int(row["created_at"]) != int(
+                        created_at):
+                    logger.info(
+                        "[database] lore self-echo skip: id=%s created_at "
+                        "изменился (строка перезаписана)", story_id)
+                    continue
+                story = str(row["story"] or "")
+                if story_chars is not None and len(story) != int(story_chars):
+                    logger.info(
+                        "[database] lore self-echo skip: id=%s длина текста "
+                        "не совпала с аудитом", story_id)
+                    continue
+                lcp = 0
+                if ledger:
+                    # Ограничение стоимости: только доставленные ответы в
+                    # окне ±6 ч вокруг создания рассказа (наблюдаемый +77 c)
+                    # и не короче порога; полный скан истории не нужен.
+                    win = int(row["created_at"] or 0)
+                    cursor = await self.db.execute(
+                        "SELECT content_text FROM mca_bot_outputs "
+                        "WHERE chat_id = ? AND content_text IS NOT NULL "
+                        "AND COALESCE(delivery_status, 'delivered') "
+                        "!= 'failed' "
+                        "AND (sent_at IS NULL OR sent_at BETWEEN ? AND ?) "
+                        "AND length(content_text) >= ? "
+                        "ORDER BY ABS(COALESCE(sent_at, 0) - ?) LIMIT 50",
+                        (int(chat_id), win - 21600, win + 21600,
+                         int(min_lcp), win))
+                    for out in await cursor.fetchall():
+                        lcp = max(lcp, _lcp_length(story,
+                                                   str(out["content_text"])))
+                ratio = (float(lcp) / float(len(story))) if story else 0.0
+                proven = (lcp >= int(min_lcp)
+                          and ratio >= _LORE_SELF_ECHO_MIN_RATIO)
+                # audit-отпечаток (created_at + точная длина текста) уже
+                # доказан разбором P0 25.10.2026; LCP — дополнительное
+                # подтверждение, когда durable ledger доступен.
+                audited = created_at is not None and story_chars is not None
+                if not proven and not audited:
+                    logger.info(
+                        "[database] lore self-echo skip: id=%s lcp=%d/%d "
+                        "(порог %d, %.0f%%)", story_id, lcp, len(story),
+                        int(min_lcp), _LORE_SELF_ECHO_MIN_RATIO * 100)
+                    continue
+                await self.db.execute(
+                    "UPDATE lore_stories SET origin = ?, status = ?, "
+                    "excluded_from_retrieval = 1, provenance_note = ? "
+                    "WHERE chat_id = ? AND id = ? AND "
+                    "COALESCE(excluded_from_retrieval, 0) = 0",
+                    (_LORE_SELF_ECHO_ORIGIN, "rejected",
+                     f"{_LORE_SELF_ECHO_QUARANTINE_NOTE_PREFIX} "
+                     f"bot_self_echo (lcp={lcp}): {note}",
+                     int(chat_id), int(story_id)))
+                marked += 1
+                logger.warning(
+                    "[database] lore self-echo помечена (сохранена в БД, "
+                    "исключена из извлечения): chat=%s id=%s lcp=%d",
+                    chat_id, story_id, lcp)
+            if marked:
+                await self.db.commit()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.warning("[database] lore self-echo quarantine failed",
+                           exc_info=True)
+        return marked
 
     async def _table_exists(self, table: str) -> bool:
         cursor = await self.db.execute(
@@ -6268,6 +6502,16 @@ class DatabaseService:
             await self._migrate_import_key_chat_scope_v11()
             await self._migrate_graph_facts_metadata_v12()
 
+        # P0 corrective 25.10.2026 (§3): provenance старых `lore_stories`.
+        # Аддитивно и идемпотентно, user_version НЕ поднимается; метка —
+        # только доказанные строки из явного списка (без bulk-чистки).
+        await self._ensure_lore_stories_provenance()
+        await self._quarantine_known_self_echo_lore_stories()
+        # P0 corrective 25.10.2026 (F5): protected_facts читаются/чистятся по
+        # устойчивому Telegram ID, а не только по имени. Колонка аддитивная,
+        # идемпотентная, user_version НЕ поднимается.
+        await self._ensure_protected_facts_subject_ref()
+
         # Migration: add timestamp column if missing (Dead Page V2)
         try:
             await self.db.execute("ALTER TABLE dead_page_posts ADD COLUMN timestamp INTEGER")
@@ -8419,11 +8663,16 @@ class DatabaseService:
     async def get_lore_story(self, chat_id: int, topic_key: str) -> dict | None:
         """UPD-hit «Летописца» (T-1891): сохранённая история по
         ``(chat_id, normalize_text(topic))`` или None. Ошибки чтения —
-        пустой результат (диалог не роняется, NFR-4)."""
+        пустой результат (диалог не роняется, NFR-4).
+
+        Provenance-колонки возвращаются вместе со строкой: вызывающий
+        (компилятор) обязан не подавать помеченный self-echo как «Известную
+        базу» (P0 corrective §3). Сама строка при этом НЕ удаляется."""
         try:
             cursor = await self.db.execute(
                 "SELECT id, chat_id, topic_key, topic, story, last_ts, "
-                "created_at, updated_at FROM lore_stories "
+                "created_at, updated_at, origin, status, "
+                "excluded_from_retrieval, provenance_note FROM lore_stories "
                 "WHERE chat_id = ? AND topic_key = ?",
                 (chat_id, str(topic_key or "")))
             row = await cursor.fetchone()
@@ -8438,11 +8687,15 @@ class DatabaseService:
     async def list_lore_stories(self, chat_id: int, limit: int = 200) -> list:
         """MCA-07 (T-3845): bounded-список сохранённых историй «Летописца»
         чата (эпизоды-фасад; REUSE `lore_stories`, второй каталог запрещён).
+
+        P0 corrective (§3): исключает помеченные self-echo строки тем же
+        предикатом, что legacy-ветка фасада `mca_episodes`.
         Ошибка чтения → [] (деградация, не бросает)."""
         try:
             cursor = await self.db.execute(
                 "SELECT id, chat_id, topic_key, topic, story, last_ts, "
                 "created_at, updated_at FROM lore_stories WHERE chat_id = ? "
+                "AND " + LORE_STORIES_RETRIEVAL_PREDICATE + " "
                 "ORDER BY updated_at DESC LIMIT ?",
                 (int(chat_id), max(1, int(limit))))
             return await cursor.fetchall()
@@ -8457,18 +8710,28 @@ class DatabaseService:
         """Запись истории «Летописца» (T-1891): UPSERT по UNIQUE
         ``(chat_id, topic_key)``; ``last_ts`` — last_seen на момент компиляции
         (для дотягивания новых сообщений ``ts > last_ts``). Ошибки — WARNING
-        (деградация без UPD, NFR-4), НЕ бросает."""
+        (деградация без UPD, NFR-4), НЕ бросает.
+
+        P0 corrective (§3): provenance описывает ХРАНИМЫЙ текст. Перезапись
+        рассказа новой генерацией снимает прежнюю метку self-echo (текста,
+        к которому она относилась, больше нет) — иначе исправленный рассказ
+        остался бы навсегда невидимым для извлечения."""
         now = int(time.time())
         try:
             await self.db.execute(
                 "INSERT INTO lore_stories "
                 "(chat_id, topic_key, topic, story, last_ts, created_at, "
-                "updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "updated_at, origin, status, excluded_from_retrieval, "
+                "provenance_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, "
+                "NULL) "
                 "ON CONFLICT(chat_id, topic_key) DO UPDATE SET "
                 "topic = excluded.topic, story = excluded.story, "
-                "last_ts = excluded.last_ts, updated_at = excluded.updated_at",
+                "last_ts = excluded.last_ts, updated_at = excluded.updated_at, "
+                "origin = excluded.origin, status = NULL, "
+                "excluded_from_retrieval = 0, provenance_note = NULL",
                 (chat_id, str(topic_key or ""), str(topic or ""),
-                 str(story or ""), int(last_ts or 0), now, now))
+                 str(story or ""), int(last_ts or 0), now, now,
+                 "lore_compiler"))
             await self.db.commit()
         except asyncio.CancelledError:
             raise
@@ -8573,12 +8836,19 @@ class DatabaseService:
                                if edge.get("fact_id")})
             if fact_ids:
                 placeholders = ",".join("?" * len(fact_ids))
+                # P0 corrective (§3, шаг 3 цепочки): self-echo НЕ входит в
+                # «Факты графа памяти» нового рассказа. Источник множества —
+                # существующий provenance (`BOT_ORIGINS`), второго списка нет.
+                bot_origins = sorted(BOT_ORIGINS)
+                origin_marks = ",".join("?" * len(bot_origins))
                 cursor = await self.db.execute(
                     "SELECT id, fact, target_user, created_at, "
                     "message_timestamp, kind, origin, status, weight "
                     "FROM graph_facts WHERE chat_id = ? AND id IN ("
-                    + placeholders + ") ORDER BY id",
-                    [chat_id] + fact_ids)
+                    + placeholders + ") AND COALESCE(origin, '') NOT IN ("
+                    + origin_marks + ") AND COALESCE(status, '') "
+                    "!= 'tentative' ORDER BY id",
+                    [chat_id] + fact_ids + bot_origins)
                 facts = [_lore_fact_row(dict(r))
                          for r in await cursor.fetchall()]
             facts.sort(key=lambda f: (int(f.get("rag_ts") or 0),
@@ -10470,37 +10740,83 @@ class DatabaseService:
         await self.db.commit()
 
     async def get_protected_facts(self, chat_id: int, user_name: str,
-                                  include_chat_level: bool = True) -> list[str]:
+                                  include_chat_level: bool = True,
+                                  *, user_id: int | None = None) -> list[str]:
         """65.10: защищённые факты юзера (подмешиваются в контекст; /forget
         их НЕ трогает). include_chat_level=True (default, раунд 5/T-732):
         + чат-уровневые факты (user_name IS NULL — «лор чата»), они идут
         ПЕРВЫМИ (не тонут при обрезке блока). False — старое поведение
-        (только user_name = ?). Порядок: чат-уровневые → ASC по created_at, id."""
-        if include_chat_level:
-            cursor = await self.db.execute(
-                "SELECT fact FROM protected_facts "
-                "WHERE chat_id = ? AND (user_name = ? OR user_name IS NULL) "
-                "ORDER BY (user_name IS NULL) DESC, created_at ASC, id ASC",
-                (chat_id, user_name))
+        (только факты юзера). Порядок: чат-уровневые → ASC по created_at, id.
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID личные
+        строки читаются по `subject_ref_id`, а строки без ID — по прежнему
+        имени (fallback). После переименования свои факты не теряются."""
+        where = ["chat_id = ?"]
+        params: list = [chat_id]
+        if user_id is not None:
+            where.append("(subject_ref_id = ? "
+                         "OR (subject_ref_id IS NULL AND user_name = ?))")
+            params.extend([int(user_id), user_name])
+            if include_chat_level:
+                where[-1] = "(" + where[-1] + " OR user_name IS NULL)"
         else:
-            cursor = await self.db.execute(
-                "SELECT fact FROM protected_facts "
-                "WHERE chat_id = ? AND user_name = ? "
-                "ORDER BY created_at ASC, id ASC",
-                (chat_id, user_name))
+            if include_chat_level:
+                where.append("(user_name = ? OR user_name IS NULL)")
+            else:
+                where.append("user_name = ?")
+            params.append(user_name)
+        cursor = await self.db.execute(
+            "SELECT fact FROM protected_facts WHERE " + " AND ".join(where) +
+            " ORDER BY (user_name IS NULL) DESC, created_at ASC, id ASC",
+            params)
         return [row["fact"] for row in await cursor.fetchall()]
 
+    async def _user_source_ref_id(self, chat_id: int,
+                                  user_id: int | None) -> int | None:
+        """`mca_source_refs.source_ref_id` для Telegram user_id (та же связка,
+        что `_person_scope_clause`). Нет строки/ошибка → None (честный
+        fallback на имя)."""
+        if user_id is None:
+            return None
+        try:
+            cursor = await self.db.execute(
+                "SELECT source_ref_id FROM mca_source_refs WHERE "
+                "store = 'telegram' AND entity_type = 'user' AND "
+                "entity_id = ? AND COALESCE(chat_id, -1) = "
+                "COALESCE(?, -1) LIMIT 1", (str(int(user_id)), chat_id))
+            row = await cursor.fetchone()
+            return int(row["source_ref_id"]) if row is not None else None
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug("[database] user source_ref resolve failed",
+                         exc_info=True)
+            return None
+
     @_serialized_write
-    async def clear_direct_dialogue(self, chat_id: int, target_user: str) -> int:
+    async def clear_direct_dialogue(self, chat_id: int, target_user: str,
+                                    *, target_user_id: int | None = None) -> int:
         """/clear (65.5): стереть цепочки чата (bot_replies) + graph_facts с
         origin='bot_direct_reply' AND target_user=имя юзера (+FTS-строки).
-        chat_history-факты НЕ трогаем. Возвращает число удалённых фактов."""
+        chat_history-факты НЕ трогаем. Возвращает число удалённых фактов.
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID факты
+        ищутся по `subject_ref_id` (source_ref_id этого uid), строки без ID —
+        по прежнему имени. После переименования /clear находит старые
+        записи."""
         await self.db.execute("DELETE FROM bot_replies WHERE chat_id = ?", (chat_id,))
+        ref_id = await self._user_source_ref_id(chat_id, target_user_id)
+        if ref_id is not None:
+            where = ("chat_id = ? AND origin = 'bot_direct_reply' AND "
+                     "((subject_ref_id = ?) OR "
+                     "(subject_ref_id IS NULL AND target_user = ?))")
+            params = (chat_id, ref_id, target_user)
+        else:
+            where = ("chat_id = ? AND origin = 'bot_direct_reply' AND "
+                     "target_user = ?")
+            params = (chat_id, target_user)
         cursor = await self.db.execute(
-            "SELECT id FROM graph_facts "
-            "WHERE chat_id = ? AND origin = 'bot_direct_reply' AND target_user = ?",
-            (chat_id, target_user),
-        )
+            "SELECT id FROM graph_facts WHERE " + where, params)
         fact_ids = [row["id"] for row in await cursor.fetchall()]
         for fact_id in fact_ids:
             await self.db.execute(
@@ -10524,26 +10840,39 @@ class DatabaseService:
 
     @_serialized_write
     async def forget_direct_facts(self, chat_id: int, target_user: str,
-                                  phrase: str, now_ts: int) -> int:
+                                  phrase: str, now_ts: int, *,
+                                  target_user_id: int | None = None) -> int:
         """/forget (65.5/65.10): FTS-поиск по bot_direct_reply-фактам юзера →
         DELETE + запись в graph_fact_compressions (reason='forget').
         Защищённые факты (точное совпадение fact с protected_facts) НЕ
         удаляются. Fail-open: ошибка FTS → WARNING + 0. Возвращает число
-        удалённых фактов."""
+        удалённых фактов.
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID scope —
+        `subject_ref_id` этого uid; строки без ID — по имени (fallback)."""
         match_query = self._fts_forget_query(phrase)
         if not match_query:
             return 0
+        ref_id = await self._user_source_ref_id(chat_id, target_user_id)
+        if ref_id is not None:
+            scope = ("AND ((f.subject_ref_id = ?) OR "
+                     "(f.subject_ref_id IS NULL AND f.target_user = ?))")
+            scope_params: tuple = (ref_id, target_user)
+        else:
+            scope = "AND f.target_user = ?"
+            scope_params = (target_user,)
         try:
             cursor = await self.db.execute(
                 "SELECT f.id, f.fact FROM graph_facts_fts "
                 "JOIN graph_facts f ON f.id = graph_facts_fts.rowid "
                 "WHERE graph_facts_fts MATCH ? AND f.chat_id = ? "
-                "AND f.origin = 'bot_direct_reply' AND f.target_user = ? "
+                "AND f.origin = 'bot_direct_reply' "
+                f"{scope} "
                 "AND (f.expires_at IS NULL OR f.expires_at > ?) "
                 "AND NOT EXISTS (SELECT 1 FROM protected_facts p "
                 "WHERE p.chat_id = f.chat_id AND p.user_name = f.target_user "
                 "AND p.fact = f.fact)",
-                (match_query, chat_id, target_user, now_ts),
+                (match_query, chat_id, *scope_params, now_ts),
             )
             rows = await cursor.fetchall()
         except Exception:
@@ -10836,13 +11165,18 @@ class DatabaseService:
         архивные beliefs (status='archived_belief', пенальти) и читает
         base_weight из belief_meta при воскрешении. status=None → без
         SQL-фильтра (фильтрация статусов — на стороне вызывающего).
-        B03.2 (v6.3): + expires_at — as-of-пометка архивного top-up."""
+        B03.2 (v6.3): + expires_at — as-of-пометка архивного top-up.
+        SPEECH-P0-A2: + provenance-колонки v17 (chat_id/subject_ref_id/
+        speaker_author_id/assertion_kind/attribution_method/provenance_channel)
+        — аддитивно, для `with_meta`-выдачи direct-RAG (`read_policy_rank`)."""
         if not fact_ids:
             return []
         placeholders = ",".join("?" for _ in fact_ids)
         sql = (f"SELECT id, fact, origin, created_at, target_user, weight, "
                f"status, last_confirmed_at, message_timestamp, belief_meta, "
-               f"kind, importance, tg_message_id, forward_from, expires_at "
+               f"kind, importance, tg_message_id, forward_from, expires_at, "
+               f"chat_id, subject_ref_id, speaker_author_id, assertion_kind, "
+               f"attribution_method, provenance_channel "
                f"FROM graph_facts "
                f"WHERE id IN ({placeholders})")
         params: list = list(fact_ids)

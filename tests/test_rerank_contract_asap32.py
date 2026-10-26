@@ -57,9 +57,11 @@ def test_parse_json_substring_prefix_repair():
 
 def test_parse_empty_valid_forms():
     assert sm.parse_rerank_selected('{"selected":[]}') == ("empty", (), "json")
-    # §10: пустой/blank ответ — валидный empty (НЕ invalid).
-    assert sm.parse_rerank_selected("") == ("empty", (), "none")
-    assert sm.parse_rerank_selected("   ") == ("empty", (), "none")
+    # P0C-INT R3 (probes_final5-rerun §8): пустой/blank ОТВЕТ провайдера —
+    # это сбой (`empty_response` → bounded fallback), а не «валидный пустой
+    # выбор»: раньше он молча обнулял RAG-блок.
+    assert sm.parse_rerank_selected("") == ("empty_response", (), "none")
+    assert sm.parse_rerank_selected("   ") == ("empty_response", (), "none")
     assert sm.parse_rerank_selected("[]") == ("empty", (), "json")
 
 
@@ -74,7 +76,8 @@ def test_parse_prose_invalid():
     kind, nums, mode = sm.parse_rerank_selected(
         "Думаю, релевантны первые факты про проект")
     assert (kind, nums, mode) == ("invalid", (), "prose")
-    assert sm.parse_rerank_selected(None) == ("empty", (), "none")
+    # P0C-INT R3: None — тоже сбой провайдера (не осознанный пустой выбор).
+    assert sm.parse_rerank_selected(None) == ("empty_response", (), "none")
 
 
 def test_parse_dedup_preserves_order():

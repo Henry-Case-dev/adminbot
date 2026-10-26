@@ -1,0 +1,55 @@
+{
+ "read_only": "on",
+ "tables": {
+  "bot_roles": 4,
+  "bot_settings": 60,
+  "bot_settings_bak_20260903": 60,
+  "chat_links": 0,
+  "chat_profiles": 1,
+  "persona_state": 1,
+  "persona_traits": 50,
+  "personas": 1
+ },
+ "columns": {
+  "bot_settings": [
+   "key",
+   "value",
+   "category",
+   "updated_at"
+  ],
+  "chat_profiles": [
+   "chat_id",
+   "manual_lore",
+   "auto_lore",
+   "auto_enabled",
+   "auto_period_hours",
+   "auto_window_hours",
+   "is_active",
+   "last_auto_at",
+   "updated_at",
+   "relations",
+   "relations_enabled",
+   "chat_params",
+   "gates_opt_in"
+  ],
+  "persona_traits": [
+   "id",
+   "chat_id",
+   "trait",
+   "source",
+   "created_at"
+  ],
+  "personas": [
+   "id",
+   "chat_id",
+   "is_global",
+   "name",
+   "biography",
+   "system_prompt_overrides",
+   "is_aware_ai",
+   "created_at",
+   "updated_at"
+  ]
+ },
+ "notes": "values dropped: secret-bearing"
+}

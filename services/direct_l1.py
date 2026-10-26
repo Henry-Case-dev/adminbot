@@ -61,6 +61,62 @@ TONE_MAX = 24              # §1.3: открытый словарь, ≤24
 CAPABILITIES_MAX = 8       # bounded список возможностей
 CLARIFY_TARGET_MAX = 64
 
+#: Канон `response_act` из схемы L1 (единственные значения, которые понимает
+#: маршрутизация; `research` включает analysis-директиву и Writer).
+RESPONSE_ACT_CANON = (
+    "answer", "agreement", "disagreement", "banter", "tease",
+    "hostile_rebuff", "emotional_reply", "support", "clarification",
+    "explanation", "research", "comparison", "summarization", "creative",
+    "historical_recall", "other",
+)
+
+#: P0C-INT R2 (25.10.2026, `probes_final4.md` §3): `response_act` остаётся
+#: открытым словарём, но ИЗВЕСТНЫЕ формы канона приводятся к каноническим
+#: значениям детерминированно. Иначе синоним (`analysis`, `review`, `разбор`)
+#: молча не равен `research`, и анализ выключался без ошибки и без лога. Это
+#: таблица соответствий, а не угадывание по смыслу: незнакомое слово
+#: сохраняется как есть.
+RESPONSE_ACT_ALIASES = {
+    # research (разбор материала)
+    "analysis": "research", "analyse": "research", "analyze": "research",
+    "analysis_of": "research", "review": "research",
+    "investigation": "research", "investigate": "research",
+    "examination": "research", "examine": "research",
+    "разбор": "research", "анализ": "research", "исследование": "research",
+    "разобрать": "research", "проанализировать": "research",
+    "deep_analysis": "research", "deep_review": "research",
+    "разбор_материала": "research",
+    # explanation
+    "explain": "explanation", "explanation_of": "explanation",
+    "объяснение": "explanation", "пояснение": "explanation",
+    # comparison
+    "compare": "comparison", "comparing": "comparison",
+    "сравнение": "comparison", "сравнить": "comparison",
+    # summarization
+    "summary": "summarization", "summarize": "summarization",
+    "summarise": "summarization", "пересказ": "summarization",
+    "конспект": "summarization", "обобщение": "summarization",
+    # historical_recall
+    "history": "historical_recall", "recall": "historical_recall",
+    "historical": "historical_recall", "история": "historical_recall",
+    # прочие канонические акты
+    "emotional": "emotional_reply", "emotion": "emotional_reply",
+    "emotional_response": "emotional_reply",
+    "эмоциональный_ответ": "emotional_reply",
+    "hostile": "hostile_rebuff", "rebuff": "hostile_rebuff",
+    "hostile_reply": "hostile_rebuff", "отпор": "hostile_rebuff",
+    "joke": "banter", "joking": "banter", "banter_reply": "banter",
+    "шутка": "banter", "подкол": "banter",
+    "teasing": "tease", "поддеть": "tease", "подколоть": "tease",
+    "supportive": "support", "утешение": "support", "поддержка": "support",
+    "agree": "agreement", "согласие": "agreement",
+    "disagree": "disagreement", "несогласие": "disagreement",
+    "спор": "disagreement",
+    "clarify": "clarification", "уточнение": "clarification",
+    "creative_writing": "creative", "творчество": "creative",
+    "response": "answer", "ответ": "answer",
+}
+
 # ASAP 8 v6 (D04, §18C.7): execution mode — закрытое множество; явное
 # значение от LLM или дет. деривация из capabilities (никогда не тихо).
 EXECUTION_MODES = ("none", "simple_tools", "adaptive_tool_chain")
@@ -126,6 +182,8 @@ INITIATIVE_LINE = ("автономная инициатива (никто бот
                    "повод наблюдателя - предложение, а не приказ")
 
 _WS_RE = re.compile(r"\s+")
+#: Разделители внутри словарных значений ("deep-analysis" → "deep_analysis").
+_WS_SEP_RE = re.compile(r"[\s\-]+")
 
 
 # ── §1.3: L1Plan ─────────────────────────────────────────────────────────────
@@ -229,8 +287,13 @@ def plan_response_mode(plan) -> str:
                 or getattr(plan, "structure", "") == "report":
             return "deep_research"
         if isinstance(plan, L1Plan):
-            if plan.is_longform() or plan.structure in (
-                    "explanation", "comparison", "summary", "steps"):
+            # P0-CORRECTIVE (§1.1): исследование уже сказанного — серьёзный
+            # разбор, а не «болтовня». В deep_research НЕ маппим: режимный
+            # PG-блок может нести прежний приказ «выведи отчёт полностью»
+            # (дефект эссе); точные analysis-тексты и так даёт plan-блок.
+            if plan.is_longform() or plan.response_act == "research" \
+                    or plan.structure in (
+                        "explanation", "comparison", "summary", "steps"):
                 return "serious"
             return "casual"
         if getattr(plan, "is_longform", lambda: False)():
@@ -255,6 +318,29 @@ def _clip_word(value, max_len: int, default: str) -> str:
     if not candidate:
         return default
     return candidate[:max_len]
+
+
+def canonical_response_act(value) -> str:
+    """`response_act` из плана → каноническое значение схемы (никогда не бросает).
+
+    P0C-INT R2 (25.10.2026, `probes_final4.md` §3): маршрутизация понимает
+    только канон (`research` включает analysis-директиву). Открытый словарь
+    сохранён, но известные формы приводятся к канону детерминированно:
+    `analysis`/`review`/`разбор` → `research`, `summary` → `summarization` и
+    т.д. Незнакомое слово остаётся как есть (прежнее поведение), поэтому
+    потери сигнала больше нет, а угадывания по смыслу тоже нет.
+    """
+    candidate = _WS_RE.sub(" ", str(value or "")).strip().lower()
+    if not candidate:
+        return "other"
+    if candidate in RESPONSE_ACT_CANON:
+        return candidate
+    # "deep analysis" / "deep-analysis" → "deep_analysis" для поиска в таблице
+    key = _WS_SEP_RE.sub("_", candidate).strip("_")
+    mapped = RESPONSE_ACT_ALIASES.get(key)
+    if mapped:
+        return mapped
+    return candidate[:RESPONSE_ACT_MAX]
 
 
 def confidence_bucket(confidence: float) -> str:
@@ -311,8 +397,7 @@ def normalize_l1_plan(data) -> L1Plan | None:
         from services.direct_llm_react import ALLOWED_LLM_REACTIONS
         plan.reaction = candidate if candidate in ALLOWED_LLM_REACTIONS \
             else None
-    plan.response_act = _clip_word(data.get("response_act"),
-                                   RESPONSE_ACT_MAX, "other")
+    plan.response_act = canonical_response_act(data.get("response_act"))
     plan.tone = _clip_word(data.get("tone"), TONE_MAX, "inherit")
     plan.extent = _closed(data.get("extent"), L1_EXTENTS, "auto")
     from services import response_extent as _extent
@@ -919,10 +1004,64 @@ def build_evidence_packet(raw, plan=None, *,
 # ── §1.1: plan-блок для L2 Writer ───────────────────────────────────────────
 
 
+def _renders_extent_block(plan) -> bool:
+    """Станет ли ``render_extent_block`` НЕПУСТЫМ в фактическом payload.
+
+    Extent-блок плана ЗАМЕНЯЕТ ``MODE_*_BLOCK``
+    (``prompt_style_blocks.resolve_mode_parts``), поэтому только непустой
+    блок снимает режимный текст анализа. Проверка идёт тем же рендерером и
+    по тому же ``ResponsePlan``, который видит L2 Writer
+    (``L1Plan.to_response_plan``). Никогда не бросает.
+    """
+    try:
+        if plan is None:
+            return False
+        from services import response_extent as _extent
+        response_plan = (plan.to_response_plan()
+                         if hasattr(plan, "to_response_plan") else plan)
+        return bool(_extent.render_extent_block(response_plan))
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
+def analysis_directive_needed(plan, response_mode: str = "",
+                              modes_on: bool = True) -> bool:
+    """Нужна ли точная analysis-директива в plan-блоке L2.
+
+    SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): серьёзный разбор
+    (``response_act=research``) получает дословную инструкцию анализа/Writer
+    в ``<Response_Plan>``, если режимный блок её в payload не несёт.
+
+    Для ``deep_research`` это решает extent-блок, а не имя режима
+    (SPEECH-P0-DEEP-PAYLOAD, ревью 25.10.2026): непустой extent-блок
+    (``extent``/``form_override`` вне ``auto``) заменяет
+    ``MODE_DEEP_RESEARCH_BLOCK`` целиком — значит тексты нужны в плане;
+    при пустом extent режимный блок рендерится и остаётся единственным
+    носителем (дубля нет). Режимы OFF → режимного блока нет вовсе → True.
+    Принимает ``L1Plan`` (``response_act``) или ``ResponsePlan``
+    (``task_kind``). Никогда не бросает.
+    """
+    try:
+        if plan is None:
+            return False
+        mode = str(response_mode or "") or plan_response_mode(plan)
+        if mode == "deep_research" and bool(modes_on):
+            # Режимный блок заменяется непустым extent-блоком: тогда те же
+            # дословные тексты обязан нести plan-блок (ровно один раз).
+            return _renders_extent_block(plan)
+        act = str(getattr(plan, "response_act", "") or "")
+        kind = str(getattr(plan, "task_kind", "") or "")
+        return act == "research" or kind == "research"
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         clarification: bool = False,
                         low_confidence: bool = False,
-                        include_delivery: bool = False) -> str:
+                        include_delivery: bool = False,
+                        include_analysis: bool = False,
+                        modes_on: bool = True) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
@@ -931,7 +1070,22 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
     Writer) доводит до Writer ВЫБРАННУЮ L1 форму участия — прямой ответ на
     сообщение / обращение к человеку без reply / самостоятельная реплика,
     чтобы текст соответствовал способу доставки. Прямой чат (Direct) форму
-    доставки плана не получает (контракт Direct не менялся)."""
+    доставки плана не получает (контракт Direct не менялся).
+
+    SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): ``include_analysis``
+    добавляет в план дословные ``ANALYSIS_DIRECTIVE_TEXT``/``
+    ANALYSIS_WRITER_TEXT`` для serious-разбора (внутренний анализ не
+    пересказывается, глубина не задаёт длину ответа). Флаг выставляет
+    вызывающий по ``analysis_directive_needed``: у deep_research тексты уже
+    в режимном блоке, но только пока его не заменил extent-блок плана
+    (SPEECH-P0-DEEP-PAYLOAD), — предикат учитывает это сам.
+
+    WRITER-NO-META-FINAL (25.10.2026): ``NO_META_STRUCTURE_TEXT`` едет ровно
+    один раз на payload. Режимный блок несёт его только для deep_research и
+    только пока не вытеснен extent-блоком; во всех остальных случаях
+    (research/compact, casual, serious, modes OFF) его несёт план. Поэтому
+    ``modes_on`` нужен, чтобы не потерять директиву при выключенных режимах
+    и не продублировать её при deep/auto."""
     try:
         if plan is None:
             return ""
@@ -980,6 +1134,34 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
         note = rejected_note(rejected)
         if note:
             lines.append(note)
+        # ── SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума): дословные
+        # тексты анализа/Writer в plan-блоке для serious-разбора. Один
+        # источник (`prompt_style_blocks`), deep-режим их уже несёт.
+        try:
+            from services import prompt_style_blocks as _psb
+        except Exception:      # pragma: no cover - защитная ветка
+            _psb = None
+        if include_analysis:
+            _directive = str(getattr(_psb, "ANALYSIS_DIRECTIVE_TEXT", "")
+                             or "").strip()
+            _writer = str(getattr(_psb, "ANALYSIS_WRITER_TEXT", "")
+                          or "").strip()
+            if _directive:
+                lines.append(f"как разбирать: {_directive}")
+            if _writer:
+                lines.append(f"как подать разбор: {_writer}")
+        # ── WRITER-NO-META-FINAL (25.10.2026): запрет мета-вступлений едет в
+        # payload РОВНО один раз. deep_research с непустым extent-блоком
+        # теряет режимный блок (SPEECH-P0-DEEP-PAYLOAD) — тогда директиву
+        # несёт план. deep/auto и modes OFF без режимного блока — тоже план.
+        _no_meta = str(getattr(_psb, "NO_META_STRUCTURE_TEXT", "")
+                       or "").strip()
+        _mode_carries_no_meta = (
+            bool(modes_on)
+            and plan_response_mode(plan) == "deep_research"
+            and not _renders_extent_block(plan))
+        if _no_meta and not _mode_carries_no_meta:
+            lines.append(f"без служебных подводок: {_no_meta}")
         if low_confidence:
             lines.append("уверенность плана низкая: опирайся на контекст "
                          "разговора, а не на подсказки плана.")
@@ -1182,6 +1364,7 @@ __all__ = [
     "dedicated_generate", "authorize_l1_call", "record_l1_usage",
     "infer_fallback_capabilities", "build_l1_context", "render_window_lines",
     "build_evidence_packet", "fallback_plan", "plan_response_mode",
-    "emit_l1_plan_event", "build_l2_plan_block", "rejected_note",
+    "emit_l1_plan_event", "build_l2_plan_block",
+    "analysis_directive_needed", "rejected_note",
     "derive_execution_mode", "record_l1_diagnostics", "get_l1_diagnostics",
 ]

@@ -12,6 +12,7 @@ import pytest
 from services.lore_prompts import (
     LORE_INIT_SYSTEM_PROMPT,
     LORE_MERGE_SYSTEM_PROMPT,
+    LORE_STORY_SYSTEM_PROMPT,
     PREV_LORE_INIT_SYSTEM_PROMPT,
     PREV_LORE_MERGE_SYSTEM_PROMPT,
     build_init_user,
@@ -30,8 +31,7 @@ class TestCanon:
         text = LORE_MERGE_SYSTEM_PROMPT
         assert "архивариус многолетнего чата" in text
         assert "дистилляция" in text
-        assert "вечной летописи" in text
-        assert "КРУПНЕЕ" in text
+        assert "краткую фактическую картину" in text
         assert "крупнейшие события и вехи" in text
         assert "громкие конфликты и примирения" in text
         assert "мемы, традиции" in text
@@ -40,6 +40,13 @@ class TestCanon:
         assert "Максимум {max_words} слов" in text
         assert "UNCHANGED" in text
         assert "без кавычек-ёлочек и длинных тире" in text
+        # SPEECH-P0-B2 (§4): без «эпичности» и «усиления» без источника.
+        assert "ФАКТЫ:" in text
+        assert "не достраивай историю" in text
+        assert "Шутка, сарказм и прозвище - не факт" in text
+        assert '"эпичную"' not in text
+        assert "КРУПНЕЕ" not in text
+        assert "уточни/усиль" not in text
 
     def test_init_prompt_canon_rules(self):
         text = LORE_INIT_SYSTEM_PROMPT
@@ -49,11 +56,35 @@ class TestCanon:
         assert "UNCHANGED" in text
         assert "Если в окне нет ничего глобального" in text
         assert "Текущий авто-лор" not in text     # INIT — без merge-секции
+        # SPEECH-P0-B2: только факты из окна, без додумывания.
+        assert "ФАКТЫ:" in text
+        assert "не достраивай историю" in text
 
     def test_no_elo4ki_and_long_dashes_in_canons(self):
         for prompt in (LORE_MERGE_SYSTEM_PROMPT, LORE_INIT_SYSTEM_PROMPT):
             for bad in ("«", "»", "—", "–"):
                 assert bad not in prompt, f"{bad!r} в каноне"
+
+    def test_story_canon_no_epic_improvisation(self):
+        """SPEECH-P0-B2 (§4, evidence M4): «Летописец» не заказывает
+        эпическую завязку и импровизацию; факты/имена/порядок — из данных."""
+        text = LORE_STORY_SYSTEM_PROMPT
+        assert "что известно о теме" in text
+        assert "не заполняй пробелы выдумкой" in text
+        assert "не придумывай события, мотивы, подробности и причинные связи" \
+            in text
+        assert "Шутка - не факт" in text
+        assert "Имена, поступки и их порядок - только из предоставленных " \
+            "данных" in text
+        assert "эпичной" not in text
+        assert "абсурдной завязки" not in text
+        assert "сымпровизируй" not in text
+        assert "раздуй из мухи слона" not in text
+        # Формат/разметка/UPD-ветка сохранены.
+        assert "3-6 абзацев" in text
+        assert "<b>" in text and "<i>" in text
+        assert "UPD (Свежак)" in text
+        assert "{topic}" in text
 
     def test_format_placeholder(self):
         merged = LORE_MERGE_SYSTEM_PROMPT.format(max_words=150)
@@ -121,16 +152,19 @@ class TestLoreBlock:
 
     def test_manual_only(self):
         block = format_lore_block("только ручной", "", 3000)
-        assert block == "<chat_lore>\nтолько ручной\n</chat_lore>"
+        assert block == ("<chat_lore>\n(летопись чата: пересказ, не источник "
+                         "фактов)\nтолько ручной\n</chat_lore>")
 
     def test_auto_only(self):
         block = format_lore_block("", "только авто", 3000)
         assert "---" not in block
-        assert block == "<chat_lore>\nтолько авто\n</chat_lore>"
+        assert block == ("<chat_lore>\n(летопись чата: пересказ, не источник "
+                         "фактов)\nтолько авто\n</chat_lore>")
 
     def test_both_with_separator(self):
         block = format_lore_block("ручной", "авто", 3000)
-        assert block == "<chat_lore>\nручной\n---\nавто\n</chat_lore>"
+        assert block == ("<chat_lore>\n(летопись чата: пересказ, не источник "
+                         "фактов)\nручной\n---\nавто\n</chat_lore>")
 
     def test_cap_trims_auto_first_manual_intact(self):
         manual = "Ручной лор очень важный и не должен пострадать."
@@ -143,8 +177,10 @@ class TestLoreBlock:
     def test_cap_trims_manual_when_needed(self):
         manual = ("Слово повторяющееся " * 40).strip()
         auto = ("Авто-событие повторяющееся " * 40).strip()
-        block = format_lore_block(manual, auto, 80)
-        assert len(block) <= 80
+        # P0 §3: маркер происхождения входит в бюджет блока (+47 симв.),
+        # поэтому cap для проверки урезания взят с запасом.
+        block = format_lore_block(manual, auto, 200)
+        assert len(block) <= 200
         assert "…[обрезано]" in block
 
     def test_cap_zero_returns_empty(self):

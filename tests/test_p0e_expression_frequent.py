@@ -79,14 +79,18 @@ def test_no_budget_conflict_objects_are_produced(monkeypatch):
 # ═══ 2. Семантика FREQUENT ═════════════════════════════════════════════════
 
 def test_frequent_is_habit_of_own_speech_not_permission():
-    """owner-канон 25.10.2026 §2.6: частая непринуждённая матерная речь как
-    обычная часть разговорного языка; не разрешение и не механика."""
+    """SPEECH-P0-A1 (source-owner-p0-hotfix-2026-10-25.md §2): FREQUENT —
+    частый и естественный мат обычного грубого интернет-разговора; не
+    разрешение, не карнавал конструкций и не механика."""
     text = ex.PROFANITY_INSTRUCTIONS["frequent"]
     low = text.casefold()
-    assert "матерись часто и непринуждённо" in low
-    assert "мат - обычная часть разговорной речи" in low
-    assert "не избегай крепких выражений без причины" in low
-    assert "не вставляй их механически" in low
+    assert text == (
+        "Матерись часто и естественно, как в обычном грубом "
+        "интернет-разговоре. Не выдумывай сложные ругательные конструкции и "
+        "не вставляй мат механически.")
+    assert "матерись часто и естественно" in low
+    assert "не выдумывай сложные ругательные конструкции" in low
+    assert "не вставляй мат механически" in low
     # не «разрешение в исключительных случаях» и не мягкое допущение
     for banned in ("исключительн", "изредка допустим", "мат разрешён",
                    "мат допустим", "нецензурные выражения допустимы"):
@@ -123,18 +127,29 @@ def test_expression_is_rendered_top_of_mode_instructions():
 # ═══ 3. Лестница и кастом владельца ════════════════════════════════════════
 
 def test_ladder_prev_is_current_prod_text_and_next_is_factory():
-    step = ex.expression_text_ladder()[0]
+    steps = {s["step"]: s for s in ex.expression_text_ladder()}
+    # Актуальная ступень (SPEECH-P0-A1): текст P0-E ведёт на текст 25.10.
+    step = steps["p0h-frequent-natural"]
     assert step["mode"] == "frequent"
-    assert step["prev_sha12"] == ex.sha12(ex.PREV_PROFANITY_FREQUENT_TEXT)
+    assert step["prev_sha12"] == ex.sha12(
+        ex.PREV_P0E_PROFANITY_FREQUENT_TEXT)
     assert step["next_sha12"] == ex.sha12(
         ex.PROFANITY_INSTRUCTIONS["frequent"])
     assert step["prev_sha12"] != step["next_sha12"]
+    # Ступень P0-E сохранена как история: прод-текст 23.10 → текст P0-E.
+    p0e = steps["p0e-frequent-habit"]
+    assert p0e["prev_sha12"] == ex.sha12(ex.PREV_PROFANITY_FREQUENT_TEXT)
+    assert p0e["next_sha12"] == ex.sha12(ex.PREV_P0E_PROFANITY_FREQUENT_TEXT)
     # PREV — ровно текущий прод-текст 23.10 (evidence/raw)
     assert ex.PREV_PROFANITY_FREQUENT_TEXT == (
         "Пиши на живом разговорном языке с выраженным использованием мата. "
         "Нецензурная лексика — привычная часть твоего словаря: оценки, "
         "междометия, усиления и разговорные связки. Не заменяй её цензурными "
         "эвфемизмами.")
+    assert ex.PREV_P0E_PROFANITY_FREQUENT_TEXT == (
+        "Матерись часто и непринуждённо, как человек, для которого мат - "
+        "обычная часть разговорной речи. Не избегай крепких выражений без "
+        "причины, но и не вставляй их механически.")
     assert ex.rollback_profanity_frequent_text() == \
         ex.PREV_PROFANITY_FREQUENT_TEXT
 

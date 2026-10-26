@@ -46,6 +46,9 @@ SOURCE_PATH = ROOT / "plans/features/asap-speech-arch/source-2026-10-22.md"
 #: Действующий owner-канон речи (25.10.2026): §2.4–2.6 — тексты режимов мата.
 SOURCE_2510_PATH = (ROOT / "plans/features/asap-speech-arch" /
                     "source-owner-speech-simplify-2026-10-25.md")
+#: P0-hotfix §2 (25.10.2026): действующий текст FREQUENT.
+SOURCE_P0H_PATH = (ROOT / "plans/features/asap-speech-arch" /
+                   "source-owner-p0-hotfix-2026-10-25.md")
 
 _IDENTITY_MARKERS = ("токсичн", "бот-абьюзер", "двача")
 _TYPO_MARKERS = ("ТИПОГРАФИКА (ОБЯЗАТЕЛЬНО)", "только короткие дефисы",
@@ -58,6 +61,10 @@ def _src_text() -> str:
 
 def _src_2510_text() -> str:
     return SOURCE_2510_PATH.read_text(encoding="utf-8")
+
+
+def _src_p0h_text() -> str:
+    return SOURCE_P0H_PATH.read_text(encoding="utf-8")
 
 
 def _fence(heading: str) -> str:
@@ -181,18 +188,22 @@ def test_p0d_expression_header_footer_and_modes_byte_exact():
     by_prefix = {f[:20]: f for f in fences}
     # §3.4-снапшот 22.10 остаётся исторической ступенью: его байты видны в
     # PREV_* (frequent), а действующий канон всех трёх режимов — owner-канон
-    # 25.10.2026 (source-owner-speech-simplify-2026-10-25.md §2.4–2.6).
+    # 25.10.2026 (OFF/OCCASIONAL: source-owner-speech-simplify §2.4–2.6;
+    # FREQUENT: source-owner-p0-hotfix-2026-10-25.md §2).
     assert ex.PREV_PROFANITY_FREQUENT_TEXT == \
         by_prefix[ex.PREV_PROFANITY_FREQUENT_TEXT[:20]]
     quotes = [line[2:] for line in
               _src_2510_text().splitlines() if line.startswith("> ")]
-    for mode in ("off", "occasional", "frequent"):
+    quotes_p0h = [line[2:] for line in
+                  _src_p0h_text().splitlines() if line.startswith("> ")]
+    for mode in ("off", "occasional"):
         assert ex.PROFANITY_INSTRUCTIONS[mode] in quotes, mode
+    assert ex.PROFANITY_INSTRUCTIONS["frequent"] in quotes_p0h
     # дельта ограничена текстами режимов: header §3.4 не тронут выше.
     assert ex.PROFANITY_INSTRUCTIONS["frequent"] != \
         ex.PREV_PROFANITY_FREQUENT_TEXT
     assert ex.PROFANITY_INSTRUCTIONS["frequent"].startswith(
-        "Матерись часто и непринуждённо, как человек, для которого мат -")
+        "Матерись часто и естественно, как в обычном грубом")
     assert "исключительных случаях" not in \
         ex.PROFANITY_INSTRUCTIONS["frequent"]
     assert len(by_prefix) == len(fences)  # префиксы фенсов уникальны

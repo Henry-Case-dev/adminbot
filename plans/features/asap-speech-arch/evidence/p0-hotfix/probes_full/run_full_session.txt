@@ -1,0 +1,150 @@
+### STATE
+date_utc=2026-10-25T01:30:45Z
+python=/var/www/admin_bot/venv/bin/python
+new_head=fatal: not a git repository (or any of the parent directories): .git
+new_dirty=0
+old_head=534ac7dd
+old_dirty=13
+tmp_use=83%
+unit=0 active 
+healthz=
+--- harness files
+-rw-rw-r-- 1 nik nik 23011 Oct 25 01:17 /tmp/p0-full-new/probe_full.py
+-rw-rw-r-- 1 nik nik 23055 Oct 25 01:19 /tmp/p0-probe/probe_full.py
+cea538c4df25bd097e5c164633eeb6369704a652a6319dd021b0b07a01982e3f  /tmp/p0-full-new/probe_full.py
+3dcf602fa8249a7a8827d4a397f400694319c0e13a1c5114a48d8b13274ee35e  /tmp/p0-probe/probe_full.py
+exec_sha=3dcf602fa8249a7a8827d4a397f400694319c0e13a1c5114a48d8b13274ee35e
+--- staging links for new tree
+link_env=present
+link_db=created
+model=deepseek-v4-flash
+### PROBE old A
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+{"label": "old", "case": "A", "fatal": null, "system_chars": 13937, "l1_plan": {"action": "reply", "response_act": "answer", "extent": "normal", "structure": "answer", "tone": "neutral", "delivery_hint": "plain", "confidence": 0.9, "confidence_bucket": "high", "source": "llm", "needs_clarification": false}, "l2_runs": [{"repeat": 1, "temperature": 0.7, "max_tokens": 2400, "chars": 340, "sha12": "78e7879927f7", "elapsed_s": 2.9}, {"repeat": 2, "temperature": 0.7, "max_tokens": 2400, "chars": 745, "sha12": "3d98a6c397de", "elapsed_s": 4.7}], "stage_errors": {"rag": "KeyError: 0", "plan_block": "AttributeError: module 'services.direct_l1' has no attribute 'analysis_directive_needed'"}}
+rc=0 elapsed_s=27
+-rw-rw-r-- 1 nik nik 7139 Oct 25 01:31 /tmp/raw_old_A.json
+### PROBE old B
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+{"label": "old", "case": "B", "fatal": null, "system_chars": 14360, "l1_plan": {"action": "reply", "response_act": "other", "extent": "auto", "structure": "chat", "tone": "neutral", "delivery_hint": "plain", "confidence": 0.85, "confidence_bucket": "high", "source": "llm", "needs_clarification": false}, "l2_runs": [{"repeat": 1, "temperature": 0.7, "max_tokens": 2400, "chars": 628, "sha12": "1d264855462c", "elapsed_s": 4.3}, {"repeat": 2, "temperature": 0.7, "max_tokens": 2400, "chars": 1135, "sha12": "9dff9a2ef5dc", "elapsed_s": 6.5}], "stage_errors": {"plan_block": "AttributeError: module 'services.direct_l1' has no attribute 'analysis_directive_needed'"}}
+rc=0 elapsed_s=28
+-rw-rw-r-- 1 nik nik 8243 Oct 25 01:31 /tmp/raw_old_B.json
+### PROBE new A
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/tmp/p0-full-new/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/tmp/p0-full-new/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+{"label": "new", "case": "A", "fatal": null, "system_chars": 12400, "l1_plan": {"action": "reply", "response_act": "emotional_reply", "extent": "compact", "structure": "chat", "tone": "playful", "delivery_hint": "plain", "confidence": 0.85, "confidence_bucket": "high", "source": "llm", "needs_clarification": false}, "l2_runs": [{"repeat": 1, "temperature": 0.7, "max_tokens": 2400, "chars": 516, "sha12": "b15a3e78986c", "elapsed_s": 3.6}, {"repeat": 2, "temperature": 0.7, "max_tokens": 2400, "chars": 659, "sha12": "af3bc79c8c5e", "elapsed_s": 3.4}], "stage_errors": {"rag": "KeyError: 0"}}
+rc=0 elapsed_s=26
+-rw-rw-r-- 1 nik nik 7205 Oct 25 01:32 /tmp/raw_new_A.json
+### PROBE new B
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/tmp/p0-full-new/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/tmp/p0-full-new/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/p0-full-new/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+{"label": "new", "case": "B", "fatal": null, "system_chars": 12823, "l1_plan": {"action": "reply", "response_act": "banter", "extent": "compact", "structure": "chat", "tone": "playful", "delivery_hint": "plain", "confidence": 0.85, "confidence_bucket": "high", "source": "llm", "needs_clarification": false}, "l2_runs": [{"repeat": 1, "temperature": 0.7, "max_tokens": 2400, "chars": 871, "sha12": "1799eb66c5a9", "elapsed_s": 4.8}, {"repeat": 2, "temperature": 0.7, "max_tokens": 2400, "chars": 1165, "sha12": "37ad1e852be6", "elapsed_s": 5.9}], "stage_errors": {}}
+rc=0 elapsed_s=28
+-rw-rw-r-- 1 nik nik 8624 Oct 25 01:32 /tmp/raw_new_B.json
+### SELFECHO
+SELFECHO_JSON_BEGIN
+{"tree": "/tmp/p0-full-new", "python": "/var/www/admin_bot/venv/bin/python", "graph_fact_21255": {"id": 21255, "chat_id": -1002661910336, "fact": "[Бот] заявил: Ринтаро — не злобный, а хаотичный пиздабол-шизоид, местный клоун с претензией на философию, не представляющий угрозы.", "origin": "bot_self_reply", "expires_at": 1794687973, "created_at": 1792873573, "target_user": null, "weight": 0.2, "status": "confirmed", "last_confirmed_at": 1792873573, "supersedes": null, "message_timestamp": null, "importance": 2, "source_ids": null, "kind": "fact", "belief_meta": null, "tg_message_id": null, "forward_from": "", "subject_ref_id": null, "attribution_method": null, "assertion_kind": null, "speaker_author_id": null, "extractor_version": null, "provenance_channel": null, "dossier_generation_id": null, "subject_entity_id": null, "speaker_entity_id": null, "perspective": null, "memory_kind": null, "scope": null, "valid_from": null, "valid_to": null, "confidence_basis": null, "revision": 1}, "lore_4": {"id": 4, "chat_id": -1002661910336, "topic_key": "ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя ринтаро в чате, и заключение злобоный ринтаро или не злобоный", "topic": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный", "story": "Слушай, братишка, тут вся соль в том, что этот мем родился из чистой воды пиздабольства. В далёком декабре 2022-го в чате шёл мрачный трёп про мобилизацию и вагнеровцев. И вот на сцене появляется некий <b>Ринтаро</b> и выдаёт: <i>хорошо что я шизоид из дурки сбежал, в армию не возьмут</i>. Вася сразу просекает, к чему это, и спрашивает напрямую, почему его не забирают. В ответ - тишина и уход в ст", "last_ts": 1670765170, "created_at": 1792873555, "updated_at": 1792873555}, "fact_is_self_referential": true, "fact_read_policy_rank": 0, "fact_rag_line": "(не подтверждено) [Бот] заявил: Ринтаро — не злобный, а хаотичный пиздабол-шизоид, местный клоун с претензией на философию, не представляющий угрозы.", "fact_visible_as_factual_rag": false, "dcs_sha12": "e9f275008431", "lore_story_chars": 1660, "lore_story_sha12": "6358c29609bb", "lore_vs_bot_output": {"lcp": 1071, "tg": 1175257, "bot_chars": 1658, "story_in_bot": false}, "lore_has_provenance_column": false, "gates": {"provenance_enabled": true, "fact_attribution_enabled": true, "retrieval_context_enabled": true}, "lore_rows_chat": 2}
+SELFECHO_JSON_END
+### PACK
+bd1e7ecde7875ce5733bbdaba38711879d7e2a27ca82ef82f027598be4f5af84  raw_old_A.json
+b66dea45a0d66079afc15f9bfca9536db21797223d52edb10ae397992d304cdc  raw_old_B.json
+6a98a00eb5e8434ae15fc21bbda1df70888dc13e7fd61ebe8ac88c3a8162f984  raw_new_A.json
+95b85a1c40a9a95f3f23266f36d88b6f4d45189e8cddbf5d4098e66d24d77748  raw_new_B.json
+-rw-rw-r-- 1 nik nik 7205 Oct 25 01:32 raw_new_A.json
+-rw-rw-r-- 1 nik nik 8624 Oct 25 01:32 raw_new_B.json
+-rw-rw-r-- 1 nik nik 7139 Oct 25 01:32 raw_old_A.json
+-rw-rw-r-- 1 nik nik 8243 Oct 25 01:32 raw_old_B.json
+tgz_sha=2d27c4c82f2820b9e1a80e50d4c94e67a86145c9f13826495b0fbabd2a0035ab tgz_bytes=7778
+===B64_BEGIN===
+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
+===B64_END===
+### DONE

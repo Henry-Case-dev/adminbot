@@ -1,0 +1,48 @@
+{
+ "variant": "new",
+ "case": "A",
+ "route": {
+  "response_mode": "serious",
+  "task_kind": "research",
+  "extent": "normal",
+  "structure": "answer",
+  "l1_plan_block": true
+ },
+ "model": "deepseek/deepseek-v4.1-flash",
+ "temperature": 0.7,
+ "max_tokens": 2400,
+ "system_chars": 6225,
+ "system_sha12": "c80595617a6c",
+ "user_chars": 3564,
+ "user_sha12": "d68402805582",
+ "http_status": 200,
+ "elapsed_s": 5.38,
+ "usage": {
+  "prompt_tokens": 3242,
+  "completion_tokens": 280,
+  "total_tokens": 3522,
+  "reasoning_tokens": 0,
+  "completion_tokens_details": {
+   "reasoning_tokens": 0,
+   "audio_tokens": 0,
+   "accepted_prediction_tokens": 0,
+   "rejected_prediction_tokens": 0
+  },
+  "cache_read_input_tokens": 896,
+  "prompt_tokens_details": {
+   "cached_tokens": 896,
+   "audio_tokens": 0
+  },
+  "citation_tokens": 0,
+  "num_search_queries": 0,
+  "cache_creation_input_tokens": 0,
+  "input_tokens": 2346,
+  "cost": 0.000187086504,
+  "currency": "USD"
+ },
+ "error": null,
+ "response_chars": 742,
+ "response_sha12": "fb5b76c96aa5",
+ "response": "Смотрю на твои сообщения — и знаешь, «злобный» это не то слово. Ты скорее язвительный зануда с музыкальным снобизмом.\n\nТы в чате в основном делаешь три вещи: кидаешь треки, обзываешь Костин музон старьём и кринжем («ой бля о5 старьё какоето», «ща это кринж»), и осаживаешь его же предложения про фотосет. Плюс вставил про эджмоникс, что он «ебёт» и «пиздато стелит». Это не злоба, это такой… диджей-токсик, который считает, что у него вкус лучше, чем у всех.\n\nЗлобный человек гасит людей по-настоящему, а ты просто гоняешь Костю по музыкальной части и ржёшь. Костя, кстати, тоже не страдает — он отвечает смайликами и подколами, так что это у вас взаимная перепалка, а не травля.\n\nТак что нет, не злобный. Вредный местами — да, но это другое.",
+ "raw_envelope_sha12": "7c98f76e34db"
+}

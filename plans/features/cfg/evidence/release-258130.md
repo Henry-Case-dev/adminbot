@@ -45,6 +45,32 @@ Speech / PEMsoc / `handlers/*` / `style_policy` в diff отсутствуют.
 - Ветка отката: `release/fix-2.58.129` → `79ec3726`.
 - Мягкий откат поведения cover-400: значения выученного потолка — память процесса, TTL-инвалидация их не сохраняет между рестартами; продуктовая функция без нового флага (как в 2.58.129), откат только кодом.
 
-## Deploy
+## Deploy (факт)
 
-Заполняется после выката: SSH-коннекты, healthz/версия, NRestarts, журнал, postdeploy guard'ы.
+`nik@198.46.175.136`, `/var/www/admin_bot`, unit `admin_bot`, `venv/bin/python`.
+Окно: `2026-10-24T21:02:59Z` → `21:04:20Z`. SSH: **2 коннекта** (deploy 21:02:59Z + read-only Core-подтверждение с паузой 65 с), один логин, без ретраев.
+
+| Проверка | Результат |
+|---|---|
+| Pre-deploy HEAD / версия | `79ec3726` / 2.58.129, `DIRTY=0`, unit active, NRestarts 0 |
+| `git fetch origin release/2.58.130` | rc 0, ветка создана, `534ac7dd` присутствует |
+| Deployed commit (server `git rev-parse HEAD`) | **`534ac7dd`** = release SHA (побайтово равен кандидату) |
+| `APP_VERSION` на диске | `2.58.130` |
+| unit | `active/running`, MainPID **1182846**, **NRestarts = 0** |
+| `/healthz` loopback | HTTP **200**, `{"status":"ok","version":"2.58.130"}` (6-я попытка, ~18 с старта) |
+| `/healthz` публично (443) | **200** |
+| Журнал нового PID (170 строк) | **0** CRITICAL / **0** ERROR / **0** Traceback |
+| cover-строки в журнале | 4 INFO (`[cover_styles] seed ensure | profile=medved_press`, media recovery, shutdown recovery, scheduler), **0** исключений |
+| `_LEARNED_CEILINGS` | атрибут есть, тип `dict` (import на проде) |
+| `compile_style_prompt` | callable (import на проде) |
+| `factory_set_fingerprint()` на проде | **f12130fbccb1** |
+| ΔDDL | **0**: `PRAGMA user_version` = **37** до и после |
+| Core | `character.core` = JSON `origin=owner_edit`, **revision 8**, `full_text` содержит F1-маркер и «Свобода речи»; `character.prompt_history` — 1 запись. Промпт-путь в diff отсутствует, миграций канона в журнале нет |
+| Откат подтверждён на сервере | `79ec3726` присутствует, `release/fix-2.58.129` запушен |
+
+Замечание по Core: `sha12(a37678237533)` ≠ `ead77b2ab509` из evidence 2.58.129. Причина — в прошлом evidence записан sha **канона** (rev 8), а живое значение — owner-custom вариант (`origin=owner_edit`) с тем же revision 8; наш diff не содержит промптов/personality. Это уточнение метки прошлого релиза, не регрессия 2.58.130.
+
+Ограничение (как в 2.58.129): `requirements_gate.py --stage release` по карте `plans/features/cfg/requirements-map.json` не переиздавался под patch-релиз — карта привязана к `79ec3726`; фиктивная привязка не создавалась. Требования к карте — PM/Reviewer.
+
+Платные cover-пробы и тестовые сообщения в чаты **не отправлялись**.
+

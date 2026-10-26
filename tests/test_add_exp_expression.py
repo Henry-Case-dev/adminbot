@@ -61,22 +61,26 @@ HEADER = (
     "других речевых слоёв."
 )
 
-#: §2.2 строки режимов — ТОЧНЫЕ тексты владельца (source-owner-speech-
-#: simplify-2026-10-25.md §2.4–2.6, 25.10.2026 — заменяют F3/ADD-SAMPLES-UX
-#: §2), байт-в-байт. Квот/счётчиков/насильных вставок нет: частота задаётся
-#: только инструкцией.
+#: §2.2 строки режимов — ТОЧНЫЕ тексты владельца (SPEECH-P0-A1,
+#: source-owner-p0-hotfix-2026-10-25.md §2; OFF/OCCASIONAL — прежний канон
+#: 25.10.2026), байт-в-байт. Квот/счётчиков/насильных вставок нет: частота
+#: задаётся только инструкцией.
 OFF_LINE = ("- Мат: Не используй мат в собственной речи. Цитаты и исходные "
             "пользовательские данные не переписывай ради этого правила.")
 OCC_LINE = ("- Мат: Матерись иногда, когда это естественно вписывается в "
             "разговор. Не добавляй ругательства специально и не делай их "
             "обязательной частью каждого ответа.")
-FREQ_LINE = ("- Мат: Матерись часто и непринуждённо, как человек, для "
-             "которого мат - обычная часть разговорной речи. Не избегай "
-             "крепких выражений без причины, но и не вставляй их механически.")
+FREQ_LINE = ("- Мат: Матерись часто и естественно, как в обычном грубом "
+             "интернет-разговоре. Не выдумывай сложные ругательные "
+             "конструкции и не вставляй мат механически.")
 
-#: Первоисточник действующего канона §2.2 (25.10.2026) — сверка байт-в-байт.
+#: Первоисточник действующего канона §2.2 (OFF/OCCASIONAL — 25.10.2026) —
+#: сверка байт-в-байт.
 OWNER_SOURCE_2510 = (ROOT / "plans" / "features" / "asap-speech-arch" /
                      "source-owner-speech-simplify-2026-10-25.md")
+#: P0-hotfix §2 (25.10.2026): действующий текст FREQUENT.
+OWNER_SOURCE_P0H = (ROOT / "plans" / "features" / "asap-speech-arch" /
+                    "source-owner-p0-hotfix-2026-10-25.md")
 
 #: Прежняя ступень §2.2, которую держит дизайн ADD-EXP (20.10.2026); в
 #: runtime её заменил канон 25.10.
@@ -217,9 +221,9 @@ def test_instruction_texts_byte_exact_and_distinct():
             in OFF_LINE)
     assert "Матерись иногда, когда это естественно вписывается" in OCC_LINE
     assert ("не делай их обязательной частью каждого ответа" in OCC_LINE)
-    assert "Матерись часто и непринуждённо" in FREQ_LINE
-    assert "мат - обычная часть разговорной речи" in FREQ_LINE
-    assert "не вставляй их механически" in FREQ_LINE
+    assert "Матерись часто и естественно" in FREQ_LINE
+    assert "как в обычном грубом интернет-разговоре" in FREQ_LINE
+    assert "не вставляй мат механически" in FREQ_LINE
     # «мат разрешён/допустим/…» — не единственное правило для occ/freq
     low = (OCC_LINE + " " + FREQ_LINE).casefold()
     for banned in ("мат разрешён", "мат допустим", "необязателен",
@@ -232,12 +236,11 @@ def test_instruction_texts_byte_exact_and_distinct():
 
 
 def test_owner_exact_texts_are_canon():
-    """(a) source-owner-speech-simplify-2026-10-25.md §2.4–2.6 (25.10.2026):
-    канон `profanity` — ТОЧНЫЕ тексты владельца, байт-в-байт; сверяются и с
+    """(a) SPEECH-P0-A1 (source-owner-p0-hotfix-2026-10-25.md §2): канон
+    `profanity` — ТОЧНЫЕ тексты владельца, байт-в-байт; сверяются и с
     литералами, и с blockquote первоисточника (без дрейфа).
 
-    TEST-LIFECYCLE: CONTRACT owner=SPEECH-SIMPLIFY/MAN-PROF-*-TEXT
-    (§2.4–2.6, 25.10.2026)
+    TEST-LIFECYCLE: CONTRACT owner=SPEECH-P0-A1/§2
     """
     assert ex.PROFANITY_INSTRUCTIONS == {
         "off": ("Не используй мат в собственной речи. Цитаты и исходные "
@@ -245,17 +248,22 @@ def test_owner_exact_texts_are_canon():
         "occasional": ("Матерись иногда, когда это естественно вписывается в "
                        "разговор. Не добавляй ругательства специально и не "
                        "делай их обязательной частью каждого ответа."),
-        "frequent": ("Матерись часто и непринуждённо, как человек, для "
-                     "которого мат - обычная часть разговорной речи. Не "
-                     "избегай крепких выражений без причины, но и не вставляй "
-                     "их механически."),
+        "frequent": ("Матерись часто и естественно, как в обычном грубом "
+                     "интернет-разговоре. Не выдумывай сложные ругательные "
+                     "конструкции и не вставляй мат механически."),
     }
-    # байт-в-байт с первоисточником владельца (25.10.2026)
+    # байт-в-байт с первоисточником владельца (25.10.2026, P0-hotfix §2) и
+    # с прежним каноном OFF/OCCASIONAL
     quotes = [line[2:] for line in
               OWNER_SOURCE_2510.read_text(encoding="utf-8").splitlines()
               if line.startswith("> ")]
-    for mode in ("off", "occasional", "frequent"):
+    quotes_p0h = [line[2:] for line in
+                  OWNER_SOURCE_P0H.read_text(encoding="utf-8").splitlines()
+                  if line.startswith("> ")]
+    assert ex.PROFANITY_INSTRUCTIONS["frequent"] in quotes_p0h
+    for mode in ("off", "occasional"):
         assert ex.PROFANITY_INSTRUCTIONS[mode] in quotes, mode
+    for mode in ("off", "occasional", "frequent"):
         assert ("- Мат: " + ex.PROFANITY_INSTRUCTIONS[mode]) in (
             OFF_LINE if mode == "off" else
             OCC_LINE if mode == "occasional" else FREQ_LINE)

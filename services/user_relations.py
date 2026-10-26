@@ -342,7 +342,19 @@ class RelationsService:
         first_seen, last_seen, note}. names: {user_id: display} (roster-
         каскад готовит вызывающий); name — алиас или '' (id никогда не
         показывается как имя — раунд 10.2); сортировка last_seen DESC
-        (None — в конце, стабильно по user_id)."""
+        (None — в конце, стабильно по user_id).
+
+        P0 corrective 25.10.2026 (F3): при переданных алиасах — действующий
+        per-chat резолвер (chat override без рестарта), а не стартовый
+        снапшот; ошибка привязки не рвёт чтение."""
+        if self._aliases is not None:
+            try:
+                from services.summary_aliases import bind_turn_aliases
+                await bind_turn_aliases(int(chat_id))
+            except Exception:
+                logger.warning(
+                    "[user_relations] alias bind failed — fallback | chat_id=%s",
+                    chat_id, exc_info=True)
         rows = await self.ensure_fresh(chat_id, user_ids=user_ids)
         manual = await self._manual_relations(chat_id)
         out: list[dict] = []

@@ -182,10 +182,10 @@ def test_core_paragraph_reaches_runtime_composition():
             revision="e1", mode="off"),
         gates=pc.GateState(unified_composer_enabled=True))
     manifest = pc.compose_prompt(plan)
-    # SPEECH-SIMPLIFY: абзац-драматургия остаётся в хранимой редакции, но
-    # фильтр сборки не пускает его в payload; личность/свобода речи остаются.
+    # P0-CORRECTIVE §3: активный Core уходит в payload целиком, без вырезания
+    # абзацев «драматургии»/ритма; личность/свобода речи тоже остаются.
     assert CORE_REAL_EVENTS_PARAGRAPH in patched
-    assert CORE_REAL_EVENTS_PARAGRAPH not in manifest.system
+    assert CORE_REAL_EVENTS_PARAGRAPH in manifest.system
     assert CORE_FREE_SPEECH_PARAGRAPH in manifest.system
     assert CORE_FREE_SPEECH_PARAGRAPH in patched
     assert "язвительность" in manifest.system

@@ -39,6 +39,7 @@ from services.chat_prompts import (  # noqa: E402
     _DIRECT_L1_PLANNER_BASE_R1022,
     _DIRECT_L1_PLANNER_BASE_R3,
     _DIRECT_L1_PLANNER_RULES,
+    _DIRECT_L1_PLANNER_RULES_R3B,
     _DIRECT_L1_PLANNER_RULES_W1,
 )
 from services.direct_llm_react import ALLOWED_LLM_REACTIONS  # noqa: E402
@@ -68,9 +69,12 @@ def test_canon_schema_has_delivery_fields():
     assert '"delivery": "chat|reply|null"' in canon
     assert '"target_message_id": null' in canon
     assert '"target_user_id": null' in canon
-    # правила не менялись (tail-контракт прежнего теста сохраняется)
+    # правила 1-6 прежние; 7-8 — семантика P0-CORRECTIVE (ред.3 P0C-INT); JSON — 9
     assert "1. Решение семантическое" in canon
-    assert "7. В ответе - ровно одна JSON-строка" in canon
+    assert "7. Сначала определи, что человек просит сделать" in canon
+    assert "response_act=research" in canon
+    assert "9. В ответе - ровно одна JSON-строка" in canon
+    assert "8. В ответе - ровно одна JSON-строка" not in canon
 
 
 def test_canon_forms_no_priority_and_positive_criteria():
@@ -171,17 +175,53 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert PREV_DIRECT_L1_PLANNER_CLAR == (
         _DIRECT_L1_PLANNER_BASE + _DIRECT_L1_CLARIFICATION_CONTRACT
-        + _DIRECT_L1_PLANNER_RULES)
+        + _DIRECT_L1_PLANNER_RULES_R3B)
     assert targets[PREV_DIRECT_L1_PLANNER_R3] == \
         DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert PREV_DIRECT_L1_PLANNER_R3 == (
         _DIRECT_L1_PLANNER_BASE_R3 + _DIRECT_L1_CLARIFICATION_CONTRACT
-        + _DIRECT_L1_PLANNER_RULES)
+        + _DIRECT_L1_PLANNER_RULES_R3B)
     assert PREV_DIRECT_L1_PLANNER_R3 not in targets.values()
+    from services.chat_prompts import PREV_DIRECT_L1_PLANNER_R3B
+    assert targets[PREV_DIRECT_L1_PLANNER_R3B] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert PREV_DIRECT_L1_PLANNER_R3B == (
+        _DIRECT_L1_PLANNER_BASE_R3 + _DIRECT_L1_CLARIFICATION_CONTRACT
+        + _DIRECT_L1_CONTINUATION_R3B + _DIRECT_L1_PLANNER_RULES_R3B)
+    # P0-CORRECTIVE: верхняя ступень — текущие активные байты до правки
+    from services.chat_prompts import (PREV_DIRECT_L1_PLANNER_P0CS,
+                                       PREV_DIRECT_L1_PLANNER_P0CS2,
+                                       PREV_DIRECT_L1_PLANNER_P0CINT,
+                                       PREV_DIRECT_L1_PLANNER_P0CINTR2,
+                                       _DIRECT_L1_PLANNER_RULES_P0CS)
+    assert targets[PREV_DIRECT_L1_PLANNER_P0CS] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert targets[PREV_DIRECT_L1_PLANNER_P0CS2] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert targets[PREV_DIRECT_L1_PLANNER_P0CINT] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert targets[PREV_DIRECT_L1_PLANNER_P0CINTR2] == \
+        DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert PREV_DIRECT_L1_PLANNER_P0CS == (
+        _DIRECT_L1_PLANNER_BASE_R3 + _DIRECT_L1_CLARIFICATION_CONTRACT
+        + _DIRECT_L1_CONTINUATION_R3B + _DIRECT_L1_PLANNER_RULES_P0CS)
+    assert PREV_DIRECT_L1_PLANNER_P0CS != DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    # ступени-источники не являются целями прямого маппинга (нет циклов)
+    assert PREV_DIRECT_L1_PLANNER_P0CS not in targets.values()
+    assert PREV_DIRECT_L1_PLANNER_P0CS2 not in targets.values()
+    assert PREV_DIRECT_L1_PLANNER_P0CINT not in targets.values()
+    assert PREV_DIRECT_L1_PLANNER_P0CINTR2 not in targets.values()
+    assert PREV_DIRECT_L1_PLANNER_R3B not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
-    # REL-F1: цепочка отката L1 — R3b→R3, затем R3→2.58.113 (полный возврат)
+    # ADR-1013-3: цепочка отката L1 —
+    # active→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_R3),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        (PREV_DIRECT_L1_PLANNER_P0CINTR2, PREV_DIRECT_L1_PLANNER_P0CINT),
+        (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),
+        (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),
+        (PREV_DIRECT_L1_PLANNER_P0CS, PREV_DIRECT_L1_PLANNER_R3B),
+        (PREV_DIRECT_L1_PLANNER_R3B, PREV_DIRECT_L1_PLANNER_R3),
         (PREV_DIRECT_L1_PLANNER_R3, PREV_DIRECT_L1_PLANNER_CLAR)]
     assert DIRECT_L1_PLANNER_SYSTEM_PROMPT not in targets
 

@@ -51,7 +51,10 @@ ROUTES_SHA256_F11 = (
     # GET /api/vision/state и POST /api/vision/test (chat_id/X-Chat-Id; без них
     # — прежний глобальный слой) — Δ routes=0, RBAC/маскировка не менялись.
     # NF-1 ревью e3fa4e97: проба отдаёт тот же контекстно-корректный `state`.
-    "d54cc29695c702e79b3410007bf3f08490d045a2e99679c16495a129736fb9e2")
+    # P0 corrective 25.10.2026 (F7): аддитивное R17-safe поле `aliases` в
+    # GET /api/direct/context-diagnostics (Δ routes=0) — re-pin синхронно с
+    # каноном tests/test_round1025_f8_registry.py (L-F11S-1).
+    "a75a3333a2be82f0f5ac0f4cad3dd799d43cd6e6a456cd2a47add8fef9e8bf06")
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,160 @@
+{
+ "label": "l1only2",
+ "root": "/tmp/p0-final",
+ "case": "B",
+ "chat_id": -1002661910336,
+ "forced": false,
+ "force_plan": null,
+ "invalid": "l1_plan",
+ "stage_errors": {},
+ "pins": {
+  "git": {
+   "commit": "ERR:Command '['git', '-C', '/tmp/p0-final', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+   "branch": "ERR:Command '['git', '-C', '/tmp/p0-final', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+   "dirty": true,
+   "dirty_files": [
+    "ERR:Command '['git', '-C', '/tmp/p0-final', 'status', '--porcelain']' returned non-zero exit status 128."
+   ]
+  },
+  "harness": {
+   "path": "/tmp/p0-final/probes_full/harness_probe_full.py",
+   "sha256": "2a754adce3d5af3515083ef5b947d82402729dd73f0edab1de231e54fbd7c7b1"
+  },
+  "modules": {
+   "services/chat_prompts.py": {
+    "sha256": "51dfa761344c4f0f180988d6029e79ccba54cf51aa312754aaffac0923f54a6e",
+    "chars": 157608
+   },
+   "services/direct_l1.py": {
+    "sha256": "a683abac5348fa1af5237a797c5d72a4816fb97ce63de417ec0847f8924babd2",
+    "chars": 70553
+   },
+   "services/prompt_style_blocks.py": {
+    "sha256": "744837c7234c317a00cfb2c90670147e74805d93d132bc2023d03f572c8ddd82",
+    "chars": 49569
+   },
+   "services/response_extent.py": {
+    "sha256": "c97c7b33c130596b83b96946336b4a2b59694ff603a33659d9798a0c24cc9a1e",
+    "chars": 45011
+   },
+   "services/direct_chat_service.py": {
+    "sha256": "82c17c17820d25c20ca7828f0efe7c6cff7f89c9207c008fd0c08ff4737b8410",
+    "chars": 624114
+   },
+   "services/summary_memory.py": {
+    "sha256": "1c3810b7506574bce324739de4c9e5d513509fad8d68939262e79acb73fe9d6b",
+    "chars": 312387
+   },
+   "services/prompt_composer.py": {
+    "sha256": "8e12848cf6ca5cbaeef4e5adb21f63e9fde637d04e1ad336c661a4d3b42095c5",
+    "chars": 120583
+   },
+   "services/prompt_registry.py": {
+    "sha256": "87cc03f283f7024821eeb25940ef36bbbb47699156d77027cca0f4f51e5fce5a",
+    "chars": 175176
+   }
+  }
+ },
+ "sources": {
+  "pg_read_only": "on",
+  "settings_keys": 537,
+  "chat_param_keys": 6,
+  "window_messages": 66,
+  "graph_facts_rows": 40,
+  "lore_stories_rows": 2,
+  "mca_lessons_rows": 0
+ },
+ "alias_probe": {
+  "uid": 42115912,
+  "display": "Гипербореец",
+  "resolved": "Макс",
+  "source": "chat",
+  "chat_alias": "Макс",
+  "global_alias": "Макс"
+ },
+ "expression_doc": {
+  "global": {
+   "wit": "inherit",
+   "note": "",
+   "enabled": true,
+   "history": [
+    {
+     "revision": 1,
+     "updated_at": "2026-10-18T14:37:25Z",
+     "values_sha256_12": "e7598ac78463"
+    }
+   ],
+   "revision": 2,
+   "profanity": "frequent",
+   "sharpness": "sharp",
+   "verbosity": "inherit",
+   "updated_at": "2026-10-22T09:11:16Z"
+  },
+  "chat": {
+   "wit": "high",
+   "note": "",
+   "enabled": true,
+   "revision": 2,
+   "profanity": "frequent",
+   "sharpness": "sharp",
+   "verbosity": "inherit",
+   "updated_at": "2026-10-20T15:20:41Z"
+  }
+ },
+ "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+ "target_ts": 1792873478,
+ "identity_block_chars": 5048,
+ "l2_summary": {
+  "chars": 1117,
+  "sha12": "ec7a5231c9ba"
+ },
+ "rag": {
+  "rows": 40,
+  "kept": 39,
+  "render": "real",
+  "after_self_filter": 40,
+  "after_dedup": 39,
+  "cap": 2000,
+  "block_chars": 2027,
+  "block_sha12": "1fdb8b237233"
+ },
+ "lessons_block_chars": 0,
+ "base_prompt": {
+  "chars": 3081,
+  "sha12": "83ff62bbee40",
+  "source": "global"
+ },
+ "gates": {
+  "unified_composer_enabled": true,
+  "character_core_enabled": true,
+  "persona_enabled": true,
+  "character_layers_enabled": true,
+  "smart_verbalizer_modes_enabled": true,
+  "expression_examples_enabled": true,
+  "humor_library_enabled": true,
+  "humor_craft_enabled": true
+ },
+ "llm": {
+  "model": "deepseek-v4-flash",
+  "base_host": "nano-gpt.com"
+ },
+ "l1_canon": {
+  "chars": 9145,
+  "sha12": "f6f5d3b1fc1d",
+  "source": "code_candidate",
+  "pg_chars": 8261,
+  "pg_sha12": "6c2ddc17c998",
+  "code_chars": 9145,
+  "code_sha12": "f6f5d3b1fc1d",
+  "pg_matches_code": false,
+  "l1_prompt_mode": "code"
+ },
+ "l1_input": {
+  "system_sha12": "f6f5d3b1fc1d",
+  "context_chars": 3961,
+  "context_sha12": "92241b622e07"
+ },
+ "l1_raw": "{\"action\":\"reply\",\"reaction\":null\",\"delivery\":\"reply\",\"target_message_id\":\"<пока не определено, участников. Для reply обязательно укажи конкретный target_message_id из текущего окна. Для этой ветки это не подходит. Правильно: для ответа Максу — chat, с упоминанием в тексте.\",\"target_user_id\":null,\"response_act\":\"research\",\"extent\":\"compact\",\"tone\":\"neutral\",\"emotional_mirroring\":\"none\",\"structure\":\"answer\",\"delivery_hint\":\"plain\",\"tool_policy\":\"none\",\"capabilities_needed\":[],\"needs_clarification\":false,\"clarification_target\":null,\"confidence\":0.7,\"future_intent\":null}",
+ "l1_elapsed_s": 5.1,
+ "plan_source": "invalid"
+}

@@ -27,6 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from services import mca_gates
+from services.mca_expression import HUMOR_TEXT
 from services.prompt_composer import HumorStrategy
 
 logger = logging.getLogger(__name__)
@@ -98,15 +99,12 @@ TECHNIQUE_TEXTS: dict[str, str] = {
     "unexpected_analogy": HUMOR_TECHNIQUE_UNEXPECTED_ANALOGY,
 }
 
-#: SPEECH-SIMPLIFY §2.2 (25.10.2026): единственная базовая директива юмора,
-#: точный текст владельца. Длинные наборы обязательных приёмов, кульминации и
-#: квоты шуток больше не управляют речью (owner source §2.2, §4).
-HUMOR_TEXT = (
-    "Шути естественно и только когда хочется или ситуация располагает. "
-    "Допустимы ирония, сарказм, абсурд и грубоватые приколы. Не вымучивай "
-    "шутки, не превращай ответы в стендап, не придумывай истории ради "
-    "панчлайна и не объясняй собственный юмор."
-)
+#: SPEECH-SIMPLIFY §2.2 (25.10.2026): базовая директива юмора — ОДИН источник,
+#: `services.mca_expression.HUMOR_TEXT` (импортирован выше, без локальной
+#: копии литерала: дубль разъезжался с точным текстом владельца). Слой
+#: Humor Craft (техники) остаётся выключенным по умолчанию и поведение не
+#: меняет; длинные наборы обязательных приёмов и квоты шуток не управляют
+#: речью (owner source §2.2, §4).
 
 #: Общая рамка слоя (главный критерий и границы ремесла, SOUL-06.6).
 HUMOR_CRAFT_GUARD = (

@@ -127,11 +127,26 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # байты — PREV_DIRECT_L1_PLANNER_W1 / PREV_CHAT_VERBALIZER_W1_31.
     "direct.base.l2_writer": "l2-writer-clar-boundary",
     "direct.base.synthesizer": "synthesizer-r1023",
-    "direct.base.l1_planner": "l1-planner-continuation-r3b",
+    # P0-CORRECTIVE (25.10.2026, §1.1 corrective): маршрутизация L1 по
+    # материалу просьбы, а не по объекту оценки: разбор уже сказанного →
+    # response_act=research (глубина не задаёт длину), quick opinion →
+    # structure=answer без эссе; JSON — правило 9. Ред.2: приоритет разбора
+    # в смешанной просьбе. Прежние байты — PREV_DIRECT_L1_PLANNER_P0CS2
+    # (f6f5d3b1fc1d) и PREV_DIRECT_L1_PLANNER_P0CS.
+    "direct.base.l1_planner": "l1-planner-material-priority",
     # Режимы вербализатора (легаси-совместимость)
     "verbilizer.mode.casual": "mode-r1023",
     "verbilizer.mode.serious": "mode-r1023",
-    "verbilizer.mode.deep_research": "mode-r1023",
+    # SPEECH-P0-A1 (25.10.2026, source-owner-p0-hotfix §3): режим разбора
+    # больше не требует вывести отчёт полностью без сжатия — прямой ответ
+    # первым, детали по запросу, перестройка разрешена.
+    # P0-CORRECTIVE (25.10.2026, §3): добавлен запрет мета-вступлений и
+    # навязанной отчётной структуры без просьбы (без лимитов длины).
+    # WRITER-NO-META-FINAL (25.10.2026, probes_final2 §5: 5/8 ответов с
+    # преамбулой): директива назвала фактические типы преамбул и место
+    # ответа (первое содержательное предложение); те же байты едут в план
+    # для research/casual, deep/auto — режимным блоком, ровно 1×.
+    "verbilizer.mode.deep_research": "mode-no-meta-lexical",
     "verbilizer.mode.default": "mode-r1024",
     # Factcheck / Summary / поиск
     "factcheck.base.single": "factcheck-r1022",
@@ -145,7 +160,9 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "summary.base.editor": "summary-editor-r1025-hotfix4",
     "summary.base.narrator": "summary-narrator-legfix",
     "summary.base.l1_clusterizer": "summary-l1-clusterizer-asap41",
-    "summary.base.l2_writer": "summary-l2-writer-asap41",
+    # SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4): L2 больше не
+    # заказывает причинную драматургию/фантазию; факты/JSON/evidence целы.
+    "summary.base.l2_writer": "summary-l2-writer-p0-factual",
     "summary.cover.style": "cover-style-default",
     "summary.cover.style_id": "cover-style-id-default",
     "search.base.system": "search-cfg07a",
@@ -164,9 +181,12 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "internal.dream.distill": "dream-distill",
     "internal.dream.deep_sleep_bridge": "deep-sleep-bridge",
     "internal.dream.persona_evolution": "persona-evolution",
-    "internal.lore.init": "lore-init",
-    "internal.lore.merge": "lore-merge",
-    "internal.lore.story": "lore-story",
+    # SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4): лор/летопись —
+    # только факты из данных, без «эпичности», «усиления» и импровизации;
+    # юмор сохраняется, но шутка не становится фактом.
+    "internal.lore.init": "lore-init-p0-factual",
+    "internal.lore.merge": "lore-merge-p0-factual",
+    "internal.lore.story": "lore-story-p0-factual",
     "internal.nostalgia.candidate": "nostalgia",
     "internal.dossier.system": "dossier-system",
     "internal.dossier.layer_a": "dossier-layer-a",
@@ -1699,7 +1719,88 @@ def factory_set_fingerprint() -> str:
 #: но с иными прочими канонами — 071b1f3ec5f9; в поезде 2.58.119 канон
 #: считается от фактической базы 2.58.118).
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "f12130fbccb1"
+#: SPEECH-P0-A1 (25.10.2026, source-owner-p0-hotfix-addendum-2026-10-25.md
+#: §1): ``verbilizer.mode.deep_research`` — прежний режим требовал вывести
+#: переданный отчёт ПОЛНОСТЬЮ, ничего не сжимая; Writer не мог перестроить
+#: ответ, и анализ человека превращался в многоабзацное эссе. Новая редакция
+#: (``mode-p0h-analysis``) дословно содержит целевой текст анализа и замену
+#: требования «сохрани структуру» из §1 аддендума: ответ прямо и соразмерно
+#: запросу, релевантные подтверждённые наблюдения, без псих-эссе/хронологии/
+#: художки, подробный анализ по запросу, без выдуманных фактов и без
+#: пересказа внутренней структуры анализа. Прежние байты — слепок
+#: PREV_MODE_DEEP_RESEARCH_BLOCK. changed = 1 (verbilizer.mode.deep_research).
+#: Было ``f12130fbccb1``, стало ``dd64bbc52632``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума, продолжение A1):
+#: ``direct.base.l1_planner`` — правило 7: просьба оценить человека, его
+#: поведение или прозвучавшее о нём чужое мнение — содержательный разбор
+#: (extent=normal/compact, structure=answer), а не заказ хроники/отчёта;
+#: detailed/report только при явной просьбе подробного/полного разбора.
+#: Правила 1-6/8 (JSON) и тексты владельца не менялись; прежние байты R3b —
+#: PREV_DIRECT_L1_PLANNER_R3B (ступень лестницы + откат). Метка
+#: ``l1-planner-analysis-routing``. changed = 1 (direct.base.l1_planner).
+#: Было ``dd64bbc52632``, стало ``9b2fb9d7c573``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: SPEECH-P0-B2 (25.10.2026, source-owner-p0-hotfix §4; evidence
+#: p0-hotfix/memory-provenance M1/M3/M4): изменены 4 фабрики —
+#: summary.base.l2_writer (снята обязательная причинная драматургия, финал
+#: «главный шиз» — шутка, «нет данных — нет фантазии»; JSON/evidence/имена/
+#: числа целы), internal.lore.init/merge/story (только факты из данных, без
+#: «эпичности», «усиления» и импровизации; юмор сохранён). Метки:
+#: summary-l2-writer-p0-factual, lore-init-p0-factual, lore-merge-p0-factual,
+#: lore-story-p0-factual. Прежние байты L2 — PREV_SUMMARY_L2_WRITER_R1030_P0
+#: (ступень миграции + откат); лор — модульные каноны без PG-сида.
+#: changed = 4. Было ``9b2fb9d7c573``, стало ``a8ae82425a33``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: P0-CORRECTIVE (25.10.2026, §1.1 source-owner-p0-corrective; слайс L1):
+#: ``direct.base.l1_planner`` — правило 7 больше не оценивает ОБЪЕКТ просьбы
+#: (эта формулировка уводила разбор истории в emotional_reply/banter и
+#: casual/compact). Новые правила 7-8: разбор уже сказанного/переписки/
+#: повторяющихся черт → response_act=research (внутренний разбор может быть
+#: глубоким); quick opinion → structure=answer без эссе; глубина не задаёт
+#: длину (normal/compact; detailed/report только по явной просьбе); при
+#: нехватке материала — существующие chat_history/chat_memory/
+#: historical_search. JSON-дисциплина — правило 9. Литеральных фраз запроса
+#: в каноне нет. Правила 1-6 и тексты владельца байт-в-байт; прежние активные
+#: байты — PREV_DIRECT_L1_PLANNER_P0CS (ступень лестницы + откат). Метка
+#: ``l1-planner-material-routing``. changed = 1 (direct.base.l1_planner).
+#: Было ``a8ae82425a33``, стало ``9de29133885a``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: P0-CORRECTIVE ред.2 (25.10.2026, §1.1/§3 corrective; live `probes_final.md`
+#: §6): изменены 2 фабрики — ``direct.base.l1_planner`` (приоритет разбора
+#: накопленного материала над финальным вопросом-оценкой; метка
+#: ``l1-planner-material-priority``, прежние байты PREV_..._P0CS2) и
+#: ``verbilizer.mode.deep_research`` (добавлен запрет мета-вступлений и
+#: навязанной отчётной структуры; метка ``mode-p0h-no-meta``; лимитов длины
+#: не добавлялось). changed = 2.
+#: Было ``9de29133885a``, стало ``9f28ff7f6a77``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: WRITER-NO-META-FINAL (25.10.2026, probes_final2 §5: 5/8 с преамбулой):
+#: директива в ``verbilizer.mode.deep_research`` усилена без лимитов/схемы
+#: (названы типы преамбул, первое содержательное предложение — ответ);
+#: changed = 1. Метка ``mode-no-meta-lexical``.
+#: Было ``9f28ff7f6a77``, стало ``ffc36e1c66db``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: P0C-INT R2 (25.10.2026, живой `probes_final4.md` §3): канон L1 — редакция 3
+#: ``direct.base.l1_planner`` (просьба разобрать материал = research даже при
+#: добавленном вопросе-оценке; разбор не выбирает hostile_rebuff; оценка без
+#: разбора материала остаётся answer). changed = 1. Метка
+#: ``l1-planner-material-first``. Было ``ffc36e1c66db``, стало ``50492308595e``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: P0C-INT R3 (26.10.2026, `probes_final5-rerun.md` §4): канон L1 — редакция 4
+#: (``response_act`` отделён от ``tone``: грубость/спор/провокация меняют
+#: только манеру; разбор материала = research при любой манере). changed = 1.
+#: Метка ``l1-planner-tone-separation``. Было ``50492308595e``, стало
+#: ``3d82f756dd5a``. Переутверждено осознанно (SOUL-AMD.3.2).
+#: РЕШЕНИЕ ВЛАДЕЛЬЦА 26.10.2026 (`2026-10-26-no-meta-scope.md`): из NO_META
+#: снято требование «первое предложение — сразу вывод» (композиция не
+#: управляется), из канального plain-формата убран обязательный жирный
+#: (разрешение вместо приказа), MODE_CASUAL больше не задаёт «рубленые
+#: фразы/маленькую букву». changed = 1 в наборе фабрики
+#: (``style.format.plain_html``); NO_META/MODE_CASUAL — вне factory_texts.
+#: Метка ``owner-26-10-no-templates``. Было ``3d82f756dd5a``, стало
+#: ``28e6c619b937``. Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "28e6c619b937"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

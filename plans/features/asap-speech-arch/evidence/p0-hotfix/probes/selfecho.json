@@ -1,0 +1,58 @@
+{
+ "old": {
+  "ok": true,
+  "text": "Да хуй его знает, в конспекте только написано, что вы ругались, а из-за чего — не расписано. Может, из-за плитки, может, из-за того, кто моет посуду.",
+  "latency_s": 2.72,
+  "usage": {
+   "prompt_tokens": 1345,
+   "completion_tokens": 56,
+   "total_tokens": 1401,
+   "reasoning_tokens": 0,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0,
+    "audio_tokens": 0,
+    "accepted_prediction_tokens": 0,
+    "rejected_prediction_tokens": 0
+   },
+   "cache_read_input_tokens": 1280,
+   "prompt_tokens_details": {
+    "cached_tokens": 1280,
+    "audio_tokens": 0
+   },
+   "citation_tokens": 0,
+   "num_search_queries": 0,
+   "cache_creation_input_tokens": 0,
+   "input_tokens": 65,
+   "cost": 1.689402e-05,
+   "currency": "USD"
+  }
+ },
+ "new": {
+  "ok": true,
+  "text": "Слушай, а вот это уже интересный поворот. В конспекте чата, который у меня есть, про февральскую встречу вообще ни хуя нет — там только отпуск, ремонт на кухне и сериал в общих чертах, а про конкретную сходку с руганью и хлопаньем дверью я тебе только что сам с потолка взял. Так что не верь мне, я тут налажал.\n\nИз того, что реально зафиксировано: Ринтаро в политических спорах повышал голос и раз назвал кого-то «диванным экспертом». Вот это есть. А что было в феврале, кто с кем ругался и хлопал ли кто дверью — хер его знает, данных нет. Может, ты сам помнишь лучше меня?",
+  "latency_s": 4.78,
+  "usage": {
+   "prompt_tokens": 1123,
+   "completion_tokens": 198,
+   "total_tokens": 1321,
+   "reasoning_tokens": 0,
+   "completion_tokens_details": {
+    "reasoning_tokens": 0,
+    "audio_tokens": 0,
+    "accepted_prediction_tokens": 0,
+    "rejected_prediction_tokens": 0
+   },
+   "cache_read_input_tokens": 896,
+   "prompt_tokens_details": {
+    "cached_tokens": 896,
+    "audio_tokens": 0
+   },
+   "citation_tokens": 0,
+   "num_search_queries": 0,
+   "cache_creation_input_tokens": 0,
+   "input_tokens": 227,
+   "cost": 5.5682604e-05,
+   "currency": "USD"
+  }
+ }
+}

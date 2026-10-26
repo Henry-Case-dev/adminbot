@@ -54,12 +54,16 @@ Epic 60 (Section 66, Фаза D, T-487/T-490): /persona <имя> — карто�
   * D5 (T-802): метки-строки свежести в начале <Global_Context>.
   * D2/E1 (T-799/T-803): global держит голову (конспект не режется первым),
     importance-удержание verbatim-строк (флаг chat_importance_keep_enabled).
-  * E2/E4 (T-804/T-806): инжект level-2 («широкий фон: …», keep-end кап) в
-    <Global_Context> при L1+L2; конспект читается без TTL-смерти.
+  * E2/E4 (T-804/T-806): инжект level-2 («широкий фон: пересказ, не
+    источник: …», keep-head кап) в <Global_Context> при L1+L2; конспект
+    читается без TTL-смерти.
   * F1-F4 (T-807…T-810): direct-RAG — факты rel-порядка (get_rag_facts),
     словарный дедуп против <Global_Context> (dedup_rag_vs_global),
     origin-метки «[{label}] {date}» (origin_labels), опциональный LLM-реранк
     (flags.chat_rag_rerank_enabled, fail-open).
+  * SPEECH-P0-A2: текущая реплика не история (current-turn boundary);
+    L2/L1 — пересказ (keep-head + маркер); выводы бота не факты
+    (BOT_ORIGINS), достоверность RAG — существующим read-policy рангом.
 
 Раунд 9 (AGI Memory, spec §3.1.4/Q3, T-819/B4): инжект `<user_relations>` —
 строка отношений собеседника (стадия/активность/заметка админа) сразу после
@@ -181,7 +185,7 @@ from services.summary_memory import (
     order_rag_facts_asc,
 )
 from services.summary_xml import escape_xml_text
-from services.target_marking import is_target_row
+from services.target_marking import append_marker, is_target_row
 from services.token_counter import (
     append_protected_spans,
     count_tokens,
@@ -203,6 +207,7 @@ from services.negative_constraints import (
     verbalize_validated,
 )
 from services.prompt_style_blocks import (
+    NO_META_CLOSING_TEXT,
     compose_verbalizer_system,
     resolve_prompt,
 )
@@ -1836,6 +1841,77 @@ class DirectChatThrottle:
             return max(1.0, self._cooldown - (now - state[1]))   # ceil-по-остатку
         self._state[(chat_id, user_id)] = (burst - 1, now)
         return 0.0
+
+
+# ── SPEECH-P0-A2 (§self-echo / §provenance): direct-RAG — только ФАКТЫ ──────
+# Существующий provenance-контур (mca-22 §23) применяется к фактическому
+# direct-RAG без нового classification/retrieval: ранг берётся из
+# `graphrag_provenance.read_policy_rank` (3 = provenance+confirmed —
+# обычная строка; 2 = attributed tentative; 0/1 = legacy/unverified или
+# conflicting). Legacy-факты НЕ удаляются — подаются как честный weak hint
+# с явной пометкой (не «уверенный факт»).
+
+_RAG_UNCONFIRMED_MARK = "(не подтверждено) "
+_RAG_TENTATIVE_MARK = "(предположение) "
+
+
+def _rag_rows_with_ranks(rows: list) -> tuple[list, dict]:
+    """Нормализация кандидатов RAG → (факты-кортежи, {item_id: rank}).
+
+    dict-кандидаты (`get_rag_facts(with_meta=True)` /
+    `retrieve_fact_candidates`) несут v17-provenance → ранг считается
+    СУЩЕСТВУЮЩИМ `read_policy_rank`; tuple-кандидаты (совместимые
+    реализации/двойники) provenance не несут → rank=None (без пометок)."""
+    facts: list = []
+    ranks: dict = {}
+    for row in rows or []:
+        if isinstance(row, dict):
+            item = (row.get("origin"), row.get("fact"), row.get("rag_ts"),
+                    row.get("target_user"), row.get("item_id"),
+                    row.get("forward_from") or "",
+                    bool(row.get("expired")))
+            try:
+                rank = _gprov.read_policy_rank(row)
+            except Exception:
+                rank = None
+            key = row.get("item_id") or (row.get("origin"),
+                                        row.get("fact"))
+            ranks[key] = rank
+        else:
+            item = tuple(row)
+            key = item[4] if len(item) > 4 else (item[0], item[1])
+        facts.append(item)
+        if key not in ranks:
+            ranks[key] = None
+    return facts, ranks
+
+
+def _rag_item_key(item) -> object:
+    """Стабильный ключ факта-кортежа для rank-таблицы (item_id или текст)."""
+    try:
+        if len(item) > 4 and item[4]:
+            return item[4]
+    except TypeError:
+        pass
+    try:
+        return (item[0], item[1])
+    except (TypeError, IndexError):
+        return None
+
+
+def _mark_rag_fact(item, ranks: dict):
+    """Пометка достоверности строки RAG (§23): rank 3 → без изменений;
+    rank 2 → «предположение»; rank 0/1 (legacy/conflicting) → «не
+    подтверждено». Применяется ПОСЛЕ дедупа/реранка и ДО рендера (текст
+    факта уже не участвует в сравнениях с фоном)."""
+    rank = ranks.get(_rag_item_key(item))
+    if rank is None or rank >= 3:
+        return item
+    mark = _RAG_TENTATIVE_MARK if rank == 2 else _RAG_UNCONFIRMED_MARK
+    try:
+        return (item[0], f"{mark}{item[1]}") + tuple(item[2:])
+    except (TypeError, IndexError):
+        return item
 
 
 class DirectChatService:
@@ -3686,7 +3762,19 @@ class DirectChatService:
                             getattr(l1_plan, "needs_clarification", False)),
                         low_confidence=(getattr(l1_plan,
                                                 "confidence_bucket", "high")
-                                        == "low"))
+                                        == "low"),
+                        # SPEECH-P0-CORE-SERIOUS (25.10.2026, §1 аддендума):
+                        # serious-разбор получает дословную analysis-директиву;
+                        # deep_research — когда его режимный блок заменён
+                        # extent-блоком плана (предикат решает по плану).
+                        include_analysis=_l1.analysis_directive_needed(
+                            l1_plan,
+                            modes_on=bool(getattr(
+                                settings, "SMART_VERBALIZER_MODES_ENABLED",
+                                True))),
+                        modes_on=bool(getattr(
+                            settings, "SMART_VERBALIZER_MODES_ENABLED",
+                            True)))
                     _l2 = await self._l2_write_answer(
                         chat_id, query, temperature=temperature,
                         correlation_id=correlation_id,
@@ -4063,20 +4151,49 @@ class DirectChatService:
 
     # ── ASAP 7 (F1, §1.1–§1.6): Direct L1 Planner pipeline ──────────────
 
-    @staticmethod
-    def _l1_reply_block(message) -> str:
+    def _l1_reply_block(self, message) -> str:
         """§1.5: компактный срез reply-цели для L1-контекста (кап 400
-        символов; имя автора + текст). Никогда не бросает."""
+        символов; имя автора + текст). Никогда не бросает.
+
+        P0 corrective 25.10.2026 (F1): автор цитаты — тот же единый каскад
+        по Telegram ID, что у окна/карты (`aliases.resolve`: chat → global →
+        nickname → username → id), а не `first_name` напрямую. В строку
+        добавляется `[user:<id>]`, чтобы L1 не путал автора цитируемого
+        сообщения с адресатом ответа."""
         try:
             reply = getattr(message, "reply_to_message", None)
             if reply is None:
                 return ""
             text = str(getattr(reply, "text", None)
                        or getattr(reply, "caption", None) or "").strip()
-            author = (getattr(getattr(reply, "from_user", None),
-                              "first_name", "") or "")
-            head = f"автор: {str(author).strip()}\n" \
-                if str(author).strip() else ""
+            user = getattr(reply, "from_user", None)
+            uid = getattr(user, "id", None)
+            head = ""
+            if uid is not None:
+                try:
+                    uid = int(uid)
+                except (TypeError, ValueError):
+                    uid = None
+            aliases = getattr(self, "aliases", None)
+            if uid is not None and aliases is not None:
+                nickname = self._build_nickname(user)
+                username = getattr(user, "username", None)
+                if not isinstance(username, str) or not username.strip():
+                    username = None
+                try:
+                    name = aliases.resolve(uid, nickname, username)
+                except Exception:      # pragma: no cover - защитная ветка
+                    name = (getattr(user, "first_name", "") or "")
+                name = str(name).strip()
+                # Резолвер отдал сам id (нет alias/ника/username) — не
+                # выдумываем «автора 12345»: прежний контракт пустого имени.
+                if name == str(uid) and not nickname and not username:
+                    name = str(getattr(user, "first_name", "") or "").strip()
+                author = f"{name} [user:{uid}]".strip() if name else ""
+            else:
+                author = str(getattr(user, "first_name", "") or "").strip()
+            if author:
+                head = f"автор: {author}\n"
             return (head + text[:_l1.L1_REPLY_BLOCK_CHARS]).strip()
         except Exception:      # pragma: no cover - защитная ветка
             return ""
@@ -4698,6 +4815,20 @@ class DirectChatService:
                 parts.append(str(block))
         if evidence:
             parts.append("<Tool_Evidence>\n" + evidence + "\n</Tool_Evidence>")
+        # ── Реальная user-часть: блоки запроса/контекста; при пустом списке —
+        # сам вопрос (прежнее поведение). Закрывающее требование добавляется
+        # ПОСЛЕ этого, поэтому вопрос не теряется, а требование всегда
+        # последнее.
+        user_content = "\n\n".join([p for p in parts if p]) or str(query or "")
+        # P0-CORRECTIVE §3, редакция R2: краткое положительное требование —
+        # ПОСЛЕДНИЙ блок user-части (после Current_Question). Причина: сама
+        # директива в plan-блоке доезжает 1×, но дальше идут Global_Context/
+        # Target_User/Current_Question, и последнее слово остаётся за вопросом
+        # (recency) — модель открывала ответ подводкой в 2 случаях из 8. Длина,
+        # формат и схема здесь не задаются; постобработки нет.
+        _closing = str(NO_META_CLOSING_TEXT or "").strip()
+        if _closing and user_content and _closing not in user_content:
+            user_content = user_content + "\n\n" + _closing
         # ── SOUL-1 (W2, §4 п.2/§4 п.3): единый владелец сборки. Флаг OFF →
         # ветка ниже байт-в-байт прежняя; ON → тот же набор блоков через
         # композер (+Core/Style/Humor/Samples), личность — один рендер на ход.
@@ -4729,7 +4860,9 @@ class DirectChatService:
                              if not mca_gates.character_speech_enabled()
                              else "speech_absent"),
                 context_text=str(query or ""),
-                user_parts=tuple(parts))
+                # user_parts манифеста = ровно то, что уйдёт в user (включая
+                # закрывающее требование последним блоком).
+                user_parts=tuple(parts + ([_closing] if _closing else ())))
             _pcomp.emit_layer_events_once(_c_manifest)
         else:
             verbalizer_system = (
@@ -4751,8 +4884,7 @@ class DirectChatService:
                 "stage=l2_writer | removed=%d", chat_id, _scrubbed)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
-            {"role": "user",
-             "content": "\n\n".join(parts) or str(query or "")},
+            {"role": "user", "content": user_content},
         ]
         # ── ADD-EXP §6: «политика доехала?» — слой рендерен (манифест),
         # маркер есть в ФИНАЛЬНОМ system (после scrub); нет маркера →
@@ -4791,7 +4923,7 @@ class DirectChatService:
         if fallback_budget_tokens:
             _l2_fb_adapter = _dx.build_l2_fallback_adapter(
                 system=verbalizer_system,
-                parts=[p for p in parts
+                parts=[p for p in (list(parts) + ([_closing] if _closing else ()))
                        if not p.startswith("<Tool_Evidence>")],
                 evidence=evidence, query=query,
                 fallback_budget_tokens=int(fallback_budget_tokens),
@@ -5339,15 +5471,17 @@ class DirectChatService:
         window = await self.memory.get_window_messages(chat_id)
         # Раунд 10.23 (F1, ADR-1023-1): текущий пользовательский ход —
         # триггер маркировки (сопоставление по Telegram message_id).
-        # R1023F1-01: маркер ставится РОВНО ОДИН раз на всю сборку — только в
-        # <Global_Context> (единственный «исторический» блок; цепочка стартует
-        # от текущего хода, поэтому thread/branch его дублируют). Вспомогательные
-        # блоки получают trigger_message_id=None и маркер не расходуют.
+        # R1023F1-01: маркер ставится РОВНО ОДИН раз на всю сборку.
+        # SPEECH-P0-A2 (§current-turn boundary): текущая реплика больше НЕ
+        # входит в историю (<Global_Context>), поэтому legacy-путь ставит
+        # маркер в <Current_Question>, а composer-путь — в thread (walk до
+        # триггера); вспомогательные блоки получают trigger_message_id=None.
         trigger_message_id = getattr(message, "message_id", None)
         # Раунд 8 (C2/T-793): карта по активным участникам (24 ч) + окно;
         # суффиксы-дискриминаторы (C3/T-794) считаются один раз на рендер.
         active = await self._active_participants(chat_id)
-        roster, suffix_map = self._participant_roster(window, active)
+        roster, suffix_map = self._participant_roster(
+            window, active, self._turn_usernames(message))
         blocks: list[tuple[str, str]] = []
         alias_map = self._alias_map_block(roster)
         if alias_map:
@@ -5417,7 +5551,8 @@ class DirectChatService:
         # <chat_lore> идёт СРАЗУ ПОСЛЕ <protected_facts> (spec §3.9).
         lore_active, lore_inner = await self._chat_lore_state(chat_id)
         protected = await self._build_protected_facts(
-            chat_id, target_name, include_chat_level=not lore_active)
+            chat_id, target_name, include_chat_level=not lore_active,
+            target_user_id=target_user_id)
         if protected:
             blocks.append(("protected", protected))
         if lore_inner:
@@ -5438,6 +5573,16 @@ class DirectChatService:
         # ADD-TR.2: текст — text/caption (см. _render_current_question).
         current = self._render_current_question(
             message, extra_markers=extra_media_markers)
+        # SPEECH-P0-A2 (§current-turn boundary): текущая реплика больше не
+        # рендерится в истории (<Global_Context>), поэтому маркер «текущая
+        # команда» (R1023F1) ставится там, где реплика реально подаётся —
+        # в <Current_Question> (ровно один раз). Условие — триггер реально
+        # присутствует в окне истории (паритет с прежним правилом: нет
+        # строки-триггера → маркера нет). В composer-режиме маркер уже
+        # ставит <Conversation_Thread> (walk до триггера) — дублей нет.
+        if current and not composer_mode and any(
+                is_target_row(row, trigger_message_id) for row in window):
+            current = append_marker(current)
         if current:
             blocks.append(("current", current))
         # Epic 60 (65.4, T-472): стилевые якоря — у конца (форма, не содержание).
@@ -5544,9 +5689,15 @@ class DirectChatService:
         tail_rows (P1, keep-end) с гарантированным полом
         CHAT_FRESH_TAIL_MIN_MESSAGES; кандидаты middle = post-watermark до
         пола. Без summary — последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений
-        (soft target, D13) как tail. RAG-дедупу отдаётся head+tail текст."""
+        (soft target, D13) как tail. RAG-дедупу отдаётся head+tail текст.
+        SPEECH-P0-A2 (§current-turn boundary): текущая реплика-триггер
+        исключается из окна истории ДО расчёта tail/middle — вопрос не
+        дублируется как «старое событие» (остаётся <Current_Question>).
+        L2 (широкий фон) капится keep-head и подаётся с явной пометкой
+        «пересказ, не источник»."""
         roster = roster or []
         suffix_map = suffix_map or {}
+        window = self._history_window(window, trigger_message_id)
         tail_min = _composer.fresh_tail_min_messages()
         parts: dict = {
             "head_lines": [], "middle_rows": [], "tail_rows": [],
@@ -5573,9 +5724,10 @@ class DirectChatService:
                                 hot.get("limits.chat_level2_max_chars",
                                         settings.CHAT_LEVEL2_MAX_CHARS)) or 0)
                             if cap2 and len(level2_text) > cap2:
-                                level2_text = level2_text[-cap2:]
+                                level2_text = level2_text[:cap2]
                             parts["head_lines"].append(
-                                "широкий фон: " + level2_text)
+                                "широкий фон: пересказ, не источник: "
+                                + level2_text)
                     except Exception:
                         logger.warning(
                             "direct: level2 read failed — without L2 row "
@@ -5589,7 +5741,7 @@ class DirectChatService:
             parts["raw_count"] = raw_count
             parts["head_lines"].append(
                 f"фон: конспект из {raw_count} сообщений, "
-                f"ниже дословно свежий хвост")
+                f"ниже дословно свежий хвост — пересказ, не источник")
             parts["head_lines"].append(summary_text)
             post_rows = []
             for row in window:
@@ -7858,14 +8010,23 @@ class DirectChatService:
                 f"подстрой тон под это, но не переигрывай</mood>")
 
     async def _build_protected_facts(self, chat_id: int, target_name: str,
-                                     include_chat_level: bool = True) -> str:
+                                     include_chat_level: bool = True,
+                                     *, target_user_id: int | None = None) -> str:
         """65.10: защищённые факты подмешиваются в контекст (карточки-слоты —
         не размазываются при сжатии). Fail-open → без секции.
         Раунд 5 (T-732): include_chat_level=True — чат-лор виден ВСЕМ юзерам
         чата ВСЕГДА (65.10 + раунд 5). Раунд 7 (T-781/F1): при активном
         PG-лоре вызывающий передаёт include_chat_level=False — SQLite
-        chat-level канал не дублируется (дедуп ТОЛЬКО на чтении, Q1)."""
+        chat-level канал не дублируется (дедуп ТОЛЬКО на чтении, Q1).
+
+        P0 corrective 25.10.2026 (F5): при известном Telegram ID личные
+        факты читаются по `subject_ref_id` (fallback — имя). Совместимость:
+        legacy-дублёры БД/тестов без `user_id` вызываются прежней формой."""
         try:
+            facts = await self.db.get_protected_facts(
+                chat_id, target_name, include_chat_level=include_chat_level,
+                user_id=target_user_id)
+        except TypeError:
             facts = await self.db.get_protected_facts(
                 chat_id, target_name, include_chat_level=include_chat_level)
         except Exception:
@@ -7959,8 +8120,15 @@ class DirectChatService:
 
     async def clear_user_dialogue(self, chat_id: int, user) -> int:
         """65.5 /clear: стереть диалог с юзером (bot_replies чата +
-        bot_direct_reply-факты юзера). Fail-open → 0."""
+        bot_direct_reply-факты юзера). Fail-open → 0.
+
+        P0 corrective 25.10.2026 (F5): uid передаётся в БД — старые факты
+        находятся по устойчивому `subject_ref_id`, а не только по имени."""
         try:
+            return await self.db.clear_direct_dialogue(
+                chat_id, self._resolve_name(user),
+                target_user_id=getattr(user, "id", None))
+        except TypeError:
             return await self.db.clear_direct_dialogue(
                 chat_id, self._resolve_name(user))
         except Exception:
@@ -7969,8 +8137,15 @@ class DirectChatService:
 
     async def forget_user_fact(self, chat_id: int, user, phrase: str) -> int:
         """65.5/65.10 /forget: удалить конкретный(е) факт(ы) юзера (FTS);
-        защищённые факты не трогаются. Fail-open → 0."""
+        защищённые факты не трогаются. Fail-open → 0.
+
+        P0 corrective 25.10.2026 (F5): uid передаётся в БД — scope по
+        `subject_ref_id`, строки без ID — по имени (fallback)."""
         try:
+            return await self.db.forget_direct_facts(
+                chat_id, self._resolve_name(user), phrase, int(time.time()),
+                target_user_id=getattr(user, "id", None))
+        except TypeError:
             return await self.db.forget_direct_facts(
                 chat_id, self._resolve_name(user), phrase, int(time.time()))
         except Exception:
@@ -8200,23 +8375,37 @@ class DirectChatService:
     # ── Участники и карта (Раунд 8: C2/T-793 активные, C3/T-794 дискриминатор) ──
 
     def _build_alias_map(self, window: list,
-                         participants: list | None = None) -> str:
+                         participants: list | None = None,
+                         usernames: dict[int, str] | None = None) -> str:
         """User Resolution Map (R51-2): «имя — user_id» (алиасы.resolve);
         блок в НАЧАЛЕ user-контента (D211). Раунд 8 (C2/T-793): источник —
         активные участники (limits.chat_map_participants_hours) + участники
         окна; формат строки «{имя} — {uid}» сохранён (Q1: в карте uid
         «столбцом», скобки избыточны). Fail-open: participants пусто/ошибка —
-        поведение только-окно (регресс)."""
-        roster, _ = self._participant_roster(window, participants)
+        поведение только-окно (регресс).
+
+        P0 corrective 25.10.2026 (D7): ``usernames`` (uid → Telegram username)
+        прокидывается в дискриминатор коллизий — два одинаковых display
+        различимы ником, а не только «#хвост»."""
+        roster, _ = self._participant_roster(window, participants, usernames)
         return self._alias_map_block(roster)
 
     @staticmethod
     def _alias_map_block(roster: list[tuple[int, str]]) -> str:
         """Строки карты из готового roster (C2.3: урезание «с конца списка» —
-        менее активные строки)."""
+        менее активные строки).
+
+        P0 corrective 25.10.2026 (F4): одна строка-инструкция внутри
+        существующего блока (без нового тега): исторический текст (конспект,
+        память, лор, старые ответы) не переписывается, поэтому актуальное
+        имя берётся из карты по user_id, а не из встреченного текста."""
         if not roster:
             return ""
         lines = [f"{display} — {uid}" for uid, display in roster]
+        lines.insert(
+            0,
+            "имена в конспекте/памяти/лоре могут быть прежними; актуальное "
+            "имя участника — по user_id из этой карты")
         return "<UserResolutionMap>\n" + "\n".join(lines) + "\n</UserResolutionMap>"
 
     async def _active_participants(self, chat_id: int) -> list:
@@ -8243,7 +8432,8 @@ class DirectChatService:
             return []
 
     def _participant_roster(self, window: list,
-                            participants: list | None = None
+                            participants: list | None = None,
+                            usernames: dict[int, str] | None = None
                             ) -> tuple[list[tuple[int, str]], dict[int, str]]:
         """Раунд 8 (C2/C3/T-793/T-794): (roster, suffix_map) для карты и
         внутренних рендеров. roster — [(uid, display)] в порядке активности
@@ -8253,7 +8443,11 @@ class DirectChatService:
         сегодня, fail-open). Cap limits.chat_map_participants_cap (150).
         suffix_map — uid → дискриминатор коллизии display.casefold() (C3):
         второй+ участник по uid ASC получает суффикс « (username)»/« (#хвост)»;
-        ТОЛЬКО на рендере контекста — чистые пути его не видят (NFR-2)."""
+        ТОЛЬКО на рендере контекста — чистые пути его не видят (NFR-2).
+
+        P0 corrective 25.10.2026 (D7): ``usernames`` (uid → Telegram username,
+        если ход его знает) передаётся в ``_collision_suffix``; без него
+        остаётся прежний «#хвост» (fallback сохранён)."""
         cap = int(hot.get("limits.chat_map_participants_cap",
                           settings.CHAT_MAP_PARTICIPANTS_CAP) or 0) or 150
         window_authors: dict[int, str] = {}
@@ -8285,11 +8479,13 @@ class DirectChatService:
         for uid, name in displays.items():
             collisions.setdefault(str(name).casefold(), []).append(uid)
         suffix_map: dict[int, str] = {}
+        names_by_uid = usernames or {}
         for group in collisions.values():
             if len(group) < 2:
                 continue
             for uid in sorted(group)[1:]:
-                suffix_map[uid] = _collision_suffix(uid)
+                # D7: ник различимее «#хвоста», если ход его знает.
+                suffix_map[uid] = _collision_suffix(uid, names_by_uid.get(uid))
         roster = [(uid, f"{displays[uid]}{suffix_map.get(uid, '')}")
                   for uid in uids]
         return roster, suffix_map
@@ -8321,17 +8517,42 @@ class DirectChatService:
         Раунд 10.14 (F1, ADR-1014-2 D5/D7): include_self=True — свои прошлые
         слова участвуют; если среди kept есть self, первой строкой внутрь
         <RAG_Memory> добавляется _SELF_ECHO_INSTRUCTION (канон промпта direct
-        не меняется → PREV/PROMPT_MIGRATIONS не нужны)."""
+        не меняется → PREV/PROMPT_MIGRATIONS не нужны).
+        SPEECH-P0-A2 (§self-echo, ПЕРЕОПРЕДЕЛЯЕТ D5/D7-фактичность): выводы
+        бота (`bot_self_reply`/`bot_direct_reply`, существующий
+        `provenance.is_self_referential_origin`) в ФАКТИЧЕСКИЙ RAG не
+        попадают — прошлые ответы остаются только в <style_anchors> как
+        интонация. Кандидаты читаются ОДНИМ retrieval
+        (`get_rag_facts(with_meta=True)`; совместимый фолбэк — прежний
+        tuple-контракт) и оцениваются СУЩЕСТВУЮЩИМ
+        `graphrag_provenance.read_policy_rank`: rank 3 — обычная строка,
+        rank 2 — пометка «предположение», rank 0/1 (legacy/conflicting) —
+        «не подтверждено» (weak hint; legacy-факты не удаляются и не
+        массово фильтруются)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return "", ""
         query = getattr(message, "text", None) or ""
         try:
-            facts = await self.memory.get_rag_facts(
-                chat_id, query, include_direct_reply=True, include_self=True)
+            try:
+                rows = await self.memory.get_rag_facts(
+                    chat_id, query, include_direct_reply=True,
+                    include_self=True, with_meta=True)
+            except TypeError:
+                # Совместимость: реализации без provenance-меты (двойники/
+                # альтернативные memory) — прежний tuple-контракт, ранг
+                # неизвестен (без пометок, состав фактов тот же).
+                rows = await self.memory.get_rag_facts(
+                    chat_id, query, include_direct_reply=True,
+                    include_self=True)
         except Exception:
             logger.warning("direct: rag facts failed — no rag block | chat=%s",
                            chat_id, exc_info=True)
             return "", ""
+        facts, ranks = _rag_rows_with_ranks(rows)
+        # §23 read policy: бот-выводы — не факты мира (единый существующий
+        # предикат; новых классификаторов нет).
+        facts = [item for item in facts
+                 if not _prov.is_self_referential_origin(item[0])]
         if not facts:
             return "", ""
         # F2: дубли конспекта/verbatim-хвоста фона из RAG-блока исключаются
@@ -8360,8 +8581,10 @@ class DirectChatService:
                 extra = await activation(chat_id)
                 if extra:
                     seen = {str(f[1]) for f in kept}
-                    kept = list(kept) + [f for f in extra
-                                         if str(f[1]) not in seen]
+                    kept = list(kept) + [
+                        f for f in extra
+                        if str(f[1]) not in seen
+                        and not _prov.is_self_referential_origin(f[0])]
         except Exception:
             logger.warning(
                 "direct: graph activation failed — no inject | chat=%s",
@@ -8375,11 +8598,18 @@ class DirectChatService:
         # F3: единый формат строки с origin-меткой; дата — внутри факта.
         # 10.20 (БЛОК 2.6, ADR-1020-2 п.1): ASC-хронология ПОСЛЕ дедупа/реранка/
         # граф-активации, ПЕРЕД рендером (состав top-K не меняется).
+        # SPEECH-P0-A2 (§23): пометка достоверности — тем же существующим
+        # read-policy рангом, ПОСЛЕ дедупа/маркера «золотых» (сравнения шли
+        # по исходному тексту факта) и ДО рендера.
+        kept = [_mark_rag_fact(item, ranks) for item in kept]
         content = build_rag_context(order_rag_facts_asc(kept), origin_labels=True)
         if not content:
             return "", ""
         # F1/T-1482 (ADR-1014-2 D5): анти-эхо — только когда в блоке есть
         # собственные прошлые слова бота (origin='bot_self_reply').
+        # SPEECH-P0-A2: после self-origin-фильтра выше ветка недостижима и
+        # оставлена СТРАХОВКОЙ (альтернативная memory, вернувшая self-факт
+        # без BOT_ORIGINS); в норме self-выводы в фактах не подаются.
         # L4-фикс: инструкция добавляется ДО расчёта cap, иначе итоговый
         # <RAG_Memory> превышал limits.graph_rag_context_max_chars.
         if any(str(item[0]) == "bot_self_reply" for item in kept):
@@ -8446,6 +8676,23 @@ class DirectChatService:
     # ── <Global_Context> (Раунд 8: D2/T-799 keep-head + E1/T-803 importance,
     #    D5/T-802 метки-строки, C1/T-792 uid-рендеры) ────────────
 
+    @staticmethod
+    def _history_window(window: list, trigger_message_id) -> list:
+        """SPEECH-P0-A2 (§current-turn boundary): окно истории БЕЗ текущей
+        реплики-триггера.
+
+        Текущий ход — это ВОПРОС (<Current_Question>/thread), а не прошлое
+        событие: если оставить его в окне, конспект/verbatim-хвост подают
+        его как «старую» историю (риск ретро-датировки и self-echo).
+        Сопоставление — существующим `is_target_row` (Telegram message_id,
+        та же нормализация, что у маркера R1023F1); нет/битый id → окно
+        не меняется (никаких догадок)."""
+        rows = list(window or [])
+        if not rows:
+            return rows
+        return [row for row in rows
+                if not is_target_row(row, trigger_message_id)]
+
     async def _build_global_context(self, chat_id: int, window: list,
                                     roster: list | None = None,
                                     suffix_map: dict[int, str] | None = None,
@@ -8461,8 +8708,10 @@ class DirectChatService:
         («фон: конспект из N сообщений…» / «фон: дословно последние N…»).
         Раунд 8 (E2/T-804): при наличии L1 и level-2 (широкий фон) строка
         L2 с меткой «широкий фон:» — ПЕРВОЙ строкой body (кап
-        limits.chat_level2_max_chars, keep-end; в иерархии бюджетных жертв
-        L2 жертвуется последней — голова body). Раунд 8 (E4/T-806):
+        limits.chat_level2_max_chars, keep-head: сохраняется НАЧАЛО пересказа
+        — тема/суть; в иерархии бюджетных жертв L2 жертвуется последней —
+        голова body). SPEECH-P0-A2: L2/L1 подаются с явной пометкой
+        «пересказ, не источник» (шапка конспекта — не цитата). Раунд 8 (E4/T-806):
         конспект читается без TTL-смерти (get_running_summary не удаляет
         по expires_at — тихий чат держит конспект до пересборки по
         заполнению).
@@ -8470,6 +8719,9 @@ class DirectChatService:
         суффиксы-дискриминаторы строк и имена для importance-маркеров E1."""
         roster = roster or []
         suffix_map = suffix_map or {}
+        # SPEECH-P0-A2 (§current-turn boundary): текущая реплика исключена из
+        # истории до конспекта/verbatim-хвоста (вопрос живёт отдельным блоком).
+        window = self._history_window(window, trigger_message_id)
         summary_text = None
         raw_count = 0
         window_end_ts = None
@@ -8499,7 +8751,7 @@ class DirectChatService:
                                 logger.warning(
                                     "direct: level2 capped to %d chars | chat=%s",
                                     cap2, chat_id)
-                                level2_text = level2_text[-cap2:]
+                                level2_text = level2_text[:cap2]
                     except Exception:
                         logger.warning(
                             "direct: level2 read failed — without L2 row "
@@ -8514,9 +8766,10 @@ class DirectChatService:
             # затем метка summary-режима (возраст НЕ вводим — конспект живёт
             # по заполнению окна, Q11/E4) и сам конспект L1.
             if level2_text:
-                head.append("широкий фон: " + level2_text)
+                head.append("широкий фон: пересказ, не источник: "
+                            + level2_text)
             head.append(f"фон: конспект из {raw_count} сообщений, "
-                        f"ниже дословно свежий хвост")
+                        f"ниже дословно свежий хвост — пересказ, не источник")
             head.append(summary_text)
             for row in window:
                 if int(row["timestamp"] or 0) <= window_end_ts:
@@ -8756,6 +9009,35 @@ class DirectChatService:
                 parts.append(value.strip())
         return " ".join(parts) if parts else None
 
+    @staticmethod
+    def _turn_usernames(message) -> dict[int, str]:
+        """uid → Telegram username из ОБЪЕКТОВ текущего хода (без сети/БД).
+
+        P0 corrective 25.10.2026 (D7): Telegram username не хранится в БД,
+        поэтому дискриминатор коллизий получает его только там, где он реально
+        есть — автор реплики и автор цитируемого сообщения. Остальные uid
+        остаются на прежнем «#хвосте». Никогда не бросает."""
+        out: dict[int, str] = {}
+        try:
+            for holder in (message, getattr(message, "reply_to_message", None)):
+                if holder is None:
+                    continue
+                user = getattr(holder, "from_user", None)
+                uid = getattr(user, "id", None)
+                username = getattr(user, "username", None)
+                if uid is None or not isinstance(username, str):
+                    continue
+                username = username.strip().lstrip("@")
+                if not username:
+                    continue
+                try:
+                    out[int(uid)] = username
+                except (TypeError, ValueError):
+                    continue
+        except Exception:      # pragma: no cover - защитная ветка
+            return out
+        return out
+
     # ── ASAP 8 (F6, §13.2): инициативные решение/генерация СУЩЕСТВУЮЩИМ
     # Direct-контуром (L1-модель + L2 Writer). Третьего Writer нет (§13.2).
 
@@ -8956,7 +9238,15 @@ class DirectChatService:
             plan_block = _l1.build_l2_plan_block(
                 plan,
                 rejected=(),
-                include_delivery=True) \
+                include_delivery=True,
+                # SPEECH-P0-CORE-SERIOUS: тот же флаг по плану (инициатива
+                # обычно response_act=other → анализа нет).
+                include_analysis=_l1.analysis_directive_needed(
+                    plan,
+                    modes_on=bool(getattr(
+                        settings, "SMART_VERBALIZER_MODES_ENABLED", True))),
+                modes_on=bool(getattr(
+                    settings, "SMART_VERBALIZER_MODES_ENABLED", True))) \
                 if getattr(plan, "source", "") != "fallback" else ""
             temperature = settings.tone_temperature(None)
             result = await self._l2_write_answer(

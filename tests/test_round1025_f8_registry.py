@@ -100,7 +100,12 @@ ARTIFACTS = [ROOT / p for p in FIXTURE["artifacts"]]
 # осознанно (L-F11S-1, прецедент 2.58.57; routes-инвентарь f8_baseline
 # не менялся).
 ROUTES_SHA256_F11 = (
-    "d54cc29695c702e79b3410007bf3f08490d045a2e99679c16495a129736fb9e2")
+    # P0 corrective 25.10.2026 (F7): аддитивное R17-safe поле `aliases`
+    # (слой имени по uid) в СУЩЕСТВУЮЩЕМ GET /api/direct/context-diagnostics;
+    # новых endpoint'ов нет (Δ routes=0), RBAC/маскировка не менялись.
+    # Хэш переутверждён осознанно (L-F11S-1), routes-инвентарь f8_baseline
+    # не менялся.
+    "a75a3333a2be82f0f5ac0f4cad3dd799d43cd6e6a456cd2a47add8fef9e8bf06")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -168,13 +173,15 @@ PG_DB_SHA256_B07 = (
 # EXCEPTIONS в cfg03-аудите обнулён (3→1: остался group_category only);
 # TSV/meta переэмитированы генератором (--check OK, 582 строк). Хэш
 # переутверждён осознанно (L-F11S-1).
-# P0-FACTCHECK media (25.10.2026, решение владельца): Δ каталога = 0 —
-# ключи/GROUPS/TAB-маппинги не менялись; переутверждено ТОЛЬКО описание
-# `flags.factcheck_wide_context` (режим по умолчанию + окно 200–500).
-# TSV переэмитирован генератором (`--check OK`, 582 строки). Хэш
-# переутверждён осознанно (L-F11S-1).
+# P0-FACTCHECK media (25.10.2026): Δ каталога = 0 по структуре — изменено ТОЛЬКО
+# описание `flags.factcheck_wide_context` (по умолчанию ON, окно 200–500).
+# SPEECH-P0-A1 (25.10.2026, addendum §1): Δ каталога = 0 по структуре — изменено
+# ТОЛЬКО описание режима `prompts.verbilizer_mode_deep_research` (прямой ответ,
+# детали по запросу; отчёт можно перестраивать). Оба описания в одном каталоге
+# после слияния веток; TSV/meta переэмитированы генератором (--check OK,
+# 582 строк). Хэш переутверждён осознанно по объединённому каталогу (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "47b29b5bb90853e387bce12d8640850dcc3b2cef8f05b5ab249deb41b7b35642")
+    "f23cd0c7d390d9e56eec173c5d2b1b7008d764256748af2de7a7296c9fdeb2ae")
 
 
 def _sha256(path: Path) -> str:

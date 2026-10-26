@@ -699,20 +699,24 @@ def parse_rerank_selected(raw) -> tuple[str, tuple[int, ...], str]:
 
     Возвращает ``(kind, numbers, response_mode)``:
       * kind: ``ok`` (есть числа — range валидирует `select_by_rerank`:
-        вне диапазона → invalid → bounded fallback), ``empty`` (валидный
-        пустой: пустой/blank ответ, `{"selected":[]}`, `[]`), ``invalid``
-        (НЕпустой ответ без корректных номеров — §10);
+        вне диапазона → invalid → bounded fallback), ``empty`` (**явный**
+        пустой выбор модели: `{"selected":[]}`, `[]`), ``empty_response``
+        (пустой/blank ОТВЕТ провайдера — это сбой, а не решение),
+        ``invalid`` (НЕпустой ответ без корректных номеров — §10);
       * response_mode: ``json | json_fenced | json_substring | numeric |
         prose | none`` (observability §12; raw-текст НЕ логируется).
 
     Семантика §10/якоря F4: ``invalid`` ⇔ ответ НЕпустой и из него не
-    удалось получить корректные candidate numbers; пустой/blank — валидный
-    empty (НЕ fallback); «0» — непустой ответ с некорректным (вне диапазона)
-    номером → invalid → bounded fallback (прод-наблюдение §10).
-    Acceptance ТОЛЬКО in-range candidate IDs."""
+    удалось получить корректные candidate numbers; «0» — непустой ответ с
+    некорректным (вне диапазона) номером → invalid → bounded fallback
+    (прод-наблюдение §10). **P0C-INT R3** (`probes_final5-rerun.md` §8):
+    раньше пустая строка от провайдера тоже считалась «валидным пустым
+    выбором» и молча обнуляла RAG-блок — теперь это отдельный ``empty_response``
+    → bounded fallback с `fallback=true`, чтобы сбой не выдавался за
+    осознанную отбраковку. Acceptance ТОЛЬКО in-range candidate IDs."""
     text = str(raw or "").strip()
     if not text:
-        return "empty", (), "none"
+        return "empty_response", (), "none"
     for mode, probe in _json_probes(text):
         try:
             data = json.loads(probe)
@@ -3923,8 +3927,15 @@ class MemoryManager:
         Гейты: флаг flags.bot_self_awareness_enabled (дефолт True — UPD п.2) и
         непустая суть; иначе 0 (факт не пишется). Вес — hot-ключ
         limits.graph_fact_weight_bot (дефолт settings.GRAPH_FACT_WEIGHT_BOT=0.2),
-        важность 2 (ниже пользовательских), status='confirmed', kind='fact',
-        target_user=None. TTL — как у прямого чата: None/0 → вечно, иначе
+        важность 2 (ниже пользовательских), kind='fact', target_user=None.
+        SPEECH-P0-A2 (§self-echo): status='tentative' — ответ бота НЕ
+        подтверждённое знание о мире. `insert_graph_fact` принимает статус
+        вербатим (CHECK на status нет), а существующие retrieval-фильтры
+        (`status IN ('confirmed','archived_belief')` в FTS/KNN) уже не
+        отдают такой факт как фактический RAG — дополнительный классификатор
+        не нужен. Origin остаётся 'bot_self_reply' (прошлые слова бота —
+        только style anchors/интонация, не факты). TTL — как у прямого чата:
+        None/0 → вечно, иначе
         now + ttl_days*86400*(0.5+weight). Вербатим (суть уже готова — LLM-
         экстрактор отработал в self_reflection), узлы/рёбра НЕ создаются
         (прямой INSERT, как user_memory). Возвращает fact_id (0 — пропуск).
@@ -3951,7 +3962,7 @@ class MemoryManager:
                                * (0.5 + weight)))
             fact_id = await self.db.insert_graph_fact(
                 chat_id, essence, "bot_self_reply", expiry,
-                target_user=None, status="confirmed", weight=weight,
+                target_user=None, status="tentative", weight=weight,
                 importance=2, kind="fact")
             if self._vec_available and fact_id:
                 await self._save_graph_fact_embedding(
@@ -4015,7 +4026,8 @@ class MemoryManager:
 
     async def get_rag_facts(self, chat_id: int, query: str, *,
                             include_direct_reply: bool = False,
-                            include_self: bool = False) -> list:
+                            include_self: bool = False,
+                            with_meta: bool = False) -> list:
         """F1/T-807 (spec §3.F1): кандидаты RAG direct-пути как список
         4-кортежей (origin, fact, rag_ts, target_user) в порядке
         РЕЛЕВАНТНОСТИ — KNN: rel = cosine × w_eff + MMR (_knn_graph_facts);
@@ -4027,7 +4039,13 @@ class MemoryManager:
         выключенный RAG/любая ошибка → [] (WARNING).
         Раунд 10.14 (F1, ADR-1014-2 D7): include_self=True (только direct-
         путь) → origin='bot_self_reply' участвует; default False — self не
-        виден чужим пайплайнам."""
+        виден чужим пайплайнам.
+        SPEECH-P0-A2 (§provenance): with_meta=True — те же кандидаты, но
+        dict'ами (REUSE `_search_graph_facts(with_meta=True)`, ВТОРОГО
+        retrieval нет) с provenance-полями v17 (`status`/`subject_ref_id`/
+        `speaker_author_id`/…) — их читает существующий
+        `graphrag_provenance.read_policy_rank` в direct-пути. Default False —
+        прежний tuple-контракт остальных потребителей (dream/search/tools)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -4036,7 +4054,7 @@ class MemoryManager:
                 (hot.get("limits.graph_rag_facts_limit",
                          settings.GRAPH_RAG_FACTS_LIMIT) or 0),
                 include_direct_reply=include_direct_reply,
-                include_self=include_self)
+                include_self=include_self, with_meta=with_meta)
         except Exception:
             logger.warning(
                 "graphrag RAG: facts search failed — empty list | chat_id=%s",
@@ -4132,12 +4150,25 @@ class MemoryManager:
         latency_ms = int((time.monotonic() - started) * 1000)
         if typed:
             return self._typed_rerank_apply(facts, raw, latency_ms)
+        provider, model = _llm_identity(self.llm)
         picked = {int(n) for n in re.findall(r"\d+", str(raw or ""))
                   if 1 <= int(n) <= len(facts)}
         if not picked:
+            # typed OFF: прежнее fail-open (все факты), но исход фиксируется,
+            # чтобы отчёт прогона не читал чужой/устаревший `_RERANK_LAST`.
+            _record_rerank_outcome(
+                "empty", status="legacy_empty_failopen", provider=provider,
+                model=model, latency_ms=latency_ms,
+                candidate_count=len(facts), selected_count=len(facts),
+                response_format="numeric", fallback=False)
             logger.info(
                 "graphrag RAG: chat rerank parsed no numbers — original facts")
             return facts
+        _record_rerank_outcome(
+            "ok", status="legacy_ok", provider=provider, model=model,
+            latency_ms=latency_ms, candidate_count=len(facts),
+            selected_count=len(picked), response_format="numeric",
+            fallback=False)
         logger.info("graphrag RAG: chat rerank OK | %d -> %d facts",
                     len(facts), len(picked))
         return [item for i, item in enumerate(facts, 1) if i in picked]
@@ -4152,6 +4183,16 @@ class MemoryManager:
         safe-полями §12 (БЕЗ raw-текста/фактов — Q9)."""
         provider, model = _llm_identity(self.llm)
         kind, numbers, mode = parse_rerank_selected(raw)
+        if kind == "empty_response":
+            # P0C-INT R3: пустой ОТВЕТ провайдера — сбой, не решение модели.
+            # Детерминированный bounded pre-rerank-fallback + пометка
+            # `fallback=true`; за «релевантный результат» это не выдаётся.
+            logger.warning("graphrag RAG: chat rerank(typed) EMPTY RESPONSE "
+                           "| %d facts -> bounded pre-rerank fallback",
+                           len(facts))
+            return self._typed_rerank_fallback(
+                facts, "empty_response", None, latency_ms=latency_ms,
+                response_format=mode, provider=provider, model=model)
         if kind == "empty":
             _record_rerank_outcome("empty", status="empty",
                                    provider=provider, model=model,
@@ -4212,7 +4253,8 @@ class MemoryManager:
         кандидаты» и НЕ валидный пустой список."""
         limit = _mca_rc.fallback_top_k(len(facts))
         fallback = facts[:limit]
-        reason = {"timeout": "rerank_timeout", "invalid": "rerank_invalid"}.get(
+        reason = {"timeout": "rerank_timeout", "invalid": "rerank_invalid",
+                  "empty_response": "rerank_empty_response"}.get(
             status, "rerank_invalid")
         _record_rerank_outcome(
             "timeout" if status == "timeout" else
@@ -4397,7 +4439,17 @@ class MemoryManager:
                      tg_message_id=row["tg_message_id"], fact_id=row["id"]),
                  "score": float(len(kept) - i),
                  "expired": row["id"] in expired_row_ids,
-                 "expires_at": row["expires_at"]}
+                 "expires_at": row["expires_at"],
+                 # SPEECH-P0-A2 (§provenance): v17-атрибуция — вход
+                 # существующего `graphrag_provenance.read_policy_rank`
+                 # (без второго retrieval/новых запросов: колонки уже в SELECT).
+                 "chat_id": chat_id,
+                 "status": row["status"],
+                 "subject_ref_id": row["subject_ref_id"],
+                 "speaker_author_id": row["speaker_author_id"],
+                 "assertion_kind": row["assertion_kind"],
+                 "attribution_method": row["attribution_method"],
+                 "provenance_channel": row["provenance_channel"]}
                 for i, row in enumerate(kept)]
         return [(row["origin"], row["fact"], row["rag_ts"], row["target_user"],
                  resolve_item_id(tg_message_id=row["tg_message_id"],
@@ -4562,7 +4614,17 @@ class MemoryManager:
                  "score": float(len(chosen) - i),
                  # B03.2 (v6.3): as-of-пометка архивного top-up (additive).
                  "expired": f in expired_by_id,
-                 "expires_at": by_id[f]["expires_at"]}
+                 "expires_at": by_id[f]["expires_at"],
+                 # SPEECH-P0-A2 (§provenance): v17-атрибуция — вход
+                 # существующего `graphrag_provenance.read_policy_rank`
+                 # (REUSE `get_graph_fact_records`, второго retrieval нет).
+                 "chat_id": chat_id,
+                 "status": by_id[f]["status"],
+                 "subject_ref_id": by_id[f]["subject_ref_id"],
+                 "speaker_author_id": by_id[f]["speaker_author_id"],
+                 "assertion_kind": by_id[f]["assertion_kind"],
+                 "attribution_method": by_id[f]["attribution_method"],
+                 "provenance_channel": by_id[f]["provenance_channel"]}
                 for i, f in enumerate(chosen)]
         return [(by_id[f]["origin"], by_id[f]["fact"],
                  by_id[f]["message_timestamp"] or by_id[f]["created_at"],

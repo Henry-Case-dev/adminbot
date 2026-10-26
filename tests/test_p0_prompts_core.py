@@ -87,7 +87,9 @@ def _withheld_text(block_id: str) -> str:
 
 def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
-    assert pr.FACTORY_SET_SHA256_12 == "f12130fbccb1"
+    # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 + 3 lore-канона
+    # (фактологический hotfix §4).
+    assert pr.FACTORY_SET_SHA256_12 == "28e6c619b937"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

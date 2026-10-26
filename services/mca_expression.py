@@ -83,10 +83,15 @@ PROFANITY_OCCASIONAL_TEXT = (
     "добавляй ругательства специально и не делай их обязательной частью "
     "каждого ответа."
 )
+#: P0-HOTFIX (25.10.2026, source §2 «PROFANITY FREQUENT»): мат — частая и
+#: естественная часть грубого интернет-разговора, без выдуманных конструкций
+#: и механической вставки. Прежние ступени сохранены:
+#: PREV_PROFANITY_FREQUENT_TEXT (прод 23.10) и
+#: PREV_P0E_PROFANITY_FREQUENT_TEXT (P0-E 24.10).
 PROFANITY_FREQUENT_TEXT = (
-    "Матерись часто и непринуждённо, как человек, для которого мат - обычная "
-    "часть разговорной речи. Не избегай крепких выражений без причины, но и "
-    "не вставляй их механически."
+    "Матерись часто и естественно, как в обычном грубом интернет-разговоре. "
+    "Не выдумывай сложные ругательные конструкции и не вставляй мат "
+    "механически."
 )
 
 PROFANITY_INSTRUCTIONS: dict[str, str] = {
@@ -96,25 +101,54 @@ PROFANITY_INSTRUCTIONS: dict[str, str] = {
 }
 
 #: §2.1-2.3, §5: базовые речевые инструкции владельца (байт-в-байт).
+#: SPEECH-P0-A1 (25.10.2026, source-owner-p0-hotfix-2026-10-25.md §2):
+#: прежние многословные формулировки заменены ТОЧНЫМИ короткими текстами
+#: владельца. Откат — PREV_BASE_SPEECH_TEXT / PREV_HUMOR_TEXT /
+#: PREV_RESPONSE_LENGTH_TEXT / PREV_FACTUAL_SPEECH_TEXT ниже.
 BASE_SPEECH_TEXT = (
+    "Разговаривай естественно, как обычный участник чата. Отвечай сразу по "
+    "существу. Не растягивай простые мысли, не превращай ответы в рассказы "
+    "и не демонстрируй характер специально. Подробности добавляй, когда они "
+    "действительно нужны."
+)
+HUMOR_TEXT = (
+    "Шути спонтанно, когда это уместно. Не вымучивай панчлайны, не строй "
+    "истории ради шутки, не пытайся быть смешной в каждом сообщении. Не "
+    "объясняй собственный юмор."
+)
+RESPONSE_LENGTH_TEXT = (
+    "Длина ответа зависит от вопроса. Иногда достаточно двух слов, иногда "
+    "нужен подробный разбор. Не повторяй сказанное и заканчивай, когда "
+    "мысль закончена."
+)
+FACTUAL_SPEECH_TEXT = (
+    "Не выдавай придуманные события, даты, цитаты и статистику за реальные. "
+    "Если фактов недостаточно, не достраивай историю фантазией. Шути и "
+    "преувеличивай свободно, но не подменяй этим реальные воспоминания."
+)
+
+#: P0-HOTFIX: слепки прежних runtime-текстов (только история/откат; в бою
+#: берутся константы выше). Живут рядом с источником, чтобы откат не требовал
+#: реконструкции из git.
+PREV_BASE_SPEECH_TEXT = (
     "Говори естественно, как обычный человек в интернет-чате. Отвечай по "
     "существу, без воды и искусственной драматургии. Простому вопросу обычно "
     "достаточно короткого ответа. Если тема требует подробностей - раскрывай "
     "её нормально. Не изображай характер специально, просто разговаривай."
 )
-HUMOR_TEXT = (
+PREV_HUMOR_TEXT = (
     "Шути естественно и только когда хочется или ситуация располагает. "
     "Допустимы ирония, сарказм, абсурд и грубоватые приколы. Не вымучивай "
     "шутки, не превращай ответы в стендап, не придумывай истории ради "
     "панчлайна и не объясняй собственный юмор."
 )
-RESPONSE_LENGTH_TEXT = (
+PREV_RESPONSE_LENGTH_TEXT = (
     "Подбирай длину ответа по ситуации. Иногда достаточно пары слов или "
     "одного предложения. Не пересказывай очевидное, не повторяй мысль и не "
     "растягивай ответ ради выразительности. Если нужен подробный разбор - "
     "отвечай подробно."
 )
-FACTUAL_SPEECH_TEXT = (
+PREV_FACTUAL_SPEECH_TEXT = (
     "Не придумывай реальные события, чужие цитаты и подробности прошлого, "
     "выдавая их за факты. Если чего-то не помнишь или не знаешь, не "
     "притворяйся очевидцем. Выдумывать и преувеличивать ради шутки можно, "
@@ -149,8 +183,16 @@ PREV_PROFANITY_FREQUENT_TEXT = (
     "эвфемизмами."
 )
 
+#: P0-HOTFIX: текст ``frequent`` ступени P0-E (24.10.2026) — байт-в-байт
+#: прежняя фабрика. Ступень нужна лестнице: P0-E → P0-hotfix.
+PREV_P0E_PROFANITY_FREQUENT_TEXT = (
+    "Матерись часто и непринуждённо, как человек, для которого мат - обычная "
+    "часть разговорной речи. Не избегай крепких выражений без причины, но и "
+    "не вставляй их механически."
+)
+
 #: Ревизия текстов режимов (метка ступени; растёт вместе с лестницей).
-EXPRESSION_TEXT_REVISION = "speech-simplify-2026-10-25"
+EXPRESSION_TEXT_REVISION = "speech-p0-hotfix-2026-10-25"
 
 #: Инструкции прочих контролов = прежние effect-тексты (слой рендерит их
 #: одной строкой; формулировки не менялись этим слайсом).
@@ -449,12 +491,22 @@ def sha12(text: str) -> str:
 # (``git revert`` либо ``rollback_profanity_frequent_text()`` в тесте/пробе).
 EXPRESSION_TEXT_LADDER: tuple[dict, ...] = (
     {
+        "step": "p0h-frequent-natural",
+        "at": "2026-10-25",
+        "revision": EXPRESSION_TEXT_REVISION,
+        "mode": "frequent",
+        "prev_sha12": sha12(PREV_P0E_PROFANITY_FREQUENT_TEXT),
+        "next_sha12": sha12(PROFANITY_INSTRUCTIONS["frequent"]),
+        "summary": ("FREQUENT — часто и естественно, как в грубом "
+                    "интернет-разговоре; без выдуманных конструкций"),
+    },
+    {
         "step": "p0e-frequent-habit",
         "at": "2026-10-24",
         "revision": EXPRESSION_TEXT_REVISION,
         "mode": "frequent",
         "prev_sha12": sha12(PREV_PROFANITY_FREQUENT_TEXT),
-        "next_sha12": sha12(PROFANITY_INSTRUCTIONS["frequent"]),
+        "next_sha12": sha12(PREV_P0E_PROFANITY_FREQUENT_TEXT),
         "summary": ("FREQUENT — привычная и заметная часть собственной речи, "
                     "не разрешение на исключение"),
     },
@@ -737,7 +789,12 @@ __all__ = [
     "EXPRESSION_CONTROL_VALUES", "EXPRESSION_FACTORY_DEFAULTS",
     "CONTROL_ORDER", "CONTROL_LABELS", "CONTROL_INSTRUCTIONS",
     "PROFANITY_INSTRUCTIONS", "PREV_PROFANITY_FREQUENT_TEXT",
-    "EXPRESSION_TEXT_REVISION", "EXPRESSION_TEXT_LADDER", "EXPRESSION_HEADER",
+    "PREV_P0E_PROFANITY_FREQUENT_TEXT",
+    "PREV_BASE_SPEECH_TEXT", "PREV_HUMOR_TEXT",
+    "PREV_RESPONSE_LENGTH_TEXT", "PREV_FACTUAL_SPEECH_TEXT",
+    "BASE_SPEECH_TEXT", "HUMOR_TEXT", "RESPONSE_LENGTH_TEXT",
+    "FACTUAL_SPEECH_TEXT", "EXPRESSION_TEXT_REVISION",
+    "EXPRESSION_TEXT_LADDER", "EXPRESSION_HEADER",
     "EXPRESSION_FOOTER", "BANNED_SOLE_RULE_PHRASES", "EXPRESSION_DIAG_CLASSES",
     "EXPRESSION_FINAL_HEADER",
     "MODEL_IGNORE_PROBES", "PROFANITY_ROOTS",

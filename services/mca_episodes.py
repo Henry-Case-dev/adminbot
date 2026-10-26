@@ -45,6 +45,7 @@ from services.database import (
     EPISODE_MAPPING_STATUSES,
     EPISODE_STORY_STATES,
     EPISODE_UNKNOWN_OUTCOME,
+    LORE_STORIES_RETRIEVAL_PREDICATE,
 )
 
 logger = logging.getLogger(__name__)
@@ -1716,7 +1717,9 @@ async def list_stories_for_retrieval(db, chat_id: int,
     `list_lore_stories` (id/chat_id/topic/topic/story/last_ts/...) +
     `kind`. Уважает `excluded_from_retrieval`, chat scope и статусы
     (verification='rejected' не выдаётся); redirect-источники скрываются
-    (резолв — `resolve_story_id`)."""
+    (резолв — `resolve_story_id`). Legacy-строки `lore_stories` фильтруются
+    ТЕМ ЖЕ предикатом, что baseline `list_lore_stories` (P0 corrective §3:
+    помеченный self-echo не возвращается ни одним путём)."""
     repo = EpisodeRepository(db)
     out: list[dict] = []
     stories = await repo.list_stories(int(chat_id), limit=max(1, int(limit)))
@@ -1745,7 +1748,8 @@ async def list_stories_for_retrieval(db, chat_id: int,
         cursor = await db.db.execute(
             "SELECT l.* FROM lore_stories l LEFT JOIN mca_story_legacy_links "
             "g ON g.lore_story_id = l.id WHERE l.chat_id = ? AND "
-            "COALESCE(g.mapping_status, 'unmapped') != 'mapped' "
+            "COALESCE(g.mapping_status, 'unmapped') != 'mapped' AND "
+            + LORE_STORIES_RETRIEVAL_PREDICATE + " "
             "ORDER BY l.updated_at DESC LIMIT ?",
             (int(chat_id), max(1, int(limit))))
         for row in await cursor.fetchall():

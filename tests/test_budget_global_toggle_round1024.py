@@ -443,7 +443,7 @@ class _StubDirectChat:
         captured_holder = self
 
         class _Svc(self._cls):
-            def _participant_roster(self, window, active):
+            def _participant_roster(self, window, active, usernames=None):
                 return {}, {}
 
             def _alias_map_block(self, roster):

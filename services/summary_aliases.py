@@ -8,9 +8,14 @@ global/chat **по каждому Telegram ID**.
     2) global alias этого user_id
     3) Telegram nickname (first+last)
     4) username без '@'
-    5) достоверное имя из памяти (ТОЛЬКО если caller привязал его к тому же
-       user_id; по текстовому сходству не угадываем)
-    6) user_id
+    5) user_id
+
+P0 corrective 25.10.2026 (F6): шаг «имя из памяти» больше не выдаётся за
+рабочий runtime-каскад. Достоверного uid→имя источника в памяти нет
+(`mca_source_refs` хранит только entity_id; имя в фактах — свободный текст),
+а поиск по тексту запрещён. Параметр ``memory_name`` остаётся для
+вызывающего, который УЖЕ держит проверенную привязку к этому user_id
+(совместимость; runtime-пути его не заполняют) и идёт перед user_id.
 
 Merge: `parse_alias_map` + `merge_alias_maps(global, chat)`. Отсутствие ключа
 в чатовом словаре = наследование глобального; пустое значение отбрасывается
@@ -167,11 +172,12 @@ class AliasResolver:
         username: str | None = None,
         memory_name: str | None = None,
     ) -> str:
-        """Единый каскад: alias → nickname → username → memory_name → id.
+        """Единый каскад: alias → nickname → username → [memory_name] → id.
 
         ``memory_name`` принимается только как уже проверенная привязка к
-        ЭТОМУ user_id (ростер/`subject_ref_id`); резолвер сам по текстовому
-        сходству ничего не ищет. '@' снимается со всех уровней.
+        ЭТОМУ user_id (совместимость с вызывающим); runtime-пути его не
+        заполняют (F6), резолвер сам по текстовому сходству ничего не ищет.
+        '@' снимается со всех уровней.
         """
         key = (int(user_id), nickname, username)
         if memory_name is not None:
@@ -383,6 +389,11 @@ async def build_alias_resolver(chat_id: int) -> AliasResolver:
     report["inherited"] = inherited
     report["merged"] = len(merged)
     report["dropped"] = gmeta["dropped"] + cmeta["dropped"]
+    # F7 (P0 corrective 25.10.2026): слой действующего алиаса по каждому
+    # user_id — ТОЛЬКО код слоя («chat»/«global»), без значений (R17).
+    # Источник для /direct/context-diagnostics; второго механизма имён нет.
+    report["by_uid"] = {int(uid): ("chat" if uid in cmap else "global")
+                        for uid in merged}
     resolver = AliasResolver(merged, scope_report=report)
     if not report["ok"]:
         logger.warning(
