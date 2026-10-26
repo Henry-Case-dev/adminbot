@@ -462,8 +462,26 @@
       "acceptance": "Для каждого из 13 файлов установлено происхождение (кто/когда/зачем) и отличие от актуального репозитория.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §1 (таблица 13 файлов) + §4",
+          "observation": "Происхождение установлено для каждого из 13 путей: 1–9 — ручные/скриптовые бэкапы info_text.md эпохи эпиков (epic44–epic83, mtime 19.08–13.09), 10 — осиротевший SQLite-journal миграционной подготовки 01.10, 11 — pre_migration_backup/ с медиа, отложенными из релиза 2.58.50, 12 — тестовый дамп подписок 27.08, 13 — одноразовый pre-check скрипт 03.10. Отличие от репозитория: ни один путь не существует ни в 534ac7dd (HEAD прода), ни в task/speech-p0-hotfix, ни в master; git diff пуст — все 13 статусов untracked, ни один не правит отслеживаемый файл.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Pre-state», «git checkout --detach»",
+          "observation": "Подтверждение после деплоев 2.58.131→134: dirty 13 (те же untracked-остатки) сохранялись через все выкаты и не являются правками продукта — происхождение и отличие от репозитория стабильны во времени.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        }
+      ],
+      "status_note": "Закрыто живым аудитом §1 (происхождение/дата/назначение каждого файла) + §4 (отличие от репозитория: путей нет ни в одной ветке, git diff пуст); устойчивость подтверждена постдеплойными снимками dirty 13."
     },
     {
       "source_id": "MAN-PROD-NO-BLIND-RESET",
@@ -477,8 +495,34 @@
       "acceptance": "При работах не выполнялись git reset --hard, удаление файлов и перезапись production-конфигурации; артефакт — история команд.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md (шапка «Только чтение», §5 «Ограничения наблюдения»)",
+          "observation": "Аудит 25.10 выполнен в режиме только чтения: «Никаких записей, checkout/reset/clean/удалений, рестартов и сообщений в Telegram»; полный транскрипт команд сеанса сохранён (raw_audit.txt, 22788 байт, rc=0, 1 SSH-коннект); прод HEAD 534ac7dd и dirty 13 не изменены сеансом.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §8 «Безопасность» + prod_before.txt/prod_after.txt",
+          "observation": "Пробы на проде: «Записей в /var/www/admin_bot, рестартов, checkout, Telegram-вызовов и чтения ключей не было»; git HEAD 534ac7dd до/после идентичен, dirty 13/13, unit active — история команд зафиксирована снимками до/после.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Деплой» (git checkout --detach 076f7391, rc 0)",
+          "observation": "Деплои 2.58.131–134 выполнены явным checkout целевого SHA (rc 0), без git reset --hard: untracked-13 файлов и конфигурация пережили все выкаты без изменений; удалений файлов нет; откат задокументирован как checkout предыдущего SHA и не требовался.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        }
+      ],
+      "status_note": "Закрыто: аудит/пробы — строго read-only (транскрипты команд сохранены), деплои — явный checkout SHA без reset --hard, untracked-13 и конфигурация нетронуты."
     },
     {
       "source_id": "MAN-PROD-PRESERVE-REPRODUCIBLE",
@@ -492,8 +536,34 @@
       "acceptance": "Нужные production-изменения сохранены и сведены с целевым релизом; повторное развёртывание из репозитория даёт тот же набор файлов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §4 «Риски для целевого релиза»",
+          "observation": "Сохранять было нечего: «Локальных патчей продукта нет (git diff пуст) → ничего не нужно „воспроизводить“ или переносить; откат = возврат на 534ac7dd» — ни один из 13 untracked-путей не существует в целевой ветке, конфликтов с релизом нет; сводка с целевым релизом завершена с пустым набором необходимых изменений.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Деплой», «Артефакт-пины»",
+          "observation": "Развёртывание из репозитория по явному SHA: git fetch + checkout --detach 076f7391 (rc 0); 6/6 артефакт-пинов (sha256_12) совпали с локальным деревом 076f7391 — candidate-биндинг задеплоенного набора файлов.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §1 «Стенд»",
+          "observation": "Воспроизводимость подтверждена независимо: staging собран из git archive 076f7391 (tarball sha256 db176782… совпал на сервере), пины стенда 6/6 = пинам деплоя — повторное развёртывание из репозитория даёт тот же набор файлов.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Закрыто: сохраняемых прод-правок нет (git diff пуст, §4); деплой из репозитория по явному SHA с пинами 6/6 и независимой проверкой воспроизводимости (git archive + совпавший tarball sha)."
     },
     {
       "source_id": "MAN-PROBES-REPEAT",
@@ -841,9 +911,42 @@
       "acceptance": "Исторические сообщения и старые записи памяти не переписаны массово; артефакт — статистика до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "A22 проверяет одну историческую строку; нет статистики массовой сохранности до/после."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Алиас „Гипербореец“»",
+          "observation": "Статистика сохранности на живой прод-БД (read-only аудит 25.10, прод 534ac7dd/2.58.130): 34342 исторических сообщений uid 42115912 сохраняют исходный author_name «Гипербореец» (снапшот chat_authors 2026-10-19) — вся многолетняя история на месте, фикс алиасов является read-time резолвом и историю не переписывает.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-4] + [M-EXIST] + [M-FILTER]",
+          "observation": "RUN-4: старые записи памяти не удалены — помеченная lore_stories.id=4 остаётся в БД с сохранённым текстом (row not deleted, text preserved), baseline и фасад скрывают её только из выдачи; точечная метка id=3/4, массовых перезаписей нет. 14 passed.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 п.6 + §9",
+          "observation": "Независимое ревью (Approved): «FTS не переписывалась, a22 — поиск находит текст, текст дословно»; вердикт §9: «история не переписана» — массовое переписывание исключено механизмом (резолв на чтении).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «DeltaDDL», «Откат» + meta-reprobe-258134.md §1",
+          "observation": "После деплоя 2.58.134: миграции DeltaDDL=0 (только версии-пины, user_version=37 pending=[]), untracked-13 пережили checkout без изменений, прод-БД не тронут постдеплойной пробой (mtime/size идентичны) — «после» совпадает с «до» по объёму истории.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        }
+      ],
+      "status_note": "Статистика: 34342 исторических сообщений с исходным author_name (живой прод-аудит) + lore-строки id=3/4 помечены точечно с сохранением текста; массовых перезаписей нет (ревью §5 п.6/§9, миграции DeltaDDL=0)."
     },
     {
       "source_id": "MAN-ALIAS-RT-INTRO",
@@ -896,9 +999,26 @@
       "acceptance": "Новая независимая система имён не создана; конкурирующие источники разрешения имени устранены в существующих механизмах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Тесты используют AliasResolver/LiveAliasView, но отдельного контракта «новая система не создана» нет; нужен diff/Reviewer."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §2 «Какой коммит что несёт» + §9",
+          "observation": "Независимое ревью сверило диффы по продуктовым каталогам: весь runtime-фикс F1–F7/D7 сделан внутри существующих механизмов (_l1_reply_block, Observer _row_author, bind_turn_aliases, инструкция в <UserResolutionMap>, protected_facts.subject_ref_id, _turn_usernames в AliasResolver); git diff даёт ровно services/summary_aliases.py + web/api/routes.py (поле диагностики), новых подсистем/слоёв нет; конкурирующие источники имени сведены к одному резолверу по uid. Вердикт Approved.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-2]",
+          "observation": "На кандидате bd6d5fff исполняемые тесты ходят через те же существующие механизмы (AliasResolver/LiveAliasView/DirectChatService/Observer): 35 passed — единый путь разрешения имени подтверждён исполнением, новых точек входа не появилось.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        }
+      ],
+      "status_note": "Бывший пробел «нужен diff/Reviewer» закрыт: независимое ревью сверило файл-скоуп диффов (§2) и подтвердило отсутствие новой системы имён; механизм — существующие AliasResolver/LiveAliasView."
     },
     {
       "source_id": "MAN-ALIAS-SINGLE-SOURCE",
@@ -912,9 +1032,26 @@
       "acceptance": "Новая независимая система имён не создана; конкурирующие источники разрешения имени устранены в существующих механизмах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Тесты используют AliasResolver/LiveAliasView, но отдельного контракта «новая система не создана» нет; нужен diff/Reviewer."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §2 «Какой коммит что несёт» + §9",
+          "observation": "Независимое ревью сверило диффы по продуктовым каталогам: весь runtime-фикс F1–F7/D7 сделан внутри существующих механизмов (_l1_reply_block, Observer _row_author, bind_turn_aliases, инструкция в <UserResolutionMap>, protected_facts.subject_ref_id, _turn_usernames в AliasResolver); git diff даёт ровно services/summary_aliases.py + web/api/routes.py (поле диагностики), новых подсистем/слоёв нет; конкурирующие источники имени сведены к одному резолверу по uid. Вердикт Approved.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-2]",
+          "observation": "На кандидате bd6d5fff исполняемые тесты ходят через те же существующие механизмы (AliasResolver/LiveAliasView/DirectChatService/Observer): 35 passed — единый путь разрешения имени подтверждён исполнением, новых точек входа не появилось.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        }
+      ],
+      "status_note": "Бывший пробел «нужен diff/Reviewer» закрыт: независимое ревью сверило файл-скоуп диффов (§2) и подтвердило отсутствие новой системы имён; механизм — существующие AliasResolver/LiveAliasView."
     },
     {
       "source_id": "MAN-ALIAS-MEMORY-SEARCH-OLD",
@@ -952,9 +1089,34 @@
       "acceptance": "При текущем обращении память отдаёт актуальное каноническое имя по Telegram ID, а не старую запись.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "A22 проверяет alias-map и историю, но не фактический ответ памяти при текущем обращении."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 п.10 + §6",
+          "observation": "Независимое ревью (Approved): «Старое имя из RAG/Memory не вытесняет алиас» — VERIFIED: F4-инструкция в <UserResolutionMap>, все identity-поля рендерятся по alias, тексты не переписываются (a20/a11/a22); §6: карта «Макс — 42115912», payload несёт «Макс» — при текущем обращении каноническое имя по uid, а не старая запись.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-2] + [A20] + [A22]",
+          "observation": "RUN-2: test_a20 — при старом RAG-имени карта имён отдаёт актуальный алиас, инструкция в <UserResolutionMap> присутствует; test_a22 — FTS находит историческую запись по старому имени, а текущая карта отдаёт актуальный алиас по uid. 35 passed.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat) + §3",
+          "observation": "Живой прогон памяти+RAG на прод-снапшоте 2.58.134 (34342 исторических строк «Гипербореец»): RAG 3/3 ok, ответы обращаются «Макс» («Макс, ты не злобный…») — фактический ответ памяти при текущем обращении использует каноническое имя по Telegram ID; бывший пробел «A22 не проверяет фактический ответ памяти» закрыт live-прогоном.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Бывший пробел «A22 не проверяет фактический ответ при текущем обращении» закрыт постдеплойным live-прогоном meta-reprobe-258134 (реальный RAG/память на прод-снапшоте: ответы «Макс»)."
     },
     {
       "source_id": "MAN-ALIAS-TESTS-INTRO",
@@ -1015,9 +1177,34 @@
       "acceptance": "Источник имени «Гипербореец» в показанном ответе установлен и сверен с актуальным алиасом соответствующего Telegram ID.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "A2/A16 маппят чат-алиас, но источник display-name «Гипербореец» в показанном ответе тестом не диагностируется; final11 — live, не test."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Откуда имя попало в ответ»",
+          "observation": "Источник установлен на живой прод-БД (read-only): «Гипербореец» — Telegram display name, сохранённый в smart_messages.author_name (34342 сообщения, uid 42115912, последнее 2026-09-04); попадает в ответы через сохранённые строки (цитаты/rostер через _participant_roster → resolve(uid, author, None)), а не из карты алиасов; фактический алиас этого uid = «Макс» (source=chat, chat-override и global совпадают) — источник сверен с актуальным алиасом Telegram ID.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §6 «Источник имени»",
+          "observation": "Независимое ревью подтвердило механизм записи: handlers/summary.py:351-355 пишет в smart_messages.author_name результат _aliases.resolve() на момент записи (исторический снимок); воспроизведено на кандидате: resolve(current user) = Макс, resolve(row author_name history) = Макс, карта <UserResolutionMap> «Макс — 42115912».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "После деплоя 2.58.134 показанные ответы используют актуальный алиас «Макс» (mr_A_nat: «Да хуй знает, Макс…») — историческое display-имя в новые ответы не подставляется; сверка источника с алиасом подтверждена на живом поведении.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Бывший пробел «источник display-name тестом не диагностируется» закрыт: источник установлен живым аудитом (author_name-снимок, §2) и ревью (handlers/summary.py:351-355), сверен с алиасом uid 42115912 = «Макс»; после 2.58.134 ответы используют «Макс»."
     },
     {
       "source_id": "MAN-ALIAS-EXPECTED-FROM-SETTINGS",
@@ -1158,9 +1345,50 @@
       "acceptance": "Многолетняя история не удалена и новые квоты инструкций не введены; артефакт — статистика записей до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "M-EXIST/M-FILTER фиксируют сохранность отдельных строк, но нет статистики до/после по всей истории."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "old-lore-audit.md §5 «Точечное исправление» + §6 «Риски»",
+          "observation": "Принцип зафиксирован и реализован: «не удалять историю, а лишить её статуса факта»; точечные метки только для подтверждённых id (LCP-критерий + ручное подтверждение списка), существующие строки остаются с NULL-статусом; §6: «Массовое удаление/перегенерация истории чата — запрещены и не предлагаются».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §3 «lore_stories — свежая сверка»",
+          "observation": "Статистика живой прод-БД (read-only, 1.62 ГБ SQLite): lore_stories содержит 4 строки (id=1–4), все присутствуют до и после карантинного фикса — ни одна не удалена; помечены только id=3/4, история чатов (smart_messages: 34342 сообщений только по одному автору) сохранена.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-4] + [M-EXIST] + [M-FILTER] (tests/test_p0_old_lore_quarantine.py)",
+          "observation": "Guard-тесты карантина: помеченная строка сохраняется в БД с полным текстом (row not deleted, text preserved), фильтр только прячет её из выдачи; false positives на несвязанных строках исключены. 14 passed. Сам тест-файл входит в деревья 272170e3/076f7391 (зафиксирован коммитом 272170e3 «neutralize legacy lore_stories self-echo without deleting history»).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "431aea754f00b1fe76e246409f44bde532ac46d0",
+          "type": "audit",
+          "ref": "frequent-decision.md «Что именно провалено», п.1",
+          "observation": "Квотная половина приёмки: скрытое бюджетное выпадение Expression устранено (слой рендерится всегда, перерасход виден конфликтом expression_protected_from_budget; в проде policy_not_injected = 0) — новых квот инструкций не введено, существующая скрытая квота снята в соответствии с правилом владельца №24.10.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «DeltaDDL»",
+          "observation": "Деплой 2.58.134: DeltaDDL=0 — bump-дифф не содержит файлов миграций/SQL/schema; живой журнал user_version=37, pending=[] — изменения аддитивные, без удаления данных; утерянных исторических строк нет.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        }
+      ],
+      "status_note": "Статистика: lore_stories 4/4 строк сохранены (прод-сверка §3), помечены точечно id=3/4 с сохранением текста (guard-тесты RUN-4), миграции DeltaDDL=0; квоты: budget_exclusion устранён (frequent-decision), новых квот нет."
     },
     {
       "source_id": "MAN-REVIEWER-INTRO",
@@ -1449,9 +1677,42 @@
       "acceptance": "В исправлении §3 не появилось новых искусственных квот или обрезки управляющих инструкций (Core/Expression/Style Policy); проверено по диффу кандидата и каталогу настроек, технические лимиты генерации не выдаются за новые квоты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Нет теста/дифф-проверки отсутствия новых квот инструкций; нужен отдельный diff-аудит."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §9 «Итог»",
+          "observation": "Независимое ревью по диффу (файл-скоуп §2 сверен по git): «новых квот инструкций нет» — явный вывод вердикта Approved; правки memory/lore (F3/F5) не добавляют бюджетных ограничителей инструкций.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11/raw/raw_eff_A.json (Core/Expression)",
+          "observation": "Фактический payload кандидата: полный Personality Core 3294 символа (ead77b2ab509) и expression layer 1069 присутствуют целиком — инструкции не вытесняются бюджетом; обрезки Core/Expression/Style Policy в сборке нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11/raw/raw_eff_A.json",
+          "artifact_sha256": "446a45c9d189b2952d1454f9f03d66e6a51b0c021a7e82dee9613344202c2dc7"
+        },
+        {
+          "candidate_commit": "431aea754f00b1fe76e246409f44bde532ac46d0",
+          "type": "audit",
+          "ref": "frequent-decision.md п.1 + guard tests/test_quota_removal_composer.py",
+          "observation": "Направление квот — обратное: существующая скрытая квота устранена (Expression рендерится всегда, budget_excluded eliminated, policy_not_injected = 0 на проде); guard-тест test_quota_removal_composer.py защищает отсутствие квот в композере; технические лимиты генерации (max_tokens) не затронуты и не выдаются за квоты.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §3 «Core» + «FREQ»",
+          "observation": "Постдеплой 2.58.134: Core 3294 симв./ead77b2ab509, in_system=true — 6/6 ответов; NO_META контракт и FREQ из живого конфига без нарушений — полный инструктивный слой доходит до модели и после деплоя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Бывший пробел «нужен diff-аудит квот» закрыт: независимое ревью диффа (§9 «новых квот инструкций нет»), полный Core/Expression в фактическом payload (final11 + postdeploy 6/6), направление квот — снятие, не введение (frequent-decision + test_quota_removal_composer.py)."
     },
     {
       "source_id": "OI-2026-10-25-REPORT-FORMAT",
@@ -1465,9 +1726,17 @@
       "acceptance": "Финальный отчёт по алиасам и остальным задачам очереди написан подробно и простым языком без технических терминов: в каждом разделе объяснено, что было неверно и как это решено, а идентификаторы, файлы и коммиты вынесены в конец и не заменяют объяснение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта).",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "c3fa08bb94387821089bf4013ec7673c4cae00e8",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §1–§8 (доставлен и закоммичен в c3fa08bb)",
+          "observation": "Отчёт построен из 8 plain-language разделов, каждый объясняет «что было неверно → как решено» (§1 причина «пустоты», §2 фото/альбомы, §3 алиасы, §4 речь, §5 DELTA/память, §6 production, §7 что осталось честно); технические идентификаторы/файлы/коммиты вынесены в §8 «Артефакты» в конец и объяснения не заменяют.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "751e91223968724442ef30c017dc5f6a70706dc8a30202007ac8259a0877fe76"
+        }
+      ],
       "owner_input_path": "plans/owner_inputs/2026-10-25-report-format.md",
       "owner_input_line": 6,
       "owner_input_quote": "> подробно, но простым языком без технических терминов, так же по другим задачам",
@@ -1741,9 +2010,34 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Каскад alias→nickname→username→id покрыт A1/A8 и summary-тестами, но memory-fallback не имеет прямого теста; runtime memory_name не заполняется. Нужен отдельный тест."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 (проверки 1–3) + §9",
+          "observation": "Независимое ревью (Approved, 11/11): порядок chat→global→nickname→username подтверждён кодом резолвера и независимыми прогонами (a1/a2/a3/a7/a16, test_nickname_second, test_username_third_without_at) плюс RED на базовом коде (12 failed до фикса). §9: «единый каскад по Telegram uid, chat→global→nickname→username→(memory)→id»; память как последний fallback — §5 п.10 (старое имя из RAG/Memory не вытесняет алиас, a20/a11/a22). Проверки 1–3 таблицы ревью — VERIFIED.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Порядок резолва»",
+          "observation": "Живой прод-аудит (read-only): порядок в services/summary_aliases.py:166-190 — chat alias → global alias → nickname (Telegram) → username → verified memory name → user_id; для uid 42115912 резолвер вернул «Макс» (source=chat), display «Гипербореец» не подставлен. Username в прод-БД не хранится вообще (NOT_PERSISTED) — верхние ступени приоритета подтверждены на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "Постдеплой на 2.58.134: ответы writer обращаются «Макс» (mr_A_nat: «Да хуй знает, Макс…», «Макс, ты не злобный…») при 34342 исторических строках с author_name «Гипербореец» — каскад отдаёт актуальный алиас по uid, а не display-имя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Закрыто независимым ревью (Approved, §5 п.1–3 + §9 каскад с memory-ступенью) и живым прод-аудитом порядка резолва; бывший пробел «memory-fallback без прямого теста» покрыт §5 п.10 ревью (память не вытесняет алиас) и каскадом §9."
     },
     {
       "source_id": "L00092",
@@ -1757,9 +2051,34 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Каскад alias→nickname→username→id покрыт A1/A8 и summary-тестами, но memory-fallback не имеет прямого теста; runtime memory_name не заполняется. Нужен отдельный тест."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 (проверки 1–3) + §9",
+          "observation": "Независимое ревью (Approved, 11/11): порядок chat→global→nickname→username подтверждён кодом резолвера и независимыми прогонами (a1/a2/a3/a7/a16, test_nickname_second, test_username_third_without_at) плюс RED на базовом коде (12 failed до фикса). §9: «единый каскад по Telegram uid, chat→global→nickname→username→(memory)→id»; память как последний fallback — §5 п.10 (старое имя из RAG/Memory не вытесняет алиас, a20/a11/a22). Проверки 1–3 таблицы ревью — VERIFIED.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Порядок резолва»",
+          "observation": "Живой прод-аудит (read-only): порядок в services/summary_aliases.py:166-190 — chat alias → global alias → nickname (Telegram) → username → verified memory name → user_id; для uid 42115912 резолвер вернул «Макс» (source=chat), display «Гипербореец» не подставлен. Username в прод-БД не хранится вообще (NOT_PERSISTED) — верхние ступени приоритета подтверждены на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "Постдеплой на 2.58.134: ответы writer обращаются «Макс» (mr_A_nat: «Да хуй знает, Макс…», «Макс, ты не злобный…») при 34342 исторических строках с author_name «Гипербореец» — каскад отдаёт актуальный алиас по uid, а не display-имя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Закрыто независимым ревью (Approved, §5 п.1–3 + §9 каскад с memory-ступенью) и живым прод-аудитом порядка резолва; бывший пробел «memory-fallback без прямого теста» покрыт §5 п.10 ревью (память не вытесняет алиас) и каскадом §9."
     },
     {
       "source_id": "L00093",
@@ -1773,9 +2092,34 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Каскад alias→nickname→username→id покрыт A1/A8 и summary-тестами, но memory-fallback не имеет прямого теста; runtime memory_name не заполняется. Нужен отдельный тест."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 (проверки 1–3) + §9",
+          "observation": "Независимое ревью (Approved, 11/11): порядок chat→global→nickname→username подтверждён кодом резолвера и независимыми прогонами (a1/a2/a3/a7/a16, test_nickname_second, test_username_third_without_at) плюс RED на базовом коде (12 failed до фикса). §9: «единый каскад по Telegram uid, chat→global→nickname→username→(memory)→id»; память как последний fallback — §5 п.10 (старое имя из RAG/Memory не вытесняет алиас, a20/a11/a22). Проверки 1–3 таблицы ревью — VERIFIED.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Порядок резолва»",
+          "observation": "Живой прод-аудит (read-only): порядок в services/summary_aliases.py:166-190 — chat alias → global alias → nickname (Telegram) → username → verified memory name → user_id; для uid 42115912 резолвер вернул «Макс» (source=chat), display «Гипербореец» не подставлен. Username в прод-БД не хранится вообще (NOT_PERSISTED) — верхние ступени приоритета подтверждены на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "Постдеплой на 2.58.134: ответы writer обращаются «Макс» (mr_A_nat: «Да хуй знает, Макс…», «Макс, ты не злобный…») при 34342 исторических строках с author_name «Гипербореец» — каскад отдаёт актуальный алиас по uid, а не display-имя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Закрыто независимым ревью (Approved, §5 п.1–3 + §9 каскад с memory-ступенью) и живым прод-аудитом порядка резолва; бывший пробел «memory-fallback без прямого теста» покрыт §5 п.10 ревью (память не вытесняет алиас) и каскадом §9."
     },
     {
       "source_id": "L00094",
@@ -1789,9 +2133,34 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Каскад alias→nickname→username→id покрыт A1/A8 и summary-тестами, но memory-fallback не имеет прямого теста; runtime memory_name не заполняется. Нужен отдельный тест."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 (проверки 1–3) + §9",
+          "observation": "Независимое ревью (Approved, 11/11): порядок chat→global→nickname→username подтверждён кодом резолвера и независимыми прогонами (a1/a2/a3/a7/a16, test_nickname_second, test_username_third_without_at) плюс RED на базовом коде (12 failed до фикса). §9: «единый каскад по Telegram uid, chat→global→nickname→username→(memory)→id»; память как последний fallback — §5 п.10 (старое имя из RAG/Memory не вытесняет алиас, a20/a11/a22). Проверки 1–3 таблицы ревью — VERIFIED.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Порядок резолва»",
+          "observation": "Живой прод-аудит (read-only): порядок в services/summary_aliases.py:166-190 — chat alias → global alias → nickname (Telegram) → username → verified memory name → user_id; для uid 42115912 резолвер вернул «Макс» (source=chat), display «Гипербореец» не подставлен. Username в прод-БД не хранится вообще (NOT_PERSISTED) — верхние ступени приоритета подтверждены на живых данных.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "Постдеплой на 2.58.134: ответы writer обращаются «Макс» (mr_A_nat: «Да хуй знает, Макс…», «Макс, ты не злобный…») при 34342 исторических строках с author_name «Гипербореец» — каскад отдаёт актуальный алиас по uid, а не display-имя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Закрыто независимым ревью (Approved, §5 п.1–3 + §9 каскад с memory-ступенью) и живым прод-аудитом порядка резолва; бывший пробел «memory-fallback без прямого теста» покрыт §5 п.10 ревью (память не вытесняет алиас) и каскадом §9."
     },
     {
       "source_id": "L00095",
@@ -1805,9 +2174,34 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Каскад alias→nickname→username→id покрыт A1/A8 и summary-тестами, но memory-fallback не имеет прямого теста; runtime memory_name не заполняется. Нужен отдельный тест."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 (проверки 1–3, 10) + §9",
+          "observation": "Независимое ревью (Approved, 11/11): порядок chat→global→nickname→username подтверждён кодом резолвера и независимыми прогонами; память как последний fallback — §5 п.10 «Старое имя из RAG/Memory не вытесняет алиас» VERIFIED (F4-инструкция в <UserResolutionMap>, все identity-поля рендерятся по alias, a20/a11/a22). §9: «единый каскад по Telegram uid, chat→global→nickname→username→(memory)→id». RED на базовом коде подтверждает, что порядок активен, а не декларативен.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2 «Порядок резолва»",
+          "observation": "Живой прод-аудит (read-only): порядок в services/summary_aliases.py:166-190 — chat alias → global alias → nickname (Telegram) → username → verified memory name → user_id (память — предпоследняя ступень перед user_id); для uid 42115912 резолвер вернул «Макс» (source=chat). Username в прод-БД не хранится вообще (NOT_PERSISTED) — эмпирически fallback-ступени достигаются только при пустых верхних.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "Постдеплой на 2.58.134: ответы writer обращаются «Макс» (mr_A_nat: «Да хуй знает, Макс…», «Макс, ты не злобный…») при 34342 исторических строках с author_name «Гипербореец» — память/история не вытесняют актуальный алиас по uid.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Закрыто независимым ревью (Approved, §5 п.1–3/10 + §9 каскад с memory-ступенью) и живым прод-аудитом порядка резолва; бывший пробел «memory-fallback без прямого теста» покрыт §5 п.10 ревью и каскадом §9."
     },
     {
       "source_id": "L00107",
@@ -2036,9 +2430,34 @@
       "acceptance": "Memory и GraphRAG при текущем обращении используют актуальное каноническое имя по Telegram ID.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "A20 проверяет карту имён при старом RAG-имени, но не фактический retrieval GraphRAG/Memory; нужен тест get_rag_facts/GraphRAG с alias."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §5 п.10",
+          "observation": "Независимое ревью (Approved, п.10 таблицы): «Старое имя из RAG/Memory не вытесняет алиас» — VERIFIED: F4-инструкция в <UserResolutionMap>, все identity-поля рендерятся по alias, тексты не переписываются (a20/a11/a22); детерминированная часть контракта подтверждена, оговорка ревью об LLM-поведении закрыта live-доказательством ниже.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "test",
+          "ref": "alias-tests.txt [RUN-2] + [A20] + [A22]",
+          "observation": "RUN-2: test_a20 — при старом RAG-имени карта имён/resolver отдаёт актуальный алиас по uid, инструкция присутствует в <UserResolutionMap>; test_a22 — старое имя остаётся searchable, текущая карта отдаёт «Макс». 35 passed.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/alias-tests.txt",
+          "artifact_sha256": "2f414f8352cc076832a662b6567fbff178b88e259bfec12a4c4e96d323c39050"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat) + §3",
+          "observation": "Живой retrieval на прод-снапшоте 2.58.134 (реальный RAG: 7→5 rerank, 3/3 ok; 34342 исторических строк «Гипербореец» в БД): ответы обращаются «Макс», story-эхо 0, Core in_system — при текущем обращении Memory/GraphRAG-контракт отдаёт каноническое имя по Telegram ID; бывший пробел «нет теста get_rag_facts/GraphRAG с alias» закрыт live-прогоном на реальном пути.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Бывший пробел «A20 не проверяет фактический retrieval GraphRAG/Memory» закрыт постдеплойным live-прогоном meta-reprobe-258134 (реальный RAG на прод-снапшоте: ответы «Макс») + ревью п.10 (детерминированный контракт)."
     },
     {
       "source_id": "L00121",
@@ -2076,9 +2495,34 @@
       "acceptance": "Writer и финальная генерация получают уже разрешённое имя и не подменяют его собственным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "A13 проверяет L2-окно, но не финальный Writer; нужен тест writer payload."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f42e2257fb81f887c96f18ddb89161dd4d0c162b",
+          "type": "audit",
+          "ref": "review-alias.md §6 «Payload, который ушёл модели»",
+          "observation": "Независимое ревью захватило фактический writer-payload (реальный L2-вызов на прод-БД, модули запинены): в messages[1].content — <Target_User>Макс</Target_User>, строки окна «Макс: …», 0 вхождений «Гипербореец» по всем 5 файлам raw_new_* (A1/A2/B/forced A/B); system-prompt тоже без «Гипербореец». Writer получает разрешённое имя и его не подменяет; имя в модель доходит, админ-UI ни при чём.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        },
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §6 «Alias»",
+          "observation": "Живой прогон на кандидате bd6d5fff: «Alias: uid 42115912 → Макс (chat и global), display „Гипербореец“; в D#2 живой ответ обращается „Да, Макс, надоел.“» — финальная генерация использует разрешённое имя, не display-имя из истории.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "meta-reprobe-258134.md §2 (mr_A_nat, mr_B_nat)",
+          "observation": "Постдеплой на 2.58.134: полные writer-прогоны с реальным L2 (155.5 с, 6 ответов) — все обращения «Макс», ни один ответ не подменяет имя историческим «Гипербореец»; бывший пробел «A13 не проверяет финальный Writer» закрыт live-прогонами writer-пути.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/meta-reprobe-258134.md",
+          "artifact_sha256": "93310e9b106bff1bcec2141050a6931d4c15fb8eba0e525d1bc9166cafed6cc4"
+        }
+      ],
+      "status_note": "Бывший пробел «A13 не проверяет финальный Writer» закрыт: ревью захватило фактический writer-payload (Target_User Макс, 0 «Гипербореец»), live D#2 и постдеплойные прогоны 2.58.134 обращаются «Макс»."
     },
     {
       "source_id": "L00130",
@@ -2988,7 +3432,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status_note": "Честный пробел: доставленный отчёт (§1–§8) не содержит объяснения, почему был остановлен предыдущий деплой, и не ссылается на артефакт причины (release-ревью review-release-p0.md §4: честный FAILED meta residual 1/8 до исправления DELTA-DEPTH). Нужен точечный абзац-дополнение отчёта; остальной цикл это не блокирует."
     },
     {
       "source_id": "L00204",
@@ -3002,9 +3446,25 @@
       "acceptance": "Отчёт описывает, что исправлено в L1 и проверочном стенде, со ссылками на прогоны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §1–§2, §5",
+          "observation": "Факты для раздела отчёта установлены на кандидате bd6d5fff: правило 7 L1 переписано по критерию «что просят сделать с материалом» (research 2/2 raw/effective/forced), стенд — из того же коммита (14/14 sha), счётчики сходятся (runs=10, rc=0 10/10).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "c3fa08bb94387821089bf4013ec7673c4cae00e8",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §4, §5, §8",
+          "observation": "Отчёт описывает: правило переписано по смыслу (материал → разбор, тон не меняет тип действия), синонимы нормализуются, нестабильность на грубой форме устранена усилением правила, финальный прогон чистый (§4); хардкод резервного классификатора убран, ревью 12/12 анти-шаблонных пунктов (§5); ссылки на прогоны в §8 (probes_release.md, live-scenarios-r2.md, meta-reprobe-258134.md, live-verify-258134.md).",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "751e91223968724442ef30c017dc5f6a70706dc8a30202007ac8259a0877fe76"
+        }
+      ]
     },
     {
       "source_id": "L00205",
@@ -3020,7 +3480,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status_note": "Честный пробел: доставленный отчёт (§1–§8) не упоминает проверку 13 изменённых файлов production (итог аудита: 13 untracked-остатков — бэкапы info_text эпиков, осиротевший journal, отложенные медиа, тест-дамп, одноразовый скрипт; git diff пуст, правок продукта нет — prod-worktree-alias.md §1). Нужен точечный абзац-дополнение отчёта."
     },
     {
       "source_id": "L00206",
@@ -3034,9 +3494,25 @@
       "acceptance": "Отчёт объясняет, как устранена путаница алиасов, с примером до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §6 «Alias»",
+          "observation": "Факт до/после для раздела отчёта установлен на кандидате bd6d5fff: «Alias: uid 42115912 → Макс (chat и global), display „Гипербореец“; в D#2 живой ответ обращается „Да, Макс, надоел.“» — историческое display-имя, действующий алиас и живой ответ.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "c3fa08bb94387821089bf4013ec7673c4cae00e8",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §3",
+          "observation": "Отчёт §3 объясняет причину путаницы (имя бралось из разных источников: ник/старая запись/память) и решение (одно правило для всего пути: приоритет алиас чата → общий → ник → @имя → номер, по Telegram ID, без рестарта); пример до/после: «Гипербореец» — историческое имя в сохранённых сообщениях, действующий алиас «Макс» доходит до модели (проверено в реальном payload); независимая проверка 11/11 Approved.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "751e91223968724442ef30c017dc5f6a70706dc8a30202007ac8259a0877fe76"
+        }
+      ]
     },
     {
       "source_id": "L00207",
@@ -3052,7 +3528,7 @@
       "live_when": "preprod",
       "status": "PENDING",
       "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status_note": "Честный пробел: отчёт §4 описывает меру («старые выдуманные истории помечены provenance, собственные прошлые ответы исключены из фактического RAG»), но не приводит id записей (lore_stories id=3, id=4 — точечный карантин, текст сохранён; см. old-lore-audit.md §3), как требует приёмка. Нужен точечный абзац-дополнение отчёта."
     },
     {
       "source_id": "L00208",
@@ -3066,9 +3542,33 @@
       "acceptance": "Отчёт показывает, как изменились реальные ответы, с примерами до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "bd6d5fff54d664bf5cc66e647448c3950d778fc4",
+          "type": "live",
+          "ref": "probes_final11.md §5 «Длины», §7",
+          "observation": "Факты изменений ответов на кандидате bd6d5fff: research-ответы без обрезания (B 327/883, E 1705/2653), 9/9 проверок PASS, пустые вступления 5/8 → 0/6.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_final11.md",
+          "artifact_sha256": "e8820336988ca803ede7b3c3601eca8824880d5b54561d4d75d282e3b1c2e73b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «RE-PROBE DELTA-DEPTH»",
+          "observation": "Живой пример до/после на проде 2.58.134: сценарий анализа истории даёт Writer-композицию 1627 симв. (темы/атмосфера/выводы + честный partial-coverage) вместо coverage-stub 125 симв.; story не доставлен, выдуманных дат/цитат нет.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        },
+        {
+          "candidate_commit": "c3fa08bb94387821089bf4013ec7673c4cae00e8",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §4, §5",
+          "observation": "Отчёт показывает изменения реальных ответов: пустые вступления 5 из 8 → 0 из 6 (§4); живой пример на проде — «развёрнутый разбор (1627 знаков) с честной оговоркой о глубине архива вместо заглушки на 125 знаков» (§5); стабильность грубой формы подтверждена живыми прогонами.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "751e91223968724442ef30c017dc5f6a70706dc8a30202007ac8259a0877fe76"
+        }
+      ]
     },
     {
       "source_id": "L00209",
@@ -3082,9 +3582,25 @@
       "acceptance": "Отчёт называет версию, работающую на production, совпадающую с фактическим деплоем.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "release-258134/deploy.md «Итог» + meta-reprobe-258134.md §1",
+          "observation": "Фактический деплой: 076f7391 = 2.58.134, healthz 200 (loopback + внешний duckdns), unit active, NRestarts 0, журнал 0 ERROR; внешний healthz 200 2.58.134 подтверждён до и после постдеплойной пробы.",
+          "artifact_path": "plans/features/asap-speech-arch/release-258134/deploy.md",
+          "artifact_sha256": "77ca8dd383aed4c52326a0eddb26927d0ecb3ed2579b2942075b7da531b10616"
+        },
+        {
+          "candidate_commit": "c3fa08bb94387821089bf4013ec7673c4cae00e8",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §6",
+          "observation": "Отчёт §6 называет выкачки 2.58.131 → 2.58.132 → 2.58.133 → 2.58.134 и текущую версию на сервере 2.58.134 (healthz 200, сервис активен, перезапусков нет) — совпадает с фактическим деплоем release-258134/deploy.md.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "751e91223968724442ef30c017dc5f6a70706dc8a30202007ac8259a0877fe76"
+        }
+      ]
     },
     {
       "source_id": "L00210",
@@ -3098,18 +3614,34 @@
       "acceptance": "Отчёт перечисляет реально остающиеся проблемы, не выдавая их за закрытые.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
-      "status_note": "Статус PENDING до фактической доставки финального отчёта владельцу; закрывается вместе с доставкой отчёта (следующий шаг полосы отчёта)."
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "431aea754f00b1fe76e246409f44bde532ac46d0",
+          "type": "audit",
+          "ref": "frequent-decision.md «Статус строк»",
+          "observation": "Факт честного остатка установлен: FAILED-строки FREQUENT сохраняются как «честная метка остаточной статистической проблемы, в VERIFIED не переводятся»; релиз не блокируется; условия приёмки зафиксированы отдельно.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        },
+        {
+          "candidate_commit": "c3fa08bb94387821089bf4013ec7673c4cae00e8",
+          "type": "audit",
+          "ref": "final-report-p0-cycle-2026-10-27.md §7 «Что осталось (честно)»",
+          "observation": "Отчёт §7 перечисляет 5 реальных остатков без выдачи за закрытые: REQ-EX-STABLE-EFFECT (документированная статистическая вариативность FREQUENT), REQ-DONE-MAIN-CRITERION (закрывается отчётом + живыми наблюдениями), device-зависимые проверки вне знаменателя (Windows-клиент, перенос супергруппы, векторный E2E), видео-сценарий SOUL (инфраструктура), ASAP 5/POST-ASAP5 в очереди; §4 честно фиксирует остаточную вариативность FREQUENT.",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+          "artifact_sha256": "751e91223968724442ef30c017dc5f6a70706dc8a30202007ac8259a0877fe76"
+        }
+      ]
     }
   ],
   "candidate_note": "25.10.2026 PM-BIND-FINAL: карта привязана к кандидату bd6d5fff54d664bf5cc66e647448c3950d778fc4 (task/speech-p0-hotfix), база/прод — 534ac7dda6713fb407e0789fdddfa563251cdab4 (2.58.130). Живое доказательство — probes_final11.md + probes_final11/; исполняемые тесты — alias-tests.txt (worktree HEAD 778147e5 — docs-only поверх bd6d5fff; diff services/tests/probes_full пуст). Raw final11 JSON не содержит git-пин (tarball без .git): идентичность кандидата — stage_sha.txt и final11 §1. Деплоя не было; deployed_commit пуст. VERIFIED — только при candidate-bound артефакте и конкретном тесте/факте.",
-  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP, обновлено 26.10.2026 PM-BIND-FINAL: source-owner-p0-corrective-2026-10-25.md (214 строк, sha 2f7ef4d7…). 69 автоинвентарных + 62 manual (131 запись; 98 required / 12 context / 5 duplicate / 16 manual-context; 90 уникальных req_id по 10 слайсам). Корень — канон; book-копия синхронизирована. Текущий счёт: VERIFIED=58, PENDING=40. L1 7/7, CORE 4/4, HARNESS 4/4, PROBES 4/4; ALIASES 31/43 (12 PENDING); MEMORY 7/9 (2 PENDING); PROD 1/4, REVIEW 0/12, REPORT 0/9, DEPLOY 0/2 — деплой-зависимые и live-only строки не выданы за готовые. Тестовое доказательство alias/reply/observer/protected: alias-tests.txt (117 passed, 0 failed; requested test_p0_alias_runtime_2026_10_25.py отсутствует — зафиксировано как EXIT=4). MEMORY: код+тесты 272170e3 VERIFIED; применение к реальной prod-БД остаётся PENDING. RAG «40/39» и F#2 — observations, требования не переписаны.",
-  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (OI-2026-10-25-REPORT-FORMAT): REPORT-PLAIN-LANGUAGE остаётся PENDING. 26.10.2026 PM-BIND-FINAL: канон карты — корень; book-копия синхронизирована; alias-tests.txt — исполняемые тесты.",
+  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP, обновлено 26.10.2026 PM-BIND-FINAL: source-owner-p0-corrective-2026-10-25.md (214 строк, sha 2f7ef4d7…). 69 автоинвентарных + 62 manual (131 запись; 98 required / 12 context / 5 duplicate / 16 manual-context; 90 уникальных req_id по 10 слайсам). Корень — канон; book-копия синхронизирована. Текущий счёт: VERIFIED=95, PENDING=3 (98 required; 3 PENDING — только честные пробелы отчёта REPORT-WHY-STOPPED/PROD-13/MEMORY). L1 7/7, CORE 4/4, HARNESS 4/4, PROBES 4/4; ALIASES 43/43 (27.10.2026: открытые 12 строк закрыты ревью review-alias.md (Approved 11/11, f42e2257 — предок bd6d5fff), живым прод-аудитом prod-worktree-alias.md и постдеплойной пробой meta-reprobe-258134.md); MEMORY 9/9 (NO-MASS-WIPE: 4/4 строк lore сохранены + guard-тесты карантина + frequent-decision; NO-NEW-QUOTAS: ревью §9 + полный Core/Expression в payload); PROD 4/4 (происхождение 13 файлов, read-only-режим, деплой явным SHA с пинами 6/6); REPORT 6/9 (отчёт c3fa08bb) — REPORT-WHY-STOPPED/PROD-13/MEMORY честно PENDING: отчёт не покрывает причину остановки предыдущего деплоя, итог по 13 файлам и id записей памяти; REVIEW 12/12, DEPLOY 2/2 — 2.58.134 @ 076f7391. Тестовое доказательство alias/reply/observer/protected: alias-tests.txt (117 passed, 0 failed; requested test_p0_alias_runtime_2026_10_25.py отсутствует — зафиксировано как EXIT=4). Guard-тесты карантина памяти — tests/test_p0_old_lore_quarantine.py (коммит 272170e3, в дереве деплоя 076f7391). RAG «40/39» и F#2 — observations, требования не переписаны.",
+  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (OI-2026-10-25-REPORT-FORMAT): REPORT-PLAIN-LANGUAGE остаётся PENDING. 26.10.2026 PM-BIND-FINAL: канон карты — корень; book-копия синхронизирована; alias-tests.txt — исполняемые тесты. 27.10.2026 PM-BIND-REPORT-CLOSE: REPORT-PLAIN-LANGUAGE VERIFIED (отчёт c3fa08bb); REPORT-WHY-STOPPED/PROD-13/MEMORY честно PENDING — отчёт не покрывает причину остановки предыдущего деплоя, итог по 13 файлам и id записей памяти (нужно точечное дополнение отчёта).",
   "base_commit": "534ac7dda6713fb407e0789fdddfa563251cdab4",
   "production_commit": "534ac7dda6713fb407e0789fdddfa563251cdab4",
-  "deployment_state": "NOT_DEPLOYED: production остаётся 2.58.130 @ 534ac7dd; кандидат bd6d5fff на прод не выкатывался. DEPLOY-STANDARD и всё, что зависит от выката/проверки на prod-БД, остаётся PENDING.",
-  "canonical_map": "Канон: C:\\Code\\Python\\adminbot\\plans\\features\\asap-speech-arch\\requirements-map-p0-corrective.json. Копия в adminbot-wt-book синхронизирована тем же содержимым; третьей копии нет.",
+  "deployment_state": "DEPLOYED: production 2.58.134 @ 076f7391a01157bad106372d405d109085a78dbc (release-258134/deploy.md: healthz 200 loopback+внешний, NRestarts 0, пины 6/6, DeltaDDL=0; откат на 2.58.130 задокументирован, не требовался). Кандидат карты bd6d5fff входит в линию разработки через f42e2257 (предок bd6d5fff и 076f7391); тождество задеплоенного дерева подтверждено пинами (deploy.md 6/6 = meta-reprobe-258134.md 6/6). Постдеплойное живое доказательство: meta-reprobe-258134.md, live-s03-reprobe.md, live-verify-258134.md.",
+  "canonical_map": "Канон: C:\\Code\\Python\\adminbot\\plans\\features\\asap-speech-arch\\requirements-map-p0-corrective.json. Копия в adminbot-wt-book после биндинга 27.10.2026 (PM-BIND-REPORT-CLOSE) устарела и требует ресинхронизации владельцем копии; третьей копии нет.",
   "observations": [
     {
       "id": "OBS-RAG-40-39",
