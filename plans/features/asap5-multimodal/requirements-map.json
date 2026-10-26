@@ -1016,12 +1016,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1042,12 +1042,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1068,12 +1068,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1094,12 +1094,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1120,12 +1120,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1146,12 +1146,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1172,12 +1172,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1195,15 +1195,15 @@
       "dup_of": "services/mca_vision.py D18: кадры animation/video (комментарий у строки 98)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content",
-          "observation": "PARTIAL-честно: статические изображения — действующий Vision (без изменений); видео — анализ превью (кадр-обложка) с обязательной маркировкой «не полный просмотр» (VIDEO_PREVIEW_NOTE + asset_kind в tool-полезной нагрузке), честно различены уровни: превью / только описание / отсутствие содержимого (видео без превью — явная честная строка, не выдумка); видео с пригодным превью более не «полностью недоступно». НЕ реализовано (вне границ W1 — потребовало бы нового пайплайна): конвертация анимаций в визуальное представление (GIF/TGS/WebM — честный registered_unsupported, D18) и извлечение информативных кадров для понимания движения.",
+          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content + test_asap5_animation_preview_render_honesty",
+          "observation": "Статические изображения — действующий Vision (без изменений). Анимации — корректное визуальное представление для текущей модели: обложка (thumbnail) через существующий Vision-пайплайн с обязательной маркировкой ANIMATION_PREVIEW_NOTE «движение не анализируется»; исходные байты — честный unsupported-источник (D18), без обложки — строка «не применимо» сохранена. Видео — честно различены уровни: анализ превью (VIDEO_PREVIEW_NOTE «не полный просмотр») / только описание / отсутствие содержимого (видео без превью — явная честная строка); видео с превью более не «полностью недоступно», превью не выдаётся за полный просмотр. Условная клаузула §10 «если необходимо понимание движения — информативные кадры»: не реализовано и нигде не заявляется (требует ffmpeg-извлечения кадров = новый пайплайн, вне границ W1); обложка никогда не подаётся как анализ движения.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1221,15 +1221,15 @@
       "dup_of": "services/mca_vision.py D18: кадры animation/video (комментарий у строки 98)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content",
-          "observation": "PARTIAL-честно: статические изображения — действующий Vision (без изменений); видео — анализ превью (кадр-обложка) с обязательной маркировкой «не полный просмотр» (VIDEO_PREVIEW_NOTE + asset_kind в tool-полезной нагрузке), честно различены уровни: превью / только описание / отсутствие содержимого (видео без превью — явная честная строка, не выдумка); видео с пригодным превью более не «полностью недоступно». НЕ реализовано (вне границ W1 — потребовало бы нового пайплайна): конвертация анимаций в визуальное представление (GIF/TGS/WebM — честный registered_unsupported, D18) и извлечение информативных кадров для понимания движения.",
+          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content + test_asap5_animation_preview_render_honesty",
+          "observation": "Статические изображения — действующий Vision (без изменений). Анимации — корректное визуальное представление для текущей модели: обложка (thumbnail) через существующий Vision-пайплайн с обязательной маркировкой ANIMATION_PREVIEW_NOTE «движение не анализируется»; исходные байты — честный unsupported-источник (D18), без обложки — строка «не применимо» сохранена. Видео — честно различены уровни: анализ превью (VIDEO_PREVIEW_NOTE «не полный просмотр») / только описание / отсутствие содержимого (видео без превью — явная честная строка); видео с превью более не «полностью недоступно», превью не выдаётся за полный просмотр. Условная клаузула §10 «если необходимо понимание движения — информативные кадры»: не реализовано и нигде не заявляется (требует ffmpeg-извлечения кадров = новый пайплайн, вне границ W1); обложка никогда не подаётся как анализ движения.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1247,15 +1247,15 @@
       "dup_of": "services/mca_vision.py D18: кадры animation/video (комментарий у строки 98)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content",
-          "observation": "PARTIAL-честно: статические изображения — действующий Vision (без изменений); видео — анализ превью (кадр-обложка) с обязательной маркировкой «не полный просмотр» (VIDEO_PREVIEW_NOTE + asset_kind в tool-полезной нагрузке), честно различены уровни: превью / только описание / отсутствие содержимого (видео без превью — явная честная строка, не выдумка); видео с пригодным превью более не «полностью недоступно». НЕ реализовано (вне границ W1 — потребовало бы нового пайплайна): конвертация анимаций в визуальное представление (GIF/TGS/WebM — честный registered_unsupported, D18) и извлечение информативных кадров для понимания движения.",
+          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content + test_asap5_animation_preview_render_honesty",
+          "observation": "Статические изображения — действующий Vision (без изменений). Анимации — корректное визуальное представление для текущей модели: обложка (thumbnail) через существующий Vision-пайплайн с обязательной маркировкой ANIMATION_PREVIEW_NOTE «движение не анализируется»; исходные байты — честный unsupported-источник (D18), без обложки — строка «не применимо» сохранена. Видео — честно различены уровни: анализ превью (VIDEO_PREVIEW_NOTE «не полный просмотр») / только описание / отсутствие содержимого (видео без превью — явная честная строка); видео с превью более не «полностью недоступно», превью не выдаётся за полный просмотр. Условная клаузула §10 «если необходимо понимание движения — информативные кадры»: не реализовано и нигде не заявляется (требует ffmpeg-извлечения кадров = новый пайплайн, вне границ W1); обложка никогда не подаётся как анализ движения.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1273,15 +1273,15 @@
       "dup_of": "services/mca_vision.py D18: кадры animation/video (комментарий у строки 98)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content",
-          "observation": "PARTIAL-честно: статические изображения — действующий Vision (без изменений); видео — анализ превью (кадр-обложка) с обязательной маркировкой «не полный просмотр» (VIDEO_PREVIEW_NOTE + asset_kind в tool-полезной нагрузке), честно различены уровни: превью / только описание / отсутствие содержимого (видео без превью — явная честная строка, не выдумка); видео с пригодным превью более не «полностью недоступно». НЕ реализовано (вне границ W1 — потребовало бы нового пайплайна): конвертация анимаций в визуальное представление (GIF/TGS/WebM — честный registered_unsupported, D18) и извлечение информативных кадров для понимания движения.",
+          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content + test_asap5_animation_preview_render_honesty",
+          "observation": "Статические изображения — действующий Vision (без изменений). Анимации — корректное визуальное представление для текущей модели: обложка (thumbnail) через существующий Vision-пайплайн с обязательной маркировкой ANIMATION_PREVIEW_NOTE «движение не анализируется»; исходные байты — честный unsupported-источник (D18), без обложки — строка «не применимо» сохранена. Видео — честно различены уровни: анализ превью (VIDEO_PREVIEW_NOTE «не полный просмотр») / только описание / отсутствие содержимого (видео без превью — явная честная строка); видео с превью более не «полностью недоступно», превью не выдаётся за полный просмотр. Условная клаузула §10 «если необходимо понимание движения — информативные кадры»: не реализовано и нигде не заявляется (требует ffmpeg-извлечения кадров = новый пайплайн, вне границ W1); обложка никогда не подаётся как анализ движения.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1299,15 +1299,15 @@
       "dup_of": "services/mca_vision.py D18: кадры animation/video (комментарий у строки 98)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content",
-          "observation": "PARTIAL-честно: статические изображения — действующий Vision (без изменений); видео — анализ превью (кадр-обложка) с обязательной маркировкой «не полный просмотр» (VIDEO_PREVIEW_NOTE + asset_kind в tool-полезной нагрузке), честно различены уровни: превью / только описание / отсутствие содержимого (видео без превью — явная честная строка, не выдумка); видео с пригодным превью более не «полностью недоступно». НЕ реализовано (вне границ W1 — потребовало бы нового пайплайна): конвертация анимаций в визуальное представление (GIF/TGS/WebM — честный registered_unsupported, D18) и извлечение информативных кадров для понимания движения.",
+          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content + test_asap5_animation_preview_render_honesty",
+          "observation": "Статические изображения — действующий Vision (без изменений). Анимации — корректное визуальное представление для текущей модели: обложка (thumbnail) через существующий Vision-пайплайн с обязательной маркировкой ANIMATION_PREVIEW_NOTE «движение не анализируется»; исходные байты — честный unsupported-источник (D18), без обложки — строка «не применимо» сохранена. Видео — честно различены уровни: анализ превью (VIDEO_PREVIEW_NOTE «не полный просмотр») / только описание / отсутствие содержимого (видео без превью — явная честная строка); видео с превью более не «полностью недоступно», превью не выдаётся за полный просмотр. Условная клаузула §10 «если необходимо понимание движения — информативные кадры»: не реализовано и нигде не заявляется (требует ffmpeg-извлечения кадров = новый пайплайн, вне границ W1); обложка никогда не подаётся как анализ движения.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1328,12 +1328,12 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
           "ref": "w1-media.md §4/§6; test_asap5_reply_targets_exact_media_not_neighbor + test_asap5_album_mixed_media_fields_preserved + test_asap5_video_preview_intake_job_render",
-          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео резолвится именно на этот актив (видео — его превью), GIF — честный unsupported без случайного соседнего файла; содержимое доступного медиа (вкл. превью видео) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает video_preview — шов на W2/ASAP5-VISION.",
+          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1354,12 +1354,12 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
           "ref": "w1-media.md §4/§6; test_asap5_reply_targets_exact_media_not_neighbor + test_asap5_album_mixed_media_fields_preserved + test_asap5_video_preview_intake_job_render",
-          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео резолвится именно на этот актив (видео — его превью), GIF — честный unsupported без случайного соседнего файла; содержимое доступного медиа (вкл. превью видео) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает video_preview — шов на W2/ASAP5-VISION.",
+          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1380,12 +1380,12 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
           "ref": "w1-media.md §4/§6; test_asap5_reply_targets_exact_media_not_neighbor + test_asap5_album_mixed_media_fields_preserved + test_asap5_video_preview_intake_job_render",
-          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео резолвится именно на этот актив (видео — его превью), GIF — честный unsupported без случайного соседнего файла; содержимое доступного медиа (вкл. превью видео) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает video_preview — шов на W2/ASAP5-VISION.",
+          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -1406,12 +1406,12 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
           "ref": "w1-media.md §4/§6; test_asap5_reply_targets_exact_media_not_neighbor + test_asap5_album_mixed_media_fields_preserved + test_asap5_video_preview_intake_job_render",
-          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео резолвится именно на этот актив (видео — его превью), GIF — честный unsupported без случайного соседнего файла; содержимое доступного медиа (вкл. превью видео) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает video_preview — шов на W2/ASAP5-VISION.",
+          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -4396,12 +4396,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video",
-          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); GIF/Animation/TGS/WebM — честный registered_unsupported (D18, сохранено); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ адаптерами в существующий mca_vision (asset_kind video_preview, file_id = кадр-обложка, не само видео). Новая система не создана, дублирования адаптеров нет. RED 18/18 на базовой линии, PASS 72 core.",
+          "ref": "w1-media.md §1/§5; tests/test_p0_vision_fix_core.py::test_asap5_capability_matrix (13 типов) + test_asap5_preview_candidate_binds_thumb_not_video + test_asap5_animation_preview_distinct_and_honest",
+          "observation": "Матрица фактической поддержки всех 10 типов §9 проверена на актуальном дереве (единый источник mca_vision.media_capability поверх extract_image_assets): фото/документы-изображения/статические стикеры — Vision (было); превью обычных видео и видеосообщений — ДОБАВЛЕНЫ (asset_kind video_preview); GIF/Animation/TGS/WebM — источник честно зарегистрирован (D18) + растровая обложка добавлена адаптером (animation_preview, Bot API ≥7.2, file_id = обложка, не носитель); медиа альбомов — тот же путь с media_group_id. Новая система не создана, дублирования адаптеров нет (общий хелпер _append_preview_candidate). RED 18/18 на базе + 4 на промежуточном кандидате, PASS 400/38 skipped.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -4554,15 +4554,15 @@
       "dup_of": "services/mca_vision.py D18: кадры animation/video (комментарий у строки 98)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
-          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content",
-          "observation": "PARTIAL-честно: статические изображения — действующий Vision (без изменений); видео — анализ превью (кадр-обложка) с обязательной маркировкой «не полный просмотр» (VIDEO_PREVIEW_NOTE + asset_kind в tool-полезной нагрузке), честно различены уровни: превью / только описание / отсутствие содержимого (видео без превью — явная честная строка, не выдумка); видео с пригодным превью более не «полностью недоступно». НЕ реализовано (вне границ W1 — потребовало бы нового пайплайна): конвертация анимаций в визуальное представление (GIF/TGS/WebM — честный registered_unsupported, D18) и извлечение информативных кадров для понимания движения.",
+          "ref": "w1-media.md §3/§6; test_asap5_video_preview_intake_job_render + test_asap5_video_without_thumb_honest_no_content + test_asap5_animation_preview_render_honesty",
+          "observation": "Статические изображения — действующий Vision (без изменений). Анимации — корректное визуальное представление для текущей модели: обложка (thumbnail) через существующий Vision-пайплайн с обязательной маркировкой ANIMATION_PREVIEW_NOTE «движение не анализируется»; исходные байты — честный unsupported-источник (D18), без обложки — строка «не применимо» сохранена. Видео — честно различены уровни: анализ превью (VIDEO_PREVIEW_NOTE «не полный просмотр») / только описание / отсутствие содержимого (видео без превью — явная честная строка); видео с превью более не «полностью недоступно», превью не выдаётся за полный просмотр. Условная клаузула §10 «если необходимо понимание движения — информативные кадры»: не реализовано и нигде не заявляется (требует ffmpeg-извлечения кадров = новый пайплайн, вне границ W1); обложка никогда не подаётся как анализ движения.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
@@ -4658,12 +4658,12 @@
       "status": "PENDING",
       "evidence": [
         {
-          "candidate_commit": "96b8b443806142fd9a7b56689d7b5bd6e9f84110",
+          "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
           "type": "test",
           "ref": "w1-media.md §4/§6; test_asap5_reply_targets_exact_media_not_neighbor + test_asap5_album_mixed_media_fields_preserved + test_asap5_video_preview_intake_job_render",
-          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео резолвится именно на этот актив (видео — его превью), GIF — честный unsupported без случайного соседнего файла; содержимое доступного медиа (вкл. превью видео) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает video_preview — шов на W2/ASAP5-VISION.",
+          "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
-          "artifact_sha256": "397791724301cf746a8d133339156d5a8f81d75b6c9a366ddb88d11cebc89e8e"
+          "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
         }
       ]
     },
