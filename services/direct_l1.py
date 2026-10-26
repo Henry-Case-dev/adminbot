@@ -1112,15 +1112,47 @@ def analysis_directive_needed(plan, response_mode: str = "",
         return False
 
 
+def delta_instruction_needed(plan) -> bool:
+    """DELTA-DEPTH (26.10.2026, §11 source-2026-10-26.md): едет ли готовая
+    инструкция Analysis/Writer в plan-блоке L2.
+
+    Инструкция §11 - про ответ из разговора/истории/памяти, поэтому она
+    нужна на research-ответах (``response_act``/``task_kind``) и на всём
+    deep_research (rich/report): режимный блок дельта-текст НЕ несёт,
+    единственный носитель - план, дубля нет по построению. Casual/answer
+    остаётся без инструкции - payload не раздувается («ориентир, не новый
+    слой»). Принимает ``L1Plan`` или ``ResponsePlan``. Никогда не бросает.
+    """
+    try:
+        if plan is None:
+            return False
+        act = str(getattr(plan, "response_act", "") or "")
+        kind = str(getattr(plan, "task_kind", "") or "")
+        if act == "research" or kind == "research":
+            return True
+        return plan_response_mode(plan) == "deep_research"
+    except Exception:      # pragma: no cover - защитная ветка
+        return False
+
+
 def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                         clarification: bool = False,
                         low_confidence: bool = False,
                         include_delivery: bool = False,
                         include_analysis: bool = False,
+                        include_delta: bool = False,
                         modes_on: bool = True) -> str:
     """Hint-блок плана для L2 Writer (system/user данные, БЕЗ механического
     штампа: §2.4 ТЗ — L2 видит plan как hint-строку). Языковая дисциплина
     D11: без «коротко»/«по делу». Никогда не бросает.
+
+    DELTA-DEPTH (26.10.2026, §11 source-2026-10-26.md): ``include_delta``
+    добавляет в план дословную инструкцию владельца
+    (``DELTA_READY_INSTRUCTION_TEXT``) и требование выводов по существу
+    (``DELTA_SUBSTANCE_TEXT``); выставляет вызывающий по
+    ``delta_instruction_needed`` (research/deep_research; casual/answer —
+    без неё). Носитель один — план: режимный блок дельта-текст не содержит,
+    поэтому «ровно один раз» держится без координации носителей.
 
     L1D (22.10.2026, директива §2): ``include_delivery=True`` (инициативный
     Writer) доводит до Writer ВЫБРАННУЮ L1 форму участия — прямой ответ на
@@ -1206,6 +1238,21 @@ def build_l2_plan_block(plan: L1Plan | None, *, rejected=(),
                 lines.append(f"как разбирать: {_directive}")
             if _writer:
                 lines.append(f"как подать разбор: {_writer}")
+        # ── DELTA-DEPTH (26.10.2026, §11 source-2026-10-26.md): готовая
+        # инструкция владельца ДОСЛОВНО (строки 129-134) плюс требование
+        # выводов по существу вместо отчёта о покрытии (дефект S03, M00026).
+        # Едет РОВНО один раз: единственный носитель - этот план-блок
+        # (режимный блок дельта-текст не содержит). Без структур, схем,
+        # примеров и чисел; NO_META (запрет анонсов) не дублируется.
+        if include_delta:
+            _delta = str(getattr(_psb, "DELTA_READY_INSTRUCTION_TEXT", "")
+                         or "").strip()
+            _delta_sub = str(getattr(_psb, "DELTA_SUBSTANCE_TEXT", "")
+                             or "").strip()
+            if _delta:
+                lines.append(f"как отвечать: {_delta}")
+            if _delta_sub:
+                lines.append(f"по существу: {_delta_sub}")
         # ── WRITER-NO-META-FINAL (25.10.2026): запрет мета-вступлений едет в
         # payload РОВНО один раз. deep_research с непустым extent-блоком
         # теряет режимный блок (SPEECH-P0-DEEP-PAYLOAD) — тогда директиву

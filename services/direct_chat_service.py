@@ -3835,6 +3835,10 @@ class DirectChatService:
                             modes_on=bool(getattr(
                                 settings, "SMART_VERBALIZER_MODES_ENABLED",
                                 True))),
+                        # DELTA-DEPTH (26.10.2026, §11): дословная инструкция
+                        # владельца + выводы по существу — на research/deep
+                        # ответах; casual/answer остаётся без неё.
+                        include_delta=_l1.delta_instruction_needed(l1_plan),
                         modes_on=bool(getattr(
                             settings, "SMART_VERBALIZER_MODES_ENABLED",
                             True)))
@@ -9311,6 +9315,10 @@ class DirectChatService:
                     plan,
                     modes_on=bool(getattr(
                         settings, "SMART_VERBALIZER_MODES_ENABLED", True))),
+                # DELTA-DEPTH (26.10.2026, §11): тот же предикат, что у
+                # основного пути — research/deep-инициатива получает
+                # инструкцию, casual-инициатива остаётся лёгкой.
+                include_delta=_l1.delta_instruction_needed(plan),
                 modes_on=bool(getattr(
                     settings, "SMART_VERBALIZER_MODES_ENABLED", True))) \
                 if getattr(plan, "source", "") != "fallback" else ""
