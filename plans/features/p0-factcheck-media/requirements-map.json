@@ -3,7 +3,7 @@
   "source_path": "plans/features/p0-factcheck-media/source-2026-10-25.md",
   "source_sha256": "f0f71ac03247f727f7ec5acb771a6b95aa7332f43a79eea64b4f70946741485a",
   "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
-  "deployed_commit": "",
+  "deployed_commit": "fa74ecf8e1ee69a59483a34cef3de3702be5d7a4",
   "strict_evidence": true,
   "slice_graph_path": "",
   "evidence_convention": "Каждая required-строка получает candidate-bound evidence: ref (пояснение), observation (наблюдаемый факт), type (test|audit|live|ui|provider|production) и artifact_path — реальный repo-relative файл; для финальных стабильных отчётов добавляется artifact_sha256. Вымышленные/пустые пути не допускаются.",
@@ -2944,7 +2944,7 @@
       "acceptance": "В админке «Модули → Фактчек» (группа flags_module_factcheck, вкладка mod_factcheck) виден переключатель широкого контекста с описанием «по умолчанию включён» и окном 200–500 (дефолт 300).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
@@ -2953,6 +2953,14 @@
           "observation": "postdeploy-only: тумблер «Модули → Фактчек» проверен структурно (каталог/TSV/тест, описание 200–500/300), но видимость переключателя в работающей админке подтверждается только после выката (веб требует БД/сессии, playwright отсутствовал).",
           "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
           "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "fa74ecf8e1ee69a59483a34cef3de3702be5d7a4",
+          "type": "production",
+          "ref": "deploy.md §Деплой (прод) + §Post-deploy проверки",
+          "artifact_path": "plans/features/asap-speech-arch/release-258131/deploy.md",
+          "artifact_sha256": "b260ef5f14e3db3b84d2107701902e6ffa82a9bcd8e6e609300ab20524474c05",
+          "observation": "Тумблер подтверждён по деплой-байтам fa74ecf8: спек flags.factcheck_wide_context присутствует в REGISTRY прод-каталога (grep=1 на сервере по services/param_catalog.py), группа flags_module_factcheck, не hidden -> ключ отдаётся /api/config/params-meta; текст тумблера с «по умолчанию включён» и описанием 200-500 закреплён тестом test_catalog_spec_visible_in_modules_factcheck (свежий прогон на deployed-байтах: 64 passed). Прямой HTTP-рендер TMA из CLI недоступен (auth initData); ручная device-приёмка — owner_optional (waived); playwright-приёмка витрины — preprod review R2. Details: plans/features/asap-speech-arch/release-258131/deploy.md."
         }
       ],
       "owner_input_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
@@ -4315,7 +4323,7 @@
       "acceptance": "После деплоя проверены версия, healthcheck, ошибки запуска, применение настроек, работа исправленных компонентов, отсутствие регрессий, сохранность данных/конфигурации/fallback.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
@@ -4332,6 +4340,14 @@
           "observation": "Готовый пост-деплойный чек-лист из 5 пунктов: wide_context после миграции, кейс PERMsoc по подписи, отсутствие тихой обрезки на реальных альбомах, приватность логов, тумблер в админке.",
           "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
           "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "fa74ecf8e1ee69a59483a34cef3de3702be5d7a4",
+          "type": "production",
+          "ref": "deploy.md §Деплой (прод) + §Post-deploy проверки",
+          "artifact_path": "plans/features/asap-speech-arch/release-258131/deploy.md",
+          "artifact_sha256": "b260ef5f14e3db3b84d2107701902e6ffa82a9bcd8e6e609300ab20524474c05",
+          "observation": "postdeploy закрыт фактическим деплоем fa74ecf8 (2.58.131): версия и healthcheck — healthz 200 2.58.131 (loopback + внешний), ошибок журнала нет (0 ERROR/CRITICAL/Traceback за два среза), NRestarts 0; миграции старта применились штатно (канон L1 обновлён с сохранением 10 owner-кастомов и авторских байт core; wide-context false->true одноразово с маркером; protected_facts.subject_ref_id аддитивно; lore self-echo quarantine id=3/id=4 точечно, без массовых удалений); откат задокументирован (checkout 534ac7dd + restart), rollback не потребовался; details: plans/features/asap-speech-arch/release-258131/deploy.md."
         }
       ]
     },
@@ -4367,5 +4383,6 @@
     }
   ],
   "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (входящие OI-2026-10-25-FC-WHOLE-POST, OI-2026-10-25-FC-CONTEXT-WINDOW, OI-2026-10-25-FC-WIDE-DEFAULT). Добавлено 14 manual-строк; ни одна существующая строка не изменена (статусы/evidence сохранены, source_path/source_sha256 снимка не тронуты). FC-WHOLE-01..04 — source-owner-clarification-2026-10-25.md: ответ на фото альбома = только точка входа, текст публикации независимо от целевого элемента, равный охват для текста/первого/среднего/последнего фото, одиночное фото вне альбома проверяется отдельно. FC-CTX-01..05 — source-owner-clarification-2-2026-10-25.md: проверка соседних сообщений, reply-цепочки и окна 200–300 до отказа, честный отказ с описанием проверенного, изоляция по chat_id. FC-WIDE-01..05 — owner-decision-wide-context-2026-10-25.md: широкий контекст включён по умолчанию, тумблер в «Модули → Фактчек», идемпотентная миграция false→true, сохранение ручного выключения, фактическое использование режима. Якоря: один source_id = одна пара source_line/source_text_sha256 (правило гейта), поэтому все строки одного входящего сообщения указывают на его ядро в авторитетном снимке (WHOLE→L54, CTX→L108, WIDE→L158); точная строка входящего сообщения, дословная цитата и её sha256 — в owner_input_path/owner_input_line/owner_input_quote/owner_input_text_sha256, ближайшая норма снимка для каждого обязательства — в snapshot_hint. Обязательства уточнений, уже владеемые существующими строками, новых id не получили: все фото и подписи публикации — FC-ALBUM-04, связь текста с изображениями — FC-ALBUM-05, недоступная часть элементов — FC-ALBUM-09, запрет объединять соседние сообщения вне группы — FC-ALBUM-08, «пусто» только после проверки всех источников входа — FC-EMPTY-02. Все новые строки PENDING, verification_tier=engineering, live_required=false.",
-  "candidate_note": "26.10.2026 PM-BIND-RELEASE: candidate_commit привязан к релизному кандидату 86ef2a64d1a8… (включает factcheck-media 266b0e6b; smoke на кандидате — 53 passed в probes_release.md §1). VERIFIED проставлены только по независимому ревью R2 (6 блокеров закрыты, 15 кейсов PASS, уточнения №1–№3) и prod-recon.md (воспроизведение PERMsoc по прод-логам, без отправок). Пост-деплойные строки — READY_FOR_LIVE с пометкой postdeploy-only: FC-RELEASE-04 (версия/healthcheck), FC-REPORT-06 (версия в отчёте), FC-WIDE-02 (UI-тумблер в живой админке). Release/отчётные строки FC-RELEASE-01/02/03/05, FC-QUEUE-*, FC-REPORT-01..05/07..15 остаются PENDING до фактического выката и финального отчёта. slice-graph для этой карты не заведён (deferred): правки одной фичи, карта уже проверена гейтом без графа."
-}
+  "candidate_note": "26.10.2026 PM-BIND-RELEASE: candidate_commit привязан к релизному кандидату 86ef2a64d1a8… (включает factcheck-media 266b0e6b; smoke на кандидате — 53 passed в probes_release.md §1). VERIFIED проставлены только по независимому ревью R2 (6 блокеров закрыты, 15 кейсов PASS, уточнения №1–№3) и prod-recon.md (воспроизведение PERMsoc по прод-логам, без отправок). Пост-деплойные строки — READY_FOR_LIVE с пометкой postdeploy-only: FC-RELEASE-04 (версия/healthcheck), FC-REPORT-06 (версия в отчёте), FC-WIDE-02 (UI-тумблер в живой админке). Release/отчётные строки FC-RELEASE-01/02/03/05, FC-QUEUE-*, FC-REPORT-01..05/07..15 остаются PENDING до фактического выката и финального отчёта. slice-graph для этой карты не заведён (deferred): правки одной фичи, карта уже проверена гейтом без графа. | 26.10.2026 DEPLOY-258131 (DevOps): deployed_commit fa74ecf8 = candidate 86ef2a64 + docs-binding c358f202/405f7f70 + release-bump chore fa74ecf8 (version pins/README/F8-meta/W7-artifact only; services/config/tests code идентичен кандидату, requirements-дельта пуста, deltaDDL=0). Postdeploy VERIFIED с deployed-привязкой: plans/features/asap-speech-arch/release-258131/deploy.md (plans/features/asap-speech-arch/release-258131/deploy.md). Прод: 2.58.131, healthz 200 loopback+внешний, NRestarts 0, журнал 0 ERROR/Traceback; миграции старта применились (L1-канон R3->2.58.131 с сохранением owner-кастомов, wide-context false->true одноразово, protected_facts.subject_ref_id аддитивно, lore self-echo quarantine id=3/id=4 точечно, без массовых удалений).",
+  "map_note": "26.10.2026 DEPLOY-258131 (DevOps): deployed_commit fa74ecf8 = candidate 86ef2a64 + docs-binding c358f202/405f7f70 + release-bump chore fa74ecf8 (version pins/README/F8-meta/W7-artifact only; services/config/tests code идентичен кандидату, requirements-дельта пуста, deltaDDL=0). Postdeploy VERIFIED с deployed-привязкой: plans/features/asap-speech-arch/release-258131/deploy.md (plans/features/asap-speech-arch/release-258131/deploy.md). Прод: 2.58.131, healthz 200 loopback+внешний, NRestarts 0, журнал 0 ERROR/Traceback; миграции старта применились (L1-канон R3->2.58.131 с сохранением owner-кастомов, wide-context false->true одноразово, protected_facts.subject_ref_id аддитивно, lore self-echo quarantine id=3/id=4 точечно, без массовых удалений)."
+}
