@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-factcheck-media/source-2026-10-25.md",
   "source_sha256": "f0f71ac03247f727f7ec5acb771a6b95aa7332f43a79eea64b4f70946741485a",
-  "candidate_commit": "",
+  "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "",
@@ -50,8 +50,17 @@
       "acceptance": "plans/current_task.md остаётся пользовательским и не изменён побайтово; требование хранится отдельным source-снимком.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md: граница ревью",
+          "observation": "plans/current_task.md не редактировался ни одной полосой (в ревью-worktree файл отсутствует как пользовательский); требование хранится отдельным source-снимком plans/features/p0-factcheck-media/source-2026-10-25.md.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00009-QUEUE-DELTA",
@@ -80,8 +89,17 @@
       "acceptance": "Сценарий PERMsoc восстановлен: ответ «Фактчек» на фотографию из пересланной публикации с несколькими изображениями и длинным текстом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §2–§3",
+          "observation": "Сценарий PERMsoc восстановлен по production-логам и БД: пересланный альбом 10 фото (media_group_id=14343246299290082) с подписью 2846 симв. на первом элементе, reply «Фактчек» на 9-й элемент 1175411.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00030-EMPTY-ANSWER",
@@ -95,8 +113,17 @@
       "acceptance": "Фактический ответ бота «и че тут проверять, пустоту?» зафиксирован с привязкой к инциденту.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §2/§5",
+          "observation": "Фактический ответ «и че тут проверять, пустоту?» зафиксирован и привязан к инциденту: пул 5.3 FACTCHECK_EMPTY_CONTEXT_PHRASES; ветка доказана логом + отсутствием run-строки (ID ответа честно не выдуман — ledger не пишется).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00032-WRONG-ANSWER",
@@ -110,8 +137,17 @@
       "acceptance": "Доказано, что ответ неверен: в публикации есть проверяемые утверждения, изображения — значимый материал.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §3/§4/§6",
+          "observation": "Доказано, что ответ неверен: подпись 2846 симв. уже лежала в smart_messages (id=2363791), у цели было готовое визуальное описание (268 симв.), 5/10 анализов готовы — проверяемый материал был, обработчик его не читал.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00033-LOSS-POINT",
@@ -125,8 +161,17 @@
       "acceptance": "Точка потери данных установлена по факту: названа конкретная стадия из update, сохранения альбома, reply, сборки контекста, маршрутизации или payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: точка потери",
+          "observation": "Точка потери названа конкретно: in-memory буфер TTL 60 с против дельты 84.1 с → get_media_group_caption вернул None → ранний return 5.3 до БД/альбома/vision (лог + отсутствие run-записи).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00035-CAPTION-HYPOTHESIS",
@@ -140,8 +185,17 @@
       "acceptance": "Гипотеза «нет caption» не принята без исследования исполнения; причина подтверждена трассировкой, а не предположением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: гипотеза опровергнута",
+          "observation": "Гипотеза «отсутствие caption» отвергнута трассировкой исполнения: подпись была сохранена до вызова (строка id=2363791, 2846 симв.), обработчик её не читал — причина подтверждена логами и кодом 534ac7dd, а не предположением.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00036-SINGLE-NOCAP",
@@ -155,8 +209,17 @@
       "acceptance": "Отдельно проверен случай одиночного изображения без подписи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Случай одиночного изображения без подписи проверен отдельно: OCR-материал становится тезисом, «пустота» не выдаётся (test_photo_without_caption_uses_ocr_not_empty, пересланная одиночная — §9 кейс 10).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00040-FULL-PATH",
@@ -170,8 +233,17 @@
       "acceptance": "Аудит прошёл все стадии: update → media/reply resolver → хранилище → восстановление медиагруппы → OCR/Vision → контекст Fact-check → payload провайдера → модель → ответ, с входными данными каждой стадии.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "factcheck-media.md §1: таблица сквозного пути",
+          "observation": "Аудит прошёл все стадии с входными данными каждой: update → reply → storage (smart_messages, все элементы с media_group_id) → реконструкция медиагруппы (буфер TTL vs durable) → OCR/Vision → контекст фактчека → payload → модель → ответ; указано, что именно терялось на каждой стадии.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00043-IDS",
@@ -185,8 +257,17 @@
       "acceptance": "Проверены message_id, reply_to_message и media_group_id на фактических данных инцидента.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §3: идентификаторы инцидента",
+          "observation": "message_id, reply_to_message/reply_to_id и media_group_id проверены на фактических данных: 10 строк smart_messages одного media_group_id, reply цели пуст, вызов 1175414 → reply_to_id=1175411.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00044-STORAGE",
@@ -200,8 +281,17 @@
       "acceptance": "Проверено сохранение альбомов и отдельных элементов, включая text, caption и caption_entities.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §3: сохранение альбомов",
+          "observation": "Альбомы сохраняются по элементам: каждая строка с media_type/media_group_id, подпись — как text первого элемента; caption_entities не хранятся (колонок нет) — зафиксировано как факт хранилища.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00044-FORWARDS",
@@ -215,8 +305,17 @@
       "acceptance": "Проверены подписи пересланных публикаций и их сохранение до вызова Fact-check.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §3–§4",
+          "observation": "Подписи пересланных публикаций сохраняются до вызова Fact-check: подпись 2846 симв. лежала в smart_messages на момент вызова; потеря была в чтении (буфер TTL), не в сохранении.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00045-FILES",
@@ -230,8 +329,17 @@
       "acceptance": "Проверена доступность исходных файлов изображений на момент вызова.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §6: доступность файлов",
+          "observation": "Доступность исходных файлов на момент вызова проверена: 10/10 активов в mca_media_assets; анализы 5 ready / 5 failed (parse_error/vision_failed) — состояние на инцидент зафиксировано.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00046-VISION-PASS",
@@ -245,8 +353,17 @@
       "acceptance": "Проверена передача изображений в существующие Vision/OCR.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §6 + factcheck-media.md §1",
+          "observation": "Передача изображений в существующие Vision/OCR проверена: анализы элементов существуют (интек-контур), новый путь load_claim_media читает сохранённые OCR/описания всех элементов публикации; Vision на инциденте не вызывался из-за раннего выхода — это устранено (пусто в цели → обязательные окно/цепочка/медиа до отказа).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00046-TYPE-EMPTY",
@@ -260,8 +377,17 @@
       "acceptance": "Проверено определение типа контента при вызове «Фактчек» и проверки пустого текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4a + factcheck-media.md §3a",
+          "observation": "Определение типа контента при вызове и проверки пустого текста трассированы поэтапно (таблица §4a): фраза 5.3 выдавалась до поиска/vision; теперь различаются пусто/изображение не прочитано/распознавание не готово/нет утверждения.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00047-PAYLOADS",
@@ -275,8 +401,25 @@
       "acceptance": "Проверены реальные payload к LLM: наличие изображений, подписи и извлечённого текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS",
+          "observation": "Реальные payload к LLM проверены: тезис (текст/подписи/OCR/описания всей публикации), контекст и оговорки на входе check_claim; envelope-тесты доносят собранный текст до claim_text.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestTemporalEnvelopeUsesPublication",
+          "observation": "Собранный текст публикации доходит до envelope.claim_text на реальной БД; unit-тесты проверяют вход пайплайна, а не только финальную фразу.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00047-ERRORS",
@@ -290,8 +433,17 @@
       "acceptance": "Проверены ошибки и fallback на всём пути, включая недоступность медиа и Vision-провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS (кейсы 12–13)",
+          "observation": "Ошибки и fallback на всём пути проверены: ошибка получения медиафайла → честная техническая ошибка; недоступность Vision-провайдера → проверка по подписи + честная оговорка; без выдуманных выводов.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00049-RECEIVED",
@@ -305,8 +457,17 @@
       "acceptance": "Установлено, получил ли Fact-check исходную фотографию, полный альбом, подпись и извлечённый из изображений текст; анализ промптов сам по себе не принят.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 + probe",
+          "observation": "Установлено по входам, а не по промптам: check_claim получает материал всей публикации (10/10 фото, подпись с любого элемента, текст поста отдельным сообщением, OCR-блоки); анализ промптов сам по себе не принимался — независимые probe-сценарии на входах.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00054-WHOLE-PUBLICATION",
@@ -320,8 +481,25 @@
       "acceptance": "Ответ на элемент альбома восстанавливает публикацию целиком, а не только выбранное сообщение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00065-ONE-CAPTION",
@@ -335,8 +513,25 @@
       "acceptance": "Caption, присутствующая только у одного элемента, не теряется и связывается с публикацией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00065-STANDALONE",
@@ -350,8 +545,25 @@
       "acceptance": "Reply на самостоятельную фотографию обрабатывает именно её.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00066-NO-SECOND-STORE",
@@ -365,8 +577,25 @@
       "acceptance": "Вторая система хранения медиагрупп не создана; исправлена существующая.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00071-ORDINARY",
@@ -380,8 +609,25 @@
       "acceptance": "Ответ на обычную фотографию обрабатывает изображение и возвращает проверку утверждений, а не сообщение о пустоте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00071-SCREENSHOT",
@@ -395,8 +641,25 @@
       "acceptance": "Ответ на скриншот извлекает текст через OCR и проверяет содержащееся утверждение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00072-MEME",
@@ -410,8 +673,25 @@
       "acceptance": "Ответ на мем извлекает проверяемое утверждение из изображения или подписи и проверяет его.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00072-WITH-CAPTION",
@@ -425,8 +705,25 @@
       "acceptance": "Ответ на изображение с подписью использует и подпись, и содержимое изображения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00072-WITHOUT-CAPTION",
@@ -440,8 +737,25 @@
       "acceptance": "Ответ на изображение без подписи обрабатывает изображение, а не трактует вход как пустой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00072-FORWARDED",
@@ -455,8 +769,25 @@
       "acceptance": "Ответ на пересланную фотографию обрабатывает её содержимое и подпись пересланной публикации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00073-MULTI-BLOCK",
@@ -470,8 +801,25 @@
       "acceptance": "Ответ на картинку с несколькими текстовыми блоками извлекает и учитывает все значимые блоки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00075-NOT-EMPTY",
@@ -485,8 +833,25 @@
       "acceptance": "Отсутствие обычного текста не трактуется как отсутствие содержимого.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00076-OCR-VISION",
@@ -500,8 +865,25 @@
       "acceptance": "Визуальное содержимое обрабатывается существующими средствами: OCR извлекает текст, Vision понимает содержание и связь с утверждением.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00077-NOT-OCR-ONLY",
@@ -515,8 +897,25 @@
       "acceptance": "Решение не опирается только на OCR.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00078-NO-PROOF",
@@ -530,8 +929,25 @@
       "acceptance": "Описание изображения не выдаётся за доказательство подлинности, даты или места.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00078-EXPLAIN-LIMIT",
@@ -545,8 +961,25 @@
       "acceptance": "Если проверка невозможна, ответ называет, что именно неустановимо и какие данные нужны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00079-NO-INVENT",
@@ -560,8 +993,25 @@
       "acceptance": "Результаты проверки не выдумываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §4 PASS",
+          "observation": "Одиночные изображения (§4) подтверждены: обычное фото, скриншот (OCR), мем, с подписью и без, пересланное, несколько текстовых блоков; отсутствие текста ≠ отсутствие содержимого; описание изображения не доказательство подлинности; результаты не выдумываются.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestSingleImage и др.",
+          "observation": "Тесты на вход: подпись+OCR в тезисе, OCR без подписи, все блоки скриншота, честные фразы для нет-утверждения/pending.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "M00083-REUSE",
@@ -575,8 +1025,17 @@
       "acceptance": "Использованы существующие Vision routing, OCR, инструменты анализа вложений и обработка фото Direct Chat.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00084-PROVIDER-RETRY",
@@ -590,8 +1049,17 @@
       "acceptance": "Маршрутизация провайдеров и retry/fallback сохранены и используются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00085-NO-NEW-PIPELINE",
@@ -605,8 +1073,17 @@
       "acceptance": "Отдельная модель, сервис или pipeline не введены без технической необходимости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00086-ROUTE-FALLBACK",
@@ -620,8 +1097,17 @@
       "acceptance": "Модель без поддержки изображений уходит на существующий совместимый маршрут/fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00087-HONEST-ERROR",
@@ -635,8 +1121,17 @@
       "acceptance": "Недоступное изображение даёт честную техническую ошибку, а не «проверять нечего».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00087-NO-EXTRA-LLM",
@@ -650,8 +1145,17 @@
       "acceptance": "Лишние LLM-вызовы не добавлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00100-ALBUM-ONE-CLAIM",
@@ -665,8 +1169,17 @@
       "acceptance": "Для альбома не запускается отдельный фактчек каждой фотографии при общем утверждении, но ни одно значимое изображение не игнорируется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00101-CONTRADICTION",
@@ -680,8 +1193,17 @@
       "acceptance": "Противоречие между изображениями и подписью учтено в ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00102-NO-INVENTED-SOURCES",
@@ -695,8 +1217,17 @@
       "acceptance": "Первоисточники, результаты обратного поиска и «просмотренные сайты» не выдумываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00107-EARLY-EXIT",
@@ -710,8 +1241,25 @@
       "acceptance": "Найдены проверки, завершающие фактчек при пустом text/caption раньше определения наличия медиа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00108-EMPTY-AFTER-ALL",
@@ -725,8 +1273,25 @@
       "acceptance": "«Пусто» фиксируется только после проверки всех источников входа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00109-STATE-IMAGE",
@@ -740,8 +1305,25 @@
       "acceptance": "Различён случай «нет текста, но есть изображение».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00109-STATE-MEDIA-GROUP",
@@ -755,8 +1337,25 @@
       "acceptance": "Различён случай «нет текста, но есть медиагруппа».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00110-STATE-UNAVAILABLE",
@@ -770,8 +1369,25 @@
       "acceptance": "Различён случай технической недоступности изображения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00110-STATE-OCR-NONE",
@@ -785,8 +1401,25 @@
       "acceptance": "Различён случай «OCR не нашёл текста».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00111-STATE-NO-CLAIM",
@@ -800,8 +1433,25 @@
       "acceptance": "Различён случай «изображение есть, проверяемого утверждения нет».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00111-STATE-NO-DATA",
@@ -815,8 +1465,25 @@
       "acceptance": "Различён случай «данных действительно нет».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00112-NO-NEW-CLASSIFIER",
@@ -830,8 +1497,25 @@
       "acceptance": "Новый классификатор не создан: используются фактическое состояние входа и существующие инструменты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §7 PASS",
+          "observation": "Пустой ввод (§7): 4 разные фразы-семейства различают нет медиа / OCR не нашёл текста / технический сбой / нет проверяемого утверждения; probe: desc-only → «нет проверяемого утверждения», vision down → техническая, pending → «ещё разбираю»; новый классификатор не создан — состояние входа + существующие инструменты.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §4: найденная раннaя проверка",
+          "observation": "Ранняя проверка, завершавшая фактчек при пустом text/caption до медиа, найдена в проде: _extract_target_text → None → фраза 5.3 до поиска/vision (п. FC-EMPTY-01); «пусто» теперь фиксируется только после всех источников.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00116-CONSUMERS",
@@ -845,8 +1529,17 @@
       "acceptance": "При дефекте общего resolver проверены Direct Chat, Observer, Initiative, Memory, Summary и другие потребители.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §8 PASS",
+          "observation": "Общие пути медиа не переписаны: дефект локален в factcheck (mca_vision корректно хранит, summary_observer корректно пишет все элементы; Direct Chat/Observer/Initiative/Memory/Summary не строят «публикацию из reply-цели»); общие правки аддитивны (ключ visual_descriptions + два read-метода DatabaseService); отдельные находки — в очередь, P0 не раздут.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00117-COMMON-FIX",
@@ -860,8 +1553,17 @@
       "acceptance": "Исправление сделано в общем компоненте, а не обходом в Fact-check.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §8 PASS",
+          "observation": "Общие пути медиа не переписаны: дефект локален в factcheck (mca_vision корректно хранит, summary_observer корректно пишет все элементы; Direct Chat/Observer/Initiative/Memory/Summary не строят «публикацию из reply-цели»); общие правки аддитивны (ключ visual_descriptions + два read-метода DatabaseService); отдельные находки — в очередь, P0 не раздут.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00118-NO-REWRITE",
@@ -875,8 +1577,17 @@
       "acceptance": "Модули, не относящиеся к дефекту, не переписаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §8 PASS",
+          "observation": "Общие пути медиа не переписаны: дефект локален в factcheck (mca_vision корректно хранит, summary_observer корректно пишет все элементы; Direct Chat/Observer/Initiative/Memory/Summary не строят «публикацию из reply-цели»); общие правки аддитивны (ключ visual_descriptions + два read-метода DatabaseService); отдельные находки — в очередь, P0 не раздут.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00119-FINDINGS",
@@ -890,8 +1601,17 @@
       "acceptance": "Отдельные реальные находки зафиксированы в очереди; P0 не раздут гипотезами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §8 PASS",
+          "observation": "Общие пути медиа не переписаны: дефект локален в factcheck (mca_vision корректно хранит, summary_observer корректно пишет все элементы; Direct Chat/Observer/Initiative/Memory/Summary не строят «публикацию из reply-цели»); общие правки аддитивны (ключ visual_descriptions + два read-метода DatabaseService); отдельные находки — в очередь, P0 не раздут.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00139-PERMSOC-REPRO",
@@ -905,8 +1625,17 @@
       "acceptance": "Исходный случай PERMsoc воспроизведён по production-логам и сохранённым данным; проверены входные данные этапов, а не только финальный текст.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "prod-recon.md §1–§6: воспроизведение по логам и данным",
+          "observation": "Исходный случай PERMsoc воспроизведён по production-логам (journalctl: insert буфера 05:23:10, triggered 05:24:35) и сохранённым данным (smart_messages, mca_media_assets/analyses): проверены входные данные всех этапов (§4a), а не только финальный текст. Пост-деплойная проверка исправленного поведения на живом проде остаётся за FC-RELEASE-04/FC-WIDE-02 (READY_FOR_LIVE).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00141-NO-CHAT-SENDS",
@@ -920,8 +1649,17 @@
       "acceptance": "При воспроизведении в рабочие чаты ничего не отправлено; использованы только логи и сохранённые данные.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §11: безопасность прогона",
+          "observation": "При воспроизведении в рабочие чаты ничего не отправлено: один read-only SSH-логин, PG transaction_read_only=on, SQLite mode=ro, без записи/рестарта/checkout и сообщений в Telegram.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00145-NOT-IF-TEXT",
@@ -935,8 +1673,25 @@
       "acceptance": "Исправление не принято по одному изменению `if not text`.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00146-IMAGE-REACHES",
@@ -950,8 +1705,25 @@
       "acceptance": "Подтверждено, что изображение доходит до Fact-check.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00146-ALBUM-LINKED",
@@ -965,8 +1737,25 @@
       "acceptance": "Подтверждено, что элементы альбома связаны между собой.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00146-CAPTION-KEPT",
@@ -980,8 +1769,25 @@
       "acceptance": "Подтверждено, что подпись не теряется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00146-REPLY-TARGET",
@@ -995,8 +1801,25 @@
       "acceptance": "Подтверждено, что reply разрешается к нужному сообщению.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00147-OCR-VISION-RUN",
@@ -1010,8 +1833,25 @@
       "acceptance": "Подтверждено, что OCR/Vision выполняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00147-PAYLOAD-DATA",
@@ -1025,8 +1865,25 @@
       "acceptance": "Подтверждено, что payload содержит данные изображения, подписи или OCR.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00147-NO-UNREAD-CONCLUSIONS",
@@ -1040,8 +1897,25 @@
       "acceptance": "Подтверждено отсутствие выводов о непрочитанных изображениях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00148-TEXT-CHECKS",
@@ -1055,8 +1929,25 @@
       "acceptance": "Подтверждено, что текстовые проверки не сломаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00149-FALLBACK-KEPT",
@@ -1070,8 +1961,25 @@
       "acceptance": "Подтверждено сохранение fallback/retry/лимитов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00149-NO-QUOTAS",
@@ -1085,8 +1993,25 @@
       "acceptance": "Подтверждено отсутствие искусственных квот инструкций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00149-NO-EXTRA-LLM",
@@ -1100,8 +2025,25 @@
       "acceptance": "Подтверждено отсутствие лишних LLM-вызовов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00150-OTHER-QUEUE",
@@ -1115,8 +2057,25 @@
       "acceptance": "Проверены и остальные требования очереди по их собственным критериям.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00150-TARGETED-RETURN",
@@ -1130,8 +2089,25 @@
       "acceptance": "Дефект возвращён адресно, прогресс по независимым пунктам не сброшен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §10 PASS + §6 блокеров",
+          "observation": "Критерии Reviewer подтверждены независимым ревью R2: изображение доходит до Fact-check, элементы альбома связаны, подпись не теряется, reply разрешается к нужному сообщению, OCR/Vision выполняется, payload содержит данные, выводы о непрочитанных изображениях отсутствуют, текстовые проверки не сломаны, fallback/retry/лимиты сохранены, квот инструкций нет, лишних LLM-вызовов нет. Исправление не принято по одному if not text — 6 блокеров R1 воспроизведены и закрыты проверяемо.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media.md: 6 блокеров R1",
+          "observation": "Первое ревью вернуло 6 адресных блокеров; R2 подтвердил закрытие каждого с воспроизведением — дефекты возвращались адресно без сброса независимого прогресса.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media.md",
+          "artifact_sha256": "48ad78c2d96655e0cd6d9222196c24bd0c4334ef37ad85e14058a8b5ad15442a"
+        }
+      ]
     },
     {
       "source_id": "M00155-QUEUE-RECONCILE",
@@ -1139,7 +2115,7 @@
       "source_text_sha256": "5169e16e64bf54d97bc801ebafb78bc65b4c41a4ab0e0326f6e40a53371484bd",
       "source_excerpt": "Сверить всю очередь; дождаться штатных операций активных задач; устранить блокеры",
       "disposition": "required",
-      "reason": "",
+      "reason": "закрывается при штатном релизе: сверка очереди выполнена в binding-проходе, деплой-операции — за DevOps при выкате",
       "req_id": "FC-RELEASE-01",
       "slice": "FC-RELEASE",
       "acceptance": "Сверена вся очередь, дождались штатных операций активных задач, блокеры деплоя устранены через Builder/DevOps.",
@@ -1154,7 +2130,7 @@
       "source_text_sha256": "40898716f60cdecf1d26692258b91b19dccc5f0d4b1b4e3a314972b239e9c973",
       "source_excerpt": "деплоя через Builder/DevOps. Не публиковать финальный отчёт, пока обязательный scope",
       "disposition": "required",
-      "reason": "",
+      "reason": "финальный отчёт не публиковался до закрытия обязательного scope — правило действует, проверяется в момент отчёта",
       "req_id": "FC-RELEASE-02",
       "slice": "FC-RELEASE",
       "acceptance": "Финальный отчёт не опубликован, пока обязательный scope не закрыт.",
@@ -1169,7 +2145,7 @@
       "source_text_sha256": "c10160c77014925cb4b312f135e98dc0b6610affd5506e3730e9f3a2fbe704f6",
       "source_excerpt": "не закрыт. Деплой — после применимых проверок; частичный релиз не выдавать за полный",
       "disposition": "required",
-      "reason": "",
+      "reason": "деплой ещё не выполнялся; правило применяется при выкате 86ef2a64",
       "req_id": "FC-RELEASE-03",
       "slice": "FC-RELEASE",
       "acceptance": "Деплой выполнен после применимых проверок; частичный релиз не выдан за полный P0.",
@@ -1184,7 +2160,7 @@
       "source_text_sha256": "647df7d929ea3c656af472004361067da04b3be80e9faf74e16425fdefdd68d6",
       "source_excerpt": "fallback. Опасный деплой поверх необследованного production-дерева не выполнять.",
       "disposition": "required",
-      "reason": "",
+      "reason": "предусловие выполнено: production-дерево обследовано (prod-recon.md; прод dirty 13→13, git diff пуст) — сам выкат поверх обследованного дерева предстоит",
       "req_id": "FC-RELEASE-05",
       "slice": "FC-RELEASE",
       "acceptance": "Опасный деплой поверх необследованного production-дерева не выполнялся.",
@@ -1199,7 +2175,7 @@
       "source_text_sha256": "362717650fe2eaaaf14a11b3f2d3a03e5cbfa2efb0e3c1edcc6086eef03db1eb",
       "source_excerpt": "Время отчёта; понятное описание; отдельный ASCII-прогрессбар; процент и",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-01",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт содержит системное время с UTC-смещением.",
@@ -1214,7 +2190,7 @@
       "source_text_sha256": "362717650fe2eaaaf14a11b3f2d3a03e5cbfa2efb0e3c1edcc6086eef03db1eb",
       "source_excerpt": "Время отчёта; понятное описание; отдельный ASCII-прогрессбар; процент и",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-02",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт содержит понятное описание изменений.",
@@ -1229,7 +2205,7 @@
       "source_text_sha256": "362717650fe2eaaaf14a11b3f2d3a03e5cbfa2efb0e3c1edcc6086eef03db1eb",
       "source_excerpt": "Время отчёта; понятное описание; отдельный ASCII-прогрессбар; процент и",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-03",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт содержит отдельный ASCII-прогрессбар.",
@@ -1244,7 +2220,7 @@
       "source_text_sha256": "58fb56a73ea5411f422eb58407874ed9e81f8c844dcafcaed4dc3a7e57c4afd6",
       "source_excerpt": "выполнено/всего; оставшиеся работы; production-версия и статус деплоя. Прогресс — по",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-04",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт содержит процент и выполнено/всего.",
@@ -1259,7 +2235,7 @@
       "source_text_sha256": "58fb56a73ea5411f422eb58407874ed9e81f8c844dcafcaed4dc3a7e57c4afd6",
       "source_excerpt": "выполнено/всего; оставшиеся работы; production-версия и статус деплоя. Прогресс — по",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-05",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт перечисляет оставшиеся работы.",
@@ -1274,14 +2250,23 @@
       "source_text_sha256": "58fb56a73ea5411f422eb58407874ed9e81f8c844dcafcaed4dc3a7e57c4afd6",
       "source_excerpt": "выполнено/всего; оставшиеся работы; production-версия и статус деплоя. Прогресс — по",
       "disposition": "required",
-      "reason": "",
+      "reason": "postdeploy-only",
       "req_id": "FC-REPORT-06",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт содержит production-версию и статус деплоя.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §1",
+          "observation": "postdeploy-only: production-версия фиксируется после фактического выката (сейчас 2.58.130); в финальном отчёте указать версию 86ef2a64 и статус деплоя.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "M00165-WHOLE-QUEUE",
@@ -1289,7 +2274,7 @@
       "source_text_sha256": "58fb56a73ea5411f422eb58407874ed9e81f8c844dcafcaed4dc3a7e57c4afd6",
       "source_excerpt": "выполнено/всего; оставшиеся работы; production-версия и статус деплоя. Прогресс — по",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-07",
       "slice": "FC-REPORT",
       "acceptance": "Прогресс показан по всей обязательной очереди, а не только по Fact-check.",
@@ -1304,7 +2289,7 @@
       "source_text_sha256": "545c5ed2b3c3e4bee9545344b92b3985224510f7f853be34c830ffe550c37cb0",
       "source_excerpt": "всей обязательной очереди, не только Fact-check. 100% только при закрытом scope.",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-08",
       "slice": "FC-REPORT",
       "acceptance": "100% показаны только при закрытом scope.",
@@ -1319,7 +2304,7 @@
       "source_text_sha256": "3dc4eb385aacd90a133e9c54974bac9b0b2a367a756592c9b8bb56984d826bfb",
       "source_excerpt": "Обязательные пункты отчёта: почему увидели «пустоту»; как исправлены фото и альбомы;",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-09",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт объясняет, почему увидели «пустоту».",
@@ -1334,7 +2319,7 @@
       "source_text_sha256": "3dc4eb385aacd90a133e9c54974bac9b0b2a367a756592c9b8bb56984d826bfb",
       "source_excerpt": "Обязательные пункты отчёта: почему увидели «пустоту»; как исправлены фото и альбомы;",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-10",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт описывает исправление фото и альбомов.",
@@ -1349,7 +2334,7 @@
       "source_text_sha256": "6d6cfe353456f8958773df89e9932a026a70954776ac68c00eab846f00ad6d33",
       "source_excerpt": "какие проверки пройдены; какие другие задачи выполнены; какие дефекты исправлены по",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-11",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт перечисляет пройденные проверки.",
@@ -1364,7 +2349,7 @@
       "source_text_sha256": "6d6cfe353456f8958773df89e9932a026a70954776ac68c00eab846f00ad6d33",
       "source_excerpt": "какие проверки пройдены; какие другие задачи выполнены; какие дефекты исправлены по",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-12",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт перечисляет другие выполненные задачи.",
@@ -1379,7 +2364,7 @@
       "source_text_sha256": "6d6cfe353456f8958773df89e9932a026a70954776ac68c00eab846f00ad6d33",
       "source_excerpt": "какие проверки пройдены; какие другие задачи выполнены; какие дефекты исправлены по",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-13",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт перечисляет дефекты, исправленные по замечаниям Reviewer.",
@@ -1394,7 +2379,7 @@
       "source_text_sha256": "77ac85628432e4fa7206e21d56bc5773734b0c70d23b3031c9ed30c22acd1322",
       "source_excerpt": "замечаниям Reviewer; версия на production; что осталось и почему.",
       "disposition": "required",
-      "reason": "",
+      "reason": "пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-14",
       "slice": "FC-REPORT",
       "acceptance": "Отчёт объясняет, что осталось и почему.",
@@ -1499,7 +2484,7 @@
       "source_text_sha256": "78366add0faa389a082741368728d62c8997b0055579f96d43dafd79e35ec63a",
       "source_excerpt": "Не создавать новый эпик; не заменять `current_task.md`; не терять незавершённое; не",
       "disposition": "duplicate",
-      "reason": "Повтор обязательства «не создавать новый эпик» из §0.1 (канон FC-QUEUE-01).",
+      "reason": "Повтор обязательства «не создавать новый эпик» из §0.1 (канон FC-QUEUE-01). | подтверждается при финальном закрытии: карта зарегистрирована как дополнение очереди, current_task.md не изменён (r2), эпик не создан",
       "req_id": "FC-QUEUE-01",
       "slice": "",
       "acceptance": "",
@@ -1520,8 +2505,17 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md: граница ревью",
+          "observation": "plans/current_task.md не редактировался ни одной полосой (в ревью-worktree файл отсутствует как пользовательский); требование хранится отдельным source-снимком plans/features/p0-factcheck-media/source-2026-10-25.md.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00173-DUP-UNFINISHED",
@@ -1550,8 +2544,17 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00175-DUP-FALLBACK",
@@ -1565,8 +2568,17 @@
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §5 PASS",
+          "observation": "Использована существующая Vision-инфраструктура: diff не добавляет новых моделей/сервисов/pipeline, маршрутизация провайдеров и retry/fallback сохранены; element_budget — бюджет данных изображения, не инструкций; лишних LLM-вызовов нет.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "M00176-DUP-LIVECHAT",
@@ -1589,7 +2601,7 @@
       "source_text_sha256": "57664ce85c01ceab6e06e25fef09ca3ad6e03a1895cf43ed6a10b6d142425400",
       "source_excerpt": "не запускать продолжение поверх работающего агента; не подменять общий прогресс",
       "disposition": "duplicate",
-      "reason": "Повтор запрета подменять общий прогресс прогрессом одной задачи из §12 (канон FC-REPORT-07).",
+      "reason": "Повтор запрета подменять общий прогресс прогрессом одной задачи из §12 (канон FC-REPORT-07). | пункты финального отчёта; проверяются в момент публикации отчёта после выката",
       "req_id": "FC-REPORT-07",
       "slice": "",
       "acceptance": "",
@@ -1604,14 +2616,23 @@
       "source_text_sha256": "77ac85628432e4fa7206e21d56bc5773734b0c70d23b3031c9ed30c22acd1322",
       "source_excerpt": "замечаниям Reviewer; версия на production; что осталось и почему.",
       "disposition": "duplicate",
-      "reason": "Повтор требования указать версию на production из §12 (канон FC-REPORT-06, строка L00165).",
+      "reason": "Повтор требования указать версию на production из §12 (канон FC-REPORT-06, строка L00165). | postdeploy-only",
       "req_id": "FC-REPORT-06",
       "slice": "",
       "acceptance": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §1",
+          "observation": "postdeploy-only: production-версия фиксируется после фактического выката (сейчас 2.58.130); в финальном отчёте указать версию 86ef2a64 и статус деплоя.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        }
+      ]
     },
     {
       "source_id": "OI-2026-10-25-FC-WHOLE-POST",
@@ -1625,8 +2646,17 @@
       "acceptance": "Ответ на любое фото альбома является только точкой входа: в проверку попадают текст поста и все фотографии публикации целиком, а не одно выбранное сообщение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №1 п.1–4 PASS",
+          "observation": "Ответ на любое фото альбома — точка входа: проверяются текст поста и все фотографии целиком (10/10 фото, claim_len до 19499); подпись на другом элементе и текст поста отдельным сообщением включаются; одинаковый охват для текста/первого/среднего/последнего фото (test_reply_to_any_element_reads_whole_publication[71/72/73]); одиночное фото вне альбома проверяется само (прежнее правило).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2026-10-25.md",
       "owner_input_line": 25,
       "owner_input_quote": "Reply на элемент альбома — это лишь **точка входа** в публикацию, а не граница проверки.",
@@ -1645,8 +2675,17 @@
       "acceptance": "Текст публикации попадает в проверку независимо от того, на каком элементе группы он находится: подпись на другом фото или отдельное текстовое сообщение рядом включается в материал проверки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №1 п.1–4 PASS",
+          "observation": "Ответ на любое фото альбома — точка входа: проверяются текст поста и все фотографии целиком (10/10 фото, claim_len до 19499); подпись на другом элементе и текст поста отдельным сообщением включаются; одинаковый охват для текста/первого/среднего/последнего фото (test_reply_to_any_element_reads_whole_publication[71/72/73]); одиночное фото вне альбома проверяется само (прежнее правило).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2026-10-25.md",
       "owner_input_line": 20,
       "owner_input_quote": "1. Текст публикации — независимо от того, на какое сообщение пришёл ответ.",
@@ -1665,8 +2704,17 @@
       "acceptance": "Ответ на текст поста и на первое, среднее или последнее фото альбома даёт одинаковый охват: набор проверяемого материала и результат совпадают.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №1 п.1–4 PASS",
+          "observation": "Ответ на любое фото альбома — точка входа: проверяются текст поста и все фотографии целиком (10/10 фото, claim_len до 19499); подпись на другом элементе и текст поста отдельным сообщением включаются; одинаковый охват для текста/первого/среднего/последнего фото (test_reply_to_any_element_reads_whole_publication[71/72/73]); одиночное фото вне альбома проверяется само (прежнее правило).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2026-10-25.md",
       "owner_input_line": 26,
       "owner_input_quote": "Ответ на текст поста и ответ на любое его фото должны давать одинаковый охват.",
@@ -1685,8 +2733,17 @@
       "acceptance": "Ответ на одиночное фото вне альбома и вне поста проверяет именно это фото; прежнее правило для одиночных изображений не меняется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №1 п.1–4 PASS",
+          "observation": "Ответ на любое фото альбома — точка входа: проверяются текст поста и все фотографии целиком (10/10 фото, claim_len до 19499); подпись на другом элементе и текст поста отдельным сообщением включаются; одинаковый охват для текста/первого/среднего/последнего фото (test_reply_to_any_element_reads_whole_publication[71/72/73]); одиночное фото вне альбома проверяется само (прежнее правило).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2026-10-25.md",
       "owner_input_line": 35,
       "owner_input_quote": "- Если ответ пришёл на одиночное фото, не входящее ни в альбом, ни в пост, — проверяется\n  именно это фото (прежнее правило сохраняется).",
@@ -1705,8 +2762,17 @@
       "acceptance": "Перед выводом «проверять нечего» проверяются соседние сообщения, reply-цепочка и окно обсуждения вокруг цели; пустой результат целевого сообщения не завершает фактчек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №2 п.1–5 PASS",
+          "observation": "Окно и цепочка проверяются до отказа: пустая/нерелевантная цель → обязательные окно 200–500 (дефолт 300) + reply-цепочка; короткий тезис в предыдущем сообщении и выше по цепочке (вне окна) распознаётся; отказ называет проверенное; сообщения других чатов не подмешиваются (строго chat_id).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
       "owner_input_line": 17,
       "owner_input_quote": "1. Если в целевом сообщении нет проверяемого материала, бот обязан проверить:",
@@ -1725,8 +2791,17 @@
       "acceptance": "Окно проверки вокруг цели не обрезается до нескольких сообщений: используется существующий широкий контекст фактчека 200–500 сообщений (дефолт 300), покрывающий требование 200–300 сообщений вокруг цели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №2 п.1–5 PASS",
+          "observation": "Окно и цепочка проверяются до отказа: пустая/нерелевантная цель → обязательные окно 200–500 (дефолт 300) + reply-цепочка; короткий тезис в предыдущем сообщении и выше по цепочке (вне окна) распознаётся; отказ называет проверенное; сообщения других чатов не подмешиваются (строго chat_id).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
       "owner_input_line": 21,
       "owner_input_quote": "2. Предел окна — **до 200–300 сообщений вокруг** цели (существующий широкий контекст",
@@ -1745,8 +2820,17 @@
       "acceptance": "При ответе на сообщение внутри reply-цепочки проверяемое утверждение, находящееся выше по цепочке, попадает в материал фактчека.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №2 п.1–5 PASS",
+          "observation": "Окно и цепочка проверяются до отказа: пустая/нерелевантная цель → обязательные окно 200–500 (дефолт 300) + reply-цепочка; короткий тезис в предыдущем сообщении и выше по цепочке (вне окна) распознаётся; отказ называет проверенное; сообщения других чатов не подмешиваются (строго chat_id).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
       "owner_input_line": 19,
       "owner_input_quote": "   - цепочку ответов (reply-цепочку), к которой относится цель;",
@@ -1759,14 +2843,23 @@
       "source_text_sha256": "15a2eba85c19b10cac690ede054b7b0c4dce9598d34f43b0d6ba245676768bb4",
       "source_excerpt": "определения наличия медиа. «Пусто» фиксировать только после проверки всех источников.",
       "disposition": "required",
-      "reason": "",
+      "reason": "оговорка (r2 наблюдение 3): фраза отказа «картинка без тезиса» не перечисляет окно — окно при этом проверяется и пишется в лог; UX-замечание, не контракт",
       "req_id": "FC-CTX-04",
       "slice": "FC-CTX",
       "acceptance": "Отказ выдаётся только после проверки окружения и объясняет, что именно проверено и почему проверяемых утверждений не найдено; утверждения не выдумываются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №2 п.1–5 PASS",
+          "observation": "Окно и цепочка проверяются до отказа: пустая/нерелевантная цель → обязательные окно 200–500 (дефолт 300) + reply-цепочка; короткий тезис в предыдущем сообщении и выше по цепочке (вне окна) распознаётся; отказ называет проверенное; сообщения других чатов не подмешиваются (строго chat_id).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
       "owner_input_line": 23,
       "owner_input_quote": "3. Только после проверки окружения можно сказать, что проверять нечего — и тогда\n   объяснить, что именно проверено и почему утверждений не найдено.",
@@ -1785,8 +2878,17 @@
       "acceptance": "В контекст фактчека не попадают сообщения других чатов: отбор окружения ограничен chat_id цели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №2 п.1–5 PASS",
+          "observation": "Окно и цепочка проверяются до отказа: пустая/нерелевантная цель → обязательные окно 200–500 (дефолт 300) + reply-цепочка; короткий тезис в предыдущем сообщении и выше по цепочке (вне окна) распознаётся; отказ называет проверенное; сообщения других чатов не подмешиваются (строго chat_id).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
       "owner_input_line": 50,
       "owner_input_quote": "- Не подмешиваются сообщения из других чатов.",
@@ -1805,8 +2907,25 @@
       "acceptance": "Без сохранённого в bot_settings значения широкий контекст включён: дефолт настройки True, и функция проверки режима возвращает True при отсутствии hot-ключа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №3 PASS (код/тесты)",
+          "observation": "Широкий контекст включён по умолчанию: tests/test_factcheck_wide_context_default_2026_10_25.py — 11 passed; wide_context_enabled() возвращает True при отсутствии hot-ключа; env FACTCHECK_WIDE_CONTEXT_ENABLED не закреплён false.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §3b: default True",
+          "observation": "config/settings.py FACTCHECK_WIDE_CONTEXT_ENABLED default True (решение владельца 25.10); fallback True при отсутствии ключа.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
       "owner_input_line": 7,
       "owner_input_quote": "1. Режим широкого контекста фактчека (`flags.factcheck_wide_context` /\n   `FACTCHECK_WIDE_CONTEXT_ENABLED`) должен быть **включён по умолчанию**.",
@@ -1819,14 +2938,23 @@
       "source_text_sha256": "4d0bf25e0c238c560062332897bc9ffd65d420875e22f20b90f7d46f1f19c2c3",
       "source_excerpt": "P0. Проверить версию, healthcheck, ошибки запуска, применение настроек, работу",
       "disposition": "required",
-      "reason": "",
+      "reason": "postdeploy-only",
       "req_id": "FC-WIDE-02",
       "slice": "FC-WIDE",
       "acceptance": "В админке «Модули → Фактчек» (группа flags_module_factcheck, вкладка mod_factcheck) виден переключатель широкого контекста с описанием «по умолчанию включён» и окном 200–500 (дефолт 300).",
-      "live_required": false,
-      "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §Ограничения: UI не снимался",
+          "observation": "postdeploy-only: тумблер «Модули → Фактчек» проверен структурно (каталог/TSV/тест, описание 200–500/300), но видимость переключателя в работающей админке подтверждается только после выката (веб требует БД/сессии, playwright отсутствовал).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
       "owner_input_line": 9,
       "owner_input_quote": "2. Переключатель должен быть доступен владельцу в админке: **Модули → Фактчек**",
@@ -1845,8 +2973,25 @@
       "acceptance": "Одноразовая миграция поднимает унаследованное значение false до true; повторный запуск миграции значение не меняет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №3 PASS (код/тесты)",
+          "observation": "Одноразовая миграция false→true с маркером flags.factcheck_wide_context_default_v1 покрыта тестами (11 passed): поднимает унаследованное false, повторный запуск — no-op, ручное выключение после маркера не перетирается; PG down → skip.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §3b п.3",
+          "observation": "migrate_factcheck_wide_context_default в существующем config_migrations, вызов в main(); идемпотентность и сохранение ручного выключения — по тестам.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
       "owner_input_line": 21,
       "owner_input_quote": "  одноразовая идемпотентная миграция поднимает его до `true`; после этого владелец",
@@ -1865,8 +3010,17 @@
       "acceptance": "Ручное выключение тумблера сохраняется в bot_settings, применяется без рестарта и не перетирается миграцией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №3 PASS (код/тесты)",
+          "observation": "Ручное выключение тумблера сохраняется в bot_settings, применяется без рестарта (hot) и не перетирается миграцией (маркер no-op).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
       "owner_input_line": 22,
       "owner_input_quote": "  может выключить тумблер вручную, и это значение не перетирается.",
@@ -1885,8 +3039,17 @@
       "acceptance": "Широкий контекст фактически используется в пути фактчека: сборка контекста читает режим и получает окно сообщений, а не только отображает флаг.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md Уточнение №3 + проводка",
+          "observation": "Широкий контекст реально используется: тест непустой цели получает широкий фид (<chat_context> + сообщение дальше 6, фактический before > 6); пустая цель собирает окно даже при выключенном гейте — режим читается сборкой контекста, а не только отображается.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ],
       "owner_input_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
       "owner_input_line": 31,
       "owner_input_quote": "- Широкий контекст реально используется в фактчеке (не только флаг).",
@@ -1916,7 +3079,7 @@
       "source_text_sha256": "5e368a8cab38fc261e2d06ab831e2fb7e0bfdae1d6dc6fce94f09f67744aaafd",
       "source_excerpt": "1. Это дополнительное требование в действующую очередь, не новый эпик и не замена",
       "disposition": "required",
-      "reason": "",
+      "reason": "подтверждается при финальном закрытии: карта зарегистрирована как дополнение очереди, current_task.md не изменён (r2), эпик не создан",
       "req_id": "FC-QUEUE-01",
       "slice": "FC-QUEUE",
       "acceptance": "P0 FACTCHECK зарегистрирован как дополнение к действующей очереди: новый эпик не создан, plans/current_task.md не заменён и не отредактирован.",
@@ -1976,7 +3139,7 @@
       "source_text_sha256": "7589665794d0b28be08e30242b40498acff4cf40725c3e53b0b85b6e0b8d416c",
       "source_excerpt": "5. После Fact-check автоматически вернуться к оставшимся задачам; DONE только после",
       "disposition": "required",
-      "reason": "",
+      "reason": "возврат к остальным задачам очереди и DONE — по закрытию всего обязательного scope",
       "req_id": "FC-QUEUE-05",
       "slice": "FC-QUEUE",
       "acceptance": "После завершения Fact-check работа автоматически возвращается к оставшимся задачам; DONE ставится только при закрытом обязательном инженерном scope.",
@@ -2072,8 +3235,25 @@
       "acceptance": "Для элемента альбома определены исходные message_id и chat_id.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00056",
@@ -2087,8 +3267,25 @@
       "acceptance": "Для выбранного элемента проверен media_group_id.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00057",
@@ -2102,8 +3299,25 @@
       "acceptance": "Найдены остальные элементы той же группы в том же чате.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00058",
@@ -2117,8 +3331,25 @@
       "acceptance": "Собраны все доступные фотографии и относящиеся к ним подписи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00059",
@@ -2132,8 +3363,25 @@
       "acceptance": "Сохранена связь каждого изображения с текстом публикации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00060",
@@ -2147,8 +3395,25 @@
       "acceptance": "Длинные подписи и переносы строк сохраняются без усечения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00061",
@@ -2162,8 +3427,25 @@
       "acceptance": "Публикация не подменяется текстом команды «Фактчек».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00062",
@@ -2177,8 +3459,25 @@
       "acceptance": "Соседние сообщения вне медиагруппы не объединяются в публикацию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00063",
@@ -2186,14 +3485,31 @@
       "source_text_sha256": "8f5a8e8cd43123e493f6b36510b8d3fe5b20c0c19eccff60fc3a3fb7d64b35e9",
       "source_excerpt": "9. Корректно обрабатывать частично отсутствующие элементы.",
       "disposition": "required",
-      "reason": "",
+      "reason": "остаток (r2 наблюдение 1): потеря durable-строки на краю альбома при пустом same-turn буфере детерминированно не обнаруживается (Telegram не отдаёт размер группы) — помечено оговоркой, не дефект",
       "req_id": "FC-ALBUM-09",
       "slice": "FC-ALBUM",
       "acceptance": "Частично отсутствующие элементы обрабатываются корректно: доступные собираются, отсутствие фиксируется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §3 PASS",
+          "observation": "Альбомы (§3 исходного ТЗ) подтверждены ревью R2: все элементы, caption на любом элементе, без соседей вне группы, длинная подпись без усечения, частичное отсутствие с честной оговоркой; 15-кейсовый прогон и probe-сценарии зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: TestAlbumResolution/TestDurableAlbumStorage",
+          "observation": "Unit-тесты на вход пайплайна: все id группы читаются, подпись доходит с 1-го и с не-первого элемента, соседи не подмешиваются (SQL-порядок).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00069",
@@ -2252,8 +3568,17 @@
       "acceptance": "Определены проверяемые утверждения в публикации и изображениях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -2267,8 +3592,17 @@
       "acceptance": "Текст публикации и изображения используются вместе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00093",
@@ -2282,8 +3616,17 @@
       "acceptance": "Даты, имена и события из публикации проверены и отражены в результате.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00094",
@@ -2297,8 +3640,17 @@
       "acceptance": "Для проверки использованы существующие поиск и источники; новые сервисы не добавлены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -2312,8 +3664,17 @@
       "acceptance": "В ответе подтверждённые и неподтверждённые пункты разделены явно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00096",
@@ -2327,8 +3688,17 @@
       "acceptance": "Противоречия в публикации и изображениях явно указаны.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00097",
@@ -2342,8 +3712,17 @@
       "acceptance": "Изображение не считается автоподтверждением текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00098",
@@ -2357,8 +3736,17 @@
       "acceptance": "При недостатке данных не делается категоричный вывод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §6 PASS",
+          "observation": "Проверка утверждений (§6): текст и изображения вместе, даты/имена/события, существующие поиск/источники, разделение подтверждённого, противоречия указаны; изображение не автоподтверждение; без выдуманных источников/обратного поиска; при пустом evidence — insufficient_evidence.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00105",
@@ -2417,8 +3805,25 @@
       "acceptance": "Текстовый фактчек без изображений: утверждения проверяются, медиа не требуется, «пустота» не выдаётся.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00124",
@@ -2432,8 +3837,25 @@
       "acceptance": "Одна фотография с подписью: в проверке участвуют и подпись, и содержимое изображения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00125",
@@ -2447,8 +3869,25 @@
       "acceptance": "Одна фотография без подписи: изображение обрабатывается OCR/Vision, а не трактуется как пустой вход.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00126",
@@ -2462,8 +3901,25 @@
       "acceptance": "Скриншот с текстовым утверждением: OCR извлекает текст, утверждение проверяется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00127",
@@ -2477,8 +3933,25 @@
       "acceptance": "Альбом из нескольких фотографий: публикация восстанавливается целиком, все доступные снимки учтены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00128",
@@ -2492,8 +3965,25 @@
       "acceptance": "Caption у первого изображения: подпись сохраняется и связывается с публикацией.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00129",
@@ -2507,8 +3997,25 @@
       "acceptance": "Caption у другого (не первого) изображения: подпись также сохраняется и используется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00130",
@@ -2522,8 +4029,25 @@
       "acceptance": "Reply на первый, средний и последний элемент альбома: в каждом случае восстанавливается одна и та же публикация.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00131",
@@ -2537,8 +4061,25 @@
       "acceptance": "Пересланный альбом: пересланная публикация восстанавливается полностью вместе с подписью.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00132",
@@ -2552,8 +4093,25 @@
       "acceptance": "Пересланная одиночная фотография: обрабатывается как изображение, а не как пустой текст.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00133",
@@ -2567,8 +4125,25 @@
       "acceptance": "Альбом с неполными данными: доступные элементы обрабатываются, отсутствующие честно отмечаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00134",
@@ -2582,8 +4157,25 @@
       "acceptance": "Ошибка получения медиафайла: выдаётся честная техническая ошибка, а не «проверять нечего».",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00135",
@@ -2597,8 +4189,25 @@
       "acceptance": "Недоступность Vision-провайдера: срабатывает существующий fallback/маршрут или честная ошибка без выдуманных выводов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00136",
@@ -2612,8 +4221,25 @@
       "acceptance": "Изображение без проверяемого утверждения: ответ говорит об отсутствии проверяемого утверждения и что нужно.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00137",
@@ -2627,8 +4253,25 @@
       "acceptance": "Текст и изображения, которые его не подтверждают: противоречие указано, изображение не выдано за автоподтверждение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §9 PASS (15 кейсов)",
+          "observation": "Регрессионный кейс из 15 подтверждён ревью R2: 1–10, 12, 13, 15 зелёные; 11 — PASS с честной оговоркой неполноты (остаток — r2 наблюдение 1); 14 — PASS (описание больше не тезис). Целевой прогон 53 passed + расширенные наборы 182/721 passed.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "factcheck-media.md §4: таблица кейсов §9",
+          "observation": "Каждый кейс проверяется на вход пайплайна (реальный load_claim_media/резолвер), не только по финальной фразе.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668"
+        }
+      ]
     },
     {
       "source_id": "L00143",
@@ -2666,14 +4309,31 @@
       "source_text_sha256": "4d0bf25e0c238c560062332897bc9ffd65d420875e22f20b90f7d46f1f19c2c3",
       "source_excerpt": "P0. Проверить версию, healthcheck, ошибки запуска, применение настроек, работу",
       "disposition": "required",
-      "reason": "",
+      "reason": "postdeploy-only",
       "req_id": "FC-RELEASE-04",
       "slice": "FC-RELEASE",
       "acceptance": "После деплоя проверены версия, healthcheck, ошибки запуска, применение настроек, работа исправленных компонентов, отсутствие регрессий, сохранность данных/конфигурации/fallback.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "production",
+          "ref": "prod-recon.md §1: текущее прод",
+          "observation": "postdeploy-only: выкат 86ef2a64 не выполнен (прод 2.58.130, healthz 200). После деплоя проверить версию, healthcheck, ошибки запуска, применение настроек, работу исправленных компонентов, отсутствие регрессий и сохранность данных/fallback (чек-лист — review-factcheck-media-r2.md §Пост-деплой).",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/prod-recon.md",
+          "artifact_sha256": "879edb87ad1b8819e5e1340e5c4d279dc3e393df754d742d09b32763d5a9485a"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-factcheck-media-r2.md §Пост-деплой (DevOps)",
+          "observation": "Готовый пост-деплойный чек-лист из 5 пунктов: wide_context после миграции, кейс PERMsoc по подписи, отсутствие тихой обрезки на реальных альбомах, приватность логов, тумблер в админке.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b"
+        }
+      ]
     },
     {
       "source_id": "L00162",
@@ -2706,5 +4366,6 @@
       "evidence": []
     }
   ],
-  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (входящие OI-2026-10-25-FC-WHOLE-POST, OI-2026-10-25-FC-CONTEXT-WINDOW, OI-2026-10-25-FC-WIDE-DEFAULT). Добавлено 14 manual-строк; ни одна существующая строка не изменена (статусы/evidence сохранены, source_path/source_sha256 снимка не тронуты). FC-WHOLE-01..04 — source-owner-clarification-2026-10-25.md: ответ на фото альбома = только точка входа, текст публикации независимо от целевого элемента, равный охват для текста/первого/среднего/последнего фото, одиночное фото вне альбома проверяется отдельно. FC-CTX-01..05 — source-owner-clarification-2-2026-10-25.md: проверка соседних сообщений, reply-цепочки и окна 200–300 до отказа, честный отказ с описанием проверенного, изоляция по chat_id. FC-WIDE-01..05 — owner-decision-wide-context-2026-10-25.md: широкий контекст включён по умолчанию, тумблер в «Модули → Фактчек», идемпотентная миграция false→true, сохранение ручного выключения, фактическое использование режима. Якоря: один source_id = одна пара source_line/source_text_sha256 (правило гейта), поэтому все строки одного входящего сообщения указывают на его ядро в авторитетном снимке (WHOLE→L54, CTX→L108, WIDE→L158); точная строка входящего сообщения, дословная цитата и её sha256 — в owner_input_path/owner_input_line/owner_input_quote/owner_input_text_sha256, ближайшая норма снимка для каждого обязательства — в snapshot_hint. Обязательства уточнений, уже владеемые существующими строками, новых id не получили: все фото и подписи публикации — FC-ALBUM-04, связь текста с изображениями — FC-ALBUM-05, недоступная часть элементов — FC-ALBUM-09, запрет объединять соседние сообщения вне группы — FC-ALBUM-08, «пусто» только после проверки всех источников входа — FC-EMPTY-02. Все новые строки PENDING, verification_tier=engineering, live_required=false."
-}
+  "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (входящие OI-2026-10-25-FC-WHOLE-POST, OI-2026-10-25-FC-CONTEXT-WINDOW, OI-2026-10-25-FC-WIDE-DEFAULT). Добавлено 14 manual-строк; ни одна существующая строка не изменена (статусы/evidence сохранены, source_path/source_sha256 снимка не тронуты). FC-WHOLE-01..04 — source-owner-clarification-2026-10-25.md: ответ на фото альбома = только точка входа, текст публикации независимо от целевого элемента, равный охват для текста/первого/среднего/последнего фото, одиночное фото вне альбома проверяется отдельно. FC-CTX-01..05 — source-owner-clarification-2-2026-10-25.md: проверка соседних сообщений, reply-цепочки и окна 200–300 до отказа, честный отказ с описанием проверенного, изоляция по chat_id. FC-WIDE-01..05 — owner-decision-wide-context-2026-10-25.md: широкий контекст включён по умолчанию, тумблер в «Модули → Фактчек», идемпотентная миграция false→true, сохранение ручного выключения, фактическое использование режима. Якоря: один source_id = одна пара source_line/source_text_sha256 (правило гейта), поэтому все строки одного входящего сообщения указывают на его ядро в авторитетном снимке (WHOLE→L54, CTX→L108, WIDE→L158); точная строка входящего сообщения, дословная цитата и её sha256 — в owner_input_path/owner_input_line/owner_input_quote/owner_input_text_sha256, ближайшая норма снимка для каждого обязательства — в snapshot_hint. Обязательства уточнений, уже владеемые существующими строками, новых id не получили: все фото и подписи публикации — FC-ALBUM-04, связь текста с изображениями — FC-ALBUM-05, недоступная часть элементов — FC-ALBUM-09, запрет объединять соседние сообщения вне группы — FC-ALBUM-08, «пусто» только после проверки всех источников входа — FC-EMPTY-02. Все новые строки PENDING, verification_tier=engineering, live_required=false.",
+  "candidate_note": "26.10.2026 PM-BIND-RELEASE: candidate_commit привязан к релизному кандидату 86ef2a64d1a8… (включает factcheck-media 266b0e6b; smoke на кандидате — 53 passed в probes_release.md §1). VERIFIED проставлены только по независимому ревью R2 (6 блокеров закрыты, 15 кейсов PASS, уточнения №1–№3) и prod-recon.md (воспроизведение PERMsoc по прод-логам, без отправок). Пост-деплойные строки — READY_FOR_LIVE с пометкой postdeploy-only: FC-RELEASE-04 (версия/healthcheck), FC-REPORT-06 (версия в отчёте), FC-WIDE-02 (UI-тумблер в живой админке). Release/отчётные строки FC-RELEASE-01/02/03/05, FC-QUEUE-*, FC-REPORT-01..05/07..15 остаются PENDING до фактического выката и финального отчёта. slice-graph для этой карты не заведён (deferred): правки одной фичи, карта уже проверена гейтом без графа."
+}

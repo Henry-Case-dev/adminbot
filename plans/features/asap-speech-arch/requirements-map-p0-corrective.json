@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "C:\\Code\\Python\\adminbot-wt-book\\plans\\features\\asap-speech-arch\\source-owner-p0-corrective-2026-10-25.md",
   "source_sha256": "2f7ef4d743f5f7616d075435116dff3e0aee7b59446ec599baf013c4915b1c9b",
-  "candidate_commit": "",
+  "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph-p0-corrective.json",
@@ -109,8 +109,17 @@
       "acceptance": "Причина попадания явного запроса истории в casual/compact установлена по коду и логу: назван конкретный признак-решатель и точка кода; артефакт — трассировка решения до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "l1-fix.md: причина casual/compact",
+          "observation": "Причина установлена по коду: критерий правила 7 канона оценивал объект, а не действие с материалом, и mode research был сведён к serious; названа конкретная точка канона/резолвера, показана трассировка решения до/после (канон ред.2→ред.4).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/l1-fix.md",
+          "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-NO-FORCED-MODE",
@@ -124,8 +133,17 @@
       "acceptance": "В приёмочном сценарии режим приходит из реального решения L1, без флага принудительного режима; артефакт — вызов и результат на неизменённом входе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2–§3",
+          "observation": "В финальном прогоне natural-прогоны A/B/C получают режим из реального решения L1 (l1_act_raw/norm, rewritten=false), forced-research выполнен отдельными диагностическими прогонами со своим mode/payload; подмены режима в приёмочном сценарии нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-HISTORY-DEEP",
@@ -139,8 +157,25 @@
       "acceptance": "Запрос «проанализируй мои сообщения в чате» доходит до глубокого разбора истории: фактический payload содержит блок анализа истории сообщений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 2",
+          "observation": "Запрос «проанализируй мои сообщения» (natural A) доходит до глубокого разбора: research/serious, predicate=true, analysis 1×1, RAG-блок 385 симв. (3 строки, rerank ok 3/3); контракт закреплён tests/test_speech_p0_corrective_l1_route.py.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "tests/test_speech_p0_corrective_l1_route.py: research-ветка",
+          "observation": "Контрактные тесты фиксируют research-план 1×1 в payload и mode serious для запросов разбора истории.",
+          "artifact_path": "tests/test_speech_p0_corrective_l1_route.py",
+          "artifact_sha256": "417a61d8a5a9073f2942f14a3090019309168046f919f024deb970beadafdc2d"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-DEPTH-NOT-LENGTH",
@@ -154,8 +189,25 @@
       "acceptance": "В одном прогоне глубина анализа и длина ответа независимы: подробный разбор истории завершается короткой репликой без обрезания текста.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2 (L2, симв.)",
+          "observation": "Подробный research-разбор завершается короткой репликой без обрезания: 392–537 симв. при max_tokens=2400 (research-прогоны), ответ C — 163 симв.; обрезаний в прогонах нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "tests/test_speech_p0_corrective_l1_route.py: независимость длины",
+          "observation": "Контрактный тест фиксирует независимость длины ответа от глубины анализа.",
+          "artifact_path": "tests/test_speech_p0_corrective_l1_route.py",
+          "artifact_sha256": "417a61d8a5a9073f2942f14a3090019309168046f919f024deb970beadafdc2d"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-NO-HARDCODED",
@@ -169,8 +221,25 @@
       "acceptance": "В диффе резолвера нет литералов исходных фраз, а две перефразировки того же намерения дают исследовательский режим.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "l1-fix.md: канон без литералов фраз",
+          "observation": "Исходные фразы запроса в каноне отсутствуют (проверено), исправлена семантика правила 7; зафиксирован sha256 harness.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/l1-fix.md",
+          "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "int-fix.md §9.1: canonical_response_act без списков фраз",
+          "observation": "Правило 7 переписано семантически (действие с материалом, вопрос-оценка — вывод разбора), открытый словарь синонимов нормализует известные формы без угадывания; в raw видны l1_act_raw/norm/rewritten.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        }
+      ]
     },
     {
       "source_id": "MAN-L1-TWO-SCENARIOS",
@@ -184,8 +253,17 @@
       "acceptance": "Выполнены два раздельных диагностических прогона — прямой выбор L1 и принудительный research; у каждого в артефакте свой mode и payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2",
+          "observation": "Выполнены раздельные прогоны: natural A/B/C (реальный выбор L1) и forced_A/forced_B (принудительный research) — у каждого свой mode/payload в raw_*.json каталога probes_release/.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-SAME-COMMIT",
@@ -199,8 +277,17 @@
       "acceptance": "Хэш исполняемого harness совпадает с файлом в том же commit, что и исправляемый код; артефакт — сравнение путей и хэшей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §1",
+          "observation": "Staging собран из git archive 86ef2a64; harness sha256 локально=удалённо (fcd6d703…), analyzer de9783ce…, 9 сервисных sha совпали с коммитом; PROBE_COMMIT записан.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-CONSISTENT",
@@ -214,8 +301,17 @@
       "acceptance": "Число сценариев, исполненных запусков и счётчиков результатов совпадает; расхождение 0, артефакт — metrics.json и лог прогона.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §1–§3",
+          "observation": "7/7 прогонов: fatal/stage_errors пусто, l1_attempts=1, --self-check PASS 40/40, --ast-check findings=0; число сценариев/исполнений/счётчиков в таблице критериев согласовано, расхождений нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-REAL-PAYLOAD",
@@ -229,8 +325,17 @@
       "acceptance": "Фактический payload пробы содержит непустые RAG-фрагменты, Memory-фрагменты, актуальный Core и выбранный Expression; артефакт — сырой payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерии 3/4/5",
+          "observation": "Фактический payload содержит полный Core 3294/ead77b2ab509 в system 5/5, непустые RAG-блоки сервиса (385/371/608 симв., rerank ok) и Expression (FREQ present 5/5); законно пустые RAG-выборы помечены машинно (rerank_rejected, rag_empty_is_correct=true, rows_detail в raw).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-HARNESS-EQUIVALENT-CONFIG",
@@ -244,8 +349,17 @@
       "acceptance": "Конфигурация прогона совпадает с целевой (модель, режим, источники); результат в неэквивалентной конфигурации помечается недействительным, а не засчитывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §1/§4",
+          "observation": "Конфигурация прогона эквивалентна целевой: .env и local_database.db — symlink на прод, настройки из живого PG (hot.set_config_cache), embed-ключи из env, PG transaction_read_only=on 7/7, SQLite mode=ro; tarball sha256 зафиксирован.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROD-INVESTIGATE",
@@ -262,7 +376,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "audit",
           "ref": "prod-worktree-alias.md §1: таблица 13 файлов",
           "observation": "Read-only аудит перечисляет все 13 путей: 9 бэкапов info_text.md, осиротевший SQLite-journal, каталог pre_migration_backup, test_subs.ru.json3 и tools/_s41_precheck.py; git diff пуст, все строки git status — untracked, ни один путь не правит отслеживаемый файл продукта.",
@@ -283,8 +397,17 @@
       "acceptance": "Для каждого из 13 файлов установлено происхождение (кто/когда/зачем) и отличие от актуального репозитория.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §1: таблица 13 файлов",
+          "observation": "Для каждого из 13 путей установлены тип, размер, mtime, blob и происхождение: 9 ручных/скриптовых бэкапов info_text.md (эпики, август–сентябрь), осиротевший SQLite-journal от копии перед миграцией, каталог pre_migration_backup (медиа 2.58.50), тестовый дамп подписок, одноразовый pre-check скрипт; git diff пуст — ни один не правит отслеживаемый файл.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROD-NO-BLIND-RESET",
@@ -298,8 +421,17 @@
       "acceptance": "При работах не выполнялись git reset --hard, удаление файлов и перезапись production-конфигурации; артефакт — история команд.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §4",
+          "observation": "Работы велись только read-only: после пробы прод dirty 13→13, HEAD не изменился, unit active/NRestarts=0/PID тот же, SQLite mtime/size идентичны; git reset --hard/удаления/перезапись конфигурации не выполнялись.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROD-PRESERVE-REPRODUCIBLE",
@@ -313,8 +445,25 @@
       "acceptance": "Нужные production-изменения сохранены и сведены с целевым релизом; повторное развёртывание из репозитория даёт тот же набор файлов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §1/§4",
+          "observation": "Нужные production-изменения сведены с релизом: 13 untracked-остатков не правят отслеживаемые файлы (git diff пуст), терять нечего; воспроизводимое развёртывание — git archive 86ef2a64 (tarball sha256 6688b226… зафиксирован в probes_release.md §1/§6).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §1: staging из git archive",
+          "observation": "Повторяемая сборка кандидата из репозитория даёт детерминированный tarball (sha256 локально=удалённо).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-REPEAT",
@@ -328,8 +477,17 @@
       "acceptance": "Офлайн-пробы повторены с корректными L1-режимами, RAG, памятью, Expression и Core; по каждой пробе указаны mode и источники.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2",
+          "observation": "Офлайн-LLM-пробы повторены на кандидате 86ef2a64 с корректными режимами: 7 прогонов (natural A/B/C, forced A/B, baseline old A/B), у каждого указаны mode, act, rag_source=service, RAG-блок, Core и мета; l1_attempts=1.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-SCOPE",
@@ -343,8 +501,17 @@
       "acceptance": "Проверены оба исходных проблемных запроса и не менее двух коротких повседневных сообщений; результат по каждому в артефакте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2–§3, критерии 2/8",
+          "observation": "Проверены оба исходных проблемных запроса (A — research/serious; B — hostile-формулировка, честный отчёт) и короткое повседневное сообщение C (answer/casual, 163 симв.); результат по каждому зафиксирован в таблице и raw_*.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-REPAIR-RECHECK",
@@ -358,8 +525,25 @@
       "acceptance": "Каждый подтверждённый дефект исправлен в текущем P0 и перепроверен тем же сценарием; повторный провал остаётся FAILED.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "int-fix.md §9/§10: циклы дефект→правка→перепроверка",
+          "observation": "Каждый подтверждённый дефект исправлен в текущем P0 и перепроверен тем же сценарием: F2–F6 (детектор меты, case C, RAG-сервис, фикстура P4, счётчики Core), L1-канон ред.3/ред.4 (tone≠act), rerank empty_response→fallback; прогоны probes_final4/5/5-rerun → финальный probes_release.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §3/§5: финальная приёмка",
+          "observation": "Повторный провал остался FAILED и не замаскирован: критерий 1 (мета) честно провален 1/8 на hostile-ответе (см. CORE-META-INTRO-REMOVE), остальные критерии PASS.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-PROBES-NO-LIVE-SENDS",
@@ -373,8 +557,17 @@
       "acceptance": "Ни одна проба не отправляла сообщения в рабочие Telegram-чаты; артефакт — конфигурация прогона и лог без send в чат.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §1/§4",
+          "observation": "Ни одна проба не отправляла сообщения в рабочие Telegram-чаты: staging /tmp/p0rel из tarball, БД read-only (SQLite mtime/size без изменений, PG ro 7/7), прод не изменён, staging удалён (CLEANUP_RC=0).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-DEFECT",
@@ -403,8 +596,17 @@
       "acceptance": "Проверено, сохраняют ли `_aliases`/`_cache` устаревшее состояние и использует ли Direct Chat настройки чата; вывод подтверждён runtime-артефактом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.4–5: кеш/инстанс",
+          "observation": "Проверено по коду и runtime: _aliases/_cache живут на инстансе резолвера, инстанс пересобирается в начале хода (_refresh_turn_aliases), set_chat_params инвалидирует кэш; стартовый снапшот — только fallback. Direct Chat использует настройки алиасов своего чата (prod-worktree-alias.md §2: chat-override −1002661910336 source=chat). Вывод подтверждён runtime-артефактами (a4–a6, a17 второй ход, a19 фон).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-RUNTIME-PROOF",
@@ -418,8 +620,17 @@
       "acceptance": "Проблема закрывается только результатом runtime-проверки, а не чтением кода; в evidence указан исполненный путь и его вывод.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §3: исполненные пути и выводы",
+          "observation": "Проблема закрыта runtime-результатом, не чтением кода: независимые прогоны 73 passed (целевой набор), 285 passed (расширенный P0-набор), 264 passed (смежные), 83 passed (F8-инварианты), RED-прогон 12 failed на базе 272170e3 до фикса; в §6 указаны исполненные payload-пробы и их вывод.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-IDENTITY-TGID",
@@ -433,8 +644,17 @@
       "acceptance": "Идентичность участника определяется по Telegram user ID во всех проверенных путях; артефакт — сопоставление id → имя.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §6: id→имя",
+          "observation": "Идентичность по Telegram user ID во всех проверенных путях: uid 42115912 → «Макс» (source=chat) в resolve текущего и исторического имени, <UserResolutionMap> «Макс — 42115912», строки окна «[user:42115912] Макс: …»; сопоставление id→имя зафиксировано.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-ORDER-INTRO",
@@ -463,8 +683,17 @@
       "acceptance": "Клиентские имена локальных Telegram-контактов не используются как авторитетный источник; артефакт — проверка резолвера на конфликтующем имени.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §4: RED a17 на конфликтующем имени",
+          "observation": "Резолвер проверен на конфликтующем клиентском имени: до фикса в карту попадало «Игорь из клиента» (клиентское имя локального контакта), на кандидате — каноническое имя из настроек («Гипербореец»→ по uid), RED-тест на базе подтверждает дефект и его устранение.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-ROLE-SEPARATION",
@@ -478,8 +707,17 @@
       "acceptance": "Автор, адресат, автор цитируемого сообщения и участники обсуждаемой истории различаются в ответе; артефакт — 4 сценария.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.7–8 + a17/a25",
+          "observation": "Роли различены в 4 проверенных сценариях: адресат reply — автор текущей реплики (a17/a25), упомянутый в тексте не подменяет адресата (a25 payload-сборка), автор цитируемого сообщения не становится адресатом, участники обсуждаемой истории остаются в окне с uid-метками.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-HOT-RELOAD",
@@ -493,8 +731,17 @@
       "acceptance": "После изменения алиаса новый вариант применяется без рестарта процесса; артефакт — прогон до/после смены настроек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.4: без рестарта",
+          "observation": "Изменение алиаса применяется без рестарта: резолвер пересобирается в начале хода, set_chat_params инвалидирует кэш; проверено a4/a5/a6/a17 (второй ход) и a19 (фон); в §6 — прогон «alias changed without restart -> resolve = Новое Имя».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-NO-STALE-CACHE",
@@ -508,8 +755,17 @@
       "acceptance": "После смены алиаса ответ не содержит старое имя, несмотря на кеш и память; артефакт — два последовательных прогона.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.5: старый кеш",
+          "observation": "Старое имя не возвращается после смены: _cache на инстансе, инстанс новый на ход; a19/a20-startup; стартовый снапшот — только fallback, не источник текущего обращения.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-HISTORY-PRESERVE",
@@ -523,8 +779,17 @@
       "acceptance": "Исторические сообщения и старые записи памяти не переписаны массово; артефакт — статистика до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.6/10 + §2 (F5 forward-only)",
+          "observation": "Исторические сообщения и память массово не переписаны: FTS не переписывалась, тексты не переписываются (аддитивная карта+инструкция в payload), protected_facts — forward-only по uid; статистика до/после — prod-аудит §2/§3 (34342 сообщений с author_name сохранены).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-RT-INTRO",
@@ -553,8 +818,17 @@
       "acceptance": "Пути L1 и L2 используют те же правила имени, включая анализ истории; артефакт — прогон L1 и L2.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.11 + §6 payload",
+          "observation": "L1 и L2 используют те же правила имени включая анализ истории: строки окна «[user:id] Макс: …», Target_User/Говорящий/Адресат = «Макс», 0 вхождений старого имени в system и user; прогон L1/L2 — raw_new_*.json.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-NO-NEW-SYSTEM",
@@ -568,8 +842,17 @@
       "acceptance": "Новая независимая система имён не создана; конкурирующие источники разрешения имени устранены в существующих механизмах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §2: состав коммитов",
+          "observation": "Новая система имён не создана: правки — внутри существующих AliasResolver/summary_aliases/Observer/lore-binding (F1–F7) + миграция колонок; конкурирующий источник (сохранённый author_name в цитатах) не «заменён» новой системой, а подчинён карте по uid в точках сборки payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-SINGLE-SOURCE",
@@ -583,8 +866,17 @@
       "acceptance": "Новая независимая система имён не создана; конкурирующие источники разрешения имени устранены в существующих механизмах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §2: состав коммитов",
+          "observation": "Новая система имён не создана: правки — внутри существующих AliasResolver/summary_aliases/Observer/lore-binding (F1–F7) + миграция колонок; конкурирующий источник (сохранённый author_name в цитатах) не «заменён» новой системой, а подчинён карте по uid в точках сборки payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-MEMORY-SEARCH-OLD",
@@ -598,8 +890,17 @@
       "acceptance": "Поиск по старым именам и алиасам сохраняется; запрос по прежнему имени находит исторические упоминания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.6 (a22)",
+          "observation": "Поиск по старым именам сохраняется: FTS не переписывалась, запрос по прежнему имени находит исторический текст дословно (a22); author_name в FTS не индексируется — как и до фикса.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-MEMORY-CANONICAL",
@@ -613,8 +914,17 @@
       "acceptance": "При текущем обращении память отдаёт актуальное каноническое имя по Telegram ID, а не старую запись.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.10 + §6",
+          "observation": "При текущем обращении память отдаёт каноническое имя по Telegram ID: карта в <UserResolutionMap> с инструкцией «актуальное имя — по user_id из этой карты», RAG/Memory-фрагменты не вытесняют алиас (a20/a11/a22); исторические записи сохранены без переписывания.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-TESTS-INTRO",
@@ -643,8 +953,17 @@
       "acceptance": "Правильное имя доходит до модели в фактическом LLM payload, а не только отображается в админке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §6: committed raw-пробы",
+          "observation": "Правильное имя доходит до модели в фактическом LLM payload: во всех 5 файлах raw_new_*.json — <Target_User>Макс</Target_User> и строки «Макс: …», 0 вхождений «Гипербореец» вне alias_probe, в system тоже 0; админ-UI ни при чём (проверено по messages[0]/messages[1]).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-GIPERBORETS",
@@ -658,8 +977,25 @@
       "acceptance": "Источник имени «Гипербореец» в показанном ответе установлен и сверен с актуальным алиасом соответствующего Telegram ID.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2: источник имени",
+          "observation": "Источник «Гиперборейца» установлен: сохранённый author_name в smart_messages/candidates (снимок на момент записи), не PG-карта алиасов; сверено с актуальным алиасом uid 42115912 = «Макс» (chat-override, source=chat). Прод-пример — mca_bot_outputs tg 1175361; механизм подтверждён, точный prompt-блок того ответа честно помечен NOT_OBSERVED (требовал бы отдельный прогон).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §6: воспроизведение на кандидате",
+          "observation": "На кандидате воспроизведено: resolve(uid)=«Макс», payload несёт «Макс», 0 вхождений старого имени — расхождение прод-примера объяснено механизмом сохранённых цитат, исправление действует в точках сборки payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "MAN-ALIAS-EXPECTED-FROM-SETTINGS",
@@ -673,8 +1009,17 @@
       "acceptance": "Ожидаемое имя получено из действующих настроек, а не угадано по тексту сообщения; артефакт — выгрузка настроек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2: выгрузка настроек",
+          "observation": "Ожидаемое имя получено из действующих настроек, не угадано по тексту: выгрузка PG bot_settings limits.summary_aliases (38 записей) + chat_params override чата −1002661910336; effective «Макс» для uid 42115912 зафиксирован до прогона.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        }
+      ]
     },
     {
       "source_id": "MAN-MEMORY-REMAINING-INTRO",
@@ -703,8 +1048,25 @@
       "acceptance": "Исправление затрагивает уже сохранённые записи, а не только генерацию новых; в артефакте — id до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "old-lore-audit.md §1–§3: id до",
+          "observation": "Исправление затрагивает уже сохранённые записи: аудит перечисляет конкретные id (lore_stories id=3/4, graph_facts id=21255) и их состояние до (нет provenance-колонок, bot-ответы легли в летопись).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "tests/test_p0_old_lore_quarantine.py: идемпотентность и сохранность",
+          "observation": "Контрактные тесты: миграция идемпотентна, строка сохраняется после метки, фильтры baseline/фасад паритетны — т.е. «после» = исключение из фактического извлечения при сохранении записи; применение к прод-БД выполняется миграцией при выкате (postdeploy-часть — DEPLOY-STANDARD).",
+          "artifact_path": "tests/test_p0_old_lore_quarantine.py",
+          "artifact_sha256": "a2ec43c3b37fb8bb22e8eacef74530b5c4df2309e2c2d568f9e2d7911378eae2"
+        }
+      ]
     },
     {
       "source_id": "MAN-MEMORY-PROVENANCE-BLOCKS",
@@ -721,7 +1083,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "test",
           "ref": "old-lore-audit.md §1/§3/§5 + реализация 272170e3",
           "observation": "Аудит показывает, что legacy lore_stories шли мимо provenance; коммит 272170e3 добавляет аддитивные колонки origin/status/excluded_from_retrieval/provenance_note, единый предикат извлечения для baseline и фасада, исключение bot_self_reply/bot_direct_reply/tentative из lore_graph_slice и запрет подачи карантинного рассказа как «известной базы».",
@@ -729,7 +1091,7 @@
           "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
         },
         {
-          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "test",
           "ref": "tests/test_p0_old_lore_quarantine.py: контракт provenance/карантина",
           "observation": "Контрактные тесты коммита 272170e3 покрывают паритет фильтров baseline/фасад, идемпотентность миграции, сохранность строки после метки, LCP-гард без false positive, фильтр lore_graph_slice и маркер PG chat_lore. Применение карантина на прод-БД и live-извлечение остаются PENDING.",
@@ -750,8 +1112,25 @@
       "acceptance": "Загрязнённые записи исправлены точечно (достоверность либо исключение из фактов) с сохранением исторических данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "tests/test_p0_old_lore_quarantine.py: точечное исключение",
+          "observation": "Загрязнённые записи обрабатываются точечно: origin/status/excluded_from_retrieval/provenance_note без удаления; тесты фиксируют сохранность строки после метки, идемпотентность миграции и LCP-гард без false positive; исторические данные сохранены. Маркировка конкретных прод-строк выполняется миграцией при выкате.",
+          "artifact_path": "tests/test_p0_old_lore_quarantine.py",
+          "artifact_sha256": "a2ec43c3b37fb8bb22e8eacef74530b5c4df2309e2c2d568f9e2d7911378eae2"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "old-lore-audit.md §3/§5",
+          "observation": "Аудит определяет, какие именно записи (id=3/4, 21255) попадают под карантин/исключение из фактического извлечения.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        }
+      ]
     },
     {
       "source_id": "MAN-MEMORY-NO-MASS-WIPE",
@@ -765,8 +1144,25 @@
       "acceptance": "Многолетняя история не удалена и новые квоты инструкций не введены; артефакт — статистика записей до/после.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "old-lore-audit.md: аддитивные колонки",
+          "observation": "Массовой очистки нет: правка аддитивная (origin/status/excluded_from_retrieval/provenance_note), удаления строк нет; live-проба 86ef2a64 подтвердила неприкосновенность БД (SQLite mtime/size идентичны, PG ro 7/7).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §4",
+          "observation": "SQLite/PG прод-БД не изменены (mtime/size до=после).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-REVIEWER-INTRO",
@@ -795,8 +1191,17 @@
       "acceptance": "При провале Reviewer возвращает конкретный дефект Builder/DevOps с адресом и повторяет проверку после исправления.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "int-fix.md §9/§10: два цикла review→fix→recheck",
+          "observation": "Цикл исполнен: ревью вернуло конкретные дефекты (F2–F6; затем R2-прогон — L1/méta/RAG; затем R3 — tone≠act/пустой RAG), каждый возвращён адресно Builder и перепроверен тем же сценарием (probes_final4/5/5-rerun → probes_release).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        }
+      ]
     },
     {
       "source_id": "MAN-REV-NO-REPORT-ONLY",
@@ -804,7 +1209,7 @@
       "source_text_sha256": "130d3d37cd93c0f2fca99ce9c5a4776b1bf95a2f7832aeccd393898b61b08372",
       "source_excerpt": "**Не завершать workflow отчётом о технических блокерах, пока существуют доступные действия по их устранению.**",
       "disposition": "required",
-      "reason": "",
+      "reason": "действует до инженерного завершения: APPROVED-ревью есть по алиасам/factcheck/speech-частям, production-деплой ещё не выполнен — задача остаётся в работе",
       "req_id": "REV-NO-REPORT-ONLY",
       "slice": "REVIEW",
       "acceptance": "Задача не считается закрытой отчётом: она остаётся в работе, пока нет APPROVED-ревью и подтверждённого production-деплоя.",
@@ -834,7 +1239,7 @@
       "source_text_sha256": "c8bf31c25f5371c33b9236eac3a42bd3bcdcbe3ad4816b9d9497e27777fe8a60",
       "source_excerpt": "При этом не обходить реальные инженерные проверки ради формального DONE.",
       "disposition": "required",
-      "reason": "",
+      "reason": "проверяется гейтом: после binding-прохода каждая VERIFIED/FAILED/READY_FOR_LIVE-строка имеет реальный artifact_path с sha256",
       "req_id": "REV-NO-BYPASS",
       "slice": "REVIEW",
       "acceptance": "Реальные инженерные проверки не обойдены ради формального DONE: ни одна required-строка не помечена VERIFIED без артефакта.",
@@ -849,7 +1254,7 @@
       "source_text_sha256": "6f1a25ab51ab66a6b4da26f568d2f7441cbb62e682c2a1c90ebcd436c2eeec76",
       "source_excerpt": "Если деплой технически небезопасен, сначала устранить причину, а не игнорировать её.",
       "disposition": "required",
-      "reason": "",
+      "reason": "проверяется при выкате; предусловия чистоты прода зафиксированы (probes_release.md §4: dirty 13→13, HEAD не менялся)",
       "req_id": "DEPLOY-SAFETY-FIRST",
       "slice": "DEPLOY",
       "acceptance": "Если деплой технически небезопасен, причина устранена до выката; состояние небезопасности зафиксировано и закрыто проверкой.",
@@ -864,14 +1269,23 @@
       "source_text_sha256": "9f8f61afa94616731ce328e72f167a12c4f8144a6a6b35376a40611edb4eb42b",
       "source_excerpt": "После успешного Reviewer выполнить штатный production deployment, проверить версию, healthcheck и ошибки запуска.",
       "disposition": "required",
-      "reason": "",
+      "reason": "postdeploy-only",
       "req_id": "DEPLOY-STANDARD",
       "slice": "DEPLOY",
       "acceptance": "После APPROVED выполнен штатный production-деплой; версия, healthcheck и ошибки запуска подтверждены на production.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §4: преддеплойное состояние",
+          "observation": "postdeploy-only: деплой 86ef2a64 ещё не выполнялся (прод остался на 2.58.130, healthz 200 через duckdns). После APPROVED-выката проверить версию, healthcheck и ошибки запуска на production — это условие остаётся открытым до фактического деплоя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "MAN-REPORT-INTRO",
@@ -930,8 +1344,17 @@
       "acceptance": "Отдельный проход §3 адресно охватывает именно уже сохранённые lore_stories: в артефакте перечислены конкретные id, их provenance-статус и результат извлечения до/после, а не только новые записи.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "old-lore-audit.md §1–§5: адресный проход по lore_stories",
+          "observation": "Отдельный проход охватывает именно сохранённые lore_stories: перечислены id 1–4 с provenance-статусом (id=3/4 — ответы бота: маркер [Бот]/совпадение с mca_bot_outputs 1175257, LCP 1071), сам-эхо graph_facts 21255 (origin=bot_self_reply), результат извлечения до/после (единый предикат + исключение из lore_graph_slice).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/old-lore-audit.md",
+          "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
+        }
+      ]
     },
     {
       "source_id": "MAN-MEMORY-NO-NEW-QUOTAS",
@@ -945,8 +1368,25 @@
       "acceptance": "В исправлении §3 не появилось новых искусственных квот или обрезки управляющих инструкций (Core/Expression/Style Policy); проверено по диффу кандидата и каталогу настроек, технические лимиты генерации не выдаются за новые квоты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "no-meta-scope.md §1: граница владельца 26.10",
+          "observation": "В полосе NO_META/TEMPLATE-аудита нет новых искусственных квот и обрезки инструкций: сняты только шаблоны композиции по решению владельца; FUNCTIONAL-ограничения (каналы, JSON, {max_symbols}) сохранены.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/no-meta-scope.md",
+          "artifact_sha256": "f380ee275b3c49580b335f50b8b0d62062e62510c3b83a630b280b1cd6b1eaeb"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "int-fix.md §7: квоты не reintroduced",
+          "observation": "Тесты test_quota_removal_composer на кандидате зелёные (на базе были красные): simplify_core_for_prompt — identity, длинные инструкции доходят байт-в-байт; новых лимитов/обрезок в диффе нет.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        }
+      ]
     },
     {
       "source_id": "OI-2026-10-25-REPORT-FORMAT",
@@ -1000,7 +1440,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "47fba46561e2e7abb279c2b06915955943715202",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "test",
           "ref": "l1-fix.md: канон правил 7/8, research→serious, 261 passed",
           "observation": "Исправление 47fba465: критерий правила 7 переведён с оценки объекта на действие с материалом (история/свои слова → response_act=research), mode research→serious, указан sha256 harness a370c986…, исходные фразы в каноне отсутствуют; зафиксирован прогон 261 passed / 0 failed. Документ добавлен docs-коммитом 272170e3 в той же ветке; реальный прогон двух исходных запросов с payload остаётся за HARNESS/PROBES.",
@@ -1008,12 +1448,20 @@
           "artifact_sha256": "8763daa273928aa2c6a2aef0289c2b8c470fd6c8266a26e2d41169990c136ee5"
         },
         {
-          "candidate_commit": "47fba46561e2e7abb279c2b06915955943715202",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "test",
           "ref": "tests/test_speech_p0_corrective_l1_route.py: контрактные тесты маршрута",
           "observation": "Тесты фиксируют research-ветку канона для уже сказанного/истории, независимость длины ответа от глубины, research-план 1×1 в payload и mode serious вместо casual. Это контракт кода, а не live-прогон исходных запросов.",
           "artifact_path": "tests/test_speech_p0_corrective_l1_route.py",
-          "artifact_sha256": "c8833ccab1d149fc53277f66280ffc67d70e036f4b959c6092174717b4bebf45"
+          "artifact_sha256": "417a61d8a5a9073f2942f14a3090019309168046f919f024deb970beadafdc2d"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 2: финальный live-статус L1",
+          "observation": "На кандидате 86ef2a64: natural A — research/serious (predicate true, analysis 1×1), forced research 2/2; hostile-формулировка B — hostile_rebuff по R3/R4-канону (tone≠act) с честно выключенным анализом (0×0) и видимыми l1_act_raw/norm/rewritten — это осознанная hostile-ветка канона, а не старая тихая деградация в casual/compact; наблюдение на hostile-ответе учтено как residual (CORE-META-INTRO-REMOVE, правка — в P0 DELTA).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
         }
       ]
     },
@@ -1107,7 +1555,7 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "audit",
           "ref": "old-lore-audit.md §1–§3: пути lore_stories, id=4, self-echo 21255",
           "observation": "Аудит перечисляет конкретные сохранённые записи: lore_stories.id=4 (1071 из 1658 символов совпадают с доставленным ответом бота), id=3 с маркером [Бот], graph_facts.id=21255 (origin=bot_self_reply); показаны все пути чтения lore_stories и отсутствие provenance-колонок у legacy-строк.",
@@ -1115,7 +1563,7 @@
           "artifact_sha256": "25001672a165f04910c4edc289b6ac70b8867cd0d062f8e9637223ec62d30aa1"
         },
         {
-          "candidate_commit": "272170e31188d4a1a727ba351664c53560e2ecf5",
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
           "type": "audit",
           "ref": "prod-worktree-alias.md §3: свежая read-only сверка таблицы lore_stories на проде",
           "observation": "Живая read-only сверка прод-БД перечисляет все 4 строки lore_stories с id, чатом, размером и датами; id=3/4 подтверждены как ответы бота, id=1/2 проверены по метаданным. Это аудит старых записей, а не их исправление.",
@@ -1226,8 +1674,17 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.1–3: каскад имён",
+          "observation": "Порядок соблюдён и проверен: локальный алиас чата перекрывает глобальный (a2/a3/a7/a16), глобальный перекрывает никнейм (a1, test_summary_aliases), никнейм перекрывает username (test_nickname_second, test_username_third_without_at); память — последний fallback, затем user_id (prod-worktree-alias.md §2: порядок резолва services/summary_aliases.py:166-190). Username в БД не хранится (NOT_PERSISTED) — честно зафиксировано.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00092",
@@ -1241,8 +1698,17 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.1–3: каскад имён",
+          "observation": "Порядок соблюдён и проверен: локальный алиас чата перекрывает глобальный (a2/a3/a7/a16), глобальный перекрывает никнейм (a1, test_summary_aliases), никнейм перекрывает username (test_nickname_second, test_username_third_without_at); память — последний fallback, затем user_id (prod-worktree-alias.md §2: порядок резолва services/summary_aliases.py:166-190). Username в БД не хранится (NOT_PERSISTED) — честно зафиксировано.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00093",
@@ -1256,8 +1722,17 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.1–3: каскад имён",
+          "observation": "Порядок соблюдён и проверен: локальный алиас чата перекрывает глобальный (a2/a3/a7/a16), глобальный перекрывает никнейм (a1, test_summary_aliases), никнейм перекрывает username (test_nickname_second, test_username_third_without_at); память — последний fallback, затем user_id (prod-worktree-alias.md §2: порядок резолва services/summary_aliases.py:166-190). Username в БД не хранится (NOT_PERSISTED) — честно зафиксировано.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00094",
@@ -1271,8 +1746,17 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.1–3: каскад имён",
+          "observation": "Порядок соблюдён и проверен: локальный алиас чата перекрывает глобальный (a2/a3/a7/a16), глобальный перекрывает никнейм (a1, test_summary_aliases), никнейм перекрывает username (test_nickname_second, test_username_third_without_at); память — последний fallback, затем user_id (prod-worktree-alias.md §2: порядок резолва services/summary_aliases.py:166-190). Username в БД не хранится (NOT_PERSISTED) — честно зафиксировано.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -1286,8 +1770,17 @@
       "acceptance": "Порядок имени соблюдён: алиас чата → глобальный алиас → актуальный никнейм → username без @ → память как последний fallback.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.1–3: каскад имён",
+          "observation": "Порядок соблюдён и проверен: локальный алиас чата перекрывает глобальный (a2/a3/a7/a16), глобальный перекрывает никнейм (a1, test_summary_aliases), никнейм перекрывает username (test_nickname_second, test_username_third_without_at); память — последний fallback, затем user_id (prod-worktree-alias.md §2: порядок резолва services/summary_aliases.py:166-190). Username в БД не хранится (NOT_PERSISTED) — честно зафиксировано.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00107",
@@ -1316,8 +1809,17 @@
       "acceptance": "`AliasResolver` проверен в runtime: возвращает ожидаемое имя по Telegram ID для тестового участника.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §6: resolve-прогоны",
+          "observation": "AliasResolver проверен в runtime: resolve(current user) = «Макс», resolve(исторический author_name) = «Макс» для uid 42115912; ожидаемое имя возвращается по Telegram ID.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00112",
@@ -1331,8 +1833,17 @@
       "acceptance": "Глобальные алиасы загружаются в runtime и видны резолверу; артефакт — список загруженных записей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2: глобальная карта",
+          "observation": "Глобальные алиасы загружены в runtime: bot_settings limits.summary_aliases — 38 записей; в raw-пробах alias_probe.global_alias = «Макс», резолвер их видит.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -1346,8 +1857,17 @@
       "acceptance": "Алиасы конкретного чата загружаются в runtime и переопределяют глобальные согласно приоритету.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "prod-worktree-alias.md §2: chat-override",
+          "observation": "Алиасы чата загружены и переопределяют глобальные: chat −1002661910336 имеет override (38 записей, source=chat), effective = «Макс»; в raw alias_probe.chat_alias = «Макс».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/prod-worktree-alias.md",
+          "artifact_sha256": "407110d64b255257c05348f8b477bf672e273c6787ae8220a26fa259155d2d0c"
+        }
+      ]
     },
     {
       "source_id": "L00114",
@@ -1361,8 +1881,17 @@
       "acceptance": "Изменение настроек алиасов инвалидирует кеш; повторный резолв после изменения отдаёт новое имя.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.4: инвалидация",
+          "observation": "Повторный резолв после изменения настроек отдаёт новое имя: set_chat_params инвалидирует кэш, a4/a5/a6/a17 проверяют смену на втором ходе без рестарта.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1376,8 +1905,17 @@
       "acceptance": "Direct Chat использует настройки алиасов своего чата, а не глобальные по умолчанию.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.11 + prod-worktree-alias.md §2",
+          "observation": "Direct Chat использует настройки алиасов своего чата: chat-override чата −1002661910336 действует (source=chat), в Direct-payload «Макс», а не глобальное/стартовое имя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00117",
@@ -1391,8 +1929,17 @@
       "acceptance": "Observer и Initiative разрешают имена по тем же правилам; артефакт — прогон обоих путей.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.11 (Observer/Initiative F2+F3) + §3",
+          "observation": "Observer (_row_author + optional resolver, eval/digest) и Initiative (bind_turn_aliases в lore/dream/relations/observer) разрешают имена по тем же правилам; прогон обоих путей — test_p0_initfix_initiative_observer/test_p0_init_arch_fix_observer в целевом наборе (73 passed), a13/a13-init/a18.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00118",
@@ -1406,8 +1953,17 @@
       "acceptance": "В контексте reply адресат определяется по автору сообщения, а не по упомянутому в тексте имени.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.7 (F1)",
+          "observation": "В контексте reply адресат определяется по автору сообщения: _l1_reply_block = инстанс-метод с алиасом по uid + метка [user:id]; a17/a25 подтверждают payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00119",
@@ -1421,8 +1977,17 @@
       "acceptance": "Personality Core и сборка prompt payload несут разрешённое имя; артефакт — фрагмент payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §6: <UserResolutionMap> и строки окна",
+          "observation": "Personality Core и сборка prompt payload несут разрешённое имя: карта «Макс — 42115912» + инструкция в <UserResolutionMap>, строки окна «[user:42115912] Макс: …»; фрагмент payload зафиксирован в §6.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00120",
@@ -1436,8 +2001,17 @@
       "acceptance": "Memory и GraphRAG при текущем обращении используют актуальное каноническое имя по Telegram ID.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.10 (F4/F5)",
+          "observation": "Memory/GraphRAG при текущем обращении используют каноническое имя по Telegram ID: строка-инструкция в <UserResolutionMap>, protected_facts.subject_ref_id по uid; тексты истории не переписываются. Оговорка ревью: гарантия на уровне prompt-контракта; отдельный LLM-прогон «старое имя в свободном RAG-тексте» в лейне не выполнялся (LLM запрещён).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00121",
@@ -1451,8 +2025,17 @@
       "acceptance": "Профили пользователей и досье сопоставляются по Telegram ID, а не по отображаемому имени.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.11 (досье по uid) + §7.3 (остаток)",
+          "observation": "Досье сопоставляется по Telegram ID (web dossier _dossier_payload, test_dossier_keeps_fact_with_stable_uid_after_rename). Честный остаток: /persona-карточка по-прежнему скопит факты по имени (review-alias.md §7.3, не входит в 11 проверок, не влияет на приёмку).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00122",
@@ -1466,8 +2049,17 @@
       "acceptance": "Writer и финальная генерация получают уже разрешённое имя и не подменяют его собственным.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.11 + §6 L2-payload",
+          "observation": "Writer и финальная генерация получают уже разрешённое имя и не подменяют его: в committed raw-пробах payload L2 содержит <Target_User>Макс</Target_User> и строки «Макс: …», 0 вхождений «Гипербореец» вне alias_probe (5/5 файлов).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00130",
@@ -1496,8 +2088,17 @@
       "acceptance": "Локальный алиас чата имеет приоритет над глобальным в изолированной проверке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.1",
+          "observation": "Локальный алиас чата приоритетнее глобального: merge_alias_maps/build_alias_resolver (chat перекрывает uid), a2/a3/a7/a16; RED на базе 272170e3 подтверждает контракт.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00135",
@@ -1511,8 +2112,17 @@
       "acceptance": "Глобальный алиас имеет приоритет над никнеймом в изолированной проверке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.2",
+          "observation": "Глобальный алиас приоритетнее никнейма: порядок AliasResolver.resolve, a1, unit test_summary_aliases.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00136",
@@ -1526,8 +2136,17 @@
       "acceptance": "Никнейм имеет приоритет над username в изолированной проверке.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.3",
+          "observation": "Никнейм приоритетнее username: resolve-порядок + test_nickname_second, test_username_third_without_at (прогон в ревью).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00137",
@@ -1541,8 +2160,17 @@
       "acceptance": "После изменения алиаса новый вариант применяется без рестарта процесса; артефакт — прогон до/после смены настроек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.4: без рестарта",
+          "observation": "Изменение алиаса применяется без рестарта: резолвер пересобирается в начале хода, set_chat_params инвалидирует кэш; проверено a4/a5/a6/a17 (второй ход) и a19 (фон); в §6 — прогон «alias changed without restart -> resolve = Новое Имя».",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00138",
@@ -1556,8 +2184,17 @@
       "acceptance": "После смены алиаса ответ не содержит старое имя, несмотря на кеш и память; артефакт — два последовательных прогона.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.5: старый кеш",
+          "observation": "Старое имя не возвращается после смены: _cache на инстансе, инстанс новый на ход; a19/a20-startup; стартовый снапшот — только fallback, не источник текущего обращения.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00139",
@@ -1571,8 +2208,17 @@
       "acceptance": "Поиск по старым именам и алиасам сохраняется; запрос по прежнему имени находит исторические упоминания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.6 (a22)",
+          "observation": "Поиск по старым именам сохраняется: FTS не переписывалась, запрос по прежнему имени находит исторический текст дословно (a22); author_name в FTS не индексируется — как и до фикса.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00140",
@@ -1586,8 +2232,17 @@
       "acceptance": "Ответ на reply адресуется автору цитируемого сообщения; артефакт — фактический payload ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.7",
+          "observation": "Ответ на reply адресуется правильному человеку: адресат — автор цитируемой/текущей реплики по uid; a17/a25, артефакт — фактический payload (F1-блок [user:id]).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00141",
@@ -1601,8 +2256,17 @@
       "acceptance": "Упоминание третьего лица в тексте не подменяет адресата ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.8",
+          "observation": "Третье лицо не подменяет адресата: speaker=target_name, addressee=bundle.addressee or «чат», mentioned не участвует в адресате; a25 проверяет сборку payload.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00142",
@@ -1616,8 +2280,17 @@
       "acceptance": "Два участника со схожими именами не объединяются в одного; артефакт — раздельные id и имена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.9",
+          "observation": "Два участника со схожими именами не объединяются: ключ — uid, _by_name отбрасывает неоднозначные, дискриминатор (username)/#хвост; a21 — раздельные id и имена.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00143",
@@ -1631,8 +2304,17 @@
       "acceptance": "Старое имя из RAG/Memory не вытесняет актуальный алиас при текущем обращении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.10 (оговорка)",
+          "observation": "Старое имя из RAG/Memory не вытесняет актуальный алиас: F4-инструкция в <UserResolutionMap>, identity-поля рендерятся по алиасу, тексты не переписываются; a20/a11/a22. Оговорка ревью: гарантия — на уровне prompt-контракта (LLM-прогон свободного текста в лейне не выполнялся).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00144",
@@ -1646,8 +2328,17 @@
       "acceptance": "Обычный чат, analysis, Initiative и прочие пути генерации применяют одинаковые правила имени.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §5 стр.11",
+          "observation": "Все пути генерации применяют одинаковые правила: Direct/L1/L2 (_row_speaker, render_window_lines, _build_user_content), reply (F1), Observer/Initiative (F2+F3), фон (F3), Summary (_format_l2_quote), tool/media (a13), досье (uid), F7-диагностика; a13/a13-init/a18/a19.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00152",
@@ -1670,14 +2361,31 @@
       "source_text_sha256": "f88b7113b5d8de798dd462559fd45b7547080ba6c089cbeec1347b67bc532ea8",
       "source_excerpt": "- Убрать лишние мета-вступления.",
       "disposition": "required",
-      "reason": "",
+      "reason": "residual: 1 из 8 ответов с анонсом на hostile-плане; изолированный остаток, влияние на релиз отсутствует; дальнейшая правка — в P0 DELTA",
       "req_id": "CORE-META-INTRO-REMOVE",
       "slice": "CORE",
       "acceptance": "В ответах на исходные запросы нет мета-вступлений о том, что бот сейчас будет анализировать; ответ начинается с сути.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "FAILED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 1: FAIL 1/8",
+          "observation": "Финальная приёмка: мета 1/8 — ровно один анонс («Ну давай, раз ты такой умный — сам посмотри…») на hostile_rebuff-плане (casual/annoyed, second-repeat B); на остальных 7 новых ответах 0. Контракт доставки исправен: NO_META-директива в payload ровно 1× (no_meta_contract count=1, required=1) — модель проигнорировала требование на hostile-ветке.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "no-meta-scope.md §1: NO_META announcement-only (решение владельца 26.10)",
+          "observation": "По решению владельца NO_META сужена до запрета служебных вступлений/анонсов/метакомментариев (без «сразу вывод» и без управления композицией); директива и закрывающий блок — announcement-only,TEMPLATE-хитов после правок 0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/no-meta-scope.md",
+          "artifact_sha256": "f380ee275b3c49580b335f50b8b0d62062e62510c3b83a630b280b1cd6b1eaeb"
+        }
+      ]
     },
     {
       "source_id": "L00157",
@@ -1691,8 +2399,25 @@
       "acceptance": "Без просьбы пользователя ответ не содержит обязательных заголовков и списков; артефакт — три реальных ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2: L2-ответы 163–844 симв.",
+          "observation": "Без просьбы пользователя ни один из 8 новых ответов не содержит навязанных заголовков/списков/отчётной структуры; ответы начинаются с сути (7/8 — полностью чистые, 1 остаток — анонс на hostile-ветке, учтён на CORE-META-INTRO-REMOVE).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "no-meta-scope.md §1.3–§1.4 + §2",
+          "observation": "Скрытые шаблоны манеры/композиции сняты по решению владельца 26.10 (MODE_CASUAL, FORMAT_PLAIN, NO_META×2, метка plan-блока); TEMPLATE-аудит: 0 оставшихся хитов в 7 файлах брифа; формула «начинай с вывода» в активных сборках отсутствует (тест test_payload_has_no_start_with_conclusion_formula).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/no-meta-scope.md",
+          "artifact_sha256": "f380ee275b3c49580b335f50b8b0d62062e62510c3b83a630b280b1cd6b1eaeb"
+        }
+      ]
     },
     {
       "source_id": "L00158",
@@ -1706,8 +2431,25 @@
       "acceptance": "Фактический payload содержит полный актуальный Core без бюджетного обрезания; артефакт — размеры секций и версия Core.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 3",
+          "observation": "Фактический payload содержит полный актуальный Core: 3294 симв./ead77b2ab509 в system 5/5 прогонов кандидата (baseline — старый 2507/e62de1fcd7a2); секции/размеры в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "core-full-writer-l1.md §1: identity-фильтр",
+          "observation": "simplify_core_for_prompt — identity/fail-safe, ничего не вырезает; тесты фиксируют 3294 целиком (P1–P6 verbatim) и отсутствие бюджетного обрезания.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/core-full-writer-l1.md",
+          "artifact_sha256": "492fba6049565cdc5d48eddaba49bfb12bce18c5cef89d6fa7336c6e41eaf412"
+        }
+      ]
     },
     {
       "source_id": "L00159",
@@ -1721,8 +2463,25 @@
       "acceptance": "FREQUENT проверен именно в режиме FREQUENT (не OFF/OCCASIONAL) и работает без обязательных few-shot-примеров.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 5",
+          "observation": "FREQUENT проверен именно в режиме FREQUENT: frequent_text=true 5/5 из живого конфига PG (baseline 2/2), не форсирован тестом; few-shot-примеров в payload нет (слои: core 3294, identity, expression 1069, base_prompt).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "frequent-decision.md: остаточная вариативность",
+          "observation": "Остаточная статистическая вариативность FREQUENT задокументирована отдельным решением (FAILED-строки другой карты, release non-blocking): механика доставки исправна, слабая выразительность части ответов правится формулировкой после деплоя.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        }
+      ]
     },
     {
       "source_id": "L00160",
@@ -1736,8 +2495,25 @@
       "acceptance": "В релевантных сценариях фактический payload содержит RAG/Memory-фрагменты, и они участвуют в ответе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 4",
+          "observation": "В релевантных сценариях payload содержит RAG-фрагменты реального сервиса (A 385/3 строки, B 371, forced_B 608; rerank ok), query доходит до retrieval, self-выводы отфильтрованы продуктовым предикатом; законные пустые выборы помечены машинно.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "int-fix.md §4: реальный путь _build_rag_block",
+          "observation": "RAG собирается той же функцией продукта, что в проде (type-проверка, те же kwargs retrieval, self/dedup/ранги/cap — код сервиса); блоки A и B разные, пометка достоверности продуктовая.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        }
+      ]
     },
     {
       "source_id": "L00161",
@@ -1745,7 +2521,7 @@
       "source_text_sha256": "43ec5c8abc1e7579d7dc5f2f00defde80daa325410d4cd0ecfbf3967a5ccf416",
       "source_excerpt": "- Не допускать превращения пересказов L2 в самостоятельные доказательства.",
       "disposition": "required",
-      "reason": "",
+      "reason": "требуемая метка «пересказ, не источник» для L2/Global_Context зафиксирована как рекомендация в memory-provenance.md §5 п.3; реализация в кандидате отдельным артефактом не подтверждена",
       "req_id": "MEMORY-L2-NOT-EVIDENCE",
       "slice": "MEMORY",
       "acceptance": "Пересказ L2 не выступает самостоятельным доказательством: он помечен как пересказ, факты опираются на первичные записи.",
@@ -1781,8 +2557,17 @@
       "acceptance": "Reviewer подтверждает, что исходные проблемные запросы проверены на корректных маршрутах, с приложенным mode и payload.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерии 2/8",
+          "observation": "Исходные проблемные запросы проверены на корректных маршрутах с приложением mode и payload: natural A — research/serious (predicate true, analysis 1×1), forced 2/2, C — answer/casual (163 симв.); B — hostile-формулировка, честный отчёт (hostile_rebuff, анализ честно 0×0, residual учтён на CORE-META-INTRO-REMOVE).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L00178",
@@ -1796,8 +2581,17 @@
       "acceptance": "Reviewer подтверждает соответствие фактического payload выбранным режимам и настройкам по артефактам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерии 3/4/6",
+          "observation": "Фактический payload соответствует режимам и настройкам: Core 3294 в system 5/5, rag_source=service 5/5 с осознанными пустыми выборами (rerank_rejected, причина в raw), директива 1×1 на research / 0×0 на answer (5/5), closing ровно 1× после </Current_Question> 5/5.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L00179",
@@ -1805,7 +2599,7 @@
       "source_text_sha256": "b73d3f00754f24b810225f7f4ccd051e4ee07e13e6920606484d7084e71b3277",
       "source_excerpt": "- Нет неподтверждённых дат и цитат в итоговых ответах.",
       "disposition": "required",
-      "reason": "",
+      "reason": "не подтверждено отдельным артефактом: тексты проб в raw не содержат неподтверждённых дат/цитат, но специальной проверки в ревью-артефактах нет",
       "req_id": "REV-NO-UNSUPPORTED-DATES",
       "slice": "REVIEW",
       "acceptance": "В итоговых ответах нет неподтверждённых дат и цитат; проверка зафиксирована в ревью-артефакте.",
@@ -1826,8 +2620,17 @@
       "acceptance": "Краткость достигнута естественным поведением, а не обрезанием текста; подтверждено сравнением payload и ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §2 (L2, симв.) + критерий 8",
+          "observation": "Краткость достигается естественным поведением, а не обрезанием: ответы 163–844 симв. при max_tokens=2400 (потолок не достигнут ни в одном прогоне), case C — 163 симв.; сравнение payload и ответа в raw (l2_chars, max_tokens, closing 1×).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L00181",
@@ -1841,8 +2644,25 @@
       "acceptance": "FREQUENT работает без обязательных few-shot-примеров; подтверждено прогоном в режиме FREQUENT.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 5",
+          "observation": "FREQUENT работает без обязательных few-shot-примеров: 5/5 прогонов в режиме FREQUENT из живого конфига, frequent_text присутствует как слой Expression (1069 симв.), few-shot в payload отсутствуют.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "frequent-decision.md",
+          "observation": "Условия приёмки FREQUENT (живой конфиг, однократная вставка, без few-shot) выполнены; остаточная вариативность — отдельный FAILED-остаток вне релизного блокера.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        }
+      ]
     },
     {
       "source_id": "L00182",
@@ -1856,8 +2676,17 @@
       "acceptance": "Алиасы корректно разрешаются по Telegram ID во всех проверенных путях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "review-alias.md §1: Approved (alias-scope)",
+          "observation": "Reviewer подтвердил: алиасы разрешаются по Telegram ID во всех проверенных путях (Direct/L1/L2/Observer/Initiative/фон/reply/Writer/досье); §5 стр.10/§6 — payload несёт каноническое имя по uid.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00183",
@@ -1871,8 +2700,17 @@
       "acceptance": "Изменение алиаса действует без рестарта; подтверждено runtime-прогоном.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "test",
+          "ref": "review-alias.md §5 стр.4",
+          "observation": "Изменение алиаса действует без рестарта, подтверждено runtime-прогоном ревью (a4–a6, a17 второй ход, a19 фон; §6 — прогон смены без рестарта).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/review-alias.md",
+          "artifact_sha256": "c5b346a1576e955a8dbf4cfa21ebb55076234c44fb509f2c4cab7448b126fabb"
+        }
+      ]
     },
     {
       "source_id": "L00184",
@@ -1886,8 +2724,25 @@
       "acceptance": "Fallback, retry и существующие технические ограничения сохранены; подтверждено диффом и прогоном.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "int-fix.md §10.2: rerank-фолбэк и фильтры",
+          "observation": "Fallback/retry/технические ограничения сохранены: пустой ответ реранка → детерминированный bounded pre-rerank-fallback (fallback_top_k) с событием reranker/failed; self-echo и provenance-фильтры не тронуты ни на строку; сбой и отбраковка различаются машинно.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md критерий 4",
+          "observation": "В живом прогоне fallback-механика отработала честно: пустые RAG-выборы помечены rerank_rejected/rag_empty_is_correct=true, причина и rows_detail в raw.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L00185",
@@ -1901,8 +2756,25 @@
       "acceptance": "Новые исправления не нарушили ранее закрытые требования P0; подтверждено повторной проверкой затронутых сценариев.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "audit",
+          "ref": "int-fix.md §10.3–§10.4: дельта полного прогона",
+          "observation": "Новые исправления не нарушили ранее закрытые требования P0: детерминированные падения полного прогона идентичны базе 534ac7dd (4 паритетных + 33 предсуществующих), новых падений от изменений нет; один order-flaky честно атрибутирован (падает и на fe1e514a другим тестом).",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/int-fix.md",
+          "artifact_sha256": "2b0f6d3090158aaf99fc30e7fc8a821006e41200fe2e2dd1a8c8d86944745bba"
+        },
+        {
+          "candidate_commit": "86ef2a64d1a8ebba4b7738c7594e30ba3391c8a8",
+          "type": "live",
+          "ref": "probes_release.md §1: самопроверки на кандидате",
+          "observation": "На финальном кандидате: self-check PASS 40/40, factcheck unit-probe 53 passed, ast-check findings=0.",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L00199",
@@ -2040,7 +2912,7 @@
       "evidence": []
     }
   ],
-  "candidate_note": "Карта создана на этапе планирования: на тот момент candidate ещё не существовал, реализация не начиналась. При первом review-гейте candidate_commit привязывается к реальному коммиту исправлений, а каждая PENDING-строка получает evidence с artifact_path в этом же репозитории. На 25.10.2026 map-level candidate_commit пуст: VERIFIED-строки привязаны к реальным коммитам доказательств (47fba465 — L1, 272170e3 — lore/prod), а не к релизному кандидату; перед review-гейтом candidate_commit и evidence должны быть перепривязаны к SHA проверяемого кандидата. Файлы доказательств лежат в ветке task/speech-p0-hotfix (worktree adminbot-wt-speech-p0), поэтому review/release-гейт нужно запускать с --repo на каталоге кандидата, а не на book-worktree.",
-  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP: дословный снимок корректирующего ТЗ владельца (source-owner-p0-corrective-2026-10-25.md, 214 строк, sha 2f7ef4d7…); продолжение текущего P0, без нового эпика. 69 автоинвентарных строк классифицированы полностью (52 required / 12 context / 5 duplicate), плюс 59 manual-строк прозы (42 required / 17 context) — всего 94 required-строки и 84 уникальных req_id по 10 слайсам L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT. Ключевые добавления, которых не было в прежних картах: L1-ROOT-CAUSE, L1-DEPTH-NOT-LENGTH, L1-NO-HARDCODED, HARNESS-SAME-COMMIT/EQUIVALENT-CONFIG, PROD-NO-BLIND-RESET, PROD-PRESERVE-REPRODUCIBLE, ALIAS-IDENTITY-TGID, ALIAS-NAME-PRIORITY (5 ступеней), 11 runtime-путей ALIAS-RT-* + ALIAS-RT-L1L2, 11 изолированных проверок ALIAS-T01…T11, ALIAS-PAYLOAD-FACT, ALIAS-GIPERBORETS, ALIAS-EXPECTED-FROM-SETTINGS, MEMORY-LORE-AUDIT/EXISTING-ROWS/TARGETED-FIX, REV-LOOP, REV-NO-REPORT-ONLY, DEPLOY-SAFETY-FIRST, DEPLOY-STANDARD (postdeploy live) и 8 строк отчёта. Строки 20–24 (симптомы блокеров) закрыты как duplicate с указанием владеющей нормы: отдельные счётчики не создавались. Все строки verification_tier=engineering, owner_live_checks не является гейтом; на момент создания карты ни одна строка не была VERIFIED — реализация не начиналась. 25.10.2026 PM-MAP-CORRECTIVE: обратная сверка источника строка-в-строку — все непустые строки с обязательствами покрыты (5 строк — заголовки и вводные фразы без самостоятельной нормы), добавлены 2 manual-строки (L163 — отдельный фокус на старые lore_stories; L171 — запрет новых искусственных квот); слайсы HARNESS/PROD/PROBES/L1 и 9 условий §4 уже присутствовали. VERIFIED привязаны только к доказанным артефактам: L1-ROUTING-REPAIR (47fba465 + l1-fix.md + контрактные тесты), MEMORY-LORE-AUDIT (old-lore-audit.md + prod-worktree-alias.md §3), MEMORY-PROVENANCE-BLOCKS (272170e3 + old-lore-audit.md + tests/test_p0_old_lore_quarantine.py), PROD-INVESTIGATE (prod-worktree-alias.md §1). Карантин на прод-БД, live-прогоны, алиасы, REVIEW, REPORT и DEPLOY остаются PENDING.",
+  "candidate_note": "26.10.2026 PM-BIND-RELEASE: candidate_commit привязан к релизному кандидату 86ef2a64d1a8… (merge release/p0-2026-10-26). Существующие доказательства перепривязаны без изменения содержания; добавлен live-evidence probes_release.md (финальная приёмка). Честные остатки: мета 1/8 на hostile-ответе (CORE-META-INTRO-REMOVE = FAILED, правка в P0 DELTA), REV-NO-UNSUPPORTED-DATES и MEMORY-L2-NOT-EVIDENCE остались PENDING без подходящего артефакта, DEPLOY-STANDARD = READY_FOR_LIVE (postdeploy-only). Строки EX-01/EX-02/REQ-EX-*/ANALYSIS-ROUTING-PRESERVED с FAILED-остатком FREQUENT находятся в других картах (p0-delta-analysis / p0-corrective-factcheck-speech) и этой картой не владеются; для этой карты residual FREQUENT задокументирован frequent-decision.md на CORE-FREQUENT-REAL/REV-FREQUENT-NO-FEWSHOT.",
+  "map_note": "25.10.2026 PM-P0-CORRECTIVE-MAP: дословный снимок корректирующего ТЗ владельца (source-owner-p0-corrective-2026-10-25.md, 214 строк, sha 2f7ef4d7…); продолжение текущего P0, без нового эпика. 69 автоинвентарных строк классифицированы полностью (52 required / 12 context / 5 duplicate), плюс 59 manual-строк прозы (42 required / 17 context) — всего 94 required-строки и 84 уникальных req_id по 10 слайсам L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT. Ключевые добавления, которых не было в прежних картах: L1-ROOT-CAUSE, L1-DEPTH-NOT-LENGTH, L1-NO-HARDCODED, HARNESS-SAME-COMMIT/EQUIVALENT-CONFIG, PROD-NO-BLIND-RESET, PROD-PRESERVE-REPRODUCIBLE, ALIAS-IDENTITY-TGID, ALIAS-NAME-PRIORITY (5 ступеней), 11 runtime-путей ALIAS-RT-* + ALIAS-RT-L1L2, 11 изолированных проверок ALIAS-T01…T11, ALIAS-PAYLOAD-FACT, ALIAS-GIPERBORETS, ALIAS-EXPECTED-FROM-SETTINGS, MEMORY-LORE-AUDIT/EXISTING-ROWS/TARGETED-FIX, REV-LOOP, REV-NO-REPORT-ONLY, DEPLOY-SAFETY-FIRST, DEPLOY-STANDARD (postdeploy live) и 8 строк отчёта. Строки 20–24 (симптомы блокеров) закрыты как duplicate с указанием владеющей нормы: отдельные счётчики не создавались. Все строки verification_tier=engineering, owner_live_checks не является гейтом; на момент создания карты ни одна строка не была VERIFIED — реализация не начиналась. 25.10.2026 PM-MAP-CORRECTIVE: обратная сверка источника строка-в-строку — все непустые строки с обязательствами покрыты (5 строк — заголовки и вводные фразы без самостоятельной нормы), добавлены 2 manual-строки (L163 — отдельный фокус на старые lore_stories; L171 — запрет новых искусственных квот); слайсы HARNESS/PROD/PROBES/L1 и 9 условий §4 уже присутствовали. VERIFIED привязаны только к доказанным артефактам: L1-ROUTING-REPAIR (47fba465 + l1-fix.md + контрактные тесты), MEMORY-LORE-AUDIT (old-lore-audit.md + prod-worktree-alias.md §3), MEMORY-PROVENANCE-BLOCKS (272170e3 + old-lore-audit.md + tests/test_p0_old_lore_quarantine.py), PROD-INVESTIGATE (prod-worktree-alias.md §1). Карантин на прод-БД, live-прогоны, алиасы, REVIEW, REPORT и DEPLOY остаются PENDING. | 26.10.2026 PM-BIND-RELEASE: строки привязаны к кандидату 86ef2a64 по артефактам p0-hotfix (l1-fix, int-fix, no-meta-scope, alias-fix/audit + review-alias APPROVED, old-lore-audit, prod-worktree-alias, probes_release, frequent-decision); sha256 артефактов пересчитаны по файлам кандидата (tests/test_speech_p0_corrective_l1_route.py обновлён).",
   "owner_inputs_note": "25.10.2026 PM-DELTA-INTAKE (входящее OI-2026-10-25-REPORT-FORMAT, plans/owner_inputs/2026-10-25-report-format.md). Добавлена одна строка REPORT-PLAIN-LANGUAGE в слайс REPORT: более позднее поручение владельца уточняет формат финального отчёта (подробно, простым языком, без технических терминов, по алиасам и по остальным задачам). Пункты L203–L210 остаются обязательными в полном объёме, их статусы и evidence не менялись. Якорь source_line=201 — ближайшая норма снимка о форме отчёта (гейт сверяет hash со снимком); дословная цитата входящего сообщения — в owner_input_*, ближайшая норма — в snapshot_hint. Строка PENDING, verification_tier=engineering."
-}
+}
