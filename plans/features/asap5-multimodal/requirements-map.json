@@ -1325,7 +1325,7 @@
       "dup_of": "p0-factcheck-media: reply на любое фото = весь пост, альбомы+подписи восстановлены целиком (2.58.131, review Approved); tests/test_native_reply_media_context_round1024.py",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
@@ -1334,6 +1334,14 @@
           "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
           "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
+        },
+        {
+          "candidate_commit": "d57579d2692d5149b1ac74f369ca75b47bf4e1b4",
+          "type": "test",
+          "ref": "w1-media.md §7; test_asap5_bot_media_intake_via_observer + test_asap5_bot_text_message_not_intake_not_saved + test_video_preview_kind_resolves_as_earlier_target + test_animation_preview_kind_resolves_as_earlier_target + test_gif_rows_resolve_via_cover_only + test_two_preview_media_ambiguous_no_marker",
+          "observation": "VERIFIED (11/11 форматов, швы закрыты d57579d2): (1) медиа, созданное ботом, проходит ТОТ ЖЕ intake-путь из observer-ветки собственных сообщений — актив зарегистрирован (chat_id/message_id/asset_id/file_id/message_key), durable job несёт user_id бота-автора, job → ready → recognize_target(reply_tg_id) = ready; строка бота в контент чата не пишется (прежний дизайн, boundary-тест), inline-рендер для бот-медиа честно не строится (нет строки smart_messages) — representation доступна reply/tool-путём; (2) Direct Chat auto-target «ранее присланного» (_IMAGE_REF_KINDS) включает video_preview/animation_preview — preview-покрытое медиа резолвится обложкой, consistent с reply/tool; GIF (animation+animation_preview) резолвится по обложке без двусмысленности, два preview-медиа → цели нет (однозначность сохранена); отдельного kind sticker_preview не существует — превью стикера хранится как animation_preview/size_variant sticker_preview. Регрессия: 440 passed контур, test_factcheck_media зелёный, compileall OK.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1"
         }
       ]
     },
@@ -1351,7 +1359,7 @@
       "dup_of": "p0-factcheck-media: reply на любое фото = весь пост, альбомы+подписи восстановлены целиком (2.58.131, review Approved); tests/test_native_reply_media_context_round1024.py",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
@@ -1360,6 +1368,14 @@
           "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
           "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
+        },
+        {
+          "candidate_commit": "d57579d2692d5149b1ac74f369ca75b47bf4e1b4",
+          "type": "test",
+          "ref": "w1-media.md §7; test_asap5_bot_media_intake_via_observer + test_asap5_bot_text_message_not_intake_not_saved + test_video_preview_kind_resolves_as_earlier_target + test_animation_preview_kind_resolves_as_earlier_target + test_gif_rows_resolve_via_cover_only + test_two_preview_media_ambiguous_no_marker",
+          "observation": "VERIFIED (11/11 форматов, швы закрыты d57579d2): (1) медиа, созданное ботом, проходит ТОТ ЖЕ intake-путь из observer-ветки собственных сообщений — актив зарегистрирован (chat_id/message_id/asset_id/file_id/message_key), durable job несёт user_id бота-автора, job → ready → recognize_target(reply_tg_id) = ready; строка бота в контент чата не пишется (прежний дизайн, boundary-тест), inline-рендер для бот-медиа честно не строится (нет строки smart_messages) — representation доступна reply/tool-путём; (2) Direct Chat auto-target «ранее присланного» (_IMAGE_REF_KINDS) включает video_preview/animation_preview — preview-покрытое медиа резолвится обложкой, consistent с reply/tool; GIF (animation+animation_preview) резолвится по обложке без двусмысленности, два preview-медиа → цели нет (однозначность сохранена); отдельного kind sticker_preview не существует — превью стикера хранится как animation_preview/size_variant sticker_preview. Регрессия: 440 passed контур, test_factcheck_media зелёный, compileall OK.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1"
         }
       ]
     },
@@ -1377,7 +1393,7 @@
       "dup_of": "p0-factcheck-media: reply на любое фото = весь пост, альбомы+подписи восстановлены целиком (2.58.131, review Approved); tests/test_native_reply_media_context_round1024.py",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
@@ -1386,6 +1402,14 @@
           "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
           "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
+        },
+        {
+          "candidate_commit": "d57579d2692d5149b1ac74f369ca75b47bf4e1b4",
+          "type": "test",
+          "ref": "w1-media.md §7; test_asap5_bot_media_intake_via_observer + test_asap5_bot_text_message_not_intake_not_saved + test_video_preview_kind_resolves_as_earlier_target + test_animation_preview_kind_resolves_as_earlier_target + test_gif_rows_resolve_via_cover_only + test_two_preview_media_ambiguous_no_marker",
+          "observation": "VERIFIED (11/11 форматов, швы закрыты d57579d2): (1) медиа, созданное ботом, проходит ТОТ ЖЕ intake-путь из observer-ветки собственных сообщений — актив зарегистрирован (chat_id/message_id/asset_id/file_id/message_key), durable job несёт user_id бота-автора, job → ready → recognize_target(reply_tg_id) = ready; строка бота в контент чата не пишется (прежний дизайн, boundary-тест), inline-рендер для бот-медиа честно не строится (нет строки smart_messages) — representation доступна reply/tool-путём; (2) Direct Chat auto-target «ранее присланного» (_IMAGE_REF_KINDS) включает video_preview/animation_preview — preview-покрытое медиа резолвится обложкой, consistent с reply/tool; GIF (animation+animation_preview) резолвится по обложке без двусмысленности, два preview-медиа → цели нет (однозначность сохранена); отдельного kind sticker_preview не существует — превью стикера хранится как animation_preview/size_variant sticker_preview. Регрессия: 440 passed контур, test_factcheck_media зелёный, compileall OK.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1"
         }
       ]
     },
@@ -1403,7 +1427,7 @@
       "dup_of": "p0-factcheck-media: reply на любое фото = весь пост, альбомы+подписи восстановлены целиком (2.58.131, review Approved); tests/test_native_reply_media_context_round1024.py",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
@@ -1412,6 +1436,14 @@
           "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
           "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
+        },
+        {
+          "candidate_commit": "d57579d2692d5149b1ac74f369ca75b47bf4e1b4",
+          "type": "test",
+          "ref": "w1-media.md §7; test_asap5_bot_media_intake_via_observer + test_asap5_bot_text_message_not_intake_not_saved + test_video_preview_kind_resolves_as_earlier_target + test_animation_preview_kind_resolves_as_earlier_target + test_gif_rows_resolve_via_cover_only + test_two_preview_media_ambiguous_no_marker",
+          "observation": "VERIFIED (11/11 форматов, швы закрыты d57579d2): (1) медиа, созданное ботом, проходит ТОТ ЖЕ intake-путь из observer-ветки собственных сообщений — актив зарегистрирован (chat_id/message_id/asset_id/file_id/message_key), durable job несёт user_id бота-автора, job → ready → recognize_target(reply_tg_id) = ready; строка бота в контент чата не пишется (прежний дизайн, boundary-тест), inline-рендер для бот-медиа честно не строится (нет строки smart_messages) — representation доступна reply/tool-путём; (2) Direct Chat auto-target «ранее присланного» (_IMAGE_REF_KINDS) включает video_preview/animation_preview — preview-покрытое медиа резолвится обложкой, consistent с reply/tool; GIF (animation+animation_preview) резолвится по обложке без двусмысленности, два preview-медиа → цели нет (однозначность сохранена); отдельного kind sticker_preview не существует — превью стикера хранится как animation_preview/size_variant sticker_preview. Регрессия: 440 passed контур, test_factcheck_media зелёный, compileall OK.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1"
         }
       ]
     },
@@ -4655,7 +4687,7 @@
       "dup_of": "p0-factcheck-media: reply на любое фото = весь пост, альбомы+подписи восстановлены целиком (2.58.131, review Approved); tests/test_native_reply_media_context_round1024.py",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "38c3e1f15255a124a7264c85ec66d6902874a46e",
@@ -4664,6 +4696,14 @@
           "observation": "PARTIAL-честно (10/11 форматов VERIFIED): у активов сохраняются chat_id/message_id/asset_id/file_id и связь с сообщением (message_key, media_group_id); reply на изображение/стикер/видео/GIF резолвится именно на этот актив (видео/GIF — их обложка), без случайного соседнего файла (несколько supported без селектора → ambiguous); содержимое доступного медиа (вкл. обложки видео/анимаций) доходит до tool/рендера без ручного пересказа. НЕ закрыто: (1) медиа, созданное самим ботом — observer пропускает собственные сообщения (существующий дизайн handlers/summary.py, upsert_media_asset вызывается только из register_intake_assets; файл вне write_scope слайса); (2) auto-target «ранее присланного» в Direct Chat (direct_chat_service._IMAGE_REF_KINDS) не включает новые preview-kind — шов на W2/ASAP5-VISION.",
           "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
           "artifact_sha256": "799ae81025f5882b5ca32a22f227505b43eb9f965a7fc869eab5722486d9221e"
+        },
+        {
+          "candidate_commit": "d57579d2692d5149b1ac74f369ca75b47bf4e1b4",
+          "type": "test",
+          "ref": "w1-media.md §7; test_asap5_bot_media_intake_via_observer + test_asap5_bot_text_message_not_intake_not_saved + test_video_preview_kind_resolves_as_earlier_target + test_animation_preview_kind_resolves_as_earlier_target + test_gif_rows_resolve_via_cover_only + test_two_preview_media_ambiguous_no_marker",
+          "observation": "VERIFIED (11/11 форматов, швы закрыты d57579d2): (1) медиа, созданное ботом, проходит ТОТ ЖЕ intake-путь из observer-ветки собственных сообщений — актив зарегистрирован (chat_id/message_id/asset_id/file_id/message_key), durable job несёт user_id бота-автора, job → ready → recognize_target(reply_tg_id) = ready; строка бота в контент чата не пишется (прежний дизайн, boundary-тест), inline-рендер для бот-медиа честно не строится (нет строки smart_messages) — representation доступна reply/tool-путём; (2) Direct Chat auto-target «ранее присланного» (_IMAGE_REF_KINDS) включает video_preview/animation_preview — preview-покрытое медиа резолвится обложкой, consistent с reply/tool; GIF (animation+animation_preview) резолвится по обложке без двусмысленности, два preview-медиа → цели нет (однозначность сохранена); отдельного kind sticker_preview не существует — превью стикера хранится как animation_preview/size_variant sticker_preview. Регрессия: 440 passed контур, test_factcheck_media зелёный, compileall OK.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1"
         }
       ]
     },

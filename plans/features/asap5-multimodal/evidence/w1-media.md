@@ -97,19 +97,15 @@ LLM-вызова; без Nostalgia/Vision-состояний/image-gen (пара
 | Медиагруппы | ✔ | ✔ | ✔ (item свой) | ✔ | `media_group_id` на активе | VERIFIED |
 | С подписью / без | ✔ | ✔ | ✔ | ✔ | caption не влияет на реестр (хранится в smart_messages) | VERIFIED |
 | Ранее сохранённые вложения | ✔ | ✔ | ✔ | ✔ | активы читаются по (chat, tg) из реестра | VERIFIED |
-| Медиа, созданное ботом | — | — | — | — | observer пропускает собственные сообщения бота (`handlers/summary.py`, существующий дизайн; вне write_scope слайса) | PARTIAL (honest, задокументировано) |
+| Медиа, созданное ботом | ✔ | ✔ | ✔ | ✔ | тот же intake-путь из observer-ветки собственных сообщений (шов закрыт, см. §7) | VERIFIED |
 
 - «Reply именно на это изображение, без соседнего файла»: `resolve_target_assets`
   резолвит по reply_tg_id; несколько supported без селектора → `ambiguous` (не
   случайный выбор); тест `test_asap5_reply_targets_exact_media_not_neighbor`.
 - «Не заставлять пересказывать доступное медиа»: превью видео теперь доходит
   до tool `recognize_image` (готовый анализ + `asset_kind`) и рендера контекста.
-- Интеграционный шов (вне write_scope W1, для W2/VISION): в
-  `services/direct_chat_service.py` локальный список `_IMAGE_REF_KINDS =
-  {"photo","document","sticker"}` (auto-target «ранее присланного изображения» в
-  Direct Chat) дублирует резолюцию `SUPPORTED_ASSET_KINDS` и после W1 не включает
-  `video_preview` — reply/tool-пути превью покрывают, авто-цель Direct Chat —
-  нет. Классификация PIPELINE остаётся честной PARTIAL до этого шва.
+- Интеграционный шов Direct Chat (auto-target «ранее присланного») — ЗАКРЫТ
+  в §7: `_IMAGE_REF_KINDS` включает preview-kind.
 
 ## 5. Прогоны
 
@@ -143,11 +139,101 @@ PASS (кандидат, финальная версия):
 1. Понимание движения через информативные кадры (GIF/видео) — требует
    извлечения кадров (новый пайплайн), вне границ W1; не реализовано и не
    заявляется; обложка честно маркируется как «движение не анализируется».
-2. Бот-собственное медиа не попадает в реестр (observer скипает свои сообщения,
-   `upsert_media_asset` вызывается только из `register_intake_assets`) —
-   существующий дизайн `handlers/summary.py` вне write_scope слайса.
-3. Direct Chat `_IMAGE_REF_KINDS` (auto-target) — шов для W2 (см. §4).
+2. ~~Бот-собственное медиа не попадает в реестр~~ — ЗАКРЫТО финализацией
+   (шов 1, см. §7).
+3. ~~Direct Chat `_IMAGE_REF_KINDS` — шов для W2~~ — ЗАКРЫТО финализацией
+   (шов 2, см. §7).
 4. Полный просмотр видео (в отличие от анализа обложки) — не существует в
    системе и не заявляется; видео-инструменты (transcribe/summarize) остаются
    нативному слою по ранее принятому решению владельца.
 5. Дублирование `_IMAGE_REF_KINDS` — существующее; адаптеры не дублировались.
+
+## 7. Финализация REQ-MEDIA-PIPELINE: закрытие двух швов
+
+Оба шва из честного остатка §4/§6 закрыты минимальными изменениями БЕЗ нового
+пайплайна/провайдера/LLM-вызова (границы слайса соблюдены). Ностальгия-файлы
+параллельного лейна `task/asap5-nostalgia` не тронуты.
+
+### 7.1 Шов 1 — медиа, созданное ботом (intake)
+
+`handlers/summary.py` (observer, ветка скипа собственных сообщений): перед
+`return UNHANDLED` — тот же intake-путь, что у пользовательского медиа:
+`mca_vision.register_intake_assets(_db, message, message_row_id=None)` →
+`enqueue_intake_jobs` (реестр → durable-джоба, D18-порядок сохранён).
+Fail-open (сбой реестра не роняет observer); гейты те же K1/K2/requested.
+Сообщение бота в контент чата по-прежнему НЕ пишется (прежний дизайн
+сохранён байт-в-байт для текста и всего не-медиа: `extract_image_assets`
+пуст → активов нет → поведение идемпотентно прежнему).
+
+Provenance автора: схема реестра v32 (колонки автора нет — schema change вне
+границ) не меняется; авторство фиксируется честно на существующей оси —
+durable job payload несёт `user_id = id` бота-автора (`from_user.id`), плюс
+связь `chat_id:tg_message_id` сообщения бота (по нему reply-путь резолвит
+актив). Строки `smart_messages` для бота нет — это прежний дизайн observer,
+не потеря данных реестра (активы самодостаточны для tool/reply-путей).
+Рендер inline-контекста (`render_media_context_async`) требует строку
+smart_messages и для бот-медиа честно не строится — representation доступна
+через reply/tool-путь (`resolve_target_assets` → `recognize_target`), что и
+есть контракт §11 «не заставлять пересказывать».
+
+Тесты (`tests/test_p0_vision_fix_core.py`):
+- `test_asap5_bot_media_intake_via_observer` — INTEGRATION: реальный
+  aiogram-Message от бота (from_user is_bot=True) через `summary_observer`:
+  контент-строки НЕТ, актив зарегистрирован (chat_id/tg_message_id/
+  asset_kind/file_id/message_key), payload джобы `user_id=999` (бот-автор),
+  job → ready → `recognize_target(reply_tg_id)` → `status=ready`,
+  `asset_kind=photo` — representation без ручного пересказа.
+- `test_asap5_bot_text_message_not_intake_not_saved` — CONTRACT границы:
+  текст бота — прежнее поведение (ни строки контента, ни активов).
+
+### 7.2 Шов 2 — preview-kind в Direct Chat auto-target
+
+`services/direct_chat_service.py`: `_IMAGE_REF_KINDS` =
+`{"photo","document","sticker"} ∪ {"video_preview","animation_preview"}` —
+auto-target «ранее присланного изображения» (способ C,
+`_resolve_earlier_image_markers`) treats preview-покрытое медиа так же, как
+reply/tool-пути. Однозначность не ослаблена: `seen` по tg_message_id
+(`setdefault`), два разных media-сообщения в окне → цели НЕТ (тест).
+NB: отдельного kind `sticker_preview` в реестре НЕ существует — превью
+стикера (TGS/WebM) хранится как kind `animation_preview` +
+`size_variant="sticker_preview"` (см. `_append_preview_candidate`);
+комплект непрерывности = эти два kind. `animation` (честный
+unsupported-хвост) кандидатом остаться не мог и не стал.
+
+Тесты (`tests/test_addtr_entry_caption.py`, TestAdtrEntryEarlierImageRef):
+- `test_video_preview_kind_resolves_as_earlier_target` — маркер
+  `[медиа: video_preview tg:500]`.
+- `test_animation_preview_kind_resolves_as_earlier_target` — маркер
+  `[медиа: animation_preview tg:501]` (покрывает и sticker-preview-вариант).
+- `test_gif_rows_resolve_via_cover_only` — GIF (animation+animation_preview,
+  один tg) резолвится по обложке, unsupported-хвост не создаёт двусмысленности.
+- `test_two_preview_media_ambiguous_no_marker` — два preview-медиа → цели
+  НЕТ (однозначность сохранена; зелёный и на базе — граница).
+
+### 7.3 Прогоны (кандидат финализации)
+
+RED: 4 новых теста падали на кандидате 38c3e1f1 (bot-media intake через
+observer отсутствовал; preview-kind не резолвились auto-target'ом);
+boundary-тест текста бота — зелёный на базе (фиксирует прежнее поведение).
+
+PASS (кандидат финализации, ветка `task/asap5-media`):
+- `test_p0_vision_fix_core.py` — 76 passed (74 прежних + 2 новых bot-media)
+- `test_addtr_entry_caption.py` + `test_summary_handlers.py` — 101 passed
+  (вкл. 4 новых preview-kind тестов и регресс `test_bot_own_message_skipped`)
+- Регрессия факчек-медиа: `test_factcheck_media_2026_10_25.py` — зелёный
+- Полный 16-файловый контур (core + factcheck-media + vision_adapt +
+  vision_dl_fix + media_download + slavik_media_types + mca19 a/c/d/g +
+  rework_r1 + mca17_perimeter + factcheck_p0_fc + addtr_postgen +
+  native_reply_media_context_round1024 + hotfix_round1025_media) —
+  **440 passed, 0 failed**
+- `compileall services handlers` — OK
+
+Команда (из корня worktree):
+`py -3 -m pytest tests/test_p0_vision_fix_core.py tests/test_factcheck_media_2026_10_25.py -q`
+
+### 7.4 Честный остаток после финализации
+
+- Inline-рендер бот-медиа в контексте истории (без reply/tool) — не строится
+  (нет строки smart_messages, прежний дизайн); контракт §11 выполняется
+  reply/tool-путём.
+- `sticker_preview` — size_variant, не kind (документировано в 7.2).
