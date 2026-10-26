@@ -1314,6 +1314,33 @@ def coordinator_enabled() -> bool:
     return bool(getattr(settings, "DIRECT_COORDINATOR_ENABLED", True))
 
 
+def lore_story_override(tool_ctx, l1_plan=None, response_plan=None) -> str:
+    """P0-DELTA (дефект 1 аудита, §5/§7 владельца): готовый текст истории
+    «Летописца» возвращается ТОЛЬКО при story-интенции хода.
+
+    Успешный `compile_lore_story` (``ctx.lore_compiled``) больше не подменяет
+    ответ на ЛЮБОМ запросе: analysis/research/факт-планы (явные поля L1/
+    легаси-плана — `direct_l1.lore_story_delivery_allowed`) получают ответ
+    Writer'а, а история остаётся материалом в evidence (тул-результат с
+    provenance уже в пакете). Kill-switch
+    `LORE_STORY_INTENT_GATE_ENABLED` (env, default ON) → прежнее поведение
+    байт-в-байт. Никогда не бросает; пусто → "" (обычный путь)."""
+    story = str(getattr(tool_ctx, "lore_story", "") or "").strip()
+    if not getattr(tool_ctx, "lore_compiled", False) or not story:
+        return ""
+    if not bool(getattr(settings, "LORE_STORY_INTENT_GATE_ENABLED", True)):
+        return story               # OFF → прежнее поведение байт-в-байт
+    if _l1.lore_story_delivery_allowed(l1_plan, response_plan):
+        return story
+    logger.info(
+        "[direct] lore story kept as evidence (non-story intent) | "
+        "act=%s structure=%s kind=%s",
+        getattr(l1_plan, "response_act", ""),
+        getattr(l1_plan, "structure", ""),
+        getattr(response_plan, "task_kind", ""))
+    return ""
+
+
 def decision_making_enabled() -> bool:
     """Kill-switch A7 `DIRECT_DECISION_MAKING_ENABLED` (env-only, default ON).
 
@@ -3822,8 +3849,11 @@ class DirectChatService:
             # БЛОК 7.2c (T-1922, ADR-1020-7 §2): при ctx.lore_compiled
             # доставляем ГОТОВЫЙ текст истории (детерминизм в коде), а не
             # сжатую диспетчерскую ремарку. Обычный путь не меняется.
-            lore_story = str(getattr(tool_ctx, "lore_story", "") or "").strip()
-            if getattr(tool_ctx, "lore_compiled", False) and lore_story:
+            # P0-DELTA (дефект 1 аудита): подмена — ТОЛЬКО при story-интенции
+            # плана; analysis/research-планы отвечают Writer'ом (история
+            # остаётся материалом в evidence).
+            lore_story = lore_story_override(tool_ctx, l1_plan, response_plan)
+            if lore_story:
                 answer = strip_reasoning_tags(lore_story)
             # MCA-15 (D5, T-4931; K2): финальный numeric-гард — покрывает
             # lore-story в обход verbalizer, fallback и прямые тексты. Одна

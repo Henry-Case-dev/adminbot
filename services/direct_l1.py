@@ -276,6 +276,62 @@ class L1Plan:
             source="l1")
 
 
+# ── P0-DELTA (26.10.2026, дефект 1 аудита): гейт интента доставки готовой
+# lore-истории «Летописца» вместо ответа Writer. Только СУЩЕСТВУЮЩИЕ поля
+# плана (response_act/structure; task_kind легаси-плана); никаких новых
+# runtime-классов, второго роутера и речевых шаблонов. Списки — это фильтр
+# доставки, не обязательная композиция ответа.
+#: act/structure, ЯВНО означающие story/lore-интенцию (подмена разрешена).
+LORE_STORY_ACTS = frozenset({"creative", "historical_recall"})
+LORE_STORY_STRUCTURES = frozenset({"story"})
+#: act/structure, ЯВНО означающие analysis/research/факт-разбор (подмена
+#: запрещена: история остаётся материалом в evidence, отвечает Writer).
+LORE_ANALYSIS_ACTS = frozenset({"research", "explanation", "comparison",
+                                "summarization", "clarification"})
+LORE_ANALYSIS_STRUCTURES = frozenset({"report", "explanation", "comparison",
+                                      "summary", "steps"})
+
+
+def lore_story_delivery_allowed(l1_plan=None, response_plan=None) -> bool:
+    """Детерминированный гейт: может ли готовая lore-история заменить ответ
+    Writer на этом ходе (P0-DELTA, дефект 1 аудита
+    `plans/features/p0-delta-analysis/evidence/audit.md` §5). Никогда не
+    бросает.
+
+    * Л1-план с явной story-интенцией (creative/historical_recall или
+      structure=story) → True.
+    * Л1-план с явным analysis/research/факт-разбором (research/explanation/
+      comparison/summarization/clarification или report/explanation/
+      comparison/summary/steps) → False — история идёт в evidence
+      материалом (провенанс тул-результата сохраняется), отвечает Writer.
+    * Интенция полями плана не определена или плана нет (легаси/fallback-
+      путь) → True (fail-open: прежнее поведение, сужение только по явным
+      сигналам — без ложноположительных блоков).
+    """
+    try:
+        if l1_plan is not None:
+            act = str(getattr(l1_plan, "response_act", "") or "")
+            structure = str(getattr(l1_plan, "structure", "") or "")
+            if act in LORE_ANALYSIS_ACTS \
+                    or structure in LORE_ANALYSIS_STRUCTURES:
+                return False
+            if act in LORE_STORY_ACTS \
+                    or structure in LORE_STORY_STRUCTURES:
+                return True
+            return True      # интенция не определена → fail-open
+        if response_plan is not None:
+            kind = str(getattr(response_plan, "task_kind", "") or "")
+            if kind in ("research", "explanation", "comparison",
+                        "summarization"):
+                return False
+            if kind in ("creative_writing", "historical_recall"):
+                return True
+            return True      # не определена → fail-open
+        return True          # плана нет → прежнее поведение (legacy)
+    except Exception:         # pragma: no cover - защитная ветка
+        return True
+
+
 def plan_response_mode(plan) -> str:
     """Дет. response_mode для L2 (легаси-алиасы casual/serious/deep_research):
     rich/report → deep_research; полная форма/разбор → serious; болтовня →

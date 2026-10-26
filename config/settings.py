@@ -567,6 +567,13 @@ class Settings:
     # OFF → единый прежний Вербализатор (пре-режимные PREV-константы).
     SMART_VERBALIZER_MODES_ENABLED: ClassVar[bool] = _env_bool(
         "SMART_VERBALIZER_MODES_ENABLED", True)
+    # ── P0-DELTA (26.10.2026, дефект 1 аудита p0-delta-analysis): env-only
+    # ClassVar kill-switch гейта интента на подмену ответа готовой lore-
+    # историей. default ON; OFF → прежнее поведение байт-в-байт (любой
+    # успешный compile_lore_story заменяет ответ Writer). Δ каталога = 0
+    # (прецедент SYSTEM2_DIRECT_ENABLED / SMART_VERBALIZER_MODES_ENABLED).
+    LORE_STORY_INTENT_GATE_ENABLED: ClassVar[bool] = _env_bool(
+        "LORE_STORY_INTENT_GATE_ENABLED", True)
     # ── Раунд 10.26 (A1, ADR-1026-14 D6/D7): env-only ClassVar kill-switch
     # Координатора инструментов (программный слой решения о действии ВНУТРИ
     # существующего Синтезатора direct-чата). default ON, Δ каталога = 0 (в
