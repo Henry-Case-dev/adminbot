@@ -497,8 +497,9 @@ class TestDigIntoLore:
 
     @pytest.mark.asyncio
     async def test_mode_facts_without_date_renders_origin_label_only(self):
-        """Без даты (rag_ts=0) и без автора — только origin-метка, без
-        временного префикса/пометки."""
+        """Без даты (rag_ts=0) и без автора — origin-метка provenance +
+        канонический ID, без временного префикса/пометки. P0-DELTA
+        (дефект 5): пересказ из чата не выдаётся за дословное сообщение."""
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[])
         db = MagicMock()
@@ -511,7 +512,7 @@ class TestDigIntoLore:
         out = await router.dispatch(
             "dig_into_lore", {"query": "без даты", "mode": "facts"}, _ctx())
         facts = _dig_payload(out)["facts"]
-        assert facts == ["[fact:1]: факт без даты"]
+        assert facts == ["[пересказ из чата] [fact:1]: факт без даты"]
         assert "(Внимание" not in out
 
     @pytest.mark.asyncio
@@ -724,9 +725,10 @@ class TestDigFixRound:
 
     @pytest.mark.asyncio
     async def test_person_expands_related_names_via_graph(self, monkeypatch):
-        """K1 OFF (паритет 2.58.55): person задан (алиаса нет — без
-        user_id-фильтра): seeds = формы имени person; связанные имена из
-        графа расширяют FTS-запрос."""
+        """K1 OFF (паритет 2.58.55): person задан и РЕЗОЛВЛЕН (алиас) —
+        seeds = формы имени person (+ каноническое имя); связанные имена из
+        графа расширяют FTS-запрос. P0-DELTA (дефект 4): не-резолвящийся
+        person больше не ищется молча по упоминаниям (см. honest refusal)."""
         monkeypatch.setattr(mca_gates, "chat_statistics_enabled",
                             lambda: False)
         memory = MagicMock()
@@ -737,19 +739,23 @@ class TestDigFixRound:
         db = MagicMock()
         db.dig_graph_related_names = AsyncMock(return_value=["василий"])
         memory.db = db
-        router = ToolRouter(_deps(memory=memory))
+        aliases = AliasResolver('{"8": "Вася"}')
+        router = ToolRouter(_deps(memory=memory, aliases=aliases))
         out = await router.dispatch(
             "dig_into_lore", {"query": "рыбалка", "person": "Вася",
                               "mode": "messages"}, _ctx())
         args, kwargs = memory.search_long_term.await_args
         merged = args[1]
         assert "василий" in merged
+        # P0-DELTA (дефекты 2-3): фильтр автора — в SQL ДО LIMIT.
+        assert kwargs["author_ids"] == (8,)
         assert "петя ездил с василием на рыбалку" in out
 
     @pytest.mark.asyncio
     async def test_graph_empty_falls_back_to_target_user(self, monkeypatch):
         """K1 OFF (паритет 2.58.55): BFS пуст (узлы/рёбра не нашли) →
-        фолбэк target_user: имена из фактов чата, содержащие токен person."""
+        фолбэк target_user: имена из фактов чата, содержащие токен person.
+        P0-DELTA (дефект 4): person резолвится алиасом (uid-фильтр в SQL)."""
         monkeypatch.setattr(mca_gates, "chat_statistics_enabled",
                             lambda: False)
         memory = MagicMock()
@@ -761,13 +767,15 @@ class TestDigFixRound:
         db.dig_graph_related_names = AsyncMock(return_value=[])
         db.dig_fallback_target_names = AsyncMock(return_value=["василий"])
         memory.db = db
-        router = ToolRouter(_deps(memory=memory))
+        aliases = AliasResolver('{"8": "Вася"}')
+        router = ToolRouter(_deps(memory=memory, aliases=aliases))
         out = await router.dispatch(
             "dig_into_lore", {"query": "рыбалка", "person": "Вася",
                               "mode": "messages"}, _ctx())
         db.dig_fallback_target_names.assert_awaited_once()
         args, kwargs = memory.search_long_term.await_args
         assert "василий" in args[1]
+        assert kwargs["author_ids"] == (8,)
         assert "петя вспоминал василия на рыбалке" in out
 
     @pytest.mark.asyncio
