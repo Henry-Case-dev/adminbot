@@ -219,3 +219,64 @@ direct-chat шов (27 файлов, legacy+L1): база 1109 passed / 0 failed
 кандидат 1110 passed / 0 failed — все расхождения тестов объяснены
 переводом word-пинов, collateral-падений нет. `py -3 -m compileall services`
 — OK. Прод/SSH/Telegram/LLM не трогались.
+
+## LORE-VERBATIM-GATE micro-fix (27.10.2026, live-находка D1, §Находка live-scenarios)
+
+**Дефект**: гейт подмены `lore_story_delivery_allowed` корректно блокировал
+доставку готовой lore-истории на analysis-ходах (`lore_story_override`), но
+служебная инструкция `_LORE_RETURN_INSTRUCTION` («верни story ДОСЛОВНО»;
+добавляется в tool-payload `compile_lore_story` при
+`ctx.lore_verbatim_instruction=True` — дефолт ToolContext) всё ещё попадала
+в payload на ЛЮБОМ интенте. Writer видел инструкцию и эхом возвращал
+скомпилированную историю на research/summary-сценариях (S03 период, S05
+мета-эссе, S07 отношения двух людей, S10 вне-период; live prod 2.58.132) —
+D1 «lore story не подменяет analysis-ответ» не выполнялся фактически.
+
+**До/После (payload)**:
+- До (baseline 2ef0615a, RED-probe `lore_verbatim_red_probe.py`):
+  analysis-план research/report → gate_delivery_allowed=False,
+  ctx.lore_verbatim_instruction=True (дефолт) → verbatim_in_payload=True
+  (`[СИСТЕМНАЯ ИНСТРУКЦИЯ: верни пользователю текст из поля "story"
+  ДОСЛОВНО …]` в конце тул-результата).
+- После: инструкция в payload ⇔ доставка разрешена тем же гейтом —
+  `lore_verbatim_allowed(l1_plan, response_plan)` (новый хелпер):
+  kill-switch `LORE_STORY_INTENT_GATE_ENABLED` OFF → True (легаси-поведение),
+  иначе `direct_l1.lore_story_delivery_allowed`. При гейте False payload без
+  инструкции; история остаётся provenance-материалом тул-результата
+  (`"story"`-поле/метки происхождения не тронуты), ответ компонует Writer
+  по плану.
+
+**Изменения** (2 файла, +218/-3 строк суммарно с тестами):
+- `services/direct_chat_service.py`: модульный хелпер
+  `lore_verbatim_allowed` (после `lore_story_override`, та же семантика
+  гейта + kill-switch, never-throws) и единственная tool-loop точка —
+  construction ToolContext в `_handle_turn` теперь передаёт
+  `lore_verbatim_instruction=lore_verbatim_allowed(l1_plan, response_plan)`
+  (прецедент S10.20-4: caller, знающий интент, прокидывает значение — в
+  фактчеке False).
+- `tests/test_p0_delta_routing.py`: класс `TestLoreVerbatimInstructionGate`
+  (+12 тестов, CONTRACT/REGRESSION): iff-матрица (verbatim ⇔ delivery),
+  легаси task_kind-гейт, fail-open без плана, kill-switch OFF → легаси,
+  source-пин wiring в call-site; четыре живых сценария S03/S05/S07/S10 как
+  payload-юниты (реальный dispatch compile_lore_story: БД in-memory +
+  фейк-LLM синтеза, конструкция ctx ровно как в call-site) + легаси-S05
+  вариант + story-контролы S04/S09 (инструкция на месте — genuine
+  story-доставка не сужена).
+
+**Не тронуто**: `compile_lore_story` и `dig_into_lore` (`tool_router.py` —
+0 строк), `lore_story_override`, дефолт
+`ToolContext.lore_verbatim_instruction=True` (другие вызовы/легаси-пути),
+creative/historical_recall пути (S04/S09), фактчек (уже False, S10.20-4).
+
+**Верификация** (кандидат vs база 2ef0615a):
+- `pytest tests/test_p0_delta_routing.py tests/test_tool_router.py -q`:
+  база 99 passed / 0 failed → кандидат 111 passed / 0 failed (+12 новых,
+  collateral 0).
+- `pytest tests -k "delta or lore or tool_router" -q --ignore=…vision_ui_e2e`:
+  база 527 passed → кандидат 539 passed / 0 failed.
+- `py -3 -m compileall services` — OK.
+- Direct-шов `-k "direct"`: 870 passed / 7 failed — все 7 воспроизводятся
+  на ЧИСТОМ 2ef0615a без правок (test_asap7_direct_settings ×2,
+  test_direct_fallback_recompose_asap32 ×5; проверено stash-прогоном),
+  pre-existing, к micro-fix не относятся — дельта дефектов = 0.
+- Прод/SSH/Telegram/LLM не трогались.
