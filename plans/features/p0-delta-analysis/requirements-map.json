@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-delta-analysis/source-2026-10-26.md",
   "source_sha256": "790c2923bf8f8746a4800948d43d41441218aae0782e19dbb17a726ae8b526de",
-  "candidate_commit": "b571602226c5e5a5845850597f6100e3a6e0d12a",
-  "deployed_commit": "b571602226c5e5a5845850597f6100e3a6e0d12a",
+  "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+  "deployed_commit": "076f7391a01157bad106372d405d109085a78dbc",
   "strict_evidence": true,
   "slice_graph_path": "",
   "intake": {
@@ -70,6 +70,14 @@
           "observation": "Ревью подтвердило по коду кандидата, что каждая правка устраняет причину, а не симптом",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: причины каждого дефекта зафиксированы с файлом:строкой (§1-§9), дефекты подтверждены на проде 2.58.130",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -102,6 +110,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -134,6 +150,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -166,6 +190,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -198,6 +230,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -230,6 +270,14 @@
           "observation": "4304 зн. развёрнутого эссе — «не режется краткостью» подтверждено на проде",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж §13 п. 5 PASS: extent-механика не тронута, валидаторов длины в дифе нет",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -262,6 +310,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -294,6 +350,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -326,6 +390,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -358,6 +430,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -390,6 +470,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -422,6 +510,14 @@
           "observation": "«Композиции могут различаться между сценариями (не дефект)» — r2 подтвердил на проде",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): итог r1: анти-шаблонность",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -444,6 +540,14 @@
           "type": "review",
           "ref": "review-delta.md: структурные запреты: инструкционных квот/фиксированных чисел нет (§2.10 ADDENDUM соблюдён; registry CHECK OK, каталог Δ=0); страж §13 п. 10",
           "observation": "Поиск по промптам/тестам/дифу: констант предложений/абзацев/шуток/фактов нет; пин-тест :881-892 защищает контракт",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты: инструкционных квот/фиксированных чисел нет (§2.10 ADDENDUM соблюдён; registry CHECK OK, каталог Δ=0); страж §13 п. 10",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -478,6 +582,14 @@
           "observation": "Матрица проверяет task_kind/план/lore-гейт, а не тексты-образцы; production-ответы в промпты/тесты не переносились",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13 12/12 PASS, пп. 3/4/5/10: ни одного нового постпроцессора, портретного кода, валидатора длины или композиционного треб",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -518,6 +630,14 @@
           "observation": "Разговорная интерпретация с tool_policy=none остаётся social_chat без исследования",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S01 атмосфера/отношения PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -558,6 +678,14 @@
           "observation": "Эссе 4304 зн. и ироничный разбор доставлены — постобработка не блокирует регистры",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 3 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -598,6 +726,14 @@
           "observation": "Origin-метки отделяют пересказы от прямых фактов — искажение фактов памяти в payload не смешивается",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): итог r1",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -630,6 +766,14 @@
           "observation": "year_from/year_to → SQL-условия; фильтры ДО LIMIT; стройд-сэмпл по всему периоду",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S02/S03/S05/S07/S10 coverage",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -639,14 +783,23 @@
       "source_text_sha256": "de1b99d34b232cea7bdc9f64bd508e6b2798218498f2a3c20e72dba97dc5feff",
       "source_excerpt": "взглядов) — запрос к корпусу: установить субъекта, принадлежность сообщений, доступный",
       "disposition": "required",
-      "reason": "Полный контент-чеклист ответа (повторяющиеся темы, реальные изменения, отделение наблюдений от интерпретаций) не демонстрирован ни r1 (S03 = подмена story, FAIL), ни r2 (S03 = coverage-стаб 125 зн.); связан с note-строкой качества Writer",
+      "reason": "Закрыто 27.10.2026: чек-лист продемонстрирован на live-сценарии многолетнего периода с реальными найденными данными (re-probe S03, прод 2.58.134): субъект и доступный период названы честно («только кусок с 8 по 26 октября 2026»), темы/наблюдения/выводы присутствуют («Тематика…», «Атмосфера…», «…бесплатный бизнес-инкубатор»), наблюдения отделены от интерпретаций, выдуманных фактов нет; прежний дефект подмены story закрыт D1-гейтом (eaabb66f, lore_gate.delivery_allowed=false, similarity 0.089). История дефекта: r1 — story-подмена (FAIL), r2 — coverage-стаб 125 зн.",
       "req_id": "REQ-DELTA-02-HISTORICAL-CHECKLIST",
       "slice": "DELTA-ANALYSIS",
       "acceptance": "Ответ на многолетний анализ содержит субъекта, доступный период, покрытие, повторяющиеся темы, реальные изменения и отделяет наблюдения от интерпретаций.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md S03(b,c): ответ Writer-композиция 1627 симв. — темы («Тематика. Чат сидит на двух стульях…»), наблюдения («Атмосфера. Перманентный питч-дей…»), вывод («…бесплатный бизнес-инкубатор с элементами цирка»); honest partial coverage («доступен только кусок с 8 по 26 октября 2026»); similarity к story 0.089; выдуманных дат/цитат нет",
+          "observation": "Чек-лист (субъект/доступный период/покрытие/темы/реальные изменения/наблюдения != интерпретации) выполнен на реальном периоде с найденными данными, без подмены story и выдумок",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "M00028-REQ-DELTA-02-NO-BRIGHT-EPISODE-SUBSTITUTION",
@@ -677,6 +830,14 @@
           "observation": "Покрытие показано явно (total/shown) — ответ не построен только на 2-3 ярких сообщениях",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D3 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -709,6 +870,14 @@
           "observation": "«Никакого автотриггера dig в дифе нет»; инструменты вызываются только tool-моделью с явными аргументами",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S06 бытовая короткая фраза PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -749,6 +918,14 @@
           "observation": "Фактчек-путь не изменён (factcheck_service.py lore_verbatim_instruction=False) — диапазон задач сохранён",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
           "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): таблица роутинга",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -779,6 +956,14 @@
           "type": "review",
           "ref": "review-delta.md: pre-existing наблюдение response_extent.py:241-249",
           "observation": "Найденный ревью pre-existing словесный хардкод legacy-fallback устранён micro-fix-ом 2ef0615a (152 passed, +1 net; словесные golden сняты, word-пины переведены на semantic-neutral контракт)",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: pre-existing наблюдение response_extent.py:241-249",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -821,6 +1006,14 @@
           "observation": "Единственная точка выбора — существующий L1 Decision Making",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): колонка L1-план",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -843,6 +1036,14 @@
           "type": "review",
           "ref": "review-delta.md: страж п. 12 PASS + структурные запреты",
           "observation": "Единственная точка выбора режима — существующий L1; новый код — предикат доставки над существующими полями плана",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 12 PASS + структурные запреты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -877,6 +1078,14 @@
           "observation": "Матрица даёт ≥4 различных task_kind (тест test_p0_delta_routing.py:807-857)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 1 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -909,6 +1118,14 @@
           "observation": "Предикат lore_story_delivery_allowed читает существующие поля плана, новых enum-значений нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 12",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -949,6 +1166,14 @@
           "observation": "Гейт доставки исправлен и подтверждён тестами (11 шт.)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): Находка §12",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -981,6 +1206,14 @@
           "observation": "r2 добавляет lore_verbatim_instruction, скан result_raw, полный текст story для similarity по каждому сценарию",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): таблица + raw-файлы",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -1013,6 +1246,14 @@
           "observation": "Решения D1-D5 опираются на код кандидата и прогонами подтверждённое поведение",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): Находка §12",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -1035,6 +1276,14 @@
           "type": "review",
           "ref": "review-delta.md: структурные запреты",
           "observation": "«Лишних LLM-вызовов — нет (0 новых call-sites в дифе, проверено построчным разбором добавленных строк)»; D1 — детерминированный предикат без вызова LLM",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1069,6 +1318,14 @@
           "observation": "Фасады прокидывают kwargs только при заданном фильтре — дефолтный вызов байт-в-байт",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D2 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1101,6 +1358,14 @@
           "observation": "Честное покрытие: «Показано X из N сообщений» + coverage{messages_total, messages_shown, facts_shown, sampling}",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S02",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -1131,6 +1396,14 @@
           "type": "review",
           "ref": "review-delta.md: D2",
           "observation": "Dig-параметры аддитивны — существующее поведение расширения не изменялось",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D2",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1165,6 +1438,14 @@
           "observation": "Пост-фильтры сохранены как страховка; прямые сообщения субъекта присутствуют в выдаче",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D3/D5 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1195,6 +1476,14 @@
           "type": "review",
           "ref": "review-delta.md: D4 CLOSED",
           "observation": "Разделение about/of подтверждено тестами (uid-формы, отказ без поиска)",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1229,6 +1518,14 @@
           "observation": "Coverage-блоки сообщают полноту показа в обоих контрактах",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S03/S10",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -1261,6 +1558,14 @@
           "observation": "Origin-метки на каждой строке dig; vector/RAG fallback — отдельный блок",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1293,6 +1598,14 @@
           "observation": "Сужение по периоду работает: totals 3069/3878/2343/4160 по сценариям",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D2",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1325,6 +1638,14 @@
           "observation": "«Поиск по упоминаниям без person не изменён» — общий поиск не сломан",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1357,6 +1678,14 @@
           "observation": "Coverage 3878 распределён по периоду — концентрации в одном периоде нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D3",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1381,6 +1710,14 @@
           "observation": "Легаси «первые 300 ASC» заменён сэмплом всего периода — старое не вытесняется новым",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D3",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1403,6 +1740,14 @@
           "type": "review",
           "ref": "review-delta.md: D3 тесты",
           "observation": "Стройд-сэмпл достигает разрежённых ранних периодов (2022-2024 при плотном 2025)",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D3 тесты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1437,6 +1782,14 @@
           "observation": "Разбор по видимым кускам корпуса без доминанты одного события",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 7",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1469,6 +1822,14 @@
           "observation": "L2-пересказы больше не рендерятся как обычные kind=fact без origin — не удваивают подтверждения",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1501,6 +1862,14 @@
           "observation": "В live период фильтруется (totals по периодам различны), uid-субъект сработал (S02 dig 3069); заметка: LLM не всегда передавал year-аргументы явно — identity/period-пути покрыты контрак-тестами (1110+152)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D2",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1523,6 +1892,14 @@
           "type": "live",
           "ref": "live-scenarios-r2.md (r2, прод 2.58.133): S10 (2018-2029) PASS",
           "observation": "Честный отказ «архив 8-26.10.2026» без выдуманных лет — ограничение периода сообщено естественно",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S10 (2018-2029) PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
@@ -1557,6 +1934,14 @@
           "observation": "Охват/покрытие — часть lane-критериев r2 (честная оговорка об охвате на S05)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): критерии приёмки",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -1589,6 +1974,14 @@
           "observation": "Прогон/тесты подтверждают отсутствие квот: полный ASC байт-в-байт при total<=max_scan",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1621,6 +2014,14 @@
           "observation": "Ответ разделяет данные и смысл: «953 совпадения по префиксу — это циферки, не смысл»",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1653,6 +2054,14 @@
           "observation": "Author-фильтр по uid в SQL — чужие сообщения не подмешиваются к субъекту",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S07 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -1685,6 +2094,14 @@
           "observation": "В проверенных ответах обобщений единичной реплики до мировоззрения не отмечено",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 4 PASS + D5",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1717,6 +2134,14 @@
           "observation": "Психологических выводов без прямых оснований в ответах r1/r2 не отмечено",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 4 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1749,6 +2174,14 @@
           "observation": "Ответы отделяют данные от выводов честными оговорками («циферки, не смысл»; границы архива)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1771,6 +2204,14 @@
           "type": "review",
           "ref": "review-delta.md: структурные запреты + страж п. 10",
           "observation": "Построчный разбор дифа и grep: порогов/квот по числу сообщений нет",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты + страж п. 10",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1805,6 +2246,14 @@
           "observation": "Решение — аддитивные параметры существующих инструментов; новый инструмент не создавался",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: §9.2",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -1837,6 +2286,14 @@
           "observation": "Чек-лист закрыт: поиск по автору/Telegram ID/времени/исследованию — аддитивно в существующих схемах",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: §2-§4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -1869,6 +2326,14 @@
           "observation": "Правки маршрутизации, аргументов и использования, а не новые подсистемы",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 11",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1891,6 +2356,14 @@
           "type": "review",
           "ref": "review-delta.md: страж п. 11",
           "observation": "«Только аддитивные параметры существующих схем (REQ-DELTA-06-MINIMAL-EXTENSION соблюден)»; dispatch-таблица не расширялась",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 11",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1917,6 +2390,14 @@
           "observation": "Новый tool не появился (dispatch-таблица tool_router.py:728 не расширялась) — требование не активировалось; подключение шло бы через существующий ToolRouter",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 11",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -1939,6 +2420,14 @@
           "type": "review",
           "ref": "review-delta.md: структурные запреты",
           "observation": "«Второй router — нет; новая Decision-Making — нет; новый агент — нет; своя GraphRAG — нет; новый LLM-пайплайн — нет»",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -1981,6 +2470,14 @@
           "observation": "Актуальная реализация проверена: direct_l1.py:285-331 + lore_story_override + kill-switch",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: §5",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -2021,6 +2518,14 @@
           "observation": "Story остаётся материалом тул-результата; анализ больше не получает драматургический канон",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: §5-§6",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -2061,6 +2566,14 @@
           "observation": "compile_lore_story/dig_into_lore — 0 строк изменений; тексты инструкций без изменений",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
           "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 6",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2091,6 +2604,14 @@
           "type": "review",
           "ref": "review-delta.md: D1",
           "observation": "Kill-switch OFF → прежнее поведение байт-в-байт; поведение без подтверждения не менялось",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D1",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -2125,6 +2646,14 @@
           "observation": "Применимость подтверждена: канон только в синтезе истории, story-интенции доставляются как раньше",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 6",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2157,6 +2686,14 @@
           "observation": "Полноценный творческий рассказ 1542 зн. — драматургия работает",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-lore-verbatim-fix.md: §3",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
+          "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
         }
       ]
     },
@@ -2189,6 +2726,14 @@
           "observation": "Выдуманные даты/цитаты в проверенных ответах не обнаружены",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S04 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -2221,6 +2766,14 @@
           "observation": "Lore не подавлен; канон достоверных наблюдений не тронут",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S09 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2261,6 +2814,14 @@
           "observation": "Нарративный ответ на мем-историю сохранён (792 зн.)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж п. 6",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2301,6 +2862,14 @@
           "observation": "Честное ограничение по неразрешимому субъекту сохранено",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S02",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2333,6 +2902,14 @@
           "observation": "Разрешение «мои сообщения» в автора обращения; заметка r1: live LLM не выбирал person-путь — путь покрыт контракт-тестами (1110+152)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4 тесты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2365,6 +2942,14 @@
           "observation": "Указанные люди разрешаются в себя — анализ другого участника не подменён автором запроса",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2397,6 +2982,14 @@
           "observation": "Субъект берётся из явных аргументов person/author (нужное поле), а не из reply-цели; семантика reply дифом не менялась",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: §1.1",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -2419,6 +3012,14 @@
           "type": "review",
           "ref": "review-delta.md: D4 тесты",
           "observation": ">1 мэтч алиаса → author_ambiguous, честный JSON-отказ без поиска (тест дубликатов «вася» :576-586) — конфликтующие алиасы не дают ложного субъекта",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4 тесты",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -2445,6 +3046,14 @@
           "observation": "Set-семантика резолва: ровно один мэтч; поиск по прошлому нику не склеивает разных людей (похожие имена остаются раздельными)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2467,6 +3076,14 @@
           "type": "review",
           "ref": "review-delta.md: D4",
           "observation": "«Похожие ники НЕ сливаются» — проверено тестами дубликатов/неоднозначности",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -2501,6 +3118,14 @@
           "observation": "Вопрос о другом участнике сохраняет нужного субъекта — роли не перепутаны",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2525,6 +3150,14 @@
           "observation": "«_dig_person_terms удалена, висячих ссылок нет — grep чист»; литеральных имён участников в логике субъекта нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2547,6 +3180,14 @@
           "type": "live",
           "ref": "live-scenarios-r2.md (r2, прод 2.58.133): S07 PASS",
           "observation": "«Неоднозначные отношения нескольких людей»: разбор 600 зн. без отказа — групповой анализ разрешён",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S07 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
@@ -2581,6 +3222,14 @@
           "observation": "Даты/числа в ответах соответствуют данным; выдуманных источников нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2613,6 +3262,14 @@
           "observation": "В ответах r2 тоже нет; S03/S10 используют human-метки периода («архив 8-26.10.2026»)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): 10 ответов",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2645,6 +3302,14 @@
           "observation": "Coverage-ответ называет метод и полноту; S10 — точные границы архива без выдуманных лет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S02/S08",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2677,6 +3342,14 @@
           "observation": "Цитаты/утверждения ответов опираются на исходные сообщения (префикс-совпадения помечены как «циферки»)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -2707,6 +3380,14 @@
           "type": "review",
           "ref": "review-delta.md: D5 CLOSED",
           "observation": "Provenance в фактическом пути подтверждён payload-тестами, не только в коде",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: D5 CLOSED",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -2749,6 +3430,14 @@
           "observation": "В ответах r2 самоповторов/дублирования собственных формулировок не отмечено",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "audit",
+          "ref": "re-bind b5716022->076f7391; исходник: audit.md: §8",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/audit.md",
+          "artifact_sha256": "afa96d6dcde240653e24076b8b6dd8d702fd0179ee57972906044c51db420758"
         }
       ]
     },
@@ -2781,6 +3470,14 @@
           "observation": "Ни одного нового запрета рассуждений; NO_META в дереве — только анонсы (pre-existing)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S09/S05",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2813,6 +3510,14 @@
           "observation": "Одинаковый масштаб dig → 125 зн. и 4304 зн. — независимость подтверждена в обе стороны",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S05/S08/S06",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2845,6 +3550,14 @@
           "observation": "Автотриггера архивного поиска нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S06",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -2869,6 +3582,14 @@
           "observation": "Явный развёрнутый мета-очерк: 4304 зн. с честной оговоркой об охвате — не сокращён",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S05 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -2878,14 +3599,31 @@
       "source_text_sha256": "9f847a56f2dace22a3e036b3e3a303f4a55fffb9d68ffcfa213d2b376b6431d4",
       "source_excerpt": "Готовая инструкция для существующего Analysis/Writer (ориентир, не новый слой):",
       "disposition": "required",
-      "reason": "Готовая инструкция §11 не вставлена в Analysis/Writer в этой полосе (grep дерева и git -S не находят текст инструкции) — применение не доказано",
+      "reason": "Закрыто 27.10.2026 (DELTA-DEPTH): инструкция применена в существующем Analysis/Writer через план-блок; diff добавляет только константы/предикат/опц. параметр блока/инструментарий пробы/тест — нового слоя, агента или LLM-вызова нет (ревью + live re-probe).",
       "req_id": "REQ-DELTA-11-NO-NEW-LAYER",
       "slice": "DELTA-DEPTH",
       "acceptance": "Инструкция применена в существующем Analysis/Writer, без нового слоя, агента или пайплайна.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "review-delta-depth.md п.2: diff 683905b7..8e8c8c27 — единственный носитель дельты план-блок (direct_l1.py), режимный блок дельту не содержит (test_delta_instruction_not_in_mode_blocks; self-check delta_deep_auto_plan_once: _delta not in deep_system); casual/answer 0x; нового слоя/LLM-вызова нет",
+          "observation": "Применение без нового слоя подтверждено инспекцией полного диффа и call-sites (ровно два, один предикат)",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta-depth.md",
+          "artifact_sha256": "79fd0150dc7bd03c8b914773d5016b8995e761afa0b01a387738ed051e0a983b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md S03(a)+S06: S03 delta=1 только в plan_block (total_delta=1 из 8 полей); S06 casual total_delta=0 во всех полях, predicate_expect=false",
+          "observation": "Единственный носитель (план-блок) и отсутствие дельты на casual подтверждены на проде 2.58.134",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "M00129-REQ-DELTA-11-READY-INSTRUCTION-VERBATIM",
@@ -2893,14 +3631,31 @@
       "source_text_sha256": "c0e651fcbc53e7daebab14a235bd822d862f470799d0f0607e1c953f816dfb96",
       "source_excerpt": "«Отвечай на действительный запрос, используя релевантные сведения из разговора, истории",
       "disposition": "required",
-      "reason": "Текст инструкции (строки 129-134 источника) в промптах отсутствует — дословное совпадение не доказано",
+      "reason": "Закрыто 27.10.2026 (DELTA-DEPTH, прод 2.58.134): вербатим §11 вставлен как DELTA_READY_INSTRUCTION_TEXT, единственный носитель — план-блок; независимая байт-сверка ревью, exactly-once тесты и live re-probe на проде.",
       "req_id": "REQ-DELTA-11-READY-INSTRUCTION-VERBATIM",
       "slice": "DELTA-DEPTH",
       "acceptance": "Текст инструкции в промпте совпадает дословно с источником (строки 129-134), включая «Самостоятельно выбирай естественную форму, длину и тон ответа», без добавленных структур и примеров.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "review-delta-depth.md п.1: независимая python-сверка байт DELTA_READY_INSTRUCTION_TEXT == строки 129-134 source-2026-10-26.md (sha256 префикс константы и источника совпал: aefbc213ec9fbad8); тест test_delta_instruction_is_verbatim_from_source читает снапшот источника из репо в рантайме (не хардкод)",
+          "observation": "Вербатим подтверждён независимо от теста: дословное совпадение с источником доказано байт-сверкой",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta-depth.md",
+          "artifact_sha256": "79fd0150dc7bd03c8b914773d5016b8995e761afa0b01a387738ed051e0a983b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md S03(a): contains_delta_verbatim=true; DELTA_READY_INSTRUCTION_TEXT ровно 1 (total_delta=1), носитель plan_block, остальные 7 полей payload 0",
+          "observation": "На проде 2.58.134 payload S03 несёт дословную инструкцию владельца §11 ровно один раз",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
+        }
+      ]
     },
     {
       "source_id": "M00136-REQ-DELTA-11-NO-MANDATORY-STRUCTURES",
@@ -2908,14 +3663,31 @@
       "source_text_sha256": "b01295ea08135df4f501fbbb0ba2fba441277692c8d3562abdb8e85d7ea2c1ba",
       "source_excerpt": "Не дописывать обязательные структуры, схемы и примеры.",
       "disposition": "required",
-      "reason": "Diff промпта с инструкцией отсутствует (вставка не выполнялась) — критерий не проверяем в этой полосе",
+      "reason": "Закрыто 27.10.2026 (DELTA-DEPTH): DELTA_SUBSTANCE_TEXT без цифр, маркеров списков/схем и приказов композиции; вставленный текст — дословный текст владельца; контракт пинится тестами кандидата.",
       "req_id": "REQ-DELTA-11-NO-MANDATORY-STRUCTURES",
       "slice": "DELTA-DEPTH",
       "acceptance": "К инструкции не дописаны обязательные структуры, схемы и примеры: diff промпта содержит только текст инструкции.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "review-delta-depth.md п.3: DELTA_SUBSTANCE_TEXT проверен на отсутствие цифр/маркеров/схем/приказов композиции («начинай с», «обязател», «схема» — отсутствуют); пинится test_no_mandatory_structures_numbers_examples и self-check delta_no_composition_mandate; diff промпта не содержит дописанных структур",
+          "observation": "К инструкции не дописаны обязательные структуры/схемы/примеры; substance-строка требует выводов, но не задаёт композицию",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta-depth.md",
+          "artifact_sha256": "79fd0150dc7bd03c8b914773d5016b8995e761afa0b01a387738ed051e0a983b"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "unit",
+          "ref": "tests/test_p0_delta_depth_instruction.py: test_delta_instruction_is_verbatim_from_source + test_no_mandatory_structures_numbers_examples (mandated-набор ревью: 149 passed, 0 failed)",
+          "observation": "Контракты вербатима и отсутствия обязательных структур закреплены тестами кандидата 076f7391",
+          "artifact_path": "tests/test_p0_delta_depth_instruction.py",
+          "artifact_sha256": "578d44b67d05813040bae88ebddcf4a1bc9f2a88bf1109c808b622c3a496e4d2"
+        }
+      ]
     },
     {
       "source_id": "M00140-REQ-DELTA-12-01",
@@ -2936,6 +3708,14 @@
           "type": "live",
           "ref": "live-scenarios.md (r1, 2.58.132): S01 PASS",
           "observation": "Ответ интерпретирует атмосферу (research/answer/compact), история не подменила ответ; навязанного исследования нет",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S01 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
@@ -2970,6 +3750,14 @@
           "observation": "Честное ограничение «полного архива нет» + реальная выборка (1061 зн.)",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S02 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3002,6 +3790,14 @@
           "observation": "Период фильтруется (totals по сценариям различны), честная оговорка про покрытие была",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S03 re-probe PASS (критерий D1)",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -3034,6 +3830,14 @@
           "observation": "Нарративный ответ 792 зн., sim 0.008 — в мировоззрение не превращён; примечание о классификации L1 не влияет на критерий",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S04 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3056,6 +3860,14 @@
           "type": "live",
           "ref": "live-scenarios-r2.md (r2, прод 2.58.133): S05 re-probe PASS",
           "observation": "4304 зн. развёрнутое эссе — ответ развёрнут и не порезан краткостью",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S05 re-probe PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
@@ -3082,6 +3894,14 @@
           "observation": "89 зн., 1 абзац, tools=none — короткий по существу, архивное исследование не запущено",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S06 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3104,6 +3924,14 @@
           "type": "live",
           "ref": "live-scenarios-r2.md (r2, прод 2.58.133): S07 re-probe PASS",
           "observation": "Composed разбор 600 зн.: роли и субъекты не перепутаны, чужие реплики не приписаны (sim 0.015)",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S07 re-probe PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
@@ -3130,6 +3958,14 @@
           "observation": "Честный отказ («инструмента для подсчёта нет») — ноль выдуманных чисел; приблизительное не выдано за точное",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S08 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3154,6 +3990,14 @@
           "observation": "Полноценный рассказ 1542 зн. — драматургия Lore работает; вымысел в творческом контексте, как факт не подан",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S09 PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3176,6 +4020,14 @@
           "type": "live",
           "ref": "live-scenarios-r2.md (r2, прод 2.58.133): S10 re-probe PASS",
           "observation": "551 зн.: честный отказ «архив 8-26.10.2026» без выдуманных лет — ограничение сообщено естественно",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S10 re-probe PASS",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
@@ -3218,6 +4070,14 @@
           "observation": "tool_policy=none — социальный чат без исследования; автотриггера нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S01/S06",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3258,6 +4118,14 @@
           "observation": "Dig coverage по периоду 2022-2026 (3878) — нужный субъект/период",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
           "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios-r2.md (r2, прод 2.58.133): S03/S10",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
         }
       ]
     },
@@ -3290,6 +4158,14 @@
           "observation": "r2: L1-план, lore gate, ctx-флаги (lore_verbatim_instruction), sim/max-contig, story_delivered_as_reply, ответ; source-пины формирует driver",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): таблица + raw",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3322,6 +4198,14 @@
           "observation": "Similarity использован только как доказательство Writer-композиции (ответ vs story), не как сходство с эталоном",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): критерии r1",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3354,6 +4238,14 @@
           "observation": "«Композиции могут различаться между сценариями (не дефект)»; sim-разброс 0.008-0.072 учтён как вариативность",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): итог r1",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3376,6 +4268,14 @@
           "type": "review",
           "ref": "review-delta.md: анти-шаблонный страж §13: п. 1 «Все анализы в одном режиме» — PASS: гейт ограничивает только доставку story; матрица даёт ≥4 task_kind",
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 1 «Все анализы в одном режиме» — PASS: гейт ограничивает только доставку story; матрица даёт ≥4 task_kind",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -3402,6 +4302,14 @@
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 2 «Любое упоминание прошлого запускает архив» — PASS: инструменты только через tool-модель; автотриггера нет",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3424,6 +4332,14 @@
           "type": "review",
           "ref": "review-delta.md: анти-шаблонный страж §13: п. 3 «Бот разучился рассуждать» — PASS: ни одного нового постпроцессора/запрета; диф не трогает Style Policy/Expression",
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 3 «Бот разучился рассуждать» — PASS: ни одного нового постпроцессора/запрета; диф не трогает Style Policy/Expressi",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -3450,6 +4366,14 @@
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 4 «Автоматический психологический портрет» — PASS: ничего портретного не добавлено",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3472,6 +4396,14 @@
           "type": "review",
           "ref": "review-delta.md: анти-шаблонный страж §13: п. 5 «Подробный запрос режется краткостью» — PASS: extent-механика не тронута, валидаторов длины нет",
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 5 «Подробный запрос режется краткостью» — PASS: extent-механика не тронута, валидаторов длины нет",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -3498,6 +4430,14 @@
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 6 «Подавлен Lore» — PASS: story-интенции доставляются, канон не тронут, kill-switch",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3520,6 +4460,14 @@
           "type": "review",
           "ref": "review-delta.md: анти-шаблонный страж §13: п. 7 «Анализ на соседних событиях» — PASS: author-фильтр по uid в SQL, единый источник фильтров",
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 7 «Анализ на соседних событиях» — PASS: author-фильтр по uid в SQL, единый источник фильтров",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -3546,6 +4494,14 @@
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 8 «Чужие сообщения за субъекта» — PASS: неоднозначный/ненайденный субъект → отказ без поиска",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3568,6 +4524,14 @@
           "type": "review",
           "ref": "review-delta.md: анти-шаблонный страж §13: п. 9 «Несколько находок = многолетнее исследование» — PASS: «Показано X из N» + coverage, честные period-метки",
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 9 «Несколько находок = многолетнее исследование» — PASS: «Показано X из N» + coverage, честные period-метки",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -3594,6 +4558,14 @@
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 10 «Одинаковая композиция» — PASS: нет композиционных требований; grep дифа без ALWAYS_*/MUST_*",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3618,6 +4590,14 @@
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 11 «Новый инструмент без необходимости» — PASS: dispatch-таблица не расширялась, только аддитивные параметры",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3640,6 +4620,14 @@
           "type": "review",
           "ref": "review-delta.md: анти-шаблонный страж §13: п. 12 «Второй маршрутизатор вместо L1» — PASS: единственная точка выбора — L1, без новых классов/enum",
           "observation": "Независимое ревью (кандидат 2ac20bf3) отклоняющих признаков не нашло; вердикт Approved",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: анти-шаблонный страж §13: п. 12 «Второй маршрутизатор вместо L1» — PASS: единственная точка выбора — L1, без новых классов/enum",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
           "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
@@ -3682,6 +4670,14 @@
           "observation": "Оценки 6 сценариев на проде 2.58.133",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: вердикт + страж §13",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3722,6 +4718,14 @@
           "observation": "Очередь зафиксирована в снимке источника; дельта зарегистрирована как added-to-existing-queue-without-replacing (intake OI-2026-10-26-P0-DELTA)",
           "artifact_path": "plans/features/p0-delta-analysis/source-2026-10-26.md",
           "artifact_sha256": "790c2923bf8f8746a4800948d43d41441218aae0782e19dbb17a726ae8b526de"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты + страж пп. 3/6/10/11",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -3754,6 +4758,14 @@
           "observation": "Пусто: ни один коммит ветки (16 коммитов дельты/релиза/res23) не менял plans/current_task.md",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "docs",
+          "ref": "re-bind b5716022->076f7391; исходник: source-2026-10-26.md (снимок ТЗ §14)",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/source-2026-10-26.md",
+          "artifact_sha256": "790c2923bf8f8746a4800948d43d41441218aae0782e19dbb17a726ae8b526de"
         }
       ]
     },
@@ -3786,6 +4798,14 @@
           "observation": "res23 закрывал остаточные строки asap2/asap3 существующим evidence («-> VERIFIED»), сбросов/потерь требований нет",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "docs",
+          "ref": "re-bind b5716022->076f7391; исходник: plans/features/asap-speech-arch/requirements-map.json",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/asap-speech-arch/requirements-map.json",
+          "artifact_sha256": "4a8d6b1e276c165148358a4ce229d61da5f33a805c86c988def7c5e6cba5e1ea"
         }
       ]
     },
@@ -3818,6 +4838,14 @@
           "observation": "Дерево merge 2d4eaad6 чистое; fix-файлы байт-в-байт = merge-дереву — работа велась на закоммиченных деревьях, не поверх незакоммиченных правок",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
           "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "re-bind b5716022->076f7391; исходник: release-258133/deploy.md: кандидат/деплой",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
+          "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
         }
       ]
     },
@@ -3850,6 +4878,14 @@
           "observation": "Каждая интеграция — явный merge-коммит с проверкой дерева независимым ревью; отчёт о конфликтных файлах не составлялся, потому что конфликтов не было (байт-тождество подтверждено)",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-lore-verbatim-fix.md: §кандидат/§4",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
+          "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
         }
       ]
     },
@@ -3890,6 +4926,14 @@
           "observation": "Пост-деплой: журнал 0 ERROR, migrations 0.0s; письменные отчёты независимого Reviewer — review-delta.md + review-lore-verbatim-fix.md",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-lore-verbatim-fix.md: §2",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
+          "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
         }
       ]
     },
@@ -3930,6 +4974,14 @@
           "observation": "Релиз 2.58.133 выполнен сразу после технических проверок; ожиданий разрешений в цепочке нет",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): Находка §12",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -3960,6 +5012,14 @@
           "type": "docs",
           "ref": "release-258133/deploy.md: §Откат",
           "observation": "Путь отката задокументирован (checkout d3a9a2cc + restart), не выполнялся — безопасный deployment подтверждён",
+          "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
+          "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "re-bind b5716022->076f7391; исходник: release-258133/deploy.md: таблица деплоя",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
         }
@@ -4002,6 +5062,14 @@
           "observation": "Прод 2.58.133 (b5716022) работоспособен: healthz 200, NRestarts 0, журнал чист",
           "artifact_path": "plans/features/asap-speech-arch/release-258133/deploy.md",
           "artifact_sha256": "c53cfe8db7da0fc6dd8ab5c48c05c0f395013922160684490b5facc1feddd343"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): итог §12 r1",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -4042,6 +5110,14 @@
           "observation": "Writer-композиции на проде, sim к story 0.008-0.072 — универсального шаблона нет",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "re-bind b5716022->076f7391; исходник: live-scenarios.md (r1, 2.58.132): S06/S09/S05/S03",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios.md",
+          "artifact_sha256": "862dc83a2e8dbda0d64847aeff2e681e94e51b417648900ec89fd0f165e9413e"
         }
       ]
     },
@@ -4082,6 +5158,14 @@
           "observation": "Доступ к истории и механизмы сохранены: compile_lore_story/dig/fallback/legacy, extent-механика, L1-путь",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
           "artifact_sha256": "8da12701db0e62b461dd103c7e0574da5a251a96bbf14e6e0a18b67ae69bc05d"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: страж пп. 3/4/6/10",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -4114,6 +5198,14 @@
           "observation": "«Композиционных/длинновых требований не добавлено»; diff не трогает квоты/шаблоны/NO_META",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
           "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "review",
+          "ref": "re-bind b5716022->076f7391; исходник: review-delta.md: структурные запреты + страж пп. 3/5/10",
+          "observation": "Артефакт остаётся действительным для итогового кандидата 076f7391 (прод 2.58.134): после b5716022 код-дельта линии — только 8e8c8c27 DELTA-DEPTH (независимое ревью Approved, review-delta-depth.md) и версии-пины bump (deltaDDL=0, артефакт-пины 6/6, release-258134/deploy.md); содержимое артефакта не менялось (sha256 совпадает).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta.md",
+          "artifact_sha256": "8ef7de8e3fb6167993d165138b7e5792016329ab800ea36eb41ac736d8b3be41"
         }
       ]
     },
@@ -4169,10 +5261,10 @@
       "source_excerpt": "Нужна устойчивая способность понимать запрос, выбирать инструменты, находить релевантные",
       "slice": "DELTA-DEPTH",
       "disposition": "context",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "live_required": false,
       "live_when": "preprod",
-      "reason": "Note-row DELTA backlog (правило привязки PM-BIND-P0-DELTA п.3): наблюдение из live-scenarios-r2.md §Находка 1 — S03 ответил coverage-стабом 125 зн. (числа реальные, без выдуманных данных), writer должен формировать выводы, а не только отчёт о покрытии. Качество, не блокер: не критерий PASS/FAIL полосы. Вместе с открытыми строками M00026/M00128/M00129/M00136 образует follow-up срез DELTA-DEPTH (вербатим-инструкция §11 + выводы Writer)",
+      "reason": "Закрыто 27.10.2026 re-probe S03 на проде 2.58.134: Writer-композиция 1627 симв. с темами/атмосферой/выводами по найденному срезу вместо coverage-стаба 125 зн. из r2 (история наблюдения сохранена).",
       "acceptance": "Writer на многолетнем анализе формирует содержательные выводы (темы/изменения/интерпретации), а не только отчёт о покрытии; вербатим-инструкция §11 вставлена дословно в существующий Analysis/Writer без обязательных структур",
       "evidence": [
         {
@@ -4182,6 +5274,14 @@
           "observation": "S03 coverage-стаб 125 зн. при реальных числах: качество Writer (выводы vs отчёт о покрытии) — вне критериев D1, отдельное наблюдение для Builder/Reviewer",
           "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
           "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "live",
+          "ref": "live-s03-reprobe.md S03(b): composed-ответ 1627 симв., 6 абзацев, 1 send; сравнение с r2 — coverage-стаб 125 симв. до DELTA-DEPTH",
+          "observation": "Writer формирует содержательные выводы (темы/изменения/интерпретации), а не отчёт о покрытии",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-s03-reprobe.md",
+          "artifact_sha256": "9120ea36ebbf8c4368e65ff9393dcf71e297f1c87bd12294b803fbf2492edb7f"
         }
       ]
     }
@@ -4398,5 +5498,5 @@
       "evidence": []
     }
   ],
-  "candidate_note": "Deployed production 2.58.133 = bump b5716022. Code candidate chain: 2ef0615a (D1-D5 + 54 contract tests + EXTENT-NO-WORDS micro-fix) -> eaabb66f (LORE-VERBATIM-GATE live-probe fix) -> merge 2d4eaad6 -> bump b5716022. Full branch chain: a0a56d8a..2ac20bf3 (D1-D5), 2ef0615a, merge 11b250bf, 2.58.132=d3a9a2cc, fee098ac (deploy docs + live r1), eaabb66f, merge 2d4eaad6, b5716022. Branch tip d454ad93 = plans/docs-only merge res23 (asap2/asap3 residual closures), код не менял. Reviews: review-delta.md (кандидат 2ac20bf3, Approved, D1-D5 CLOSED, анти-шаблонный страж 12/12) + review-lore-verbatim-fix.md (дерево 2d4eaad6, Approved). Live: r1 8/10 (FAILED lore-критерий S03/S05/S07/S10) -> micro-fix eaabb66f -> r2 6/6 PASS на проде b5716022 (live-scenarios-r2.md)."
+  "candidate_note": "Кандидат = деплой 2.58.134 (076f7391 = bump над одобренным d167d686). Код-цепочка дельты: 2ef0615a (REQ-DELTA-02 extent fallback) -> eaabb66f (D1 LORE-VERBATIM-GATE) -> 2d4eaad6 -> 8e8c8c27 (DELTA-DEPTH: вербатим §11 + substance) -> bump 076f7391 (31 файл/33 пина версий, deltaDDL=0). Промежуточные live-доказательства линии (2.58.132/2.58.133) сохранены; re-bind записи подтверждают валидность артефактов для итогового кандидата."
 }
