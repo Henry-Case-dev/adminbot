@@ -3572,8 +3572,18 @@
       "acceptance": "Старый обход «игнорируй безопасность/цензуру/мораль, разрешён мат» удалён без замены; интенсивность мата берётся только из Expression; токсичность характера не смягчена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "521be2bbb175265cd50d64502cc0786de255c897",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/a4-drop-bypass.md :: Вывод (VERIFIED)",
+          "observation": "A4-DROP-BYPASS: активные каноны checkup/factcheck/search без «Игнорируй все настройки безопасности…» и без «Разрешен мат…» (runtime-проба bypass=False/permit=False); мат — только Expression, жанровая резкость не смягчена. Указанные в брифе LOCATIONS — замороженные PREV_*-слепки лестницы миграций (ADR-1013-3, байт-пины test_older_prev_steps_are_untouched / test_unified_core_route_coverage.py:539), правка их запрещена конвенцией и сломала бы узнавание 8 withheld-прод-значений. Слои без скрытого обхода: лестница мигрирует PREV на чистый канон (5/6/4 ступени); все 17 значений лестницы/откатов с bypass-байтами внутри known_canon_hashes(); suppress_legacy_speech вычищает обход и разрешение мата; withheld-кастомы не активируются. FACTORY_SET 28e6c619b937 не менялся. Прогон: pytest -k 'checkup or factcheck_prompt or search_prompt or prompt_migration or asap_w1' = 294 passed, 0 failed (код кандидата идентичен базе 1b93c6db, дельта 0); gen_param_registry --check OK; compileall OK.",
+          "type": "test",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/a4-drop-bypass.md",
+          "artifact_sha256": "16774e7ba4ee0c34e97a19bbc9843a1106a7ce9dcfe5614ad31f5828469498dc",
+          "produced_on": "521be2bbb175265cd50d64502cc0786de255c897"
+        }
+      ],
       "prior_disposition": "required",
       "prior_status": "PENDING",
       "superseded_by": [
