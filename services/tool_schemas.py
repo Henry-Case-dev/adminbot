@@ -104,11 +104,37 @@ TOOL_QUERY_CHAT_MEMORY = {
             "type": "object",
             "properties": {
                 "query": {"type": "string", "description": "What to recall."},
+                # P0-DELTA (дефект 4): автор/субъект в обычном режиме — по
+                # Telegram id, «me» или имени/алиасу (сервер резолвит).
+                "author": {
+                    "type": "string",
+                    "description": "Author filter: participant name or "
+                                   "alias, Telegram user id (e.g. "
+                                   "\"123456789\"), or \"me\" for the "
+                                   "caller's own messages. The server "
+                                   "resolves it; unknown subject returns "
+                                   "an honest 'unsupported' result "
+                                   "instead of mixing other people's "
+                                   "messages.",
+                },
                 "time_range": {
                     "type": "string",
                     "enum": ["last_day", "last_week", "last_month", "all"],
                     "description": "Time window: last_day/last_week/last_month/all.",
                     "default": "all",
+                },
+                # P0-DELTA (дефект 2): произвольный период в годах —
+                # аддитивно к time_range (пересекаются: since = max).
+                "year_from": {
+                    "type": "integer",
+                    "description": "Period start year, e.g. 2022 "
+                                   "(optional, for 'over the years' "
+                                   "questions).",
+                },
+                "year_to": {
+                    "type": "integer",
+                    "description": "Period end year, e.g. 2024 (optional; "
+                                   "must be >= year_from).",
                 },
                 # MCA-15 (T-4929, ADR-1028-12 D3): структурированный режим
                 # измерения — аддитивный объект (canon 12 не меняется). Без
@@ -149,8 +175,12 @@ TOOL_QUERY_CHAT_MEMORY = {
                                   "items": {"type": "string"},
                                   "description": "Terms for AND/OR modes."},
                         "author": {"type": "string",
-                                   "description": "Author name/alias; the "
-                                                  "server resolves it to a "
+                                   "description": "Author filter: name or "
+                                                  "alias, Telegram user id "
+                                                  "(e.g. \"123456789\"), or "
+                                                  "\"me\" for the caller's "
+                                                  "own messages; the server "
+                                                  "resolves it to a "
                                                   "canonical user id."},
                         "quote_forward": {
                             "type": "string",
@@ -193,10 +223,21 @@ TOOL_DIG_INTO_LORE = {
                           "description": "What to dig up (required)."},
                 "year": {"type": "integer",
                          "description": "Year of the event, e.g. 2024 "
-                                        "(optional)."},
+                                        "(optional; period start when "
+                                        "year_to is set)."},
+                # P0-DELTA (дефект 2): многолетний диапазон [year..year_to].
+                "year_to": {"type": "integer",
+                            "description": "Period end year (optional; "
+                                           "with year - a multi-year "
+                                           "range, year <= year_to)."},
                 "person": {"type": "string",
-                           "description": "Participant name, e.g. Ivan "
-                                          "(optional)."},
+                           "description": "Participant whose OWN messages "
+                                          "to dig: name or alias, Telegram "
+                                          "user id (e.g. \"123456789\"), "
+                                          "or \"me\" for the caller's own "
+                                          "messages (optional). Unknown "
+                                          "subject returns an honest "
+                                          "'unsupported' result."},
                 "mode": {"type": "string",
                          "enum": ["messages", "facts", "both"],
                          "default": "both",
