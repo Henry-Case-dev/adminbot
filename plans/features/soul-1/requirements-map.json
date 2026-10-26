@@ -1289,7 +1289,7 @@
       "acceptance": "Фактическая цепочка проверена до Telegram payload, а не только до enum L1: тест подтверждает доставляемый текст и отсутствие деградации формата",
       "live_required": false,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "4c8405e783ac005ac0044974c5fbd7e518d12e2a",
@@ -1320,6 +1320,15 @@
           "type": "production",
           "artifact_path": "plans/features/soul-1/evidence/release-258106/deploy.md",
           "artifact_sha256": "1d9d5746e3f2fc061ae349bb121c85ff0a6efcfeb88cbbadadd5f737e6e681a3"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §Сводка (SOUL-05.6) — read-only прод-верификация 27.10.2026",
+          "observation": "Цепочка до Telegram payload подтверждена на задеплоенном дереве: git ls-tree b5716022 содержит tests/test_soul1_style_payload.py (8 кейсов, review-w3 recheck F3 byte-equal) и test_soul1_extent_one_word.py — тесты кандидата входят в deployed SHA; прод-пробы 2.58.86 (verify-after.txt, gates 10/10) остаются в силе; живая телеметрия speech_extent на проде (196 событий, см. SOUL-14.2) показывает работу цепочки на реальном трафике. Owner-визуальная часть (ответ ровно одним словом в реальном чате) остаётся owner_optional по standing rule PET_PROJECT — не объявляется выполненной.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
       "verification_tier": "owner_optional",
@@ -1329,7 +1338,7 @@
         "SOUL-05.2",
         "SOUL-05.5"
       ],
-      "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: инженерная цепочка до payload закрыта (SOUL-05.2/05.5, review-w3 F3); остаток — добровольное наблюдение одного слова в реальном чате. Не VERIFIED."
+      "reconciliation_note": "NEEDS_LIVE_OBSERVATION -> owner_optional: инженерная цепочка до payload закрыта (SOUL-05.2/05.5, review-w3 F3); остаток — добровольное наблюдение одного слова в реальном чате. | ЗАКРЫТО postdeploy 27.10.2026 (postdeploy-verify.md): инженерная часть VERIFIED (тесты кандидата в deployed SHA b5716022 + прод-пробы 2.58.86 gates 10/10 + живая телеметрия speech_extent 196 событий); owner-наблюдение остаётся owner_optional (не выполнено, для DONE не требуется по standing rule PET_PROJECT)."
     },
     {
       "source_id": "M00089",
@@ -2416,7 +2425,7 @@
       "acceptance": "Telemetry содержит метрики: распределение extent включая exact one_word compliance, доля фактических и адресных ошибок, повторяемость, фактическое число injected Core токенов, пропуски слоя с reason, diversity of comic strategies, latency и добавочная стоимость, feedback label counts по уверенности и чату без сырого текста, lessons applied с измеренными outcomes и честное обозначение stale или отсутствия событий; данные не выдумываются, дорогая per-message LLM-оценка по умолчанию не создаётся",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "a8d049f3b0b5157b63538fa2fa895b3095e380ae",
@@ -2431,9 +2440,18 @@
           "type": "live-contour",
           "ref": "plans/features/soul-1/evidence/release-258106/deploy.json",
           "observation": "Выкат 2.58.106 подтверждён (healthz 200, journal 0 CRIT/0 TB, NRestarts=0, services/style_policy.py blob-равен кандидату). Read-only сверка контура: mca_events event_name='speech_extent' = 0 за окно T0..10:54Z (и total=0) — реальных сообщений в окне не было, генерация сообщений агентом запрещена. События появятся с первым реальным проходом style policy (style OFF → событий нет — норма, не регресс). Ждёт первое реальное сообщение; строка остаётся READY_FOR_LIVE до живого подтверждения."
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §Сводка (SOUL-14.2) — read-only прод-верификация 27.10.2026",
+          "observation": "Структура телеметрии подтверждена прод-данными (SQLite mca_events, event_name='speech_extent', read-only): 196 событий за 21.10 15:11Z–26.10 13:43Z, распределение 7 групп extent×status (compact 99 pass, micro 35 pass + 19 conflict, normal 32, auto→n/a 5, detailed 3, longform 3); usage_json несёт extent/status/one_word/one_word_exact/words/context/reason; оба прод-стейджа (direct_pre_send, initiative_pre_send). Честная заметка: one_word_exact=0 — NOT_YET_OBSERVED (структурный уровень приёмки выполнен; точное попадание одного слова в живых событиях пока не наблюдалось). services/style_policy.py (эмиттер) в дельте b5716022→076f7391 (прод 2.58.134) не менялся — измерение валидно для текущей прод-линии.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "reconciliation_note": "NEEDS_AGENT_CHECK (DevOps, read-only): телеметрия speech_extent/mca_events проверяется на проде SQL/журналом после реального прохода style policy; событий пока 0 — NOT_YET_OBSERVED, не дефект. Не переводить в owner_optional: проверка агентская."
+      "reconciliation_note": "ЗАКРЫТО postdeploy (27.10.2026, агентская read-only проверка): телеметрия speech_extent/mca_events подтверждена прод-данными — 196 событий, все поля usage_json, оба стейджа (postdeploy-verify.md); статус VERIFIED по структурному уровню приёмки. one_word_exact=0 — NOT_YET_OBSERVED, остаётся честной заметкой, не дефект. Проверка агентская (не owner_optional) — выполнена."
     },
     {
       "source_id": "M00197",

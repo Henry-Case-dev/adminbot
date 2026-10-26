@@ -3222,7 +3222,7 @@
       "source_line": 487,
       "source_text_sha256": "40f7463a0a86110d8d9e62506aa25b5e9afd6a72e9acfdd3a0c309556e9fed6f",
       "source_excerpt": "**A16.** Проверить весь путь на реальном тестовом сообщении: входной Telegram ID → эффективный алиас → контекст LLM → результат.",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -3233,6 +3233,15 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §2 + §Сводка (A16) — read-only прод-верификация 27.10.2026",
+          "observation": "Алиас-путь живой (прод, READ-ONLY diag): manage.py diag aliases --chat-id -1002661910336 --show-names rc=0 — uid=42115912 chat_alias='Макс' global_alias='Макс' effective='Макс' source=chat; chat-слой перекрывает global (uid 529151103: chat «Папаха» > global «Толян»), merged=38. Полный путь «вход→алиас→LLM→результат» на живом сообщении покрыт r2-пробой 26.10 (реальный _handle_turn, чат -1004482340693, 6/6 PASS) — отдельное новое тестовое сообщение не требовалось.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
       "disposition": "required",
@@ -3242,8 +3251,7 @@
       "acceptance": "Реальное тестовое сообщение проходит путь входной Telegram ID -> эффективный алиас -> контекст LLM -> результат.",
       "live_required": true,
       "live_when": "postdeploy",
-      "next_check": "Postdeploy: полный путь на реальном тестовом сообщении (вход -> стиль -> выход) не прогонялся: после деплоя исходящих не было.",
-      "classification": "READY_FOR_LIVE"
+      "classification": "VERIFIED"
     },
     {
       "source_id": "MAN-L0489",
@@ -7757,7 +7765,7 @@
       "acceptance": "Строгое правило короткого дефиса включено по умолчанию и реально работает на исходящих сообщениях.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -7768,10 +7776,18 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §1 + §Сводка (ACC-03) — read-only прод-верификация 27.10.2026",
+          "observation": "Настройка (прод, read-only 26.10 14:44Z): PG bot_settings style.policy (4543 B) содержит dash.hard.factory; подстрока \"enabled\": false в документе отсутствует; flags.speech_style_policy_enabled в PG нет, .env SPEECH_STYLE_POLICY_ENABLED unset → заводской default ON без миграции. Поведение: окно dash-эры 23.10 17:51Z→26.10 13:43Z — 141 исходящих, 140 без «—»; последние 20 (direct/initiative/rich, оба чата) — 0 «—». Биндинг кода: git diff d3a9a2cc..b5716022 и 79ec3726..b5716022 по services/style_policy.py пусты; дельта линии b5716022→076f7391 (прод 2.58.134) services/style_policy.py не трогает (только 8e8c8c27 DELTA-DEPTH: direct_chat_service/direct_l1/prompt_style_blocks, additive) — измерение валидно для deployed 076f7391. Честно: 1 сообщение из 141 содержит «—» (гипотеза — защищённый сегмент rich-дайджеста, тело не выгружалось); на новом процессе 2.58.133 после рестарта исходящих ещё 0 (NOT_YET_OBSERVED, процессу 40 мин); ad-hoc SELECT chat-оверрайдов упал на неверной колонке (key_name/key_value, не value) — компенсировано поведенческой чистотой обоих чатов.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "next_check": "Postdeploy: реальное исходящее сообщение бота без «—» (payload styled=true) не наблюдалось — после деплоя L1/L2 вызовов не было. Первое реальное сообщение закрывает строку.",
-      "classification": "READY_FOR_LIVE"
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00523",
@@ -7959,13 +7975,13 @@
       "source_text_sha256": "e485d673776ff64360108deb7b6d92b183dc0e8a2f198e3a8b7a7466f5aa5e5e",
       "source_excerpt": "9. Все изменения проходят регрессионные тесты и проверены на реально действующей конфигурации.",
       "disposition": "required",
-      "reason": "62 регрессионных теста PASS на текущем дереве; проверка на реально действующей конфигурации 2.58.129 не выполнялась — release-258129-binding.md §4.3.",
+      "reason": "62 регрессионных теста PASS на текущем дереве; проверка на реально действующей конфигурации 2.58.129 не выполнялась — release-258129-binding.md §4.3. ЗАКРЫТО 27.10.2026 (postdeploy-verify.md §2): deployed tree == проверенный SHA (сервер HEAD измерен), re-probe §12-r2 на живой конфигурации 6/6 PASS, гарды релиза OK.",
       "req_id": "ACC-09",
       "slice": "ACCEPT",
       "acceptance": "Все изменения проходят регрессионные тесты и проверены на реально действующей конфигурации.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -7976,10 +7992,18 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §2 + §Сводка (ACC-09) — read-only прод-верификация 27.10.2026",
+          "observation": "Серверный git rev-parse HEAD == b5716022… (измерено 14:44:24Z, detached) — деплой-дерево совпадает с проверенным кандидатом (плюс sha-пины deploy.md §Деплой); прод-линия поднята до 2.58.134 @ 076f7391 (дельта после b5716022 — только 8e8c8c27 DELTA-DEPTH + версии-пины, ΔDDL=0). Регресс на реально действующей конфигурации: re-probe §12-r2 26.10 13:53–14:02 UTC на живом контуре (реальный LLM, hot-конфиг из PG wide_context_hot=true, deepseek/deepseek-v4.1-flash) — 6/6 PASS (plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md); гарды релиза: gen_param_registry --check OK, compileall services rc=0 (release-258133/deploy.md §Guard'ы). Примечание карты «один вызов GET /api/speech/style из TMA» — UI-слой-наблюдение, инженерную приёмку строки не блокирует (инструкция лейна: новый прогон не требуется).",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "next_check": "Postdeploy: проверка на действующей прод-конфигурации сделана read-only (PG+журнал), GET /api/speech/style без TMA-подписи не вызывался. Нужен один вызов из TMA.",
-      "classification": "READY_FOR_LIVE"
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00529",

@@ -4309,13 +4309,13 @@
       "source_text_sha256": "59be3ab186b04d400a2a313dc72db5a0e89bb6e76924f0206f0eddb720d60097",
       "source_excerpt": "6. Сценарии из §6 пройдены как семантические прогоны действующей модели и интеграционные проверки, без runtime словарей фраз/регулярок для обхода тестов.",
       "disposition": "required",
-      "reason": "AGENT_CHECK_NOW: семантический прогон §6 на задеплоенном пути не выполнялся после 2.58.118; пробы r1/r2 сняты до деплоя, `needs_clarification` в прод-статистике not_instrumented. Нужен контролируемый postdeploy-прогон 9 классов §6.",
+      "reason": "AGENT_CHECK_NOW: семантический прогон §6 на задеплоенном пути не выполнялся после 2.58.118; пробы r1/r2 сняты до деплоя, `needs_clarification` в прод-статистике not_instrumented. Нужен контролируемый postdeploy-прогон 9 классов §6. ЗАКРЫТО 27.10.2026 (postdeploy-verify.md §Сводка): прод-чтение plan_meta снято — 11 записей с точным \"needs_clar\": true в PG с 2.58.118; семантика §6 — 25/26 классов живыми прогонами (res23.md §3).",
       "req_id": "DONE-D6",
       "slice": "DONE-CRITERIA",
       "acceptance": "[P0] Сценарии §6 пройдены как семантические прогоны действующей модели и интеграционные проверки; runtime словарей фраз/регулярок для обхода тестов нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -4326,13 +4326,22 @@
           "artifact_sha256": "cd9edd34c5b9f26fa62addb03a237aafb0a151b8ad39ff6af28ad509670a46b5",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "e4ee54f3"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §Сводка (DONE-D6) + res23.md §3 — read-only прод-верификация 27.10.2026",
+          "observation": "Прод-чтение plan_meta (read-only PG SELECT, 26.10 14:44Z): llm_usage_events, module=direct_chat, step=l1_planner, ts ≥ 23.10 17:51Z — 139 строк, 98 с plan_meta, 11 с точным \"needs_clar\": true; инструментация 2.58.118 живая, журнал коррелирует (L1_PLAN=98 == PG with_meta=98; plan_meta в журнал не пишется — durable-хранилище PG). Это ровно тот read-only запрос, которым res23.md §3 предписывала закрыть остаток строки. Семантика §6: 25/26 поведенческих классов живыми прогонами действующей модели (probe r1+r2 + T20-boundary 4 вызова), T24 — service-level байт-паритет payload (tests/test_asap2_clar_contract.py, 24 passed 27.10.2026, worktree res23, база d3a9a2cc). services/usage_events.py в дельте b5716022→076f7391 (прод 2.58.134) не изменялся.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "next_check": "WAITING_EXTERNAL: первое реальное сообщение на 2.58.118 -> снять plan_meta.",
+      "next_check": "Закрыто: instrumented live sample снят с прода (11 needs_clar=true, PG llm_usage_events). Живой T24-вариант (рестарт реального процесса) отдельно не прогонялся — приёмка по res23.md §3: service-level байт-паритет + живая прод-телеметрия.",
       "owner_role": "Builder",
-      "blocked_reason": "неполный семантический охват §6 (9 классов без живого прогона); прод-статистика needs_clarification not_instrumented — прокси response_act=clarification 46/324 не заменяет флаг",
-      "classification": "WAITING_EXTERNAL",
-      "reconciliation_note": "REL-258118 (24.10.2026) · REL-258118: прод 2.58.118 (9ed68ee8) поднят (healthz 200, PID 858447), но L1-вызовов на новом коде не зафиксировано: live-пробы в реальные чаты не отправлялись (deploy.md §«наблюдения»). plan_meta needs_clar/clar_target_present ждёт первого реального сообщения."
+      "blocked_reason": "Семантика §6: 25/26 поведенческих классов — живые прогоны действующей модели (probe r1+r2 + T20-boundary; res23.md §3); T24 — service-level байт-паритет payload (24 passed 27.10.2026). Остаток закрыт прод-чтением plan_meta: PG llm_usage_events (module=direct_chat, step=l1_planner, ts ≥ 23.10 17:51Z) — 139 строк, 98 с plan_meta, 11 с точным \"needs_clar\": true; инструментация 2.58.118 живая (L1_PLAN=98 == PG with_meta=98).",
+      "classification": "VERIFIED",
+      "reconciliation_note": "REL-258118 (24.10.2026) · REL-258118: прод 2.58.118 (9ed68ee8) поднят (healthz 200, PID 858447), но L1-вызовов на новом коде не зафиксировано: live-пробы в реальные чаты не отправлялись (deploy.md §«наблюдения»). plan_meta needs_clar/clar_target_present ждёт первого реального сообщения. | ПОСТДЕПЛОЙ 27.10.2026: план needs_clarification подтверждён instrumented live sample — 11 записей в PG с 2.58.118 (postdeploy-verify.md §Сводка)."
     },
     {
       "source_id": "L00307",

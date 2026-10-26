@@ -2537,9 +2537,18 @@
           "artifact_path": "plans/features/soul-1/evidence/amd-probes/amd811-search-factcheck-video.txt",
           "artifact_sha256": "b8e551462d3ddc0c1ef771b570fa2c7c7808ed381ea47ca64024d2f4f26b5c14",
           "type": "test"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §3 — postdeploy-проба на задеплоенном дереве, 27.10.2026",
+          "observation": "Postdeploy 27.10.2026 (read-only, без нового платного прогона): search VERIFIED — ToolRouter.dispatch(\"execute_web_search\") на задеплоенном дереве прод (b5716022; ToolDeps без БД/LLM/Telegram, единственный внешний вызов — поисковый провайдер прод-.env): verdict=OK, 1.7s, 4073 знаков, детерминированно совпадает с AMD-PROBES 21.10 (тот же запрос → 4073 зн.) — «работает одинаково + честный структурированный отказ при сбое» подтверждено на задеплоенном коде. factcheck VERIFIED — release r2 S02 (честный отказ, PASS, живой контур) + AMD-PROBES v2 (ready/supported/current/contextual, durable tfr-38ab2b7fa98b44cb); PG-флаги на день проверки: factcheck_enabled=true, factcheck_pipeline_v2=true. video PENDING — capability not_configured/media_source_unconfigured/cobalt_absent, внешний медиа-источник не настроен: WAITING_EXTERNAL (зависимость инфраструктуры, не изменилась с 18.10; настройка вне read-only полномочий; Human Gate не создаётся).",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "reconciliation_note": "NEEDS_LIVE_OBSERVATION (WAITING_EXTERNAL): поиск и фактчек подтверждены реальными сценариями трижды; видео — not_configured/media_source_unconfigured/cobalt_absent, сценарий невоспроизводим без медиа-источника. Не owner_optional и не VERIFIED; ждёт настройки провайдера."
+      "reconciliation_note": "NEEDS_LIVE_OBSERVATION (WAITING_EXTERNAL): поиск и фактчек подтверждены реальными сценариями трижды; видео — not_configured/media_source_unconfigured/cobalt_absent, сценарий невоспроизводим без медиа-источника. Не owner_optional и не VERIFIED; ждёт настройки провайдера. | ПОСТДЕПЛОЙ 27.10.2026 (postdeploy-verify.md §3): search VERIFIED (read-only проба на задеплоенном дереве, дубликат AMD-PROBES по результату), factcheck VERIFIED (release r2 S02 + AMD-PROBES v2 + durable-файл; PG-флаги v2/enable включены на день проверки), video PENDING — WAITING_EXTERNAL (медиа-источник не настроен, Human Gate не создаётся). Строка остаётся READY_FOR_LIVE только из-за видео."
     },
     {
       "source_id": "L00135",
