@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-26T18:57:33+12:00",
+  "updated": "2026-10-27T02:37:05+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -217,6 +217,15 @@
       ],
       "coverage_complete": true,
       "source_note": "ASAP 5 (current_task.md L4180-5023): Ностальгия, универсальное распознавание медиа, Vision, генерация/редактирование изображений, админка, интеграционные проверки. Выполняется ПОСЛЕДНИМ среди задач очереди на момент регистрации; перед стартом — сверка дублирования с Vision/Fact-check/Memory/Speech/Image. Владелец: сейчас к реализации не приступать. | Статус PENDING = в очереди, не начата. | Pre-start инвентаризация: 9 секций, гейт EXIT 0, 288a682c. Декомпозиция при старте."
+    },
+    {
+      "id": "post-asap5-corrective",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-10-27-post-asap5-current_task-excerpt.md",
+      "source_sha256": "09267F5DA173DE5D441AFFCE04F9BFD02452BB77B86DC2D440AA2236D4773F31",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "POST-ASAP5 CORRECTIVE (current_task.md L5026-5768): понимание меняющегося намерения, техническое мышление/размерности, поиск только по необходимости, технические галлюцинации, самокоррекция, возражения, речь не подменяет мышление; согласование с L1/Fact-check/Speech/ASAP5/Memory. В очереди СТРОГО после asap5-multimodal; реализация не начинается. Детальная карта — при старте задачи."
     }
   ],
   "owner_inputs": [
@@ -372,6 +381,19 @@
       "note": "ASAP 5 поставлен в конец очереди (после всех задач, зарегистрированных ранее). Реализация не начинается до завершения текущего релиза и оставшихся задач; перед стартом — сверка против готовых исправлений. | Intake согласован: зарегистрировано в конец очереди (asap5-multimodal, PENDING), карта будет создана при старте задачи.",
       "origin": "root chat 26.10.2026 (регистрация задания из plans/current_task.md)",
       "received": "2026-10-26"
+    },
+    {
+      "id": "OI-2026-10-27-POST-ASAP5",
+      "source_path": "plans/owner_inputs/2026-10-27-post-asap5-current_task-excerpt.md",
+      "source_sha256": "09267F5DA173DE5D441AFFCE04F9BFD02452BB77B86DC2D440AA2236D4773F31",
+      "kind": "new_task",
+      "target_task_ids": [
+        "post-asap5-corrective"
+      ],
+      "reconciled": false,
+      "note": "Задача зарегистрирована в САМЫЙ КОНЕЦ очереди (после asap5-multimodal). Порядок: текущий релиз-цикл → P0 DELTA → остатки → asap5-multimodal → post-asap5-corrective. Реализация не начинается; карта при старте.",
+      "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5026)",
+      "received": "2026-10-27"
     }
   ]
 }
