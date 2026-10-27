@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-27T21:56:27+12:00",
+  "updated": "2026-10-28T08:20:45+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -231,14 +231,14 @@
     },
     {
       "id": "p0-nostalgia-rework",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "source_path": "plans/owner_inputs/2026-10-27-nostalgia-rework-current_task-excerpt.md",
       "source_sha256": "74CF86E69168889B07B83F6BAF41F8260D0F957F4B7081BF486413D5CE9F3681",
       "maps": [
         "plans/features/p0-nostalgia-rework/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "P0 CORRECTIVE (current_task.md L5771-EOF): полная переработка ностальгии (NOST-01..12: без хардкодов, мультигод, адаптивные окна, эпизоды, критерии интересности, provenance, Decision Making, большой архив, админка) + приёмочные критерии NOST-13..18 + POST-ASAP5 дефекты COR-01..06 + дисциплина DEV-01..05. В очереди ПОСЛЕ post-asap5-corrective (последняя). Детальная карта при старте."
+      "source_note": "P0 CORRECTIVE (current_task.md L5771-EOF): полная переработка ностальгии (NOST-01..12: без хардкодов, мультигод, адаптивные окна, эпизоды, критерии интересности, provenance, Decision Making, большой архив, админка) + приёмочные критерии NOST-13..18 + POST-ASAP5 дефекты COR-01..06 + дисциплина DEV-01..05. В очереди ПОСЛЕ post-asap5-corrective (последняя). Детальная карта при старте. | 28.10 ЗАКРЫТО: 27/29 required VERIFIED (deployed 2.58.138 @ 1e438e3a, live probe PASS); NOST-15/16 — честный PENDING (SAY-семантика наблюдается естественными прод-тиками; офлайн T17-T23 зелёные)."
     }
   ],
   "owner_inputs": [
