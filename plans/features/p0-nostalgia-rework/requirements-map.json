@@ -2,11 +2,11 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-nostalgia-rework/source-2026-10-27.md",
   "source_sha256": "74cf86e69168889b07b83f6baf41f8260d0f957f4b7081bf486413d5ce9f3681",
-  "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+  "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
   "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
   "strict_evidence": true,
   "slice_graph_path": "",
-  "plan_note": "Closure 27-28.10.2026: NOST-часть ТЗ реализована W1+W2 и задеплоена как 2.58.137 (8adf5fa4), live-проба PASS. W1 rows NOST-01..04/07 — Approved review; W2 rows NOST-05/06/08..12 — VERIFIED (626 related tests, registry --check OK после e61a0db9); приёмочные NOST-13/14/17/18 — VERIFIED (тесты + live-проба); NOST-15/16 — честный PENDING (SAY-семантика проверяется естественными прод-тиками); DEV-05 VERIFIED (deploy+live). Открытые строки того же corrective: COR-01..06, DEV-01..04 — последующие волны, родитель не DONE.",
+  "plan_note": "Closure 28.10.2026 (финал): 27/29 required VERIFIED. NOST-01..14/17/18 — W1+W2, deployed 2.58.137 (8adf5fa4), live-проба PASS. COR-01..03 — архитектурные фиксы (кандидат ревью 6ddc5351, review Approved), deployed 2.58.138 @ bump 1e438e3a, postdeploy-пробы PASS (deploy.md 2.58.138; blob-тождество путей кода 7/7 vs кандидат). COR-04..06 — сверка по shipped-волнам (vision W1+W2, factcheck-media 2.58.131, lore-gate 2.58.133/134), reviews Approved. DEV-01..04 — запреты соблюдены (словники удалены, не промпт; фиксы на компонентах-владельцах; минимальный дифф 7 файлов 624+/−103; чужие задачи не тронуты, регресс = base, 0 новых сбоев); DEV-05 — deploy+live. NOST-15/16 — честный PENDING: полное семантическое доказательство SAY-ветки — за естественными прод-тиками (оффлайн T17–T23 зелёные; live UNCHANGED×2). Структурный класс гейта (документированный, не подгонялся): deployed 1e438e3a = release bump над отревьюенным кандидатом 6ddc5351 (версионные пины + docs поверх кода кандидата) — гейт честно репортит «deployed differs from reviewed candidate»; равенство не имитировалось. Родитель: открытых строк, кроме NOST-15/16, нет.",
   "additional_requirements": [],
   "items": [
     {
@@ -370,20 +370,11 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-01: _SELF_DECLINE_*/is_self_declining_text удалены из runtime (символов не существует, test_self_decline_hardcode_removed); формальный контракт UNCHANGED сохранён байт-в-байт; отказ — типизированный вердикт того же LLM-вызова (UNCHANGED | SAY + реплика; legacy-совместимость без вердикта), парсер parse_nostalgia_answer — протокольный маркер, не смысловой поиск слов. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-01: _SELF_DECLINE_*/is_self_declining_text удалены из runtime (символов не существует, test_self_decline_hardcode_removed); формальный контракт UNCHANGED сохранён байт-в-байт; отказ — типизированный вердикт того же LLM-вызова (UNCHANGED | SAY + реплика; legacy-совместимость без вердикта), парсер parse_nostalgia_answer — протокольный маркер, не смысловой поиск слов. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_prompts.py::TestTypedVerdictProtocol (7 тестов) + test_nostalgia_worker.py (incident shape → UNCHANGED → молчание, reason=unchanged, лимит не тратится); гейт фраз в _candidate_llm_send удалён; LLM-вызов по-прежнему 1 на тик.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
-          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -583,20 +574,11 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-02: динамические годы по фактическим границам архива (get_chat_history_bounds; без конструкции «три запроса»); годовщина календарно в tz чата (_anniversary_date: 29.02→28.02 документировано; локальные полуночи), 365*86400 и ORDER BY ABS(ts-center) удалены; настройка владельца year_back_days_window сохранена (симметричное расширение календарного дня). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-02: динамические годы по фактическим границам архива (get_chat_history_bounds; без конструкции «три запроса»); годовщина календарно в tz чата (_anniversary_date: 29.02→28.02 документировано; локальные полуночи), 365*86400 и ORDER BY ABS(ts-center) удалены; настройка владельца year_back_days_window сохранена (симметричное расширение календарного дня). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestCalendarArithmetic + TestMultiYearSearch (T1..T7): високосные, пропущенный год, архив посреди года, утро/вечер, 29.02; test_nostalgia_revamp_round1015.py::TestYearBackWindow — календарные окна + hot-override + фолбэк дефолта 10.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
-          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -781,20 +763,11 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-03: адаптивная лестница день → ISO-неделя → календарный месяц → продолжение (cap 3); переход — только когда сегмент касается границы окна (порог = зазор закрытия сегментатора SEGMENT_GAP_SECONDS); сегмент закрыт — расширения нет; месяц календарный, не 30 дней; несвязанные обсуждения дня не склеиваются. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-03: адаптивная лестница день → ISO-неделя → календарный месяц → продолжение (cap 3); переход — только когда сегмент касается границы окна (порог = зазор закрытия сегментатора SEGMENT_GAP_SECONDS); сегмент закрыт — расширения нет; месяц календарный, не 30 дней; несвязанные обсуждения дня не склеиваются. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestAdaptiveWindows (8 тестов): закрытый сегмент = 1 выборка; расширение на reply-цепочке у границы; остановка при отсутствии нового материала (2 выборки); month-уровень для многонедельного события; терминальный cap (≤3 выборки); T13/T14 неслияния; честный флаг truncated при LIMIT.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
-          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -1009,20 +982,11 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-04: единица отбора — связный эпизод; реконструкция существующим детерминированным ядром mca_episodes.segment_messages (время + reply-граф 6ч + участники; неслейка несвязанных — A12); эпизод из одного сообщения валиден; через Новый год не обрывается; кап строк голова+хвост; честная карточка эпизода в meta лога (границы/уровень/число сообщений); второго хранилища нет. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-04: единица отбора — связный эпизод; реконструкция существующим детерминированным ядром mca_episodes.segment_messages (время + reply-граф 6ч + участники; неслейка несвязанных — A12); эпизод из одного сообщения валиден; через Новый год не обрывается; кап строк голова+хвост; честная карточка эпизода в meta лога (границы/уровень/число сообщений); второго хранилища нет. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestEpisodeReconstruction + test_cross_new_year_episode_not_cut; services/nostalgia_worker.py (_year_episode/_episode_card/_episode_lines); kind='year_back' в логе сохранён (лог-контракт стабилен).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
-          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -1402,28 +1366,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-05: фиксированный вес происхождения 0.7 удалён (_YEAR_BACK_WEIGHT); исторический пул не гейтится арифметикой — содержательная пригодность = типизированный вердикт того же LLM-вызова (NOST-01); порог агрессивности сохранён как технический предварительный отбор ТОЛЬКО слабых «золотых» фактов; ранг предъявления без счётчика сообщений (topical, -year); объём ≠ интересность зафиксирован в каноне; контекстный сценарий видит беседу (секция «Текущий разговор», всплеск с разрывом >6ч); самостоятельный сценарий сохранён (директива §8 дословно). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-05: фиксированный вес происхождения 0.7 удалён (_YEAR_BACK_WEIGHT); исторический пул не гейтится арифметикой — содержательная пригодность = типизированный вердикт того же LLM-вызова (NOST-01); порог агрессивности сохранён как технический предварительный отбор ТОЛЬКО слабых «золотых» фактов; ранг предъявления без счётчика сообщений (topical, -year); объём ≠ интересность зафиксирован в каноне; контекстный сценарий видит беседу (секция «Текущий разговор», всплеск с разрывом >6ч); самостоятельный сценарий сохранён (директива §8 дословно). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_w2.py: test_volume_does_not_rank_or_drop_episodes, test_rank_key_has_no_volume_term, test_short_characteristic_episode_presented, test_context_section_shows_current_burst; tests/test_nostalgia_worker.py: test_aggressiveness_history_pool_reaches_semantic_verdict, test_aggressiveness_gates_weak_golden_fact; test_nostalgia_prompts.py: test_prompt_canon_volume_is_not_interest, test_prompt_canon_no_literary_template. Прогон листа 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-05 live: реальный LLM на слабом годовщинном материале («Эх, тяночку хочется / ех / ЕХ») вернул UNCHANGED — содержательная пригодность оценивается живьём, объём/активность не обеспечили публикацию, 0 отправок.",
+          "ref": "NOST-05 live: реальный LLM на слабом годовщинном материале («Эх, тяночку хочется / ех / ЕХ») вернул UNCHANGED — содержательная пригодность оценивается живьём, объём/активность не обеспечили публикацию, 0 отправок. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "S2b (реальный LLM, raw ровно UNCHANGED, 9 символов) + прод-тик 17:48Z (тот же исход); в чат не ушло ничего.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -1488,28 +1443,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-06: тематический режим по ВСЕЙ истории — FTS-семена существующими search_messages_fts + build_fts_query (тот же путь, что «золотые»; второго поискового механизма нет) → периоды → детализация тем же адаптивным движком _episode_around (общий с календарным; _year_episode — обёртка); семена-строки бота и сообщения текущего разговора исключены (self-echo/не история); порядок предъявления технический (тематическая выше календарной), решение — вердикт модели; календарное совпадение не гарантируется предпочтительным; дедуп пересечений — один эпизод в обоих режимах. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-06: тематический режим по ВСЕЙ истории — FTS-семена существующими search_messages_fts + build_fts_query (тот же путь, что «золотые»; второго поискового механизма нет) → периоды → детализация тем же адаптивным движком _episode_around (общий с календарным; _year_episode — обёртка); семена-строки бота и сообщения текущего разговора исключены (self-echo/не история); порядок предъявления технический (тематическая выше календарной), решение — вердикт модели; календарное совпадение не гарантируется предпочтительным; дедуп пересечений — один эпизод в обоих режимах. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_w2.py: test_episode_outside_anniversary_surfaced (T17: июнь 2024 при тике 15.01.2027), test_calendar_not_guaranteed_over_thematic (mixed, тематическая выше), test_thematic_select_then_detail_bounded, test_rename_dates_subjects_invariant (дедуп календарь+тема → один эпизод). Прогон 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-06 live: S1 календарный режим на реальном прод-архиве (mode=calendar, годы [2023, 2024, 2025] по фактическим границам архива при depth_years=0). Честная граница пробы: тематический режим в этом live-наборе не выбирался (кандидатов вне годовщины не потребовалось) — его поведение покрыто офлайн T17 (зелёный).",
+          "ref": "NOST-06 live: S1 календарный режим на реальном прод-архиве (mode=calendar, годы [2023, 2024, 2025] по фактическим границам архива при depth_years=0). Честная граница пробы: тематический режим в этом live-наборе не выбирался (кандидатов вне годовщины не потребовалось) — его поведение покрыто офлайн T17 (зелёный). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S1: один движок пула, дедуп, периоды 2023/2024/2025 по 27 октября.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -1559,20 +1505,11 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-07: forward-лейбл «Переслано: источник» в строках эпизода (механизм W1 переиспользован; репост ≠ событие чата); self-echo: строки бота исключены SQL-фильтром user_id != bot_id на историческом пути + прежний origin-фильтр golden-фактов не тронут; идентичность по Telegram uid — единый каскад summary_aliases (алиас чата → глобальный > исторический author_name; id не выдаётся за имя); недостаток данных — честное молчание (no_candidates без вызова LLM). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-07: forward-лейбл «Переслано: источник» в строках эпизода (механизм W1 переиспользован; репост ≠ событие чата); self-echo: строки бота исключены SQL-фильтром user_id != bot_id на историческом пути + прежний origin-фильтр golden-фактов не тронут; идентичность по Telegram uid — единый каскад summary_aliases (алиас чата → глобальный > исторический author_name; id не выдаётся за имя); недостаток данных — честное молчание (no_candidates без вызова LLM). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestTruthfulness (7 тестов) + test_forward_provenance_reaches_llm / d04 (asap5_integration_w3); services/database.py (get_chat_history_messages) + services/nostalgia_worker.py (_display_names).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
-          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -1847,28 +1784,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-08: повторы — по ИДЕНТИЧНОСТИ эпизода (first/last message_key канона mca-03 + границы; пересечение диапазонов одного года = то же событие; буквального сравнения текстов нет): журнал отправки (recent_nostalgia_sent, 30 дней / последние 10 sent) → исключение из пула; все кандидаты — повторы → honest skip reason=repeat (искусственной новизны нет: молчание); публикация старше окна — не повтор (новый повод); протокольный слот «SAY <№>» (детерминированный суффикс, parse_say_slot) записывает идентичность ТОЛЬКО выбранного блока (голый SAY — консервативно все + флаг episode_slot_unknown); разнообразие периодов между тиками — следствие исключения повторов и порядка, без квот. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-08: повторы — по ИДЕНТИЧНОСТИ эпизода (first/last message_key канона mca-03 + границы; пересечение диапазонов одного года = то же событие; буквального сравнения текстов нет): журнал отправки (recent_nostalgia_sent, 30 дней / последние 10 sent) → исключение из пула; все кандидаты — повторы → honest skip reason=repeat (искусственной новизны нет: молчание); публикация старше окна — не повтор (новый повод); протокольный слот «SAY <№>» (детерминированный суффикс, parse_say_slot) записывает идентичность ТОЛЬКО выбранного блока (голый SAY — консервативно все + флаг episode_slot_unknown); разнообразие периодов между тиками — следствие исключения повторов и порядка, без квот. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_w2.py: test_same_episode_not_republished (reason=repeat, repeats_skipped в meta), test_old_told_episode_allowed_again, test_diversity_across_ticks_no_quota (свежий → затем старый), test_identity_is_keys_not_text, test_say_slot_protocol_deterministic, test_episode_block_slot_marker. Прогон 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-08 live: S3 контроль повторов — идентичности всех 3 эпизодов пула вставлены как status=sent -> повторная выборка repeats_skipped=3, reason=repeat, пул пуст -> молчание; контроль по идентичности эпизода, не по тексту; искусственной новизны нет.",
+          "ref": "NOST-08 live: S3 контроль повторов — идентичности всех 3 эпизодов пула вставлены как status=sent -> повторная выборка repeats_skipped=3, reason=repeat, пул пуст -> молчание; контроль по идентичности эпизода, не по тексту; искусственной новизны нет. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S3: PASS (NOST-08.2).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -2008,28 +1936,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-09: литературный шаблон снят из обоих канонов («обычно 1-2 короткими фразами «кстати...»» удалён; форма свободная — ремарка/наблюдение/история/продолжение; «драматизация и пафос без повода не нужны»; предпосылка «давно тихо» ушла из канона — сценарий A/B несёт user-блок); голос и технические правила вывода сохранены (ирония/сленг из лора, «вспомнил вслух», ленивая печать, без маркдауна/ёлочек/длинных тире); Personality Core/жанровая рамка lore не тронуты; скрытая квота {max_words}/_MAX_WORDS удалена из канонов и воркера (правило владельца о квотах); единственный слот длины — пользовательская настройка nostalgia_max_send_chars; слепки PREV_*_1027W1 байт-в-байт W1 (автопроверка); директива §8/provenance/анти-вымысел дословно; реестр: метка nostalgia-nost-rework-w2, FACTORY_SET_SHA256_12 986108f6d63c→fbc44eb0f879 (осознанный бамп). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-09: литературный шаблон снят из обоих канонов («обычно 1-2 короткими фразами «кстати...»» удалён; форма свободная — ремарка/наблюдение/история/продолжение; «драматизация и пафос без повода не нужны»; предпосылка «давно тихо» ушла из канона — сценарий A/B несёт user-блок); голос и технические правила вывода сохранены (ирония/сленг из лора, «вспомнил вслух», ленивая печать, без маркдауна/ёлочек/длинных тире); Personality Core/жанровая рамка lore не тронуты; скрытая квота {max_words}/_MAX_WORDS удалена из канонов и воркера (правило владельца о квотах); единственный слот длины — пользовательская настройка nostalgia_max_send_chars; слепки PREV_*_1027W1 байт-в-байт W1 (автопроверка); директива §8/provenance/анти-вымысел дословно; реестр: метка nostalgia-nost-rework-w2, FACTORY_SET_SHA256_12 986108f6d63c→fbc44eb0f879 (осознанный бамп). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_prompts.py: test_prompt_reference_bytes (эталон=W2-байты), test_prompt_canon_no_literary_template, test_prompt_canon_no_hidden_length_quota, test_core_canon_refusal_and_semantics, test_prompt_no_max_words_placeholder, test_asap5_owner_directive_verbatim, test_asap5_provenance_and_decline_form, test_prompt_no_em_dash_in_output_rules; tests/test_nostalgia_w2.py: test_max_send_chars_respected_honest, test_system_prompt_has_no_hidden_quota; пин test_expression_isolation_followup.py == fbc44eb0f879; автопроверка слепков (PREV_1027W1 == байты fe891402). Прогон 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-09 live: S2b raw == UNCHANGED ровно (9 символов) — no epic opening, «кстати»-шаблона нет (протокол отказа); {max_words}/_MAX_WORDS в рабочем пути отсутствуют; форма свободная, лимит только пользовательский NOSTALGIA_MAX_SEND_CHARS.",
+          "ref": "NOST-09 live: S2b raw == UNCHANGED ровно (9 символов) — no epic opening, «кстати»-шаблона нет (протокол отказа); {max_words}/_MAX_WORDS в рабочем пути отсутствуют; форма свободная, лимит только пользовательский NOSTALGIA_MAX_SEND_CHARS. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S2b: PASS (T19/T23-часть).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -2259,28 +2178,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-10: маршрут не изменён — _delegate_initiative → существующий handle_initiative (trigger_kind=nostalgia_due, source=nostalgia, prepared_text_ref); chain_allowed(nostalgia_due)=True (существующий контракт mca_intents); оценка пригодности и реплика — один LLM-вызов (типизированный вердикт W1); второго Observer/Decision/параллельного send-пути нет; сбой транспорта — честный error без резервных фактов (W1-поведение). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-10: маршрут не изменён — _delegate_initiative → существующий handle_initiative (trigger_kind=nostalgia_due, source=nostalgia, prepared_text_ref); chain_allowed(nostalgia_due)=True (существующий контракт mca_intents); оценка пригодности и реплика — один LLM-вызов (типизированный вердикт W1); второго Observer/Decision/параллельного send-пути нет; сбой транспорта — честный error без резервных фактов (W1-поведение). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_w2.py: test_nostalgia_due_chain_contract_unchanged, test_delegation_single_send_path (initiative=1, bot=0, meta.path=initiative); существующие делегационные тесты W3 (test_asap5_integration_w3) зелёные в общем прогоне 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-10 live: реальный прод-тик 17:48:06 UTC outcome=success duration_ms=23332 — маршрут пул -> gates -> LLM -> skip (unchanged), 0 отправок, единственный send-путь. Honest note: стадия делегации (handle_initiative) в изоляции не достигнута — обе композиции UNCHANGED до Initiative; транспорт реворком не менялся (история sent в nostalgia_log), контракт покрыт тестами.",
+          "ref": "NOST-10 live: реальный прод-тик 17:48:06 UTC outcome=success duration_ms=23332 — маршрут пул -> gates -> LLM -> skip (unchanged), 0 отправок, единственный send-путь. Honest note: стадия делегации (handle_initiative) в изоляции не достигнута — обе композиции UNCHANGED до Initiative; транспорт реворком не менялся (история sent в nostalgia_log), контракт покрыт тестами. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137 + журнал прода, PID 610871, ROW 394.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -2375,28 +2285,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-11: поэтапность — тематический: семена (≤12) → периоды → детализация ≤2 (select-then-detail, существующий factcheck-паттерн); календарный: окна → сегменты → адаптивное расширение (W1); сырой архив в LLM не идёт; плотные окна (>лимита) стратифицируются по времени (count_chat_history_messages тем же фильтром → равные страты ≤8, каждая даёт своё начало) — выборка покрывает период, а не голову ORDER BY, truncated честен; разрежённые окна — прежняя сплошная выборка; ошибки источников деградируют честно (thematic_error/archive_error в meta, календарь живёт, частичный результат не выдаётся за полный); _EPISODES_MAX=4 — payload-выборка данных после ранжирования (found/shown честно в meta; не квота инструкций). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-11: поэтапность — тематический: семена (≤12) → периоды → детализация ≤2 (select-then-detail, существующий factcheck-паттерн); календарный: окна → сегменты → адаптивное расширение (W1); сырой архив в LLM не идёт; плотные окна (>лимита) стратифицируются по времени (count_chat_history_messages тем же фильтром → равные страты ≤8, каждая даёт своё начало) — выборка покрывает период, а не голову ORDER BY, truncated честен; разрежённые окна — прежняя сплошная выборка; ошибки источников деградируют честно (thematic_error/archive_error в meta, календарь живёт, частичный результат не выдаётся за полный); _EPISODES_MAX=4 — payload-выборка данных после ранжирования (found/shown честно в meta; не квота инструкций). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_w2.py: test_dense_window_stratified_coverage (12 сообщений при капе 4 → головы страт ≥16ч друг от друга, truncated=True), test_sparse_window_unstratified, test_thematic_select_then_detail_bounded (≤2 эпизодов), test_thematic_source_error_degrades_honestly, test_archive_bounds_error_honest, test_run_diagnostics_meta_full (found/shown). Прогон 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-11 live: S1 поэтапность на реальном архиве 2.04M сообщений — 3 эпизода по 65–80 строк с честными truncated-флагами и слотами 1–3; сырой архив в LLM не уходит, сначала отбор, затем детализация.",
+          "ref": "NOST-11 live: S1 поэтапность на реальном архиве 2.04M сообщений — 3 эпизода по 65–80 строк с честными truncated-флагами и слотами 1–3; сырой архив в LLM не уходит, сначала отбор, затем детализация. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S1: PASS.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -2566,28 +2467,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-12: существующие настройки раздела сохранены (17 legacy-ключей, группа memory_nostalgia; применение — штатный hot без рестарта); новая ручка ГЛУБИНА NOSTALGIA_HISTORY_DEPTH_YEARS (0 = весь доступный архив (дефолт), N = последние N лет); временное исследование адаптивно по умолчанию (W1-лестница, новая ручка не нужна); описания агрессивности и окна обновлены под фактическое поведение (без декоративных ручек); диагностика последнего запуска на фактических runtime-данных в nostalgia_log.meta: mode/calendar_years/periods/episodes_found/episodes_shown/repeats_skipped/context_messages/payload_sections/thematic_error/archive_error/episode_ids/reason/protocol/path; UI строки лога дополнена компактной диагностикой (аддитивно, layout прежний). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-12: существующие настройки раздела сохранены (17 legacy-ключей, группа memory_nostalgia; применение — штатный hot без рестарта); новая ручка ГЛУБИНА NOSTALGIA_HISTORY_DEPTH_YEARS (0 = весь доступный архив (дефолт), N = последние N лет); временное исследование адаптивно по умолчанию (W1-лестница, новая ручка не нужна); описания агрессивности и окна обновлены под фактическое поведение (без декоративных ручек); диагностика последнего запуска на фактических runtime-данных в nostalgia_log.meta: mode/calendar_years/periods/episodes_found/episodes_shown/repeats_skipped/context_messages/payload_sections/thematic_error/archive_error/episode_ids/reason/protocol/path; UI строки лога дополнена компактной диагностикой (аддитивно, layout прежний). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_w2.py: test_depth_knobs_limit_years, test_admin_knobs_present (17 legacy + новая в memory_nostalgia; settings default 0), test_run_diagnostics_meta_full, test_archive_bounds_error_honest/test_thematic_source_error_degrades_honestly (честные ошибки, не «всегда успех»); UI: web/index.html — аддитивная строка диагностики; каталог-пины test_frontend_tab_mapping (588) и test_webapp_parity_smoke (588/467) с документированной дельтой W2. Прогон 626 passed.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-12 live: S5 диагностика — meta прогона несёт mode/episodes_found/episodes_shown/repeats_skipped/calendar_years/periods; depth_years=0 -> весь архив; прод-тик ROW 394 с новой meta year_lines[]; hot-настройки прода (cooldown 12ч, silence 45м, max/day 3, tick 60м) применились без рестарта.",
+          "ref": "NOST-12 live: S5 диагностика — meta прогона несёт mode/episodes_found/episodes_shown/repeats_skipped/calendar_years/periods; depth_years=0 -> весь архив; прод-тик ROW 394 с новой meta year_lines[]; hot-настройки прода (cooldown 12ч, silence 45м, max/day 3, tick 60м) применились без рестарта. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S5: PASS.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -2847,28 +2739,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-13 (T1–T7): один полный год / три года / более трёх лет / пропущенный год — динамические календарные периоды по фактическим границам архива; отсутствующие годы не опрашиваются и не обрывают поиск; високосные/29.02/утро-вечер покрыты. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-13 (T1–T7): один полный год / три года / более трёх лет / пропущенный год — динамические календарные периоды по фактическим границам архива; отсутствующие годы не опрашиваются и не обрывают поиск; високосные/29.02/утро-вечер покрыты. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestCalendarArithmetic + TestMultiYearSearch (T1..T7) — зелёные на W1; воспроизведены в общем смежном прогоне 626 (review W2).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-13 live: S1 на реальном прод-архиве (2.04M сообщений, фактические границы чата 2022-12..2026-10): пул mode=calendar, годы [2023, 2024, 2025] по границам архива при depth_years=0; отсутствие годов не обрывает поиск.",
+          "ref": "NOST-13 live: S1 на реальном прод-архиве (2.04M сообщений, фактические границы чата 2022-12..2026-10): пул mode=calendar, годы [2023, 2024, 2025] по границам архива при depth_years=0; отсутствие годов не обрывает поиск. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S1: периоды пула 2023/2024/2025 по 27 октября — PASS.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -2888,28 +2771,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-14 (T8–T15): связный эпизод как единица отбора — самодостаточное сообщение валидно, диалоги часов/дней собираются, событие недели расширяется адаптивно, несвязанные не склеиваются (T13/T14), через Новый год не обрывается. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-14 (T8–T15): связный эпизод как единица отбора — самодостаточное сообщение валидно, диалоги часов/дней собираются, событие недели расширяется адаптивно, несвязанные не склеиваются (T13/T14), через Новый год не обрывается. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestEpisodeReconstruction + test_cross_new_year_episode_not_cut + TestAdaptiveWindows (неслияние) — зелёные на W1; воспроизведены в прогоне 626 (review W2).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-14 live: S1 — 3 эпизода реконструированы из реального архива: 2025 (75 строк, slot 1, truncated), 2024 (65 строк, slot 2, truncated, fwd=2), 2023 (80 строк, slot 3); forward-лейблы «Переслано» в строках эпизодов.",
+          "ref": "NOST-14 live: S1 — 3 эпизода реконструированы из реального архива: 2025 (75 строк, slot 1, truncated), 2024 (65 строк, slot 2, truncated, fwd=2), 2023 (80 строк, slot 3); forward-лейблы «Переслано» в строках эпизодов. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S1: PASS.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -3083,28 +2957,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-17 (T24–T30): пересланное остаётся внешней публикацией (forward-лейбл, репост ≠ событие чата); self-echo исключён SQL-фильтром user_id != bot_id; идентичность по Telegram uid с каскадом summary_aliases; недостаток данных -> честное молчание (no_candidates без вызова LLM). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-17 (T24–T30): пересланное остаётся внешней публикацией (forward-лейбл, репост ≠ событие чата); self-echo исключён SQL-фильтром user_id != bot_id; идентичность по Telegram uid с каскадом summary_aliases; недостаток данных -> честное молчание (no_candidates без вызова LLM). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "tests/test_nostalgia_history_rework.py::TestTruthfulness (7 тестов) + test_forward_provenance_reaches_llm / d04 (asap5_integration_w3) — зелёные; воспроизведены в прогоне 626 (review W2).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-17 live: S1 provenance — 3 строки пула с меткой «Переслано: SVTV NEWS…» / «Переслано: Дайвинчик | Leo…» дошли до рендера; репост не выглядит репликой участника.",
+          "ref": "NOST-17 live: S1 provenance — 3 строки пула с меткой «Переслано: SVTV NEWS…» / «Переслано: Дайвинчик | Leo…» дошли до рендера; репост не выглядит репликой участника. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137, S1 provenance: PASS.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -3124,28 +2989,19 @@
       "evidence": [
         {
           "type": "test",
-          "ref": "NOST-18: сквозные регрессии — смежный набор 626 тестов воспроизведён независимым ревью на 58b9f5e2 (test_nostalgia_worker/prompts/history_rework/w2/corrective_r1, asap5_integration_w3, prompt_migrations, database, feature_gates, memory_core_round1020 и др.); делегация: test_delegation_single_send_path (initiative=1, bot=0), test_nostalgia_due_chain_contract_unchanged; Personality Core/lore/NO_META не тронуты. Тестовых публикаций в рабочих Telegram-чатах нет (FakeBot, 0 сетевых отправок). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "NOST-18: сквозные регрессии — смежный набор 626 тестов воспроизведён независимым ревью на 58b9f5e2 (test_nostalgia_worker/prompts/history_rework/w2/corrective_r1, asap5_integration_w3, prompt_migrations, database, feature_gates, memory_core_round1020 и др.); делегация: test_delegation_single_send_path (initiative=1, bot=0), test_nostalgia_due_chain_contract_unchanged; Personality Core/lore/NO_META не тронуты. Тестовых публикаций в рабочих Telegram-чатах нет (FakeBot, 0 сетевых отправок). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "review-w2: 626 passed (клейм билдера воспроизведён 1-в-1); на merge a2b61bbf — 157 nostalgia tests green (deploy guard).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
           "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "NOST-18 live: реальный прод-тик 2.58.137 17:48:06 UTC outcome=success duration_ms=23332 (ROW 394); healthz 200, NRestarts 0, журнал без ERROR/CRITICAL/Traceback. Honest note: инициативный транспорт (handle_initiative/Decision) в изоляции не достигнут — обе композиции завершились UNCHANGED до делегации; транспорт реворком не менялся, история sent в nostalgia_log.",
+          "ref": "NOST-18 live: реальный прод-тик 2.58.137 17:48:06 UTC outcome=success duration_ms=23332 (ROW 394); healthz 200, NRestarts 0, журнал без ERROR/CRITICAL/Traceback. Honest note: инициативный транспорт (handle_initiative/Decision) в изоляции не достигнут — обе композиции завершились UNCHANGED до делегации; транспорт реворком не менялся, история sent в nostalgia_log. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-проба 2.58.137: разделы «Реальный прод-тик» и «Красные флаги».",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
-        },
-        {
-          "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
-          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
-          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
-          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
-          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         }
       ]
     },
@@ -3334,7 +3190,7 @@
           "observation": "COR verified: COR-01 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.138: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 1e438e3a; postdeploy-пробы deployed-дерева PASS: word-gate 0, L1/structured-status швы на месте, 7/7 blob == кандидат, канон-миграций нет].",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
           "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "deploy",
@@ -3342,7 +3198,7 @@
           "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
           "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
           "artifact_sha256": "40a5191769fe3590b4f364634dfc67e76ee15056306a65e8197eeb92abe79c12",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
@@ -3442,7 +3298,7 @@
           "observation": "COR verified: COR-02 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.138: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 1e438e3a; postdeploy-пробы deployed-дерева PASS: word-gate 0, L1/structured-status швы на месте, 7/7 blob == кандидат, канон-миграций нет].",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
           "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "deploy",
@@ -3450,7 +3306,7 @@
           "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
           "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
           "artifact_sha256": "40a5191769fe3590b4f364634dfc67e76ee15056306a65e8197eeb92abe79c12",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
@@ -3475,7 +3331,7 @@
           "observation": "COR verified: COR-03 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.138: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 1e438e3a; postdeploy-пробы deployed-дерева PASS: word-gate 0, L1/structured-status швы на месте, 7/7 blob == кандидат, канон-миграций нет].",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
           "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "deploy",
@@ -3483,7 +3339,7 @@
           "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
           "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
           "artifact_sha256": "40a5191769fe3590b4f364634dfc67e76ee15056306a65e8197eeb92abe79c12",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
@@ -3494,14 +3350,39 @@
       "source_text_sha256": "2c4fe67e6c0cfe2ac97d0e3ee1b4ffbfc57a00f8a295a5cb138f2167291e643f",
       "source_excerpt": "## COR-04. Vision: проверить заявленные возможности",
       "disposition": "required",
-      "reason": "",
+      "reason": "Привязано 28.10.2026 к закрытым смежным волнам ASAP5 Vision/Media/Image-Admin (deployed 2.58.134+; код субъектов проверен в 8adf5fa4: resolve_ready_for_asset в mca_vision, media-типы в param_catalog).",
       "req_id": "COR-04",
       "slice": "COR-04",
       "acceptance": "Фактические возможности Vision сверены для статичных изображений, GIF, TGS, WebM, превью видео, видеосообщений, недоступных превью, Pending/Ready/Failed и медиа, созданных ботом; обложка не выдаётся за анализ движения; отображаемые настройки админки соответствуют действительным функциям; работающий Vision не переписан без подтверждённой причины.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "COR-04: матрица фактических возможностей по типам медиа (w1-media.md §1/§11): фото, изображения-документы, статичные стикеры, GIF/Telegram-анимации, анимированные TGS, видео-стикеры WebM, превью видео и видеосообщений, альбомы, медиа, созданное ботом (§7.1 шов observer-intake, строка матрицы VERIFIED); обложка не выдаётся за анализ движения - обязательные честные маркировки VIDEO_PREVIEW_NOTE/ANIMATION_PREVIEW_NOTE; недоступные превью - честная строка NO_VISUAL_CONTENT_LINE; непредставимые исходы регистрируются честно (D18). Работающий Vision не переписан: границы лейна - без нового провайдера/пайплайна. [код субъектов в deployed 8adf5fa4]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "tests/test_p0_vision_fix_core.py - секция ASAP5, 11 форматов реестра mca_media_assets; RED/GREEN-профиль лейна ASAP5-MEDIA (w1-media.md §4-5).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        },
+        {
+          "type": "test",
+          "ref": "COR-04: честные состояния Pending/Ready/Failed (+no_text/unavailable/unsupported/missing - D22-маппинг) вместо вечного pending (w2-vision.md §1-§2); per-chat витрина статуса (§12); гонки терминал-during-wait/singleflight/CAS (§5); тул-схема без выдуманных обещаний (§17). Reviewer leaf-ревью Approved (review-w2-vision.md:35). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "tests/test_p0_vision_fix_core.py секция «ASAP5 §12-§17 (wave W2)»: 9/9 GREEN (RED-профиль 8 failed / 1 guard); сфокусированные контуры 338+117+126 passed; полный сьют - профиль падений идентичен базе (0 от дельты).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-vision.md",
+          "artifact_sha256": "1423a99f94f22af81a34cfad92d588c1cac1e183d7bd3630711982077b7b8a89",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        },
+        {
+          "type": "test",
+          "ref": "COR-04: отображаемые настройки админки соответствуют действительным функциям - группа «Типы медиа» на существующей вкладке mod_vision (per_chat) гейтит авто-разбор по типу (выключенный тип -> джобы нет, событие vision_type_disabled), диагностика показывает effective-тумблеры и честную маркировку types_need_transform «анализ по кадру-обложке» (w2-image-admin.md §5-§6). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "tests/test_asap5_image_admin.py: 29 passed (RED на базе ad239f73: 27/29 падали); полная регрессия - 0 отказов, относимых на дельту лейна.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00859",
@@ -3599,14 +3480,31 @@
       "source_text_sha256": "2b16bdc818340fab09bae414f59e8076b63b9cd2fd67d5c7adc9f5903f584e97",
       "source_excerpt": "## COR-05. Fact-check: контекстная релевантность",
       "disposition": "required",
-      "reason": "",
+      "reason": "Привязано 28.10.2026 к закрытой фиче p0-factcheck-media (деплой 2.58.131, Reviewer r2 Approved; код субъектов проверен в 8adf5fa4: resolve_context_claim/find_context_claim в factcheck_suitability.py; после 2.58.131 альбомы никто не трогал).",
       "req_id": "COR-05",
       "slice": "COR-05",
       "acceptance": "Durable-восстановление альбомов не тронуто (не реализуется повторно); проверен только риск ошибочного выбора тезиса из широкого контекста: сообщение без самостоятельного проверяемого утверждения не делает соседнее обсуждение целью проверки без установленной связи; используются существующие reply-связи, структура публикации, авторство; словарные исключения под отдельные реплики не добавляются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "COR-05: риск ошибочного выбора тезиса из широкого контекста проверен (factcheck-media.md §1-§2): пустая цель без самостоятельного тезиса не делает соседнее обсуждение целью без установленной связи - reply-цепочка приоритетна через существующий collect_thread_chain (resolve_context_claim: bot-ответы и «фактчек…»-команды не тезис), окно W1 - фолбэк только по принятому решению владельца wide-context (25.10.2026); структура публикации - resolve_claim_publication (durable альбом -> same-turn fast-path -> цель); авторство - от АНЦЕДЕНТА, не от цели (factcheck_suitability.py:26,116); фильтры структурные (_claim_like_text: число/предикат/глагольная форма, филлеры консервативно отсечены) - словарных исключений под отдельные реплики нет. Durable-восстановление альбомов сделано самой фичей 2.58.131 (get_smart_messages_by_media_group) и после неё не перереализовывалось. [код в deployed 8adf5fa4]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "tests/test_factcheck_media_2026_10_25.py: 53 unit-теста (включая production-shape альбома 10 медиа с caption на первом и reply на девятом) + tests/test_factcheck_wide_context_default_2026_10_25.py: 11 тестов миграции/гейта; сфокусированные наборы зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        },
+        {
+          "type": "review",
+          "ref": "COR-05: независимое ревью r2 - Approved (все 6 замечаний r1 устранены; diff 534ac7dd..266b0e6b целостен; live-проверка отнесена DevOps и выполнена в деплое 2.58.131). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "Reviewer-worktree adminbot-wt-fc-rev2 (detached, коммиты только в doc-файлы); production 2.58.130 база; регрессии выше допустимого не зафиксированы.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00891",
@@ -3614,14 +3512,47 @@
       "source_text_sha256": "a8219a2e8031792c79cdc563a54377d90fb46cc4795a0ceafd50fe4ba549454b",
       "source_excerpt": "## COR-06. L1/Lore: неопределённые планы",
       "disposition": "required",
-      "reason": "",
+      "reason": "Привязано 28.10.2026 к закрытой фиче p0-delta-analysis (D1 lore-gate: деплой 2.58.133 b5716022 + LORE-VERBATIM-GATE + DELTA-DEPTH 2.58.134; оба merge Reviewer Approved; гейт проверен в deployed 8adf5fa4 - lore_story_delivery_allowed в services/direct_l1.py).",
       "req_id": "COR-06",
       "slice": "COR-06",
       "acceptance": "Разрешающий fallback в lore_story_delivery_allowed() проверен: при недостаточно определённом намерении пользователя готовая Lore-история не подменяет аналитический ответ автоматически; полноценные художественные воспоминания при реально запрошенном жанре сохранены; универсальная композиция ответа не навязывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "COR-06: детерминированный предикат lore_story_delivery_allowed(l1_plan, response_plan) в services/direct_l1.py + точка подмены lore_story_override (direct_chat_service): story-акты (creative/historical_recall, structure=story) -> подмена разрешена; analysis-акты/структуры -> запрещена; НЕОПРЕДЕЛЁННАЯ интенция или плана нет (легаси/fallback) -> fail-open True (прежнее поведение, без ложноположительных блоков) - ровно предмет строки «неопределённые планы»; verbatim-инструкция в payload тогда и только тогда, когда доставка разрешена (lore_verbatim_allowed, kill-switch LORE_STORY_INTENT_GATE_ENABLED); универсальная композиция не навязывается (DELTA-DEPTH: инструкция без структур/схем/чисел/примеров). [код в deployed 8adf5fa4]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "tests/test_p0_delta_routing.py: 54 теста (дефекты 1-5 + сценарная матрица 8 интентов, ≥4 task_kind, «analysis/анализ» канонизируются без второго роутера) + TestLoreVerbatimInstructionGate +12 (iff-матрица, fail-open без плана, kill-switch OFF -> легаси, story-контролы S04/S09 «инструкция на месте» на реальном dispatch compile_lore_story) + tests/test_p0_delta_depth_instruction.py: 11 (verbatim с источником, ровно 1× на research/deep, 0 на casual, test_no_mandatory_structures_numbers_examples).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
+          "artifact_sha256": "43934fd093fdeee5aa7fbfb7faccab29b8001f6ea41ba20755f02b2242aabd8d",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        },
+        {
+          "type": "live",
+          "ref": "COR-06 live: re-probe r2 на прод-коде 2.58.133 (b5716022) - FAILED-критерий «lore story не подменяет analysis-ответ» закрыт: S02/S03/S05/S07/S10 - verbatim-инструкция в payload отсутствует, story_delivered_as_reply=false, similarity ответ↔story 0.008-0.072, story остаётся provenance-материалом («lore story kept as evidence»), Writer компонует сам. Честный остаток: TRUE-сторона genuine story-интента в live-прогоне не выпала (L1 ни разу не дал story-классификацию) - доказана payload-юнитами S04/S09; механизм TRUE-стороны фиксом не менялся. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "6/6 сценариев PASS (read-only: PG default_transaction_read_only=on, FakeBot, без Telegram); healthz 200 loopback+внешний, 0 ERROR; S10 честно называет границы архива без выдуманных дат.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        },
+        {
+          "type": "review",
+          "ref": "COR-06: независимое ревью LORE-VERBATIM-GATE фикса (eaabb66f, merge 2d4eaad6) - Approved for release: единственная точка переноса - construction ToolContext в _handle_turn, семантика совпадает с lore_story_override (0 расхождений), регрессий живых сценариев нет. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "leaf-ревью git show eaabb66f + прогон тестов на merge-дереве 2d4eaad6; деплой 2.58.133 - sha-сверка direct_chat_service.py/direct_l1.py с кандидатом (asap-speech-arch/release-258133/deploy.md).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
+          "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        },
+        {
+          "type": "review",
+          "ref": "COR-06: независимое ревью DELTA-DEPTH (8e8c8c27, деплой 2.58.134) - Approved: verbatim §11 дословно по источнику (sha-сверка), ровно 1× на research/deep и 0 на casual, без обязательных структур/чисел/примеров («универсальная композиция ответа не навязывается»), wiring обоих call-sites (ответ + инициатива). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "detached-ревью adminbot-wt-delta-depth-rev; self-check harness: delta_research_plan_once / delta_casual_absent / delta_deep_auto_plan_once / delta_no_composition_mandate = true; деплой 2.58.134 - sha-сверка 6/6 файлов с кандидатом (asap-speech-arch/release-258134/deploy.md).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta-depth.md",
+          "artifact_sha256": "79fd0150dc7bd03c8b914773d5016b8995e761afa0b01a387738ed051e0a983b",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00905",
@@ -3635,8 +3566,17 @@
       "acceptance": "Ранее предоставленные скриншоты использованы только как иллюстрации дефектов: из них не созданы обязательные вводные фразы, концовки, словесные запреты, исключения по именам, специальные ветки участников, сценарные шаблоны; поведение обобщаемое на неизвестных данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test+review",
+          "ref": "Скриншоты дефектов использованы только как иллюстрации: из них не создано ни одной обязательной вводной фразы, концовки, словесного запрета, именного исключения или сценарного шаблона. COR-волна двигалась в обратную сторону — словники удалялись (COR-02: _EDIT_VERB/_EDIT_REMOVE/_EDIT_LOCATIVE_RE удалены; grep по services — только комментарий), промпты/канон не менялись (каталог-Δ=0, ladder не требуется). Поведение обобщаемое: решение — за структурным L1-планом и структурным статусом classify_output, не за формулировками. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "Independent review Approved (review-cor-fixes.md: «Семантическое КАЧЕСТВО L1 тестом не подменяется — ТЗ NOST-16-дисциплина соблюдена»); анти-тесты на подстрочные трюки и словниковую деривацию: test_edit_intent_not_word_derived, test_sync_claim_structured_success_strips_and_ignores_substring_trick.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
+          "artifact_sha256": "02b20fe13daaa6b927a5bab46dcbbecf1eb674c355d569361479d34923715e9d",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00913",
@@ -3755,8 +3695,17 @@
       "acceptance": "Каждая проблема исправляется в собственном механизме (SQL-поиск, provenance, извлечение эпизодов, Decision, речевые инструкции), а не одним системным промптом; новые подсистемы не вводятся там, где достаточно расширения существующих.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test+review",
+          "ref": "Каждый дефект исправлен в собственном механизме-владельце, ни один — правкой системного промпта: конфиг/формат исходника — capability_registry._build_image_edit + tool_router._edit_image (единая per-chat цепочка _chat_value; суффикс временного файла по сниффер-MIME _EDIT_SOURCE_SUFFIX_BY_MIME); семантический интент — direct_capabilities + direct_chat_service (словники удалены, авторитет — L1-план, структурный guard routing-fix); claim-sync — tool_loop._sync_claim_with_outcome (структурный STATUS_OK из classify_output вместо substring-поиска). Канон/промпты не менялись (каталог-Δ=0). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "Архитектурные фиксы на компонентах-владельцах; новые подсистемы не вводились (capability_registry.chat_value() — публичная обёртка существующего _chat_value, без новой конфиг-системы); postdeploy grep 2.58.138: word-gate usages=0, substring_success_markers=0 (deploy.md 2.58.138).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
+          "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00939",
@@ -3770,8 +3719,17 @@
       "acceptance": "Предпочтены повторное использование существующих данных, общие функции, один источник истины, действующие runtime-маршруты, минимальные изменения интерфейсов; новые агенты/слои/маршрутизаторы/LLM-вызовы не добавляются ради организации работы; Architect участвовал в оценке затронутых контрактов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test+review",
+          "ref": "Искусственная сложность не создана: минимальный дифф 7 файлов, 624+/−103 (git diff --shortstat 563aac43..6ddc5351); переиспользованы существующие механизмы — единый резолв _chat_value, сниффер DownloadedImage.mime, структурный envelope ToolLoopResult.tool_results с classify_output (канонические статусы MCA-11), honesty-путь _l1_capability_consistency. Новых агентов/слоёв/маршрутизаторов/LLM-вызовов нет (cor-fixes.md: «без новых подсистем/провайдеров/LLM-вызовов»). Оценка затронутых контрактов: архитектурная оценка родительской задачи (w1/w2 — действующие runtime-маршруты, reuse) + независимое ревью границ контрактов кандидата (call-site map идентичен базе; кеш-инвалидация _TOKEN_KEYS; kill-switch семантика сохранена). [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "Один источник истины конфига image-edit (chat_value), один структурный контракт статуса тула (info → envelope); словесная ветка удалена, а не обёрнута новым слоем; структурные контракты INTENT_EDIT_IMAGE/REASON_EDIT_REQUEST/edit_actionable сохранены.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
+          "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00943",
@@ -3875,8 +3833,17 @@
       "acceptance": "Очередь, статусы и порядок существующих поручений сохранены; в части перечисленных дефектов корректировка заменяет POST-RELEASE AUDIT CORRECTIVE без дублирования требований; current_task.md не очищался; reset/удаление пользовательских изменений рабочего дерева не выполнялись; пересечения изменений агентов объединены осмысленно, без автоматического выбора версии файла.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test+review",
+          "ref": "Другие действующие задачи не затронуты: дифф кандидата ограничен 7 файлами COR-волны (5 сервисов, 1 тест-файл test_asap5_image_admin.py, 1 evidence) — очередь, статусы и код чужих поручений не менялись; plans/current_task.md не входил в диф, не очищался и не редактировался (файл владельца нетронут); reset/удаление пользовательских изменений рабочего дерева не выполнялись. Регрессия кандидата vs base 563aac43: 0 новых сбоев — каждое падение воспроизведено 1:1 на чистой базе (catalog-count 588≠587, env-зависимые PIL/ffmpeg/миграции, AST-freeze, flaky node-spawn — pre-existing расхождения release-линии). Пересечение с release-линией объединено merge b5e25966 осмысленно; docs-коммиты биндинга шли поверх кандидата отдельными коммитами. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
+          "observation": "Base-сравнение независимого ревью: «Иные W2/asap5-сьюты зелёные — поведение W2 не регрессировало» (review-cor-fixes.md §Регрессия и запуски); W2/asap5-сьюты кандидата зелёные (cor-fixes.md §Верификация).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
+          "artifact_sha256": "02b20fe13daaa6b927a5bab46dcbbecf1eb674c355d569361479d34923715e9d",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
+        }
+      ]
     },
     {
       "source_id": "L00976",
@@ -3894,27 +3861,27 @@
       "evidence": [
         {
           "type": "production",
-          "ref": "DEV-05 п.1–9: (1) исходное состояние 6d08c511 (2.58.136, healthz 200, dirty 13) и воспроизводимые дефекты зафиксированы; (2) архитектурная оценка — reuse mca_episodes/FTS/Initiative, дифф 13 файлов (w1/w2.md); (3) реализация — merge a2b61bbf; (4) регрессии — 157 nostalgia + 626 смежных; (5) негативные/граничные — T19/T23 отказы, archive_error честный, repeat-фильтр; (6) интеграция — asap5_integration_w3, prompt_migrations; (7) независимое ревью — W1 Approved, W2 NEEDS FIXES (реестровые артефакты) -> исправлено e61a0db9 -> registry --check OK 588 -> Approved; (8) штатный деплой — bump 8adf5fa4b6ee, guards OK, deltaDDL=0; (9) прод — healthz 200 (loopback + внешний), NRestarts 0, журнал чист. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "ref": "DEV-05 п.1–9: (1) исходное состояние 6d08c511 (2.58.136, healthz 200, dirty 13) и воспроизводимые дефекты зафиксированы; (2) архитектурная оценка — reuse mca_episodes/FTS/Initiative, дифф 13 файлов (w1/w2.md); (3) реализация — merge a2b61bbf; (4) регрессии — 157 nostalgia + 626 смежных; (5) негативные/граничные — T19/T23 отказы, archive_error честный, repeat-фильтр; (6) интеграция — asap5_integration_w3, prompt_migrations; (7) независимое ревью — W1 Approved, W2 NEEDS FIXES (реестровые артефакты) -> исправлено e61a0db9 -> registry --check OK 588 -> Approved; (8) штатный деплой — bump 8adf5fa4b6ee, guards OK, deltaDDL=0; (9) прод — healthz 200 (loopback + внешний), NRestarts 0, журнал чист. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed]. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "deploy.md PART 1–3 + «Итог»; откат подготовлен (checkout 6d08c511 + restart).",
           "artifact_path": "plans/features/asap-speech-arch/release-258137/deploy.md",
           "artifact_sha256": "8136cbe5ff84679c98c6c2db21d9bbfec9f49b9db969ede26e41b4b1578f4e48",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "live",
-          "ref": "DEV-05 postdeploy-проба: PASS — S1–S5 оффлайн + реальный прод-тик outcome=success; снапшоты удалены (CLEANUP_OK), Telegram-отправок 0.",
+          "ref": "DEV-05 postdeploy-проба: PASS — S1–S5 оффлайн + реальный прод-тик outcome=success; снапшоты удалены (CLEANUP_OK), Telegram-отправок 0. [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "live-258137.md (полный отчёт пробы).",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c"
         },
         {
           "type": "production",
-          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a [биндинг закрытия: кандидат ревью 6ddc5351 включает 8adf5fa4 (COR-фиксы поверх; регресс vs base 563aac43 — 0 новых сбоев), deployed = release bump 1e438e3a]",
           "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
-          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
@@ -4535,5 +4502,5 @@
       "evidence": []
     }
   ],
-  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented. | Биндинг: candidate=deployed=релиз-бамп 8adf5fa4 (2.58.137; цепочка 3ea0e9f9->58b9f5e2->e61a0db9->merge a2b61bbf->bump). Кор-волна 6ddc5351 входит в цепочку (merge b5e25966). Деплой COR-волны: 2.58.138 @ 1e438e3a (28.10.2026 19:49 UTC, healthz 200, NRestarts=0, журнал чист, deltaDDL=0, канон-миграций нет, postdeploy COR-пробы PASS; deploy evidence: plans/features/asap-speech-arch/release-258138/deploy.md)."
+  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented. | Биндинг: candidate=deployed=релиз-бамп 8adf5fa4 (2.58.137; цепочка 3ea0e9f9->58b9f5e2->e61a0db9->merge a2b61bbf->bump). Кор-волна 6ddc5351 входит в цепочку (merge b5e25966)."
 }
