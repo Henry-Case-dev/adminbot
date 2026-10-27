@@ -21,10 +21,10 @@ ADR-1028-20 D1–D14 / spec D1–D16. Модуль ВЫЗЫВАЕТСЯ един
   неизвестный TZ → интервал пограничных суток (tzr1), а не точка.
 * D7 — режимы: явные просьбы маршрутизируются при сборке envelope;
   knowable_at_time — ТОЛЬКО явный запрос; дефолт — каталог владельца.
-* D9/D10 — составной кеш-ключ slug `factcheck_temporal` (tzr1 + freshness
-  bucket); unknown origin → ключ невозможен → авто-bypass
-  (`temporal_cache_disabled`); legacy slug `factcheck` на ON-пути не
-  читается и не пишется. as_of хранится ВНУТРИ payload.
+* D9/D10 — P0-FACTCHECK-CORRECTIVE (§6, решение владельца 28.10.2026):
+  кеш готовых вердиктов (`factcheck_temporal`, freshness-bucket/TTL,
+  as_of в payload) УДАЛЁН; каждое обращение — актуальная проверка.
+  Исторические записи прогонов сохраняются (record_temporal_run).
 * D11/D15 — честные reason (`temporal_date_extract_failed` ≠
   `temporal_date_unknown`); fallback не меняет режим молча
   (`temporal_fallback_mode`); misleading_reuse — только при признаках
@@ -542,134 +542,11 @@ def _new_claim_id() -> str:
     return "tcl-" + uuid.uuid4().hex[:16]
 
 
-# ── Кеш (D9/D12): составной ключ, legacy вне namespace, авто-bypass ─────────
-
-def cache_components(envelope: TemporalClaimEnvelope, *,
-                     scope: str) -> dict | None:
-    """Канонические компоненты составного ключа (D12). None → корректный
-    ключ построить нельзя (unknown origin) → авто-bypass без кеша."""
-    if not envelope.origin_known:
-        return None
-    period = (envelope.claim_period_from, envelope.claim_period_to,
-              envelope.claim_period_precision)
-    return {
-        "scope": scope,
-        "claim": normalize_text(envelope.claim_text),
-        "target": [envelope.target_tg_message_id, envelope.target_revision,
-                   envelope.target_content_hash],
-        "origin": envelope.origin_fingerprint(),
-        "mode": envelope.requested_mode,
-        "period": list(period),
-        "tz_resolution_version": TEMPORAL_TZ_RESOLUTION_VERSION,
-        "related": [envelope.related_asset_id,
-                    envelope.related_analysis_revision],
-        "pipeline_version": TEMPORAL_PIPELINE_VERSION,
-    }
-
-
-def build_temporal_cache_key(envelope: TemporalClaimEnvelope, *,
-                             scope: str) -> str | None:
-    """Ключ slug `factcheck_temporal` (SmartCache MD5-конвенция). Unknown
-    origin → None (вычислять без кеширования готовых вердиктов, D12)."""
-    components = cache_components(envelope, scope=scope)
-    if components is None:
-        return None
-    raw = json.dumps(components, ensure_ascii=False, sort_keys=True)
-    digest = hashlib.md5(
-        f"factcheck_temporal\x00{normalize_text(raw)}"
-        .encode("utf-8")).hexdigest()
-    return digest
-
-
-def freshness_bucket_for(temporal_status: str | None) -> str:
-    """D13: volatile (текущие показатели/события) vs stable (исторический
-    вывод). outdated/old_but_valid — stable; current — volatile."""
-    if temporal_status in ("old_but_valid", "outdated"):
-        return "stable"
-    return "volatile"
-
-
-async def freshness_ttl_seconds(chat_id: int | None,
-                                bucket: str) -> int:
-    """Каталог-TTL (D13/§7.2): volatile → freshness_current (6 ч),
-    stable → freshness_historical (720 ч); per-chat резолв через
-    chat_params, фолбек — Settings."""
-    from services.chat_params import get_chat_param
-    if bucket == "stable":
-        default = getattr(settings, "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS",
-                          720)
-        key = "temporal.freshness_historical_ttl_hours"
-    else:
-        default = getattr(settings, "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS", 6)
-        key = "temporal.freshness_current_ttl_hours"
-    hours = default
-    if chat_id is not None:
-        try:
-            resolved = await get_chat_param(chat_id, key, default)
-            hours = int(resolved or default)
-        except Exception:
-            hours = default
-    return max(1, int(hours)) * 3600
-
-
-def temporal_cache_key_with_bucket(
-        envelope: TemporalClaimEnvelope, *, scope: str,
-        bucket: str) -> str | None:
-    """Ключ с freshness-bucket компонентой (D12/D13). Unknown origin →
-    None (авто-bypass)."""
-    components = cache_components(envelope, scope=scope)
-    if components is None:
-        return None
-    components["freshness_bucket"] = bucket
-    raw = json.dumps(components, ensure_ascii=False, sort_keys=True)
-    return hashlib.md5(
-        f"factcheck_temporal\x00{normalize_text(raw)}"
-        .encode("utf-8")).hexdigest()
-
-
-async def read_temporal_cache(cache, envelope: TemporalClaimEnvelope, *,
-                              scope: str):
-    """Чтение вердикт-кеша: bucket до вердикта неизвестен → пробуем
-    volatile→stable (детерминированно, честный TTL каждого бакета).
-    Возврат: (key, bucket, payload|None). payload — исходный JSON-объект
-    с ВНУТРЕННИМ as_of (hit не «омолаживается», CA-20-9)."""
-    for bucket in ("volatile", "stable"):
-        key = temporal_cache_key_with_bucket(envelope, scope=scope,
-                                             bucket=bucket)
-        if key is None:
-            return None, None, None
-        ttl = await freshness_ttl_seconds(envelope.chat_id, bucket)
-        raw = await cache.get_update_marker(key, ttl_seconds=ttl)
-        if raw:
-            try:
-                payload = json.loads(raw)
-            except (TypeError, ValueError):
-                continue
-            if isinstance(payload, dict) and payload.get("text"):
-                return key, bucket, payload
-    return None, None, None
-
-
-async def write_temporal_cache(cache, envelope: TemporalClaimEnvelope, *,
-                               scope: str, text: str, verdict) -> bool:
-    """Запись вердикт-payload под бакет вердикта (as_of ВНУТРИ payload —
-    hit не получает сегодняшнюю дату, CA-20-9)."""
-    bucket = freshness_bucket_for(verdict.temporal_status)
-    key = temporal_cache_key_with_bucket(envelope, scope=scope, bucket=bucket)
-    if key is None:
-        return False
-    ttl = await freshness_ttl_seconds(envelope.chat_id, bucket)
-    payload = json.dumps({
-        "text": str(text),
-        "as_of": verdict.as_of,
-        "factual_verdict": verdict.factual_verdict,
-        "temporal_status": verdict.temporal_status,
-        "assessment_mode": verdict.assessment_mode,
-        "pipeline_version": TEMPORAL_PIPELINE_VERSION,
-        "tz_resolution_version": TEMPORAL_TZ_RESOLUTION_VERSION,
-    }, ensure_ascii=False)
-    await cache.set_update_marker(key, payload, ttl_seconds=ttl)
-    return True
+# P0-FACTCHECK-CORRECTIVE (§6.1, решение владельца 28.10.2026): кеш готовых
+# вердиктов Fact-check удалён целиком (составной ключ `factcheck_temporal`,
+# freshness-bucket/TTL, read/write). Каждое обращение — актуальная проверка.
+# Исторические записи прогонов (`record_temporal_run`) и общий SmartCache
+# других подсистем не затронуты (§6.2).
 
 
 # ── Валидация вердикта (D10/D11): честные дефолты, guard misleading_reuse ───
@@ -984,8 +861,12 @@ TEMPORAL_ANALYST_SYSTEM = (
     '"evidence_refs": ["ev-1"]}'
     '], "uncertainty": {"summary": "..."}, "reason": "<reason_code из '
     'словаря или null>"}\n'
-    "Правила: (1) нет результатов поиска или источник исчез → "
-    "insufficient_evidence/unknown, НИКОГДА refuted; (2) возраст публикации "
+    "Правила: (1) подтверждение/опровержение ВНЕШНЕГО факта — только по "
+    "evidence: неподтверждаемый внешний факт → insufficient_evidence/"
+    "unknown, НИКОГДА refuted/supported; но логическую, математическую и "
+    "техническую проверку самого утверждения (расчёт по заданным числам, "
+    "внутренние противоречия, известные принципы) выполняй и без поиска, "
+    "помечая основание вывода в uncertainty; (2) возраст публикации "
     "сам по себе НЕ делает утверждение ложным: старое, но верное — "
     "old_but_valid; (3) misleading_reuse — ТОЛЬКО если утверждение подаётся "
     "как свежее (маркеры «сейчас», «только что»); пересылка старого — не "
@@ -993,7 +874,8 @@ TEMPORAL_ANALYST_SYSTEM = (
     "не разрешай молча — отметь в uncertainty; (5) не выдумывай даты: "
     "unknown остаётся unknown; (6) ретроспективное расследование (позднее "
     "по отношению к периоду) помечай в uncertainty как "
-    "\"retrospective\"; (7) числа проверяй только по evidence."
+    "\"retrospective\"; (7) числа проверяй по evidence, а арифметику на "
+    "явно заданных числах — и без него."
     " (8) evidence_refs — ТОЛЬКО стабильные ID выдержек из <evidence> "
     "(ev-1, ev-2, …); выдержки, которых нет в списке, ссылаться нельзя.\n"
     "(9) у многочастного утверждения заполни verdict КАЖДОЙ части в parts "

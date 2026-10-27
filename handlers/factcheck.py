@@ -113,10 +113,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                               forward_source: str | None,
                               publication=None,
                               context_feed: str | None = None) -> None:
-    """MCA-20 ON-путь (D3/D9/D12): один resolver → TemporalClaimEnvelope →
-    составной кеш-ключ `factcheck_temporal` (авто-bypass при unknown origin)
-    → envelope-пайплайн единого сервиса. Ответ — reply на ЦЕЛЕВОЕ (5.3/5.4b/
-    5.5-контракт legacy сохранён).
+    """MCA-20 ON-путь (D3/D9): один resolver → TemporalClaimEnvelope →
+    envelope-пайплайн единого сервиса. Кеш готовых вердиктов удалён
+    (P0-FACTCHECK-CORRECTIVE §6): каждое обращение — актуальная проверка.
+    Ответ — reply на ЦЕЛЕВОЕ (5.3/5.4b/5.5-контракт legacy сохранён).
 
     P0-FACTCHECK media (owner 25.10.2026 §3/§4): ``publication`` собран
     handler'ом (текст альбома + материал изображений). Собранный сверх
@@ -126,7 +126,7 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
 
     ``context_feed`` (уточнение №2): готовый широкий фид, когда тезис найден
     в ОКРУЖЕНИИ пустой цели, — второй раз окно не собирается."""
-    from services import mca_gates, temporal_factcheck as tf
+    from services import temporal_factcheck as tf
 
     chat_id = message.chat.id
     kind = "reply" if target is not message else "command"
@@ -145,54 +145,19 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
     except Exception:
         default_mode = getattr(settings, "TEMPORAL_DEFAULT_MODE", "contextual")
 
+    # P0-FACTCHECK-CORRECTIVE (§6, решение владельца 28.10.2026): кеш
+    # готовых вердиктов (`factcheck_temporal`) удалён — каждое обращение
+    # выполняет актуальную проверку; раннее завершение на cache-hit больше
+    # не существует. Исторические записи прогонов сохраняются (§6.2).
     envelope, reject_reason = await tf.build_envelope(
         _db, ref, default_mode=str(default_mode or "contextual"))
-    cache = get_smart_cache()
-    scope = f"chat:{chat_id}"
-    cache_key = None
-    cached = None
-    if envelope is not None:
-        # D12: ключ построим? unknown origin → None = авто-bypass (вычислять
-        # без кеширования готовых вердиктов, reason temporal_cache_disabled).
-        cache_key = tf.build_temporal_cache_key(envelope, scope=scope)
-        if cache_key is None:
-            tf.stage_event("target_resolve", "skipped",
-                           reason_code="temporal_cache_disabled",
-                           chat_id=chat_id)
-        elif mca_gates.temporal_factcheck_cache_enabled():
-            _key, _bucket, cached = await tf.read_temporal_cache(
-                cache, envelope, scope=scope)
-        if cached is not None:
-            # CA-20-9: hit хранит СВОЙ as_of — сегодняшнюю дату не подставляем.
-            await _reply(bot, chat_id,
-                         _with_publication_notice(
-                             str(cached.get("text") or ""), publication),
-                         target.message_id)
-            logger.info("[factcheck] temporal cache hit | chat=%s | as_of=%s",
-                        chat_id, cached.get("as_of"))
-            try:
-                cached_verdict = tf.verdict_from_payload({
-                    "factual_verdict": cached.get("factual_verdict"),
-                    "temporal_status": cached.get("temporal_status"),
-                }, envelope)
-                await tf.record_temporal_run(
-                    _db, tf.TemporalRunResult(
-                        envelope=envelope, verdict=cached_verdict,
-                        verdict_text=str(cached.get("text") or "")),
-                    scope=scope, cache_hit=True)
-            except Exception:
-                logger.debug("[factcheck] cache-hit run record failed",
-                             exc_info=True)
-            return
-    else:
+    if envelope is None:
         # D2: невалидный target → отказ временного контура БЕЗ выдуманных
-        # подстановок; пользователь получает ответ через легаси-вычисление,
-        # но результат НЕ кешируется (нет корректного контекста — TH-4).
+        # подстановок; пользователь получает ответ через легаси-вычисление.
         logger.info("[factcheck] temporal envelope rejected | chat=%s | "
                     "reason=%s", chat_id, reject_reason)
         tf.stage_event("target_resolve", "failed", reason_code=reject_reason,
                        chat_id=chat_id)
-        cache_key = None
 
     # Раунд N (T-841): слот пула per-chat перед LLM (паритет legacy-пути).
     pool = get_smartmodule_concurrency_pool()
@@ -236,15 +201,10 @@ async def _factcheck_temporal(message: types.Message, bot: Bot,
                 run = await _service.check_claim_envelope(
                     envelope, chat_context=chat_context or None)
                 verdict_text = run.verdict_text
-                # D12: запись вердикт-кеша — только при построимом ключе и
-                # K3 ON; unknown origin → авто-bypass (без кеширования).
-                if cache_key is not None \
-                        and mca_gates.temporal_factcheck_cache_enabled():
-                    await tf.write_temporal_cache(
-                        cache, envelope, scope=scope, text=verdict_text,
-                        verdict=run.verdict)
+                # P0-FACTCHECK-CORRECTIVE (§6): кеш вердиктов удалён —
+                # только историческая запись прогона (§6.2).
                 run_id = await tf.record_temporal_run(
-                    _db, run, scope=scope, cache_hit=False)
+                    _db, run, scope=f"chat:{chat_id}", cache_hit=False)
                 tf.stage_event("deliver", "success", chat_id=chat_id,
                                pipeline_run_id=run_id)
                 if run.fallback_used:
@@ -704,11 +664,12 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
         author = await _transcription_forward_author(message.chat.id, target)
         if author:
             forward_source = author
-    # Epic 51 (59.2, D210): Exact Match Cache — ДО ресурсоёмких ступеней
-    # (поиск/LLM). Хит → reply на ТЕКУЩЕЕ сообщение, БЕЗ вызовов.
-    # MCA-20 (ADR-1028-20 D3/D9, round 10.44): K1 ON → единый resolver + один
-    # envelope-пайплайн + кеш slug `factcheck_temporal` (составной ключ);
-    # OFF → легаси-путь ниже БИТ-В-БИТ (легаси slug `factcheck`, d298f1f).
+    # P0-FACTCHECK-CORRECTIVE (§6, решение владельца 28.10.2026): legacy
+    # Exact Match Cache (`factcheck`) удалён — повторный тезис запускает
+    # новую актуальную проверку; защита от повторной отправки того же
+    # Telegram update — кулдаун и однократная диспетчеризация aiogram.
+    # MCA-20 (ADR-1028-20 D3/D9): K1 ON → единый resolver + envelope-
+    # пайплайн; OFF → легаси-путь ниже (легаси вычисление, d298f1f).
     # CFG-06 W3 (06H.2): единый оркестратор run_factcheck за миграционным
     # флагом (default OFF → прежняя развилка байт-в-байт).
     if _pipeline_v2_enabled():
@@ -727,15 +688,6 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                                   user_hint, forward_source,
                                   publication=publication,
                                   context_feed=context_feed)
-        return
-    cache = get_smart_cache()
-    cache_key = cache.build_key("factcheck", target_text)
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        await _reply(bot, message.chat.id,
-                     _with_publication_notice(cached, publication),
-                     message.message_id)
-        logger.info("[factcheck] cache hit | chat=%s", message.chat.id)
         return
     # Раунд N (T-841): слот пула per-chat перед LLM-вызовом check_claim
     # (cache-hit и пустой-контекст выше — быстрые пути БЕЗ пула). Таймаут →
@@ -786,7 +738,9 @@ async def factcheck_handler(message: types.Message, bot: Bot = None) -> None:
                 bot, message.chat.id,
                 _with_publication_notice(verdict, publication),
                 target.message_id)
-        await cache.set(cache_key, verdict)      # только успешная генерация (59.2)
+        # P0-FACTCHECK-CORRECTIVE (§6): записи вердикт-кеша больше нет —
+        # успешная генерация доставляется без кеширования (59.2-идемпотент-
+        # ность одного запуска и защита от двойной отправки сохранены).
         logger.info("[factcheck] verdict sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:
         # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).

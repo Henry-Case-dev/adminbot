@@ -322,15 +322,20 @@ class TestValidatorStage:
 
     @pytest.mark.asyncio
     async def test_no_evidence_skips_validator(self):
-        """TH-5 сохраняется: нет evidence → серверный insufficient, LLM-стадии
-        validator не получают ни одного вызова (нечего перепроверять)."""
+        """P0-FACTCHECK-CORRECTIVE (§1/§2.4): нет evidence → существующий
+        аналитик ПРОДОЛЖАЕТ проверку (анализ не блокируется пустым
+        evidence); validator не получает ни одного вызова (нечего
+        перепроверять); положительный вердикт без внешних доказательств и
+        без помеченного основания понижается сервером (no-false-acceptance),
+        причина — честная (провайдеры не ответили)."""
         llm = RoutedLLM()
         run = await FactCheckService(DownAggregator(), llm) \
             .check_claim_envelope(_env())
         assert llm.counter["temporal_validator"] == 0
-        assert llm.counter["temporal_verdict"] == 0
+        assert llm.counter["temporal_verdict"] == 1
         assert run.verdict.factual_verdict == "insufficient_evidence"
-        assert run.verdict.reason == "temporal_insufficient_evidence"
+        assert run.verdict.reason == "provider_unavailable"
+        assert "unbacked_positive" in (run.verdict.uncertainty or {})
 
     @pytest.mark.asyncio
     async def test_validator_budget_no_repeat_on_agree_or_fail(self):

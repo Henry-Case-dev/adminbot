@@ -714,6 +714,10 @@ RETRIEVAL_BUDGET = "budget_exhausted"
 RETRIEVAL_SEARCH_FAILED = "search_failed"
 RETRIEVAL_PROCESSING_FAILED = "processing_failed"
 RETRIEVAL_INSUFFICIENT = "insufficient_evidence"
+# P0-FACTCHECK-CORRECTIVE (§5.1/§5.2): провайдеры ОТВЕТИЛИ, но пригодных
+# материалов нет (пустая и/или нерелевантная выдача) — это НЕ «поисковики
+# недоступны» и не «самих фактов нет».
+RETRIEVAL_NO_RESULTS = "no_usable_results"
 
 #: Класс → существующий reason-код реестра (новые коды не выдумываются:
 #: `verdict_from_payload` пропускает только REASON_CODES).
@@ -722,6 +726,7 @@ _RETRIEVAL_REASON = {
     RETRIEVAL_SEARCH_FAILED: "provider_unavailable",
     RETRIEVAL_PROCESSING_FAILED: "source_missing",
     RETRIEVAL_INSUFFICIENT: "insufficient_evidence",
+    RETRIEVAL_NO_RESULTS: "insufficient_evidence",
 }
 
 #: Класс → человеческая оговорка (в uncertainty; НЕ выдуманный вердикт).
@@ -732,25 +737,53 @@ _RETRIEVAL_CAVEAT = {
                               "технический сбой, а не отсутствие фактов"),
     RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
                                   "проверки выдержек из них не получено"),
+    RETRIEVAL_NO_RESULTS: ("поиск ответил, но подходящих для проверки "
+                           "материалов не дал — другие подходящие источники "
+                           "могли просто не попасть в выдачу"),
 }
 
-#: Класс → что честно сказать вербализатору (замена «данных недостаточно»).
+#: Класс → что честно сказать вербализатору (о состоянии ПОИСКА, не «вся
+#: проверка не состоялась» — анализ без поиска продолжается, §2.4).
 _RETRIEVAL_SITUATION = {
-    RETRIEVAL_BUDGET: ("проверка не завершена: истёк лимит времени на поиск"),
-    RETRIEVAL_SEARCH_FAILED: ("проверка не завершена: поисковые сервисы "
-                              "оказались недоступны"),
-    RETRIEVAL_PROCESSING_FAILED: ("поиск выполнен, но найденные материалы не "
-                                  "удалось превратить в проверяемые выдержки"),
+    RETRIEVAL_BUDGET: ("внешний поиск прерван по лимиту времени — проверены "
+                       "не все запросы"),
+    RETRIEVAL_SEARCH_FAILED: ("внешний поиск не удался: поисковые сервисы "
+                              "не ответили"),
+    RETRIEVAL_PROCESSING_FAILED: ("поиск дал материалы, но пригодных для "
+                                  "проверки выдержек из них не получилось"),
+    RETRIEVAL_NO_RESULTS: ("поиск ответил, но подходящих материалов не дал"),
 }
+
+#: P0-FACTCHECK-CORRECTIVE (§5.1): причина поиска для analyst-payload, когда
+#: внешний evidence пуст (человекочитаемо, в <analysis_context>).
+_RETRIEVAL_SEARCH_NOTE = {
+    RETRIEVAL_BUDGET: "внешний поиск прерван по лимиту времени",
+    RETRIEVAL_SEARCH_FAILED: "поисковые сервисы не ответили (технический "
+                             "сбой)",
+    RETRIEVAL_PROCESSING_FAILED: "материалы найдены, но пригодных для "
+                                 "проверки выдержек из них не получилось",
+    RETRIEVAL_NO_RESULTS: "провайдеры ответили, но подходящих материалов не "
+                          "дали (пустая или нерелевантная выдача)",
+    RETRIEVAL_NOT_RUN: "внешний поиск в этом прогоне не выполнялся",
+    RETRIEVAL_INSUFFICIENT: "подходящих внешних материалов не найдено",
+}
+
+#: Технические reason-коды retrieval (заголовок «проверка не завершена» в
+#: renderer). Содержательный вывод без поиска этот заголовок не получает.
+_TECHNICAL_RETRIEVAL_REASONS = frozenset({
+    "deadline_exceeded", "provider_unavailable", "source_missing",
+})
 
 
 def classify_retrieval(retrieval) -> str:
-    """RetrievalOutcome → класс исхода (P0-FACTCHECK §3.6).
+    """RetrievalOutcome → класс исхода (P0-FACTCHECK §3.6 + §5.1).
 
     ``None`` → not_run (внутренний поиск ветки, прежний контракт). Есть
     evidence → ok. Нет evidence, но метрики говорят о технической причине —
-    бюджет/недоступность провайдеров/потеря обработки; иначе — реальная
-    недостаточность доказательств. Детерминированно, без новых вызовов."""
+    бюджет/недоступность провайдеров/потеря обработки; провайдеры ответили
+    пустой или нерелевантной выдачей → no_usable_results (НЕ «недоступны»,
+    §5.2); иначе — реальная недостаточность доказательств. Детерминированно,
+    без новых вызовов."""
     if retrieval is None:
         return RETRIEVAL_NOT_RUN
     try:
@@ -759,9 +792,15 @@ def classify_retrieval(retrieval) -> str:
         attempted = int(getattr(retrieval, "queries_attempted", 0) or 0)
         used = int(getattr(retrieval, "queries_used", 0) or 0)
         failures = int(getattr(retrieval, "provider_failures", 0) or 0)
+        empties = int(getattr(retrieval, "empty_results", 0) or 0)
+        irrelevant = int(getattr(retrieval, "irrelevant_results", 0) or 0)
         if getattr(retrieval, "budget_exhausted", False) and used == 0:
             return RETRIEVAL_BUDGET
-        if used == 0 and (attempted > 0 or failures > 0):
+        if used == 0 and (attempted > 0 or failures > 0 or empties > 0
+                          or irrelevant > 0):
+            if empties > 0 or irrelevant > 0:
+                # §5.2: провайдеры отвечали — «недоступны» объявлять нельзя
+                return RETRIEVAL_NO_RESULTS
             return RETRIEVAL_SEARCH_FAILED
         if used > 0:
             return RETRIEVAL_PROCESSING_FAILED
@@ -810,6 +849,81 @@ def _server_parts(envelope, evidence) -> tuple:
             "evidence_refs": [rid for _s, rid in scored[:2]],
         })
     return tuple(result)
+
+
+def _verdict_is_substantive(verdict) -> bool:
+    """Содержательный вывод: положительный enum на верхнем уровне или хотя
+    бы в одной части (§7.2: содержательный анализ и его отсутствие —
+    разные ситуации вербализации)."""
+    try:
+        if verdict.factual_verdict in ("supported", "refuted", "mixed"):
+            return True
+        return any(isinstance(p, dict) and p.get("factual_verdict")
+                   in ("supported", "refuted", "mixed")
+                   for p in (verdict.parts or ()))
+    except Exception:          # pragma: no cover — метаданные не рвут вердикт
+        return False
+
+
+def _analysis_context_for_empty_evidence(retrieval_state: str | None) -> str:
+    """§2.4/§2.5: analyst-payload при пустом внешнем evidence — статус
+    поиска + явное разрешение самостоятельной проверки + рамка
+    происхождения вывода. Существующая схема вердикта не расширяется."""
+    note = _RETRIEVAL_SEARCH_NOTE.get(
+        str(retrieval_state or ""), "подходящих внешних материалов не найдено")
+    return (
+        "<analysis_context>\n"
+        f"Внешний поиск в этом прогоне: {note}. Внешних доказательств НЕТ.\n"
+        "Это НЕ запрещает анализ: утверждение можно проверять само по "
+        "себе — логическая проверка (следует ли вывод из предпосылок), "
+        "математическая проверка (числа, формулы, соотношения, арифметика, "
+        "размерности), техническое рассуждение по известным принципам, "
+        "проверка внутренней согласованности, условный вывод (при каких "
+        "условиях утверждение может быть истинным), оценка правдоподобия "
+        "с явным отделением от подтверждения, проверка по доступным "
+        "локальным материалам (контекст беседы, история обсуждения).\n"
+        "Запрещено: выдумывать источники, URL, измерения и характеристики; "
+        "ссылаться на evidence-ID (в этом прогоне выдержек нет); выдавать "
+        "правдоподобие или собственную память модели за проверенный факт.\n"
+        "Происхождение вывода: для вывода, сделанного без внешних "
+        'источников, добавь в uncertainty пометку "basis": "внутренняя '
+        'проверка: <что именно — расчёт/логика/принцип>". Положительный '
+        "вердикт (supported/refuted/mixed) без этой пометки понижается "
+        "сервером до insufficient_evidence. Внешний факт, который нельзя "
+        "проверить без поиска, — insufficient_evidence с пояснением, что "
+        "удалось выяснить и какой информации не хватает.\n"
+        "</analysis_context>"
+    )
+
+
+def _downgrade_unbacked_positive(verdict: tf.TemporalVerdict,
+                                 evidence) -> tf.TemporalVerdict:
+    """§2.4/§2.6 (no-false-acceptance в ОБОЕ стороны): без внешнего evidence
+    положительный вердикт стоит ТОЛЬКО с явной пометкой основания
+    самостоятельной проверки (uncertainty ``basis*``). «Модель вспомнила
+    похожую цифру» → честная неопределённость (существующий enum); а
+    правильно выполненный расчёт по заданным данным понижения НЕ получает
+    (модель помечает basis — F7/F12). Части с положительным вердиктом без
+    пометки понижаются тем же правилом (прецедент §3.5: положительный
+    вердикт части без доказательства запрещён)."""
+    if evidence or verdict.factual_verdict not in (
+            "supported", "refuted", "mixed"):
+        return verdict
+    uncertainty = dict(verdict.uncertainty or {})
+    if any(str(k).startswith("basis") for k in uncertainty):
+        return verdict
+    uncertainty["unbacked_positive"] = (
+        "внешние доказательства в этом прогоне отсутствуют, основание "
+        "самостоятельной проверки не отмечено — подтверждением такой вывод "
+        "считать нельзя")
+    parts = tuple(
+        p if not (isinstance(p, dict) and p.get("factual_verdict")
+                  in ("supported", "refuted", "mixed"))
+        else {**p, "factual_verdict": "insufficient_evidence"}
+        for p in (verdict.parts or ()))
+    return dataclasses.replace(
+        verdict, factual_verdict="insufficient_evidence",
+        uncertainty=uncertainty, parts=parts)
 
 
 class FactCheckService:
@@ -1186,8 +1300,12 @@ class FactCheckService:
         запросы, FC-SEMQUERY).
 
         Raises: LLMBadResponseError (пустой ответ вербализатора на всех
-        ветках) — вызывающий решает показ ошибки; поиск НИКОГДА не даёт
-        refuted (F-1/TH-5: недоступность → honest insufficient_evidence)."""
+        ветках) — вызывающий решает показ ошибки. Поиск НИКОГДА не делает
+        утверждение подтверждённым/опровергнутым сам по себе (F-1/TH-5);
+        при пустом evidence существующий аналитик продолжает проверку
+        (логика/расчёт/согласованность, §2.4), а положительный вердикт без
+        внешних доказательств и без помеченного основания понижается
+        сервером до honest insufficient_evidence."""
         trace = stage_trace or tf.StageTrace()
         env = envelope
         trace.add("target_resolve", "success"
@@ -1217,6 +1335,9 @@ class FactCheckService:
             plan_results = str(getattr(retrieval, "search_text", "") or "")
         results_parts: list[str] = []
         search_reason = None
+        # §5.1: машинная причина неудачи внутреннего поиска ветки (пустая/
+        # нерелевантная выдача ≠ недоступность провайдеров)
+        internal_failure_cause = None
         if plan_results.strip():
             results = plan_results
             trace.add("temporal_search", "success", reason="unified_retrieval")
@@ -1236,11 +1357,14 @@ class FactCheckService:
                                                                    limit=10))
                     else:
                         chunk = await self.aggregator.search(q, 2500)
-                except AllSearchEnginesFailedException:
+                except AllSearchEnginesFailedException as exc:
                     search_reason = "temporal_insufficient_evidence"
+                    internal_failure_cause = str(
+                        getattr(exc, "reason", "") or "provider_error")
                     continue
                 except Exception:
                     search_reason = "temporal_insufficient_evidence"
+                    internal_failure_cause = "provider_error"
                     continue
                 if chunk and str(chunk).strip():
                     results_parts.append(str(chunk))
@@ -1310,6 +1434,12 @@ class FactCheckService:
         elif str(results or "").strip():
             # F2: внутренний поиск что-то нашёл, но проверяемых ссылок нет.
             retrieval_state = RETRIEVAL_PROCESSING_FAILED
+        elif internal_failure_cause in ("empty_results",
+                                        "irrelevant_results"):
+            # §5.1/§5.2: провайдеры ответили — «недоступны» не объявляем
+            retrieval_state = RETRIEVAL_NO_RESULTS
+        elif internal_failure_cause:
+            retrieval_state = RETRIEVAL_SEARCH_FAILED
         else:
             retrieval_state = RETRIEVAL_NOT_RUN
         if retrieval_state in _RETRIEVAL_REASON:
@@ -1320,35 +1450,53 @@ class FactCheckService:
         # §18G.3: evidence_refs модели валидируются по current-run
         # allowlist стабильных ID (ev-N) — произвольный service text
         # evidence сам по себе не становится.
+        # P0-FACTCHECK-CORRECTIVE (§1/§2.4): пустой evidence больше НЕ
+        # подменяет анализ серверным insufficient_evidence — СУЩЕСТВУЮЩИЙ
+        # аналитический verdict-вызов выполняется всегда; при пустом
+        # evidence payload получает <analysis_context> (статус поиска,
+        # разрешение логической/математической проверки, рамка
+        # происхождения вывода). Без доказательств положительный вердикт
+        # держит только серверный guard `_downgrade_unbacked_positive`
+        # (никаких «вспомнил цифру → подтверждено»).
+        analysis_context = ("" if evidence
+                            else _analysis_context_for_empty_evidence(
+                                retrieval_state))
         user_payload = self._temporal_user_payload(env, parts, evidence,
-                                                   chat_context)
+                                                   chat_context,
+                                                   analysis_context)
         allowed_refs = ({str(r.get("evidence_id")) for r in evidence
                          if r.get("evidence_id")}
-                        if evidence else None)
-        # TH-5/CA-20-10 (no-false-acceptance): движки недоступны/пусто →
-        # insufficient_evidence СЕРВЕРНО, verdict модели не проходит.
-        # Причина при этом честная: сбой/бюджет/обработка ≠ «нет фактов».
-        if not evidence:
-            raw_payload = {"factual_verdict": "insufficient_evidence",
-                           "temporal_status": "unknown",
-                           "reason": verdict_reason
-                           or "temporal_insufficient_evidence"}
-        else:
+                        if evidence else set())
+        raw_payload = await self._temporal_verdict_json(
+            tf.TEMPORAL_ANALYST_SYSTEM, user_payload, env,
+            correlation_id, step="temporal_verdict")
+        if raw_payload is None:
+            fallback_used = True
             raw_payload = await self._temporal_verdict_json(
-                tf.TEMPORAL_ANALYST_SYSTEM, user_payload, env,
-                correlation_id, step="temporal_verdict")
-            if raw_payload is None:
-                fallback_used = True
+                tf._TEMPORAL_FALLBACK_SYSTEM, user_payload, env,
+                correlation_id, step="temporal_fallback")
+        if raw_payload is None:
+            # Обе попытки мимо: честный degraded-вердикт. Техническая
+            # причина retrieval (бюджет/недоступность/обработка, §5.1)
+            # не маскируется fallback-кодом — режим fallback фиксируется
+            # через fallback_used и trace (§5.3).
+            fallback_used = True
+            if verdict_reason not in _TECHNICAL_RETRIEVAL_REASONS:
                 verdict_reason = "temporal_fallback_mode"
-                raw_payload = await self._temporal_verdict_json(
-                    tf._TEMPORAL_FALLBACK_SYSTEM, user_payload, env,
-                    correlation_id, step="temporal_fallback")
-            if raw_payload is None:
-                fallback_used = True
-                raw_payload = {}
+            raw_payload = {}
         verdict = tf.verdict_from_payload(raw_payload, env,
                                           fallback_reason=verdict_reason,
                                           allowed_refs=allowed_refs)
+        # §2.4: положительный вердикт без внешних доказательств и без
+        # помеченного основания самостоятельной проверки → честная
+        # неопределённость (существующий enum, части сохраняются).
+        verdict = _downgrade_unbacked_positive(verdict, evidence)
+        # §7.3: содержательный вывод без поиска не помечается техническим
+        # заголовком «проверка не завершена» — реальное состояние поиска
+        # остаётся оговоркой в uncertainty (ниже).
+        if not evidence and verdict.reason in _TECHNICAL_RETRIEVAL_REASONS \
+                and _verdict_is_substantive(verdict):
+            verdict = dataclasses.replace(verdict, reason=None)
 
         # validator (spec D11/TH-2, CoVe REUSE): bounded data-only
         # перепроверка evidence↔claim — ровно ОДИН вызов, только при
@@ -1448,11 +1596,14 @@ class FactCheckService:
 
     def _temporal_user_payload(
         self, env: tf.TemporalClaimEnvelope, parts, evidence,
-        chat_context: str | None,
+        chat_context: str | None, analysis_context: str = "",
     ) -> str:
         """User-content вердиктной стадии: <claim> + <temporal_context>
         (даты/периоды/режим — серверные метаданные, D2) + <evidence> +
-        <chat_context> (НЕ доказательства — подпись как в legacy)."""
+        <chat_context> (НЕ доказательства — подпись как в legacy).
+        P0-FACTCHECK-CORRECTIVE (§2.4): при пустом evidence добавляется
+        <analysis_context> — статус поиска и рамка самостоятельной
+        проверки (серверный текст, не доказательства)."""
         sections = [
             "<claim>" + escape_xml_text(env.claim_text) + "</claim>",
             "<temporal_context>" + escape_xml_text(json.dumps({
@@ -1484,6 +1635,8 @@ class FactCheckService:
                     if r.get("published_at_source") else "",
                     r["support"])
                 for r in evidence)) + "</evidence>")
+        if analysis_context:
+            sections.append(analysis_context)
         if chat_context:
             sections.append(chat_context)
         return "\n\n".join(sections)
@@ -1589,6 +1742,16 @@ class FactCheckService:
             payload["fallback_note"] = (
                 "структурированный анализ не удался — не утверждай больше, "
                 "чем следует из данных")
+        # §7.2: анализ без содержания ≠ поиск без результатов. Только когда
+        # содержательного анализа НЕТ — короткая честная граница вместо
+        # абзацев-компенсаций. Универсального правила длины НЕ вводится:
+        # содержательный ответ передаётся как есть (§7.1).
+        if not _verdict_is_substantive(verdict):
+            payload["limit_note"] = (
+                "содержательного разбора не получилось — коротко назови "
+                "фактическое ограничение и какой информации не хватает, "
+                "без абзацев ради объёма и без историй про сломанные "
+                "инструменты")
         # UNIFIED-CORE (P0, владелец 20.10.2026): временной вербализатор —
         # пользовательская речь → тот же штатный шов, что Stage-2/одиночный
         # путь: Core + Expression владельца ПОСЛЕДНИМ блоком system (характер
@@ -1650,10 +1813,38 @@ class FactCheckService:
             RETRIEVAL_PROCESSING_FAILED:
                 "Материалы найти удалось, но пригодных для проверки "
                 "выдержек из них получить не вышло.",
+            RETRIEVAL_NO_RESULTS:
+                "Поиск ответил, но подходящих материалов не дал — поэтому "
+                "вывод сделан без внешних источников.",
         }
-        pieces = [openers.get(str(retrieval_state or ""),
-                              "Недостаточно данных для полной проверки "
-                              "утверждения.")]
+        if _verdict_is_substantive(verdict):
+            # §7: содержательный разбор не подменяется сообщением о сбое —
+            # даже при отказе вербализатора разбор частей сохраняется.
+            opener = ("Внешний поиск не удался, поэтому разбор сделан без "
+                      "веб-источников."
+                      if str(retrieval_state or "") in (
+                          RETRIEVAL_BUDGET, RETRIEVAL_SEARCH_FAILED,
+                          RETRIEVAL_PROCESSING_FAILED, RETRIEVAL_NO_RESULTS)
+                      else "Недостаточно данных для полной проверки "
+                           "утверждения.")
+            pieces = [opener]
+            for part in (verdict.parts or ())[:4]:
+                if not isinstance(part, dict):
+                    continue
+                text = " ".join(str(part.get("text") or "").split())
+                if not text:
+                    continue
+                label = {"supported": "подтверждается",
+                         "refuted": "не подтверждается",
+                         "mixed": "подтверждается частично",
+                         "insufficient_evidence": "данных недостаточно"}.get(
+                    str(part.get("factual_verdict") or ""), "")
+                pieces.append(f"• {text}"
+                              + (f" — {label}" if label else ""))
+        else:
+            pieces = [openers.get(str(retrieval_state or ""),
+                                  "Недостаточно данных для полной проверки "
+                                  "утверждения.")]
         orig = _fmt(env.original_published_at)
         if env.date_source in ("telegram_origin", "telegram_message") and orig:
             kind = "оригинала" if env.date_source == "telegram_origin" \

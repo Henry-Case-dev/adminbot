@@ -284,55 +284,11 @@ def _env_for_cache(**overrides):
     return tf.TemporalClaimEnvelope(**base)
 
 
-class TestCacheKey:
-    def test_key_differs_by_year_chat_mode(self):
-        """A70: одинаковый текст за разные годы/контексты → разные ключи."""
-        base = tf.build_temporal_cache_key(_env_for_cache(), scope="chat:1")
-        other_year = tf.build_temporal_cache_key(
-            _env_for_cache(original_published_at=1600000000), scope="chat:1")
-        other_chat = tf.build_temporal_cache_key(_env_for_cache(),
-                                                 scope="chat:2")
-        other_mode = tf.build_temporal_cache_key(
-            _env_for_cache(requested_mode="current"), scope="chat:1")
-        assert len({base, other_year, other_chat, other_mode}) == 4
-
-    def test_key_differs_by_revision(self):
-        """TH-10: edited target → новый ключ (revision/content_hash)."""
-        k1 = tf.build_temporal_cache_key(_env_for_cache(), scope="chat:1")
-        k2 = tf.build_temporal_cache_key(
-            _env_for_cache(target_revision=2, target_content_hash="h2"),
-            scope="chat:1")
-        assert k1 != k2
-
-    def test_unknown_origin_bypass(self):
-        """D12/SC-R4a: unknown origin → ключ невозможен (None) →
-        авто-bypass; атрибутированный ответ не разделяется."""
-        assert tf.build_temporal_cache_key(
-            _env_for_cache(origin_type=None, target_tg_message_id=None,
-                           repost_received_at=None), scope="chat:1") is None
-
-    def test_legacy_slug_not_serving_on_path(self):
-        """SC-R4b: legacy slug `factcheck` не равен temporal-ключу (namespace
-        сменился; ON-путь legacy не читает/не пишет)."""
-        from services.smart_cache import build_key
-        legacy = build_key("factcheck", "курс доллара 100")
-        temporal = tf.build_temporal_cache_key(_env_for_cache(), scope="chat:1")
-        assert legacy != temporal
-        # новый slug зарегистрирован
-        build_key("factcheck_temporal", "x")   # ValueError если слаг потерян
-
-    def test_bucket_volatile_vs_stable(self):
-        assert tf.freshness_bucket_for("current") == "volatile"
-        assert tf.freshness_bucket_for("misleading_reuse") == "volatile"
-        assert tf.freshness_bucket_for("old_but_valid") == "stable"
-        assert tf.freshness_bucket_for("outdated") == "stable"
-
-    @pytest.mark.asyncio
-    async def test_ttl_defaults_from_catalog_fields(self):
-        volatile = await tf.freshness_ttl_seconds(None, "volatile")
-        stable = await tf.freshness_ttl_seconds(None, "stable")
-        assert volatile == 6 * 3600
-        assert stable == 720 * 3600
+# P0-FACTCHECK-CORRECTIVE (§6.1, решение владельца 28.10.2026): кеш готовых
+# вердиктов Fact-check удалён — бывший класс TestCacheKey (составной ключ,
+# freshness-bucket/TTL, legacy-slug изоляция) проверял удалённую механику;
+# актуальный контракт «повторный тезис → новая проверка» покрывают тесты
+# TestF3RepeatFreshRun (tests/test_factcheck_p0_fc.py) и W1-matrix.
 
 
 # ── D11/D10: вердикт — раздельные оси, guard misleading_reuse ────────────────
@@ -431,7 +387,10 @@ class TestNoFalseVerdicts:
         run = await self._service(DownAggregator(), FakeLLM()) \
             .check_claim_envelope(env)
         assert run.verdict.factual_verdict == "insufficient_evidence"
-        assert run.verdict.reason == "temporal_insufficient_evidence"
+        # P0-FACTCHECK-CORRECTIVE (§5.1): причина честная — провайдеры не
+        # ответили (раньше любой пустой поиск давал temporal_insufficient_
+        # evidence, смешивая сбой с реальным отсутствием данных)
+        assert run.verdict.reason == "provider_unavailable"
         assert run.evidence_rows == ()
 
     @pytest.mark.asyncio

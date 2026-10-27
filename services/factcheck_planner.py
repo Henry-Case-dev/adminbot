@@ -526,7 +526,12 @@ class RetrievalOutcome:
     P0-FACTCHECK (§3.6): ``provider_failures`` — сколько запросов упало на
     провайдерах/транспорте; вместе с ``budget_exhausted`` это позволяет
     factcheck_service отличить технический сбой от реального отсутствия
-    доказательств (сегодня оба превращались в insufficient_evidence)."""
+    доказательств (сегодня оба превращались в insufficient_evidence).
+
+    P0-FACTCHECK-CORRECTIVE (§5.1): ``empty_results`` — провайдер ОТВЕТИЛ,
+    но выдача пустая; ``irrelevant_results`` — выдача была, но не прошла
+    relevance-фильтр. Оба — НЕ «провайдеры недоступны» и не входят в
+    ``provider_failures``."""
     evidence_map: EvidenceMap | None
     search_text: str                 # объединённая выдача для user-content
     queries_attempted: int
@@ -536,6 +541,8 @@ class RetrievalOutcome:
     budget_exhausted: bool
     planner_version: str = PLANNER_VERSION
     provider_failures: int = 0
+    empty_results: int = 0
+    irrelevant_results: int = 0
 
     @property
     def ok(self) -> bool:
@@ -574,6 +581,8 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
     used = 0
     fetch_errors = 0
     provider_failures = 0
+    empty_results = 0
+    irrelevant_results = 0
     budget_exhausted = False
     total_queries = len(plan.queries)
     for index, query in enumerate(plan.queries):
@@ -601,15 +610,25 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
                         relevance_terms=query_terms)
             else:
                 chunk = await aggregator.search(query.text, query.max_symbols)
-        except Exception:
-            provider_failures += 1
-            logger.info("[factcheck_planner] query failed | intent=%s",
-                        query.intent, exc_info=True)
+        except Exception as exc:
+            # §5.1: причина различается — недоступность/timeout/ошибка API
+            # (provider_failures) ≠ пустая выдача ≠ нерелевантная выдача.
+            cause = str(getattr(exc, "reason", "") or "")
+            if cause == "empty_results":
+                empty_results += 1
+            elif cause == "irrelevant_results":
+                irrelevant_results += 1
+            else:
+                provider_failures += 1
+            logger.info("[factcheck_planner] query failed | intent=%s | "
+                        "cause=%s", query.intent,
+                        cause or "provider_error", exc_info=True)
             if loop.time() >= deadline:
                 budget_exhausted = True
             continue
         if not chunk or not str(chunk).strip():
-            provider_failures += 1
+            # §5.1: провайдер ответил ПУСТОЙ выдачей — это не недоступность
+            empty_results += 1
             continue
         used += 1
         blocks.append(str(chunk))
@@ -671,4 +690,6 @@ async def run_retrieval(plan: RetrievalPlan, *, aggregator,
         queries_attempted=attempted, queries_used=used,
         refs_collected=len(evidence_map.refs) if evidence_map else 0,
         fetch_errors=fetch_errors, budget_exhausted=budget_exhausted,
-        provider_failures=provider_failures)
+        provider_failures=provider_failures,
+        empty_results=empty_results,
+        irrelevant_results=irrelevant_results)

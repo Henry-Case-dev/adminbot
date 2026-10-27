@@ -2,10 +2,13 @@
 
 ``FactcheckPresentation`` (+ ``CheckedVerdict`` для enum-вердикта) →
 безопасный Telegram-HTML: bold-вердикт по enum CheckedVerdict (человеческая
-фраза, без маркеров/emoji), 2–4 пункта сути (детерминированный сплит по
-предложениям, порядок сохранён), ссылки ТОЛЬКО из EvidenceMap текущего
-прогона (``presentation.links``; scheme-whitelist http/https), честная
-формулировка ограничения при отсутствии ссылок (CFG-06.B).
+фраза, без маркеров/emoji), тело вербализатора проходит как есть
+(P0-FACTCHECK-CORRECTIVE §7.4: обязательная композиция/принудительный
+список сняты — структура определяется фактическим содержанием), ссылки
+ТОЛЬКО из EvidenceMap текущего прогона (``presentation.links``;
+scheme-whitelist http/https), честная формулировка ограничения при
+отсутствии ссылок (CFG-06.B). Техническое ограничение выводится один раз
+(P0-FACTCHECK-CORRECTIVE §7.3: заголовок исключает дублирующую концовку).
 
 Контракты:
 
@@ -106,9 +109,6 @@ _PART_LABELS = {
 _MAX_BOUND_PARTS = 4              # bound: разбор ≤4 ключевых утверждений
 _PART_TEXT_MAX_CHARS = 110
 
-_MAX_POINTS = 4                      # 2–4 пункта сути (бриф W5)
-
-_SENT_SPLIT_RE = re.compile(r"(?<=[.!?…])\s+")
 _TAG_RE = re.compile(r"<[^>]+>")
 _URL_SAFE_RE = re.compile(r"^https?://\S+$", re.IGNORECASE)
 
@@ -146,34 +146,15 @@ def _safe_links(links) -> tuple[str, ...]:
     return tuple(out)
 
 
-# ── Детерминированная структура ──────────────────────────────────────────────
-
-def _sentences(text: str) -> list[str]:
-    return [s.strip() for s in _SENT_SPLIT_RE.split(str(text or ""))
-            if s.strip()]
-
-
-def _points(text: str) -> list[str] | None:
-    """2–4 пункта сути: предложения → ≤4 ПОДРЯД идущих групп (порядок и
-    состав сохранены — ни одно предложение не выбрасывается и не меняется).
-    Одиночное предложение → None (один абзац, список не нужен)."""
-    sents = _sentences(text)
-    if len(sents) <= 1:
-        return None
-    n = min(_MAX_POINTS, len(sents))
-    base, extra = divmod(len(sents), n)
-    groups: list[str] = []
-    i = 0
-    for g in range(n):
-        size = base + (1 if g < extra else 0)
-        groups.append(" ".join(sents[i:i + size]))
-        i += size
-    return groups
-
-
 def _content(presentation: FactcheckPresentation,
              verdict: CheckedVerdict | None):
-    """Единая контент-модель для HTML- и plain-сериализации."""
+    """Единая контент-модель для HTML- и plain-сериализации.
+
+    P0-FACTCHECK-CORRECTIVE (§7.3): техническое ограничение выводится
+    ОДИН раз — заголовок по reason-коду исключает второй перенос того же
+    ограничения отдельной концовкой. P0-FACTCHECK-CORRECTIVE (§7.4):
+    обязательная композиция тела (принудительный список 2–4 пунктов)
+    снята — тело вербализатора проходит как есть."""
     technical = (_TECHNICAL_HEADLINE.get(str(verdict.reason_code or ""))
                  if verdict is not None else None)
     headline = technical or (_VERDICT_HEADLINE.get(verdict.factual_verdict)
@@ -190,10 +171,12 @@ def _content(presentation: FactcheckPresentation,
             if cited_urls:
                 links = tuple(u for u in links if u in cited_urls)
     notice = str(presentation.notice or "").strip()
-    # §3.6: технический сбой объясняется явно, а не тонет в общем заголовке.
+    # §7.3: технический сбой объясняется явно, но ОДИН раз: при техническом
+    # заголовке отдельная концовка с тем же ограничением не добавляется
+    # (заголовок + абзац + концовка = три одинаковых сообщения — снято).
     technical_notice = _TECHNICAL_NOTICE.get(str(
         verdict.reason_code or "")) if verdict is not None else None
-    if technical_notice and technical_notice not in notice:
+    if technical_notice and technical_notice not in notice and not technical:
         notice = f"{notice} {technical_notice}".strip() if notice \
             else technical_notice
     if not links and not notice and verdict is not None \
@@ -281,10 +264,11 @@ def _serialize(presentation: FactcheckPresentation,
     if headline:
         headline = str(headline)
         blocks.append(f"<b>{esc(headline)}</b>" if html_mode else headline)
-    points = _points(body)
-    if points:
-        blocks.append("\n".join("• " + esc(p) for p in points))
-    elif body.strip():
+    # P0-FACTCHECK-CORRECTIVE (§7.4): обязательная композиция снята — тело
+    # вербализатора (его собственная структура и длина) проходит как есть;
+    # принудительный список «2–4 пункта» больше не создаётся. Разбор
+    # ключевых утверждений и привязка реальных источников сохранены.
+    if body.strip():
         blocks.append(esc(body.strip()))
     # FC-RENDER: разбор ключевых утверждений с цитатами при каждом тезисе +
     # роль каждого источника. Без вердикта (legacy plain) — прежний список.

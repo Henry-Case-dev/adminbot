@@ -34,7 +34,47 @@ EXA_URL = "https://api.exa.ai/search"
 
 
 class AllSearchEnginesFailedException(Exception):
-    """Все уровни каскада (Tavily → Exa → DDG) упали."""
+    """Все уровни каскада (Tavily → Exa → DDG) упали.
+
+    P0-FACTCHECK-CORRECTIVE (§5.1): ``reason`` — машинная причина ПОСЛЕДНЕГО
+    неудачного уровня: ``provider_error`` (недоступность/ошибка API) |
+    ``timeout`` | ``empty_results`` (провайдер ответил пустой выдачей) |
+    ``irrelevant_results`` (выдача не прошла relevance-фильтр) | ``budget``.
+    Пустая/нерелевантная выдача — НЕ «провайдеры недоступны»."""
+
+    def __init__(self, msg: str = "all search engines failed",
+                 *, reason: str = "provider_error") -> None:
+        super().__init__(msg)
+        self.reason = reason
+
+
+def level_failure_reason(exc: BaseException) -> str:
+    """Классификация неудачи уровня каскада (§5.1): timeout / API-ошибка /
+    пустая выдача / нерелевантная выдача / прочая ошибка провайдера.
+    Детерминированно, без новых вызовов."""
+    if isinstance(exc, httpx.TimeoutException):
+        return "timeout"
+    text = str(exc or "").lower()
+    if "irrelevant" in text:
+        return "irrelevant_results"
+    if "empty" in text:
+        return "empty_results"
+    return "provider_error"
+
+
+#: Порядок информативности причин каскада: «ответили, но пусто/нерелевантно»
+#: честнее «не ответили», timeout конкретнее общей ошибки провайдера.
+_REASON_PRECEDENCE = ("irrelevant_results", "empty_results", "timeout",
+                      "provider_error")
+
+
+def _most_informative_reason(reasons) -> str:
+    """Итоговая причина каскада: самая информативная из уровней (§5.1).
+    Пусто → provider_error."""
+    for reason in _REASON_PRECEDENCE:
+        if reason in reasons:
+            return reason
+    return "provider_error"
 
 
 # ── FC-EVIDQ (owner 21.10.2026 §3.4): лёгкая релевантность + тип источника ──
@@ -148,6 +188,13 @@ def is_relevant_result(text: str, relevance_terms,
             if key in haystack_keys:
                 matched += 1
     floor = 2 if min_distinct is None else max(1, int(min_distinct))
+    if min_distinct is None and len(seen) == 2:
+        # P0-FACTCHECK-CORRECTIVE (§5.2): требовать ОБА стема у
+        # двухтерминного запроса — генератор ложных отрицаний: документ,
+        # пересказавший один термин другими словами, отбрасывался целиком.
+        # Одно совпадение из двух при морфологии оставляет документ
+        # аналитику (окончательное решение о пригодности — не за фильтром).
+        floor = 1
     return matched >= min(floor, len(seen)) and matched >= 0.2 * len(seen)
 
 
@@ -233,6 +280,11 @@ class SearchAggregator:
             ("ddg", self._search_ddg, None),
         ]
         started_budget = time.monotonic()
+        # §5.1: причины уровней собираются; итог — самая информативная
+        # (ответившие провайдеры с пустой/нерелевантной выдачей честнее
+        # «недоступно»: ddg-уровень без библиотеки не затирает причину
+        # ответивших уровней)
+        reasons: list[str] = []
 
         def _left() -> float | None:
             if timeout_budget is None:
@@ -263,7 +315,7 @@ class SearchAggregator:
             if left is not None and left <= 0.2:
                 raise AllSearchEnginesFailedException(
                     f"search budget exhausted (tavily → exa → ddg) | "
-                    f"query={query!r}")
+                    f"query={query!r}", reason="budget")
             started = time.monotonic()
             try:
                 # бюджет есть → передаём остаток (реальный агрегатор
@@ -288,12 +340,16 @@ class SearchAggregator:
                 )
                 return self._truncate(text, max_symbols)
             except Exception as exc:
+                # §5.1/§5.3: реальная причина уровня — в техническом логе
                 logger.warning(
-                    "SearchAggregator: level failed → fallback | provider=%s | error=%s",
-                    name, exc,
+                    "SearchAggregator: level failed → fallback | provider=%s | "
+                    "cause=%s | error=%s",
+                    name, level_failure_reason(exc), exc,
                 )
+                reasons.append(level_failure_reason(exc))
         raise AllSearchEnginesFailedException(
-            f"all search engines failed (tavily → exa → ddg) | query={query!r}"
+            f"all search engines failed (tavily → exa → ddg) | query={query!r}",
+            reason=_most_informative_reason(reasons),
         )
 
     async def search_relevant(self, query: str, max_symbols: int,

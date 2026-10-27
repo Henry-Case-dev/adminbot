@@ -422,9 +422,11 @@ class TestHandlerPaths:
         return fh
 
     @pytest.mark.asyncio
-    async def test_off_path_uses_legacy_slug(self, monkeypatch):
-        """K1 OFF → легаси-путь: build_key('factcheck', ...) и legacy
-        check_claim; temporal-конур не вызывается (бит-в-бит d298f1f)."""
+    async def test_off_path_uses_legacy_computation(self, monkeypatch):
+        """K1 OFF → легаси-путь: legacy check_claim; temporal-конур не
+        вызывается. P0-FACTCHECK-CORRECTIVE (§6): вердикт-кеш удалён —
+        build_key('factcheck')/cache.get/set больше не существуют,
+        проверка выполняется всегда."""
         fh = self._patch_light(monkeypatch)
         monkeypatch.setattr(fh, "_temporal_on", lambda: False)
         called = {}
@@ -435,6 +437,7 @@ class TestHandlerPaths:
                 return "k-" + slug
 
             async def get(self, key):
+                called["get"] = key
                 return None
 
             async def set(self, key, value):
@@ -456,7 +459,9 @@ class TestHandlerPaths:
         msg.chat.id = 1
         target.chat = msg.chat
         await fh.factcheck_handler(msg, bot=bot)
-        assert called["slug"] == "factcheck"
+        # кеш вердиктов удалён (§6.1): ни чтения, ни записи под slug
+        assert "slug" not in called and "get" not in called \
+            and "set" not in called
         service.check_claim.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -523,9 +528,10 @@ class TestHandlerPaths:
         await db.close()
 
     @pytest.mark.asyncio
-    async def test_on_path_cache_hit_replies_without_llm(self, monkeypatch):
-        """A70/CA-20-9: hit отдаёт сохранённый текст с ЧЕСТНЫМ as_of (внутри
-        payload), LLM не вызывается."""
+    async def test_on_path_replies_from_fresh_run(self, monkeypatch):
+        """P0-FACTCHECK-CORRECTIVE (§6/§6.4): кеш готовых вердиктов удалён —
+        повторное обращение выполняет НОВУЮ проверку (актуальный вызов
+        сервиса и reply), старые записи SmartCache не читаются."""
         fh = self._patch_light(monkeypatch)
         monkeypatch.setattr(fh, "_temporal_on", lambda: True)
         envelope = _env()
@@ -544,6 +550,8 @@ class TestHandlerPaths:
                 pass
 
             async def get_update_marker(self, key, *, ttl_seconds):
+                # под ключом «лежит» старый вердикт прежнего механизма —
+                # читать его больше никто не приходит
                 return json.dumps({
                     "text": "старый вердикт", "as_of": 1700000000,
                     "factual_verdict": "supported",
@@ -554,8 +562,15 @@ class TestHandlerPaths:
                 pass
         monkeypatch.setattr(fh, "get_smart_cache", lambda: FakeCache())
         service = MagicMock()
-        service.check_claim_envelope = AsyncMock(
-            side_effect=AssertionError("LLM не должен вызываться на hit"))
+        run = SimpleNamespace(
+            verdict_text="свежий вердикт",
+            verdict=SimpleNamespace(
+                factual_verdict="insufficient_evidence",
+                temporal_status="unknown", evaluated_period={},
+                uncertainty={}, reason=None, as_of=1700000000,
+                evidence_refs=(), parts=()),
+            evidence_rows=(), fallback_used=False)
+        service.check_claim_envelope = AsyncMock(return_value=run)
         fh.setup_factcheck(service)
         bot = AsyncMock()
         target = _fake_msg(text="утверждение", message_id=77)
@@ -566,9 +581,14 @@ class TestHandlerPaths:
         monkeypatch.setattr(tf, "record_temporal_run",
                             AsyncMock(return_value="tfr-x"))
         await fh.factcheck_handler(msg, bot=bot)
-        service.check_claim_envelope.assert_not_awaited()
-        fh._reply.assert_awaited_once()
-        assert fh._reply.await_args.args[2] == "старый вердикт"
+        # актуальная проверка выполнена, старый вердикт не отдан
+        service.check_claim_envelope.assert_awaited_once()
+        fh.send_chunked_reply.assert_awaited()
+        sent_texts = " ".join(
+            str(c.args[2]) for c in fh.send_chunked_reply.await_args_list
+            if len(c.args) >= 3)
+        assert "свежий вердикт" in sent_texts
+        assert "старый вердикт" not in sent_texts
 
 
 class _NullCtx:

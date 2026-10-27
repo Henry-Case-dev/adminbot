@@ -17,9 +17,11 @@ FactcheckPresentation. Полное описание —
 * suitability gate и широкий контекст ВНУТРИ v2 подразумеваются
   (консолидация W1/W2-флагов); gate-маршруты (no_claim/ambiguous) отвечают
   короткой репликой ДО платного поиска (06B.1/06J.3);
-* кеш/идемпотентность: envelope-ветка — составной ключ `factcheck_temporal`
-  (as_of внутри payload, CA-20-9), legacy-ветка — slug `factcheck` (59.2:
-  запись только после успешной доставки);
+* кеш/идемпотентность: P0-FACTCHECK-CORRECTIVE (§6, решение владельца
+  28.10.2026) — кеш готовых вердиктов удалён в ОБОИХ ветках (envelope
+  slug `factcheck_temporal` и legacy slug `factcheck`); каждое обращение —
+  актуальная проверка; исторические записи прогонов и защита от двойной
+  доставки (`already_delivered` + кулдаун) сохранены (§6.2);
 * egress-whitelist (06B «не выпускает служебные данные»): служебные поля
   (as_of/gate_version/reason_code/…) живут в CheckedVerdict (internal) и
   ФИЗИЧЕСКИ ОТСУТСТВУЮТ в FactcheckPresentation (egress); латиница-маркеры
@@ -133,11 +135,14 @@ class CheckedVerdict:
     as_of: int | None = None             # служебное: НЕ идёт в Presentation
     gate_version: str | None = None      # служебное: НЕ идёт в Presentation
     fallback_used: bool = False
-    cache_hit: bool = False
+    cache_hit: bool = False              # P0-FACTCHECK-CORRECTIVE §6: кеш
+                                         # вердиктов удалён — поле оставлено
+                                         # для совместимости схемы (всегда
+                                         # False)
     already_delivered: bool = False      # предохранитель двойной доставки:
                                          # True → шов ниже пропускает рендер/
-                                         # доставку (кеш-хит идёт общим
-                                         # потоком — однократно)
+                                         # доставку (однократность ответа на
+                                         # тот же Telegram update)
     # FC-RENDER (owner 21.10.2026 §3.6, fcv3): цитаты и части для привязки
     # ссылок к утверждениям. INTERNAL (не входят в FactcheckPresentation);
     # необязательные с дефолтами — совместимость с fcv2-потребителями.
@@ -528,17 +533,16 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         # без участников чата (frozen-replace, provenance не меняется).
         if attribution_match is not None:
             envelope = fat.with_external_claim(envelope, external_claim)
-        verdict = await _run_envelope_branch(req, service, db, bot, cache,
+        verdict = await _run_envelope_branch(req, service, db, bot,
                                              envelope, feed, tf, mca_gates,
                                              retrieval_outcome)
     else:
         search_results = (retrieval_outcome.search_text
                           if retrieval_outcome is not None
                           and retrieval_outcome.search_text else None)
-        verdict = await _run_legacy_branch(req, service, cache, feed,
+        verdict = await _run_legacy_branch(req, service, feed,
                                            search_results=search_results,
-                                           target_text=external_claim,
-                                           cache_input_text=claim_text)
+                                           target_text=external_claim)
 
     # 6. Presentation (egress-whitelist) → 7. Delivery.
     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
@@ -589,65 +593,31 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
         await deliver_factcheck(bot, req.chat_id, presentation,
                                 reply_to_message_id=(
                                     presentation.reply_to_message_id))
-    # 8. Идемпотентность (59.2): legacy-кеш — после успешной доставки,
-    # сырой текст вердикта (байт-паритет содержимого прод-пути).
-    if verdict.route == "legacy_single" and not verdict.cache_hit:
-        await write_legacy_cache(req, verdict.verdict_text, cache,
-                                 text=claim_text)
+    # P0-FACTCHECK-CORRECTIVE (§6): кеш готовых вердиктов (legacy slug
+    # `factcheck`) удалён — повторная проверка всегда выполняется заново.
+    # Защита от двойной доставки того же Telegram update — уже СУЩЕСТВУЮЩАЯ
+    # (`already_delivered` + кулдаун handler'а), она сохранена.
 
 
 async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
-                               cache, envelope, feed, tf, mca_gates,
+                               envelope, feed, tf, mca_gates,
                                retrieval=None
                                ) -> CheckedVerdict:
-    """Envelope-ветка: тот же составной кеш/запись run (порт из handler
-    _factcheck_temporal, 06H.6 — один контракт кеша).
+    """Envelope-ветка: актуальная проверка + запись run (исторические
+    записи сохраняются). Кеш готовых вердиктов удалён (P0-FACTCHECK-
+    CORRECTIVE §6, решение владельца 28.10.2026): каждое обращение —
+    новая проверка с доступными на этот момент сведениями.
 
     FC-UNIFY (owner §3.2): ``retrieval`` — выдача ЕДИНОГО retrieval-контура
     v2 (planner CFG-06), передаётся в сервис; сервис не строит второй
     поиск. None → внутренний fallback-поиск сервиса (смысловые запросы)."""
     scope = f"chat:{req.chat_id}"
-    cache_key = tf.build_temporal_cache_key(envelope, scope=scope)
-    if cache_key is not None and mca_gates.temporal_factcheck_cache_enabled():
-        _key, _bucket, cached = await tf.read_temporal_cache(
-            cache, envelope, scope=scope)
-        if cached is not None:
-            cached_verdict = tf.verdict_from_payload({
-                "factual_verdict": cached.get("factual_verdict"),
-                "temporal_status": cached.get("temporal_status"),
-            }, envelope)
-            try:
-                await tf.record_temporal_run(
-                    db, tf.TemporalRunResult(
-                        envelope=envelope, verdict=cached_verdict,
-                        verdict_text=str(cached.get("text") or "")),
-                    scope=scope, cache_hit=True)
-            except Exception:
-                logger.debug("[factcheck_v2] cache-hit run record failed",
-                             exc_info=True)
-            # W6: кеш-хит идёт через ЕДИНУЮ доставку (renderer/delivery
-            # общий поток) — рендер детерминированно преобразует тот же
-            # кешированный текст (консистентность кеша), plain-обхода нет.
-            return CheckedVerdict(
-                verdict_text=str(cached.get("text") or ""),
-                route="envelope_temporal",
-                factual_verdict=cached_verdict.factual_verdict,
-                temporal_status=cached_verdict.temporal_status,
-                evaluated_period=cached_verdict.evaluated_period,
-                uncertainty=cached_verdict.uncertainty,
-                reason_code=cached_verdict.reason,
-                as_of=cached_verdict.as_of,
-                cache_hit=True)
     if retrieval is not None:
         run = await service.check_claim_envelope(
             envelope, chat_context=feed or None, retrieval=retrieval)
     else:
         run = await service.check_claim_envelope(
             envelope, chat_context=feed or None)
-    if cache_key is not None and mca_gates.temporal_factcheck_cache_enabled():
-        await tf.write_temporal_cache(cache, envelope, scope=scope,
-                                      text=run.verdict_text,
-                                      verdict=run.verdict)
     await tf.record_temporal_run(db, run, scope=scope, cache_hit=False)
     refs = tuple(
         EvidenceRef(evidence_id=str(r.get("evidence_id") or ""),
@@ -669,26 +639,21 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
         parts=tuple(run.verdict.parts or ()))
 
 
-async def _run_legacy_branch(req: FactcheckRequest, service, cache,
+async def _run_legacy_branch(req: FactcheckRequest, service,
                              feed, *, search_results: str | None = None,
-                             target_text: str | None = None,
-                             cache_input_text: str | None = None
+                             target_text: str | None = None
                              ) -> CheckedVerdict:
     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
-    же аргументами, что прод-путь 2.58.98 (байт-паритет ветки), slug
-    `factcheck`, запись только после успешной вычисления (59.2).
+    же аргументами, что прод-путь 2.58.98 (байт-паритет ветки). Кеш готовых
+    вердиктов удалён (P0-FACTCHECK-CORRECTIVE §6, решение владельца
+    28.10.2026): каждое обращение — актуальная проверка; исторические
+    записи о выполненных проверках не затронуты (§6.2).
 
     W6 (06C.8): ``search_results`` — выдача единого retrieval-контура v2
     (один поиск на прогон); None → внутренний поиск ветки (честный fallback),
     в этом случае план не выполнен и EvidenceMap не наполняется.
     06G.3: ``target_text`` — privacy-клейм (тезис без участников чата);
     None → req.target_text (байт-паритет неатрибуционных прогонов)."""
-    cache_key = cache.build_key("factcheck",
-                                _v2_cache_input(req, cache_input_text))
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        return CheckedVerdict(verdict_text=str(cached), route="legacy_single",
-                              cache_hit=True)
     claim_text = str(target_text if target_text is not None
                      else req.target_text)
     verdict = await service.check_claim(
@@ -698,46 +663,22 @@ async def _run_legacy_branch(req: FactcheckRequest, service, cache,
     return CheckedVerdict(verdict_text=verdict, route="legacy_single")
 
 
-def _v2_cache_input(req: FactcheckRequest, text: str | None = None) -> str:
-    """W6: кеш legacy-ветки под версией контура v2 (`fcv4`+`fp3`, 06H.6) —
-    записи прод-пути 2.58.98 и v2 не пересекаются в обе стороны; bump
-    fcv3→fcv4 (P0-FACTCHECK: классы исхода/части/изображение) старые
-    записи естественно выпадают. `text` — фактический материал проверки
-    (claim + OCR изображения): старый вердикт по одному тексту не может
-    скрыть новую проверку с распознанным изображением."""
-    try:
-        from services import factcheck_planner as fsp
-        planner_version = fsp.PLANNER_VERSION
-    except Exception:      # pragma: no cover
-        planner_version = "fp0"
-    claim_material = req.target_text if text is None else str(text)
-    return f"fcv4\x00{PIPELINE_VERSION}\x00{planner_version}\x00{claim_material}"
-
-
-async def write_legacy_cache(req: FactcheckRequest, verdict_text: str,
-                             cache, *, text: str | None = None) -> bool:
-    """Запись legacy-кеша после успешной доставки (59.2) — отдельный шаг
-    оркестратора; ключ под версией контура v2 (см. `_v2_cache_input`)."""
-    try:
-        cache_key = cache.build_key("factcheck", _v2_cache_input(req, text))
-        await cache.set(cache_key, verdict_text)
-        return True
-    except Exception:
-        return False
-
-
 def _log_retrieval_metrics(chat_id: int, outcome) -> None:
     """Метрики единого retrieval-контура (06G.7): attempted/used/refs/
-    fetch_errors/budget — logger-дайджест + mca-событие (fail-open)."""
+    fetch_errors/budget + причины пустого результата (§5.1/§5.3:
+    provider_failures ≠ empty_results ≠ irrelevant_results) — logger-
+    дайджест + mca-событие (fail-open)."""
     if outcome is None:
         return
     logger.info(
         "[factcheck_v2] retrieval | chat=%s | attempted=%d | used=%d | "
-        "refs=%d | fetch_errors=%d | provider_failures=%d | "
-        "budget_exhausted=%s | version=%s",
+        "refs=%d | fetch_errors=%d | provider_failures=%d | empty=%d | "
+        "irrelevant=%d | budget_exhausted=%s | version=%s",
         chat_id, outcome.queries_attempted, outcome.queries_used,
         outcome.refs_collected, outcome.fetch_errors,
         getattr(outcome, "provider_failures", 0),
+        getattr(outcome, "empty_results", 0),
+        getattr(outcome, "irrelevant_results", 0),
         outcome.budget_exhausted, outcome.planner_version)
     try:
         from services import mca_events
@@ -750,6 +691,9 @@ def _log_retrieval_metrics(chat_id: int, outcome) -> None:
             refs=outcome.refs_collected,
             fetch_errors=outcome.fetch_errors,
             budget_exhausted=outcome.budget_exhausted,
+            provider_failures=getattr(outcome, "provider_failures", 0),
+            empty_results=getattr(outcome, "empty_results", 0),
+            irrelevant_results=getattr(outcome, "irrelevant_results", 0),
             planner_version=outcome.planner_version)
     except Exception:      # события не рвут вердикт
         pass
