@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-nostalgia-rework/source-2026-10-27.md",
   "source_sha256": "74cf86e69168889b07b83f6baf41f8260d0f957f4b7081bf486413d5ce9f3681",
-  "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
-  "deployed_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
+  "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+  "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
   "strict_evidence": true,
   "slice_graph_path": "",
   "plan_note": "Closure 27-28.10.2026: NOST-часть ТЗ реализована W1+W2 и задеплоена как 2.58.137 (8adf5fa4), live-проба PASS. W1 rows NOST-01..04/07 — Approved review; W2 rows NOST-05/06/08..12 — VERIFIED (626 related tests, registry --check OK после e61a0db9); приёмочные NOST-13/14/17/18 — VERIFIED (тесты + live-проба); NOST-15/16 — честный PENDING (SAY-семантика проверяется естественными прод-тиками); DEV-05 VERIFIED (deploy+live). Открытые строки того же corrective: COR-01..06, DEV-01..04 — последующие волны, родитель не DONE.",
@@ -3187,10 +3187,19 @@
         {
           "type": "test+review",
           "ref": "COR fixes + contract tests (see cor-fixes.md §root-cause/fix/tests); independent review Approved: plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
-          "observation": "COR verified: COR-01 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.137: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 8adf5fa4].",
+          "observation": "COR verified: COR-01 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.138: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 1e438e3a; postdeploy-пробы deployed-дерева PASS: word-gate 0, L1/structured-status швы на месте, 7/7 blob == кандидат, канон-миграций нет].",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
           "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+        },
+        {
+          "type": "deploy",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): healthz 200 2.58.138 (loopback+внешний), unit active NRestarts=0, журнал без деплой-ошибок, deltaDDL=0, канон-миграций нет; COR-пробы deployed-дерева PASS",
+          "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
+          "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
+          "artifact_sha256": "f6ed90a7ea73ec00ed655bd96d5f0e3f28ea66ca644f62b056dc08b0850907b5",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -3286,10 +3295,19 @@
         {
           "type": "test+review",
           "ref": "COR fixes + contract tests (see cor-fixes.md §root-cause/fix/tests); independent review Approved: plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
-          "observation": "COR verified: COR-02 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.137: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 8adf5fa4].",
+          "observation": "COR verified: COR-02 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.138: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 1e438e3a; postdeploy-пробы deployed-дерева PASS: word-gate 0, L1/structured-status швы на месте, 7/7 blob == кандидат, канон-миграций нет].",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
           "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+        },
+        {
+          "type": "deploy",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): healthz 200 2.58.138 (loopback+внешний), unit active NRestarts=0, журнал без деплой-ошибок, deltaDDL=0, канон-миграций нет; COR-пробы deployed-дерева PASS",
+          "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
+          "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
+          "artifact_sha256": "f6ed90a7ea73ec00ed655bd96d5f0e3f28ea66ca644f62b056dc08b0850907b5",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -3310,10 +3328,19 @@
         {
           "type": "test+review",
           "ref": "COR fixes + contract tests (see cor-fixes.md §root-cause/fix/tests); independent review Approved: plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
-          "observation": "COR verified: COR-03 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.137: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 8adf5fa4].",
+          "observation": "COR verified: COR-03 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.138: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 1e438e3a; postdeploy-пробы deployed-дерева PASS: word-gate 0, L1/structured-status швы на месте, 7/7 blob == кандидат, канон-миграций нет].",
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
           "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
-          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
+        },
+        {
+          "type": "deploy",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): healthz 200 2.58.138 (loopback+внешний), unit active NRestarts=0, журнал без деплой-ошибок, deltaDDL=0, канон-миграций нет; COR-пробы deployed-дерева PASS",
+          "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
+          "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
+          "artifact_sha256": "f6ed90a7ea73ec00ed655bd96d5f0e3f28ea66ca644f62b056dc08b0850907b5",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -4355,5 +4382,5 @@
       "evidence": []
     }
   ],
-  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented. | Биндинг: candidate=deployed=релиз-бамп 8adf5fa4 (2.58.137; цепочка 3ea0e9f9->58b9f5e2->e61a0db9->merge a2b61bbf->bump). Кор-волна 6ddc5351 входит в цепочку (merge b5e25966)."
+  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented. | Биндинг: candidate=deployed=релиз-бамп 8adf5fa4 (2.58.137; цепочка 3ea0e9f9->58b9f5e2->e61a0db9->merge a2b61bbf->bump). Кор-волна 6ddc5351 входит в цепочку (merge b5e25966). Деплой COR-волны: 2.58.138 @ 1e438e3a (28.10.2026 19:49 UTC, healthz 200, NRestarts=0, журнал чист, deltaDDL=0, канон-миграций нет, postdeploy COR-пробы PASS; deploy evidence: plans/features/asap-speech-arch/release-258138/deploy.md)."
 }
