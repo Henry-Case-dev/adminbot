@@ -1,35 +1,29 @@
 ﻿# Workflow State
 
-Task: P0 очередь 26.10 — релиз Speech + Fact-check, далее P0 DELTA
-Task source: root chat 25–26.10; snapshots `plans/owner_inputs/2026-10-26-p0-delta-analysis.md`, `2026-10-26-no-meta-scope.md`
+Task: P0 очередь 27.10 — цикл 2.58.131–138 ЗАВЕРШЁН; остатки — наблюдение/внешние/устройства
+Task source: root chat 25–28.10; `plans/owner_inputs/` (12 входов, все reconciled)
 Status: in_progress
-Primary phase: release
-Active feature: asap-speech-arch + p0-factcheck-media → release/p0-2026-10-26
-Progress sources: 9 карт; 2023/2459 required (82%), этапы 115/172, поручения 7/18; 11 FAILED (FREQUENT residual), 13 postdeploy
-Production: **2.58.130 @ `534ac7dd`**, health 200, unit active, NRestarts 0. Деплоя не было.
+Primary phase: observation (postdeploy) + остатки
+Active feature: —
+Progress sources: 13 карт; 2299/2547 required (90%), этапы 194/236, поручения 9/21 (READY_FOR_LIVE); postdeploy 5, FAILED 8 (документированные)
+Production: **2.58.138 @ `1e438e3a`**, healthz 200, NRestarts 0, журнал чист; откат на 2.58.137 задокументирован.
 
-Active lanes (не прерывать):
-- SPEECH-INT (в `adminbot-wt-speech-int`): NO_META без «сразу вывод», аудит скрытых шаблонов; правки в работе, коммита ещё нет.
-- P0-DELTA-AUDIT (read-only): исследование L1/памяти/субъекта/lore по `plans/features/p0-delta-analysis/`.
-- FACTCHECK-MEDIA: ревью Approved (266b0e6b), влит в `release/p0-2026-10-26`.
-- ALIAS: `f42e2257` Approved.
+Released this cycle: 131 (речь+Fact-check), 132 (P0 DELTA), 133 (lore echo), 134 (DELTA-DEPTH), 137 (nostalgia rework W1+W2), 138 (COR-01/02/03). Все карты закрыты гейтами (единственная структурная заметка deployed=bump≠candidate — задокументированный класс).
 
-Release plan:
-1. Коммит speech → merge в `release/p0-2026-10-26`; 4 пересечения (database.py, param_catalog.py, registry.tsv, test_round1025_f8_registry.py) разрешить вручную.
-2. Один контрольный live-прогон на точном SHA (A/B/C + forced), без повторных кругов.
-3. Привязка доказательств (fact-check 151 + speech) к финальному SHA; review/release gate.
-4. Финальный Reviewer → version bump → deploy → health/version/errors → продолжить P0 DELTA и остатки.
+⚠️ Owner/ops action: диск сервера 96% (1.1G свободно) — нужна ревизия retention (журнал/бэкапы); удаление файлов агентом не выполнялось.
 
-FREQUENT decision: `plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md` — причины (исторический budget_excluded исправлен; остаток — вариативность модели), условия приёмки, влияния на релиз нет.
+Remaining honest opens (вне знаменателя или внешние):
+- p0-nostalgia-rework NOST-15/16: SAY-семантика наблюдается естественными прод-тиками (офлайн T17–T23 зелёные; UNCHANGED×2 live).
+- asap8: B10-R10/REQ-B09-BODY (needs-real-client: перенос супергруппы), REQ-B11-E2E частично (векторная квота), U07-* (Windows-клиент владельца).
+- soul-1 AMD.8.11 video (WAITING_EXTERNAL: media-источник не настроен).
+- p0-followup (WAITING_EXTERNAL: естественное затишье).
+- Backlog: stale-пин отпечатка в test_p0_prompts_core; parity ON-vs-legacy контракт; cfg-06 w7 harness mutation; disk retention.
 
-Not closed:
-- speech commit + merge + live probe.
-- Map binding (factcheck/speech) к финальному SHA.
-- P0 DELTA (133 required) — после релиза.
-- Мелкие остатки: soul-1 2, asap8 1, asap3 2, asap2 3, win-glass 2, vision 1, add-tr 1, samples 1, p0-factcheck-speech 18+4.
-- p0-followup-nostalgia: WAITING_EXTERNAL (сценарий B).
+Closed maps (гейты): p0-delta 133/133, asap-speech-arch 98/98, p0-corrective-factcheck-speech (всё, кроме closes-last/STABLE residual), p0-factcheck-media, asap5-multimodal 157/157, post-asap5 27/27, p0-nostalgia-rework 27/29+2 live.
 
-Review: pending (final candidate)
-Deployment: pending
+Active lanes: none. Next: наблюдение прод-тиков; новые коррективы владельца — по мере поступления.
+
+Review: approved (all shipped slices)
+Deployment: verified 2.58.138
 Human gate: none
-Updated: 2026-10-26T01:25+12:00
+Updated: 2026-10-28T09:15+12:00
