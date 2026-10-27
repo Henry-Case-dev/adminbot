@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/asap5-multimodal/source-2026-10-26-excerpt.md",
   "source_sha256": "e8cb2b1ed3b96721b6d19d47e970410b3c9a0e5c121fc21f423c0fcf887604a8",
-  "candidate_commit": "05c408f6f9746701ec2c19c1c8ae0d46e5926996",
+  "candidate_commit": "00a20622ce05f9f3c0e39be37a54d15ee18ba4ba",
   "deployed_commit": "05c408f6f9746701ec2c19c1c8ae0d46e5926996",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -9170,5 +9170,5 @@
       "evidence": []
     }
   ],
-  "candidate_note": "| 27.10 конвенция цикла 2.58.118: в strict-гейт бамп-коммит идёт в оба поля (candidate=deployed=05c408f6); код-кандидат 00a20622 зафиксирован в history."
+  "candidate_note": "| 27.10 конвенция цикла 2.58.118: в strict-гейт бамп-коммит идёт в оба поля (candidate=deployed=05c408f6); код-кандидат 00a20622 зафиксирован в history. | ИТОГ 27.10: конвенция «бамп в оба поля» даёт 321 ошибку per-row binding (артефакты привязаны к код-кандидату 00a20622) — откат к candidate=00a20622/deployed=05c408f6; 1 структурная ошибка deployed≠candidate документирована как известное ограничение инструмента (класс REVIEW/DEPLOY-биндингов)."
 }
