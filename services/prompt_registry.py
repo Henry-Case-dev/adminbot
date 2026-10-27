@@ -214,7 +214,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # при несостоявшейся мысли), provenance «Переслано» (§6) и форма отказа
     # ровно UNCHANGED без публикации текста-самоотказа (§5). Прежние байты —
     # PREV_NOSTALGIA_PROMPT_1026 / PREV_NOSTALGIA_CORE_CANON_1026.
-    "internal.nostalgia.candidate": "nostalgia-asap5-w1-source",
+    "internal.nostalgia.candidate": "nostalgia-nost-rework-w1",
     "internal.dossier.system": "dossier-system",
     "internal.dossier.layer_a": "dossier-layer-a",
     "internal.dossier.layer_b": "dossier-layer-b",
@@ -1864,7 +1864,17 @@ def factory_set_fingerprint() -> str:
 #: новых слоёв/вызовов. Метки W1 целы в слепках/ступенях. Было
 #: ``517ec51bec11``, стало ``3bc0c543520c``. Переутверждено осознанно
 #: (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "3bc0c543520c"
+#: P0 NOSTALGIA REWORK W1 (27.10.2026, NOST-01/02/04 source-2026-10-27.md):
+#: канон ностальгии ``internal.nostalgia.candidate`` — память описана как
+#: многолетние исторические эпизоды (вместо «события примерно год назад»),
+#: ответ типизирован (NOST-01: вердикт первой строкой — ровно UNCHANGED или
+#: SAY + реплика; семантический страж самоотказа по фразам удалён из
+#: runtime). Директива владельца §8, provenance «Переслано» и анти-вымысел —
+#: дословно. changed = 1. Метка ``nostalgia-nost-rework-w1``; прежние байты
+#: W1 — PREV_NOSTALGIA_PROMPT_1027 / PREV_NOSTALGIA_CORE_CANON_1027
+#: (откат/дифф). Было ``3bc0c543520c``, стало ``986108f6d63c``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+FACTORY_SET_SHA256_12 = "986108f6d63c"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

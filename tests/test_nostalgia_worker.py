@@ -139,6 +139,20 @@ def _patch_time(monkeypatch, hour: int = 12):
     monkeypatch.setattr(nw, "_local_hour", lambda ts, tz=None: hour)
 
 
+def _yb_ts(offset_seconds: int = 0, *, years_ago: int = 1,
+           hour: int = 12) -> int:
+    """unix ts ВНУТРИ календарного дня годовщины (years_ago лет назад):
+    детерминированно относительно календарной арифметики воркера (tz чата),
+    не от времени суток прогона (P0 REWORK W1: календарный день вместо
+    365*86400). hour — локальный час внутри дня годовщины."""
+    from config.settings import settings
+    tz = nw._zone(settings.SUMMARY_TIMEZONE)
+    now_local = nw._local_datetime(NOW, tz)
+    anniv = nw._anniversary_date(now_local.date(), now_local.year - years_ago)
+    day_start = nw._anniversary_window(anniv, tz, "day", 0, 0)[0]
+    return int(day_start) + hour * 3600 + int(offset_seconds)
+
+
 async def _add_user_msg(db, text, *, ts=None, uid=USER_ID, name="Вася"):
     """Юзерское сообщение чата (ts по умолчанию NOW — «тишины нет»)."""
     return await db.save_smart_message(
@@ -604,37 +618,40 @@ class TestTickFlow:
 
 
 class TestAsap5W1SourceDecline:
-    """ASAP5 W1 (source-2026-10-26 §1-§6): инцидент «не та история».
+    """ASAP5 W1 (source-2026-10-26 §1-§6) + P0 REWORK W1 (source-2026-10-27
+    NOST-01): инцидент «не та история». Пул: репост внешней новости
+    (is_forward, forward_source) + посторонняя реплика участника.
 
-    Пул: репост внешней новости (is_forward, forward_source) + посторонняя
-    реплика. Модель склеивает их в текст с самоотказом («это не та история,
-    из которой делают кстати») — такой текст НЕ публикуется (skip
-    self_decline, отказ до отправки); связный эпизод — публикуется штатно;
-    provenance репоста доходит до LLM."""
+    Отказ ДО публикации теперь типизированным вердиктом того же вызова
+    (NOST-01): ровно UNCHANGED — бот молчит, дневной лимит не тратится,
+    объяснение отказа в чат не уходит. Семантический страж по фразам
+    удалён из runtime (не существует); проза-самоотказ как «контент» не
+    является рабочей формой — канон требует вердикт."""
 
     async def _incident_pool(self, db) -> None:
         # «тишина» за окном сценария + год-назад пул: репост новости и
-        # посторонняя реплика участника
+        # посторонняя реплика участника — ОДИН сегмент (тот же календарный
+        # день годовщины, гэп < 30 минут — детерминированный календарный ts
+        # через _yb_ts)
         await _add_user_msg(db, "в чате тишина", ts=NOW - 30 * 3600)
         await db.save_smart_message(
             USER_ID, CHAT_ID, "Вера Косачева умерла за 300 метров до финиша",
-            None, NOW - 365 * 86400 + 3000, "text", "Вася",
+            None, _yb_ts(3000), "text", "Вася",
             is_forward=True, forward_source="Спорт-Новости")
         await _add_user_msg(db, "а я тогда писал про тромбы, жесть",
-                            ts=NOW - 365 * 86400 - 40000)
+                            ts=_yb_ts(3600))
 
     @pytest.mark.asyncio
     async def test_incident_shape_declined_not_posted(self, db, monkeypatch):
-        """РЕПРО ИНЦИДЕНТА: склейка репоста + посторонней реплики с
-        самоотказом не уходит в чат; бот молчит; дневной лимит не тратится."""
+        """РЕПРО ИНЦИДЕНТА (NOST-16: свойство результата, не фраза): память
+        инцидентной формы (репост + посторонняя реплика); модель отказывается
+        типизированным вердиктом UNCHANGED → в чат не уходит НИЧЕГО, включая
+        объяснение отказа; дневной лимит не тратится."""
         _patch_time(monkeypatch)
         await self._incident_pool(db)
-        incident = ("Вспоминать тут особо нечего, кроме того, что Вера "
-                    "Косачева умерла за 300 метров до финиша, а Вася тогда "
-                    "написал про тромбы, жесть. Это не та история, из "
-                    "которой делают кстати")
         bot = _FakeBot()
-        w = _worker(db, _FakeLLM(incident), monkeypatch=monkeypatch, bot=bot)
+        w = _worker(db, _FakeLLM("UNCHANGED"), monkeypatch=monkeypatch,
+                    bot=bot)
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
         assert bot.calls == []              # НИЧЕГО не опубликовано
         assert out["sent"] == 0
@@ -642,8 +659,42 @@ class TestAsap5W1SourceDecline:
         assert not [r for r in rows if r["status"] == "sent"]
         skip = [r for r in rows if r["status"] == "skipped"]
         assert skip and \
-            json.loads(skip[-1]["meta"])["reason"] == "self_decline"
+            json.loads(skip[-1]["meta"])["reason"] == "unchanged"
         assert await _sent_count(db) == 0   # отказ не тратит дневной лимит
+
+    @pytest.mark.asyncio
+    async def test_say_verdict_posts_replica(self, db, monkeypatch):
+        """NOST-01: SAY + вторая строка — содержательный ответ того же
+        вызова; публикуется ТОЛЬКО реплика, маркера в чате нет."""
+        _patch_time(monkeypatch)
+        await self._incident_pool(db)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("SAY\nкстати, про тромбы помню, жесть была"),
+                    monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 1 and len(bot.calls) == 1
+        assert bot.calls[0][1] == "кстати, про тромбы помню, жесть была"
+        rows = await _log_rows(db)
+        meta = json.loads(
+            [r for r in rows if r["status"] == "sent"][0]["meta"])
+        assert meta["protocol"] == "say"
+
+    @pytest.mark.asyncio
+    async def test_legacy_free_text_still_content(self, db, monkeypatch):
+        """Обратная совместимость: ответ без вердикта (старые клиенты) —
+        легаси-контент (публикуется); протокол в логе честный (legacy)."""
+        _patch_time(monkeypatch)
+        await self._incident_pool(db)
+        bot = _FakeBot()
+        w = _worker(db, _FakeLLM("кстати, год назад было весело"),
+                    monkeypatch=monkeypatch, bot=bot)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert out["sent"] == 1 and bot.calls[0][1] == \
+            "кстати, год назад было весело"
+        rows = await _log_rows(db)
+        meta = json.loads(
+            [r for r in rows if r["status"] == "sent"][0]["meta"])
+        assert meta["protocol"] == "legacy"
 
     @pytest.mark.asyncio
     async def test_unchanged_decline_still_works(self, db, monkeypatch):
@@ -664,15 +715,15 @@ class TestAsap5W1SourceDecline:
     @pytest.mark.asyncio
     async def test_coherent_episode_posted_naturally(self, db, monkeypatch):
         """Связный эпизод (одна связанная история) — публикуется штатно
-        (не подавлен стражем/цензурой)."""
+        (без цензуры/словесных стражей)."""
         _patch_time(monkeypatch)
         await _add_user_msg(db, "тишина", ts=NOW - 30 * 3600)
         await _add_user_msg(db, "год назад уронили торт у Васи",
-                            ts=NOW - 365 * 86400 + 2000)
+                            ts=_yb_ts(2000))
         bot = _FakeBot()
         w = _worker(db, _FakeLLM(
-            "кстати, год назад торт у васи пол отвесил, до сих пор смешно"),
-            monkeypatch=monkeypatch, bot=bot)
+            "SAY\nкстати, год назад торт у васи пол отвесил, до сих пор "
+            "смешно"), monkeypatch=monkeypatch, bot=bot)
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
         assert out["sent"] == 1 and len(bot.calls) == 1
         rows = await _log_rows(db)
@@ -684,7 +735,7 @@ class TestAsap5W1SourceDecline:
     async def test_forward_provenance_reaches_llm(self, db, monkeypatch):
         """ASAP5 W1 (source §6): provenance репоста («Переслано: источник»)
         доходит до user-блока LLM — модель различает репост и реплику
-        участника."""
+        участника (в одном сегменте-эпизоде)."""
         _patch_time(monkeypatch)
         await self._incident_pool(db)
         llm = _FakeLLM("UNCHANGED")
@@ -792,9 +843,11 @@ class TestAsap5W1Delegation:
         assert bot.calls == []
 
     @pytest.mark.asyncio
-    async def test_self_decline_guards_delegated_path(self, db, monkeypatch):
-        """Страж самоотказа стоит ДО делегирования: текст-самоотказ не доходит
-        ни до Decision, ни до чата."""
+    async def test_unchanged_verdict_guards_delegated_path(self, db,
+                                                           monkeypatch):
+        """P0 REWORK W1 (NOST-01): отказ — типизированный вердикт UNCHANGED
+        ДО делегирования: ни Decision, ни чат ничего не получают, объяснение
+        отказа не публикуется."""
         _patch_time(monkeypatch)
         await self._pool(db)
         monkeypatch.setattr(nw, "_intent_delegation_enabled", lambda: True)
@@ -807,14 +860,12 @@ class TestAsap5W1Delegation:
         from services import direct_chat_service as dcs
         monkeypatch.setattr(dcs, "handle_initiative", _spy)
         bot = _FakeBot()
-        incident = ("Вспоминать тут особо нечего, кроме того, что Вера "
-                    "Косачева умерла за 300 метров до финиша. Это не та "
-                    "история, из которой делают кстати")
-        w = _worker(db, _FakeLLM(incident), monkeypatch=monkeypatch, bot=bot)
+        w = _worker(db, _FakeLLM("UNCHANGED"), monkeypatch=monkeypatch,
+                    bot=bot)
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
         assert calls == []                  # Decision не вызывался
         assert bot.calls == [] and out["sent"] == 0
         rows = await _log_rows(db)
         skip = [r for r in rows if r["status"] == "skipped"]
         assert skip and \
-            json.loads(skip[-1]["meta"])["reason"] == "self_decline"
+            json.loads(skip[-1]["meta"])["reason"] == "unchanged"

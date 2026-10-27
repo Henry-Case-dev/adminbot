@@ -165,4 +165,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # toolphase-search-decision, прежние байты — PREV_CHAT_W2_SYSTEM_PROMPT),
     # секция «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ» Writer (метка
     # l2-writer-tech-reasoning, прежние байты — PREV_CHAT_VERBALIZER_PA5W2).
-    assert pr.FACTORY_SET_SHA256_12 == "3bc0c543520c"
+    assert pr.FACTORY_SET_SHA256_12 == "986108f6d63c"

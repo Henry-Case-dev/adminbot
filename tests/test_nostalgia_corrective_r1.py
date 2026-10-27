@@ -105,24 +105,32 @@ class TestGoldenLineTargetUser:
 
 
 class TestWorkerLogsFullPool:
-    """nostalgia_log.meta несёт ПОЛНЫЙ пул кандидата (audit §5.3)."""
+    """nostalgia_log.meta несёт ПОЛНЫЙ пул кандидата (audit §5.3).
+    P0 REWORK W1: пул — строки реконструированного эпизода; meta.episodes
+    несёт честную карточку эпизода (границы/уровень/число сообщений)."""
 
     @pytest.mark.asyncio
     async def test_meta_contains_full_year_pool(self, db, monkeypatch):
         _patch_time(monkeypatch)
         await _add_user_msg(db, "в чате тишина", ts=NOW - 30 * 3600)
+        # один календарный день годовщины, гэп < 30 минут → один сегмент
+        # (детерминированный календарный ts — test_nostalgia_worker._yb_ts)
+        from tests.test_nostalgia_worker import _yb_ts
         await _add_user_msg(db, "год назад был жаркий спор",
-                            ts=NOW - 365 * 86400 + 1000)
+                            ts=_yb_ts(1000))
         await _add_user_msg(db, "и ещё запомнилась поездка",
-                            ts=NOW - 365 * 86400 - 80000)
+                            ts=_yb_ts(1600))
         w = _worker(db, monkeypatch=monkeypatch, bot=_FakeBot())
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
         assert out["candidates"] == 1
         rows = await _log_rows(db)
         meta = json.loads(rows[0]["meta"])
         assert meta["candidate"] == "year_back"
-        # полный пул: ОБЕ строки года (раньше только year_lines[0])
+        # полный пул: ОБЕ строки эпизода (раньше только year_lines[0])
         assert len(meta["year_lines"]) == 2
         assert any("жаркий спор" in l for l in meta["year_lines"])
         assert any("поездка" in l for l in meta["year_lines"])
         assert meta["candidate_text"] == meta["year_lines"][0]
+        # карточка эпизода честна (NOST-04: фактические границы)
+        assert meta["episodes"] and meta["episodes"][0]["messages"] == 2
+        assert meta["episodes"][0]["years_ago"] >= 1

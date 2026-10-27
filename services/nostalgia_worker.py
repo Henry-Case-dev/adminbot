@@ -36,19 +36,36 @@ ChatLoreStore.list_active_chat_ids, Q13; PG down/пусто → no-op WARNING):
      pause_hours не пройдёт ИЛИ юзер не ответит (D-17: пауза неявная —
      то же условие повторяется на следующих тиках).
 Дорогие шаги (строки в nostalgia_log):
-  кандидаты (§3.5.2): «год назад» (строки smart_messages в окне
-  now − 365д ± nostalgia_year_back_days_window, ≤3, вес набора 0.7) и/или
-  «золотые» по последней теме (ключи последних 5 юзерских сообщений →
-  memory.fetch_golden_facts, ≤2 факта; вес факта 0.3 + 0.05*importance);
-  кандидат = максимум веса (равенство → «год назад»). Порог 0.3 +
-  nostalgia_aggressiveness*0.5 (дефолт 0.3 → 0.45) → ниже skip threshold;
-  LLM (1 облачный вызов, NOSTALGIA_PROMPT): UNCHANGED → skipped unchanged
-  (дневной лимит не тратится); текст, сообщающий, что история не годится
-  («не та история», «вспоминать нечего» без поворота) → skipped
-  self_decline (ASAP5 W1, source §5 — отказ до публикации); текст: trim +
-  cap nostalgia_max_send_chars, пустой → skipped empty; отправка
-  bot.send_message (plain, Q13); сбой → status='error'; успех →
-  status='sent'.
+  кандидаты (§3.5.2, P0 NOSTALGIA REWORK W1, source-2026-10-27
+  NOST-01..04/07): исторические ЭПИЗОДЫ вместо «один год назад — три
+  ближайших сообщения» — по годам фактического архива чата
+  (get_chat_history_bounds, динамический список лет) в календарные
+  годовщины текущего дня (часовой пояс чата, високосные годы; 365*86400
+  удалено); окно уровня «день» (± nostalgia_year_back_days_window —
+  существующая настройка владельца) адаптивно расширяется
+  день → неделя → месяц → продолжение по факту события, пока сегмент
+  касается границы окна (остановка — сегмент закрыт; уровни — масштабы
+  исследования, не обязательные стадии). Реконструкция эпизода —
+  существующее детерминированное ядро mca_episodes.segment_messages
+  (время + reply-граф + участники; несвязанные обсуждения не склеиваются).
+  Первичные сообщения эпизода → format_year_back_line (provenance
+  «Переслано» сохранён; имена — актуальный алиас по uid, каскад
+  summary_aliases) → 1 LLM-вызов (NOSTALGIA_PROMPT / NOSTALGIA_CORE_CANON).
+  И/или «золотые» по последней теме (ключи последних 5 юзерских сообщений →
+  memory.fetch_golden_facts, ≤2 факта; вес факта 0.3 + 0.05*importance).
+  Вес исторического набора 0.7 (как прежде); кандидат = максимум веса
+  (равенство → история). Порог 0.3 + nostalgia_aggressiveness*0.5
+  (дефолт 0.3 → 0.45) → ниже skip threshold. Ответ LLM типизирован
+  (NOST-01): ровно UNCHANGED → skipped unchanged (дневной лимит не
+  тратится); SAY + вторая строка → текст реплики; ответ без вердикта —
+  легаси-контент (совместимость). Семантический страж самоотказа по
+  фразам (_SELF_DECLINE_* / is_self_declining_text) УДАЛЁН — смысловые
+  решения не ищутся по спискам фраз. Текст: trim + cap
+  nostalgia_max_send_chars, пустой → skipped empty; UNCHANGED-токен в
+  контенте → брак. Отправка: legacy bot.send_message ИЛИ делегирование
+  _delegate_initiative → handle_initiative (единый Decision, audit-1021
+  §3). Отказ (UNCHANGED) — отсутствие публикации, без объяснения в чат.
+  Сбой → status='error'; успех → status='sent'.
 
 Fail-open (NFR-4): ошибка чата — WARNING, тик жив; бот не падает.
 """
@@ -66,6 +83,12 @@ from zoneinfo import ZoneInfo
 
 from config.settings import settings
 from services import hot_config as hot
+from services.database import row_get
+from services.mca_episodes import (
+    SEGMENT_GAP_SECONDS,
+    message_key,
+    segment_messages,
+)
 from services.nostalgia_prompts import (
     NOSTALGIA_CORE_CANON,
     NOSTALGIA_PROMPT,
@@ -75,14 +98,11 @@ from services.nostalgia_prompts import (
     contains_unchanged_token,
     format_golden_line,
     format_year_back_line,
-    is_self_declining_text,
-    is_unchanged_response,
+    parse_nostalgia_answer,
 )
 
 logger = logging.getLogger(__name__)
 
-_YEAR_SECONDS = 365 * 86400
-_MAX_YEAR_BACK_LINES = 3       # spec §3.5.2: ≤3 строки «[Имя дата]: текст»
 _GOLDEN_FACT_LIMIT = 2         # spec §3.5.2: 1–2 факта по последней теме
 _YEAR_BACK_WEIGHT = 0.7        # spec §3.5.2: вес набора «год назад»
 _TOPIC_MESSAGES = 5            # spec §3.5.2: ключи последних 5 юзерских
@@ -94,6 +114,16 @@ _KIND_NONE = "none"            # kind лога при «кандидатов н�
 _STATUS_SENT = "sent"
 _STATUS_SKIPPED = "skipped"
 _STATUS_ERROR = "error"
+
+# ── P0 NOSTALGIA REWORK W1 (NOST-02/03/04/07): исторические эпизоды ────────
+_HISTORY_LEVEL_DAY = "day"     # уровень A: календарный день годовщины
+_HISTORY_LEVEL_WEEK = "week"   # уровень B: календарная ISO-неделя
+_HISTORY_LEVEL_MONTH = "month"  # уровень C: календарный месяц
+_HISTORY_CONTINUATION_MAX = 3  # уровень D: потолок продолжений (+месяц)
+_WINDOW_FETCH_LIMIT = 600      # кап выборки одного окна (честный truncated)
+_EPISODE_LINES_MAX = 12        # кап строк одного эпизода (голова+хвост)
+_EPISODES_MAX = 4              # кап эпизодов в пуле (более свежие годы)
+_SEGMENT_EPS = SEGMENT_GAP_SECONDS  # порог «касания» границы окна (30 мин)
 
 _TOPIC_WORD_RE = re.compile(r"[а-яёa-z0-9]{5,}", re.IGNORECASE)
 
@@ -177,6 +207,195 @@ def _zone(tz_name: str | None):
         return ZoneInfo(str(tz_name)) if tz_name else None
     except Exception:
         return None
+
+
+# ── P0 NOSTALGIA REWORK W1: календарная арифметика и эпизоды ────────────────
+# (NOST-02/03/04; детерминированная логика — даты/диапазоны/сегменты.
+#  Семантических списков слов здесь нет и не должно появляться.)
+
+
+def _local_datetime(ts: int, tz=None):
+    """unix ts → aware-локальное время (tz чата) или naive local; None —
+    битое значение. Никогда не бросает."""
+    try:
+        if tz is not None:
+            return datetime.datetime.fromtimestamp(int(ts), tz)
+        return datetime.datetime.fromtimestamp(int(ts))
+    except (TypeError, ValueError, OSError, OverflowError):
+        return None
+
+
+def _ts_date_local(ts, tz=None) -> str:
+    """unix ts → ГГГГ-ММ-ДД в часовом поясе ЧАТА (NOST-02.2: часовой пояс
+    чата; битое/пустое → '????-??-??'). Для дат-заголовков эпизодов;
+    построчный рендер сообщений сохраняет прежний легаси-конвент."""
+    dt = _local_datetime(ts, tz)
+    if dt is None:
+        return "????-??-??"
+    return dt.strftime("%Y-%m-%d")
+
+
+def _anniversary_date(today: datetime.date, year: int) -> datetime.date:
+    """Календарная годовщина `today` в году `year` (NOST-02.2): дата
+    вычисляется календарно, не вычитанием секунд. 29 февраля в невисокосный
+    год → 28 февраля (документированное правило сопоставления; даты
+    исходных сообщений при этом не изменяются)."""
+    try:
+        return datetime.date(year, today.month, today.day)
+    except ValueError:            # 29 февраля → невисокосный год
+        return datetime.date(year, today.month, 28)
+
+
+def _shift_month_first(day: datetime.date, months: int) -> datetime.date:
+    """1-е число месяца, смещённого на `months` календарных месяцев от
+    месяца `day` (уровни C/D — календарные месяцы, не «30 дней»,
+    NOST-03.1)."""
+    total = day.year * 12 + (day.month - 1) + months
+    return datetime.date(total // 12, total % 12 + 1, 1)
+
+
+def _anniversary_window(anniv: datetime.date, tz, level: str,
+                        continuation: int, base_days: int) -> tuple[int, int]:
+    """Границы окна исследования годовщины в unix ts (NOST-02.2/3.1):
+    календарные периоды в часовом поясе чата. day — сам день годовщины;
+    week — календарная неделя (Пн..Вс) этого дня; month — календарный месяц;
+    month+k — месяц, расширенный на k календарных месяцев в обе стороны
+    (уровень D: продолжение по факту события; Новый год не обрывает
+    эпизод). base_days (nostalgia_year_back_days_window — существующая
+    настройка владельца) симметрично расширяет любой уровень."""
+    pad = max(0, int(base_days or 0)) * 86400
+
+    def midnight(d: datetime.date) -> int:
+        dt = datetime.datetime(d.year, d.month, d.day)
+        if tz is not None:
+            dt = dt.replace(tzinfo=tz)
+        return int(dt.timestamp())
+
+    if level == _HISTORY_LEVEL_WEEK:
+        start_day = anniv - datetime.timedelta(days=anniv.weekday())
+        end_day = start_day + datetime.timedelta(days=7)
+    elif level == _HISTORY_LEVEL_MONTH:
+        start_day = anniv.replace(day=1)
+        end_day = _shift_month_first(anniv, 1)
+    elif level.startswith(_HISTORY_LEVEL_MONTH + "+"):
+        start_day = _shift_month_first(anniv, -int(continuation or 0))
+        end_day = _shift_month_first(anniv, 1 + int(continuation or 0))
+    else:                          # _HISTORY_LEVEL_DAY
+        start_day = anniv
+        end_day = anniv + datetime.timedelta(days=1)
+    return midnight(start_day) - pad, midnight(end_day) + pad
+
+
+def _next_research_level(level: str, continuation: int) -> tuple[str, int] | None:
+    """Следующий уровень исследования (NOST-03.1/3.3): день → неделя →
+    месяц → продолжение по факту события с ограничением
+    _HISTORY_CONTINUATION_MAX. Уровни — масштабы исследования, а не
+    обязательные стадии: вызывающий переходит дальше только когда найденный
+    эпизод касается границы текущего окна. None — потолок."""
+    if level == _HISTORY_LEVEL_DAY:
+        return _HISTORY_LEVEL_WEEK, 0
+    if level == _HISTORY_LEVEL_WEEK:
+        return _HISTORY_LEVEL_MONTH, 0
+    if level == _HISTORY_LEVEL_MONTH:
+        if continuation >= _HISTORY_CONTINUATION_MAX:
+            return None
+        return f"{_HISTORY_LEVEL_MONTH}+1", 1
+    if level.startswith(_HISTORY_LEVEL_MONTH + "+"):
+        if continuation >= _HISTORY_CONTINUATION_MAX:
+            return None
+        return f"{_HISTORY_LEVEL_MONTH}+{continuation + 1}", continuation + 1
+    return None
+
+
+def _row_dict(row) -> dict:
+    """Строка smart_messages → dict со стабильным message_key (каноническая
+    идентичность mca-03; существующий механизм mca_episodes)."""
+    d = {k: row_get(row, k) for k in
+         ("id", "user_id", "chat_id", "text", "timestamp", "author_name",
+          "reply_to_id", "tg_message_id", "is_forward", "forward_source")}
+    try:
+        d["message_key"] = message_key(d)
+    except ValueError:
+        d["message_key"] = ""
+    return d
+
+
+def _segment_of_seed(segments: list, seed_keys: set) -> list | None:
+    """Сегмент, содержащий ключи-семена (дополнение данных способно только
+    СКЛЕИТЬ сегменты, не расщепить: union-find в segment_messages)."""
+    best, best_n = None, 0
+    for seg in segments:
+        n = sum(1 for r in seg if r.get("message_key") in seed_keys)
+        if n > best_n:
+            best, best_n = seg, n
+    return best
+
+
+def _segment_rows_full(segment: list, by_key: dict) -> list:
+    """segment_messages возвращает НОРМАЛИЗОВАННЫЕ slim-строки (message_key/
+    timestamp/user_id/reply_to_key). Маппинг обратно на полные dict'ы
+    smart_messages по стабильному ключу — рендеру нужны text/provenance/
+    author_name. Неизвестный ключ не встречается (сегменты собираются из
+    тех же строк); защитно пропускается."""
+    out = []
+    for r in segment or ():
+        full = by_key.get(str(r.get("message_key") or ""))
+        if full is not None:
+            out.append(full)
+    return out
+
+
+def _segment_touches_window(segment: list, window: tuple[int, int]) -> bool:
+    """Продолжение события наружу окна (NOST-03.2 п.4): сегмент касается
+    границы окна ближе, чем зазор, которым сегментатор сам закрывает
+    сегменты (SEGMENT_GAP_SECONDS). Пока касается — событие может иметь
+    продолжение; перестал — расширение останавливается. Временная близость
+    сама по себе не склеивает сообщения: решает reply-граф/гэпы
+    segment_messages, не расстояние до границы."""
+    if not segment:
+        return False
+    ts = [int(r.get("timestamp") or 0) for r in segment]
+    lo, hi = min(ts), max(ts)
+    return hi >= int(window[1]) - _SEGMENT_EPS or \
+        lo <= int(window[0]) + _SEGMENT_EPS
+
+
+def _seed_segment(segments: list, anniv: datetime.date, tz,
+                  day_bounds: tuple[int, int]) -> list:
+    """Выбор сегмента-повода года (детерминированный выбор ПОВОДА, не
+    оценка ценности — NOST-05 вне этого слайса): пересекает сам день
+    годовщины → больше сообщений этого дня, ничья → более ранний старт;
+    иначе (окно шире дня из-за base_days владельца) — сегмент с ближайшим
+    к дню годовщины промежутком. Несколько несвязанных обсуждений дня
+    остаются отдельными сегментами (segment_messages их не склеивает)."""
+    crossing: list = []
+    near: list = []
+    for seg in segments:
+        days = set()
+        for r in seg:
+            dt = _local_datetime(r.get("timestamp"), tz)
+            days.add(dt.date() if dt else None)
+        if anniv in days:
+            crossing.append(seg)
+            continue
+        ts = [int(r.get("timestamp") or 0) for r in seg]
+        lo, hi = min(ts), max(ts)
+        distance = max(0, int(day_bounds[0]) - hi, lo - int(day_bounds[1]))
+        near.append((distance, lo, seg))
+    if crossing:
+        def cross_key(seg):
+            n = 0
+            for r in seg:
+                dt = _local_datetime(r.get("timestamp"), tz)
+                if dt and dt.date() == anniv:
+                    n += 1
+            lo = min(int(r.get("timestamp") or 0) for r in seg)
+            return (-n, lo)
+        return sorted(crossing, key=cross_key)[0]
+    if near:
+        near.sort(key=lambda t: (t[0], t[1]))
+        return near[0][2]
+    return []
 
 
 class NostalgiaWorker:
@@ -557,24 +776,34 @@ class NostalgiaWorker:
                             {"reason": "llm_error"})
             out["errors"] += 1
             return
-        text = str(raw or "").strip()
-        if is_unchanged_response(text):
+        # P0 NOSTALGIA REWORK W1 (NOST-01): типизированный вердикт того же
+        # вызова. "unchanged" — прежний формальный контракт отказа (skip,
+        # дневной лимит не тратится); "say" — реплика со второй строки;
+        # "legacy" — ответ без вердикта, трактуется как контент
+        # (обратная совместимость). Семантический страж по фразам удалён:
+        # содержательное решение — за моделью (вердикт) / Decision.
+        verdict, content = parse_nostalgia_answer(raw)
+        if verdict == "unchanged":
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
                             {**self._candidate_meta(candidate),
-                             "reason": "unchanged", "llm_skipped": True})
+                             "reason": "unchanged", "llm_skipped": True,
+                             "protocol": verdict})
             out["skipped"] += 1
             logger.info(
                 "[nostalgia] LLM UNCHANGED — skip | chat=%s | kind=%s",
                 chat_id, candidate["kind"])
             return
-        text = clean_llm_text(text, int(self._limit(
-            "max_send_chars", settings.NOSTALGIA_MAX_SEND_CHARS) or 400))
+        text = clean_llm_text(content if verdict == "say" else raw,
+                              int(self._limit(
+                                  "max_send_chars",
+                                  settings.NOSTALGIA_MAX_SEND_CHARS) or 400))
         if not text:
             await self._log(chat_id, now, candidate["kind"],
                             candidate.get("fact_id"), _STATUS_SKIPPED,
                             {**self._candidate_meta(candidate),
-                             "reason": "empty", "llm_skipped": True})
+                             "reason": "empty", "llm_skipped": True,
+                             "protocol": verdict})
             out["skipped"] += 1
             logger.info("[nostalgia] empty LLM text — skip | chat=%s",
                         chat_id)
@@ -586,29 +815,14 @@ class NostalgiaWorker:
                             candidate.get("fact_id"), _STATUS_SKIPPED,
                             {**self._candidate_meta(candidate),
                              "reason": "unchanged_echo",
-                             "llm_skipped": True})
+                             "llm_skipped": True, "protocol": verdict})
             out["skipped"] += 1
             logger.info(
                 "[nostalgia] UNCHANGED echo — skip | chat=%s | kind=%s",
                 chat_id, candidate["kind"])
             return
-        # ASAP5 W1 (27.10.2026, source §4/§5): текст, который сам сообщает,
-        # что история не годится для воспоминания («это не та история...»), —
-        # это отказ, и он НЕ публикуется (инцидент: публикация противоречила
-        # собственному выводу). Узкий страж is_self_declining_text —
-        # ироничные формы «…нечего, кроме…» не блокируются (запрет владельца
-        # на универсальный словесный бан).
-        if is_self_declining_text(text):
-            await self._log(chat_id, now, candidate["kind"],
-                            candidate.get("fact_id"), _STATUS_SKIPPED,
-                            {**self._candidate_meta(candidate),
-                             "reason": "self_decline", "llm_skipped": True})
-            out["skipped"] += 1
-            logger.info(
-                "[nostalgia] self-decline text — skip | chat=%s | kind=%s",
-                chat_id, candidate["kind"])
-            return
-        meta = {**self._candidate_meta(candidate), "reason": "sent"}
+        meta = {**self._candidate_meta(candidate), "reason": "sent",
+                "protocol": verdict}
         # MCA-09 (T-5038, ADR-1028-16 D6): K1+K3 ON → готовый кандидат
         # делегируется в ЕДИНЫЙ Decision/транспорт (source=nostalgia,
         # trigger_kind=nostalgia_due, prepared_text_ref); решение может
@@ -724,12 +938,13 @@ class NostalgiaWorker:
         return 0.3 + aggr * 0.5
 
     async def _pick_candidate(self, chat_id: int, now: int) -> dict | None:
-        """Лучший кандидат чата (§3.5.2): максимум веса из набора «год назад»
-        (вес 0.7, если строки в окне ± window есть) и «золотых» по последней
-        теме (вес факта 0.3 + 0.05*importance). Равенство → «год назад»
-        (повод «ровно в этот день»; в user-блок LLM попадают ОБА набора —
-        память полнее). None — кандидатов нет."""
-        year_lines = await self._year_back_lines(chat_id, now)
+        """Лучший кандидат чата (§3.5.2, P0 REWORK W1): максимум веса из
+        исторического набора (многолетние эпизоды годовщины, вес 0.7 при
+        непустом пуле) и «золотых» по последней теме (вес факта
+        0.3 + 0.05*importance). Равенство → история. В user-блок LLM
+        попадают ОБА набора — память полнее. None — кандидатов нет.
+        Веса/порог не изменялись (NOST-05 — следующий этап)."""
+        year_lines, episodes = await self._historical_lines(chat_id, now)
         golden = await self._golden_rows(chat_id)
         best: dict | None = None
         if year_lines:
@@ -746,23 +961,207 @@ class NostalgiaWorker:
         if best is None:
             return None
         best["year_lines"] = year_lines
+        best["episodes"] = episodes
         best["golden_lines"] = [format_golden_line(r) for r in golden]
         return best
 
-    async def _year_back_lines(self, chat_id: int, now: int) -> list[str]:
-        """Строки «N лет назад в этот день» (§3.5.2): smart_messages чата с
-        timestamp в [now−365д ± nostalgia_year_back_days_window], непустой
-        текст, ближайшие к точной дате, ≤3. Рендер «[Имя ГГГГ-ММ-ДД]: текст»
-        (format_year_back_line). Пусто — набора нет."""
-        window_days = int(self._limit(
+    async def _historical_lines(self, chat_id: int,
+                                now: int) -> tuple[list[str], list[dict]]:
+        """Исторический пул чата (NOST-02/03/04): эпизоды календарных
+        годовщин по ВСЕМ годам фактического архива чата
+        (get_chat_history_bounds — динамический список лет, без жёсткой
+        конструкции «три запроса по году»; отсутствие материалов за год не
+        ошибка и не обрыв поиска). Возврат (строки_пула, эпизоды); строки —
+        рендер первичных сообщений (provenance сохранён), эпизоды —
+        честные карточки для диагностики. Пусто — повода нет."""
+        tz = _zone(self._tz_name)
+        now_local = _local_datetime(now, tz)
+        if now_local is None:
+            return [], []
+        try:
+            bounds = await self.db.get_chat_history_bounds(chat_id)
+        except Exception:
+            logger.warning(
+                "[nostalgia] archive bounds failed — без исторического "
+                "пула | chat=%s", chat_id, exc_info=True)
+            return [], []
+        if not bounds:
+            return [], []
+        min_local = _local_datetime(int(bounds[0]), tz)
+        if min_local is None:
+            return [], []
+        base_days = int(self._key(
             "year_back_days_window",
             settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW) or 0) or \
             settings.NOSTALGIA_YEAR_BACK_DAYS_WINDOW
-        center = now - _YEAR_SECONDS
-        rows = await self.db.get_year_back_messages(
-            chat_id, center - window_days * 86400,
-            center + window_days * 86400, center, _MAX_YEAR_BACK_LINES)
-        return [l for l in (format_year_back_line(r) for r in rows) if l]
+        today = now_local.date()
+        episodes: list[dict] = []
+        # Динамические годы: от первого года архива до прошлого года
+        # (текущий год — не «прошлое»; частичный первый год — не ошибка).
+        for year in range(min_local.year, now_local.year):
+            try:
+                ep = await self._year_episode(chat_id, year, today, tz,
+                                              base_days)
+            except Exception:
+                logger.warning(
+                    "[nostalgia] year episode failed — год пропущен | "
+                    "chat=%s | year=%s", chat_id, year, exc_info=True)
+                continue
+            if ep:
+                episodes.append(ep)
+        if not episodes:
+            return [], []
+        episodes.sort(key=lambda e: e["year"], reverse=True)  # свежие выше
+        episodes = episodes[:_EPISODES_MAX]
+        names = await self._display_names(
+            chat_id, [r for ep in episodes for r in ep["rows"]])
+        lines: list[str] = []
+        for ep in episodes:
+            ep["years_ago"] = now_local.year - ep["year"]
+            ep["lines"] = self._episode_lines(ep, names)
+            # даты-заголовки эпизода — в часовом поясе чата (NOST-02.2)
+            ep["start_date"] = _ts_date_local(ep["start_ts"], tz)
+            ep["end_date"] = _ts_date_local(ep["end_ts"], tz)
+            lines.extend(ep["lines"])
+        return lines, episodes
+
+    async def _year_episode(self, chat_id: int, year: int,
+                            today: datetime.date, tz,
+                            base_days: int) -> dict | None:
+        """Эпизод годовщины одного исторического года (NOST-02/03/04):
+        календарное окно → существующий детерминированный сегментатор
+        mca_episodes.segment_messages (время + reply-граф + участники;
+        несвязанные обсуждения не склеиваются) → адаптивное расширение окна
+        день → неделя → месяц → продолжение, ПОКА сегмент касается границы
+        окна; сегмент закрыт — событие завершилось, расширение останавливается
+        (NOST-03.2). Эпизод может быть одним сообщением (NOST-04: минимум
+        нет). None — в этом году повода нет (не ошибка, NOST-02.1)."""
+        anniv = _anniversary_date(today, year)
+        day_bounds = _anniversary_window(anniv, tz, _HISTORY_LEVEL_DAY, 0, 0)
+        seen: set[str] = set()
+        level, continuation = _HISTORY_LEVEL_DAY, 0
+        window = _anniversary_window(anniv, tz, level, continuation,
+                                     base_days)
+        rows, truncated = await self._fetch_window_rows(chat_id, window, seen)
+        if not rows:
+            return None
+        by_key = {str(r.get("message_key") or ""): r for r in rows}
+        segments = segment_messages(rows)
+        seed_keys = {r["message_key"] for r in
+                     _seed_segment(segments, anniv, tz, day_bounds)}
+        while True:
+            seg = _segment_of_seed(segments, seed_keys)
+            if not seg or not _segment_touches_window(seg, window):
+                break
+            nxt = _next_research_level(level, continuation)
+            if nxt is None:
+                break                     # потолок продолжения (уровень D)
+            level, continuation = nxt
+            window = _anniversary_window(anniv, tz, level, continuation,
+                                         base_days)
+            more, tr = await self._fetch_window_rows(chat_id, window, seen)
+            truncated = truncated or tr
+            if not more:
+                break
+            rows = rows + more
+            by_key.update({str(r.get("message_key") or ""): r for r in more})
+            segments = segment_messages(rows)
+        seg = _segment_of_seed(segments, seed_keys) or []
+        full_seg = _segment_rows_full(seg, by_key)
+        if not full_seg:
+            return None
+        return self._episode_card(full_seg, year, level, continuation,
+                                  window, truncated)
+
+    async def _fetch_window_rows(self, chat_id: int,
+                                 window: tuple[int, int],
+                                 seen_keys: set) -> tuple[list[dict], bool]:
+        """Выборка сырых сообщений окна (get_chat_history_messages; бот-строки
+        исключены — NOST-07.2 self-echo) с дедупом по стабильному ключу
+        (overlap расширений не дублирует сообщения). truncated — окно
+        усечено лимитом (честный признак в карточке; стратификация плотных
+        окон — NOST-11, следующий этап). Fail-open: ошибка источника →
+        пусто (NOST-11.4: недоступность одного источника не останавливает
+        систему)."""
+        try:
+            rows = await self.db.get_chat_history_messages(
+                chat_id, int(window[0]), int(window[1]),
+                _WINDOW_FETCH_LIMIT, self.bot_id)
+        except Exception:
+            logger.warning(
+                "[nostalgia] history window fetch failed — окно пропущено "
+                "| chat=%s", chat_id, exc_info=True)
+            return [], False
+        out: list[dict] = []
+        for row in rows:
+            d = _row_dict(row)
+            key = str(d.get("message_key") or "")
+            if not key or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            out.append(d)
+        return out, len(rows) >= _WINDOW_FETCH_LIMIT
+
+    def _episode_card(self, seg: list, year: int, level: str,
+                      continuation: int, window: tuple[int, int],
+                      truncated: bool) -> dict:
+        """Карточка эпизода для пула/диагностики: фактические границы
+        найденного сегмента (не календарной обрезки), достигнутый уровень
+        исследования, счётчики. Строки рендерятся позже (после отбора
+        ≤_EPISODES_MAX эпизодов) — rename-кэш алиасов строится один раз."""
+        ordered = sorted(seg, key=lambda r: (int(r.get("timestamp") or 0),
+                                             str(r.get("message_key") or "")))
+        ts = [int(r.get("timestamp") or 0) for r in ordered]
+        level_label = level if continuation <= 0 else f"{level}+{continuation}"
+        return {"year": year,
+                "level": level_label,
+                "start_ts": min(ts),
+                "end_ts": max(ts),
+                "messages": len(ordered),
+                "truncated": bool(truncated),
+                "window": (int(window[0]), int(window[1])),
+                "rows": ordered}
+
+    def _episode_lines(self, ep: dict, display_names: dict) -> list[str]:
+        """Строки эпизода для LLM/лога (рендер format_year_back_line —
+        provenance «Переслано» и имена по uid). Кап _EPISODE_LINES_MAX:
+        голова+хвост хронологии (длинный эпизод не теряет начало и финал);
+        полный счётчик — в карточке (nostalgia_log)."""
+        lines = [l for l in (format_year_back_line(r, display_names)
+                             for r in ep["rows"]) if l]
+        if len(lines) > _EPISODE_LINES_MAX:
+            half = _EPISODE_LINES_MAX // 2
+            lines = lines[:half] + lines[-half:]
+        return lines
+
+    async def _display_names(self, chat_id: int, rows: list) -> dict:
+        """Актуальные имена участников по Telegram user_id (NOST-07.3):
+        единый каскад summary_aliases (алиас чата → глобальный). Исторический
+        author_name строк не подменяет алиасы и сам остаётся фолбэком рендера
+        (старые имена пригодны, актуальные — приоритетны). Резолвер отдал
+        сам id → имени нет (не выдумываем «автора 12345»; прецедент
+        direct_chat). Fail-open: без резолвера — historical-рендер."""
+        uids = sorted({int(r.get("user_id")) for r in rows
+                       if r.get("user_id") not in (None, 0)})
+        if not uids:
+            return {}
+        try:
+            from services.summary_aliases import build_alias_resolver
+            resolver = await build_alias_resolver(chat_id)
+        except Exception:
+            logger.warning(
+                "[nostalgia] alias resolver failed — имена по author_name "
+                "| chat=%s", chat_id, exc_info=True)
+            return {}
+        names: dict[int, str] = {}
+        for uid in uids:
+            try:
+                name = str(resolver.resolve(uid) or "").strip()
+            except Exception:
+                continue
+            if name and name != str(uid):
+                names[uid] = name
+        return names
 
     async def _golden_rows(self, chat_id: int) -> list:
         """«Золотые» по последней теме (§3.5.2): ключи (слова len≥5) последних
@@ -839,7 +1238,8 @@ class NostalgiaWorker:
         user_text = build_nostalgia_user(
             candidate.get("year_lines") or [],
             candidate.get("golden_lines") or [],
-            lore=lore_text, memes=memes, active=active)
+            lore=lore_text, memes=memes, active=active,
+            episodes=candidate.get("episodes") or [])
         if not user_text:
             return None
         # SOUL-AMD.2.6 (W4): воспоминание — авторский текст бота. Композер ON
@@ -891,13 +1291,25 @@ class NostalgiaWorker:
         `candidate_text` попадала ТОЛЬКО первая строка пула (year_lines[0]),
         а LLM получал весь пул ≤3 строк — построчная сверка финал↔источник
         по логу была невозможна (слепое пятно аудита). Теперь лог несёт
-        ПОЛНЫЙ пул (year_lines + golden_lines)."""
+        ПОЛНЫЙ пул (year_lines + golden_lines).
+        P0 REWORK W1 (подготовка диагностики NOST-12): `episodes` — честные
+        карточки найденных эпизодов (год, фактические границы, уровень
+        исследования, число сообщений, признак усечения окна)."""
         meta = {"candidate": candidate.get("kind"),
                 "candidate_text": candidate.get("text")}
         year_lines = candidate.get("year_lines") or []
         golden_lines = candidate.get("golden_lines") or []
+        episodes = candidate.get("episodes") or []
         if year_lines:
             meta["year_lines"] = list(year_lines)
         if golden_lines:
             meta["golden_lines"] = list(golden_lines)
+        if episodes:
+            meta["episodes"] = [{"years_ago": e.get("years_ago"),
+                                 "from": e.get("start_date"),
+                                 "to": e.get("end_date"),
+                                 "messages": e.get("messages"),
+                                 "level": e.get("level"),
+                                 "truncated": e.get("truncated")}
+                                for e in episodes]
         return meta
