@@ -1,0 +1,9 @@
+{
+ "candidate": "fe1e514ae37dd2c07c1b833a4c3b8489c20a1215",
+ "docs_commit": "4bf1b36a3306b60123e524d92311ecadf3877e4f",
+ "stage_tgz": "C:\\Code\\Python\\adminbot\\OPENCODE_WORKFLOW_SCRATCH\\p0c-int3\\stage.tgz",
+ "stage_tgz_bytes": 11273889,
+ "stage_tgz_sha256": "ac1991d88413a5aedb1835c4ddc34058648bc55fcad3f66c14f632e91d5e585e",
+ "harness_sha256_local": "a750a98368a7cbad9f0052b55ba2b9a39717edd1cdda8694a85f4ce2b008585e",
+ "analyzer_sha256_local": "de9783ce2f685d23787d44a14b045f7d5d98c3d74677b854ff15503a957d43f8"
+}

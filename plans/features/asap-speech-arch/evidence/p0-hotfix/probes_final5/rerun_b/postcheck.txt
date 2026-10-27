@@ -1,0 +1,19 @@
+2026-10-25T12:01:14Z
+-- unit --
+NRestarts=0
+ActiveState=active
+ActiveEnterTimestamp=Sat 2026-10-24 21:03:19 UTC
+-- healthz --
+https_loopback=000
+http_loopback=308
+-- git prod --
+534ac7dd
+13
+-- db --
+/var/www/admin_bot/local_database.db 1626017792 2026-10-25 11:54:36.441926930 +0000
+/var/www/admin_bot/local_database.db-wal 4223032 2026-10-25 12:01:00.377960381 +0000
+/var/www/admin_bot/local_database.db-shm 32768 2026-10-25 12:01:00.377960381 +0000
+-- stray harness after --
+1
+-- disk /tmp --
+/dev/vda2        24G   19G  3.5G  85% /
