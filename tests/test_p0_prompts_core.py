@@ -87,9 +87,9 @@ def _withheld_text(block_id: str) -> str:
 
 def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
-    # SPEECH-P0-B2 (25.10.2026): бамп набора — L2 + 3 lore-канона
-    # (фактологический hotfix §4).
-    assert pr.FACTORY_SET_SHA256_12 == "28e6c619b937"
+    # Пин актуализирован 28.10.2026: бампы NOST-REWORK W1/W2
+    # (986108f6d63c -> fbc44eb0f879) — каноны ностальгии §8/§9.
+    assert pr.FACTORY_SET_SHA256_12 == "fbc44eb0f879"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

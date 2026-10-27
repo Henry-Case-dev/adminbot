@@ -13,6 +13,7 @@ TEST-LIFECYCLE: CONTRACT owner=CFG-06
 замокана (агрегатор + SafeFetcher-инъекция). Спор-фикстура 260 сообщений:
 широкий контекст > кап-40, резолюция по доминирующему спору, needs_context.
 """
+import os
 import asyncio
 import dataclasses
 import io
@@ -406,7 +407,7 @@ class TestCompositeCfg06B:
         _composite_common(res)
 
     @pytest.mark.asyncio
-    async def test_s6_dispute_200_plus_context_resolution(self, v2_on):
+    async def test_s6_dispute_200_plus_context_resolution(self, v2_on, tmp_path):
         """Спор 260 сообщений: широкий контекст, доминирующий спор,
         автор анцедента сохранён; метрики в evidence."""
         rows = _dispute_rows(260)
@@ -424,7 +425,7 @@ class TestCompositeCfg06B:
         assert visible                              # читаемый ответ
         assert res.latency_ms is not None
         # метрики спора — в evidence-JSON (06G.7/приёмка)
-        _dump_dispute_metrics(res, rows, d)
+        _dump_dispute_metrics(res, rows, d, tmp_path)
 
     @pytest.mark.asyncio
     async def test_s7_fallback_legacy_error_honest(self, v2_on):
@@ -481,8 +482,11 @@ class TestCompositeCfg06B:
         _composite_common(res)
 
 
-def _dump_dispute_metrics(res: ScenarioResult, rows, decision):
-    """Метрики спора 200+ → evidence JSON (06G.7/приёмка W7)."""
+def _dump_dispute_metrics(res: ScenarioResult, rows, decision, out_dir):
+    """Метрики спора 200+ → JSON (06G.7/приёмка W7).
+
+    Пишет в каталог прогона (pytest tmp_path): tracked evidence-файл
+    не мутируется тестовым прогоном (hygiene-fix 28.10.2026)."""
     item = decision.claim_items[0] if decision.claim_items else None
     metrics = {
         "fixture_messages": len(rows),
@@ -502,6 +506,6 @@ def _dump_dispute_metrics(res: ScenarioResult, rows, decision):
         "latency_ms_mock": res.latency_ms,
         "delivered_messages": len(res.bot.sent),
     }
-    path = "plans/features/cfg/evidence/cfg-06/w7-dispute-metrics.json"
+    path = os.path.join(str(out_dir), "w7-dispute-metrics.json")
     io.open(path, "w", encoding="utf-8").write(
         json.dumps(metrics, ensure_ascii=False, indent=1))
