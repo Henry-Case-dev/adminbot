@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
 - **APP_VERSION:** `2.58.136`
-- **HEAD (short):** `5f1dcd23`
+- **HEAD (short):** `2bf72471`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **587** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **23**.
-- **Реестр:** 587 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **588** / GROUPS **121** / `_TAB_BY_GROUP` **119** / TAB_RULES **23**.
+- **Реестр:** 588 строк == REGISTRY.
 - **inventory.tsv (10.14):** 411 baseline-ключей.
-- **Дельта 411 → 587 = 176** новых ключей (`status=new`).
+- **Дельта 411 → 588 = 177** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 587 = 176 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 588 = 177 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -138,6 +138,7 @@
 - `media_base`
 - `memory.experience_learning_enabled`
 - `memory.experience_review_cadence`
+- `memory.nostalgia_history_depth_years`
 - `memory.random_enabled`
 - `memory.random_exploration_probability`
 - `memory.random_fallback_to_pseudorandom`
