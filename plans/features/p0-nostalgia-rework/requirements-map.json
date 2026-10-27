@@ -373,8 +373,8 @@
      "observation": "tests/test_nostalgia_prompts.py::TestTypedVerdictProtocol (7 тестов) + test_nostalgia_worker.py (incident shape → UNCHANGED → молчание, reason=unchanged, лимит не тратится); гейт фраз в _candidate_llm_send удалён; LLM-вызов по-прежнему 1 на тик.",
      "type": "test",
      "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
-     "artifact_sha256_12": "70fa944a2820",
-     "candidate_commit": "3ea0e9f93ef24bf76081beebabbe7ba9f43af653"
+     "artifact_sha256_12": "8d4372198705",
+     "candidate_commit": "1e1a10e4ed0a69b1b6f562411aa58ed0d8fb58ed"
     }
    ]
   },
@@ -578,7 +578,7 @@
      "type": "test",
      "artifact_path": "tests/test_nostalgia_history_rework.py",
      "artifact_sha256_12": "1a4a62ea5460",
-     "candidate_commit": "3ea0e9f93ef24bf76081beebabbe7ba9f43af653"
+     "candidate_commit": "1e1a10e4ed0a69b1b6f562411aa58ed0d8fb58ed"
     }
    ]
   },
@@ -767,7 +767,7 @@
      "type": "test",
      "artifact_path": "tests/test_nostalgia_history_rework.py",
      "artifact_sha256_12": "1a4a62ea5460",
-     "candidate_commit": "3ea0e9f93ef24bf76081beebabbe7ba9f43af653"
+     "candidate_commit": "1e1a10e4ed0a69b1b6f562411aa58ed0d8fb58ed"
     }
    ]
   },
@@ -986,7 +986,7 @@
      "type": "test",
      "artifact_path": "services/nostalgia_worker.py",
      "artifact_sha256_12": "fdb66c40d1b1",
-     "candidate_commit": "3ea0e9f93ef24bf76081beebabbe7ba9f43af653"
+     "candidate_commit": "1e1a10e4ed0a69b1b6f562411aa58ed0d8fb58ed"
     }
    ]
   },
@@ -1475,7 +1475,7 @@
      "type": "test",
      "artifact_path": "services/database.py",
      "artifact_sha256_12": "256b5b21c67b",
-     "candidate_commit": "3ea0e9f93ef24bf76081beebabbe7ba9f43af653"
+     "candidate_commit": "1e1a10e4ed0a69b1b6f562411aa58ed0d8fb58ed"
     }
    ]
   },
