@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-27T19:45:39+12:00",
+  "updated": "2026-10-27T19:55:44+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -234,8 +234,10 @@
       "status": "PENDING",
       "source_path": "plans/owner_inputs/2026-10-27-nostalgia-rework-current_task-excerpt.md",
       "source_sha256": "74CF86E69168889B07B83F6BAF41F8260D0F957F4B7081BF486413D5CE9F3681",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/p0-nostalgia-rework/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "source_note": "P0 CORRECTIVE (current_task.md L5771-EOF): полная переработка ностальгии (NOST-01..12: без хардкодов, мультигод, адаптивные окна, эпизоды, критерии интересности, provenance, Decision Making, большой архив, админка) + приёмочные критерии NOST-13..18 + POST-ASAP5 дефекты COR-01..06 + дисциплина DEV-01..05. В очереди ПОСЛЕ post-asap5-corrective (последняя). Детальная карта при старте."
     }
   ],
@@ -414,8 +416,8 @@
       "target_task_ids": [
         "p0-nostalgia-rework"
       ],
-      "reconciled": false,
-      "note": "Задача зарегистрирована ПОСЛЕ post-asap5-corrective (последняя в очереди): полная переработка ностальгии (NOST-01..12, приёмка NOST-13..18) + дефекты POST-ASAP5 (COR-01..06) + дисциплина (DEV-01..05). Реализация не начинается; детальная карта при старте. Внимание: пересечение с ASAP5-NOSTALGIA (wave W1) — при старте сверить и не дублировать.",
+      "reconciled": true,
+      "note": "Задача зарегистрирована ПОСЛЕ post-asap5-corrective (последняя в очереди): полная переработка ностальгии (NOST-01..12, приёмка NOST-13..18) + дефекты POST-ASAP5 (COR-01..06) + дисциплина (DEV-01..05). Реализация не начинается; детальная карта при старте. Внимание: пересечение с ASAP5-NOSTALGIA (wave W1) — при старте сверить и не дублировать. | Intake согласован: pre-start карта 29 секций, гейт EXIT 0 (0d8b6a5f).",
       "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5771)",
       "received": "2026-10-27"
     }
