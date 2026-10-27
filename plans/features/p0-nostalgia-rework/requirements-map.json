@@ -6,7 +6,7 @@
   "deployed_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
   "strict_evidence": true,
   "slice_graph_path": "",
-  "plan_note": "Closure 27-28.10.2026: NOST-часть ТЗ реализована W1+W2 и задеплоена как 2.58.137 (8adf5fa4), live-проба PASS. W1 rows NOST-01..04/07 — Approved review; W2 rows NOST-05/06/08..12 — VERIFIED (626 related tests, registry --check OK после e61a0db9); приёмочные NOST-13/14/17/18 — VERIFIED (тесты + live-проба); NOST-15/16 — честный PENDING (SAY-семантика проверяется естественными прод-тиками); DEV-05 VERIFIED (deploy+live). Открытые строки того же corrective: COR-01..06, DEV-01..04 — последующие волны, родитель не DONE.",
+  "plan_note": "Closure 27-28.10.2026: NOST-часть ТЗ реализована W1+W2 и задеплоена как 2.58.137 (8adf5fa4), live-проба PASS. W1 rows NOST-01..04/07 — Approved review; W2 rows NOST-05/06/08..12 — VERIFIED (626 related tests, registry --check OK после e61a0db9); приёмочные NOST-13/14/17/18 — VERIFIED (тесты + live-проба); NOST-15/16 — честный PENDING (SAY-семантика проверяется естественными прод-тиками); DEV-05 VERIFIED (deploy+live). Reconcile 28.10.2026 (PM-RECONCILE, release-tip 563aac43): COR-04/05/06 привязаны VERIFIED к закрытым смежным фичам — Vision W1+W2 (w1-media/w2-vision/w2-image-admin, leaf-review Approved), factcheck-media 2.58.131 (review r2 Approved; evidence синхронизирован с release-ветки на master), lore-gate 2.58.133/134 (impl + live r2 6/6 PASS + два Approved-ревью). COR-01..03 — честный PENDING с точными гэпами: COR-01 tool_router.py:3619-3622 (.png/MIME) + отсутствует двухчадовая приёмка; COR-02 direct_capabilities.py:263-269 (словари основ в pre-gate); COR-03 tool_loop.py:143-146 (substring вместо структурного tool_results). DEV-01..04 — PENDING, зависят от COR-волн. Родитель не DONE.",
   "additional_requirements": [],
   "items": [
     {
@@ -3176,7 +3176,7 @@
       "source_text_sha256": "732e39787db02751396d75d4f6371cc845097a127e7a34dab993725d9679ba62",
       "source_excerpt": "## COR-01. Image Edit: единая конфигурация",
       "disposition": "required",
-      "reason": "",
+      "reason": "Сверка 28.10.2026 (release/p0-2026-10-26 @ 563aac43 = deployed 2.58.137/8adf5fa4): единая конфигурация в коде подтверждена - один _capreg.resolve(\"image_edit\") в пре-гейте (direct_chat_service.py:7188) и в роутере (tool_router.py:3551); провайдер/модель/ключ - одни ig-цепочки, models.*/keys.* строго глобальные (param_catalog.py:122-131). ГЭПЫ: (1) исходник пишется в temp .png независимо от формата (tool_router.py:3619-3622), MIME декларируется по расширению (cover_style_edit.py:153-154,221) - JPEG/WebP исходник уходит как image/png; (2) приёмка «минимум два чата с разными настройками провайдеров» не выполнялась (честная граница лейна - w2-image-admin.md §9.1: live edit-прогон вне границ). Нужна Builder-волна: сохранение исходного формата + двухчадовая проверка.",
       "req_id": "COR-01",
       "slice": "COR-01",
       "acceptance": "Проверка возможности и исполнение Image Edit используют один effective-набор настроек чата; провайдер исполнения совпадает с провайдером проверенной способности; исходный формат изображения не теряется при сохранении во временный .png; новые конфигурационные системы не создаются; проверено минимум на двух чатах с различными настройками провайдеров.",
@@ -3266,7 +3266,7 @@
       "source_text_sha256": "275a7eb4cab1da0f7d385e631f9a41ebf41c9f88ece324b598d3496fbdf43e79",
       "source_excerpt": "## COR-02. Image Intent: семантическое определение редактирования",
       "disposition": "required",
-      "reason": "",
+      "reason": "Сверка 28.10.2026 (release-tip 563aac43): ГЭП подтверждён - edit-интент решают словари основ _EDIT_VERB/_EDIT_REMOVE/_EDIT_LOCATIVE_RE (services/direct_capabilities.py:263-269, используются :459-461 в детерминированном pre-gate detect_action_intent). W2 image-admin добавил capability image_edit и L1-семантический путь (capabilities_needed -> _l1_capability_consistency, direct_chat_service.py:7287-7294), но роль словного pre-gate относительно L1 не пересмотрена. Create≠edit и честный отказ без тула уже реализованы (tool_router.py:3546-3559, no_source_image без генерации). Нужна Builder-волна: семантическое определение edit-интента (L1), словари не расширяются.",
       "req_id": "COR-02",
       "slice": "COR-02",
       "acceptance": "Смысловое поручение редактирования существующего изображения не теряется из-за несовпадения слов; словари _EDIT_VERB/_EDIT_REMOVE/_EDIT_LOCATIVE_RE не расширяются под очередные фразы; роль детерминированного pre-gate пересмотрена относительно L1; создание не путается с редактированием; генерация не выполняется вместо редактирования при отсутствии инструмента; проверены разнообразные естественные формулировки, включая reply на изображение.",
@@ -3281,7 +3281,7 @@
       "source_text_sha256": "4cfa7997ff99c47f5c8680cfa8429df5e2b1bb9c4d36730217b5f4a8f466cc1b",
       "source_excerpt": "## COR-03. Tool Loop: структурированный результат исполнения",
       "disposition": "required",
-      "reason": "",
+      "reason": "Сверка 28.10.2026 (release-tip 563aac43): ГЭП подтверждён - _sync_claim_with_outcome трактует успех по substring-поиску '\"status\": \"success\"' / 'delivery=\"sent\"' в строке вывода (services/tool_loop.py:143-146); случайное совпадение текста трактуется как успех. Структурный envelope ToolLoopResult.tool_results существует (tool_loop.py:169-174, канонические статусы MCA-11), но в синке не используется. Нужна Builder-волна: успех/доставка из tool_results (структурный контракт), синхронизация Capability Registry и Writer сохраняется.",
       "req_id": "COR-03",
       "slice": "COR-03",
       "acceptance": "В tool_loop._sync_claim_with_outcome успех, ошибка и подтверждённая доставка определяются структурированным контрактом результата, а не поиском текстовых фрагментов; случайное совпадение текста не трактуется как успех; уведомления о недоступности функции не удаляются без подтверждённого результата; синхронизация Capability Registry и Writer сохранена.",
@@ -3296,14 +3296,39 @@
       "source_text_sha256": "2c4fe67e6c0cfe2ac97d0e3ee1b4ffbfc57a00f8a295a5cb138f2167291e643f",
       "source_excerpt": "## COR-04. Vision: проверить заявленные возможности",
       "disposition": "required",
-      "reason": "",
+      "reason": "Привязано 28.10.2026 к закрытым смежным волнам ASAP5 Vision/Media/Image-Admin (deployed 2.58.134+; код субъектов проверен в 8adf5fa4: resolve_ready_for_asset в mca_vision, media-типы в param_catalog).",
       "req_id": "COR-04",
       "slice": "COR-04",
       "acceptance": "Фактические возможности Vision сверены для статичных изображений, GIF, TGS, WebM, превью видео, видеосообщений, недоступных превью, Pending/Ready/Failed и медиа, созданных ботом; обложка не выдаётся за анализ движения; отображаемые настройки админки соответствуют действительным функциям; работающий Vision не переписан без подтверждённой причины.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "COR-04: матрица фактических возможностей по типам медиа (w1-media.md §1/§11): фото, изображения-документы, статичные стикеры, GIF/Telegram-анимации, анимированные TGS, видео-стикеры WebM, превью видео и видеосообщений, альбомы, медиа, созданное ботом (§7.1 шов observer-intake, строка матрицы VERIFIED); обложка не выдаётся за анализ движения - обязательные честные маркировки VIDEO_PREVIEW_NOTE/ANIMATION_PREVIEW_NOTE; недоступные превью - честная строка NO_VISUAL_CONTENT_LINE; непредставимые исходы регистрируются честно (D18). Работающий Vision не переписан: границы лейна - без нового провайдера/пайплайна. [код субъектов в deployed 8adf5fa4].",
+          "observation": "tests/test_p0_vision_fix_core.py - секция ASAP5, 11 форматов реестра mca_media_assets; RED/GREEN-профиль лейна ASAP5-MEDIA (w1-media.md §4-5).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w1-media.md",
+          "artifact_sha256": "6981e08feaf2258bffd0d1b7a94877bff3782683b6ea3c1e0136c39b7dbbd7e1",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "test",
+          "ref": "COR-04: честные состояния Pending/Ready/Failed (+no_text/unavailable/unsupported/missing - D22-маппинг) вместо вечного pending (w2-vision.md §1-§2); per-chat витрина статуса (§12); гонки терминал-during-wait/singleflight/CAS (§5); тул-схема без выдуманных обещаний (§17). Reviewer leaf-ревью Approved (review-w2-vision.md:35).",
+          "observation": "tests/test_p0_vision_fix_core.py секция «ASAP5 §12-§17 (wave W2)»: 9/9 GREEN (RED-профиль 8 failed / 1 guard); сфокусированные контуры 338+117+126 passed; полный сьют - профиль падений идентичен базе (0 от дельты).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-vision.md",
+          "artifact_sha256": "1423a99f94f22af81a34cfad92d588c1cac1e183d7bd3630711982077b7b8a89",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "test",
+          "ref": "COR-04: отображаемые настройки админки соответствуют действительным функциям - группа «Типы медиа» на существующей вкладке mod_vision (per_chat) гейтит авто-разбор по типу (выключенный тип -> джобы нет, событие vision_type_disabled), диагностика показывает effective-тумблеры и честную маркировку types_need_transform «анализ по кадру-обложке» (w2-image-admin.md §5-§6).",
+          "observation": "tests/test_asap5_image_admin.py: 29 passed (RED на базе ad239f73: 27/29 падали); полная регрессия - 0 отказов, относимых на дельту лейна.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00859",
@@ -3401,14 +3426,31 @@
       "source_text_sha256": "2b16bdc818340fab09bae414f59e8076b63b9cd2fd67d5c7adc9f5903f584e97",
       "source_excerpt": "## COR-05. Fact-check: контекстная релевантность",
       "disposition": "required",
-      "reason": "",
+      "reason": "Привязано 28.10.2026 к закрытой фиче p0-factcheck-media (деплой 2.58.131, Reviewer r2 Approved; код субъектов проверен в 8adf5fa4: resolve_context_claim/find_context_claim в factcheck_suitability.py; после 2.58.131 альбомы никто не трогал).",
       "req_id": "COR-05",
       "slice": "COR-05",
       "acceptance": "Durable-восстановление альбомов не тронуто (не реализуется повторно); проверен только риск ошибочного выбора тезиса из широкого контекста: сообщение без самостоятельного проверяемого утверждения не делает соседнее обсуждение целью проверки без установленной связи; используются существующие reply-связи, структура публикации, авторство; словарные исключения под отдельные реплики не добавляются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "COR-05: риск ошибочного выбора тезиса из широкого контекста проверен (factcheck-media.md §1-§2): пустая цель без самостоятельного тезиса не делает соседнее обсуждение целью без установленной связи - reply-цепочка приоритетна через существующий collect_thread_chain (resolve_context_claim: bot-ответы и «фактчек…»-команды не тезис), окно W1 - фолбэк только по принятому решению владельца wide-context (25.10.2026); структура публикации - resolve_claim_publication (durable альбом -> same-turn fast-path -> цель); авторство - от АНЦЕДЕНТА, не от цели (factcheck_suitability.py:26,116); фильтры структурные (_claim_like_text: число/предикат/глагольная форма, филлеры консервативно отсечены) - словарных исключений под отдельные реплики нет. Durable-восстановление альбомов сделано самой фичей 2.58.131 (get_smart_messages_by_media_group) и после неё не перереализовывалось. [код в deployed 8adf5fa4].",
+          "observation": "tests/test_factcheck_media_2026_10_25.py: 53 unit-теста (включая production-shape альбома 10 медиа с caption на первом и reply на девятом) + tests/test_factcheck_wide_context_default_2026_10_25.py: 11 тестов миграции/гейта; сфокусированные наборы зелёные.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/factcheck-media.md",
+          "artifact_sha256": "42d2502f519a45a77c83f4f4d8ce1aefb1b560d726449447d772472642414668",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "review",
+          "ref": "COR-05: независимое ревью r2 - Approved (все 6 замечаний r1 устранены; diff 534ac7dd..266b0e6b целостен; live-проверка отнесена DevOps и выполнена в деплое 2.58.131).",
+          "observation": "Reviewer-worktree adminbot-wt-fc-rev2 (detached, коммиты только в doc-файлы); production 2.58.130 база; регрессии выше допустимого не зафиксированы.",
+          "artifact_path": "plans/features/p0-factcheck-media/evidence/review-factcheck-media-r2.md",
+          "artifact_sha256": "7536572dea680931cecd1bbd40d0dc962a00d6b8be73ca665924469d41c0af7b",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00891",
@@ -3416,14 +3458,47 @@
       "source_text_sha256": "a8219a2e8031792c79cdc563a54377d90fb46cc4795a0ceafd50fe4ba549454b",
       "source_excerpt": "## COR-06. L1/Lore: неопределённые планы",
       "disposition": "required",
-      "reason": "",
+      "reason": "Привязано 28.10.2026 к закрытой фиче p0-delta-analysis (D1 lore-gate: деплой 2.58.133 b5716022 + LORE-VERBATIM-GATE + DELTA-DEPTH 2.58.134; оба merge Reviewer Approved; гейт проверен в deployed 8adf5fa4 - lore_story_delivery_allowed в services/direct_l1.py).",
       "req_id": "COR-06",
       "slice": "COR-06",
       "acceptance": "Разрешающий fallback в lore_story_delivery_allowed() проверен: при недостаточно определённом намерении пользователя готовая Lore-история не подменяет аналитический ответ автоматически; полноценные художественные воспоминания при реально запрошенном жанре сохранены; универсальная композиция ответа не навязывается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "COR-06: детерминированный предикат lore_story_delivery_allowed(l1_plan, response_plan) в services/direct_l1.py + точка подмены lore_story_override (direct_chat_service): story-акты (creative/historical_recall, structure=story) -> подмена разрешена; analysis-акты/структуры -> запрещена; НЕОПРЕДЕЛЁННАЯ интенция или плана нет (легаси/fallback) -> fail-open True (прежнее поведение, без ложноположительных блоков) - ровно предмет строки «неопределённые планы»; verbatim-инструкция в payload тогда и только тогда, когда доставка разрешена (lore_verbatim_allowed, kill-switch LORE_STORY_INTENT_GATE_ENABLED); универсальная композиция не навязывается (DELTA-DEPTH: инструкция без структур/схем/чисел/примеров). [код в deployed 8adf5fa4].",
+          "observation": "tests/test_p0_delta_routing.py: 54 теста (дефекты 1-5 + сценарная матрица 8 интентов, ≥4 task_kind, «analysis/анализ» канонизируются без второго роутера) + TestLoreVerbatimInstructionGate +12 (iff-матрица, fail-open без плана, kill-switch OFF -> легаси, story-контролы S04/S09 «инструкция на месте» на реальном dispatch compile_lore_story) + tests/test_p0_delta_depth_instruction.py: 11 (verbatim с источником, ровно 1× на research/deep, 0 на casual, test_no_mandatory_structures_numbers_examples).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/impl.md",
+          "artifact_sha256": "43934fd093fdeee5aa7fbfb7faccab29b8001f6ea41ba20755f02b2242aabd8d",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "COR-06 live: re-probe r2 на прод-коде 2.58.133 (b5716022) - FAILED-критерий «lore story не подменяет analysis-ответ» закрыт: S02/S03/S05/S07/S10 - verbatim-инструкция в payload отсутствует, story_delivered_as_reply=false, similarity ответ↔story 0.008-0.072, story остаётся provenance-материалом («lore story kept as evidence»), Writer компонует сам. Честный остаток: TRUE-сторона genuine story-интента в live-прогоне не выпала (L1 ни разу не дал story-классификацию) - доказана payload-юнитами S04/S09; механизм TRUE-стороны фиксом не менялся.",
+          "observation": "6/6 сценариев PASS (read-only: PG default_transaction_read_only=on, FakeBot, без Telegram); healthz 200 loopback+внешний, 0 ERROR; S10 честно называет границы архива без выдуманных дат.",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md",
+          "artifact_sha256": "cf4a1275ffc51dc1c9380a461b5b2e7cef7751e6fd13f32a150c7abae8aa705f",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "review",
+          "ref": "COR-06: независимое ревью LORE-VERBATIM-GATE фикса (eaabb66f, merge 2d4eaad6) - Approved for release: единственная точка переноса - construction ToolContext в _handle_turn, семантика совпадает с lore_story_override (0 расхождений), регрессий живых сценариев нет.",
+          "observation": "leaf-ревью git show eaabb66f + прогон тестов на merge-дереве 2d4eaad6; деплой 2.58.133 - sha-сверка direct_chat_service.py/direct_l1.py с кандидатом (asap-speech-arch/release-258133/deploy.md).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-lore-verbatim-fix.md",
+          "artifact_sha256": "d723d1881bb8b16d17d1c3d76511e938c34f0935f12c7053e1ba1354d10a2394",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "review",
+          "ref": "COR-06: независимое ревью DELTA-DEPTH (8e8c8c27, деплой 2.58.134) - Approved: verbatim §11 дословно по источнику (sha-сверка), ровно 1× на research/deep и 0 на casual, без обязательных структур/чисел/примеров («универсальная композиция ответа не навязывается»), wiring обоих call-sites (ответ + инициатива).",
+          "observation": "detached-ревью adminbot-wt-delta-depth-rev; self-check harness: delta_research_plan_once / delta_casual_absent / delta_deep_auto_plan_once / delta_no_composition_mandate = true; деплой 2.58.134 - sha-сверка 6/6 файлов с кандидатом (asap-speech-arch/release-258134/deploy.md).",
+          "artifact_path": "plans/features/p0-delta-analysis/evidence/review-delta-depth.md",
+          "artifact_sha256": "79fd0150dc7bd03c8b914773d5016b8995e761afa0b01a387738ed051e0a983b",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00905",
@@ -3431,7 +3506,7 @@
       "source_text_sha256": "66dffe1fcd0c93f07c56dd7d941248020ecfc547d9a7a2b092f680cdc237246f",
       "source_excerpt": "## DEV-01. Не исправлять один скриншот",
       "disposition": "required",
-      "reason": "",
+      "reason": "Дисциплина корректива: волна-носитель не завершена - управляемые строки COR-01..03 остаются PENDING (Builder-волны image-edit/image-intent/tool-loop впереди); обобщаемость уже сделанных волн (NOST W1/W2 - свойства результата T16-T23, не фразы) строку целиком не закрывает. PENDING до завершения COR-волн.",
       "req_id": "DEV-01",
       "slice": "DEV-01",
       "acceptance": "Ранее предоставленные скриншоты использованы только как иллюстрации дефектов: из них не созданы обязательные вводные фразы, концовки, словесные запреты, исключения по именам, специальные ветки участников, сценарные шаблоны; поведение обобщаемое на неизвестных данных.",
@@ -3551,7 +3626,7 @@
       "source_text_sha256": "0311d3748c8b93f3179e4481a21b37b2319ed4cf2edfd4fd6aae7bd400cadf5b",
       "source_excerpt": "## DEV-02. Не подменять архитектурное исправление промптом",
       "disposition": "required",
-      "reason": "",
+      "reason": "Дисциплина корректива: зависит от Builder-волн COR-01..03 (исправления в собственных механизмах, не одним промптом); сделанные волны (NOST W1/W2: типизированный вердикт, SQL-окна, эпизоды - механизмы, не промпт) строку целиком не закрывают. PENDING.",
       "req_id": "DEV-02",
       "slice": "DEV-02",
       "acceptance": "Каждая проблема исправляется в собственном механизме (SQL-поиск, provenance, извлечение эпизодов, Decision, речевые инструкции), а не одним системным промптом; новые подсистемы не вводятся там, где достаточно расширения существующих.",
@@ -3566,7 +3641,7 @@
       "source_text_sha256": "1f469d466736440522a11f177d1ef43430e7d45f236b3d7473932f85593f3e8b",
       "source_excerpt": "## DEV-03. Не создавать искусственную сложность",
       "disposition": "required",
-      "reason": "",
+      "reason": "Дисциплина корректива: зависит от COR-01..03 (reuse существующих механизмов без новых слоёв + Architect-оценка затронутых контрактов при старте волн). PENDING.",
       "req_id": "DEV-03",
       "slice": "DEV-03",
       "acceptance": "Предпочтены повторное использование существующих данных, общие функции, один источник истины, действующие runtime-маршруты, минимальные изменения интерфейсов; новые агенты/слои/маршрутизаторы/LLM-вызовы не добавляются ради организации работы; Architect участвовал в оценке затронутых контрактов.",
@@ -3671,7 +3746,7 @@
       "source_text_sha256": "ec84a4103ec537143a9e6dbeefcb97566efb772df46acd7a9026763646deb63a",
       "source_excerpt": "## DEV-04. Не менять другие действующие задачи",
       "disposition": "required",
-      "reason": "",
+      "reason": "Дисциплина корректива: процессы - очередь/статусы сохранены, current_task.md не изменялся (наблюдаемо в репо), но строка закрывается только по завершении COR-волн (объединение пересечений агентов - факт всей реализации). PENDING.",
       "req_id": "DEV-04",
       "slice": "DEV-04",
       "acceptance": "Очередь, статусы и порядок существующих поручений сохранены; в части перечисленных дефектов корректировка заменяет POST-RELEASE AUDIT CORRECTIVE без дублирования требований; current_task.md не очищался; reset/удаление пользовательских изменений рабочего дерева не выполнялись; пересечения изменений агентов объединены осмысленно, без автоматического выбора версии файла.",
