@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/asap5-multimodal/source-2026-10-26-excerpt.md",
   "source_sha256": "e8cb2b1ed3b96721b6d19d47e970410b3c9a0e5c121fc21f423c0fcf887604a8",
-  "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+  "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -3025,8 +3025,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_d01..test_d16",
+          "observation": "16 сценариев §23 на реальном NostalgiaWorker+SQLite с оценкой содержательности по payload (user-блок: пул года с provenance-лейблами, golden с target_user, секции лора/мемов; system: анти-вымысел/несвязанность/UNCHANGED), а не только факт отправки: спонтанное воспоминание, ассоциация, случайный факт без ложной связи, репост новости с «Переслано: источник», локальный мем, факт об участнике, склейка несвязанных → self_decline (лимит не тратится), противоречивый текст → отказ, бессмысленная концовка публикуется без цензуры, UNCHANGED, honest-лейбл provenance без источника, self-echo (origin-фильтр золотых), cooldown после публикации, сценарий A (активный разговор, quiet не применяется), сценарий B (quiet hours), legacy и delegated (единый Decision, nostalgia:*-ref, без второго send-пути). Помех новых типов медиа нет (медиа-строки вне текстового пула; cross-check E02).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00668",
@@ -3042,8 +3051,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_d01..test_d16",
+          "observation": "16 сценариев §23 на реальном NostalgiaWorker+SQLite с оценкой содержательности по payload (user-блок: пул года с provenance-лейблами, golden с target_user, секции лора/мемов; system: анти-вымысел/несвязанность/UNCHANGED), а не только факт отправки: спонтанное воспоминание, ассоциация, случайный факт без ложной связи, репост новости с «Переслано: источник», локальный мем, факт об участнике, склейка несвязанных → self_decline (лимит не тратится), противоречивый текст → отказ, бессмысленная концовка публикуется без цензуры, UNCHANGED, honest-лейбл provenance без источника, self-echo (origin-фильтр золотых), cooldown после публикации, сценарий A (активный разговор, quiet не применяется), сценарий B (quiet hours), legacy и delegated (единый Decision, nostalgia:*-ref, без второго send-пути). Помех новых типов медиа нет (медиа-строки вне текстового пула; cross-check E02).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00677",
@@ -3059,8 +3077,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00678",
@@ -3076,8 +3103,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00699",
@@ -3093,8 +3129,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00701",
@@ -3110,8 +3155,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00703",
@@ -3127,8 +3181,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00705",
@@ -3144,8 +3207,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00707",
@@ -3161,8 +3233,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00711",
@@ -3178,8 +3259,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_c01..test_c16",
+          "observation": "Матрица §25 (14 сценариев) + админка §22 пройдены: create/generation-error/send-error через РЕАЛЬНЫЙ generate_and_send (unified request→runner→квота/idem→доставка telegram_send) с контрактным моком провайдера ig.generate; edit-route по reply и по ранее созданному боту-изображению (observer-шов W1 → канонический реестр → Capability Registry image_edit → существующий submit_edit, file_id реального актива скачивается); clarify один раз с TTL-дедупом; исходник сохраняется между сообщениями ((C)-резолв); недоступность только Vision / только Generation / только Edit — независимые честные отказы (capability_view: generation=ready при edit=unsupported); штатный fallback (анонс 15 инструментов, edit_image в хвосте); отсутствие ложных обещаний (неуспех сохраняет capability_notice); admin types = фактические enqueue-гейты (реестр не сужен), admin diag = фактические task_jobs (после фикса №2).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00730",
@@ -3195,8 +3285,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00732",
@@ -3212,8 +3311,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00745",
@@ -3229,8 +3337,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00747",
@@ -3246,8 +3363,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00749",
@@ -3263,8 +3389,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00751",
@@ -3280,8 +3415,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00753",
@@ -3297,8 +3441,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "M00782",
@@ -6783,8 +6936,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_d01..test_d16",
+          "observation": "16 сценариев §23 на реальном NostalgiaWorker+SQLite с оценкой содержательности по payload (user-блок: пул года с provenance-лейблами, golden с target_user, секции лора/мемов; system: анти-вымысел/несвязанность/UNCHANGED), а не только факт отправки: спонтанное воспоминание, ассоциация, случайный факт без ложной связи, репост новости с «Переслано: источник», локальный мем, факт об участнике, склейка несвязанных → self_decline (лимит не тратится), противоречивый текст → отказ, бессмысленная концовка публикуется без цензуры, UNCHANGED, honest-лейбл provenance без источника, self-echo (origin-фильтр золотых), cooldown после публикации, сценарий A (активный разговор, quiet не применяется), сценарий B (quiet hours), legacy и delegated (единый Decision, nostalgia:*-ref, без второго send-пути). Помех новых типов медиа нет (медиа-строки вне текстового пула; cross-check E02).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "L00649",
@@ -7040,8 +7202,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_a01..test_a23",
+          "observation": "Матрица §24 (22 сценария + ключевой) пройдена сквозным потоком на одном дереве (intake→durable job→W2-состояния→payload Direct Chat через build_chat_context / Current_Question-маркеры / auto-target): фото/документ/стикер/GIF/TGS/WebM/превью видео и кружочка/с подписью и без/reply/медиагруппа/пересланная публикация — test_a01..test_a13; повторное использование анализа без нового вызова, in-progress pending с job_linked, изменение состояния между сообщениями, ошибка постановки (честный failed без fake-pending), ошибка распознавания (терминальная строка ≠ pending), восстановление после рестарта (durable job), отключённый модуль (enqueue-гейт + байт-паритет контекста), отсутствующий файл (bounded-retry до честного терминала), одновременная обработка нескольких медиа — test_a14..test_a22; ключевой сценарий: вопрос во время работы Vision → маркер+pending без выдуманных описаний и без «не могу просматривать», после завершения результат используется (test_a23). 66 passed; дефект-фикс №1 (whole-post SELECT) в evidence §0.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "L00674",
@@ -7372,8 +7543,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_c01..test_c16",
+          "observation": "Матрица §25 (14 сценариев) + админка §22 пройдены: create/generation-error/send-error через РЕАЛЬНЫЙ generate_and_send (unified request→runner→квота/idem→доставка telegram_send) с контрактным моком провайдера ig.generate; edit-route по reply и по ранее созданному боту-изображению (observer-шов W1 → канонический реестр → Capability Registry image_edit → существующий submit_edit, file_id реального актива скачивается); clarify один раз с TTL-дедупом; исходник сохраняется между сообщениями ((C)-резолв); недоступность только Vision / только Generation / только Edit — независимые честные отказы (capability_view: generation=ready при edit=unsupported); штатный fallback (анонс 15 инструментов, edit_image в хвосте); отсутствие ложных обещаний (неуспех сохраняет capability_notice); admin types = фактические enqueue-гейты (реестр не сужен), admin diag = фактические task_jobs (после фикса №2).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "L00713",
@@ -7599,8 +7779,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "73eff923f9d0333f52966d5f66d8e4f5788e2dfa",
+          "type": "test",
+          "ref": "w3-integration.md; tests/test_asap5_integration_w3.py::test_e04 + матрицы A-D",
+          "observation": "Reviewer-доказательства по реальным контрактам (§26): по сквозному прогону доступны фактические исходные данные (smart_messages), состояние маршрутизатора (VisionRoute без секрета), вызванный инструмент с аргументами и результатом (transport payload), состояние задач (durable task_jobs completed/failed + reason_code), готовые записи Vision (mca_media_analyses), raw LLM output и итоговые сообщения (рендер с OCR/описанием); по Ностальгии причина публикации кандидата — nostalgia_log.meta.reason/path (D01/D16); по мультимодальности контекст и статусы передаются между сообщениями (A15/A16/A23: pending→ready per-message); по редактированию подтверждено фактическое использование исходного изображения (C06/C07: file_id из реестра → download → submit_edit); единый стиль не навязывается (E05: honest-строки — данные, инструкции не сокращаются); живые проверки в рабочих чатах НЕ проводились (граница лейна). Матрицы: 66 passed; дефекты №1-№2 найдены матрицами и исправлены по владеющим компонентам.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w3-integration.md",
+          "artifact_sha256": "14f0e6e5d15d8174d3feb008226a0ad407a7bde41dc1fbcde44c81697f2e1094"
+        }
+      ]
     },
     {
       "source_id": "L00736",

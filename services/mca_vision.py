@@ -3903,7 +3903,10 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
                 "AND status = 'failed'",
                 (VISION_JOB_KIND, VISION_BACKFILL_KIND))
             row = await cur.fetchone()
-            failed_n = int((row or {}).get("n") or 0)
+            # W3-fix: реальный aiosqlite.Row не имеет .get (фейк-двойники
+            # тестов имели) — «с ошибкой: 0» на живой БД больше не врёт.
+            failed_n = int((dict(row) if row is not None else {})
+                           .get("n") or 0)
         except Exception:
             failed_n = 0
         snapshot["queue"]["failed"] = failed_n

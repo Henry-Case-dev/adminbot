@@ -7908,7 +7908,8 @@ class DatabaseService:
             "caption, sent_at, ingested_at, edited_at, sent_at_source, "
             "source_kind, namespace, source_record_id, content_hash, media_ref, "
             "reply_to_kind, reply_to_author_id, quote_text, quote_author_id, "
-            "forward_author_id, message_state, state_evidence, current_revision "
+            "forward_author_id, message_state, state_evidence, current_revision, "
+            "media_group_id "
             "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
             (chat_id, tg_message_id),
         )
