@@ -11,10 +11,18 @@ edit-route, контекст и админка (§18–§22).
     контекста Writer'а (заявление = фактический результат; случай
     «не умею рисовать» → изображение отправлено → снова отрицает больше не
     воспроизводится);
-  * REQ-GEN-EDIT-ROUTE: смысловой edit-интент отличает изменение исходника
-    от создания нового; инструмент ``edit_image`` ведёт в СУЩЕСТВУЮЩИЙ
+  * REQ-GEN-EDIT-ROUTE (COR-02): edit-решение — за семантическим L1-планом
+    (структурные поля ``capabilities_needed``); детерминированный пре-гейт
+    НЕ классифицирует edit по словникам (словари удалены, словники не
+    расширяются); план, выбравший edit, не подменяется генерацией;
+    инструмент ``edit_image`` ведёт в СУЩЕСТВУЮЩИЙ
     ``media_execution.submit_edit``-маршрут; без исходника — честный отказ
     (не генерация «вместо»); ошибка не выдаётся за успех;
+  * REQ-COR-01 (p0-nostalgia): effective-настройки чата одни у проверки
+    capability и исполнения (chat_value); исходник edit сохраняет реальный
+    формат (суффикс по сниффер-MIME, не безусловный .png);
+  * REQ-COR-03 (p0-nostalgia): claim-sync определяет успех по структурному
+    статусу результата (classify/envelope), не по подстрокам.
   * REQ-GEN-CONTEXT: уточняющий вопрос не повторяется ход за ходом;
   * REQ-ADMIN-TYPES: подраздел «Типы медиа» (5 тумблеров, заводские
     значения включены, главный тумблер Vision приоритетен, enqueue-гейт);
@@ -29,6 +37,7 @@ from __future__ import annotations
 import json
 import time
 import types
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -205,12 +214,47 @@ def test_strip_stale_notices_removes_only_target_capability():
     assert "fact_check" in messages[2]["content"]
 
 
-def test_sync_claim_ignores_failed_tool_output():
+def test_sync_claim_structured_contract():
+    """COR-03: успех/неуспех — по структурному статусу классификации, не по
+    подстрокам. Не-успех, битый/чужой info — консервативно (notice жив)."""
     messages = [{"role": "user", "content": f"q\n{_NOTICE}"}]
-    out = json.dumps({"status": "error", "reason": "timeout"})
     assert tool_loop._sync_claim_with_outcome(
-        messages, "generate_image", out) == 0
+        messages, "generate_image",
+        {"status": "error", "error_code": "timeout"}) == 0
     assert "capability_notice" in messages[0]["content"]
+    # Битый/неподтверждённый результат → консервативно:
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "generate_image", None) == 0
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "generate_image", "текст вместо структуры") == 0
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "generate_image", {}) == 0
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "generate_image", {"status": "delivery_unknown"}) == 0
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "generate_image", {"status": "empty"}) == 0
+    assert "capability_notice" in messages[0]["content"]
+    # Чужой тул (не media-claim) → 0 даже при ok:
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "fetch_article", {"status": "ok"}) == 0
+    assert "capability_notice" in messages[0]["content"]
+
+
+def test_sync_claim_structured_success_strips_and_ignores_substring_trick():
+    """COR-03: структурный ok выветривает notice; подстрока
+    '"status": "success"' внутри СТРУКТУРНОЙ ошибки успехом не считается
+    (случайное совпадение текста ≠ успех)."""
+    messages = [{"role": "user", "content": f"q\n{_NOTICE}"}]
+    assert tool_loop._sync_claim_with_outcome(
+        messages, "generate_image", {"status": "ok"}) == 1
+    assert "capability_notice" not in messages[0]["content"]
+    # Подстрочный трюк: ошибка, ЧЬЁ сообщение содержит маркер успеха.
+    trick = {"status": "error", "error_code": "provider_error",
+             "error_type": "expected '\"status\": \"success\"' in output"}
+    messages2 = [{"role": "user", "content": f"q\n{_NOTICE}"}]
+    assert tool_loop._sync_claim_with_outcome(
+        messages2, "generate_image", trick) == 0
+    assert "capability_notice" in messages2[0]["content"]
 
 
 class _FakeLLM:
@@ -292,36 +336,66 @@ async def test_failed_generation_keeps_notice_honestly(monkeypatch):
     assert "capability_notice" in joined
 
 
+@pytest.mark.asyncio
+async def test_substring_success_inside_error_keeps_notice(monkeypatch):
+    """COR-03: маркер успеха как ПОДСТРОКА внутри структурной ошибки не
+    трактуется как успех — notice остаётся (решение по структурному
+    статусу классификации, не по текстовым фрагментам)."""
+    trick = json.dumps({
+        "status": "error", "reason": "provider_error",
+        "message": 'валидатор ожидал фрагмент "status": "success" в выводе'})
+    llm, router, result = await _run_tool_loop(monkeypatch,
+                                               router_output=trick)
+    final_payload = llm.payloads[-1]
+    joined = "\n".join(m.get("content", "") for m in final_payload
+                       if m.get("role") == "user")
+    assert "capability_notice" in joined
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # REQ-GEN-EDIT-ROUTE (§20): изменение исходника ≠ создание нового
 # ════════════════════════════════════════════════════════════════════════════
 
-def test_edit_intent_detected_and_distinct_from_create():
+def test_edit_intent_not_word_derived():
+    """COR-02: пре-гейт НЕ классифицирует edit по словнику — словари
+    _EDIT_VERB/_EDIT_REMOVE/_EDIT_LOCATIVE_RE удалены, словники не
+    расширяются под очередные фразы. Ни прежние словниковые формулировки,
+    ни естественные фразы без словарных основ не дают INTENT_EDIT_IMAGE от
+    детектора (edit-решение — за L1-планом, структурные поля)."""
+    for text in ("бот, измени текст на картинке",     # прежний словник
+                 "можешь изменить мем",               # прежний словник
+                 "убери надпись с фото",              # прежний remove+локатив
+                 "замени фон на закат",               # прежний словник
+                 "пусть человек на снимке смотрит влево",  # БЕЗ словарных основ
+                 "сделай так, чтобы тут был вечер"):  # БЕЗ словарных основ
+        intent = dc.detect_action_intent(text, addressed=True)
+        assert intent.intent != dc.INTENT_EDIT_IMAGE, text
+        assert intent.edit_actionable is False, text
+
+
+def test_edit_phrasing_does_not_misroute_into_create():
+    """COR-02: edit-формулировка без create-поручений не даёт
+    actionable-поручения генерации (fast-path генерации не стреляет).
+    Фразы с need-маркером («можешь изменить мем») детектор W10 классифицирует
+    как create-интент — edit/generate развязывает АВТОРИТЕТНЫЙ L1-план
+    (см. test_word_intent_create_does_not_override_plan_edit: routing-fix
+    план с edit генерацией не подменяет)."""
     intent = dc.detect_action_intent("бот, измени текст на картинке",
                                      addressed=True)
-    assert intent.intent == dc.INTENT_EDIT_IMAGE
-    assert intent.edit_actionable is True
-    # Смешанная просьба «можешь изменить мем» — не need-генерация.
-    intent2 = dc.detect_action_intent("можешь изменить мем",
-                                      addressed=True)
-    assert intent2.intent == dc.INTENT_EDIT_IMAGE
-    # Локативный edit: «убери надпись с фото».
-    intent3 = dc.detect_action_intent("убери надпись с фото", addressed=True)
-    assert intent3.intent == dc.INTENT_EDIT_IMAGE
-
-
-def test_edit_intent_is_not_create_actionable():
-    """edit-просьба НЕ открывает пре-гейт генерации (actionable — только
-    create): «новая независимая генерация не выдаётся за изменение»."""
-    intent = dc.detect_action_intent("измени картинку", addressed=True)
-    assert intent.intent == dc.INTENT_EDIT_IMAGE
     assert intent.actionable is False
+    assert intent.intent != dc.INTENT_CREATE_IMAGE
+    intent2 = dc.detect_action_intent("убери надпись с фото", addressed=True)
+    assert intent2.intent != dc.INTENT_CREATE_IMAGE
+    assert intent2.edit_actionable is False
 
 
-def test_negated_edit_is_not_actionable():
+def test_negated_create_still_suppressed():
+    """Регресс: отрицание/запрет по-прежнему глушит поручение (это защита
+    create-пути, не словниковая edit-детекция)."""
     intent = dc.detect_action_intent("не редактируй картинку, просто скажи "
                                      "что видишь", addressed=True)
     assert intent.edit_actionable is False
+    assert intent.actionable is False
 
 
 def test_create_regressions_stay_create():
@@ -335,12 +409,101 @@ def test_create_regressions_stay_create():
 
 
 def test_intent_blockers_cover_edit_capability_status():
+    """COR-02: структурный контракт edit-пути сохранён — сконструированный
+    intent (план/структурные поля, не словник) проверяет capability."""
     intent = dc.ActionIntent(intent=dc.INTENT_EDIT_IMAGE,
                              capability="image_edit",
                              confidence=dc.CONFIDENCE_HIGH)
     assert dc.intent_blockers(intent, capability_status="unsupported") == \
         ("capability_unsupported",)
     assert dc.intent_blockers(intent, capability_status="ready") == ()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# COR-02: edit-решение L1-планом (структурные поля) — honesty-путь
+# ════════════════════════════════════════════════════════════════════════════
+
+def _make_svc():
+    from unittest.mock import MagicMock
+    from services.direct_chat_service import DirectChatService
+    return DirectChatService(MagicMock(), MagicMock(), MagicMock(),
+                             types.SimpleNamespace(resolve=lambda *a, **k: ""))
+
+
+def _patch_reg_resolve(monkeypatch, *, edit_status: str,
+                       gen_status: str = "ready"):
+    """Подмена реестра (без сети): статусы image_edit / image_generation."""
+
+    def _state(cap_id: str, status: str):
+        return caps.CapabilityState(capability_id=cap_id, title=cap_id,
+                                    status=status, reason_code="",
+                                    declared=True)
+
+    async def _resolve(capability_id, chat_id=None, **kwargs):
+        if capability_id == "image_edit":
+            return _state("image_edit", edit_status)
+        if capability_id == "image_generation":
+            return _state("image_generation", gen_status)
+        return _state(str(capability_id), caps.STATUS_UNKNOWN)
+
+    monkeypatch.setattr(caps, "resolve", _resolve)
+
+
+@pytest.mark.asyncio
+async def test_plan_edit_unavailable_denied_and_notice(monkeypatch):
+    """COR-02: план (семантика) запросил image_edit, инструмент недоступен →
+    правдивая пометка Writer'у + инструмент скрыт (denied); генерация вместо
+    редактирования не подменяется (fired=False)."""
+    from services.direct_l1 import L1Plan
+    _patch_reg_resolve(monkeypatch, edit_status=caps.STATUS_NOT_CONFIGURED)
+    svc = _make_svc()
+    block, fired, denied = await svc._l1_capability_consistency(
+        CHAT, "пусть человек на снимке смотрит влево", MagicMock(),
+        MagicMock(), L1Plan(capabilities_needed=("image_edit",)),
+        intent=None, image_pre_gate_fired=False)
+    assert fired is False
+    assert "image_edit" in denied
+    assert "capability_notice" in block and "image_edit" in block
+
+
+@pytest.mark.asyncio
+async def test_plan_edit_available_no_denial_no_generation_force(monkeypatch):
+    """COR-02: план запросил image_edit, инструмент готов → без отказов и
+    без принудительной генерации; edit_image остаётся анонсированным."""
+    from services.direct_l1 import L1Plan
+    _patch_reg_resolve(monkeypatch, edit_status=caps.STATUS_READY)
+    svc = _make_svc()
+    block, fired, denied = await svc._l1_capability_consistency(
+        CHAT, "пусть человек на снимке смотрит влево", MagicMock(),
+        MagicMock(), L1Plan(capabilities_needed=("image_edit",)),
+        intent=None, image_pre_gate_fired=False)
+    assert fired is False
+    assert denied == ()
+    assert block == ""
+
+
+@pytest.mark.asyncio
+async def test_word_intent_create_does_not_override_plan_edit(monkeypatch):
+    """COR-02: детерминированный create-интент (need+объект) НЕ подменяет
+    генерацией план, выбравший edit (структурное поле); честность edit
+    сохраняется через пометку."""
+    from services.direct_l1 import L1Plan
+    _patch_reg_resolve(monkeypatch, edit_status=caps.STATUS_NOT_CONFIGURED,
+                       gen_status=caps.STATUS_READY)
+    svc = _make_svc()
+    create_intent = dc.ActionIntent(intent=dc.INTENT_CREATE_IMAGE,
+                                    capability="image_generation",
+                                    confidence=dc.CONFIDENCE_HIGH)
+    block, fired, denied = await svc._l1_capability_consistency(
+        CHAT, "можешь изменить мем", MagicMock(), MagicMock(),
+        L1Plan(capabilities_needed=("image_edit",)),
+        intent=create_intent, image_pre_gate_fired=False)
+    # План выбрал edit → routing-fix генерации НЕ стреляет:
+    assert fired is False
+    assert denied == ()          # image_generation готов (не он выбирался)
+    # Недоступный edit — правдивая пометка Writer'у (генерация вместо него
+    # не идёт); контракт §5.18 others: инструмент не прячется, пометка есть.
+    assert "capability_notice" in block and "image_edit" in block
 
 
 def test_tool_canon_15_edit_image_at_tail():
@@ -547,6 +710,172 @@ async def test_edit_image_failure_is_not_reported_as_success(monkeypatch):
     assert payload["reason"] == "timeout"
     assert sent == []
     assert caps._outcome("image_edit", CHAT)[0] == caps.RESULT_FAILED
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# REQ-COR-01: единый effective-конфиг чата + реальный формат исходника
+# ════════════════════════════════════════════════════════════════════════════
+
+@pytest.mark.asyncio
+async def test_edit_image_source_format_preserved(monkeypatch):
+    """COR-01: исходник сохраняется во временный файл с расширением по
+    сниффер-MIME (JPEG → .jpg, WebP → .webp), PNG — без изменений; MIME
+    edit-запроса соответствует фактическому формату (data URL от суффикса)."""
+    from services.media_execution import MediaSubmitResult
+    from services import cover_style_edit as cse
+    from services import mca_vision as mv
+    from services import telegram_send
+
+    _patch_image_sources(monkeypatch)
+    _patch_edit_caps(monkeypatch, edit_value="yes")
+    caps.invalidate(None, None, reason="test")
+    seen_suffixes: list[str] = []
+    seen_data_mimes: list[str] = []
+
+    class _FakeAdapter:
+        name = "nanogpt"
+
+        async def submit_edit(self, *, prompt, model, image_paths, **kwargs):
+            path = image_paths[0]
+            seen_suffixes.append(path)
+            seen_data_mimes.append(cse._data_url(path).split(";")[0])
+            return MediaSubmitResult(ok=True, content=b"edited", reason="ok")
+
+    import services.media_execution as me
+    monkeypatch.setattr(me, "detect_adapter",
+                        lambda base_url: _FakeAdapter())
+
+    async def _fake_send(bot, chat_id, photo, **kwargs):
+        return object()
+
+    monkeypatch.setattr(telegram_send, "send_photo", _fake_send)
+
+    class _FakeDb:
+        async def get_media_assets_for_message(self, chat_id, tg_id):
+            return [{"asset_kind": "photo", "file_id": "fid_1",
+                     "file_unique_id": "uniq_1"}]
+
+    router = object.__new__(ToolRouter)
+    router.deps = types.SimpleNamespace(db=_FakeDb())
+
+    for mime, suffix, data_mime in (
+            ("image/jpeg", ".jpg", "data:image/jpeg"),
+            ("image/webp", ".webp", "data:image/webp"),
+            ("image/png", ".png", "data:image/png")):
+        def _make_download(_mime=mime):
+            async def _download(bot, file_id, **kwargs):
+                return mv.DownloadedImage(data=b"frame-bytes", mime=_mime,
+                                          declared_mime=_mime, width=4,
+                                          height=4, byte_size=11)
+            return _download
+
+        monkeypatch.setattr(mv, "download_telegram_file", _make_download())
+        ctx = ToolContext(CHAT, "измени", bot=object(),
+                          reply_to_message_id=501)
+        out = await router.dispatch(
+            "edit_image", {"prompt": "измени",
+                           "target": {"chat_id": CHAT, "message_id": 501}},
+            ctx)
+        assert json.loads(out)["status"] == "success", mime
+        assert seen_suffixes[-1].endswith(suffix), mime
+        assert seen_data_mimes[-1] == data_mime, mime
+    assert [p.endswith(s) for p, s in
+            zip(seen_suffixes, (".jpg", ".webp", ".png"))] == [True] * 3
+
+
+@pytest.mark.asyncio
+async def test_edit_image_uses_chat_provider_config(monkeypatch):
+    """COR-01: проверка capability и исполнение используют ОДИН effective-
+    набор настроек чата (per-chat override → hot → default, резолв
+    capability_registry.chat_value): и resolve_capabilities (проверка), и
+    submit_edit (исполнение) получают провайдера/модель/ключ этого чата.
+    Новых конфигурационных систем нет."""
+    from services import chat_params
+    from services import image_capabilities as icap
+    from services import mca_vision as mv
+    from services import telegram_send
+    from services.media_execution import MediaSubmitResult
+
+    _patch_image_sources(monkeypatch)
+    caps.invalidate(None, None, reason="test")
+
+    class _FakeParamsCache:
+        async def get_chat_params(self, chat_id):
+            return {"overrides": {
+                "models.image_base_url": "https://chat-a.example/v1",
+                "models.image_model": "chat-model-a",
+                "keys.image_api_key": "chat-key-a",
+            }}
+
+    chat_params.set_chat_params_cache(_FakeParamsCache())
+    try:
+        check_calls = []
+
+        def _capture_caps(provider, base_url, model, **kwargs):
+            check_calls.append({"provider": provider, "base_url": base_url,
+                                "model": model})
+            caps_obj = icap.conservative_unknown()
+            caps_obj.image_edit = "yes"
+            return caps_obj
+
+        monkeypatch.setattr(icap, "resolve_capabilities", _capture_caps)
+
+        exec_calls = []
+        adapter_base = []
+
+        class _FakeAdapter:
+            name = "nanogpt"
+
+            async def submit_edit(self, *, prompt, model, image_paths,
+                                  **kwargs):
+                exec_calls.append({"model": model,
+                                   "api_key": kwargs.get("api_key")})
+                return MediaSubmitResult(ok=True, content=b"edited",
+                                         reason="ok")
+
+        def _detect(base_url):
+            adapter_base.append(base_url)
+            return _FakeAdapter()
+
+        import services.media_execution as me
+        monkeypatch.setattr(me, "detect_adapter", _detect)
+
+        async def _fake_download(bot, file_id, **kwargs):
+            return mv.DownloadedImage(data=b"png", mime="image/png",
+                                      declared_mime="image/png", width=2,
+                                      height=2, byte_size=4)
+
+        async def _fake_send(bot, chat_id, photo, **kwargs):
+            return object()
+
+        monkeypatch.setattr(mv, "download_telegram_file", _fake_download)
+        monkeypatch.setattr(telegram_send, "send_photo", _fake_send)
+
+        class _FakeDb:
+            async def get_media_assets_for_message(self, chat_id, tg_id):
+                return [{"asset_kind": "photo", "file_id": "fid_1",
+                         "file_unique_id": "uniq_1"}]
+
+        router = object.__new__(ToolRouter)
+        router.deps = types.SimpleNamespace(db=_FakeDb())
+        ctx = ToolContext(CHAT, "измени", bot=object(),
+                          reply_to_message_id=501)
+        out = await router.dispatch(
+            "edit_image", {"prompt": "измени",
+                           "target": {"chat_id": CHAT, "message_id": 501}},
+            ctx)
+        assert json.loads(out)["status"] == "success"
+        # Исполнение — на настройках ЧАТА (не глобальных):
+        assert adapter_base == ["https://chat-a.example/v1"]
+        assert exec_calls == [{"model": "chat-model-a",
+                               "api_key": "chat-key-a"}]
+        # Проверка способности — тот же effective-набор (тот же провайдер):
+        assert check_calls and \
+            check_calls[0]["base_url"] == "https://chat-a.example/v1"
+        assert check_calls[0]["model"] == "chat-model-a"
+        assert check_calls[0]["provider"] == "chat-a.example"
+    finally:
+        chat_params.set_chat_params_cache(None)
 
 
 # ════════════════════════════════════════════════════════════════════════════

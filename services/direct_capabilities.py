@@ -255,20 +255,16 @@ _STEM_EXCLUSIONS: dict[str, tuple[str, ...]] = {
     "подпис": ("подписк", "подписчик"),
 }
 _NEED_MARKER = ("нужн", "нужен", "надо", "хочу", "давай", "можешь", "можно")
-# ASAP5 §20: edit-маркеры — изменение СУЩЕСТВУЮЩЕГО изображения (исходник
-# резолвится router'ом: reply / собственное медиа / ранее присланное).
-# «Перерисуй/дорисуй» остаются CREATE (прецедент тестов W10: «перерисуй мем»
-# — поручение создать), поэтому edit-глаголы НЕ пересекаются с
-# _DRAW_VERB_*; create-глагол сильнее edit (смешанная просьба — создание).
-_EDIT_VERB = ("измен", "редактир", "отредактир", "поменя", "поправ",
-              "исправ", "перезалей", "перекрас")
-#: Удаление/добавление объекта НА готовом изображении — edit только с
-#: локативом («на картинке/фото/меме»), иначе «добавь мем в чат» — не edit.
-_EDIT_REMOVE = ("убер", "сотри", "стори", "удал", "замени", "добав", "встав",
-                "впиши", "надпис")
-_EDIT_LOCATIVE_RE = re.compile(
-    r"(?:\b(?:на|с|со)\s+(?:картин|фото|изображен|мем|рисунк|арте|скрин|пикч))",
-    re.IGNORECASE)
+# ASAP5 §20 / COR-02 (p0-nostalgia corrective): edit-интент НЕ определяется
+# детерминированным пре-гейтом по словарям слов (_EDIT_VERB/_EDIT_REMOVE/
+# _EDIT_LOCATIVE_RE удалены; запрещено расширять словники под очередные фразы).
+# Семантическое решение «редактировать существующее / создать новое» — за
+# L1-планом (структурные поля `capabilities_needed`/intent); честность
+# edit-capability обеспечивает `_l1_capability_consistency` по плану
+# (`services/direct_chat_service.py`). Пре-гейт не ветоирует и не инжектирует
+# edit по совпадению слов: план отсутствует → default non-edit handling без
+# edit-специфичных действий. Константы INTENT_EDIT_IMAGE/REASON_EDIT_REQUEST
+# и `edit_actionable` сохранены как структурный контракт этого пути.
 _CONCEIVE = ("придума", "концепт", "идея", "идею", "идеи", "идей", "сценар",
              "сюжет", "текст", "подпис", "шутк", "вариант", "предложи",
              "назван", "заголовк", "описан")
@@ -432,6 +428,11 @@ def detect_action_intent(text, *, reply_text: str = "",
     текст/сценарий и явное отрицание рисования генерацию НЕ запускают;
     неоднозначное поручение («сделай это») помечается ``ambiguous``.
 
+    COR-02: edit-интент этот детектор НЕ классифицирует (словесные словари
+    удалены) — семантическое решение «редактировать существующее» принимает
+    L1-план; здесь план отсутствует → любое поручение детектируется только
+    как create/none, edit-специфичных действий нет.
+
     Не поручение (0 генераций) и наблюдаемая причина:
 
     * ``forwarded=True`` (пересланное сообщение) — чужие слова;
@@ -455,18 +456,12 @@ def detect_action_intent(text, *, reply_text: str = "",
         generic_create = _has_stem(body, _CREATE_VERB_GENERIC)
         verb = explicit_draw or prefixed_draw or generic_create
         obj = _has_stem(body, _IMAGE_OBJECT)
-        # ASAP5 §20: edit-детекция (изменение исходника ≠ создание нового).
-        edit_verb = _has_stem(body, _EDIT_VERB)
-        edit_remove = _has_stem(body, _EDIT_REMOVE)
-        edit_locative = bool(_EDIT_LOCATIVE_RE.search(body))
-        is_edit = ((edit_verb and obj) or (edit_remove and edit_locative)) \
-            and not (explicit_draw or prefixed_draw or generic_create)
         conceive = _has_stem(body, _CONCEIVE) and not bool(
             _CONCEIVE_INSTRUMENTAL_RE.search(body))
         need = _has_stem(body, _NEED_MARKER)
         for flag, name in ((verb, "verb"), (obj, "image_object"),
                            (conceive, "conceive"), (need, "need"),
-                           (negated, "negated"), (is_edit, "edit")):
+                           (negated, "negated")):
             if flag:
                 evidence.append(name)
         # 0. Пересылка: текст чужого сообщения — не поручение пользователя.
@@ -489,23 +484,13 @@ def detect_action_intent(text, *, reply_text: str = "",
                                 reason=REASON_CREATE_SELF,
                                 evidence=tuple(evidence))
         # 3. Запрет/отказ рисовать сильнее поручения (придумать ≠ нарисовать).
-        if negated and (verb or obj or is_edit):
+        if negated and (verb or obj):
             return ActionIntent(
                 confidence=CONFIDENCE_NONE,
                 reason=(REASON_CREATE_CONCEIVE if conceive
                         else REASON_CREATE_NEGATED),
                 evidence=tuple(evidence), conceive_only=bool(conceive))
-        # 3.5 (ASAP5 §20): edit-поручение ПЕРЕЖИВАет need-маркеры («можешь
-        # изменить мем») — иначе общий need-путь шага 4 misroute'ил бы edit
-        # в платную генерацию нового изображения.
-        if is_edit:
-            if _has_stem(body, _DISCUSS):
-                return ActionIntent(evidence=tuple(evidence))
-            return ActionIntent(
-                intent=INTENT_EDIT_IMAGE,
-                capability=INTENT_CAPABILITY[INTENT_EDIT_IMAGE],
-                confidence=CONFIDENCE_HIGH, reason=REASON_EDIT_REQUEST,
-                evidence=tuple(evidence))
+        # (COR-02: словесная edit-ветка удалена — edit-решение за L1-планом.)
         # 4. Объект изображения + действие/потребность → поручение создать.
         if obj and (verb or need):
             if _has_stem(body, _DISCUSS) and not explicit_draw:

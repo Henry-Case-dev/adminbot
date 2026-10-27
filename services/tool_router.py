@@ -126,6 +126,17 @@ _DOWNLOAD_NATIVE_MAX_BYTES = 2_000_000_000
 _ARTICLE_TOOL_TIMEOUT = 45.0
 _ARTICLE_MAX_SYMBOLS = 8000        # markdown-статья богаче поиска; всё ещё bounded
 
+# COR-01 (p0-nostalgia corrective §COR-01): исходник edit сохраняется во
+# временный файл с расширением по СНИФФЕР-формату (mca_vision.DownloadedImage
+# .mime), а не «всё в .png» — иначе MIME edit-запроса врал (JPEG/WebP-исходник
+# объявлялся image/png). Неизвестный mime → консервативный прежний .png.
+_EDIT_SOURCE_SUFFIX_BY_MIME = {
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+}
+
 # ── A6 (раунд 10.26, ADR-1026-18 D3/D4/D5): structured memory lookup
 # `get_user_context`. Капы — код-константы (Δ каталога = 0); инструмент
 # read-only и free/local (не в METERED_TOOLS). R17: в логи — только
@@ -3617,7 +3628,11 @@ class ToolRouter:
         src_path = ""
         try:
             img = await mca_vision.download_telegram_file(ctx.bot, file_id)
-            fd, src_path = tempfile.mkstemp(suffix=".png")
+            # COR-01: реальный формат исходника сохраняется — суффикс
+            # временного файла по сниффер-MIME (не безусловный .png).
+            suffix = _EDIT_SOURCE_SUFFIX_BY_MIME.get(
+                str(getattr(img, "mime", "") or ""), ".png")
+            fd, src_path = tempfile.mkstemp(suffix=suffix)
             with os.fdopen(fd, "wb") as fh:
                 fh.write(bytes(img.data))
         except asyncio.CancelledError:
@@ -3636,14 +3651,19 @@ class ToolRouter:
         # ── Исполнение: существующий submit_edit-маршрут ──────────────────
         result = None
         try:
-            base_url = str(image_generation._resolve_str(
-                image_generation.KEY_BASE_URL,
+            # COR-01: effective-настройки чата тем же резолвом, что у проверки
+            # capability (`capability_registry.chat_value` = per-chat override
+            # → hot → default) — провайдер исполнения совпадает с проверенным;
+            # новых конфигурационных систем нет.
+            from services import capability_registry as _capcfg
+            base_url = str(await _capcfg.chat_value(
+                ctx.chat_id, image_generation.KEY_BASE_URL,
                 getattr(settings, "IMAGE_BASE_URL", "")) or "").strip()
-            model = str(image_generation._resolve_str(
-                image_generation.KEY_MODEL,
+            model = str(await _capcfg.chat_value(
+                ctx.chat_id, image_generation.KEY_MODEL,
                 getattr(settings, "IMAGE_MODEL", "")) or "").strip()
-            api_key = str(image_generation._resolve_str(
-                image_generation.KEY_API_KEY,
+            api_key = str(await _capcfg.chat_value(
+                ctx.chat_id, image_generation.KEY_API_KEY,
                 getattr(settings, "IMAGE_API_KEY", "")) or "").strip()
             adapter = detect_adapter(base_url)
             result = await adapter.submit_edit(

@@ -71,6 +71,7 @@ _OUTCOMES: dict[tuple[str, int | None], tuple[float, str, str]] = {}
 
 # ── Гейты/источники по capability (реальные имена ключей) ──────────────────
 IMAGE_MODULE_KEY = "flags.image_generation_module_enabled"
+IMAGE_BASE_URL_KEY = "models.image_base_url"
 IMAGE_MODEL_KEY = "models.image_model"
 IMAGE_KEY = "keys.image_api_key"
 SEARCH_KEYS = ("keys.tavily_api_key", "keys.exa_api_key")
@@ -87,8 +88,8 @@ CHECKUP_KEY = "flags.checkup_enabled"
 #: (review-w10 F4): правка через POST /api/config мутирует ConfigCache на
 #: месте, поэтому одной идентичности объекта недостаточно.
 _TOKEN_KEYS: tuple[str, ...] = (
-    IMAGE_MODULE_KEY, IMAGE_KEY, IMAGE_MODEL_KEY, FACTCHECK_KEY, LORE_KEY,
-    CHECKUP_KEY,
+    IMAGE_MODULE_KEY, IMAGE_BASE_URL_KEY, IMAGE_KEY, IMAGE_MODEL_KEY,
+    FACTCHECK_KEY, LORE_KEY, CHECKUP_KEY,
 ) + SEARCH_KEYS
 
 
@@ -311,6 +312,17 @@ async def _chat_value(chat_id: int | None, key: str, default=None):
         return await get_chat_param(chat_id, key, base)
     except Exception:      # pragma: no cover - PG down → глобальный слой
         return base
+
+
+async def chat_value(chat_id: int | None, key: str, default=None):
+    """Публичный effective-резолв настройки чата (COR-01): та же цепочка,
+    что у построителей capability (per-chat override → hot → default).
+
+    ЕДИНСТВЕННЫЙ механизм для проверок capability И исполнения (executors):
+    «проверка возможности и исполнение используют один effective-набор
+    настроек чата» — провайдер исполнения совпадает с проверенным. Новых
+    конфигурационных систем не создаётся."""
+    return await _chat_value(chat_id, key, default)
 
 
 def _tool_names(lore_enabled: bool = True,
@@ -555,15 +567,21 @@ async def _build_image_edit(chat_id: int | None, now: float | None = None
                       detail=("key_absent" if not key else "model_absent"))
     # Provider edit-capability (image_capabilities §16: override → registry
     # → cached → conservative unknown; БЕЗ сети — discovery делает вызывающий
-    # контур, не реестр).
+    # контур, не реестр). COR-01: base_url — из того же effective-набора
+    # настроек чата, что model/key (один резолв и у проверки, и у исполнения),
+    # а ярлык провайдера берётся из РЕЗОЛВНУТОГО base_url — проверенная
+    # способность принадлежит тому провайдеру, который исполнит операцию.
     edit_known: str = ""
     try:
         from services import image_capabilities as cap
-        base_url = str(ig._resolve_str(
-            ig.KEY_BASE_URL, getattr(_settings(), "IMAGE_BASE_URL", ""))
-            or "").strip()
-        caps = cap.resolve_capabilities(ig.provider_label(), base_url, model,
-                                        operation=cap.OPERATION_EDIT)
+        base_url = str(await _chat_value(
+            chat_id, IMAGE_BASE_URL_KEY,
+            _hot_get(IMAGE_BASE_URL_KEY,
+                     getattr(_settings(), "IMAGE_BASE_URL", ""))
+            or "") or "").strip()
+        caps = cap.resolve_capabilities(
+            ig._provider_from_url(base_url), base_url,
+            model, operation=cap.OPERATION_EDIT)
         edit_known = str(getattr(caps, "image_edit", "") or "")
     except Exception:      # pragma: no cover - fail-open → unknown
         edit_known = ""
