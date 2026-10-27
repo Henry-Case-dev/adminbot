@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-nostalgia-rework/source-2026-10-27.md",
   "source_sha256": "74cf86e69168889b07b83f6baf41f8260d0f957f4b7081bf486413d5ce9f3681",
-  "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
+  "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
   "deployed_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
   "strict_evidence": true,
   "slice_graph_path": "",
@@ -3182,8 +3182,15 @@
       "acceptance": "Проверка возможности и исполнение Image Edit используют один effective-набор настроек чата; провайдер исполнения совпадает с провайдером проверенной способности; исходный формат изображения не теряется при сохранении во временный .png; новые конфигурационные системы не создаются; проверено минимум на двух чатах с различными настройками провайдеров.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "type": "review+tests",
+          "ref": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md + review-cor-fixes.md (Approved)",
+          "observation": "COR fix verified: tests + independent review Approved"
+        }
+      ]
     },
     {
       "source_id": "L00817",
@@ -3272,8 +3279,15 @@
       "acceptance": "Смысловое поручение редактирования существующего изображения не теряется из-за несовпадения слов; словари _EDIT_VERB/_EDIT_REMOVE/_EDIT_LOCATIVE_RE не расширяются под очередные фразы; роль детерминированного pre-gate пересмотрена относительно L1; создание не путается с редактированием; генерация не выполняется вместо редактирования при отсутствии инструмента; проверены разнообразные естественные формулировки, включая reply на изображение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "type": "review+tests",
+          "ref": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md + review-cor-fixes.md (Approved)",
+          "observation": "COR fix verified: tests + independent review Approved"
+        }
+      ]
     },
     {
       "source_id": "L00841",
@@ -3287,8 +3301,15 @@
       "acceptance": "В tool_loop._sync_claim_with_outcome успех, ошибка и подтверждённая доставка определяются структурированным контрактом результата, а не поиском текстовых фрагментов; случайное совпадение текста не трактуется как успех; уведомления о недоступности функции не удаляются без подтверждённого результата; синхронизация Capability Registry и Writer сохранена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "type": "review+tests",
+          "ref": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md + review-cor-fixes.md (Approved)",
+          "observation": "COR fix verified: tests + independent review Approved"
+        }
+      ]
     },
     {
       "source_id": "L00855",
@@ -4327,5 +4348,6 @@
       "status": "PENDING",
       "evidence": []
     }
-  ]
+  ],
+  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented."
 }
