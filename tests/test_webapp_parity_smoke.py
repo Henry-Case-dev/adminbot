@@ -59,11 +59,15 @@ class TestCatalogParity:
         # (flags_decision_making → mod_direct) → 473/102/430.
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 REGISTRY/Settings,
         # +2 GROUPS (memory_random/keys_random) → 502/107/439.
-        assert len(REGISTRY) == 587, len(REGISTRY)
+        # NOST-REWORK W2 (28.10.2026, NOST-12): +1 REGISTRY/Settings
+        # (NOSTALGIA_HISTORY_DEPTH_YEARS, группа memory_nostalgia) → 588.
+        assert len(REGISTRY) == 588, len(REGISTRY)
         assert len(GROUPS) == 121
         from config.settings import Settings
         import dataclasses
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        # NOST-REWORK W2 (28.10.2026, NOST-12): +1 поле Settings
+        # (NOSTALGIA_HISTORY_DEPTH_YEARS) → 466+1=467.
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():

@@ -177,9 +177,13 @@ class TestTabMappingAudit:
         # 5 limits_intent, pg_id-ренейм flags.initiative_enabled…), +2 GROUPS
         # (flags_intent/limits_intent), +2 mapped (вкладка mod_initiative);
         # TAB_RULES 22→23 (+mod_initiative) → 538/115/113.
+        # NOST-REWORK W2 (28.10.2026, NOST-12 source-2026-10-27.md): +1
+        # REGISTRY (NOSTALGIA_HISTORY_DEPTH_YEARS, группа memory_nostalgia —
+        # вкладка mod_nostalgia существующая); GROUPS/mapped/TAB_RULES без
+        # изменений → 587+1=588.
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(GROUPS) == 121
-        assert len(pc.REGISTRY) == 587
+        assert len(pc.REGISTRY) == 588
 
 
 class TestModuleTabs:

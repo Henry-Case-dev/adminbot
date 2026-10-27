@@ -214,7 +214,7 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     # при несостоявшейся мысли), provenance «Переслано» (§6) и форма отказа
     # ровно UNCHANGED без публикации текста-самоотказа (§5). Прежние байты —
     # PREV_NOSTALGIA_PROMPT_1026 / PREV_NOSTALGIA_CORE_CANON_1026.
-    "internal.nostalgia.candidate": "nostalgia-nost-rework-w1",
+    "internal.nostalgia.candidate": "nostalgia-nost-rework-w2",
     "internal.dossier.system": "dossier-system",
     "internal.dossier.layer_a": "dossier-layer-a",
     "internal.dossier.layer_b": "dossier-layer-b",
@@ -1874,7 +1874,22 @@ def factory_set_fingerprint() -> str:
 #: W1 — PREV_NOSTALGIA_PROMPT_1027 / PREV_NOSTALGIA_CORE_CANON_1027
 #: (откат/дифф). Было ``3bc0c543520c``, стало ``986108f6d63c``.
 #: Переутверждено осознанно (SOUL-AMD.3.2).
-FACTORY_SET_SHA256_12 = "986108f6d63c"
+#: P0 NOSTALGIA REWORK W2 (28.10.2026, NOST-05/09 source-2026-10-27.md):
+#: канон ностальгии ``internal.nostalgia.candidate`` — литературный шаблон
+#: снят (NOST-09.1: «обычно 1-2 короткими фразами «кстати...»» больше не
+#: предписывается, форма свободная, драматизация без повода не нужна),
+#: скрытая квота длины ``{max_words}`` удалена (NOST-09.2 + правило
+#: владельца о запрете самодельных квот инструкций), критерий
+#: содержательности дополнен «объём ≠ интересность» (NOST-05.2).
+#: Директива владельца §8, provenance «Переслано» и анти-вымысел — дословно.
+#: changed = 1. Метка ``nostalgia-nost-rework-w2``; прежние байты W1 —
+#: PREV_NOSTALGIA_PROMPT_1027W1 / PREV_NOSTALGIA_CORE_CANON_1027W1
+#: (откат/дифф). Было ``986108f6d63c``, стало ``fbc44eb0f879``.
+#: Переутверждено осознанно (SOUL-AMD.3.2).
+#: NOST-08 (W2, 28.10.2026): в каноны добавлена протокольная инструкция
+#: номера выбранного блока («SAY <№>», детерминированный служебный
+#: суффикс); fbc44eb0f879 уже её учитывает.
+FACTORY_SET_SHA256_12 = "fbc44eb0f879"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

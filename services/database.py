@@ -10099,6 +10099,23 @@ class DatabaseService:
             return None
         return int(row["lo"]), int(row["hi"])
 
+    async def count_chat_history_messages(self, chat_id: int, ts_from: int,
+                                          ts_to: int,
+                                          bot_id: int | None = None) -> int:
+        """Счётчик сообщений в историческом диапазоне [ts_from, ts_to] с
+        ТОЙ ЖЕ фильтрацией, что get_chat_history_messages (непустой текст,
+        строки бота исключены). P0 NOSTALGIA REWORK W2 (NOST-11.3): решение
+        о стратификации плотного окна до основной выборки. Индекс
+        (chat_id, timestamp)."""
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM smart_messages "
+            "WHERE chat_id = ? AND timestamp BETWEEN ? AND ? "
+            "AND text IS NOT NULL AND TRIM(text) != '' "
+            "AND (user_id IS NULL OR user_id != ?)",
+            (int(chat_id), int(ts_from), int(ts_to), int(bot_id or 0)))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
     async def get_chat_history_messages(self, chat_id: int, ts_from: int,
                                         ts_to: int, limit: int = 600,
                                         bot_id: int | None = None) -> list:

@@ -473,25 +473,58 @@ class TestCandidatesAndThreshold:
         assert json.loads(rows[0]["meta"])["reason"] == "no_candidates"
 
     @pytest.mark.asyncio
-    async def test_aggressiveness_raises_threshold(self, db, monkeypatch):
+    async def test_aggressiveness_history_pool_reaches_semantic_verdict(
+            self, db, monkeypatch):
+        """NOST-05 (W2): исторический пул НЕ гейтится фиксированным весом
+        происхождения — при агрессивности 1.0 (порог 0.8, выше прежнего
+        веса 0.7) повод-годовщина доходит до семантической оценки модели
+        (типизированный вердикт NOST-01), а не отбрасывается арифметикой."""
         _patch_time(monkeypatch)
         _hot_cache(monkeypatch, {"memory.nostalgia_aggressiveness": 1.0,
                                  "memory.nostalgia_enabled": True})
         await _add_user_msg(db, "тишина", ts=NOW - 30 * 3600)
         await _add_user_msg(db, "год назад текст для кандидата",
                             ts=NOW - 365 * 86400 + 3000)
-        llm = _FakeLLM("кстати...")
+        llm = _FakeLLM("UNCHANGED")
         bot = _FakeBot()
         w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot)
         out = await w._process_chat(CHAT_ID, NOW, manual=True)
-        # порог 0.3+0.5=0.8 > вес «год назад» 0.7 → threshold-skip
-        assert out["candidates"] == 1 and out["sent"] == 0
-        assert bot.calls == []
+        # исторический пул дошёл до семантической оценки модели
+        assert len(llm.calls) == 1
+        assert out["sent"] == 0 and bot.calls == []
         rows = await _log_rows(db)
-        assert len(rows) == 1
-        meta = json.loads(rows[0]["meta"])
+        skip = [r for r in rows if r["status"] == "skipped"]
+        assert skip
+        meta = json.loads(skip[-1]["meta"])
+        assert meta["reason"] == "unchanged"   # вердикт модели, не threshold
+        assert skip[-1]["kind"] == "year_back"
+
+    @pytest.mark.asyncio
+    async def test_aggressiveness_gates_weak_golden_fact(
+            self, db, monkeypatch):
+        """Порог агрессивности сохранён для слабых «золотых» фактов
+        (технический предварительный отбор): важность 5 → вес 0.55 < порога
+        0.8 (агрессивность 1.0) → threshold-skip до LLM (настроение
+        владельца соблюдено)."""
+        _patch_time(monkeypatch)
+        _hot_cache(monkeypatch, {"memory.nostalgia_aggressiveness": 1.0,
+                                 "memory.nostalgia_enabled": True})
+        await _add_user_msg(db, "тишина", ts=NOW - 30 * 3600)
+        await _add_user_msg(db, "василий и его дела", ts=NOW - 3 * 3600)
+        await _add_fact(db, "василий ездил на выходные за город",
+                        days_ago=400, importance=5)
+        memory = MemoryManager(db, MagicMock())
+        llm = _FakeLLM("кстати...")
+        bot = _FakeBot()
+        w = _worker(db, llm, monkeypatch=monkeypatch, bot=bot,
+                    memory=memory)
+        out = await w._process_chat(CHAT_ID, NOW, manual=True)
+        assert len(llm.calls) == 0             # слабый факт отсеян порогом
+        assert out["sent"] == 0 and bot.calls == []
+        rows = await _log_rows(db)
+        assert rows and rows[-1]["kind"] == "golden"
+        meta = json.loads(rows[-1]["meta"])
         assert meta["reason"] == "threshold"
-        assert rows[0]["kind"] == "year_back"
 
     @pytest.mark.asyncio
     async def test_no_candidates_anywhere_logged_none(self, db,
