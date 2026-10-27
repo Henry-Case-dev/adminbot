@@ -496,6 +496,104 @@ async def _build_image_generation(chat_id: int | None,
                   detail=quota_detail or "ready")
 
 
+async def _build_image_edit(chat_id: int | None, now: float | None = None
+                            ) -> CapabilityState:
+    """image_edit (ASAP5 §18/§20) — редактирование существующего изображения.
+
+    ОТДЕЛЬНАЯ способность: «недоступность одной операции не означает
+    недоступности остальных» (§18). Источники ТЕ ЖЕ реальные, что у
+    генерации (модуль/ключ/модель/квота/наблюдаемые исходы), плюс
+    capability-цепочка ``image_capabilities`` (override/registry/кеш;
+    БЕЗ сетевых вызовов — конструктор модуля не делает probes): TRUE →
+    ready, FALSE → unsupported («модель не умеет edit»), UNKNOWN → честный
+    ``unknown`` (не выдумываем поддержку). Никаких сетевых вызовов."""
+    from services import image_generation as ig
+    canonical = _canonical_tool_names()
+    declared = "edit_image" in canonical
+    gates: list[str] = [IMAGE_MODULE_KEY, IMAGE_KEY, IMAGE_MODEL_KEY,
+                        "budget.image_calls", "image_capabilities.image_edit"]
+    base = CapabilityState(
+        capability_id="image_edit",
+        title="Редактирование изображений",
+        actions=("edit_image",),
+        executor="services.media_execution",
+        tool_name="edit_image" if declared else "",
+        scope="chat",
+        inputs=("prompt", "source_image"),
+        gates=tuple(gates),
+        declared=declared,
+        checked_at=_now_iso(),
+        source="runtime",
+    )
+    last_result, last_code = _outcome("image_edit", chat_id, now)
+
+    def _state(status: str, **kw) -> CapabilityState:
+        return dataclasses.replace(base, status=status, last_result=last_result,
+                                   last_result_code=last_code, **kw)
+
+    if not declared:
+        return _state(STATUS_UNSUPPORTED, reason_code="tool_absent",
+                      detail="schema_absent")
+    try:
+        module_on = await ig.resolve_module_enabled(chat_id)
+    except Exception:      # pragma: no cover - resolve уже fail-open
+        module_on = bool(_hot_get(IMAGE_MODULE_KEY, True))
+    if not module_on:
+        return _state(STATUS_DISABLED, reason_code="module_disabled",
+                      detail="image_module_off")
+    model = str(await _chat_value(
+        chat_id, IMAGE_MODEL_KEY,
+        _hot_get(IMAGE_MODEL_KEY, getattr(_settings(), "IMAGE_MODEL", ""))
+        or "") or "").strip()
+    key = str(await _chat_value(
+        chat_id, IMAGE_KEY,
+        _hot_get(IMAGE_KEY, getattr(_settings(), "IMAGE_API_KEY", ""))
+        or "") or "").strip()
+    if not key or not model:
+        return _state(STATUS_NOT_CONFIGURED,
+                      reason_code="image_provider_unconfigured",
+                      detail=("key_absent" if not key else "model_absent"))
+    # Provider edit-capability (image_capabilities §16: override → registry
+    # → cached → conservative unknown; БЕЗ сети — discovery делает вызывающий
+    # контур, не реестр).
+    edit_known: str = ""
+    try:
+        from services import image_capabilities as cap
+        base_url = str(ig._resolve_str(
+            ig.KEY_BASE_URL, getattr(_settings(), "IMAGE_BASE_URL", ""))
+            or "").strip()
+        caps = cap.resolve_capabilities(ig.provider_label(), base_url, model,
+                                        operation=cap.OPERATION_EDIT)
+        edit_known = str(getattr(caps, "image_edit", "") or "")
+    except Exception:      # pragma: no cover - fail-open → unknown
+        edit_known = ""
+    if edit_known == "no":
+        return _state(STATUS_UNSUPPORTED, reason_code="edit_unsupported",
+                      detail="model_cannot_edit")
+    if edit_known != "yes":
+        # §16 (image_capabilities): unknown остаётся честным unknown —
+        # поддержка НЕ выдумывается. Статус NOT_CONFIGURED (реестровый
+        # контракт: STATUS_UNKNOWN = «реестр не знает capability», а мы
+        # знаем её и честно называем причину: подтверждения нет).
+        return _state(STATUS_NOT_CONFIGURED,
+                      reason_code="edit_capability_unknown",
+                      detail="edit_capability_unknown")
+    transient = _recent_transient_failure("image_edit", chat_id, now)
+    if transient:
+        return _state(STATUS_TEMPORARILY_UNAVAILABLE,
+                      reason_code="provider_unavailable", source="outcome",
+                      detail=transient)
+    quota_status, quota_detail = await _image_quota(chat_id)
+    if quota_status == STATUS_DISABLED:
+        return _state(STATUS_DISABLED, reason_code="financial_limit_disabled",
+                      detail=quota_detail)
+    if quota_status == STATUS_QUOTA_EXHAUSTED:
+        return _state(STATUS_QUOTA_EXHAUSTED,
+                      reason_code="financial_limit_reached", detail=quota_detail)
+    return _state(STATUS_READY, reason_code="", tryable=True,
+                  detail=quota_detail or "ready")
+
+
 async def _build_web_search(chat_id: int | None, now: float | None = None
                             ) -> CapabilityState:
     """web_search — инструмент + хотя бы один поисковый ключ (tavily/exa)."""
@@ -692,6 +790,8 @@ async def resolve(capability_id: str, chat_id: int | None = None, *,
     try:
         if cap == "image_generation":
             state = await _build_image_generation(chat_id, now)
+        elif cap == "image_edit":
+            state = await _build_image_edit(chat_id, now)
         elif cap == "web_search":
             state = await _build_web_search(chat_id, now)
         elif cap == "fact_check":
@@ -791,10 +891,10 @@ async def capability_view(chat_id: int | None = None, *,
 
 
 _DEFAULT_VIEW_IDS: tuple[str, ...] = (
-    "image_generation", "web_search", "fact_check", "video_summary",
-    "chat_memory", "chat_history", "user_memory", "historical_search",
-    "image_understanding", "transcription", "media_download", "fetch_url",
-    "statistics",
+    "image_generation", "image_edit", "web_search", "fact_check",
+    "video_summary", "chat_memory", "chat_history", "user_memory",
+    "historical_search", "image_understanding", "transcription",
+    "media_download", "fetch_url", "statistics",
 )
 
 
@@ -842,6 +942,12 @@ _FAILURE_CODE_BY_REASON: dict[str, str] = {
     "too_many_bytes": "unsupported",
     "empty_prompt": "unsupported",
     "validation_failed": "unsupported",
+    # ASAP5 §20 (edit-route): честные причины edit-пути — не «неизвестный
+    # сбой» и не подмена генерацией.
+    "edit_unsupported": "unsupported",
+    "no_input_images": "unsupported",
+    "no_source_image": "unsupported",
+    "route_unverified": "temporarily_unavailable",
 }
 
 
@@ -962,6 +1068,10 @@ def notice_block(state: CapabilityState) -> str:
             "Не обещай выполнить это действие и не выдумывай результат; если "
             "пользователь его просил - честно и коротко объясни отказ в своём "
             "голосе, без фразы «я вообще не умею».\n"
+            "Эта пометка отражает состояние на момент планирования хода. Если "
+            "позже в этом же ходе действие фактически выполнилось и результат "
+            "отправлен - описывай фактический результат, а не отказ; "
+            "недоступность одной операции не означает недоступности остальных.\n"
             "</capability_notice>") % (
         state.status, state.capability_id, state.capability_id, hint,
         state.reason_code or "unknown")

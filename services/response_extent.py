@@ -97,6 +97,8 @@ CAPABILITY_TOOLS = {
     "video_summary": "summarize_video",
     "media_download": "download_media",
     "image_generation": "generate_image",
+    # ASAP5 §20 (edit-route): существующий submit_edit-маршрут (Direct Chat).
+    "image_edit": "edit_image",
     "factcheck": "fact_check",
     "user_context": "get_user_context",
     "health": "get_bot_health",

@@ -72,9 +72,12 @@ class TestToolSchema:
         # остаётся 9-м; transcribe_video — в конец); A2 (ADR-1026-15 D5):
         # +fetch_article → 11.
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
+        # ASAP5 §20 (edit-route): +edit_image → 15 (в конец, первые 14
+        # байт-в-байт; generate_image остаётся 9-м).
         assert names == _FIRST_EIGHT + [
             "generate_image", "transcribe_video", "fetch_article",
-            "get_user_context", "recognize_image", "fact_check"]
+            "get_user_context", "recognize_image", "fact_check",
+            "edit_image"]
         assert names[8] == "generate_image"
         assert IMAGE_GENERATION_TOOL_NAME == "generate_image"
 
@@ -95,12 +98,13 @@ class TestToolSchema:
         # (оба присутствуют в обоих наборах).
         assert [t["function"]["name"] for t in active_tools()] == \
             _FIRST_EIGHT + ["transcribe_video", "fetch_article",
-                            "get_user_context", "recognize_image", "fact_check"]
+                            "get_user_context", "recognize_image",
+                            "fact_check"]
         assert [t["function"]["name"]
                 for t in active_tools(image_generation_enabled=True)] == \
             _FIRST_EIGHT + ["generate_image", "transcribe_video",
                             "fetch_article", "get_user_context",
-                            "recognize_image", "fact_check"]
+                            "recognize_image", "fact_check", "edit_image"]
 
     def test_factcheck_tools_unchanged(self):
         from services.tool_schemas import factcheck_tools

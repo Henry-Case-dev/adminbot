@@ -3165,6 +3165,20 @@ class Settings:
     VISION_QUEUE_CAPACITY: int = _env_int("VISION_QUEUE_CAPACITY", 100)
     VISION_USER_RATE: str = _env_str("VISION_USER_RATE", "10/10")
     VISION_CHAT_RATE: str = _env_str("VISION_CHAT_RATE", "60/30")
+    # ── ASAP5 §22 (REQ-ADMIN-TYPES): «Типы медиа» — заводские значения
+    # ВКЛЮЧЕНЫ при включённом основном модуле распознавания изображений;
+    # главный переключатель Vision сохраняет приоритет (AND-семантика гейта
+    # enqueue в services/mca_vision). Флаги типов НЕ отключают запись
+    # канонического реестра активов — только авто-разбор (enqueue).
+    VISION_MEDIA_PHOTO_DOCS: bool = _env_bool("VISION_MEDIA_PHOTO_DOCS", True)
+    VISION_MEDIA_STATIC_STICKERS: bool = _env_bool(
+        "VISION_MEDIA_STATIC_STICKERS", True)
+    VISION_MEDIA_GIF_ANIMATIONS: bool = _env_bool(
+        "VISION_MEDIA_GIF_ANIMATIONS", True)
+    VISION_MEDIA_ANIMATED_STICKERS: bool = _env_bool(
+        "VISION_MEDIA_ANIMATED_STICKERS", True)
+    VISION_MEDIA_VIDEO_PREVIEWS: bool = _env_bool(
+        "VISION_MEDIA_VIDEO_PREVIEWS", True)
 
     # ── EXTRA (extra-cover-style-pipeline, round1028, ADR-1028-4 D3/D11;
     # spec §4.1): слот «Обработка стилей обложки» — отдельные base URL/модель

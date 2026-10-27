@@ -38,6 +38,10 @@ CAPABILITY_TOOLS: dict[str, tuple[str, ...]] = {
     "transcription": ("transcribe_video",),
     "video_summary": ("summarize_video",),
     "image_generation": ("generate_image",),
+    # ASAP5 §20 (edit-route): существующий media_execution.submit_edit →
+    # инструмент edit_image (маршрут Direct Chat; второй набор провайдеров
+    # не создаётся).
+    "image_edit": ("edit_image",),
     # ADD-TR.3 п.4 (слайс ADTR-TOOLS, 19.10.2026): health/checkup — реальный
     # инструмент get_bot_health (тот же путь, что канонический «чекап» 0g;
     # имя capability «health» уже принято в response_extent.CAPABILITY_TOOLS).
@@ -81,6 +85,7 @@ CAPABILITY_LABELS: dict[str, str] = {
     "transcription": "расшифровка видео",
     "video_summary": "пересказ видео",
     "image_generation": "генерация картинок",
+    "image_edit": "редактирование картинок",
     "health": "здоровье сервера",
     "statistics": "статистика чата",
 }
@@ -183,6 +188,9 @@ def rejected_note(rejected) -> str:
 
 #: Смысловые интенты действия → capability (та же таблица CAPABILITY_TOOLS).
 INTENT_CREATE_IMAGE = "create_image"
+#: ASAP5 §20: редактирование СУЩЕСТВУЮЩЕГО изображения — отдельный интент,
+#: отдельная capability (изменение исходника ≠ создание нового).
+INTENT_EDIT_IMAGE = "edit_image"
 INTENT_WEB_SEARCH = "web_search"
 INTENT_FACT_CHECK = "fact_check"
 INTENT_CHAT_MEMORY = "chat_memory"
@@ -190,6 +198,7 @@ INTENT_NONE = ""
 
 INTENT_CAPABILITY: dict[str, str] = {
     INTENT_CREATE_IMAGE: "image_generation",
+    INTENT_EDIT_IMAGE: "image_edit",
     INTENT_WEB_SEARCH: "web_search",
     INTENT_FACT_CHECK: "fact_check",
     INTENT_CHAT_MEMORY: "chat_memory",
@@ -209,6 +218,8 @@ REASON_CREATE_DEICTIC = "create_verb_without_object"
 REASON_CREATE_REPORTED = "create_image_reported"
 REASON_CREATE_FORWARDED = "create_image_forwarded"
 REASON_CREATE_SELF = "create_image_self_action"
+#: ASAP5 §20: наблюдаемые причины edit-интента.
+REASON_EDIT_REQUEST = "edit_image_request"
 REASON_SEARCH = "search_request"
 REASON_FACTCHECK = "factcheck_request"
 REASON_MEMORY = "memory_request"
@@ -244,6 +255,20 @@ _STEM_EXCLUSIONS: dict[str, tuple[str, ...]] = {
     "подпис": ("подписк", "подписчик"),
 }
 _NEED_MARKER = ("нужн", "нужен", "надо", "хочу", "давай", "можешь", "можно")
+# ASAP5 §20: edit-маркеры — изменение СУЩЕСТВУЮЩЕГО изображения (исходник
+# резолвится router'ом: reply / собственное медиа / ранее присланное).
+# «Перерисуй/дорисуй» остаются CREATE (прецедент тестов W10: «перерисуй мем»
+# — поручение создать), поэтому edit-глаголы НЕ пересекаются с
+# _DRAW_VERB_*; create-глагол сильнее edit (смешанная просьба — создание).
+_EDIT_VERB = ("измен", "редактир", "отредактир", "поменя", "поправ",
+              "исправ", "перезалей", "перекрас")
+#: Удаление/добавление объекта НА готовом изображении — edit только с
+#: локативом («на картинке/фото/меме»), иначе «добавь мем в чат» — не edit.
+_EDIT_REMOVE = ("убер", "сотри", "стори", "удал", "замени", "добав", "встав",
+                "впиши", "надпис")
+_EDIT_LOCATIVE_RE = re.compile(
+    r"(?:\b(?:на|с|со)\s+(?:картин|фото|изображен|мем|рисунк|арте|скрин|пикч))",
+    re.IGNORECASE)
 _CONCEIVE = ("придума", "концепт", "идея", "идею", "идеи", "идей", "сценар",
              "сюжет", "текст", "подпис", "шутк", "вариант", "предложи",
              "назван", "заголовк", "описан")
@@ -274,6 +299,7 @@ _MEMORY_MARKERS = ("что я говорил", "что я писал", "напо
 # без явного «рису» — тоже отказ (ложный платный вызов дороже пропуска).
 _NEGATED_CREATE_RE = re.compile(
     r"(?:\bне\s+(?:рису|нарису|созда|сгенер|изобраз|малю|дела))"
+    r"|(?:\bне\s+(?:меня|меняй|измен|редактир|поменя|трогай|убирай|удал|исправ))"
     r"|(?:рисовать\s+не\s+надо)|(?:не\s+надо\s+рисов)"
     r"|(?:без\s+(?:картин|изображен|рисунк|мем|арт))"
     r"|(?:только\s+текст)|(?:только\s+текстом)|(?:текстом\s+обойд)"
@@ -383,6 +409,16 @@ class ActionIntent:
         return (self.intent == INTENT_CREATE_IMAGE
                 and self.confidence == CONFIDENCE_HIGH)
 
+    @property
+    def edit_actionable(self) -> bool:
+        """ASAP5 §20: однозначное поручение ИЗМЕНИТЬ существующее изображение.
+
+        Отдельно от ``actionable`` (создание): пре-гейт генерации не должен
+        открывать генерацию для edit-просьбы — «новая независимая генерация
+        не выдаётся за изменение оригинала»."""
+        return (self.intent == INTENT_EDIT_IMAGE
+                and self.confidence == CONFIDENCE_HIGH)
+
 
 def detect_action_intent(text, *, reply_text: str = "",
                          addressed: bool = False,
@@ -419,12 +455,18 @@ def detect_action_intent(text, *, reply_text: str = "",
         generic_create = _has_stem(body, _CREATE_VERB_GENERIC)
         verb = explicit_draw or prefixed_draw or generic_create
         obj = _has_stem(body, _IMAGE_OBJECT)
+        # ASAP5 §20: edit-детекция (изменение исходника ≠ создание нового).
+        edit_verb = _has_stem(body, _EDIT_VERB)
+        edit_remove = _has_stem(body, _EDIT_REMOVE)
+        edit_locative = bool(_EDIT_LOCATIVE_RE.search(body))
+        is_edit = ((edit_verb and obj) or (edit_remove and edit_locative)) \
+            and not (explicit_draw or prefixed_draw or generic_create)
         conceive = _has_stem(body, _CONCEIVE) and not bool(
             _CONCEIVE_INSTRUMENTAL_RE.search(body))
         need = _has_stem(body, _NEED_MARKER)
         for flag, name in ((verb, "verb"), (obj, "image_object"),
                            (conceive, "conceive"), (need, "need"),
-                           (negated, "negated")):
+                           (negated, "negated"), (is_edit, "edit")):
             if flag:
                 evidence.append(name)
         # 0. Пересылка: текст чужого сообщения — не поручение пользователя.
@@ -447,12 +489,23 @@ def detect_action_intent(text, *, reply_text: str = "",
                                 reason=REASON_CREATE_SELF,
                                 evidence=tuple(evidence))
         # 3. Запрет/отказ рисовать сильнее поручения (придумать ≠ нарисовать).
-        if negated and (verb or obj):
+        if negated and (verb or obj or is_edit):
             return ActionIntent(
                 confidence=CONFIDENCE_NONE,
                 reason=(REASON_CREATE_CONCEIVE if conceive
                         else REASON_CREATE_NEGATED),
                 evidence=tuple(evidence), conceive_only=bool(conceive))
+        # 3.5 (ASAP5 §20): edit-поручение ПЕРЕЖИВАет need-маркеры («можешь
+        # изменить мем») — иначе общий need-путь шага 4 misroute'ил бы edit
+        # в платную генерацию нового изображения.
+        if is_edit:
+            if _has_stem(body, _DISCUSS):
+                return ActionIntent(evidence=tuple(evidence))
+            return ActionIntent(
+                intent=INTENT_EDIT_IMAGE,
+                capability=INTENT_CAPABILITY[INTENT_EDIT_IMAGE],
+                confidence=CONFIDENCE_HIGH, reason=REASON_EDIT_REQUEST,
+                evidence=tuple(evidence))
         # 4. Объект изображения + действие/потребность → поручение создать.
         if obj and (verb or need):
             if _has_stem(body, _DISCUSS) and not explicit_draw:
@@ -511,12 +564,17 @@ def intent_blockers(intent: ActionIntent, *, capability_status: str = "",
     """§5.10/§5.18: наблюдаемые блокеры, из-за которых доступное действие
     не выбрано (пусто → блокеров нет). Не даёт «формально tool есть, но L1
     его не видит» без явной причины. Никогда не бросает (``intent=None`` —
-    поручения нет, блокеров нет)."""
-    if intent is None or getattr(intent, "intent", "") != INTENT_CREATE_IMAGE:
+    поручения нет, блокеров нет). ASAP5 §20: edit-интент проверяет
+    capability ``image_edit`` (та же семантика «не ready» → блокер)."""
+    if intent is None:
+        return ()
+    cap_intent = getattr(intent, "intent", "")
+    if cap_intent not in (INTENT_CREATE_IMAGE, INTENT_EDIT_IMAGE):
         return ()
     if capability_status and capability_status != "ready":
         return (f"capability_{capability_status}",)
-    if intent.confidence == CONFIDENCE_AMBIGUOUS:
+    if cap_intent == INTENT_CREATE_IMAGE \
+            and intent.confidence == CONFIDENCE_AMBIGUOUS:
         return (REASON_CREATE_DEICTIC,)
     return ()
 
@@ -544,11 +602,12 @@ __all__ = [
     "emit_capability_rejected",
     # §5.1 (SOUL-AMD.5.2/5.9/5.10): semantic intent → capability
     "ActionIntent", "detect_action_intent", "intent_blockers",
-    "INTENT_CREATE_IMAGE", "INTENT_WEB_SEARCH", "INTENT_FACT_CHECK",
-    "INTENT_CHAT_MEMORY", "INTENT_NONE", "INTENT_CAPABILITY",
+    "INTENT_CREATE_IMAGE", "INTENT_EDIT_IMAGE", "INTENT_WEB_SEARCH",
+    "INTENT_FACT_CHECK", "INTENT_CHAT_MEMORY", "INTENT_NONE",
+    "INTENT_CAPABILITY",
     "CONFIDENCE_HIGH", "CONFIDENCE_AMBIGUOUS", "CONFIDENCE_NONE",
     "REASON_CREATE_COMMAND", "REASON_CREATE_NEED", "REASON_CREATE_CONCEIVE",
     "REASON_CREATE_NEGATED", "REASON_CREATE_DEICTIC",
     "REASON_CREATE_REPORTED", "REASON_CREATE_FORWARDED",
-    "REASON_CREATE_SELF",
+    "REASON_CREATE_SELF", "REASON_EDIT_REQUEST",
 ]

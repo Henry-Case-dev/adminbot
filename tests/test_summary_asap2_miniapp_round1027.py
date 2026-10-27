@@ -181,6 +181,6 @@ def test_t3960_tab_rules_mod_summary_covers_new_groups():
             "reactions_summary"} <= claimed
     assert "flags_summary_filter" not in claimed
     assert "limits_summary_filter" not in claimed
-    assert len(pc._TAB_BY_GROUP) == 118
-    assert len(pc.GROUPS) == 120
-    assert len(pc.REGISTRY) == 582
+    assert len(pc._TAB_BY_GROUP) == 119
+    assert len(pc.GROUPS) == 121
+    assert len(pc.REGISTRY) == 587

@@ -404,10 +404,13 @@ class TestToolDescriptionU21:
     def test_canon_unchanged(self):
         # A6 (ADR-1026-18 D1): канон 11 → 12 (+get_user_context, в хвост).
         # MCA-19 (ADR-1028-19 §8.6): канон → 13 (+recognize_image, в хвост).
+        # ASAP5 §20 (edit-route): канон → 15 (+edit_image, в хвост;
+        # первые 14 имён — байт-в-байт, generate_image остаётся 9-м).
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
         assert names == _FIRST_EIGHT + ["generate_image", "transcribe_video",
                                         "fetch_article", "get_user_context",
-                                        "recognize_image", "fact_check"]
+                                        "recognize_image", "fact_check",
+                                        "edit_image"]
         assert names[8] == "generate_image"
 
     def test_schema_structure_identical_in_variants(self):
@@ -835,9 +838,12 @@ class TestBoundsA3:
 
     def test_catalog_counts_unchanged(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 582
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+        # ASAP5 §22 (REQ-ADMIN-TYPES, 27.10.2026): +5 тумблеров «Типы
+        # медиа» (flags_vision_media_types; вкладка mod_vision) →
+        # 587/121/119. Канон самого A3 не меняется.
+        assert len(pc.REGISTRY) == 587
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
 
     def test_two_llm_calls_intact(self):

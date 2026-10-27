@@ -263,9 +263,9 @@ def test_blockE_catalog_random_uses_keys():
     memory_random: per-chat, не-секреты, все default ON (read-path
     fail-open True); GROUPS/_TAB_BY_GROUP/TAB_RULES без роста."""
     from services import param_catalog as pc
-    assert len(pc.REGISTRY) == 582
-    assert len(pc.GROUPS) == 120
-    assert len(pc._TAB_BY_GROUP) == 118
+    assert len(pc.REGISTRY) == 587
+    assert len(pc.GROUPS) == 121
+    assert len(pc._TAB_BY_GROUP) == 119
     assert len(pc.TAB_RULES) == 23
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
@@ -300,19 +300,19 @@ def test_blockE_f8_check_green_and_baselines():
     # ключа инициативы: мягкие цели ×2 + ось реальной отправки).
     # CFG-02B (19.10.2026, §02B.1/§02B.2, ADR-1031-1): 575 → 579 (+4
     # limits_images: тумблер частоты + серия + пауза + режим счёта).
-    assert "582" in res.stdout
+    assert "587" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 582
-    assert fx["counts"]["GROUPS"] == 120
-    assert fx["counts"]["TAB_BY_GROUP"] == 118
+    assert fx["counts"]["REGISTRY"] == 587
+    assert fx["counts"]["GROUPS"] == 121
+    assert fx["counts"]["TAB_BY_GROUP"] == 119
     assert fx["counts"]["TAB_RULES"] == 23
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
-    assert fx["counts"]["delta"] == 171   # F5: +1; v6.3 B01: +10 → 160; SOUL-1 mobile-prompts: +1 → 161
+    assert fx["counts"]["delta"] == 176   # F5: +1; v6.3 B01: +10 → 160; SOUL-1 mobile-prompts: +1 → 161
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 582
+    assert len(cb["registry_keys"]) == 587
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

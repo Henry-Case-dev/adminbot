@@ -60,7 +60,7 @@ TOOL_CHAIN_MAX_METERED_CALLS = 4         # лимит «платных»/вне�
 # cache_hit вердикта — 0 LLM-токенов (D12).
 METERED_TOOLS = frozenset({
     "execute_web_search", "fetch_article", "summarize_video", "download_media",
-    "compile_lore_story", "generate_image", "transcribe_video",
+    "compile_lore_story", "generate_image", "edit_image", "transcribe_video",
     "recognize_image", "fact_check",
 })
 
@@ -83,7 +83,68 @@ PLAN_MAX_REPLANS = 2      # §39 ceiling re-plan; фаза 2: re-plan = 0 (bound
 
 # §18-I: tools, доставляющие медиа сами (файл уходит пользователю из тулa,
 # Writer-регенерация результата бесполезна). Статусы — только канонические.
-MEDIA_DELIVERY_TOOLS = frozenset({"download_media", "generate_image"})
+# ASAP5 §20: edit_image доставляет отредактированный исходник сам.
+MEDIA_DELIVERY_TOOLS = frozenset(
+    {"download_media", "generate_image", "edit_image"})
+
+# ── ASAP5 §19 (CONTRADICTION, root-cause fix): синхронизация заявления ──────
+# возможностей с фактическим результатом. `<capability_notice>` инжектится в
+# контекст Writer'а ДО исполнения инструментов (состояние реестра на момент
+# планирования), при этом сами инструменты остаются анонсированы и могут
+# успешно выполниться позже в этом же ходе. Устаревшая инструкция «объясни
+# отказ» рядом с подтверждённой отправкой — наблюдаемый источник
+# production-противоречия «не умею рисовать» → изображение отправлено. После
+# фактического успеха media-инструмента устаревшие notice этой capability
+# ВЫВЕТРИВАЮТСЯ из модельного контекста (deepcopy — оригинал не тронут):
+# ToolResult и заявление возможностей больше не противоречат друг другу.
+_CLAIM_TOOL_CAPABILITY: dict[str, str] = {
+    "generate_image": "image_generation",
+    "edit_image": "image_edit",
+}
+
+
+def _strip_stale_capability_notices(payload_messages: list, capability_id: str
+                                    ) -> int:
+    """Убрать `<capability_notice … capability="X">` из user-сообщений
+    payload'а (in-place, копия цикла). Возвращает число удалённых блоков.
+    Никогда не бросает."""
+    if not capability_id:
+        return 0
+    import re as _re
+    pattern = _re.compile(
+        r"<capability_notice\b[^>]*capability=\"%s\"[^>]*>.*?"
+        r"</capability_notice>" % _re.escape(capability_id),
+        _re.DOTALL)
+    removed = 0
+    try:
+        for msg in payload_messages or ():
+            if not isinstance(msg, dict) or msg.get("role") != "user":
+                continue
+            content = msg.get("content")
+            if not isinstance(content, str) or "<capability_notice" not in \
+                    content:
+                continue
+            new_content, n = pattern.subn("", content)
+            if n:
+                msg["content"] = new_content
+                removed += n
+    except Exception:      # pragma: no cover - защитная ветка
+        return removed
+    return removed
+
+
+def _sync_claim_with_outcome(payload_messages: list, tool_name: str,
+                             output: str) -> int:
+    """После УСПЕШНОГО media-инструмента выветрить устаревшие
+    capability-notice его capability из контекста (§19). Не-успех → 0."""
+    capability_id = _CLAIM_TOOL_CAPABILITY.get(str(tool_name or ""))
+    if not capability_id:
+        return 0
+    raw = str(output or "")
+    if '"status": "success"' not in raw and "'status': 'success'" not in raw \
+            and 'delivery="sent"' not in raw:
+        return 0
+    return _strip_stale_capability_notices(payload_messages, capability_id)
 
 # Саркастичная заглушка деградации (код-константа; каталог-Δ = 0). Показывается
 # только когда все раунды/поздние ошибки «съели» ответ, а частичного текста нет.
@@ -616,6 +677,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 last_by_fp[fp] = output
                 info = _classify(name, output, signal)
                 last_info_by_fp[fp] = info
+                # §19: успешный media-инструмент выветривает устаревший
+                # capability-notice из контекста (заявление = фактический
+                # результат; «не умею» после реальной отправки исключено).
+                _sync_claim_with_outcome(payload_messages, name, output)
                 _record(ctx, tool_results, _envelope(
                     -1, name, fp, info, metered=metered, duplicate=False,
                     attempt=attempt, out_chars=len(output),
@@ -962,6 +1027,10 @@ async def chat_with_tools(llm, messages: list[dict], *,
             last_by_fp[fp] = output
             info = _classify(tc.name, output, signal)
             last_info_by_fp[fp] = info
+            # §19: успешный media-инструмент выветривает устаревший
+            # capability-notice из контекста (заявление = фактический
+            # результат; «не умею» после реальной отправки исключено).
+            _sync_claim_with_outcome(payload_messages, tc.name, output)
             _record(ctx, tool_results, _envelope(
                 round_index, tc.name, fp, info, metered=metered,
                 duplicate=False, attempt=attempt, out_chars=len(output),

@@ -176,13 +176,15 @@ class TestDefinitions:
 class TestCanon:
     def test_twelve_tools_transcribe_tenth(self):
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert len(names) == 14
+        # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост).
+        assert len(names) == 15
         assert names[:10] == _FIRST_NINE + ["transcribe_video"]
         assert names[9] == "transcribe_video"
         assert names[10] == "fetch_article"      # A2 (ADR-1026-15 D5)
         assert names[11] == "get_user_context"   # A6 (ADR-1026-18 D1)
         assert names[12] == "recognize_image"    # MCA-19 (ADR-1028-19 §8.6)
         assert names[13] == "fact_check"         # MCA-20 (ADR-1028-20 §7.5)
+        assert names[14] == "edit_image"         # ASAP5 §20 (edit-route)
         assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
 
     def test_counter_comment_actualized(self):
@@ -200,10 +202,11 @@ class TestFlag:
         names = [t["function"]["name"]
                  for t in active_tools(True, image_generation_enabled=True)]
         assert "transcribe_video" not in names
-        assert len(names) == 13                 # 9 базовых + generate_image +
+        assert len(names) == 14                 # 9 базовых + generate_image +
         #                                         fetch_article + get_user_context
         #                                         + recognize_image + fact_check
-        assert len(TOOL_CALLING_TOOLS) == 14    # схема/канон безусловны
+        #                                         + edit_image (ASAP5 §20)
+        assert len(TOOL_CALLING_TOOLS) == 15    # схема/канон безусловны
 
     def test_flag_on_includes(self, monkeypatch):
         monkeypatch.setattr(type(settings),

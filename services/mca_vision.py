@@ -184,6 +184,79 @@ async def resolve_requested(chat_id: int | None = None) -> bool:
         return base
 
 
+# ── ASAP5 §22 (REQ-ADMIN-TYPES): «Типы медиа» — переключатели раздела
+# «Модули → Распознавание изображений» (группа flags_vision_media_types).
+# Заводские значения ВКЛЮЧЕНЫ при включённом основном модуле; главный
+# переключатель Vision сохраняет приоритет (AND в гейте enqueue). Флаги
+# гейтят ТОЛЬКО авто-разбор (enqueue_intake_jobs): канонический реестр
+# активов и ручной/tool-разбор (главный тумблер + requested) не сужаются.
+MEDIA_TYPE_PHOTO_DOCS_KEY = "flags.vision_media_photo_docs"
+MEDIA_TYPE_STATIC_STICKERS_KEY = "flags.vision_media_static_stickers"
+MEDIA_TYPE_GIF_ANIMATIONS_KEY = "flags.vision_media_gif_animations"
+MEDIA_TYPE_ANIMATED_STICKERS_KEY = "flags.vision_media_animated_stickers"
+MEDIA_TYPE_VIDEO_PREVIEWS_KEY = "flags.vision_media_video_previews"
+
+_MEDIA_TYPE_KEYS: dict[str, str] = {
+    "photo_docs": MEDIA_TYPE_PHOTO_DOCS_KEY,
+    "static_stickers": MEDIA_TYPE_STATIC_STICKERS_KEY,
+    "gif_animations": MEDIA_TYPE_GIF_ANIMATIONS_KEY,
+    "animated_stickers": MEDIA_TYPE_ANIMATED_STICKERS_KEY,
+    "video_previews": MEDIA_TYPE_VIDEO_PREVIEWS_KEY,
+}
+
+_MEDIA_TYPE_SETTINGS_FIELD = {
+    "photo_docs": "VISION_MEDIA_PHOTO_DOCS",
+    "static_stickers": "VISION_MEDIA_STATIC_STICKERS",
+    "gif_animations": "VISION_MEDIA_GIF_ANIMATIONS",
+    "animated_stickers": "VISION_MEDIA_ANIMATED_STICKERS",
+    "video_previews": "VISION_MEDIA_VIDEO_PREVIEWS",
+}
+
+
+def media_type_for_asset(asset_kind: str, size_variant: str = "") -> str:
+    """(kind, variant) → ключ типа медиа (человеческая матрица §22)."""
+    kind = str(asset_kind or "")
+    variant = str(size_variant or "")
+    if kind in (ASSET_KIND_PHOTO, ASSET_KIND_DOCUMENT):
+        return "photo_docs"
+    if kind == ASSET_KIND_STICKER:
+        return "static_stickers"
+    if kind == ASSET_KIND_ANIMATION:
+        return ("animated_stickers" if variant == "sticker"
+                else "gif_animations")
+    if kind in (ASSET_KIND_VIDEO_PREVIEW, ASSET_KIND_ANIMATION_PREVIEW):
+        if kind == ASSET_KIND_ANIMATION_PREVIEW and \
+                variant == "sticker_preview":
+            return "animated_stickers"
+        if kind == ASSET_KIND_ANIMATION_PREVIEW:
+            return "gif_animations"
+        return "video_previews"
+    return "photo_docs"
+
+
+async def resolve_media_type_enabled(chat_id: int | None, media_type: str
+                                     ) -> bool:
+    """Effective-значение типа медиа: env/Settings → hot (PG-каталог) →
+    per-chat override (та же иерархия, что resolve_requested). Заводской
+    дефолт — True (включено при включённом модуле). Fail-open → True."""
+    key = _MEDIA_TYPE_KEYS.get(str(media_type or ""))
+    if not key:
+        return True
+    field = _MEDIA_TYPE_SETTINGS_FIELD.get(str(media_type or ""), "")
+    try:
+        base = bool(hot.get(key, getattr(settings, field, True)))
+    except Exception:
+        base = True
+    if chat_id is None:
+        return base
+    try:
+        from services.chat_params import get_chat_param
+        value = await get_chat_param(chat_id, key, base)
+        return bool(value)
+    except Exception:
+        return base
+
+
 @dataclasses.dataclass(frozen=True)
 class VisionRoute:
     """Фактически выбранный маршрут (D5): `dedicated` | `main_model`."""
@@ -2142,6 +2215,20 @@ async def enqueue_intake_jobs(db, message, asset_ids: list[str], *,
     store = TaskJobStore(db)
     media_group_id = str(getattr(message, "media_group_id", "") or "") or None
     user_id = getattr(getattr(message, "from_user", None), "id", None)
+    # ASAP5 §22 (Типы медиа): effective-гейт каждого кандидата (kind/variant →
+    # флаг раздела «Типы медиа»; env→hot→per-chat). Реестр активов не сужается
+    # — гейтится только авто-разбор; главный тумблер Vision уже проверен выше.
+    kind_by_asset: dict[str, tuple[str, str]] = {}
+    try:
+        for cand in extract_image_assets(message):
+            aid = make_asset_id(chat_id,
+                                int(getattr(message, "message_id", 0) or 0),
+                                cand.get("file_unique_id"),
+                                cand.get("size_variant") or "default")
+            kind_by_asset[aid] = (str(cand.get("asset_kind") or ""),
+                                  str(cand.get("size_variant") or ""))
+    except Exception:
+        kind_by_asset = {}
     try:
         depth = await store.depth()
     except Exception:
@@ -2151,6 +2238,17 @@ async def enqueue_intake_jobs(db, message, asset_ids: list[str], *,
         deferred_at = int(time.time()) + _backoff(2)   # избыток → deferred
     enqueued = 0
     for asset_id in asset_ids:
+        kind, variant = kind_by_asset.get(str(asset_id), ("", ""))
+        if kind:
+            media_type = media_type_for_asset(kind, variant)
+            if not await resolve_media_type_enabled(chat_id, media_type):
+                pipeline_stage_event(
+                    "ingest", "skipped", reason_code="vision_type_disabled",
+                    chat_id=chat_id, operation_id=asset_id)
+                logger.info("[vision] enqueue skipped by media type | "
+                            "chat=%s | asset=%s | type=%s", chat_id,
+                            str(asset_id)[:40], media_type)
+                continue
         payload = _vision_payload(
             asset_id=asset_id, chat_id=chat_id,
             tg_message_id=int(getattr(message, "message_id", 0) or 0),
@@ -3518,6 +3616,29 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
     (`resolve_effective_state(chat)`), теперь берётся тем же путём."""
     state = await resolve_effective_state(chat_id)
     db = db or _db()
+    # ASAP5 §22 (Диагностика): доступные типы медиа (effective-тумблеры) и
+    # типы, требующие преобразования (исходник не анализируется — только
+    # кадр-обложка; честная маркировка W1). Без отдельных хранилищ статистики.
+    media_types: list[dict] = []
+    types_need_transform: list[str] = []
+    try:
+        _TYPE_LABELS = (
+            ("photo_docs", "фото и изображения-документы", False),
+            ("static_stickers", "статические стикеры", False),
+            ("gif_animations", "GIF и анимации", True),
+            ("animated_stickers", "анимированные и видеостикеры", True),
+            ("video_previews", "превью видео и видеосообщений", True),
+        )
+        for type_key, label, needs_transform in _TYPE_LABELS:
+            enabled = await resolve_media_type_enabled(chat_id, type_key)
+            media_types.append({"type": type_key, "label": label,
+                                "enabled": bool(enabled),
+                                "needs_transform": needs_transform})
+            if needs_transform and enabled:
+                types_need_transform.append(type_key)
+    except Exception:
+        media_types = []
+        types_need_transform = []
     snapshot: dict = {
         "requested": bool(state.requested),
         "effective_enabled": bool(state.effective_enabled),
@@ -3535,10 +3656,13 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
         "stages": list(vision_stages()),
         "process": "vision.media",
         "process_version": "1",
+        "media_types": media_types,
+        "types_need_transform": types_need_transform,
     }
     if db is None:
         snapshot["queue"] = None
         snapshot["last"] = None
+        snapshot["last_error"] = None
         return snapshot
     try:
         from services.task_supervisor import TaskJobStore
@@ -3552,6 +3676,18 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
             "running": sum(1 for j in running
                            if j.get("status") == "running"),
         }
+        # §22: завершённые с ошибкой задачи (существующие durable-строки,
+        # bounded-выборка; отдельного хранилища статистики нет).
+        try:
+            cur = await db.db.execute(
+                "SELECT COUNT(*) AS n FROM task_jobs WHERE kind IN (?, ?) "
+                "AND status = 'failed'",
+                (VISION_JOB_KIND, VISION_BACKFILL_KIND))
+            row = await cur.fetchone()
+            failed_n = int((row or {}).get("n") or 0)
+        except Exception:
+            failed_n = 0
+        snapshot["queue"]["failed"] = failed_n
     except Exception:
         snapshot["queue"] = None
     try:
@@ -3563,6 +3699,18 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
         snapshot["last"] = (dict(row) if row is not None else None)
     except Exception:
         snapshot["last"] = None
+    # §22: последняя существенная ошибка (существующая запись очереди —
+    # task_jobs failed; R17: reason_code/время, без приватных данных).
+    try:
+        cur = await db.db.execute(
+            "SELECT reason_code, updated_at FROM task_jobs "
+            "WHERE kind IN (?, ?) AND status = 'failed' "
+            "ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+            (VISION_JOB_KIND, VISION_BACKFILL_KIND))
+        row = await cur.fetchone()
+        snapshot["last_error"] = (dict(row) if row is not None else None)
+    except Exception:
+        snapshot["last_error"] = None
     return snapshot
 
 

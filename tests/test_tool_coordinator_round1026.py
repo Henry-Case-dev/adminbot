@@ -938,12 +938,13 @@ class TestBounds:
     def test_version_and_catalog(self):
         assert APP_VERSION == "2.58.134"
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 582
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # ASAP5 §22 (27.10.2026): +5 «Типы медиа» → 587/466/562/121/119.
+        assert len(pc.REGISTRY) == 587
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 557   # +4 temporal (mca-20)
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+                    if s.category is not None]) == 562   # +4 temporal (mca-20), +5 типов медиа (ASAP5 §22)
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
 
     def test_canon_twelve_tools(self):
@@ -951,7 +952,8 @@ class TestBounds:
         # A6 (ADR-1026-18 D1): 11 → 12 (+get_user_context, в хвост).
         # MCA-19 (10.43): 12 → 13 (+recognize_image).
         # MCA-20 (10.44, ADR-1028-20 §7.5): 13 → 14 (+fact_check).
-        assert len(TOOL_CALLING_TOOLS) == 14
+        # ASAP5 §20 (edit-route): 14 → 15 (+edit_image).
+        assert len(TOOL_CALLING_TOOLS) == 15
 
     def test_kill_switch_not_in_catalog(self):
         assert "DIRECT_COORDINATOR_ENABLED" not in pc.REGISTRY

@@ -1307,12 +1307,12 @@ class TestBoundaries:
         # -8 env-констант Settings (S1-слой удалён).
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484,
         # categorized 458→459 (ключ в категории models).
-        assert len(pc.REGISTRY) == 582
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len(pc.REGISTRY) == 587
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 557
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+                    if s.category is not None]) == 562
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
 
     def test_app_version(self):

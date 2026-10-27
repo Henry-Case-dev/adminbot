@@ -13,6 +13,6 @@
  "attribution_ok": true,
  "recall_antecedent_found": true,
  "searches_before_verdict": 2,
- "latency_ms_mock": 7,
+ "latency_ms_mock": 6,
  "delivered_messages": 1
 }

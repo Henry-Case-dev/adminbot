@@ -204,14 +204,14 @@ class TestCatalogDelta:
         # +3 GROUPS/mapped → 446/95/93/20/416/421.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/Settings/categorized,
         # +1 GROUPS/mapped → 459/98/96/20/418/434.
-        assert len(pc.REGISTRY) == 582
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+        assert len(pc.REGISTRY) == 587
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 557
+        assert len(categorized) == 562
 
     def test_guide_spec(self):
         from services import param_catalog as pc

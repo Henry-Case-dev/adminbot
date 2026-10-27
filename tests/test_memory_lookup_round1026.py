@@ -154,18 +154,20 @@ class TestContract:
         assert not any("\u0400" <= ch <= "\u04FF" for ch in desc)
 
     def test_canon_twelve_tail_only(self):
-        assert len(TOOL_CALLING_TOOLS) == 14
-        assert TOOL_CALLING_TOOLS[-3] is TOOL_GET_USER_CONTEXT
-        assert TOOL_CALLING_TOOLS[-2]["function"]["name"] == (
+        assert len(TOOL_CALLING_TOOLS) == 15
+        assert TOOL_CALLING_TOOLS[-4] is TOOL_GET_USER_CONTEXT
+        assert TOOL_CALLING_TOOLS[-3]["function"]["name"] == (
             "recognize_image")   # MCA-19 (ADR-1028-19 §8.6)
-        assert TOOL_CALLING_TOOLS[-1]["function"]["name"] == (
+        assert TOOL_CALLING_TOOLS[-2]["function"]["name"] == (
             "fact_check")        # MCA-20 (ADR-1028-20 §7.5)
+        assert TOOL_CALLING_TOOLS[-1]["function"]["name"] == (
+            "edit_image")        # ASAP5 §20 (edit-route)
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image", "fact_check"]
+            "recognize_image", "fact_check", "edit_image"]
 
     def test_first_eleven_byte_identical(self):
         from services.tool_schemas import (
@@ -206,7 +208,7 @@ class TestContract:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "transcribe_video",
             "fetch_article", "recognize_image", "fact_check"]
-        assert len(TOOL_CALLING_TOOLS) == 14          # схема/канон безусловны
+        assert len(TOOL_CALLING_TOOLS) == 15          # схема/канон безусловны
 
     def test_factcheck_tools_unchanged_three(self):
         names = [t["function"]["name"] for t in factcheck_tools()]
@@ -221,9 +223,9 @@ class TestContract:
         assert "MEMORY_LOOKUP_ENABLED" not in pc.REGISTRY
         assert "MEMORY_LOOKUP_ENABLED" not in {
             f.name for f in dataclasses.fields(Settings)}
-        assert len(pc.REGISTRY) == 582
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+        assert len(pc.REGISTRY) == 587
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
 
 
