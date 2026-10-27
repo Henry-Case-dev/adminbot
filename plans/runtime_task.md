@@ -30,3 +30,10 @@ Status: **paused_by_owner** (16:18 +12). No new agent dispatch; resume only by o
 
 ## Resume
 On owner command: inspect branch/worktree, finish alias/live probes, Reviewer recheck, bind map, deploy. Do not reset/delete production or foreign stash.
+
+## Owner request 25.10 (after implementation)
+Финальный отчёт владельцу — **подробно, простым языком, без технических терминов**:
+1) как именно решена проблема с алиасами (по шагам, бытовыми словами: почему путались имена, что изменили, как проверяли);
+2) по остальным задачам — L1-маршрут, стенд, production-worktree, память/lore, Core, FREQUENT, деплой;
+3) что реально проверено, что осталось; какая версия работает.
+Не подменять отчёт перечнем файлов/коммитов; идентификаторы — только в конце, если нужны.

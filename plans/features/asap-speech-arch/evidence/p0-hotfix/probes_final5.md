@@ -1,5 +1,13 @@
 # P0C-INT R3 — живой прогон кандидата `fe1e514a` (read-only, без деплоя)
 
+> **Обновление R3b (2026-10-25 12:01 UTC, второй независимый сэмпл).** Тот же кандидат и стенд
+> прогнаны ещё раз (один логин, 7/7 `exit=0`, `invalid` пусто): Core 3294/`ead77b2ab509`, FREQ,
+> payload 1×1/0×0, closing 1×, мета 0/9, case C и `rag_empty_reason=service_empty` повторились.
+> **L1: A `research`, B `disagreement`** → по двум сэмплам `research` A 2/2, **B 1/2**, т.е. §4 ниже
+> («research 2/2») — свойство одного сэмпла, а не устойчивый результат. RAG: пусто 4/5 (в этом
+> сэмпле непустой `new_forced_B` 146 симв. вместо `newC` 951). Подробности и файлы —
+> `probes_final5-rerun.md` и `probes_final5/rerun_b/`.
+
 **Вердикт: FAILED (один пункт приёмки).** L1 natural A/B впервые дал `research/serious` 2/2,
 мета-вступлений **0/8** (0/9 с case C), ядро/FREQ/payload/закрывающий блок — зелёные. Не выполнен
 только RAG: у A/B/forced блок `<RAG_Memory>` по-прежнему пуст, причём **не** из-за self-origin —
