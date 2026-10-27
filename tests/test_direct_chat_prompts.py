@@ -305,7 +305,24 @@ _PREV_CHAT_W1_SYSTEM_PROMPT_REFERENCE = (
     + "\n\n" + TARGET_INSTRUCTION_BLOCK + PREV_SPEECH_STYLE_SUFFIX)
 
 # Эталон активного канона W1: §3.6 вместо роли/приоритетов/стиля, без A/B.
+# POST-ASAP5 W2: + секция «ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ»
+# (§5.2/§5.3/§10.5) после TARGET-маркировки; прежние байты —
+# PREV_CHAT_W2_SYSTEM_PROMPT.
+_DIRECT_SEARCH_DECISION_PA5W2 = """ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ
+Конкретные характеристики современных устройств, новые аппаратные архитектуры, спецификации производителей, сравнения продуктов, изменяющиеся стандарты и точные числа проверяй через execute_web_search, когда он доступен, - особенно если собеседник называет данные, которых нет в контексте или в результатах инструментов. Общеизвестные формулы, расчёты с заданными параметрами и обычная болтовня в поиске не нуждаются. Если поиск недоступен или не дал ответа, не выдумывай характеристику и не выдавай догадку за результат поиска: передай Writer проверенное и честную границу знания."""
+
 _EXPECTED_CHAT_SYSTEM_PROMPT = (
+    _CHAT_R1021_BASE_CORRECTIVE
+    .replace(_CHAT_ROLE_BLOCK_R1021, _CHAT_TOOL_PHASE_ROLE_W1 + "\n\n")
+    .replace(_CHAT_PRIORITIES_BLOCK_R1021, "")
+    .replace(_CHAT_STYLE_RULES_BLOCK_R1021, "")
+    .replace(_MCA23_CAP_BLOCK_OLD, _MCA23_LIMIT_BLOCK_NEW)
+    + "\n\n" + TARGET_INSTRUCTION_BLOCK
+    + "\n\n" + _DIRECT_SEARCH_DECISION_PA5W2)
+
+# Слепок активных байтов tool phase до секции поиска (W2-ступень) —
+# та же композиция без новой секции.
+_PREV_CHAT_W2_SYSTEM_PROMPT_REFERENCE = (
     _CHAT_R1021_BASE_CORRECTIVE
     .replace(_CHAT_ROLE_BLOCK_R1021, _CHAT_TOOL_PHASE_ROLE_W1 + "\n\n")
     .replace(_CHAT_PRIORITIES_BLOCK_R1021, "")
@@ -341,6 +358,41 @@ _EXPECTED_ERROR = (
 class TestChatSystemPromptCanon:
     def test_byte_for_byte(self):
         assert CHAT_SYSTEM_PROMPT == _EXPECTED_CHAT_SYSTEM_PROMPT
+
+    # ── POST-ASAP5 W2 (§5.2/§5.3/§10.5) ───────────────────────────────────
+
+    def test_w2_search_decision_section_semantics(self):
+        """Секция решения о поиске: обе стороны §5.2 + честная граница
+        §10.5; без хардкодов слов инцидента; одна на канон."""
+        section = _DIRECT_SEARCH_DECISION_PA5W2
+        assert CHAT_SYSTEM_PROMPT.count(section) == 1
+        assert CHAT_SYSTEM_PROMPT.endswith(section)
+        for anchor in ("характеристики современных устройств",
+                       "аппаратные архитектуры",
+                       "спецификации производителей",
+                       "execute_web_search",
+                       "Общеизвестные формулы",
+                       "обычная болтовня в поиске не нуждаются",
+                       "не выдавай догадку за результат поиска",
+                       "честную границу знания"):
+            assert anchor in section, anchor
+        for word in ("шина", "чип", "забей", "LPDDR", "Crescent", "GDDR",
+                     "5060", "фотонн", "интерконнект"):
+            import re
+            assert not re.search(rf"\b{re.escape(word.lower())}",
+                                 section.lower()), word
+        assert "«" not in section and "»" not in section
+        assert "—" not in section
+
+    def test_w2_prev_snapshot_is_pre_w2_active_bytes(self):
+        from services.chat_prompts import PREV_CHAT_W2_SYSTEM_PROMPT
+        assert PREV_CHAT_W2_SYSTEM_PROMPT == \
+            _PREV_CHAT_W2_SYSTEM_PROMPT_REFERENCE
+        assert PREV_CHAT_W2_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
+        assert CHAT_SYSTEM_PROMPT == PREV_CHAT_W2_SYSTEM_PROMPT + \
+            "\n\n" + _DIRECT_SEARCH_DECISION_PA5W2
+        assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" \
+            not in PREV_CHAT_W2_SYSTEM_PROMPT
 
     # ── ASAP W1 (P0-F, §3.6) ──────────────────────────────────────────────
 

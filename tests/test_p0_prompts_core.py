@@ -208,6 +208,13 @@ def test_pr03_migration_attests_canon_and_survives_restart():
 
 def test_direct_l2_writer_factory_edition_is_not_a_warning(caplog):
     block_id = "direct.base.l2_writer"
+    # POST-ASAP5 W2 (27.10.2026): фабрика канона бампнута (ред.
+    # l2-writer-tech-reasoning, f5c4807d088e). Контракт двоякий:
+    # (1) исторические сохранённые байты 2.58.118 (83ff62bbee40,
+    # classification.md) — класс identical_to_factory по курируемой
+    # таблице, без ложного WARNING;
+    # (2) stored-байты, равные ТЕКУЩЕЙ фабрике, динамически исключаются
+    # из витрины удержаний (P0-PROMPTS: not a conflict).
     value = _withheld_text(block_id)
     cache = DictCache({_block_key(block_id): value})
     with caplog.at_level(logging.WARNING, logger="services.prompt_registry"):
@@ -218,10 +225,9 @@ def test_direct_l2_writer_factory_edition_is_not_a_warning(caplog):
     assert "provenance_factory_equivalent" in resolved.diagnostics
     assert not [r for r in caplog.records
                 if "persisted speech value withheld" in r.message]
-    # На релизной базе 2.58.118 persisted-байты L2 совпадают с заводской
-    # редакцией, поэтому в списке Inspector удержания НЕТ (P0-PROMPTS:
-    # identical_to_factory — не WARNING и не строка отчёта).
-    rows = pr.withheld_values(cache=cache)
+    # stored == текущая фабрика → в списке Inspector удержания НЕТ
+    rows = pr.withheld_values(
+        cache=DictCache({_block_key(block_id): pr.factory_text(block_id)}))
     assert not [row for row in rows if row["block_id"] == block_id]
 
 

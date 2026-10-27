@@ -56,6 +56,10 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CS2,
     PREV_DIRECT_L1_PLANNER_P0CINT,
     PREV_DIRECT_L1_PLANNER_P0CINTR2,
+    PREV_DIRECT_L1_PLANNER_PA5W1,
+    PREV_DIRECT_L1_PLANNER_PA5W2,
+    PREV_CHAT_VERBALIZER_PA5W2,
+    PREV_CHAT_W2_SYSTEM_PROMPT,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
@@ -173,7 +177,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # обслуживает ТОЛЬКО байты прежнего канона; подлинные кастомы
         # владельца (W0: cf404931f84c, withheld) лестницей не трогаются —
         # их гасит W2 (write_speech_value с провенансом, §5.5).
-        (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
+        (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+        # POST-ASAP5 W2 (27.10.2026, §5.2/§5.3/§10.5 source-2026-10-27.md):
+        # прод-канон tool phase после W1 ведёт на канон с секцией «ПОИСК И
+        # НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ» (своевременный execute_web_search,
+        # без обязательного поиска для формул/расчётов/болтовни, честная
+        # граница при недоступном поиске). Кастомы владельца не трогаются.
+        (PREV_CHAT_W2_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): первые ступени ключа Вербализатора direct —
     # прод-значения 10.23 (база без типографики и полный канон) ведут на
     # новый канон без unconditional cap-правила.
@@ -195,7 +205,15 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # канон 2.58.113 (W1 §3.1 + абзацы §4.2) ведёт на канон с одной
         # узкой инструкцией о честной границе истории. Только точное
         # совпадение байт; абзацы владельца не пересказаны.
-        (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
+        (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+        # POST-ASAP5 W2 (27.10.2026, §4/§6 source-2026-10-27.md): прод-канон
+        # Writer после R3b ведёт на канон с секцией «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И
+        # ГИПОТЕЗЫ» (разделение оценки/архитектуры/реализации/совместимости,
+        # размерности, невозможность реализации ≠ невозможность принципа,
+        # гипотезы допустимы при пометке, незнакомый продукт ≠ выдуманная
+        # архитектура, достоверность а не нерешительность). Кастомы владельца
+        # не перетираются.
+        (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT)],
     # ASAP 7 (F1, §1.3 architecture.md; ADR-1013-3): новый PG-ключ L1
     # Planner Direct. Ступень — база канона без правил (слепок
     # PREV_DIRECT_L1_PLANNER_BASE) ведёт на канон; идемпотентна: до сида —
@@ -250,6 +268,21 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # P0C-INT R3 (26.10.2026, `probes_final5-rerun.md` §4): редакция 4 —
         # `response_act` отделён от `tone` (грубость меняет только манеру);
         # верхняя ступень — редакция 3 (PREV_..._P0CINTR2, 9391).
+        # POST-ASAP5 W1 (27.10.2026, §3/§7 source-2026-10-27.md): редакция 5 —
+        # секция «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» (пересмотр постановки при
+        # уточнении, различение уточнение/возражение/новый вопрос, прежний
+        # ответ - контекст, а не доказательство). Верхняя ступень — редакция 4
+        # (PREV_..._P0CINTR2) и слепок активных байтов ред.4 до секции
+        # (PREV_..._PA5W1). Кастомы владельца не перетираются.
+        (PREV_DIRECT_L1_PLANNER_PA5W1, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
+        # POST-ASAP5 W2 (27.10.2026, §5.1-§5.3 source-2026-10-27.md):
+        # редакция 6 — правило 4 получает семантику своевременного поиска
+        # (web_search при существенной зависимости от внешних сведений;
+        # формулы/расчёты/болтовня - без поиска; поиск недоступен - не
+        # выдавать неподтверждённое за факт). Верхняя ступень — слепок
+        # активных байтов ред.5 (PREV_..._PA5W2). Кастомы владельца
+        # не перетираются.
+        (PREV_DIRECT_L1_PLANNER_PA5W2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CINTR2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CINT, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
@@ -419,8 +452,11 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # CFG-07A, стек ступеней цел — ADR-1013-3).
     # ASAP W1 (22.10.2026): откат снимает только ступень W1 — на прод-канон
     # 2.58.110 (PREV_*_W1); стек ступеней цел.
+    # POST-ASAP5 W2 (27.10.2026, §5): откат снимает ТОЛЬКО секцию поиска —
+    # на активные байты W1 (PREV_CHAT_W2_SYSTEM_PROMPT); стек ступеней цел.
     "prompts.direct_chat_system_prompt":
-        [(CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)],
+        [(CHAT_SYSTEM_PROMPT, PREV_CHAT_W2_SYSTEM_PROMPT),
+         (PREV_CHAT_W2_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)],
     # MCA-23 (Wave 3, §11): откат Вербализатора direct — на прод-канон
     # 10.23 (с cap-правилом); ключ в PG не удаляется.
     # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3).
@@ -428,8 +464,12 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # на канон W1 §3.1 (прод 2.58.111).
     # SPEECH-CANON R3b (23.10.2026): откат снимает только ступень R3b — на
     # канон 2.58.113 (PREV_CHAT_VERBALIZER_CLAR: §3.1 + абзацы §4.2).
+    # POST-ASAP5 W2 (27.10.2026, §4/§6): откат снимает ТОЛЬКО секцию
+    # технических расчётов — на активные байты R3b (PREV_CHAT_VERBALIZER_
+    # PA5W2 = §3.1 + абзацы §4.2 + граница истории); стек ступеней цел.
     "prompts.direct_chat_verbalizer_system_prompt":
-        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR)],
+        [(DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_PA5W2),
+         (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)],
     # ASAP W1 (P0-G): откат — на прод-канон L1D 2.58.110 (ace6246bd360,
     # блок «ФОРМА УЧАСТИЯ»); снимается только секция «ВЫБОР УЧАСТИЯ».
     # ASAP 2 (23.10.2026): откат снимает ступень уточнений — на канон W1
@@ -448,10 +488,20 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # оценкой и не выбирает hostile_rebuff. Откат снимает ТОЛЬКО новую
     # редакцию — на активные байты ред.2 (P0CINT, 9288), затем P0CS2; стек
     # прежних ступеней цел (ADR-1013-3).
+    # POST-ASAP5 W1 (27.10.2026, §3/§7): откат снимает только секцию
+    # «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» — на активные байты ред.4
+    # (PREV_..._PA5W1); стек прежних ступеней цел (ADR-1013-3).
+    # POST-ASAP5 W2 (27.10.2026, §5): откат снимает ТОЛЬКО семантику поиска
+    # в правиле 4 — на активные байты ред.5 (PREV_..._PA5W2 = канон W1);
+    # стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0: активный канон ред.4 → P0CINTR2 (активные байты ред.3)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINTR2),
-        # ступень 1: P0CINTR2 → P0CINT (активные байты ред.2)
+        # ступень 0: активный канон ред.6 (PA5W2) → активные байты ред.5
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_PA5W2),
+        # ступень 1: PA5W2 → PA5W1 (снятие секции поиска; байты W1)
+        (PREV_DIRECT_L1_PLANNER_PA5W2, PREV_DIRECT_L1_PLANNER_PA5W1),
+        # ступень 2: PA5W1 → P0CINTR2 (активные байты ред.4)
+        (PREV_DIRECT_L1_PLANNER_PA5W1, PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        # ступень 2: P0CINTR2 → P0CINT (активные байты ред.3→2)
         (PREV_DIRECT_L1_PLANNER_P0CINTR2, PREV_DIRECT_L1_PLANNER_P0CINT),
         # ступень 2: P0CINT → P0CS2 (активные байты ред.1)
         (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),

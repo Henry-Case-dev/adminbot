@@ -59,6 +59,9 @@ ACTIVE_CANONS: dict[str, str] = {
 # W1 (22.10.2026): для direct непосредственный прежний — прод-канон
 # 2.58.110 (PREV_CHAT_W1_SYSTEM_PROMPT, 0fe9680ba280); слепок 2.58.100
 # (PREV_CHAT_CFG07A) остаётся предыдущей ступенью лестницы.
+# POST-ASAP5 W2 (27.10.2026): непосредственный прежний для direct —
+# активные байты после W1 (PREV_CHAT_W2_SYSTEM_PROMPT; снимается только
+# секция «ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ»).
 PREV_CANONS: dict[str, str] = {
     "search": sp.PREV_SEARCH_CFG07A_SYSTEM_PROMPT,
     "youtube": yt.PREV_YOUTUBE_CFG07A_SYSTEM_PROMPT,
@@ -66,7 +69,7 @@ PREV_CANONS: dict[str, str] = {
     "web": wp.PREV_WEBPAGE_CFG07A_SYSTEM_PROMPT,
     "checkup": cp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT,
     "summary": sm.PREV_SUMMARY_CFG07A_SYSTEM_PROMPT,
-    "direct": ch.PREV_CHAT_W1_SYSTEM_PROMPT,
+    "direct": ch.PREV_CHAT_W2_SYSTEM_PROMPT,
 }
 
 MIGRATION_KEYS: dict[str, str] = {
@@ -204,13 +207,26 @@ def test_prev_canon_is_byte_identical_to_deployed_family(name):
     """Ступень хранит прежние байты прод-канона: свой legacy-маркер ещё
     в слепке (обязанность узнавать прод-значения, C14-прецедент).
     W1: слепок direct — прод-канон 2.58.110 (без «перегрелись», но с
-    identity-строкой и блоками A/B)."""
+    identity-строкой и блоками A/B).
+    POST-ASAP5 W2: непосредственный прежний для direct — активные байты
+    W1 (уже чистый канон §3.6, legacy-маркеров нет) — байт-идентичность
+    слепка доказывает его состав (база extent + TARGET, без секции W2);
+    legacy-маркер прежнего прод-канона 2.58.110 проверяется на старой
+    ступени PREV_CHAT_W1_SYSTEM_PROMPT."""
     prev = PREV_CANONS[name]
-    own_marker = ("бот-абьюзер" if name == "direct"
-                  else BYPASS)
-    assert own_marker in prev, name
-    if name != "direct":
-        assert "Разрешен мат, токсичность" in prev, name
+    if name == "direct":
+        # W2-слепок — чистые байты W1: маркеров нет, состав точен
+        assert "бот-абьюзер" not in prev, name
+        assert "Саркастично-токсичной" not in prev and \
+            "саркастично-токсичной" not in prev, name
+        assert "ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ" not in prev, name
+        assert prev == ch.PREV_CHAT_W2_SYSTEM_PROMPT, name
+        # прежний прод-канон 2.58.110 (более старая ступень) хранит свой
+        # identity-маркер — обязанность узнавать прод-значения целa
+        assert "бот-абьюзер" in ch.PREV_CHAT_W1_SYSTEM_PROMPT, name
+        return
+    assert BYPASS in prev, name
+    assert "Разрешен мат, токсичность" in prev, name
 
 
 @pytest.mark.parametrize("name", sorted(PREV_CANONS))
@@ -307,7 +323,22 @@ def test_code_fallback_off_parity(name):
 @pytest.mark.parametrize("name", ["checkup", "summary", "direct"])
 def test_persisted_prev_cleaned_even_without_byte_parity(name):
     """Маршруты с правками вне suppress-семантики (SF-16/D2/контракт-блок):
-    persisted-байты прежнего канона всё равно гасятся — маркеров нет."""
+    persisted-байты прежнего канона всё равно гасятся — маркеров нет.
+    POST-ASAP5 W2: для direct непосредственный прежний (байты W1) уже
+    чист — suppress не применяется и не должен (known_canon, 0 удалений);
+    гасится более старая ступень прод-канона 2.58.110."""
+    if name == "direct":
+        stripped, info = pr.suppress_legacy_speech(
+            ch.PREV_CHAT_W2_SYSTEM_PROMPT, source="global")
+        assert not info.applied and info.removed == 0, name
+        # прежний прод-канон 2.58.110 (со legacy-личностью) гасится
+        old_stripped, old_info = pr.suppress_legacy_speech(
+            ch.PREV_CHAT_W1_SYSTEM_PROMPT, source="global")
+        assert old_info.applied and old_info.removed > 0, name
+        for marker in (BYPASS, "бот-абьюзер) и завсегдатай двача",
+                       "DevOps-инженер, запертый в теле бота-абьюзера"):
+            assert marker not in old_stripped, (name, marker)
+        return
     stripped, info = pr.suppress_legacy_speech(
         PREV_CANONS[name], source="global")
     assert info.applied and info.removed > 0, name
