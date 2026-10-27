@@ -3461,8 +3461,25 @@
    "acceptance": "Различаются математическая оценка, теоретически возможная архитектура, физически существующая реализация, совместимость с конкретным устройством и экономическая целесообразность; запрос математической оценки выполняется, ограничения физической реализации упоминаются дополнительно и не отменяют сам расчёт автоматически.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §4.1/исправление 3: секция Writer «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ» (_VERBALIZER_TECH_REASONING_PA5W2) различает математическую оценку / теоретическую архитектуру / физическую реализацию / совместимость с устройством; несовместимость конкретной реализации не отменяет расчёт и не означает невозможность принципа; причина по коду до правки - носителя различения не было ни в одном слое (w2.md §2 C4.1)",
+     "observation": "Тесты: секция один раз в каноне Writer в КАК ПИСАТЬ-потоке (до ВЫХОД), якоря §4.1/§4.3 на месте; payload-тест (answer/research/deep) подтверждает доставку без дублей директивы W1; слепок PREV_CHAT_VERBALIZER_PA5W2=83ff62bbee40, ступень + откат;_live §10-прогон - волна 3",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_writer_tech_section_present_once_inside_kak_pisat + test_writer_41_separates_theory_from_implementation + test_writer_43_impossibility_scoped_to_conditions + test_writer_canon_carries_tech_semantics_without_focus_dup + test_writer_prev_snapshot_and_step",
+     "observation": "24/24 тестов W2-файла PASS; фокусный набор 508 PASS, предсуществующие FAIL идентичны базе 146765ea",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S4-DIM",
@@ -3476,8 +3493,25 @@
    "acceptance": "В технических вычислениях согласованы размерности и параметры (Гбит/с на линию, ширина интерфейса в битах, ГБ/с совокупной пропускной способности, число независимых каналов, число физических корпусов, объёмы, частоты); пакет LPDDR не отождествляется с одним фиксированным 32-битным каналом, число корпусов не считается универсальным эквивалентом числа независимых интерфейсов, организация интерфейса при необходимости указывается явно; контрольный пример 32×9600/8 = 38 400 МБ/с и 448/38.4 ≈ 11.67 → 12 интерфейсов используется только для проверки рассуждения с заданными допущениями, без хардкода числа в рабочем коде или промптах.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §4.2/исправление 3: размерности в секции Writer - скорость линии, ширина интерфейса, число независимых каналов vs число корпусов памяти, объёмы, частоты; совокупная пропускная способность = ширина x скорость; организация интерфейса называется явно; причина по коду до правки - правил размерностей не было (w2.md §2 C4.2)",
+     "observation": "Контрольный пример источника (32x9600/8=38400, 448/38.4, 11.67, 12) ОТСУТСТВУЕТ в рабочих канонах/промптах/исходнике chat_prompts.py (test_writer_42_control_example_not_hardcoded_anywhere) - используется только как тестовый сценарий по запрету §4.2; _live §10.1 - волна 3",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_writer_42_dimensions_and_parameters + test_writer_42_control_example_not_hardcoded_anywhere",
+     "observation": "PASS; хардкод чисел примера в носителях - 0",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S4-PRINCIPLE",
@@ -3491,8 +3525,25 @@
    "acceptance": "Несовместимость конкретного контроллера/устройства не подменяется выводом о недостижимости принципа: ограничения выбранного устройства отличаются от общих физических принципов; категорические выводы не выходят за пределы фактически установленных условий.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §4.3/исправление 3: «ограничение конкретной модели, контроллера или платы - это несовместимость конкретной реализации, а не невозможность принципа при иной архитектуре»; категорический вывод допустим только в пределах установленных условий; причина по коду - правила не было ни в одном носителе (w2.md §2 C4.3)",
+     "observation": "Якорь test_writer_43_impossibility_scoped_to_conditions PASS; сцена «upgrade-impossible vs principle» - payload-уровень (Writer-канон), live-поведение - волна 3 (§10.1)",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_writer_43_impossibility_scoped_to_conditions",
+     "observation": "PASS",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S5-DEFECT",
@@ -3506,8 +3557,25 @@
    "acceptance": "Установлено, почему существующий Decision Making не инициировал поиск для Intel Crescent Island (доступность инструмента, распознавание L1 необходимости внешней проверки, разрешённые tools для типа запроса, влияние Functional Writer, подмена отсутствия информации догадкой, восприятие сведений о современных устройствах как заведомо известных, отсутствие повторной проверки после возражения); дефект определён как уверенное изложение неподтверждённой технической информации там, где доступна проверка и она существенно влияет на ответ, а не как сам факт отсутствия вызова инструмента.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §2 C5.1-C5.7 (file:line ДО правок): инструмент был доступен всегда (tool_schemas.py:74,909-955; capability web_search direct_capabilities.py:29; недоступность чата честно резолвится REASON_NOT_READY direct_capabilities.py:59-61 + direct_chat_service.py:4639-4647); L1 не видел необходимости - канон L1 не упоминал web_search ни разу, правило 4 смещало к пустому набору, правило 8 звало только «историю или память» (chat_prompts.py:847-848, 894-899); механическое следствие - без web_search в capabilities_needed поиск невозможен (resolve->пустой анонс, execution_mode=none: direct_chat_service.py:4610-4672, direct_l1.py:132-135); фрейминг tool phase «свежие внешние данные: новости» (chat_prompts.py:287-292); fallback - только явные маркеры (direct_l1.py:1326-1350); возражение -> проверка закрыто W1 (chat_prompts.py:1050); Writer поиск не блокировал (chat_prompts.py:505)",
+     "observation": "Дефект = уверенное изложение неподтверждённой технической информации там, где доступна проверка (§5.1 источника), а не сам факт отсутствия вызова; production-трассы недоступны - причина установлена по коду и форме воспроизведения §10.1; дет. часть: вопрос об устройстве без командных маркеров не создаёт принудительный интент (detect_action_intent - для команд, решение за семантикой L1)",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_device_spec_question_has_no_forced_intent_by_design + test_capability_gate_announces_search_when_l1_chooses_it + test_honest_unavailable_note_intact",
+     "observation": "Гейт резолвит план с web_search в анонс execute_web_search (execution_mode=simple_tools, без новых вызовов); честная пометка недоступного тула на месте",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S5-WHEN",
@@ -3521,8 +3589,33 @@
    "acceptance": "Существующие инструменты поиска используются, когда достоверность ответа существенно зависит от внешних сведений, которых нет в надёжном контексте (характеристики современных устройств, новые аппаратные архитектуры, сравнение продуктов, спецификации производителей, неизвестные модели объекты, изменяющиеся стандарты, противоречие с проверяемыми сведениями пользователя, точные числа/даты/характеристики); автоматическое обращение в интернет на каждый технический вопрос не вводится, общеизвестные формулы и задачи с достаточными входными данными решаются без поиска — цель: своевременное использование доступных инструментов, а не максимум обращений.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "W2-фикс: правило 4 активных правил L1 переведено на редакцию PA5W2 (семантика своевременного поиска web_search по категориям §5.2, обе стороны - без обязательного поиска для формул/расчётов/болтовни; поиск недоступен - не выдавать неподтверждённое за факт); секция W1 «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» байт-в-байт; правила 1-3 и 5-9 прежние; лестница ADR-1013-3: PREV_DIRECT_L1_PLANNER_PA5W2 (902dd00edf52), метка l1-planner-tech-reasoning, FACTORY_SET 3bc0c543520c; tool-phase: секция «ПОИСК И НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ» (_DIRECT_SEARCH_DECISION_PA5W2) - та же семантика для execute_web_search, прежний фрейминг «свежие данные: новости» расширен без перезаписи",
+     "observation": "Обе стороны §5.2 в обоих носителях: категории существенной зависимости (устройства/архитектуры/сравнения/спецификации/стандарты/точные числа/противоречие с проверяемыми данными) -> поиск; общеизвестные формулы/расчёты с заданными параметрами/болтовня -> без поиска (тесты фиксируют якоря обеих сторон); обязательный поиск на каждый вопрос не введён; _live 10.4/10.1 - волна 3",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_l1_rule4_search_decision_semantics + test_toolphase_search_section_once_and_semantics + test_toolphase_prev_snapshot_and_existing_contracts_intact",
+     "observation": "PASS; прежние контракты tool phase целы",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_direct_chat_prompts.py::TestChatSystemPromptCanon",
+     "observation": "Байт-сверка активного канона tool phase со слепком-композицией + 2 новых W2-теста секции поиска; 40/40 PASS",
+     "artifact_path": "tests/test_direct_chat_prompts.py",
+     "artifact_sha256": "e59e6c8b968881bb6a41f6a18c99de9c51d2b2fbcdcb7c5e2cf353168e8229f1"
+    }
+   ]
   },
   {
    "source_id": "PA5-S5-TOOLS",
@@ -3536,8 +3629,25 @@
    "acceptance": "Сначала проверяются и переиспользуются действующие L1 Decision Making, ToolRouter, Fact-check, инструменты веб-поиска, provider capabilities, механизмы проверки утверждений и извлечения технической информации; новый Fact-check, отдельный Hardware Research Agent, дополнительный маршрутизатор и новые обязательные LLM-вызовы не создаются; условия выбора существующего инструмента и использование его результатов исправляются; при недоступности инструмента модель не заявляет, что вызвала его или проверила спецификацию.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §5.3/переиспользование п.5: действующие L1 Decision Making (правило 4), ToolRouter/capability-гейт (resolve_capabilities), Fact-check (обязан искать по real-world тейкам, factcheck_prompts.py:267-273 - не переписан §9), инструменты веб-поиска (execute_web_search в базовом наборе), механизмы проверки утверждений (ДОСТОВЕРНОСТЬ W1, АНТИ-ГАЛЛЮЦИНАЦИИ, честная пометка rejected_note, low-confidence skip-гейт) переиспользованы; новый Fact-check/Hardware Research Agent/маршрутизатор/обязательные LLM-вызовы НЕ созданы; при недоступности инструмента модель не заявляет, что проверила (секция tool phase + rejected_note)",
+     "observation": "Тест no_new_layers_routers_or_classifiers PASS (правки только строки существующих канонов; гейты не расширены словными списками)",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_no_new_layers_routers_or_classifiers + test_capability_gate_announces_search_when_l1_chooses_it",
+     "observation": "PASS",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S6-HALLUC",
@@ -3551,8 +3661,25 @@
    "acceptance": "Различаются известная информация, результаты реального поиска, проверенные расчёты, разумные предположения и неподтверждённые догадки: незнакомое название продукта не превращается в придуманную архитектуру, пробелы не заполняются техническим жаргоном, спекуляция не выдаётся за спецификацию; при нехватке достоверной информации — доступный поиск, расчёт на известных данных, явные допущения или честное указание неизвестного факта, без превращения каждого ответа в осторожный набор оговорок (нужна достоверность, а не нерешительность).",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §6.1/исправление 3: секция Writer различает известные данные / результаты поиска / проверенные расчёты / предположения; гипотеза выдаётся предположением, а не установленным фактом; незнакомый продукт не превращается в выдуманную архитектуру, пробелы не заполняются техническим жаргоном; честное неизвестное («честнее назвать, какой именно факт неизвестен»); без превращения каждого ответа в оговорки («нужна достоверность, а не нерешительность»); причина по коду - носители были общими «не выдумывай» без различения источников (w2.md §2 C6.1); маркировка допущений переиспользована (ТОЧНОСТЬ, DELTA, Core), не продублирована",
+     "observation": "Якоря секции в каноне Writer PASS; без запрета рассуждений и без требований документов (test_writer_62...); live-сценарий Crescent-подобного продукта (§10.2) - волна 3",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_writer_61_assumptions_labeled_and_no_invented_products + test_writer_canon_carries_tech_semantics_without_focus_dup + test_writer_tech_section_no_incident_words_no_quotes_no_quotas",
+     "observation": "PASS; слов инцидента в новых текстах нет",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S6-HYPOTH",
@@ -3566,8 +3693,25 @@
    "acceptance": "Сохранена способность рассуждать о гипотетическом железе, проектировать возможные архитектуры, предлагать инженерные решения, делать оценки, спорить и выдвигать предположения; гипотеза допустима, если не выдаётся за установленный факт; не добавляются инструкции, заставляющие отказываться от технических рассуждений при отсутствии готового источника, и не требуется документальное подтверждение каждой очевидной арифметической операции.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §6.2/исправление 3: «гипотеза, оценка и инженерное рассуждение допустимы» (способность рассуждать о гипотетическом, проектировать, спорить - сохранена явно); «известные формулы и расчёты на заданных числах подтверждений не требуют»; гипотеза допустима при пометке (не за установленным фактом); инструкций «откажись от рассуждений без источника» и «документ для арифметики» не добавлено (w2.md §2 C6.2 - их и раньше не было, сохранено)",
+     "observation": "Тест test_writer_62_hypotheses_allowed_and_no_document_required PASS",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w2_tech_reasoning.py::test_writer_62_hypotheses_allowed_and_no_document_required",
+     "observation": "PASS",
+     "artifact_path": "tests/test_post_asap5_w2_tech_reasoning.py",
+     "artifact_sha256": "6cd4d488b9b4c79731e6a235843703270a22d524c974aa4ebe3e22a4d25d994b"
+    }
+   ]
   },
   {
    "source_id": "PA5-S7-AUTHORITY",
