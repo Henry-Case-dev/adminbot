@@ -288,6 +288,9 @@ _PROTECTED_SPAN_RESERVE_BUDGET = 48
 # (никакого «угаданного» распознавания; уточнение — штатный путь L1/Writer).
 _EARLIER_IMAGE_WINDOW_SECONDS = 1800
 _EARLIER_IMAGE_SCAN_LIMIT = 24
+# ASAP5 §21 (context): chat_id → monotonic-время последнего clarify
+# (дедупликация повторного уточняющего вопроса; bounded 512 чатов).
+_CLARIFY_TS: dict[int, float] = {}
 # Поддерживаемые kind'ы = резолвимые `mca_vision.SUPPORTED_ASSET_KINDS`
 # (photo/document/sticker; animation — честный unsupported-кандидат MCA-19)
 # + preview-kind ASAP5 W1 (video_preview / animation_preview): видео, GIF,
@@ -7124,6 +7127,31 @@ class DirectChatService:
                            exc_info=True)
             return None
 
+    # ── ASAP5 §21 (context): дедупликация уточняющего вопроса ──────────────
+    # Один и тот же clarify («изобразить или текстом?») не повторяется ход за
+    # ходом: TTL-кеш в памяти процесса (прецедент module-level _OUTCOMES
+    # capability_registry). Fail-open: ошибки чтения/записи не рвут ход.
+    _CLARIFY_REPEAT_SECONDS = 600.0
+
+    def _clarify_recently(self, chat_id: int) -> bool:
+        """True — clarify этому чату отправлялся недавно (в пределах TTL)."""
+        try:
+            ts = _CLARIFY_TS.get(int(chat_id))
+        except Exception:      # pragma: no cover
+            return False
+        if not ts:
+            return False
+        return (time.monotonic() - float(ts)) < self._CLARIFY_REPEAT_SECONDS
+
+    def _mark_clarify_sent(self, chat_id: int) -> None:
+        try:
+            _CLARIFY_TS[int(chat_id)] = time.monotonic()
+            # bounded: держим не более 512 чатов (старейшие вытесняются).
+            while len(_CLARIFY_TS) > 512:
+                _CLARIFY_TS.pop(next(iter(_CLARIFY_TS)))
+        except Exception:      # pragma: no cover
+            pass
+
     async def _image_capability_gate(self, chat_id: int, query: str, message,
                                      bot, *, reply_text: str = ""
                                      ) -> tuple[bool, object]:
@@ -7151,12 +7179,41 @@ class DirectChatService:
                 query, reply_text=reply_text, addressed=True,
                 forwarded=bool(_forward_source_of(message)))
             if intent.intent != _caps.INTENT_CREATE_IMAGE:
+                # ASAP5 §20: edit-поручение — СОБСТВЕННАЯ capability
+                # image_edit (изменение исходника ≠ создание нового).
+                # Не ready → тот же управляемый честный отказ; ready/unknown
+                # → обычный ход (Writer + анонсированный edit_image; роутер
+                # резолвит исходник и честно отказывает без него).
+                if intent.intent == _caps.INTENT_EDIT_IMAGE:
+                    state = await _capreg.resolve("image_edit", chat_id)
+                    if not state.available and \
+                            state.status != _capreg.STATUS_UNKNOWN:
+                        text, block_id, _src = _capreg.status_message(state)
+                        await _reply(bot, chat_id, text, message.message_id)
+                        self._mark_turn_text_replied(chat_id)
+                        logger.info(
+                            "[direct] edit capability not ready | chat=%s | "
+                            "status=%s | reason=%s | template=%s",
+                            chat_id, state.status, state.reason_code, block_id)
+                        _capreg.emit_capability_event(
+                            state, outcome="failed", chat_id=chat_id,
+                            template_id=block_id)
+                        return True, intent
                 return False, intent
             if intent.confidence == _caps.CONFIDENCE_AMBIGUOUS:
                 # §5.9: ровно ОДИН короткий уточняющий вопрос вместо генерации.
+                # ASAP5 §21 (context): тот же вопрос не повторяется ход за
+                # ходом — недавний clarify гасит повтор (обычный ход, Writer
+                # решает сам); TTL-кеш в памяти процесса.
+                if self._clarify_recently(chat_id):
+                    logger.info("[direct] capability clarify suppressed "
+                                "(recent) | chat=%s | reason=%s", chat_id,
+                                intent.reason)
+                    return False, intent
                 text, block_id, _src = _capreg.clarify_text()
                 await _reply(bot, chat_id, text, message.message_id)
                 self._mark_turn_text_replied(chat_id)
+                self._mark_clarify_sent(chat_id)
                 logger.info("[direct] capability clarify | chat=%s | reason=%s "
                             "| template=%s", chat_id, intent.reason, block_id)
                 _capreg.emit_capability_event(
@@ -7221,21 +7278,31 @@ class DirectChatService:
             requested = tuple(str(c) for c in
                               (getattr(plan, "capabilities_needed", ()) or ()))
             state = None
+            state_capability = ""
             if "image_generation" in requested or (
                     intent is not None and intent.intent
                     == _caps.INTENT_CREATE_IMAGE):
                 state = await _capreg.resolve("image_generation", chat_id)
+                state_capability = "image_generation"
+            elif "image_edit" in requested or (
+                    intent is not None and intent.intent
+                    == _caps.INTENT_EDIT_IMAGE):
+                # ASAP5 §20: edit-способность честно показана Writer'у той же
+                # правдой, что и генерация (недоступность одной операции ≠
+                # недоступность остальных).
+                state = await _capreg.resolve("image_edit", chat_id)
+                state_capability = "image_edit"
             if state is not None and not state.available:
                 blockers = _caps.intent_blockers(
                     intent, capability_status=state.status)
-                if "image_generation" in requested:
-                    denied.append("image_generation")
+                if state_capability in requested:
+                    denied.append(state_capability)
                     _capreg.emit_capability_event(
                         state, outcome="failed", chat_id=chat_id,
                         trace_id=correlation_id or "")
                     try:
                         _caps.emit_capability_rejected(
-                            "image_generation", state.reason_code or
+                            state_capability, state.reason_code or
                             state.status, chat_id=chat_id,
                             run_id=correlation_id)
                     except Exception:      # pragma: no cover
@@ -7289,7 +7356,7 @@ class DirectChatService:
             # Выдуманные L1 имена сюда не попадают: их уже отбрасывает
             # `resolve_capabilities` с честной пометкой (§1.4/D15).
             others = [c for c in requested
-                      if c != "image_generation"
+                      if c != state_capability
                       and c.strip().lower() in _caps.CAPABILITY_TOOLS]
             if others:
                 states = await _capreg.resolve_many(others, chat_id)

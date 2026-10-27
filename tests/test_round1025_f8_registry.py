@@ -181,7 +181,7 @@ PG_DB_SHA256_B07 = (
 # после слияния веток; TSV/meta переэмитированы генератором (--check OK,
 # 582 строк). Хэш переутверждён осознанно по объединённому каталогу (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "f23cd0c7d390d9e56eec173c5d2b1b7008d764256748af2de7a7296c9fdeb2ae")
+    "efdf3f6806375017be44226240d47225713e53fc4f8e9b0a76a45fbf26b40f75")
 
 
 def _sha256(path: Path) -> str:
@@ -291,9 +291,9 @@ class TestFrozenInvariants:
         # SOUL-1 mobile-prompts (2026-10-16): +1 PG-only промпт-ключ
         # prompts.direct_l1_planner_system_prompt → 572/120/118/23
         # (группа/вкладка/Settings/secret/hidden без изменений).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 582
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 120
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 118
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 587
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 119
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
 
     def test_registry_keys_match_catalog_baseline(self):
@@ -344,7 +344,7 @@ class TestRegistry:
         # фактом на момент reissue (560).
         # v6.3 B01 (W1-CHAT-INTEL): +10 (INITIATIVE_*) → 571.
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
-        assert len(rows) == 582
+        assert len(rows) == 587
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -362,7 +362,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 → дельта 161.
         delta = _registry_keys() - _inventory_keys()
         # ASAP 7 F2 (§1.10): дельта 127→149 (+9 F2; F4 in-flight — фактом).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 171
+        assert len(delta) == FIXTURE["counts"]["delta"] == 176
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -414,7 +414,7 @@ class TestRegistry:
         # ASAP 7 F2: reissue под 560/149 (+9 F2; F4 in-flight — фактом).
         # v6.3 B01 (W1-CHAT-INTEL): reissue под 571/160 (+10 INITIATIVE_*).
         # SOUL-1 mobile-prompts (2026-10-16): reissue под 572/161.
-        assert "582" in meta and "411" in meta and "171" in meta
+        assert "587" in meta and "411" in meta and "176" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -432,7 +432,7 @@ class TestScreenMap:
         # MCA-10b (ADR-1028-17 D16): санкционированная Δ +6 → 510.
         # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → 571.
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
-        assert len(keys) == 582
+        assert len(keys) == 587
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

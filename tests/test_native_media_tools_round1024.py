@@ -485,9 +485,11 @@ class TestSchemasContract:
         добавляет 12-м get_user_context."""
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
         # MCA-19 (ADR-1028-19 §8.6): 13-й recognize_image — в хвосте.
+        # ASAP5 §20 (edit-route): 15-й edit_image — в хвосте.
         assert names == _FIRST_NINE + ["transcribe_video", "fetch_article",
                                        "get_user_context",
-                                       "recognize_image", "fact_check"]
+                                       "recognize_image", "fact_check",
+                                       "edit_image"]
         assert TOOL_TRANSCRIBE_VIDEO in TOOL_CALLING_TOOLS
         assert TOOL_CALLING_TOOLS[9] is TOOL_TRANSCRIBE_VIDEO
         assert TOOL_TRANSCRIBE_VIDEO["function"]["name"] == "transcribe_video"

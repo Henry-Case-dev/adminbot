@@ -732,6 +732,9 @@ class ToolRouter:
             "get_user_context": self._get_user_context,
             "recognize_image": self._recognize_image,
             "fact_check": self._fact_check,
+            # ASAP5 §20 (edit-route): существующий submit_edit-маршрут
+            # (media_execution → cover_style_edit) из Direct Chat.
+            "edit_image": self._edit_image,
         }
         method = registry.get(name)
         if method is None:
@@ -3478,8 +3481,7 @@ class ToolRouter:
             _msg, _block_id, _src = _caps.failure_message_for_reason(
                 str(result.reason or ""))
         except Exception:      # pragma: no cover - реестр не рвёт цикл
-            _msg, _block_id = "Генерация не удалась", ""
-        # CFG-02A (§02A.5): исчерпание СУТОЧНОЙ квоты — честное фактическое
+            _msg, _block_id = "Генерация не удалась", ""        # CFG-02A (§02A.5): исчерпание СУТОЧНОЙ квоты — честное фактическое
         # время следующего сброса (единый helper с direct-путём; не cooldown).
         if str(result.reason or "") == "budget":
             _note = image_generation.image_quota_reset_note(ctx.chat_id)
@@ -3500,6 +3502,213 @@ class ToolRouter:
         return json.dumps(
             {"status": "error", "reason": result.reason,
              "message": _msg, "message_id": _block_id},
+            ensure_ascii=False)
+
+    # ── ASAP5 §20 (edit-route): изменение СУЩЕСТВУЮЩЕГО изображения ────────
+
+    #: kinds исходника, пригодные для edit (растровые; preview-покрытые
+    #: носители дают обложку того же kind — W1 §7.2).
+    _EDIT_SOURCE_KINDS = frozenset({"photo", "document", "sticker",
+                                    "video_preview", "animation_preview"})
+
+    async def _edit_image(self, arguments: dict, ctx: ToolContext) -> str:
+        """ASAP5 §20 (edit-route): пользовательский маршрут Direct Chat →
+        СУЩЕСТВУЮЩИЙ ``media_execution`` edit-путь
+        (``detect_adapter`` → ``submit_edit`` → ``cover_style_edit.edit_image``).
+
+        Изменение исходника ≠ создание нового: генерация здесь НЕ вызывается,
+        новая независимая генерация не выдаётся за изменение оригинала.
+        Исходник: ``target`` (chat_id+message_id) из аргументов, иначе
+        reply-цель хода; активы — канонический реестр ``mca_media_assets``,
+        скачивание — существующий ``mca_vision.download_telegram_file``.
+        Операция выбирается через Capability Registry (`image_edit`); модель
+        без edit-capability получает честный ``unsupported`` (не генерацию).
+        Результат отправляется существующей доставкой
+        (`telegram_send.send_photo`), исход связывается с запросом (reply).
+        Ошибка никогда не выдаётся за успешное редактирование. R17: без
+        промпта/URL/ключа в логах."""
+
+        def _err(reason: str, message: str) -> str:
+            try:
+                from services import capability_registry as _caps
+                _caps.record_outcome("image_edit", chat_id=ctx.chat_id,
+                                     ok=False, code=reason)
+                _msg, _block_id, _src = _caps.failure_message_for_reason(
+                    reason)
+            except Exception:      # pragma: no cover - реестр не рвёт отказ
+                _msg, _block_id = message, ""
+            return json.dumps(
+                {"status": "error", "reason": reason, "message": _msg,
+                 "message_id": _block_id}, ensure_ascii=False)
+
+        if not await image_generation.resolve_module_enabled(ctx.chat_id):
+            return _err("module_disabled", "Генерация изображений отключена")
+        # Операция выбирается через Capability Registry: модель без
+        # edit-capability → честный unsupported (спекулятивная генерация
+        # вместо edit запрещена §20).
+        try:
+            from services import capability_registry as _capreg
+            state = await _capreg.resolve("image_edit", ctx.chat_id)
+            if state.status == "unsupported":
+                return _err("edit_unsupported",
+                            "Модель не умеет редактировать изображения")
+            if state.status != "ready":
+                # Только ПОДТВЕРЖДЁННАЯ capability ведёт к исполнению (§20:
+                # операция выбирается реестром); не-ready → честный отказ.
+                return _err(state.reason_code or state.status,
+                            "Редактирование сейчас недоступно")
+        except asyncio.CancelledError:
+            raise
+        except Exception:      # pragma: no cover - реестр fail-open
+            pass
+        prompt = self._require_str(arguments, "prompt")
+        if not prompt:
+            return _err("empty_prompt", "Не указан prompt")
+        # ── Исходник: target из аргументов → reply-цель хода ─────────────
+        target = arguments.get("target") if isinstance(arguments, dict) \
+            else None
+        src_chat = src_msg = None
+        if isinstance(target, dict):
+            try:
+                src_chat = int(target.get("chat_id"))
+                src_msg = int(target.get("message_id"))
+            except (TypeError, ValueError):
+                src_chat = src_msg = None
+            if src_chat is not None and src_chat != int(ctx.chat_id):
+                # Переход в другой чат запрещён (как у recognize_image).
+                src_chat = src_msg = None
+        if src_msg is None:
+            rid = getattr(ctx, "reply_to_message_id", None)
+            try:
+                rid = int(rid) if rid is not None else None
+            except (TypeError, ValueError):
+                rid = None
+            if rid:
+                src_chat, src_msg = int(ctx.chat_id), rid
+        # deps.db — DatabaseService (метод get_media_assets_for_message).
+        db = getattr(self.deps, "db", None)
+        if db is None or not hasattr(db, "get_media_assets_for_message"):
+            db = getattr(ctx, "db", None)
+        assets: list[dict] = []
+        if src_msg is not None and db is not None and \
+                hasattr(db, "get_media_assets_for_message"):
+            try:
+                assets = await db.get_media_assets_for_message(
+                    int(ctx.chat_id), int(src_msg))
+            except Exception:
+                assets = []
+        candidates = [a for a in assets
+                      if str(a.get("asset_kind")) in self._EDIT_SOURCE_KINDS]
+        if not candidates:
+            # Честный отказ: исходник не найден. НИКАКОЙ генерации «вместо»
+            # (§20: новая независимая генерация не выдаётся за изменение).
+            return _err("no_source_image",
+                        "Исходное изображение не найдено: пришли картинку "
+                        "или сделай Reply на неё")
+        file_id = str(candidates[0].get("file_id") or "")
+        if not file_id:
+            return _err("no_source_image",
+                        "Исходное изображение недоступно (нет file_id)")
+        # ── Скачивание исходника (существующий Bot API-путь) ──────────────
+        import os
+        import tempfile
+        from services import mca_vision
+        from services.media_execution import detect_adapter
+        src_path = ""
+        try:
+            img = await mca_vision.download_telegram_file(ctx.bot, file_id)
+            fd, src_path = tempfile.mkstemp(suffix=".png")
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(bytes(img.data))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if src_path:
+                try:
+                    os.unlink(src_path)
+                except OSError:
+                    pass
+            logger.warning("[tools] edit_image source download failed | "
+                           "chat=%s | error=%s", ctx.chat_id,
+                           type(exc).__name__)
+            return _err("download_failed",
+                        "Исходное изображение не удалось скачать")
+        # ── Исполнение: существующий submit_edit-маршрут ──────────────────
+        result = None
+        try:
+            base_url = str(image_generation._resolve_str(
+                image_generation.KEY_BASE_URL,
+                getattr(settings, "IMAGE_BASE_URL", "")) or "").strip()
+            model = str(image_generation._resolve_str(
+                image_generation.KEY_MODEL,
+                getattr(settings, "IMAGE_MODEL", "")) or "").strip()
+            api_key = str(image_generation._resolve_str(
+                image_generation.KEY_API_KEY,
+                getattr(settings, "IMAGE_API_KEY", "")) or "").strip()
+            adapter = detect_adapter(base_url)
+            result = await adapter.submit_edit(
+                prompt=prompt, model=model, image_paths=[src_path],
+                api_key=api_key, chat_id=ctx.chat_id,
+                correlation_id=getattr(ctx, "correlation_id", None))
+        except asyncio.CancelledError:
+            if src_path:
+                try:
+                    os.unlink(src_path)
+                except OSError:
+                    pass
+            raise
+        except Exception as exc:
+            logger.warning("[tools] edit_image failed | chat=%s | error=%s",
+                           ctx.chat_id, type(exc).__name__)
+            result = None
+        finally:
+            if src_path:
+                try:
+                    os.unlink(src_path)
+                except OSError:
+                    pass
+        if result is None or not getattr(result, "ok", False):
+            reason = str(getattr(result, "reason", "") or "error") if result \
+                else "error"
+            logger.info("[tools] edit_image failed | chat=%s | reason=%s",
+                        ctx.chat_id, reason)
+            return _err(reason, "Редактирование не удалось")
+        # ── Доставка: существующий путь отправки изображений ──────────────
+        from aiogram.types import BufferedInputFile
+        from services import capability_registry as _capreg
+        from services import telegram_send
+        try:
+            photo = BufferedInputFile(
+                bytes(result.content or b""), filename="image_edit.png")
+            rid = getattr(ctx, "reply_to_message_id", None)
+            if rid is not None:
+                await telegram_send.send_photo(ctx.bot, ctx.chat_id, photo,
+                                               reply_to_message_id=int(rid))
+            else:
+                await telegram_send.send_photo(ctx.bot, ctx.chat_id, photo)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.warning("[tools] edit_image delivery failed | chat=%s | "
+                           "error=%s", ctx.chat_id, type(exc).__name__)
+            return _err("send_failed",
+                        "Отредактированное изображение не удалось отправить")
+        _capreg.record_outcome("image_edit", chat_id=ctx.chat_id, ok=True,
+                               code="ok")
+        # Маркер прогона: edit на этом ходу обработан — повторный
+        # generate_image/edit_image в том же ходе не создаёт дубликат.
+        try:
+            ctx.image_request_handled = True
+        except Exception:      # pragma: no cover
+            pass
+        logger.info("[tools] edit_image sent | chat=%s | bytes=%d",
+                    ctx.chat_id, len(result.content or b""))
+        return json.dumps(
+            {"status": "success",
+             "message": "Изображение отредактировано и отправлено в чат",
+             "operation": "edit",
+             "source": {"chat_id": int(ctx.chat_id),
+                        "message_id": int(src_msg) if src_msg else None}},
             ensure_ascii=False)
 
     # ── helpers dig (T-820; переиспользуют _require_query/_resolve_name) ──

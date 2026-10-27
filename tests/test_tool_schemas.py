@@ -29,13 +29,15 @@ class TestToolSchemas:
         # +get_user_context → 12 (в конец, первые 11 байт-в-байт).
         # MCA-19 (10.43): +recognize_image → 13. MCA-20 (10.44,
         # ADR-1028-20 §7.5): +fact_check → 14 (в конец, первые 13
-        # байт-в-байт). Существующие имена/схемы не меняются.
+        # байт-в-байт). ASAP5 §20 (edit-route, 27.10.2026): +edit_image → 15
+        # (в конец, первые 14 байт-в-байт). Существующие имена/схемы не
+        # меняются.
         assert [t["function"]["name"] for t in TOOL_CALLING_TOOLS] == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image", "fact_check"]
+            "recognize_image", "fact_check", "edit_image"]
 
     def _assert_function_schema(self, tool, name, required):
         assert tool["type"] == "function"
@@ -123,7 +125,9 @@ class TestToolSchemas:
 
     def test_active_tools_image_flag_gate(self):
         """F5 (ADR-1023-5 D2): image OFF (дефолт) → без generate_image;
-        image ON → полный канон (F19/A2/MCA-20 — в хвосте)."""
+        image ON → полный канон (F19/A2/MCA-20 — в хвосте).
+        ASAP5 §20: edit_image живёт в ТОМ ЖЕ модуле изображений — OFF
+        убирает оба инструмента."""
         names_off = [t["function"]["name"] for t in active_tools()]
         assert names_off == [
             "query_chat_memory", "dig_into_lore", "execute_web_search",
@@ -138,7 +142,7 @@ class TestToolSchemas:
             "summarize_video", "download_media", "get_bot_health",
             "get_recent_history", "compile_lore_story", "generate_image",
             "transcribe_video", "fetch_article", "get_user_context",
-            "recognize_image", "fact_check"]
+            "recognize_image", "fact_check", "edit_image"]
 
     def test_active_tools_default_on(self):
         """О3: код-дефолт «Летописца» — ON; F19 transcribe_video, A2
@@ -147,10 +151,12 @@ class TestToolSchemas:
         assert len(active_tools()) == 13
 
     def test_active_tools_does_not_mutate_snapshot(self):
-        """active_tools возвращает новый список — снапшот не мутируется."""
+        """active_tools возвращает новый список — снапшот не мутируется.
+        (lore OFF → compile_lore_story исключён; image OFF → generate_image
+        и edit_image исключены: 15 − 3 = 12.)"""
         off = active_tools(False)
         assert len(off) == 12
-        assert len(TOOL_CALLING_TOOLS) == 14
+        assert len(TOOL_CALLING_TOOLS) == 15
 
     # Bugfix 04.09.2026 (Часть 2, AC-3.4): расширенные description'ы.
     # 10.20 (БЛОК 7.4, T-1925): все description — EN (ревизия канона 3.3).
@@ -169,5 +175,6 @@ class TestToolSchemas:
         assert "memory" in desc
 
     def test_all_tools_list_is_mutable_snapshot(self):
-        # A6 (ADR-1026-18 D1): канон R9 = 12; MCA-19 (ADR-1028-19 §8.6) = 13.
-        assert len(TOOL_CALLING_TOOLS) == 14
+        # A6 (ADR-1026-18 D1): канон R9 = 12; MCA-19 (ADR-1028-19 §8.6) = 13;
+        # MCA-20 = 14; ASAP5 §20 (edit-route) = 15.
+        assert len(TOOL_CALLING_TOOLS) == 15

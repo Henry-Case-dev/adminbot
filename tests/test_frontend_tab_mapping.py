@@ -177,9 +177,9 @@ class TestTabMappingAudit:
         # 5 limits_intent, pg_id-ренейм flags.initiative_enabled…), +2 GROUPS
         # (flags_intent/limits_intent), +2 mapped (вкладка mod_initiative);
         # TAB_RULES 22→23 (+mod_initiative) → 538/115/113.
-        assert len(pc._TAB_BY_GROUP) == 118
-        assert len(GROUPS) == 120
-        assert len(pc.REGISTRY) == 582
+        assert len(pc._TAB_BY_GROUP) == 119
+        assert len(GROUPS) == 121
+        assert len(pc.REGISTRY) == 587
 
 
 class TestModuleTabs:
@@ -228,15 +228,21 @@ class TestModuleTabs:
         изображений» — flags_module_vision (главный тумблер владельца) +
         limits_vision (качество/очередь/антиспам). Подключение
         (models_vision/keys_vision) — «один дом» в llm_providers
-        (прецедент mod_images/images). Nav «Модули»."""
+        (прецедент mod_images/images). Nav «Модули».
+        ASAP5 §22 (REQ-ADMIN-TYPES): +подраздел «Типы медиа»
+        (flags_vision_media_types) на ТОЙ ЖЕ вкладке (отдельного GIF-модуля,
+        панели стикеров и второго Vision-раздела нет)."""
         assert tab_group_ids(TAB_MOD_VISION) == {
-            "flags_module_vision", "limits_vision"}
+            "flags_module_vision", "flags_vision_media_types",
+            "limits_vision"}
         assert pc.tab_nav(TAB_MOD_VISION) == pc.NAV_MODULES
         assert pc.CONFIG_TAB_TITLES[TAB_MOD_VISION] == \
             "Распознавание изображений"
         assert "models_vision" in tab_group_ids(TAB_LLM_PROVIDERS)
         assert "keys_vision" in tab_group_ids(TAB_LLM_PROVIDERS)
         assert "flags_module_vision" not in tab_group_ids(TAB_LLM_PROVIDERS)
+        assert "flags_vision_media_types" not in \
+            tab_group_ids(TAB_LLM_PROVIDERS)
 
     def test_mod_factcheck_and_search(self):
         # MCA-20 (round 10.44): +temporal_factcheck (in-place, TAB_RULES 22).

@@ -5,9 +5,9 @@
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 582,
-    "GROUPS": 120,
-    "_TAB_BY_GROUP": 118,
+    "REGISTRY": 587,
+    "GROUPS": 121,
+    "_TAB_BY_GROUP": 119,
     "TAB_RULES": 23
   },
   "group_ids": [
@@ -42,6 +42,7 @@
     "flags_summary_hybrid",
     "flags_summary_legacy",
     "flags_throttle",
+    "flags_vision_media_types",
     "keys_betterstack",
     "keys_groq",
     "keys_images",
@@ -164,6 +165,7 @@
     "flags_summary_hybrid": "mod_summary",
     "flags_summary_legacy": "mod_summary",
     "flags_throttle": "mod_checkup",
+    "flags_vision_media_types": "mod_vision",
     "keys_betterstack": "mod_checkup",
     "keys_groq": "llm_providers",
     "keys_images": "llm_providers",
@@ -745,6 +747,11 @@
     "VISION_CHAT_RATE",
     "VISION_ENABLED",
     "VISION_IMAGE_MAX_DIMENSION",
+    "VISION_MEDIA_ANIMATED_STICKERS",
+    "VISION_MEDIA_GIF_ANIMATIONS",
+    "VISION_MEDIA_PHOTO_DOCS",
+    "VISION_MEDIA_STATIC_STICKERS",
+    "VISION_MEDIA_VIDEO_PREVIEWS",
     "VISION_MODEL",
     "VISION_QUEUE_CAPACITY",
     "VISION_USER_RATE",

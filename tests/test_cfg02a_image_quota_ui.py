@@ -166,9 +166,11 @@ class TestCfg02aCatalogAndUiContract:
         assert spec.secret is False
 
     def test_catalog_artifacts_untouched(self):
-        """Замороженные срезы каталога не сдвинуты этим слайсом."""
-        assert len(pc.REGISTRY) == 582
-        assert len(pc.GROUPS) == 120
+        """Замороженные срезы каталога не сдвинуты этим слайсом.
+        (ASAP5 §22, 27.10.2026: +5 тумблеров «Типы медиа» и группа
+        flags_vision_media_types — REQ-ADMIN-TYPES; срез CFG-02A не менялся.)"""
+        assert len(pc.REGISTRY) == 587
+        assert len(pc.GROUPS) == 121
 
     def test_vitrina_labels_and_units(self):
         """CFG-02A.1/02A.2: секция «Лимиты генерации» + «Изображений в сутки»

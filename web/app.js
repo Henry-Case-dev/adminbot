@@ -237,7 +237,9 @@
     { id: 'mod_vision', icon: 'visibility', label: 'Распознавание изображений',
       type: 'config', menu: 'modules',
       sources: [
-        { category: 'flags', groups: ['flags_module_vision'] },
+        // ASAP5 §22: +группа «Типы медиа» того же раздела (подраздел вкладки).
+        { category: 'flags', groups: ['flags_module_vision',
+                                      'flags_vision_media_types'] },
         { category: 'limits', groups: ['limits_vision'] },
       ] },
     // ASAP 7 F3 (§3.2): зеркало TAB_RULES — вкладка модуля «Инициатива»
@@ -3524,9 +3526,10 @@
           ? 'Распознавание работает'
           : ('Не активно: ' + (s.visible_reason
                                || 'проверка подключения не выполнялась'));
-        if (s.queue && (s.queue.queued || s.queue.running)) {
+        if (s.queue && (s.queue.queued || s.queue.running || s.queue.failed)) {
           head += ' · очередь ' + (s.queue.running || 0) + '/'
                   + ((s.queue.running || 0) + (s.queue.queued || 0));
+          if (s.queue.failed) head += ' · с ошибкой: ' + s.queue.failed;
         }
         return head;
       },
@@ -3556,6 +3559,27 @@
           // человеческой причины (D11: код не подменяет причину).
           out.push({ key: 'detail', label: 'Техническая деталь',
                      value: String(s.detail) });
+        }
+        // ASAP5 §22 (Диагностика): доступные типы медиа, типы с
+        // преобразованием и последняя существенная ошибка — из существующих
+        // тумблеров/очереди, без отдельного хранилища статистики и без
+        // технической перегрузки (короткие человеческие строки).
+        if (Array.isArray(s.media_types) && s.media_types.length) {
+          var on = s.media_types.filter(function (t) { return t.enabled; })
+            .map(function (t) { return t.label; });
+          out.push({ key: 'media_types', label: 'Типы медиа',
+                     value: on.length ? on.join(', ') : '—' });
+          var tf = (s.types_need_transform || []).length;
+          if (tf) {
+            out.push({ key: 'transform', label: 'Требуют преобразования',
+                       value: String(tf) + ' тип(ов) — по кадру-обложке' });
+          }
+        }
+        if (s.last_error && s.last_error.reason_code) {
+          var when = _tsStatusLabel(s.last_error.updated_at, '');
+          out.push({ key: 'last_error', label: 'Последняя ошибка',
+                     value: String(s.last_error.reason_code)
+                            + (when ? ' · ' + when : '') });
         }
         return out;
       },

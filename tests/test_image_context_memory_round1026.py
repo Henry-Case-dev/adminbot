@@ -1154,18 +1154,22 @@ class TestFlagsAndCanon:
         import dataclasses
         from services import param_catalog as pc
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484.
-        assert len(pc.REGISTRY) == 582
-        assert len(dataclasses.fields(Settings)) == 461  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
-        assert len(pc.GROUPS) == 120
-        assert len(pc._TAB_BY_GROUP) == 118
+        # ASAP5 §22 (27.10.2026): +5 тумблеров «Типы медиа» → 587; группа
+        # flags_vision_media_types → 121/119. Поля Settings: +5 VISION_MEDIA_*.
+        assert len(pc.REGISTRY) == 587
+        assert len(dataclasses.fields(Settings)) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        assert len(pc.GROUPS) == 121
+        assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23
 
     def test_canon_stays_twelve(self):
         from services.tool_schemas import TOOL_CALLING_TOOLS
-        assert len(TOOL_CALLING_TOOLS) == 14
+        # ASAP5 §20 (edit-route): канон 14 → 15 (+edit_image в хвост).
+        assert len(TOOL_CALLING_TOOLS) == 15
         names = [t["function"]["name"] for t in TOOL_CALLING_TOOLS]
-        assert names[-3] == "get_user_context"
-        assert names[-2] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
-        assert names[-1] == "fact_check"   # MCA-20 (ADR-1028-20 §7.5)
+        assert names[-4] == "get_user_context"
+        assert names[-3] == "recognize_image"   # MCA-19 (ADR-1028-19 §8.6)
+        assert names[-2] == "fact_check"   # MCA-20 (ADR-1028-20 §7.5)
+        assert names[-1] == "edit_image"   # ASAP5 §20 (edit-route)
         assert "request_reference" not in names
         assert "portrait" not in names

@@ -732,6 +732,63 @@ TOOL_FACT_CHECK = {
 # Канон R9 = **13** (MCA-19, ADR-1028-19 §8.6): первые 12 — байт-в-байт,
 # recognize_image — в конец. MCA-20 (round 10.44, D4): канон 13→14 —
 # fact_check (один адаптер к общему сервису фактчека) в конец.
+# ASAP5 §20 (edit-route, 27.10.2026): канон 14→15 — `edit_image` (в КОНЕЦ,
+# «новое — в хвост», первые 14 — байт-в-байт): изменение СУЩЕСТВУЮЩЕГО
+# изображения через существующий `media_execution.submit_edit`
+# (`cover_style_edit.edit_image` — единая точка edit-исполнения); второй
+# набор провайдеров/редактор не создаются. LLM-доступность гейтится тем же
+# модулем изображений, что generate_image (`active_tools`); серверная
+# проверка (модуль/capability edit) — в диспетчере, defence in depth.
+TOOL_EDIT_IMAGE = {
+    "type": "function",
+    "function": {
+        "name": "edit_image",
+        "description": (
+            "EDIT an EXISTING image (change/redraw parts of it) and send the "
+            "result to this chat. Call when the user asks to modify, fix, "
+            "add or remove something ON a picture they provided or on the "
+            "picture the bot has just generated - NOT when they ask for a "
+            "brand new image (use generate_image for that). SOURCE: pass "
+            "target (chat_id + message_id) of the message holding the image "
+            "- the replied message first, or the earlier message the user "
+            "refers to; omit target ONLY when the source is already clear "
+            "from the reply context. REQUIRED ARGUMENT: prompt (string, "
+            "mandatory) - what to change, as a short edit instruction. HOW "
+            "TO INTERPRET THE RESULT: the tool returns JSON; the backend "
+            "delivers the edited image itself. ON ERROR: the JSON contains "
+            "the actual failure reason (model cannot edit, source image "
+            "not found, provider failure) - tell the user briefly and "
+            "honestly; never present a new generation as an edit of the "
+            "original."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string",
+                           "description": ("What to change on the source "
+                                           "image - a short edit "
+                                           "instruction in any language.")},
+                "target": {
+                    "type": "object",
+                    "description": ("MessageRef of the message holding the "
+                                    "source image (reply target preferred; "
+                                    "omit when the source is clear from the "
+                                    "reply context)."),
+                    "properties": {
+                        "chat_id": {"type": "integer",
+                                    "description": "Telegram chat id."},
+                        "message_id": {"type": "integer",
+                                       "description": "Telegram message id."},
+                    },
+                    "required": ["chat_id", "message_id"],
+                    "additionalProperties": False,
+                },
+            },
+            "required": ["prompt"],
+            "additionalProperties": False,
+        },
+    },
+}
+
 TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_QUERY_CHAT_MEMORY,
     TOOL_DIG_INTO_LORE,
@@ -747,6 +804,7 @@ TOOL_CALLING_TOOLS: list[dict] = [
     TOOL_GET_USER_CONTEXT,
     TOOL_RECOGNIZE_IMAGE,
     TOOL_FACT_CHECK,
+    TOOL_EDIT_IMAGE,
 ]
 
 # Имя флагового инструмента (гейт flags.lore_compiler_enabled, О3).
@@ -765,6 +823,9 @@ VISION_TOOL_NAME = "recognize_image"
 # гейт K2 MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED; каталог-тумблер владельца —
 # отдельно, temporal.tool_enabled).
 FACT_CHECK_TOOL_NAME = "fact_check"
+# ASAP5 §20 (edit-route): имя инструмента редактирования изображений
+# (гейт — тот же модуль изображений, что у generate_image).
+EDIT_IMAGE_TOOL_NAME = "edit_image"
 
 
 def _transcribe_tool_enabled() -> bool:
@@ -872,6 +933,12 @@ def active_tools(lore_compiler_enabled: bool = True,
         disabled.add(LORE_COMPILER_TOOL_NAME)
     if not image_generation_enabled:
         disabled.add(IMAGE_GENERATION_TOOL_NAME)
+        # ASAP5 §20 (edit-route): edit живёт в ТОМ ЖЕ модуле изображений —
+        # выключенный модуль убирает оба инструмента (generate и edit),
+        # недоступность одной операции ≠ недоступность остальных — она
+        # резолвится capability-реестром по состоянию провайдера, не гейтом
+        # анонса.
+        disabled.add(EDIT_IMAGE_TOOL_NAME)
     if not _transcribe_tool_enabled():
         disabled.add(TRANSCRIBE_TOOL_NAME)
     if not _article_tool_enabled():
