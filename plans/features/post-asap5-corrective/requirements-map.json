@@ -6,7 +6,7 @@
  "deployed_commit": "6d08c5112c47d2f8f108d2488364abd3d827e574",
  "strict_evidence": true,
  "slice_graph_path": "",
- "plan_note": "Финальный биндинг закрытия (PM-BIND-POST-ASAP5-CLOSE, 27.10.2026): PA5-S2, PA5-S10-1..7, PA5-S12-DELIVERY, PA5-S12-REPORT → VERIFIED по живым пробам r1 (live-scenarios.md, 2.58.135) и r2 (live-reprobe-258136.md, 2.58.136), deploy-доказательству (release-258136/deploy.md) и отчёту владельца (plans/reports/final-report-p0-cycle-2026-10-27.md §11). Открыты (вне мандата лейна): PA5-QUEUE, PA5-S9-ALIGN, PA5-S11-REVIEWER — PENDING; PA5-S1/PA5-GOAL — context. W1-строки не тронуты.",
+ "plan_note": "Закрытие POST-ASAP5 (PM-CLOSE-POST-ASAP5-FINAL, 27.10.2026): PA5-QUEUE (порядок соблюдён — git-история release/p0-2026-10-26, W1 после релиза 2.58.135/05c408f6), PA5-S9-ALIGN (reuse-секции w1/w2 + review-w12, без вторых роутеров/дублей) и PA5-S11-REVIEWER (review-w12.md, Approved W1+W2) → VERIFIED к кандидату dec28b99. Восстановлены dec28b99-привязки 6 W1-строк, потерянные при синках lineage (вербатим из 1867045d, task/post-asap5-w1; подтверждены независимым ревью review-w12 §2–§3, 18/18 W1-тестов на кандидате). Все обязательные строки карты VERIFIED; PA5-S1/PA5-GOAL — context. Release-гейт (--stage release, candidate dec28b99 / deployed 6d08c511): на release/p0-2026-10-26 exit 1, ровно 1 структурная ошибка deployed≠candidate — задокументированный класс семантического порта на релиз-линию (прецеденты win-glass-hotfix 0ca661fe/95526863, p0-delta-analysis); в мастер-линии дополнительно 6 ошибок отсутствия тест-артефакта tests/test_post_asap5_w1_writer_core.py (dual-line: код фичи — на релизной линии, мастер держит docs-состояние).",
  "items": [
   {
    "source_id": "L00010",
@@ -3352,8 +3352,17 @@
    "acceptance": "Корректива зарегистрирована в очереди строго после asap5-multimodal и всех ранее принятых обязательных задач; реализация не начинается до их завершения. Сейчас выполняются только действия регистрации (Owner Intake, сверка с действующими требованиями L1, Decision Making, Fact-check, ToolRouter, Speech Architecture, P0 DELTA; связывание без дублирующих задач; новые работы в конце очереди), без прерывания активных Builder/Reviewer/DevOps, без очистки current_task.md, без повторной разработки подтверждённых исправлений; после завершения предшествующих задач — автоматический переход, без нового независимого workflow и дополнительных архитектурных подсистем.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "process",
+     "ref": "Позиция соблюдена: реализация начата после релиза 2.58.135. Релиз-история release/p0-2026-10-26: релиз-бамп ASAP 5 (05c408f6, 2.58.135) — только затем W1-коммиты (3c0c4519 feat, 146765ea docs), далее W2 (ac7669cb, dec28b99), merge 5f1dcd23 и релиз 2.58.136 (6d08c511); реализация корректива не начиналась до завершения asap5-multimodal и его релиза, активные Builder/Reviewer/DevOps не прерывались",
+     "observation": "Порядок подтверждаем git-историей (05c408f6 < 3c0c4519 < dec28b99 < 5f1dcd23 < 6d08c511); конфликтных параллельных правок нет; задача nostalgia-rework осталась в очереди нетронутой; нового независимого workflow и дополнительных архитектурных подсистем не создано. Конвент asap5-карты (QUEUE-ряд, process-эвиденс + финальный отчёт) воспроизведён; final-report-p0-cycle-2026-10-27.md §11 «Что осталось» п.1: порядковое требование выполнено фактически — работы начаты после релиза ASAP 5.",
+     "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md",
+     "artifact_sha256": "5d3d0bebce1028ec9d8cdc269401ec5bfb67886ac7a9bbaa166d3f5e104bf403"
+    }
+   ]
   },
   {
    "source_id": "PA5-S1",
@@ -3439,6 +3448,14 @@
      "observation": "18/18 контрактных тестов PASS; регресс speech/L1 427 PASS 0 FAIL (падения идентичны базе bd8f9c34)",
      "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
      "artifact_sha256": "32c12478bc216e0f52d590daa1ec3914b730faf3156b6702a6ebafdb3cc710ad"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w1_writer_core.py (W1-контракты перепроверены после бампа канона W2: файл обновлён по конвенции бампа ADR-1013-3 - активный канон на ред. PA5W2, прежние байты в слепках; все проверки §3/§7/§8 на месте) + tests/test_post_asap5_w2_tech_reasoning.py::test_l1_w1_section_bytes_unchanged_and_snapshot_pins (секция W1 байт-в-байт, пины 422e9d73d316/902dd00edf52/14743d288ea3) + WRITER_FOCUS_DIRECTIVE ровно один раз (test_writer_canon_carries_tech_semantics_without_focus_dup, все режимы)",
+     "observation": "18/18 W1-тестов PASS на кандидате dec28b9931b9; W1-контракт цел (фокус-директива один носитель, секция intent-update не менялась)",
+     "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
+     "artifact_sha256": "bcbf7ddabc239cb1721639fce2cfb53abd0ad343f95b86d03fc6df52fa5e8bbc"
     }
    ]
   },
@@ -3471,6 +3488,14 @@
      "observation": "Якоря обеих сторон §3.2 + допущение + классификация disagreement PASS",
      "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
      "artifact_sha256": "32c12478bc216e0f52d590daa1ec3914b730faf3156b6702a6ebafdb3cc710ad"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w1_writer_core.py (W1-контракты перепроверены после бампа канона W2: файл обновлён по конвенции бампа ADR-1013-3 - активный канон на ред. PA5W2, прежние байты в слепках; все проверки §3/§7/§8 на месте) + tests/test_post_asap5_w2_tech_reasoning.py::test_l1_w1_section_bytes_unchanged_and_snapshot_pins (секция W1 байт-в-байт, пины 422e9d73d316/902dd00edf52/14743d288ea3) + WRITER_FOCUS_DIRECTIVE ровно один раз (test_writer_canon_carries_tech_semantics_without_focus_dup, все режимы)",
+     "observation": "18/18 W1-тестов PASS на кандидате dec28b9931b9; W1-контракт цел (фокус-директива один носитель, секция intent-update не менялась)",
+     "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
+     "artifact_sha256": "bcbf7ddabc239cb1721639fce2cfb53abd0ad343f95b86d03fc6df52fa5e8bbc"
     }
    ]
   },
@@ -3767,6 +3792,14 @@
      "observation": "Контракт диалогового правила и self-echo-константы PASS; интеграция SQL-фильтра PASS",
      "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
      "artifact_sha256": "32c12478bc216e0f52d590daa1ec3914b730faf3156b6702a6ebafdb3cc710ad"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w1_writer_core.py (W1-контракты перепроверены после бампа канона W2: файл обновлён по конвенции бампа ADR-1013-3 - активный канон на ред. PA5W2, прежние байты в слепках; все проверки §3/§7/§8 на месте) + tests/test_post_asap5_w2_tech_reasoning.py::test_l1_w1_section_bytes_unchanged_and_snapshot_pins (секция W1 байт-в-байт, пины 422e9d73d316/902dd00edf52/14743d288ea3) + WRITER_FOCUS_DIRECTIVE ровно один раз (test_writer_canon_carries_tech_semantics_without_focus_dup, все режимы)",
+     "observation": "18/18 W1-тестов PASS на кандидате dec28b9931b9; W1-контракт цел (фокус-директива один носитель, секция intent-update не менялась)",
+     "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
+     "artifact_sha256": "bcbf7ddabc239cb1721639fce2cfb53abd0ad343f95b86d03fc6df52fa5e8bbc"
     }
    ]
   },
@@ -3799,6 +3832,14 @@
      "observation": "Байт-сохранность Core/правил 1-9 PASS; вербатим строки 473 PASS; отсутствие квот/композиционных приказов PASS",
      "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
      "artifact_sha256": "32c12478bc216e0f52d590daa1ec3914b730faf3156b6702a6ebafdb3cc710ad"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w1_writer_core.py (W1-контракты перепроверены после бампа канона W2: файл обновлён по конвенции бампа ADR-1013-3 - активный канон на ред. PA5W2, прежние байты в слепках; все проверки §3/§7/§8 на месте) + tests/test_post_asap5_w2_tech_reasoning.py::test_l1_w1_section_bytes_unchanged_and_snapshot_pins (секция W1 байт-в-байт, пины 422e9d73d316/902dd00edf52/14743d288ea3) + WRITER_FOCUS_DIRECTIVE ровно один раз (test_writer_canon_carries_tech_semantics_without_focus_dup, все режимы)",
+     "observation": "18/18 W1-тестов PASS на кандидате dec28b9931b9; W1-контракт цел (фокус-директива один носитель, секция intent-update не менялась)",
+     "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
+     "artifact_sha256": "bcbf7ddabc239cb1721639fce2cfb53abd0ad343f95b86d03fc6df52fa5e8bbc"
     }
    ]
   },
@@ -3831,6 +3872,14 @@
      "observation": "Якоря §7.3 PASS (проверка/пересмотр/аргументы-не-настойчивость/честная неопределённость)",
      "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
      "artifact_sha256": "32c12478bc216e0f52d590daa1ec3914b730faf3156b6702a6ebafdb3cc710ad"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w1_writer_core.py (W1-контракты перепроверены после бампа канона W2: файл обновлён по конвенции бампа ADR-1013-3 - активный канон на ред. PA5W2, прежние байты в слепках; все проверки §3/§7/§8 на месте) + tests/test_post_asap5_w2_tech_reasoning.py::test_l1_w1_section_bytes_unchanged_and_snapshot_pins (секция W1 байт-в-байт, пины 422e9d73d316/902dd00edf52/14743d288ea3) + WRITER_FOCUS_DIRECTIVE ровно один раз (test_writer_canon_carries_tech_semantics_without_focus_dup, все режимы)",
+     "observation": "18/18 W1-тестов PASS на кандидате dec28b9931b9; W1-контракт цел (фокус-директива один носитель, секция intent-update не менялась)",
+     "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
+     "artifact_sha256": "bcbf7ddabc239cb1721639fce2cfb53abd0ad343f95b86d03fc6df52fa5e8bbc"
     }
    ]
   },
@@ -3863,6 +3912,14 @@
      "observation": "18/18 PASS; регресс NO_META/DELTA-контрактов (test_p0_delta_depth_instruction, test_speech_p0_meta_closing) PASS; новый composer-слой не создан (имя константы отсутствует в prompt_composer.py)",
      "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
      "artifact_sha256": "32c12478bc216e0f52d590daa1ec3914b730faf3156b6702a6ebafdb3cc710ad"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "tests/test_post_asap5_w1_writer_core.py (W1-контракты перепроверены после бампа канона W2: файл обновлён по конвенции бампа ADR-1013-3 - активный канон на ред. PA5W2, прежние байты в слепках; все проверки §3/§7/§8 на месте) + tests/test_post_asap5_w2_tech_reasoning.py::test_l1_w1_section_bytes_unchanged_and_snapshot_pins (секция W1 байт-в-байт, пины 422e9d73d316/902dd00edf52/14743d288ea3) + WRITER_FOCUS_DIRECTIVE ровно один раз (test_writer_canon_carries_tech_semantics_without_focus_dup, все режимы)",
+     "observation": "18/18 W1-тестов PASS на кандидате dec28b9931b9; W1-контракт цел (фокус-директива один носитель, секция intent-update не менялась)",
+     "artifact_path": "tests/test_post_asap5_w1_writer_core.py",
+     "artifact_sha256": "bcbf7ddabc239cb1721639fce2cfb53abd0ad343f95b86d03fc6df52fa5e8bbc"
     }
    ]
   },
@@ -3878,8 +3935,33 @@
    "acceptance": "Перед реализацией корректива сверена с P0 DELTA, L1 Decision Making, Fact-check, ToolRouter, Speech Architecture, NO_META, Personality Core, исправлениями использования памяти, Provenance и self-echo, ASAP 5 и остальными действующими требованиями; главное правило соблюдено: полностью реализованное и подтверждённое требование переиспользует существующее доказательство, частично реализованное дополняется только недостающей частью, отсутствующая реализация выполняется в существующем компоненте; не создаются новый L1, переписанный Fact-check, длинные речевые инструкции/шаблонные ответы/обязательная композиция, параллельная обработка состояний инструмента поиска и повторная разработка завершённых направлений.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w1.md §«Исправления (существующие компоненты, один носитель)» + §«Существующая защита проверена и НЕ тронута»: исправления W1 только в существующих компонентах — секция L1 «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» как правка существующего канона (новый L1 не создаётся), директива фокуса — одиночный append существующего plan-блока direct_l1.build_l2_plan_block (носитель один, prompt_style_blocks.py), self-echo — уже работавший сквозной контур P0-волн; новых файлов сервисов/слоёв нет",
+     "observation": "Главное правило §9 соблюдено в W1: полностью реализованное/подтверждённое переиспользовано как evidence, частично реализованное дополнено только недостающей частью; длинных речевых инструкций, шаблонных ответов и обязательной композиции нет; существующие origin-фильтры и защита не тронуты.",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w1.md",
+     "artifact_sha256": "2040423c3f77126e8b9b2c22394d90722debee7b25f245d6fefdbfb4f9d8d652"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "unit",
+     "ref": "w2.md §2 + §«Исправления (существующие носители, лестница ADR-1013-3)»: правило 4 L1 — редакция существующего правила (правила 1–3 и 5–9 байт-в-байт прежние), tool-phase — правка существующей секции, честный слив — существующие формулировки («Вызвал инструмент — отвечай строго по результату», ДОСТОВЕРНОСТЬ W1 §3.6) не дублируются; §«Переиспользовано без дублирования»: фактчек-инфраструктура переиспользуется, решение остаётся за существующими стадиями",
+     "observation": "Недостающие части добавлены в существующие носители по лестнице ADR-1013-3 с сохранением прежних байтов для отката; новый/переписанный Fact-check, параллельная обработка состояний инструмента поиска и повторная разработка завершённых направлений не созданы.",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/w2.md",
+     "artifact_sha256": "325f45cdea3d861bd5ffea3e41fdee8c4f6c1b4bf34b960904df476644589a45"
+    },
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "review",
+     "ref": "review-w12.md §1 (независимое ревью W1+W2, Approved): «Без новых слоёв/роутеров/LLM-вызовов — OK: новых файлов сервисов нет; composer/router не расширялись»; owner-guard таблица (12 проверок, включая отсутствие дублирующего Fact-check и повторного роутера); NO_META/DELTA диффом не тронуты (20 PASS)",
+     "observation": "Согласование с действующими задачами подтверждено независимой стороной: второй маршрутизатор и дублирующие подсистемы не обнаружены; Alignment statement §9 источника реализован без дублирующих задач, анти-шаблонность соблюдена.",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/review-w12.md",
+     "artifact_sha256": "08d0de638ab0f4f1df7834be4fe5b4a6b8201bcbee19694af559d8350d25e8a2"
+    }
+   ]
   },
   {
    "source_id": "PA5-S10-1",
@@ -4085,8 +4167,17 @@
    "acceptance": "Reviewer проверяет поведение, а не только промпты, и отклоняет исправление при: игнорировании уточнений пользователя, сохранении отменённых условий в L1, споре вместо вычисления, уверенном описании неизвестного технического продукта, неиспользовании поиска при подтверждённой необходимости и доступности, обязательном поиске для каждого вопроса, использовании предыдущего ответа модели как доказательства собственной правоты, безусловном принятии возражений, подавлении технического ответа речевыми инструкциями, создании нового маршрутизатора или дублирующего Fact-check без необходимости, хардкодах названий устройств/пользователей/формулировок, работе исправления только на заученном тестовом диалоге; отдельно проверяется отсутствие регрессий Direct Chat, Personality Core, FREQUENT, юмора, разговорной вариативности, L1, ToolRouter, Fact-check, Memory, Provenance и результатов ASAP 5; разные корректные ответы допустимы, дословное совпадение с образцом не требуется, технические вычисления, использование источников и соблюдение актуального намерения пользователя проверяются строго.",
    "live_required": false,
    "live_when": "preprod",
-   "status": "PENDING",
-   "evidence": []
+   "status": "VERIFIED",
+   "evidence": [
+    {
+     "candidate_commit": "dec28b9931b9bbb7b70904ae6cfbb4efdf4d4d04",
+     "type": "review",
+     "ref": "review-w12.md: независимый Reviewer (leaf-полоса REVIEW-POST-ASAP5-W12, 27.10.2026), вердикт Approved по кандидату dec28b99 (+докс 4a06f612); поведение проверено, а не только промпты: §1 owner-guard (вербатим-директива ровно 1× в writer-пути, без композиционных приказов/квот/слобных хардкодов, контрольный пример §10 только тестом, §6.2 гипотезы помечаются), §2 качество фиксов и конвенции (лестница ADR-1013-3), §3 строгий review-гейт PASS по 14 строкам, §4 прогоны: 42 passed W1+W2, фокус 294 passed (1 предсуществующий FAIL, воспроизведён 1-в-1 на базе bd8f9c34), NO_META/DELTA 20 PASS",
+     "observation": "Отклоняющие условия §11 не обнаружены: уточнения не игнорируются (live r1/r2), спора вместо вычисления нет, уверенного описания неизвестного продукта нет (honest-unknown §10.5), хардкодов названий устройств/пользователей/формулировок нет (тест-гварды), работы только на заученном диалоге нет (r1 §10.7 — 6 разных доменов); нового маршрутизатора и дублирующего Fact-check нет; регрессии Direct Chat, Personality Core, FREQUENT, юмора, разговорной вариативности, L1, ToolRouter, Fact-check, Memory, Provenance и результатов ASAP 5 не обнаружены (предсуществующие FAIL идентичны базе); разные корректные ответы допустимы — дословного совпадения с образцом не требуется, технические вычисления и источники проверены строго.",
+     "artifact_path": "plans/features/post-asap5-corrective/evidence/review-w12.md",
+     "artifact_sha256": "08d0de638ab0f4f1df7834be4fe5b4a6b8201bcbee19694af559d8350d25e8a2"
+    }
+   ]
   },
   {
    "source_id": "PA5-S12-DELIVERY",
