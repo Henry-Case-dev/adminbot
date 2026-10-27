@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-27T19:55:57+12:00",
+  "updated": "2026-10-27T21:56:27+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -220,14 +220,14 @@
     },
     {
       "id": "post-asap5-corrective",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "source_path": "plans/owner_inputs/2026-10-27-post-asap5-current_task-excerpt.md",
       "source_sha256": "09267F5DA173DE5D441AFFCE04F9BFD02452BB77B86DC2D440AA2236D4773F31",
       "maps": [
         "plans/features/post-asap5-corrective/requirements-map.json"
       ],
       "coverage_complete": true,
-      "source_note": "POST-ASAP5 CORRECTIVE (current_task.md L5026-5768): понимание меняющегося намерения, техническое мышление/размерности, поиск только по необходимости, технические галлюцинации, самокоррекция, возражения, речь не подменяет мышление; согласование с L1/Fact-check/Speech/ASAP5/Memory. В очереди СТРОГО после asap5-multimodal; реализация не начинается. Детальная карта — при старте задачи. | Pre-start карта 27 секций, гейт EXIT 0 (6f81adf9)."
+      "source_note": "POST-ASAP5 CORRECTIVE (current_task.md L5026-5768): понимание меняющегося намерения, техническое мышление/размерности, поиск только по необходимости, технические галлюцинации, самокоррекция, возражения, речь не подменяет мышление; согласование с L1/Fact-check/Speech/ASAP5/Memory. В очереди СТРОГО после asap5-multimodal; реализация не начинается. Детальная карта — при старте задачи. | Pre-start карта 27 секций, гейт EXIT 0 (6f81adf9). | 27.10 ЗАКРЫТО: 27/27 required VERIFIED, release-gate (1 структурная заметка deployed=bump≠candidate — задокументированный класс), deployed 2.58.136 (6d08c511)."
     },
     {
       "id": "p0-nostalgia-rework",
