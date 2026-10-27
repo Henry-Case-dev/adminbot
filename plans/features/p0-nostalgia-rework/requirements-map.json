@@ -375,6 +375,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -579,6 +588,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -768,6 +786,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -987,6 +1014,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -1379,6 +1415,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -1456,6 +1501,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -1510,6 +1564,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
           "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -1797,6 +1860,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -1949,6 +2021,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -2191,6 +2272,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -2298,6 +2388,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -2480,6 +2579,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -2752,6 +2860,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -2784,6 +2901,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -2970,6 +3096,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -3002,6 +3137,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },
@@ -3197,7 +3341,7 @@
           "ref": "Deploy 2.58.138 (DEPLOY-258138): healthz 200 2.58.138 (loopback+внешний), unit active NRestarts=0, журнал без деплой-ошибок, deltaDDL=0, канон-миграций нет; COR-пробы deployed-дерева PASS",
           "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
           "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
-          "artifact_sha256": "f6ed90a7ea73ec00ed655bd96d5f0e3f28ea66ca644f62b056dc08b0850907b5",
+          "artifact_sha256": "40a5191769fe3590b4f364634dfc67e76ee15056306a65e8197eeb92abe79c12",
           "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
@@ -3305,7 +3449,7 @@
           "ref": "Deploy 2.58.138 (DEPLOY-258138): healthz 200 2.58.138 (loopback+внешний), unit active NRestarts=0, журнал без деплой-ошибок, deltaDDL=0, канон-миграций нет; COR-пробы deployed-дерева PASS",
           "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
           "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
-          "artifact_sha256": "f6ed90a7ea73ec00ed655bd96d5f0e3f28ea66ca644f62b056dc08b0850907b5",
+          "artifact_sha256": "40a5191769fe3590b4f364634dfc67e76ee15056306a65e8197eeb92abe79c12",
           "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
@@ -3338,7 +3482,7 @@
           "ref": "Deploy 2.58.138 (DEPLOY-258138): healthz 200 2.58.138 (loopback+внешний), unit active NRestarts=0, журнал без деплой-ошибок, deltaDDL=0, канон-миграций нет; COR-пробы deployed-дерева PASS",
           "observation": "COR-01/02/03 deployed on 2.58.138 @ 1e438e3a (detached checkout, 7/7 blob match vs candidate); postdeploy grep: word-gate usages=0, _l1_capability_consistency=1, old_output_calls=0, new_info_calls=1, substring_success_markers=0, STATUS_OK refs=6",
           "artifact_path": "plans/features/asap-speech-arch/release-258138/deploy.md",
-          "artifact_sha256": "f6ed90a7ea73ec00ed655bd96d5f0e3f28ea66ca644f62b056dc08b0850907b5",
+          "artifact_sha256": "40a5191769fe3590b4f364634dfc67e76ee15056306a65e8197eeb92abe79c12",
           "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
           "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
@@ -3763,6 +3907,15 @@
           "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
           "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
           "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "production",
+          "ref": "Deploy 2.58.138 (DEPLOY-258138): persistence binding на deployed-линию 1e438e3a",
+          "observation": "Deployed линия 1e438e3a (2.58.138, healthz 200, NRestarts=0, журнал без деплой-ошибок) blob-идентична 8adf5fa4 для путей этой строки: diff 8adf5fa4..1e438e3a содержит только version pins, COR-файлы (capability_registry/direct_capabilities/direct_chat_service/tool_loop/tool_router), тесты и docs; deltaDDL=0; канон-миграций нет. Исходные VERIFIED-доказательства (оригинальный артефакт ниже) остаются действительными на текущей deployed-линии. Оригинальная live-проба выполнена на 2.58.137 @ 8adf5fa4.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9",
+          "deployed_commit": "1e438e3a9d4f072d3eed6441e5514af8cad249f9"
         }
       ]
     },

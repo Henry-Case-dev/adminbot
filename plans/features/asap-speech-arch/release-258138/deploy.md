@@ -108,5 +108,12 @@ deltaDDL=0 → схемных откатов не требуется. Канон
 - Канон-миграция: **НЕТ** (ожидаемо для COR-волны).
 - Postdeploy COR-пробы: **PASS** (deployed-код = кандидат, все три шва на месте,
   словники удалены, structured status sync активен).
+- Release-gate (`requirements_gate.py check --stage release --candidate
+  1e438e3a --deployed-commit 1e438e3a`, strict_evidence): ошибки **только** по
+  9 честно открытым строкам (NOST-15/16 — естественные тики, COR-04..06,
+  DEV-01..04 — будущие волны; родитель НЕ DONE по plan_note). COR-01/02/03 и
+  все VERIFIED-строки (20/29) — без ошибок, перебиндованы на deployed-линию
+  (production-persistence: blob-идентичность путей 8adf5fa4→1e438e3a,
+  deltaDDL=0). Слайс-релиз COR-01/02/03 **VERIFIED**; эпик остаётся открытым.
 - Сырые артефакты: временные SSH-скрипты и capture — в opencode temp (не
   коммитятся); доказательства — этот файл + обновлённый requirements-map.json.
