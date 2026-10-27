@@ -3185,10 +3185,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
-          "type": "review+tests",
-          "ref": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md + review-cor-fixes.md (Approved)",
-          "observation": "COR fix verified: tests + independent review Approved"
+          "type": "test+review",
+          "ref": "COR fixes + contract tests (see cor-fixes.md §root-cause/fix/tests); independent review Approved: plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
+          "observation": "COR verified: COR-01 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.137: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 8adf5fa4].",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
+          "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
         }
       ]
     },
@@ -3282,10 +3284,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
-          "type": "review+tests",
-          "ref": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md + review-cor-fixes.md (Approved)",
-          "observation": "COR fix verified: tests + independent review Approved"
+          "type": "test+review",
+          "ref": "COR fixes + contract tests (see cor-fixes.md §root-cause/fix/tests); independent review Approved: plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
+          "observation": "COR verified: COR-02 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.137: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 8adf5fa4].",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
+          "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
         }
       ]
     },
@@ -3304,10 +3308,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
-          "type": "review+tests",
-          "ref": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md + review-cor-fixes.md (Approved)",
-          "observation": "COR fix verified: tests + independent review Approved"
+          "type": "test+review",
+          "ref": "COR fixes + contract tests (see cor-fixes.md §root-cause/fix/tests); independent review Approved: plans/features/p0-nostalgia-rework/evidence/review-cor-fixes.md",
+          "observation": "COR verified: COR-03 — COR-01 real source format/MIME + single chat-scoped capability chain; COR-02 word dictionaries removed, semantic L1 plan authoritative, structural guard kept; COR-03 claim sync on structured tool result status. [биндинг 2.58.137: candidate 6ddc5351 (review Approved cee35d84) -> merged b5e25966 -> deployed bump 8adf5fa4].",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/cor-fixes.md",
+          "artifact_sha256": "607e2448c48405e573034189100929480a58bf085a2113486583cbb0633e5df2",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
         }
       ]
     },
