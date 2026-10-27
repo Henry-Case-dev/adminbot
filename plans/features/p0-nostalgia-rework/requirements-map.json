@@ -2,11 +2,11 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-nostalgia-rework/source-2026-10-27.md",
   "source_sha256": "74cf86e69168889b07b83f6baf41f8260d0f957f4b7081bf486413d5ce9f3681",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
+  "deployed_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
   "strict_evidence": true,
   "slice_graph_path": "",
-  "plan_note": "Pre-start inventory. Детальная декомпозиция при старте; сверка дублирования с ASAP5-NOSTALGIA W1 (9473a5fa) обязательна до реализации.",
+  "plan_note": "Closure 27-28.10.2026: NOST-часть ТЗ реализована W1+W2 и задеплоена как 2.58.137 (8adf5fa4), live-проба PASS. W1 rows NOST-01..04/07 — Approved review; W2 rows NOST-05/06/08..12 — VERIFIED (626 related tests, registry --check OK после e61a0db9); приёмочные NOST-13/14/17/18 — VERIFIED (тесты + live-проба); NOST-15/16 — честный PENDING (SAY-семантика проверяется естественными прод-тиками); DEV-05 VERIFIED (deploy+live). Открытые строки того же corrective: COR-01..06, DEV-01..04 — последующие волны, родитель не DONE.",
   "additional_requirements": [],
   "items": [
     {
@@ -366,8 +366,17 @@
       "acceptance": "Семантические эвристики отказа ASAP 5 (_SELF_DECLINE_*, is_self_declining_text) удалены из рабочего пути публикации; формальный контракт UNCHANGED сохранён; содержательное решение - за существующим LLM/Decision; при отказе публикация отсутствует и в чат не уходит объяснение отказа («вспоминать нечего» не создаётся).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-01: _SELF_DECLINE_*/is_self_declining_text удалены из runtime (символов не существует, test_self_decline_hardcode_removed); формальный контракт UNCHANGED сохранён байт-в-байт; отказ — типизированный вердикт того же LLM-вызова (UNCHANGED | SAY + реплика; legacy-совместимость без вердикта), парсер parse_nostalgia_answer — протокольный маркер, не смысловой поиск слов. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_prompts.py::TestTypedVerdictProtocol (7 тестов) + test_nostalgia_worker.py (incident shape → UNCHANGED → молчание, reason=unchanged, лимит не тратится); гейт фраз в _candidate_llm_send удалён; LLM-вызов по-прежнему 1 на тик.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00088",
@@ -561,8 +570,17 @@
       "acceptance": "Поиск использует все доступные исторические годы по фактическим границам архива конкретного чата (динамические периоды, отсутствие года не ошибка и не обрыв поиска); годовщины вычисляются календарно (високосные годы, часовой пояс, границы месяцев/года) без 365*86400, без жёсткой конструкции из трёх SQL-запросов и без изменения дат исходных сообщений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-02: динамические годы по фактическим границам архива (get_chat_history_bounds; без конструкции «три запроса»); годовщина календарно в tz чата (_anniversary_date: 29.02→28.02 документировано; локальные полуночи), 365*86400 и ORDER BY ABS(ts-center) удалены; настройка владельца year_back_days_window сохранена (симметричное расширение календарного дня). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestCalendarArithmetic + TestMultiYearSearch (T1..T7): високосные, пропущенный год, архив посреди года, утро/вечер, 29.02; test_nostalgia_revamp_round1015.py::TestYearBackWindow — календарные окна + hot-override + фолбэк дефолта 10.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00136",
@@ -741,8 +759,17 @@
       "acceptance": "Временной поиск адаптивный: уровни день/неделя/месяц/продолжение события - масштабы исследования, расширение определяется найденным материалом, границы эпизода фактические (не рвутся на календарной границе), механической замены тремя фиксированными окнами нет; временная близость не считается доказательством связи сообщений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-03: адаптивная лестница день → ISO-неделя → календарный месяц → продолжение (cap 3); переход — только когда сегмент касается границы окна (порог = зазор закрытия сегментатора SEGMENT_GAP_SECONDS); сегмент закрыт — расширения нет; месяц календарный, не 30 дней; несвязанные обсуждения дня не склеиваются. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestAdaptiveWindows (8 тестов): закрытый сегмент = 1 выборка; расширение на reply-цепочке у границы; остановка при отсутствии нового материала (2 выборки); month-уровень для многонедельного события; терминальный cap (≤3 выборки); T13/T14 неслияния; честный флаг truncated при LIMIT.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00185",
@@ -951,8 +978,17 @@
       "acceptance": "Основная единица отбора - связный эпизод (включая одно самодостаточное сообщение, без обязательного минимума сообщений) с реконструкцией что/кто/какие сообщения/когда/развитие/завершение/почему интересно; переиспользуются существующие mca_episodes/GraphRAG/provenance-структуры без второго хранилища; пробелы не достраиваются вымыслом, участники не смешиваются, связи выводятся из данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-04: единица отбора — связный эпизод; реконструкция существующим детерминированным ядром mca_episodes.segment_messages (время + reply-граф 6ч + участники; неслейка несвязанных — A12); эпизод из одного сообщения валиден; через Новый год не обрывается; кап строк голова+хвост; честная карточка эпизода в meta лога (границы/уровень/число сообщений); второго хранилища нет. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestEpisodeReconstruction + test_cross_new_year_episode_not_cut; services/nostalgia_worker.py (_year_episode/_episode_card/_episode_lines); kind='year_back' в логе сохранён (лог-контракт стабилен).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00259",
@@ -1326,8 +1362,25 @@
       "acceptance": "Кандидаты оцениваются по содержательным критериям (связность, контекстная релевантность, интересность, характерность, развитие, узнаваемость, надёжность, новизна) без фиксированной арифметики веса; активность/количество сообщений не подменяет интересность, морализаторства и фильтрации тем нет; поддержаны контекстный и самостоятельный сценарии воспоминания.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-05: фиксированный вес происхождения 0.7 удалён (_YEAR_BACK_WEIGHT); исторический пул не гейтится арифметикой — содержательная пригодность = типизированный вердикт того же LLM-вызова (NOST-01); порог агрессивности сохранён как технический предварительный отбор ТОЛЬКО слабых «золотых» фактов; ранг предъявления без счётчика сообщений (topical, -year); объём ≠ интересность зафиксирован в каноне; контекстный сценарий видит беседу (секция «Текущий разговор», всплеск с разрывом >6ч); самостоятельный сценарий сохранён (директива §8 дословно). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_volume_does_not_rank_or_drop_episodes, test_rank_key_has_no_volume_term, test_short_characteristic_episode_presented, test_context_section_shows_current_burst; tests/test_nostalgia_worker.py: test_aggressiveness_history_pool_reaches_semantic_verdict, test_aggressiveness_gates_weak_golden_fact; test_nostalgia_prompts.py: test_prompt_canon_volume_is_not_interest, test_prompt_canon_no_literary_template. Прогон листа 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-05 live: реальный LLM на слабом годовщинном материале («Эх, тяночку хочется / ех / ЕХ») вернул UNCHANGED — содержательная пригодность оценивается живьём, объём/активность не обеспечили публикацию, 0 отправок.",
+          "observation": "S2b (реальный LLM, raw ровно UNCHANGED, 9 символов) + прод-тик 17:48Z (тот же исход); в чат не ушло ничего.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00336",
@@ -1386,8 +1439,25 @@
       "acceptance": "Работают два равноправных режима поиска - календарный и тематический по всей доступной истории - на общих механизмах (один движок, без второго независимого); выбор режима и кандидата зависит от ситуации: календарное совпадение не гарантируется предпочтительным, самостоятельные воспоминания без тематического совпадения не запрещены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-06: тематический режим по ВСЕЙ истории — FTS-семена существующими search_messages_fts + build_fts_query (тот же путь, что «золотые»; второго поискового механизма нет) → периоды → детализация тем же адаптивным движком _episode_around (общий с календарным; _year_episode — обёртка); семена-строки бота и сообщения текущего разговора исключены (self-echo/не история); порядок предъявления технический (тематическая выше календарной), решение — вердикт модели; календарное совпадение не гарантируется предпочтительным; дедуп пересечений — один эпизод в обоих режимах. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_episode_outside_anniversary_surfaced (T17: июнь 2024 при тике 15.01.2027), test_calendar_not_guaranteed_over_thematic (mixed, тематическая выше), test_thematic_select_then_detail_bounded, test_rename_dates_subjects_invariant (дедуп календарь+тема → один эпизод). Прогон 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-06 live: S1 календарный режим на реальном прод-архиве (mode=calendar, годы [2023, 2024, 2025] по фактическим границам архива при depth_years=0). Честная граница пробы: тематический режим в этом live-наборе не выбирался (кандидатов вне годовщины не потребовалось) — его поведение покрыто офлайн T17 (зелёный).",
+          "observation": "live-проба 2.58.137, S1: один движок пула, дедуп, периоды 2023/2024/2025 по 27 октября.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00400",
@@ -1431,8 +1501,17 @@
       "acceptance": "Действующий provenance различает источники (сообщения участников, форварды, внешние новости, цитаты, бот, сводки, L2, lore, первичные свидетельства); пересланная публикация не становится личным событием; защита P0 от self-echo сохранена и работает на новом поиске; идентичность по Telegram user ID с действующей цепочкой имён без переписывания истории; при недостатке данных возможен отказ от публикации без домыслов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-07: forward-лейбл «Переслано: источник» в строках эпизода (механизм W1 переиспользован; репост ≠ событие чата); self-echo: строки бота исключены SQL-фильтром user_id != bot_id на историческом пути + прежний origin-фильтр golden-фактов не тронут; идентичность по Telegram uid — единый каскад summary_aliases (алиас чата → глобальный > исторический author_name; id не выдаётся за имя); недостаток данных — честное молчание (no_candidates без вызова LLM). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestTruthfulness (7 тестов) + test_forward_provenance_reaches_llm / d04 (asap5_integration_w3); services/database.py (get_chat_history_messages) + services/nostalgia_worker.py (_display_names).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00419",
@@ -1701,8 +1780,25 @@
       "acceptance": "Отбор обеспечивает разнообразие исторических периодов без принудительной равномерности; повторная публикация одного эпизода контролируется по журналам отправки и идентичности эпизода (не только буквальное сравнение текстов), повтор допустим при новом существенном контексте; искусственная новизна (пересказ другими словами, вымысел, склейка, драматизация) запрещена - без повода Ностальгия молчит.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-08: повторы — по ИДЕНТИЧНОСТИ эпизода (first/last message_key канона mca-03 + границы; пересечение диапазонов одного года = то же событие; буквального сравнения текстов нет): журнал отправки (recent_nostalgia_sent, 30 дней / последние 10 sent) → исключение из пула; все кандидаты — повторы → honest skip reason=repeat (искусственной новизны нет: молчание); публикация старше окна — не повтор (новый повод); протокольный слот «SAY <№>» (детерминированный суффикс, parse_say_slot) записывает идентичность ТОЛЬКО выбранного блока (голый SAY — консервативно все + флаг episode_slot_unknown); разнообразие периодов между тиками — следствие исключения повторов и порядка, без квот. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_same_episode_not_republished (reason=repeat, repeats_skipped в meta), test_old_told_episode_allowed_again, test_diversity_across_ticks_no_quota (свежий → затем старый), test_identity_is_keys_not_text, test_say_slot_protocol_deterministic, test_episode_block_slot_marker. Прогон 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-08 live: S3 контроль повторов — идентичности всех 3 эпизодов пула вставлены как status=sent -> повторная выборка repeats_skipped=3, reason=repeat, пул пуст -> молчание; контроль по идентичности эпизода, не по тексту; искусственной новизны нет.",
+          "observation": "live-проба 2.58.137, S3: PASS (NOST-08.2).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00481",
@@ -1836,8 +1932,25 @@
       "acceptance": "Реплика формируется действующими Personality Core/настройками стиля без обязательного литературного шаблона («кстати», фиксированная длина, афоризм и т.п.); каноны NOSTALGIA_PROMPT и NOSTALGIA_CORE_CANON переработаны без предпосылки «память - несколько сообщений годичной давности» с совместимостью SOUL-1/Composer; скрытые ограничения длины (_MAX_WORDS, nostalgia_max_send_chars) не обрезают содержательное воспоминание, пользовательские настройки длины соблюдаются, безопасность отправки сохранена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-09: литературный шаблон снят из обоих канонов («обычно 1-2 короткими фразами «кстати...»» удалён; форма свободная — ремарка/наблюдение/история/продолжение; «драматизация и пафос без повода не нужны»; предпосылка «давно тихо» ушла из канона — сценарий A/B несёт user-блок); голос и технические правила вывода сохранены (ирония/сленг из лора, «вспомнил вслух», ленивая печать, без маркдауна/ёлочек/длинных тире); Personality Core/жанровая рамка lore не тронуты; скрытая квота {max_words}/_MAX_WORDS удалена из канонов и воркера (правило владельца о квотах); единственный слот длины — пользовательская настройка nostalgia_max_send_chars; слепки PREV_*_1027W1 байт-в-байт W1 (автопроверка); директива §8/provenance/анти-вымысел дословно; реестр: метка nostalgia-nost-rework-w2, FACTORY_SET_SHA256_12 986108f6d63c→fbc44eb0f879 (осознанный бамп). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_prompts.py: test_prompt_reference_bytes (эталон=W2-байты), test_prompt_canon_no_literary_template, test_prompt_canon_no_hidden_length_quota, test_core_canon_refusal_and_semantics, test_prompt_no_max_words_placeholder, test_asap5_owner_directive_verbatim, test_asap5_provenance_and_decline_form, test_prompt_no_em_dash_in_output_rules; tests/test_nostalgia_w2.py: test_max_send_chars_respected_honest, test_system_prompt_has_no_hidden_quota; пин test_expression_isolation_followup.py == fbc44eb0f879; автопроверка слепков (PREV_1027W1 == байты fe891402). Прогон 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-09 live: S2b raw == UNCHANGED ровно (9 символов) — no epic opening, «кстати»-шаблона нет (протокол отказа); {max_words}/_MAX_WORDS в рабочем пути отсутствуют; форма свободная, лимит только пользовательский NOSTALGIA_MAX_SEND_CHARS.",
+          "observation": "live-проба 2.58.137, S2b: PASS (T19/T23-часть).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00519",
@@ -2061,8 +2174,25 @@
       "acceptance": "Публикация идёт через существующий Decision/Initiative (handle_initiative) без второго Observer, нового Decision Making и параллельной отправки; маршрут «поиск -> кандидаты -> оценка -> реплика или отказ -> Initiative -> публикация или молчание» сохранён; исследовано совмещение оценки пригодности и формирования реплики в текущем LLM-вызове с совместимостью механизмов отказа/логирования/доставки; при техническом сбое случайный резервный факт не публикуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-10: маршрут не изменён — _delegate_initiative → существующий handle_initiative (trigger_kind=nostalgia_due, source=nostalgia, prepared_text_ref); chain_allowed(nostalgia_due)=True (существующий контракт mca_intents); оценка пригодности и реплика — один LLM-вызов (типизированный вердикт W1); второго Observer/Decision/параллельного send-пути нет; сбой транспорта — честный error без резервных фактов (W1-поведение). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_nostalgia_due_chain_contract_unchanged, test_delegation_single_send_path (initiative=1, bot=0, meta.path=initiative); существующие делегационные тесты W3 (test_asap5_integration_w3) зелёные в общем прогоне 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-10 live: реальный прод-тик 17:48:06 UTC outcome=success duration_ms=23332 — маршрут пул -> gates -> LLM -> skip (unchanged), 0 отправок, единственный send-путь. Honest note: стадия делегации (handle_initiative) в изоляции не достигнута — обе композиции UNCHANGED до Initiative; транспорт реворком не менялся (история sent в nostalgia_log), контракт покрыт тестами.",
+          "observation": "live-проба 2.58.137 + журнал прода, PID 610871, ROW 394.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00581",
@@ -2151,8 +2281,25 @@
       "acceptance": "Работа с большим архивом поэтапная: индексируемые диапазоны, существующие индексы, предварительно выделенные эпизоды, GraphRAG, семантический поиск, выборочное раскрытие первичных сообщений; сырой месячный архив в LLM не отправляется; сначала отбор, затем детализация; LIMIT не прижимает выборку к краю периода (стратификация/покрытие периода); недоступность одного источника не останавливает систему, но частичный результат не выдаётся за полное исследование.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-11: поэтапность — тематический: семена (≤12) → периоды → детализация ≤2 (select-then-detail, существующий factcheck-паттерн); календарный: окна → сегменты → адаптивное расширение (W1); сырой архив в LLM не идёт; плотные окна (>лимита) стратифицируются по времени (count_chat_history_messages тем же фильтром → равные страты ≤8, каждая даёт своё начало) — выборка покрывает период, а не голову ORDER BY, truncated честен; разрежённые окна — прежняя сплошная выборка; ошибки источников деградируют честно (thematic_error/archive_error в meta, календарь живёт, частичный результат не выдаётся за полный); _EPISODES_MAX=4 — payload-выборка данных после ранжирования (found/shown честно в meta; не квота инструкций). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_dense_window_stratified_coverage (12 сообщений при капе 4 → головы страт ≥16ч друг от друга, truncated=True), test_sparse_window_unstratified, test_thematic_select_then_detail_bounded (≤2 эпизодов), test_thematic_source_error_degrades_honestly, test_archive_bounds_error_honest, test_run_diagnostics_meta_full (found/shown). Прогон 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-11 live: S1 поэтапность на реальном архиве 2.04M сообщений — 3 эпизода по 65–80 строк с честными truncated-флагами и слотами 1–3; сырой архив в LLM не уходит, сначала отбор, затем детализация.",
+          "observation": "live-проба 2.58.137, S1: PASS.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00599",
@@ -2316,8 +2463,25 @@
       "acceptance": "Существующие настройки раздела «Ностальгия» сохранены (включение, периодичность, тихие часы, cooldown, суточная частота, паузы, агрессивность, речь); обеспечены глубина исторического поиска, адаптивное временное исследование по умолчанию и диагностика последнего запуска на фактических runtime-данных (исследованные периоды, источники, кандидаты, выбор эпизода, причина публикации/отказа, доставка, ошибки доступа, повторы) без декоративных показателей; изменения настроек применяются штатно без рестарта.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-12: существующие настройки раздела сохранены (17 legacy-ключей, группа memory_nostalgia; применение — штатный hot без рестарта); новая ручка ГЛУБИНА NOSTALGIA_HISTORY_DEPTH_YEARS (0 = весь доступный архив (дефолт), N = последние N лет); временное исследование адаптивно по умолчанию (W1-лестница, новая ручка не нужна); описания агрессивности и окна обновлены под фактическое поведение (без декоративных ручек); диагностика последнего запуска на фактических runtime-данных в nostalgia_log.meta: mode/calendar_years/periods/episodes_found/episodes_shown/repeats_skipped/context_messages/payload_sections/thematic_error/archive_error/episode_ids/reason/protocol/path; UI строки лога дополнена компактной диагностикой (аддитивно, layout прежний). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_depth_knobs_limit_years, test_admin_knobs_present (17 legacy + новая в memory_nostalgia; settings default 0), test_run_diagnostics_meta_full, test_archive_bounds_error_honest/test_thematic_source_error_degrades_honestly (честные ошибки, не «всегда успех»); UI: web/index.html — аддитивная строка диагностики; каталог-пины test_frontend_tab_mapping (588) и test_webapp_parity_smoke (588/467) с документированной дельтой W2. Прогон 626 passed.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-12 live: S5 диагностика — meta прогона несёт mode/episodes_found/episodes_shown/repeats_skipped/calendar_years/periods; depth_years=0 -> весь архив; прод-тик ROW 394 с новой meta year_lines[]; hot-настройки прода (cooldown 12ч, silence 45м, max/day 3, tick 60м) применились без рестарта.",
+          "observation": "live-проба 2.58.137, S5: PASS.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00646",
@@ -2571,8 +2735,25 @@
       "acceptance": "Приёмочные сценарии T1-T7: один полный год (нет обращений к отсутствующим годам), три года (все доступные периоды), более трёх лет (нет искусственного обрыва), пропущенный год (другие периоды обрабатываются), неполные крайние годы (пустые периоды не ошибка), 29 февраля и смена года (корректное календарное сопоставление), утреннее событие при вечернем тике (сообщения доступны независимо от часа тика).",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-13 (T1–T7): один полный год / три года / более трёх лет / пропущенный год — динамические календарные периоды по фактическим границам архива; отсутствующие годы не опрашиваются и не обрывают поиск; високосные/29.02/утро-вечер покрыты. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestCalendarArithmetic + TestMultiYearSearch (T1..T7) — зелёные на W1; воспроизведены в общем смежном прогоне 626 (review W2).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-13 live: S1 на реальном прод-архиве (2.04M сообщений, фактические границы чата 2022-12..2026-10): пул mode=calendar, годы [2023, 2024, 2025] по границам архива при depth_years=0; отсутствие годов не обрывает поиск.",
+          "observation": "live-проба 2.58.137, S1: периоды пула 2023/2024/2025 по 27 октября — PASS.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00706",
@@ -2586,8 +2767,25 @@
       "acceptance": "Приёмочные сценарии T8-T15: самодостаточное сообщение в пределах дня становится кандидатом; диалог нескольких часов собирается в один эпизод; обсуждение трёх дней, событие недели и событие через границу месяцев доступны реконструкции; несколько несвязанных обсуждений одного дня не объединяются автоматически; разные события с одними участниками и похожей темой не становятся одной историей без подтверждённой связи; явные связи разнесённых по времени сообщений эпизода не теряются.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-14 (T8–T15): связный эпизод как единица отбора — самодостаточное сообщение валидно, диалоги часов/дней собираются, событие недели расширяется адаптивно, несвязанные не склеиваются (T13/T14), через Новый год не обрывается. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestEpisodeReconstruction + test_cross_new_year_episode_not_cut + TestAdaptiveWindows (неслияние) — зелёные на W1; воспроизведены в прогоне 626 (review W2).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-14 live: S1 — 3 эпизода реконструированы из реального архива: 2025 (75 строк, slot 1, truncated), 2024 (65 строк, slot 2, truncated, fwd=2), 2023 (80 строк, slot 3); forward-лейблы «Переслано» в строках эпизодов.",
+          "observation": "live-проба 2.58.137, S1: PASS.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00724",
@@ -2595,14 +2793,31 @@
       "source_text_sha256": "bc91e9115ae7dcf398458e4cdaae20718ad686f7b07a97391ae0c75688bfb900",
       "source_excerpt": "## NOST-15. Проверки смысловой релевантности",
       "disposition": "required",
-      "reason": "",
+      "reason": "проверяется естественными прод-тиками после деплоя; офлайн-сценарии T17–T23 зелёные; VERIFIED не назначается — позитивная SAY-ветка на содержательном материале живым LLM сегодня не наблюдалась (честный отказ UNCHANGED ×2)",
       "req_id": "NOST-15",
       "slice": "NOST-15",
       "acceptance": "Приёмочные сценарии T16-T23 (по свойствам результата, не по ожидаемым фразам): выбор определяется содержательностью, а не близостью малозначимого факта к годовщине; тематический поиск находит старый эпизод вне годовщины; самодостаточный эпизод не требует искусственной связи с текущей темой; разрозненные сообщения могут дать отказ от публикации; краткая характерная реплика не отбрасывается за размер; количество сообщений без развития не обеспечивает выбор; утверждения вне источников не принимаются за достоверное воспоминание; при отказе LLM объяснение отказа в чат не уходит.",
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-15: покрыты T17 (тематический поиск находит эпизод вне годовщины), T18 (самодостаточный эпизод предъявляется без принудительной связи; канон §8 «связь С разговором ИЛИ само воспоминание заслуживает внимания»), T19 (разрозненные сообщения → молчание/no_candidates; отказ нормален), T20 (краткая характерная реплика — валидный эпизод из одного сообщения), T21 (объём не обеспечивает выбор — ранг без счётчика сообщений), T23 (отказ LLM — в чат не уходит ничего; W1-регресс зелёный). T16/T22: маршрут проверен (оба материала в payload, выбор — вердикт модели; анти-вымысел канона дословно, первичные строки в payload), но СЕМАНТИЧЕСКОЕ качество живого LLM моками не доказывается (NOST-16) — живой probe вне слайса. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_w2.py: test_episode_outside_anniversary_surfaced (T17), test_short_characteristic_episode_presented (T20), test_volume_does_not_rank_or_drop_episodes (T21), test_random_chatter_can_stay_silent (T19), test_calendar_not_guaranteed_over_thematic (T18-механика payload); test_nostalgia_worker.py/test_asap5_integration_w3: T23-регресс (unchanged → молчание). PARTIAL-остаток: T16/T22 live-семантика.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-15 live (частично): два независимых реальных LLM-вызова (оффлайн S2b и прод-тик 17:48) на слабом/разрозненном материале вернули ровно UNCHANGED — решение не зависит от запрещённых фраз, отказ не публикуется, 0 отправок. Позитивная SAY-реплика на содержательном материале сегодня не наблюдалась.",
+          "observation": "live-проба 2.58.137: раздел «Семантика живого LLM (остаток NOST-15/16)»; полное семантическое доказательство SAY-ветки — за естественными прод-тиками.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00744",
@@ -2610,14 +2825,31 @@
       "source_text_sha256": "9688d59bd1dd042a74952b9e95835e59e563b6f3dd8396a66bbbe2803fd927af",
       "source_excerpt": "## NOST-16. Проверки независимости от конкретных фраз",
       "disposition": "required",
-      "reason": "",
+      "reason": "проверяется естественными прод-тиками после деплоя; офлайн-сценарии T17–T23 зелёные; VERIFIED не назначается — позитивная SAY-ветка на содержательном материале живым LLM сегодня не наблюдалась (честный отказ UNCHANGED ×2)",
       "req_id": "NOST-16",
       "slice": "NOST-16",
       "acceptance": "Независимость от конкретных фраз проверена: решение не зависит от «не та история»/«вспоминать нечего» и синонимов; хардкод старой реализации удалён; ироничные реплики не подавляются случайным совпадением слов; бессвязный текст не проходит только из-за отсутствия запрещённых выражений; смена имён/дат/предметов не нарушает логику; тесты проверяют архитектурный контракт, а не совпадение подготовленной фразы с условием под неё; в LLM-моках разделены проверка маршрута и семантического качества, мок не объявляется доказательством семантики.",
       "live_required": true,
       "live_when": "preprod",
       "status": "PENDING",
-      "evidence": []
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-16: семантический хардкод удалён (W1, negative-assert зелёный); решение не зависит от фраз «не та история»/«вспоминать нечего» (типизированный вердикт; страж фраз удалён); слот-суффикс — служебный протокольный маркер (детерминированный парсер, «не словесный матчинг» пином); сценарий инвариантен к смене имён/дат/предметов; в моках разделены проверка маршрута и семантики (мок не объявляется доказательством семантического качества — честно в evidence). Остаток PARTIAL: реальное семантическое поведение модели (ироничные реплики не подавляются; бессвязный текст не проходит из-за отсутствия запрещённых слов) проверяется живым LLM после деплоя — вне офлайн-слайса. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_prompts.py::test_self_decline_hardcode_removed (символов не существует); tests/test_nostalgia_w2.py: test_say_slot_protocol_deterministic, test_rename_dates_subjects_invariant; test_nostalgia_worker.py: incident shape (UNCHANGED → молчание, reason=unchanged). PARTIAL-остаток: live-семантика модели.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-16 live (частично): два независимых реальных LLM-вызова (оффлайн S2b и прод-тик 17:48) на слабом/разрозненном материале вернули ровно UNCHANGED — решение не зависит от запрещённых фраз, отказ не публикуется, 0 отправок. Позитивная SAY-реплика на содержательном материале сегодня не наблюдалась.",
+          "observation": "live-проба 2.58.137: раздел «Семантика живого LLM (остаток NOST-15/16)»; полное семантическое доказательство SAY-ветки — за естественными прод-тиками.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00748",
@@ -2721,8 +2953,25 @@
       "acceptance": "Приёмочные сценарии T24-T30: пересланная новость остаётся внешней публикацией; обсуждение новости участниками допустимо как самостоятельный эпизод чата; исторический алиас не подменяет актуальное имя; два участника с одинаковым именем не объединяются; старый ответ бота не подтверждает событие; Lore-пересказ без первичных свидетельств не становится подтверждённым фактом; событие с неизвестным завершением не получает придуманную развязку.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-17 (T24–T30): пересланное остаётся внешней публикацией (forward-лейбл, репост ≠ событие чата); self-echo исключён SQL-фильтром user_id != bot_id; идентичность по Telegram uid с каскадом summary_aliases; недостаток данных -> честное молчание (no_candidates без вызова LLM). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "tests/test_nostalgia_history_rework.py::TestTruthfulness (7 тестов) + test_forward_provenance_reaches_llm / d04 (asap5_integration_w3) — зелёные; воспроизведены в прогоне 626 (review W2).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w1.md",
+          "artifact_sha256": "abc003791474c8e3a54da7cdee05a504a888634c36596a94651d7ab3dbb86fea",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-17 live: S1 provenance — 3 строки пула с меткой «Переслано: SVTV NEWS…» / «Переслано: Дайвинчик | Leo…» дошли до рендера; репост не выглядит репликой участника.",
+          "observation": "live-проба 2.58.137, S1 provenance: PASS.",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00779",
@@ -2736,8 +2985,25 @@
       "acceptance": "Сквозные регрессии Nostalgia -> Initiative / Decision / Personality Core / Authorial Speech / Memory / GraphRAG / provenance / alias resolution / admin settings / журналы и диагностика / активные и неактивные беседы проходят; тестовых публикаций в рабочих Telegram-чатах нет (стенд/read-only диагностика); Owner Live Checks необязательны и не блокируют инженерное завершение.",
       "live_required": true,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "test",
+          "ref": "NOST-18: сквозные регрессии — смежный набор 626 тестов воспроизведён независимым ревью на 58b9f5e2 (test_nostalgia_worker/prompts/history_rework/w2/corrective_r1, asap5_integration_w3, prompt_migrations, database, feature_gates, memory_core_round1020 и др.); делегация: test_delegation_single_send_path (initiative=1, bot=0), test_nostalgia_due_chain_contract_unchanged; Personality Core/lore/NO_META не тронуты. Тестовых публикаций в рабочих Telegram-чатах нет (FakeBot, 0 сетевых отправок). [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "review-w2: 626 passed (клейм билдера воспроизведён 1-в-1); на merge a2b61bbf — 157 nostalgia tests green (deploy guard).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/w2.md",
+          "artifact_sha256": "5999269856c4916c9b215c13321c9d2addf5c623fd22669fd07f0ed939927d85",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "NOST-18 live: реальный прод-тик 2.58.137 17:48:06 UTC outcome=success duration_ms=23332 (ROW 394); healthz 200, NRestarts 0, журнал без ERROR/CRITICAL/Traceback. Honest note: инициативный транспорт (handle_initiative/Decision) в изоляции не достигнут — обе композиции завершились UNCHANGED до делегации; транспорт реворком не менялся, история sent в nostalgia_log.",
+          "observation": "live-проба 2.58.137: разделы «Реальный прод-тик» и «Красные флаги».",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00783",
@@ -3426,8 +3692,25 @@
       "acceptance": "Полный цикл проверки изменений выполнен: зафиксировано исходное состояние и воспроизводимые дефекты, архитектурная оценка путей, реализация, регрессионные тесты, негативные и пограничные сценарии, интеграция с действующими модулями, независимое ревью, штатный деплой, проверка работающей версии и production; лишних циклов ревью нет; моки не выданы за подтверждение реального поведения модели.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "type": "production",
+          "ref": "DEV-05 п.1–9: (1) исходное состояние 6d08c511 (2.58.136, healthz 200, dirty 13) и воспроизводимые дефекты зафиксированы; (2) архитектурная оценка — reuse mca_episodes/FTS/Initiative, дифф 13 файлов (w1/w2.md); (3) реализация — merge a2b61bbf; (4) регрессии — 157 nostalgia + 626 смежных; (5) негативные/граничные — T19/T23 отказы, archive_error честный, repeat-фильтр; (6) интеграция — asap5_integration_w3, prompt_migrations; (7) независимое ревью — W1 Approved, W2 NEEDS FIXES (реестровые артефакты) -> исправлено e61a0db9 -> registry --check OK 588 -> Approved; (8) штатный деплой — bump 8adf5fa4b6ee, guards OK, deltaDDL=0; (9) прод — healthz 200 (loopback + внешний), NRestarts 0, журнал чист. [биндинг 2.58.137: candidate chain 3ea0e9f9 (W1) -> 58b9f5e2 (W2) -> e61a0db9 (registry-fix) -> a2b61bbf (merge, Reviewer Approved) -> release bump 8adf5fa4 = deployed].",
+          "observation": "deploy.md PART 1–3 + «Итог»; откат подготовлен (checkout 6d08c511 + restart).",
+          "artifact_path": "plans/features/asap-speech-arch/release-258137/deploy.md",
+          "artifact_sha256": "8136cbe5ff84679c98c6c2db21d9bbfec9f49b9db969ede26e41b4b1578f4e48",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        },
+        {
+          "type": "live",
+          "ref": "DEV-05 postdeploy-проба: PASS — S1–S5 оффлайн + реальный прод-тик outcome=success; снапшоты удалены (CLEANUP_OK), Telegram-отправок 0.",
+          "observation": "live-258137.md (полный отчёт пробы).",
+          "artifact_path": "plans/features/p0-nostalgia-rework/evidence/live-258137.md",
+          "artifact_sha256": "dfb2dcfd52e7da0eaaf6c29ad8acaa75b706188e107398c6a0ab506f309d34cd",
+          "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2"
+        }
+      ]
     },
     {
       "source_id": "L00980",
