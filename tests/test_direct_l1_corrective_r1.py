@@ -36,6 +36,7 @@ from services.chat_prompts import (  # noqa: E402
     PREV_DIRECT_L1_PLANNER_1021,
     _DIRECT_L1_PLANNER_BASE,
     _DIRECT_L1_PLANNER_RULES,
+    _DIRECT_L1_PLANNER_RULES_PA5W2,
     _DIRECT_L1_PLANNER_RULES_R1028,
 )
 from services.direct_llm_react import ALLOWED_LLM_REACTIONS  # noqa: E402
@@ -54,7 +55,9 @@ def _flatten(text: str) -> str:
 
 def test_l1_rules_positive_criteria_present():
     """Правила 2-3: позитивные критерии react/silent вместо «только когда»."""
-    rules = _DIRECT_L1_PLANNER_RULES
+    # POST-ASAP5 W2: активные правила — ред. PA5W2 (правило 4 + поиск);
+    # критерии 2-3 прежние.
+    rules = _DIRECT_L1_PLANNER_RULES_PA5W2
     flat = _flatten(rules)
     assert "только когда уместнее эмодзи-реакция" not in flat
     assert "только когда лучшее решение" not in flat
@@ -76,6 +79,7 @@ def test_l1_rules_positive_criteria_present():
     # ASAP 2 (§4.1 asap2 source): канон = база + контракт уточнений + правила
     # SPEECH-CANON R3b: + узкое усиление продолжения (текст §4.1 цел)
     # POST-ASAP5 W1: + секция «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» (§3/§7)
+    # POST-ASAP5 W2: правило 4 — семантика своевременного поиска (§5)
     from services.chat_prompts import (_DIRECT_L1_CLARIFICATION_CONTRACT,
                                        _DIRECT_L1_CONTINUATION_R3B,
                                        _DIRECT_L1_INTENT_UPDATE_PA5,
@@ -83,7 +87,8 @@ def test_l1_rules_positive_criteria_present():
     new_canon = (_DIRECT_L1_PLANNER_BASE_R3
                  + _DIRECT_L1_CLARIFICATION_CONTRACT
                  + _DIRECT_L1_CONTINUATION_R3B
-                 + _DIRECT_L1_INTENT_UPDATE_PA5 + rules)
+                 + _DIRECT_L1_INTENT_UPDATE_PA5
+                 + _DIRECT_L1_PLANNER_RULES_PA5W2)
     assert new_canon == DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert '"action": "reply|react|silent"' in new_canon
 
@@ -96,21 +101,27 @@ def test_l1_rules_no_hardcoded_word_lists():
 
 
 def test_l1_rule1_and_schema_byte_preserved():
-    """Правило 1 и правила 4/6-7 не менялись (force/D14 контракты целы).
-    ASAP 2 (§4.1 asap2 source): единственная дельта активных правил против
-    замороженных W1 — правило 5 (отсылка к контракту уточнений)."""
+    """Правило 1 и правила 5-7 не менялись (force/D14 контракты целы).
+    ASAP 2 (§4.1 asap2 source): дельта активных правил против замороженных
+    W1 — правило 5 (отсылка к контракту уточнений).
+    POST-ASAP5 W2 (§5): единственная дельта ред. PA5W2 против активных
+    ред.4 — правило 4 (семантика своевременного поиска)."""
     from services.chat_prompts import _DIRECT_L1_PLANNER_RULES_W1
     old_rules = _DIRECT_L1_PLANNER_RULES_R1028
-    new_rules = _DIRECT_L1_PLANNER_RULES
+    new_rules = _DIRECT_L1_PLANNER_RULES_PA5W2
     old_r1 = old_rules.split("2. action=react")[0]
     new_r1 = new_rules.split("2. action=react")[0]
     assert old_r1 == new_r1
-    # правило 4 байт-в-байт
-    old_r4 = old_rules.split("4. capabilities_needed")[1].split(
+    # правило 4: W2-редакция — прежний текст + семантика поиска, без
+    # изменений прежних байт
+    prev_rules = _DIRECT_L1_PLANNER_RULES
+    old_r4 = prev_rules.split("4. capabilities_needed")[1].split(
         "5. needs_clarification")[0]
     new_r4 = new_rules.split("4. capabilities_needed")[1].split(
         "5. needs_clarification")[0]
-    assert old_r4 == new_r4
+    assert new_r4.startswith(old_r4.strip("\n"))
+    assert "Запрашивай поиск (web_search)" in new_r4
+    assert "Запрашивай поиск" not in old_r4
     # хвост после правила 5 — правило 6 и дисциплина JSON байт-в-байт
     # (P0-CORRECTIVE заменил правило 7 смысловым критерием маршрутизации,
     # поэтому JSON-строка сдвинулась на номер 9; её текст не менялся)

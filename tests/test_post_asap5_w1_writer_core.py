@@ -240,17 +240,18 @@ def test_l1_intent_update_no_hardcode_no_quota_no_style_ban():
 
 
 def test_l1_canon_persona_and_rules_bytes_preserved():
-    """§7.2/§8: характер не тронут; правила 1-9 канона байт-в-байт; база,
-    контракт уточнений и продолжение прежние (единственная дельта — секция)."""
+    """§7.2/§8: характер не тронут; правила канона целы; база,
+    контракт уточнений, продолжение и W1-секция прежние (единственная
+    дельта W2 — правило 4, ред. PA5W2)."""
     canon = cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    prev = cp.PREV_DIRECT_L1_PLANNER_PA5W1
-    # канон = прежние байты + секция, вставленная между продолжением и правилами
+    prev = cp.PREV_DIRECT_L1_PLANNER_PA5W2
+    # канон = прежние байты W1 с правилом 4, переведённым на ред. PA5W2
     head, tail = prev.rsplit(cp._DIRECT_L1_PLANNER_RULES, 1)
-    assert canon == head + cp._DIRECT_L1_INTENT_UPDATE_PA5 + \
-        cp._DIRECT_L1_PLANNER_RULES
+    assert canon == head + cp._DIRECT_L1_PLANNER_RULES_PA5W2
+    assert canon.count(cp._DIRECT_L1_INTENT_UPDATE_PA5) == 1
     assert canon.count(cp._DIRECT_L1_CLARIFICATION_CONTRACT) == 1
     assert canon.count(cp._DIRECT_L1_CONTINUATION_R3B) == 1
-    assert canon.count(cp._DIRECT_L1_PLANNER_RULES) == 1
+    assert canon.count(cp._DIRECT_L1_PLANNER_RULES_PA5W2) == 1
     # Core: характер сохранён, корректность не подчинена стилю (§7.2)
     assert "Резкость не заменяет мысль" in cp.PERSONALITY_CORE_FULL_TEXT
     assert "подменять проверяемое утверждение красивой догадкой" in \
@@ -289,7 +290,9 @@ def test_pa5w1_snapshot_is_exact_previous_active_bytes():
     # прежний активный пин (ред.4) сохранён байт-в-байт
     assert len(prev) == 9750 and _sha12(prev) == "422e9d73d316"
     assert prev != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "902dd00edf52"
+    # W2: активный канон (ред.6) и слепок активных байтов W1 (ред.5)
+    assert _sha12(cp.PREV_DIRECT_L1_PLANNER_PA5W2) == "902dd00edf52"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "14743d288ea3"
     assert "ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ" not in prev
 
 
@@ -297,15 +300,20 @@ def test_pa5w1_migration_step_and_rollback_head():
     steps = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     assert steps[cp.PREV_DIRECT_L1_PLANNER_PA5W1] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert pm.ROLLBACK_MIGRATIONS[L1_KEY][0] == (
-        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-        cp.PREV_DIRECT_L1_PLANNER_PA5W1)
-    assert pm.ROLLBACK_MIGRATIONS[L1_KEY][1] == (
-        cp.PREV_DIRECT_L1_PLANNER_PA5W1,
-        cp.PREV_DIRECT_L1_PLANNER_P0CINTR2)
+    assert steps[cp.PREV_DIRECT_L1_PLANNER_PA5W2] == \
+        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    rollback = pm.ROLLBACK_MIGRATIONS[L1_KEY]
+    assert rollback[0] == (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+                           cp.PREV_DIRECT_L1_PLANNER_PA5W2)
+    # W2 откат снимает только правило 4: ред.6 → ред.5 (W1) → ред.4
+    assert rollback[1] == (cp.PREV_DIRECT_L1_PLANNER_PA5W2,
+                           cp.PREV_DIRECT_L1_PLANNER_PA5W1)
+    assert rollback[2] == (cp.PREV_DIRECT_L1_PLANNER_PA5W1,
+                           cp.PREV_DIRECT_L1_PLANNER_P0CINTR2)
     from services import prompt_registry as pr
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W1)
-    assert "l1-planner-intent-update" in pr.factory_revision(
+    assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W2)
+    assert "l1-planner-tech-reasoning" in pr.factory_revision(
         "direct.base.l1_planner")
     assert pr.factory_set_fingerprint() == pr.FACTORY_SET_SHA256_12
 

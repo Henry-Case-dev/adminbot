@@ -36,7 +36,9 @@ from services.chat_prompts import (
     PREV_CHAT_VERBALIZER_W1,
     PREV_CHAT_VERBALIZER_W1_31,
     PREV_CHAT_VERBALIZER_CLAR,
+    PREV_CHAT_VERBALIZER_PA5W2,
     PREV_CHAT_W1_SYSTEM_PROMPT,
+    PREV_CHAT_W2_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_BASE,
     PREV_DIRECT_L1_PLANNER_1021,
     PREV_DIRECT_L1_PLANNER_1022,
@@ -49,6 +51,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CINT,
     PREV_DIRECT_L1_PLANNER_P0CINTR2,
     PREV_DIRECT_L1_PLANNER_PA5W1,
+    PREV_DIRECT_L1_PLANNER_PA5W2,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -276,15 +279,20 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # CFG-07A-2 (20.10.2026): откат ведёт на НЕПОСРЕДСТВЕННЫЙ прежний
     # прод-канон 2.58.100 (MCA-23-композиция; снимается только ступень
     # CFG-07A; стек ступеней цел — ADR-1013-3, как у C14 фактчека).
-    "prompts.direct_chat_system_prompt": PREV_CHAT_W1_SYSTEM_PROMPT,
+    # POST-ASAP5 W2 (27.10.2026): первый откат снимает секцию «ПОИСК И
+    # НЕПОДТВЕРЖДЁННЫЕ ХАРАКТЕРИСТИКИ» → байты W1 (PREV_CHAT_W2_SYSTEM_
+    # PROMPT); стек ступеней цел.
+    "prompts.direct_chat_system_prompt": PREV_CHAT_W2_SYSTEM_PROMPT,
     # MCA-23 (§11): откат Вербализатора direct → прод-канон 10.23 (с cap).
     # ASAP W1 (22.10.2026): откат → прод-канон 2.58.110 (d0ef0d376fc3).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 §3.1 (прод 2.58.111, be03964322aa); стек ступеней цел.
     # SPEECH-CANON R3b (23.10.2026): откат снимает ТОЛЬКО ступень R3b →
     # канон 2.58.113 (§3.1 + абзацы §4.2).
+    # POST-ASAP5 W2 (27.10.2026): первый откат снимает секцию расчётов →
+    # байты R3b (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40).
     "prompts.direct_chat_verbalizer_system_prompt":
-        PREV_CHAT_VERBALIZER_CLAR,
+        PREV_CHAT_VERBALIZER_PA5W2,
     # ASAP W1 (P0-G, §3.7): откат → прод-канон L1D 2.58.110 (ace6246bd360).
     # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений → канон
     # W1 (прод 2.58.111, f8ab20121c02); стек ступеней цел.
@@ -298,7 +306,9 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # POST-ASAP5 W1 (27.10.2026): первый откат снимает секцию «ИЗМЕНЕНИЕ
     # ЗАДАЧИ И ВОЗРАЖЕНИЯ» → байты ред.4 (PREV_DIRECT_L1_PLANNER_PA5W1,
     # 422e9d73d316).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_PA5W1,
+    # POST-ASAP5 W2 (27.10.2026): первый откат снимает семантику поиска в
+    # правиле 4 → байты ред.5 (PREV_DIRECT_L1_PLANNER_PA5W2, 902dd00edf52).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_PA5W2,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -420,7 +430,11 @@ class TestPromptMigrationsCatalog:
                           CHAT_SYSTEM_PROMPT),
                          # ASAP W1 (P0-F, §3.6): прод-канон 2.58.110 →
                          # канон с ролевым блоком владельца.
-                         (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
+                         (PREV_CHAT_W1_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT),
+                         # POST-ASAP5 W2 (§5.2/§5.3/§10.5): прод-канон после
+                         # W1 → канон с секцией «ПОИСК И НЕПОДТВЕРЖДЁННЫЕ
+                         # ХАРАКТЕРИСТИКИ».
+                         (PREV_CHAT_W2_SYSTEM_PROMPT, CHAT_SYSTEM_PROMPT)]
 
     def test_w1_steps_present(self):
         """ASAP W1 (22.10.2026, §3.1-3.7): ступени прод-канонов 2.58.110
@@ -673,9 +687,12 @@ class TestRound1023Migration:
         """MCA-23 (Wave 3): откат чата вёл на канон ДО MCA-23.
         CFG-07A-2 (ADR-1013-3): откат — на НЕПОСРЕДСТВЕННО прежний
         прод-канон 2.58.100. ASAP W1: откат — на прод-канон 2.58.110
-        (PREV_CHAT_W1; снимается только ступень W1, стек ступеней цел)."""
-        assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == [(
-            CHAT_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)]
+        (PREV_CHAT_W1; снимается только ступень W1, стек ступеней цел).
+        POST-ASAP5 W2: первый откат снимает секцию поиска → байты W1
+        (PREV_CHAT_W2), второй — до 2.58.110."""
+        assert ROLLBACK_MIGRATIONS["prompts.direct_chat_system_prompt"] == [
+            (CHAT_SYSTEM_PROMPT, PREV_CHAT_W2_SYSTEM_PROMPT),
+            (PREV_CHAT_W2_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)]
 
     @pytest.mark.asyncio
     async def test_rollback_chat_restores_pre_mca23(self):
@@ -685,7 +702,7 @@ class TestRound1023Migration:
         assert report == {"prompts.direct_chat_system_prompt": "rolled_back"}
         assert cache.set_calls == [
             ("prompts.direct_chat_system_prompt",
-             PREV_CHAT_W1_SYSTEM_PROMPT, "prompts")]
+             PREV_CHAT_W2_SYSTEM_PROMPT, "prompts")]
 
     @pytest.mark.asyncio
     async def test_r1023_snapshots_update_and_rollback(self):
@@ -726,7 +743,10 @@ class TestMca23Migration:
             (PREV_CHAT_VERBALIZER_W1_31, DIRECT_VERBALIZER_SYSTEM_PROMPT),
             # SPEECH-CANON R3b (23.10.2026): канон 2.58.113 → канон с одной
             # узкой инструкцией о честной границе истории.
-            (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
+            (PREV_CHAT_VERBALIZER_CLAR, DIRECT_VERBALIZER_SYSTEM_PROMPT),
+            # POST-ASAP5 W2 (§4/§6): канон R3b → канон с секцией
+            # «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ».
+            (PREV_CHAT_VERBALIZER_PA5W2, DIRECT_VERBALIZER_SYSTEM_PROMPT)]
 
     def test_mca23_snapshots_differ_from_new(self):
         assert PREV_CHAT_MCA23_SYSTEM_PROMPT != CHAT_SYSTEM_PROMPT
@@ -746,18 +766,22 @@ class TestMca23Migration:
         ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
         канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31).
         SPEECH-CANON R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113
-        (§3.1 + абзацы §4.2, PREV_CHAT_VERBALIZER_CLAR)."""
+        (§3.1 + абзацы §4.2, PREV_CHAT_VERBALIZER_CLAR).
+        POST-ASAP5 W2: первый откат снимает секцию расчётов → байты R3b
+        (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40)."""
         assert ROLLBACK_MIGRATIONS[
-            "prompts.direct_chat_verbalizer_system_prompt"] == [(
-                DIRECT_VERBALIZER_SYSTEM_PROMPT, PREV_CHAT_VERBALIZER_CLAR)]
+            "prompts.direct_chat_verbalizer_system_prompt"] == [
+                (DIRECT_VERBALIZER_SYSTEM_PROMPT,
+                 PREV_CHAT_VERBALIZER_PA5W2),
+                (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)]
 
     @pytest.mark.asyncio
     async def test_r3b_rollback_chain_restores_258113_bytes(self):
         """REL-F1 (24.10.2026): полный откат канонов до байтов 2.58.113.
 
-        Dry-run на копии текущих канонов (L1 ``902dd00e`` = ред.5 с секцией
-        «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ», L2 ``83ff62bb``): процедура
-        runbook'а «повторный ``rollback_prompt_canons``» обязана вернуть
+        Dry-run на копии текущих канонов (L1 ``14743d28`` = ред.6 с
+        семантикой поиска W2, L2 ``f5c4807d``): процедура runbook'а
+        «повторный ``rollback_prompt_canons``» обязана вернуть
         именно БАЙТЫ 2.58.113 (L1 ``c987c03e``, L2 ``d1b210c1``), а не только
         отчёт; лишний вызов — no-op; повторный deploy новых канонов снова
         применяется; кастом владельца не перетирается ни на одном шаге.
@@ -772,10 +796,19 @@ class TestMca23Migration:
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("902dd00edf52", "83ff62bbee40")
+            ("14743d288ea3", "f5c4807d088e")
 
-        # шаг 0: снимается секция PA5W1 L1 (→ байты ред.4, 422e9d73d316)
-        # и ступень R3b L2
+        # шаг 0: снимается семантика поиска W2 L1 (→ байты ред.5/W1,
+        # 902dd00edf52) и секция расчётов L2 (→ байты R3b, 83ff62bbee40)
+        assert await rollback_prompt_canons(cache) == {
+            l1_key: "rolled_back", l2_key: "rolled_back"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_PA5W2
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_PA5W2
+        assert sha12(cache.values[l1_key]) == "902dd00edf52"
+
+        # шаг 1: снимается секция PA5W1 L1 (→ байты ред.4, 422e9d73d316)
+        # и ступень R3b L2 (→ 2.58.113, d1b210c156c8)
         assert await rollback_prompt_canons(cache) == {
             l1_key: "rolled_back", l2_key: "rolled_back"}
         cache.apply_writes()
@@ -855,7 +888,7 @@ class TestMca23Migration:
             l1_key: PREV_DIRECT_L1_PLANNER_R3 + " правка владельца",
             l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert await rollback_prompt_canons(custom) == {l2_key: "rolled_back"}
-        assert custom.set_calls == [(l2_key, PREV_CHAT_VERBALIZER_CLAR,
+        assert custom.set_calls == [(l2_key, PREV_CHAT_VERBALIZER_PA5W2,
                                      "prompts")]
 
     @pytest.mark.asyncio
@@ -945,13 +978,15 @@ class TestMca23Migration:
         # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
         # канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31).
         # R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113.
+        # POST-ASAP5 W2: откат снимает ТОЛЬКО секцию расчётов → байты R3b
+        # (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40).
         assert cache.set_calls == [(
             "prompts.direct_chat_verbalizer_system_prompt",
-            PREV_CHAT_VERBALIZER_CLAR, "prompts")]
+            PREV_CHAT_VERBALIZER_PA5W2, "prompts")]
         # обратная миграция возвращает новый канон (идемпотентность стека)
         back = FakeCache(values={
             "prompts.direct_chat_verbalizer_system_prompt":
-                PREV_CHAT_VERBALIZER_CLAR})
+                PREV_CHAT_VERBALIZER_PA5W2})
         report2 = await migrate_prompt_canons(back)
         assert report2 == {
             "prompts.direct_chat_verbalizer_system_prompt": "updated"}

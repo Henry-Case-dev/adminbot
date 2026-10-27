@@ -306,16 +306,21 @@ def test_plan_block_analysis_survives_noise_flags():
 def test_l1_rule_routes_material_to_research_and_opinion_to_answer():
     """P0-CORRECTIVE §1.1: правило 7 больше не оценивает ОБЪЕКТ просьбы —
     оно разделяет материал («уже сказанное» → research) и quick opinion
-    (→ answer без эссе). Детальные пины — test_speech_p0_corrective_l1_route."""
-    rules = cp._DIRECT_L1_PLANNER_RULES
+    (→ answer без эссе). Детальные пины — test_speech_p0_corrective_l1_route.
+    POST-ASAP5 W2: активные правила — ред. PA5W2 (правило 4 + поиск),
+    маршрутизация 7 не менялась."""
+    rules = cp._DIRECT_L1_PLANNER_RULES_PA5W2
     assert "Просьба оценить человека" not in rules
     assert "response_act=research" in rules
     assert "structure=answer" in rules
     assert "9. В ответе - ровно одна JSON-строка" in rules
     assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT.count(rules) == 1
-    # прежние правила 1-6 байт-в-байт (изменился только хвост)
+    # прежние правила 1-3 байт-в-байт (правило 4 расширено W2, хвост прежний)
     assert cp._DIRECT_L1_PLANNER_RULES_R3B.split(
-        "6. confidence")[0] == rules.split("6. confidence")[0]
+        "4. capabilities_needed")[0] == rules.split(
+        "4. capabilities_needed")[0]
+    assert rules.split("5. needs_clarification")[1] == \
+        cp._DIRECT_L1_PLANNER_RULES.split("5. needs_clarification")[1]
 
 
 def test_l1_frozen_r3b_rules_have_no_routing_rule():

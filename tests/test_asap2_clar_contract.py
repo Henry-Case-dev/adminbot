@@ -184,9 +184,9 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # фабрики обоих ключей = новые каноны; метки бампнуты
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
-    assert "l1-planner-intent-update" in pr.factory_revision(
+    assert "l1-planner-tech-reasoning" in pr.factory_revision(
         "direct.base.l1_planner")
-    assert "l2-writer-clar-boundary" in pr.factory_revision(
+    assert "l2-writer-tech-reasoning" in pr.factory_revision(
         "direct.base.l2_writer")
     # лестница: прод-байты 2.58.111 ведутся на новые каноны при рестарте
     steps_l1 = {src: dst for src, dst in
@@ -220,8 +220,12 @@ def test_34_factory_and_ladder_and_custom_preserved():
     # редакция 3 (→ P0CINT).
     # POST-ASAP5 W1: первой снимается секция «ИЗМЕНЕНИЕ ЗАДАЧИ И
     # ВОЗРАЖЕНИЯ» (→ PA5W1 = байты ред.4).
+    # POST-ASAP5 W2: первой снимается семантика поиска в правиле 4
+    # (→ PA5W2 = байты ред.5/W1), второй — секция W1 (→ PA5W1 = ред.4).
     assert pm.ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] \
-        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_PA5W1),
+        == [(CANON_L1, cp.PREV_DIRECT_L1_PLANNER_PA5W2),
+            (cp.PREV_DIRECT_L1_PLANNER_PA5W2,
+             cp.PREV_DIRECT_L1_PLANNER_PA5W1),
             (cp.PREV_DIRECT_L1_PLANNER_PA5W1,
              cp.PREV_DIRECT_L1_PLANNER_P0CINTR2),
             (cp.PREV_DIRECT_L1_PLANNER_P0CINTR2,
@@ -236,7 +240,8 @@ def test_34_factory_and_ladder_and_custom_preserved():
              cp.PREV_DIRECT_L1_PLANNER_CLAR)]
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_chat_verbalizer_system_prompt"] == [(
-            CANON_L2, cp.PREV_CHAT_VERBALIZER_CLAR)]
+            CANON_L2, cp.PREV_CHAT_VERBALIZER_PA5W2), (
+            cp.PREV_CHAT_VERBALIZER_PA5W2, cp.PREV_CHAT_VERBALIZER_CLAR)]
 
 
 # ── №34 (B3): реальная миграция/rollback/hot для новых L1/L2-ступеней ───────
@@ -312,19 +317,28 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
 
-    # rollback → цепочка: 1-й вызов снимает секцию PA5W1 (→ байты ред.4),
-    # 2-й — редакцию 4 (L1: P0CINTR2 = байты ред.3), 3-й — редакцию 3
-    # (P0CINT = байты ред.2), 4-й — приоритет разбора (P0CS2 = база R3 +
-    # контракт §4.1 + продолжение + правила ред.1), 5-й — до P0CS, 6-й —
-    # до R3b, 7-й — до канона R3, 8-й — до 2.58.113, 9-й — no-op
-    # (ADR-1013-3)
+    # rollback → цепочка: 1-й вызов снимает семантику поиска W2 (→ байты
+    # ред.5/PA5W2) и секцию расчётов L2 (→ PA5W2), 2-й — секцию PA5W1
+    # (L1 → байты ред.4; L2 → 2.58.113), 3-й — редакцию 4 (L1: P0CINTR2 =
+    # байты ред.3), 4-й — редакцию 3 (P0CINT = байты ред.2), 5-й — приоритет
+    # разбора (P0CS2 = база R3 + контракт §4.1 + продолжение + правила
+    # ред.1), 6-й — до P0CS, 7-й — до R3b, 8-й — до канона R3, 9-й — до
+    # 2.58.113, 10-й — no-op (ADR-1013-3)
     back = _ClarCache({_L1_KEY: CANON_L1, _L2_KEY: CANON_L2})
+    assert await pm.rollback_prompt_canons(back) == {
+        _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W2,
+        _L2_KEY: cp.PREV_CHAT_VERBALIZER_PA5W2}
+    assert {c for _k, _v, c in back.set_calls} == {"prompts"}
+    back.apply_writes()
+    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_PA5W2
+    back.set_calls.clear()
     assert await pm.rollback_prompt_canons(back) == {
         _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
         _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W1,
         _L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
-    assert {c for _k, _v, c in back.set_calls} == {"prompts"}
     back.apply_writes()
     assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_PA5W1
     back.set_calls.clear()
