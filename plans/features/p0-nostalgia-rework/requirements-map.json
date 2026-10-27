@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-nostalgia-rework/source-2026-10-27.md",
   "source_sha256": "74cf86e69168889b07b83f6baf41f8260d0f957f4b7081bf486413d5ce9f3681",
-  "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+  "candidate_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
   "deployed_commit": "8adf5fa4b6eef7bd156868c93055983a918458e2",
   "strict_evidence": true,
   "slice_graph_path": "",
@@ -4355,5 +4355,5 @@
       "evidence": []
     }
   ],
-  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented."
+  "candidate_note": "| COR-01/02/03: candidate 6ddc5351, review Approved (cee35d84), merged b5e25966; deployed 2.58.137 8adf5fa4; COR-01 needs-real-env (2 providers live) documented. | Биндинг: candidate=deployed=релиз-бамп 8adf5fa4 (2.58.137; цепочка 3ea0e9f9->58b9f5e2->e61a0db9->merge a2b61bbf->bump). Кор-волна 6ddc5351 входит в цепочку (merge b5e25966)."
 }
