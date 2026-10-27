@@ -7179,26 +7179,13 @@ class DirectChatService:
                 query, reply_text=reply_text, addressed=True,
                 forwarded=bool(_forward_source_of(message)))
             if intent.intent != _caps.INTENT_CREATE_IMAGE:
-                # ASAP5 §20: edit-поручение — СОБСТВЕННАЯ capability
-                # image_edit (изменение исходника ≠ создание нового).
-                # Не ready → тот же управляемый честный отказ; ready/unknown
-                # → обычный ход (Writer + анонсированный edit_image; роутер
-                # резолвит исходник и честно отказывает без него).
-                if intent.intent == _caps.INTENT_EDIT_IMAGE:
-                    state = await _capreg.resolve("image_edit", chat_id)
-                    if not state.available and \
-                            state.status != _capreg.STATUS_UNKNOWN:
-                        text, block_id, _src = _capreg.status_message(state)
-                        await _reply(bot, chat_id, text, message.message_id)
-                        self._mark_turn_text_replied(chat_id)
-                        logger.info(
-                            "[direct] edit capability not ready | chat=%s | "
-                            "status=%s | reason=%s | template=%s",
-                            chat_id, state.status, state.reason_code, block_id)
-                        _capreg.emit_capability_event(
-                            state, outcome="failed", chat_id=chat_id,
-                            template_id=block_id)
-                        return True, intent
+                # COR-02: edit-решение — за семантическим L1-планом
+                # (структурные поля `capabilities_needed`), не за словниками
+                # пре-гейта; плана на этой стадии ещё нет → default non-edit
+                # handling (без edit-специфичных действий). Честность
+                # edit-capability («не ready» → правдивая пометка Writer'у,
+                # инструмент скрыт) обеспечивает `_l1_capability_consistency`
+                # по плану — генерация вместо редактирования не подменяется.
                 return False, intent
             if intent.confidence == _caps.CONFIDENCE_AMBIGUOUS:
                 # §5.9: ровно ОДИН короткий уточняющий вопрос вместо генерации.
@@ -7287,9 +7274,12 @@ class DirectChatService:
             elif "image_edit" in requested or (
                     intent is not None and intent.intent
                     == _caps.INTENT_EDIT_IMAGE):
-                # ASAP5 §20: edit-способность честно показана Writer'у той же
-                # правдой, что и генерация (недоступность одной операции ≠
-                # недоступность остальных).
+                # ASAP5 §20 / COR-02: edit-способность честно показана
+                # Writer'у той же правдой, что и генерация (недоступность
+                # одной операции ≠ недоступность остальных). Источник
+                # решения — СТРУКТУРНЫЙ: capabilities_needed L1-плана
+                # (семантический путь) либо сконструированный intent;
+                # словесных словарей нет.
                 state = await _capreg.resolve("image_edit", chat_id)
                 state_capability = "image_edit"
             if state is not None and not state.available:
@@ -7316,11 +7306,16 @@ class DirectChatService:
             elif (state is not None and state.available
                     and not image_pre_gate_fired
                     and intent is not None and intent.actionable
-                    and "image_generation" not in requested):
+                    and "image_generation" not in requested
+                    and "image_edit" not in requested):
                 # §5.10: исправление маршрутизации в рамках хода — тот же
                 # единственный путь (генерация+доставка), без второго LLM.
                 # ``intent_confirms`` открывает смысловую дверь пре-гейта: L1
                 # выбрал обычный текст при однозначно доступном действии.
+                # COR-02: план, выбравший edit (структурное поле
+                # capabilities_needed), детерминированной генерацией НЕ
+                # подменяется — «создание не путается с редактированием»;
+                # недоступный edit → правдивая пометка Writer'у ниже.
                 fired_block = await self._image_pre_gate_block(
                     chat_id, query, bot, message,
                     getattr(getattr(message, "from_user", None), "id", 0) or 0,

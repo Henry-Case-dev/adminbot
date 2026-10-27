@@ -134,15 +134,22 @@ def _strip_stale_capability_notices(payload_messages: list, capability_id: str
 
 
 def _sync_claim_with_outcome(payload_messages: list, tool_name: str,
-                             output: str) -> int:
+                             info) -> int:
     """После УСПЕШНОГО media-инструмента выветрить устаревшие
-    capability-notice его capability из контекста (§19). Не-успех → 0."""
+    capability-notice его capability из контекста (§19). Не-успех → 0.
+
+    COR-03: успех определяется СТРУКТУРНЫМ контрактом результата — статусом
+    классификации/envelope (``tool_result.classify_output``/legacy-derivat),
+    тем же полем, что идёт в ``tool_results``, а НЕ поиском текстовых
+    фрагментов: случайное совпадение подстроки в тексте ошибки/сообщения не
+    трактуется как успех; ``delivery_unknown``/empty/error и битый info —
+    консервативно (notice остаётся — уведомление не удаляется без
+    подтверждённого результата)."""
     capability_id = _CLAIM_TOOL_CAPABILITY.get(str(tool_name or ""))
-    if not capability_id:
+    if not capability_id or not isinstance(info, dict):
         return 0
-    raw = str(output or "")
-    if '"status": "success"' not in raw and "'status': 'success'" not in raw \
-            and 'delivery="sent"' not in raw:
+    status = str(info.get("status") or "").strip().lower()
+    if status != tool_result.STATUS_OK:
         return 0
     return _strip_stale_capability_notices(payload_messages, capability_id)
 
@@ -680,7 +687,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
                 # §19: успешный media-инструмент выветривает устаревший
                 # capability-notice из контекста (заявление = фактический
                 # результат; «не умею» после реальной отправки исключено).
-                _sync_claim_with_outcome(payload_messages, name, output)
+                # COR-03: решение — по структурному статусу классификации.
+                _sync_claim_with_outcome(payload_messages, name, info)
                 _record(ctx, tool_results, _envelope(
                     -1, name, fp, info, metered=metered, duplicate=False,
                     attempt=attempt, out_chars=len(output),
@@ -1030,7 +1038,8 @@ async def chat_with_tools(llm, messages: list[dict], *,
             # §19: успешный media-инструмент выветривает устаревший
             # capability-notice из контекста (заявление = фактический
             # результат; «не умею» после реальной отправки исключено).
-            _sync_claim_with_outcome(payload_messages, tc.name, output)
+            # COR-03: решение — по структурному статусу классификации.
+            _sync_claim_with_outcome(payload_messages, tc.name, info)
             _record(ctx, tool_results, _envelope(
                 round_index, tc.name, fp, info, metered=metered,
                 duplicate=False, attempt=attempt, out_chars=len(output),
