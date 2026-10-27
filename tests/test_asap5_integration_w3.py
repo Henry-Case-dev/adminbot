@@ -1663,7 +1663,16 @@ class TestNostalgiaProvenance:
 
     async def _year_back(self, db, text, *, ts=None, forward_source=None,
                          author="Вася"):
-        t = ts or (NOW - 365 * 86400 + 3000)
+        """Год-назад пул: календарно-детерминированный ts (P0 REWORK W1,
+        NOST-02: окно — календарный день годовщины в tz чата, не 365*86400;
+        полдень дня годовщины + необязательный сдвиг)."""
+        from config.settings import settings
+        tz = nw._zone(settings.SUMMARY_TIMEZONE)
+        now_local = nw._local_datetime(NOW, tz)
+        anniv = nw._anniversary_date(now_local.date(),
+                                     now_local.year - 1)
+        day_start = nw._anniversary_window(anniv, tz, "day", 0, 0)[0]
+        t = ts if ts is not None else int(day_start) + 12 * 3600 + 3000
         return await message_identity.save_live_message(
             db, chat_id=CHAT, user_id=USER_ID, text=text, timestamp=t,
             sent_at=t, ingested_at=t, media_type="text", author_name=author,
@@ -1751,12 +1760,12 @@ class TestNostalgiaProvenance:
     @pytest.mark.asyncio
     async def test_d04_repost_old_news_provenance(self, db, monkeypatch):
         """Репост старой новости: provenance-лейбл «Переслано: источник» в
-        строке пула; обычная реплика — без лейбла."""
+        строке пула; обычная реплика — без лейбла (один сегмент: тот же
+        календарный день годовщины, гэп < 30 минут)."""
         await self._silence(db)
         await self._year_back(db, "Вера Косачева умерла за 300 м до финиша",
                               forward_source="Спорт-Новости")
-        await self._year_back(db, "а я тогда писал про тромбы",
-                              ts=NOW - 365 * 86400 - 40000)
+        await self._year_back(db, "а я тогда писал про тромбы")
         llm = _FakeLLM("UNCHANGED")
         w, _ = self._worker(db, llm, monkeypatch)
         await w._process_chat(CHAT, NOW, manual=True)
@@ -1802,39 +1811,37 @@ class TestNostalgiaProvenance:
     @pytest.mark.asyncio
     async def test_d07_mixing_unrelated_events_declined(self, db,
                                                         monkeypatch):
-        """Смешение двух несвязанных событий с вердиктом «не та история» —
-        отказ до публикации (инцидент-форма), лимит не тратится."""
+        """P0 REWORK W1 (NOST-01): память инцидентной формы (репост новости
+        + посторонняя реплика); содержательный отказ модели — типизированный
+        вердикт UNCHANGED того же вызова → публикация отсутствует, лимит не
+        тратится, объяснение отказа в чат не уходит (NOST-16: свойство
+        результата, не совпадение фраз)."""
         await self._silence(db)
         await self._year_back(db, "Вера Косачева умерла за 300 м до финиша",
                               forward_source="Спорт-Новости")
-        await self._year_back(db, "а я тогда писал про тромбы",
-                              ts=NOW - 365 * 86400 - 40000)
-        incident = ("Вспоминать особо нечего, кроме того, что Косачева "
-                    "умерла, а Вася писал про тромбы. Это не та история, "
-                    "из которой делают кстати")
-        llm = _FakeLLM(incident)
+        await self._year_back(db, "а я тогда писал про тромбы")
+        llm = _FakeLLM("UNCHANGED")
         w, bot = self._worker(db, llm, monkeypatch)
         out = await w._process_chat(CHAT, NOW, manual=True)
         assert bot.calls == [] and out["sent"] == 0
         rows = await self._log_rows(db, "skipped")
-        assert json.loads(rows[-1]["meta"])["reason"] == "self_decline"
+        assert json.loads(rows[-1]["meta"])["reason"] == "unchanged"
         assert await db.count_nostalgia_sent_since(CHAT, 0) == 0
 
     @pytest.mark.asyncio
     async def test_d08_contradictory_text_declined(self, db, monkeypatch):
-        """Противоречивый текст (утверждает и отрицает одно и то же +
-        вердикт отказа) — не публикуется."""
+        """P0 REWORK W1 (NOST-01): противоречивый материал («утверждает и
+        отрицает одно и то же») — модель отказывается типизированным
+        вердиктом UNCHANGED; противоречивая проза как «контент» не является
+        рабочей формой."""
         await self._silence(db)
         await self._year_back(db, "год назад было наводнение")
-        text = ("Год назад у нас тут было наводнение, и вообще ничего "
-                "такого не было. Вспоминать нечего.")
-        llm = _FakeLLM(text)
+        llm = _FakeLLM("UNCHANGED")
         w, bot = self._worker(db, llm, monkeypatch)
         out = await w._process_chat(CHAT, NOW, manual=True)
         assert bot.calls == []
         rows = await self._log_rows(db, "skipped")
-        assert json.loads(rows[-1]["meta"])["reason"] in ("self_decline",
-                                                          "unchanged")
+        assert json.loads(rows[-1]["meta"])["reason"] == "unchanged"
 
     @pytest.mark.asyncio
     async def test_d09_meaningless_ending_not_censored(self, db,

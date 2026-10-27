@@ -3333,6 +3333,12 @@ class Settings:
         "NOSTALGIA_HINT_MAX_CHARS", 300)
     NOSTALGIA_YEAR_BACK_DAYS_WINDOW: int = _env_int(
         "NOSTALGIA_YEAR_BACK_DAYS_WINDOW", 10)
+    # P0 NOSTALGIA REWORK W2 (NOST-12): необязательное ограничение глубины
+    # исторического поиска (0 = весь доступный архив чата; >0 = последние
+    # N лет). По умолчанию глубина определяется фактическими границами
+    # данных конкретного чата (NOST-02.1).
+    NOSTALGIA_HISTORY_DEPTH_YEARS: int = _env_int(
+        "NOSTALGIA_HISTORY_DEPTH_YEARS", 0)
     NOSTALGIA_AGGRESSIVENESS: float = _env_float(
         "NOSTALGIA_AGGRESSIVENESS", 0.3)
     NOSTALGIA_MAX_SEND_CHARS: int = _env_int("NOSTALGIA_MAX_SEND_CHARS", 400)

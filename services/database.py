@@ -10084,27 +10084,62 @@ class DatabaseService:
         row = await cursor.fetchone()
         return int(row["c"]) if row else 0
 
-    async def get_year_back_messages(self, chat_id: int, ts_from: int,
-                                     ts_to: int, center_ts: int,
-                                     limit: int = 3) -> list:
-        """Кандидаты «N лет назад в этот день» (§3.5.2): smart_messages чата
-        с timestamp ∈ [ts_from, ts_to] (год назад ± окно), непустой текст.
-        Строки импорта истории (user_id NULL) участвуют — главный источник
-        год-назад-контента (edge 7); бот-строки в smart_messages не пишутся
-        (observer). Ближайшие к center_ts (abs) — первыми, ≤ limit строк.
-        ASAP5 W1 (27.10.2026, source §6): в выборку добавлены is_forward/
-        forward_source (Epic 28) — provenance репостов доходит до рендера
-        кандидата (format_year_back_line), репост не выглядит как реплика
-        участника. Вызов легаси-строк без этих колонок совместим: поля просто
-        отсутствуют в row."""
+    async def get_chat_history_bounds(self, chat_id: int) -> tuple[int, int] | None:
+        """Границы архива чата (min_ts, max_ts) по smart_messages (P0
+        NOSTALGIA REWORK W1, NOST-02.1: глубина исторического поиска
+        определяется фактическими границами данных КОНКРЕТНОГО чата —
+        история каждого чата не начинается в одном и том же году).
+        None — сообщений нет. Индекс (chat_id, timestamp)."""
+        cursor = await self.db.execute(
+            "SELECT MIN(timestamp) AS lo, MAX(timestamp) AS hi "
+            "FROM smart_messages WHERE chat_id = ?",
+            (int(chat_id),))
+        row = await cursor.fetchone()
+        if row is None or row["lo"] is None or row["hi"] is None:
+            return None
+        return int(row["lo"]), int(row["hi"])
+
+    async def count_chat_history_messages(self, chat_id: int, ts_from: int,
+                                          ts_to: int,
+                                          bot_id: int | None = None) -> int:
+        """Счётчик сообщений в историческом диапазоне [ts_from, ts_to] с
+        ТОЙ ЖЕ фильтрацией, что get_chat_history_messages (непустой текст,
+        строки бота исключены). P0 NOSTALGIA REWORK W2 (NOST-11.3): решение
+        о стратификации плотного окна до основной выборки. Индекс
+        (chat_id, timestamp)."""
+        cursor = await self.db.execute(
+            "SELECT COUNT(*) AS c FROM smart_messages "
+            "WHERE chat_id = ? AND timestamp BETWEEN ? AND ? "
+            "AND text IS NOT NULL AND TRIM(text) != '' "
+            "AND (user_id IS NULL OR user_id != ?)",
+            (int(chat_id), int(ts_from), int(ts_to), int(bot_id or 0)))
+        row = await cursor.fetchone()
+        return int(row["c"]) if row else 0
+
+    async def get_chat_history_messages(self, chat_id: int, ts_from: int,
+                                        ts_to: int, limit: int = 600,
+                                        bot_id: int | None = None) -> list:
+        """Сырые сообщения чата в историческом диапазоне [ts_from, ts_to]
+        (P0 NOSTALGIA REWORK W1, NOST-02/03/04: многолетний поиск и
+        реконструкция эпизодов; замена модели «один год назад — три
+        ближайших»). Непустой текст. Строки импорта истории (user_id NULL)
+        участвуют — главный источник старого контента (edge 7); строки
+        бота исключены (user_id != bot_id; NOST-07.2 self-echo: собственные
+        ответы бота не становятся историческим свидетельством). ASC по
+        timestamp. Достижение `limit` — честный признак усечения окна
+        (возвращающий помечает эпизод truncated; стратификация плотных
+        окон — следующий этап NOST-11). Поля — полные для реконструкции
+        эпизодов (reply/tg-ключи) и provenance-рендера (is_forward/
+        forward_source, Epic 28)."""
         cursor = await self.db.execute(
             "SELECT id, user_id, chat_id, text, timestamp, author_name, "
-            "is_forward, forward_source "
+            "reply_to_id, tg_message_id, is_forward, forward_source "
             "FROM smart_messages "
             "WHERE chat_id = ? AND timestamp BETWEEN ? AND ? "
             "AND text IS NOT NULL AND TRIM(text) != '' "
-            "ORDER BY ABS(timestamp - ?) ASC, id ASC LIMIT ?",
-            (int(chat_id), int(ts_from), int(ts_to), int(center_ts),
+            "AND (user_id IS NULL OR user_id != ?) "
+            "ORDER BY timestamp ASC, id ASC LIMIT ?",
+            (int(chat_id), int(ts_from), int(ts_to), int(bot_id or 0),
              int(limit)))
         return await cursor.fetchall()
 

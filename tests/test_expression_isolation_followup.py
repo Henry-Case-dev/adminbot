@@ -165,4 +165,13 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # toolphase-search-decision, прежние байты — PREV_CHAT_W2_SYSTEM_PROMPT),
     # секция «ТЕХНИЧЕСКИЕ РАСЧЁТЫ И ГИПОТЕЗЫ» Writer (метка
     # l2-writer-tech-reasoning, прежние байты — PREV_CHAT_VERBALIZER_PA5W2).
-    assert pr.FACTORY_SET_SHA256_12 == "3bc0c543520c"
+    # NOST-REWORK W1-бамп 27.10.2026 (NOST-01/02/04 source-2026-10-27.md):
+    # канон internal.nostalgia.candidate — многолетние эпизоды + типизирован-
+    # ный вердикт (метка nostalgia-nost-rework-w1; прежние байты ASAP5 —
+    # PREV_*_1027, было 986108f6d63c).
+    # NOST-REWORK W2-бамп 28.10.2026 (NOST-05/08/09 source-2026-10-27.md):
+    # канон internal.nostalgia.candidate — литературный шаблон снят, скрытая
+    # квота {max_words} удалена, «объём ≠ интересность», протокольный номер
+    # блока «SAY <№>» (метка nostalgia-nost-rework-w2; прежние байты W1 —
+    # PREV_*_1027W1; было 986108f6d63c, стало fbc44eb0f879).
+    assert pr.FACTORY_SET_SHA256_12 == "fbc44eb0f879"

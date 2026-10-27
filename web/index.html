@@ -4490,7 +4490,7 @@
                   <div class="card p-4">
                     <div class="flex items-center gap-2 flex-wrap mb-1">
                       <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('history') }}</span> Ностальгия</div>
-                      <span class="text-xs text-gray-500">слой B — «кстати…» в тихих чатах</span>
+                      <span class="text-xs text-gray-500">слой B — воспоминания по истории чата</span>
                       <button class="btn-ghost text-xs ml-auto shrink-0"
                               :disabled="memoryRagBusy"
                               @click="loadNostalgiaLog()">⟳</button>
@@ -4511,6 +4511,12 @@
                         <span class="text-gray-400">чат {{ n.chat_id }} · {{ n.kind }}</span>
                         <span v-if="n.meta && n.meta.reason" class="text-gray-500 ml-auto">
                           причина: {{ n.meta.reason }}</span>
+                        <!-- NOST-12: диагностика фактического прогона
+                             (режим, найдено/показано эпизодов, повторы,
+                             ошибки источников) — аддитивно к прежней строке. -->
+                        <span v-if="n.meta && n.meta.mode" class="text-gray-500 w-full">
+                          режим: {{ n.meta.mode }}<template v-if="n.meta.episodes_found != null"> · эпизодов: найдено {{ n.meta.episodes_found }}<template v-if="n.meta.episodes_shown != null">, показано {{ n.meta.episodes_shown }}</template></template><template v-if="n.meta.repeats_skipped"> · повторов пропущено: {{ n.meta.repeats_skipped }}</template><template v-if="n.meta.context_messages"> · контекст: {{ n.meta.context_messages }}</template><template v-if="n.meta.periods && n.meta.periods.years && n.meta.periods.years.length"> · годы: {{ n.meta.periods.years.join(', ') }}</template><template v-if="n.meta.thematic_error"> · ошибка тематического поиска</template><template v-if="n.meta.archive_error"> · ошибка доступа к архиву</template>
+                        </span>
                       </div>
                     </div>
                   </div>

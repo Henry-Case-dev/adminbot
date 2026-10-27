@@ -11,15 +11,18 @@
 import datetime
 
 from services.nostalgia_prompts import (
+    NOSTALGIA_CORE_CANON,
     NOSTALGIA_PROMPT,
     PREV_NOSTALGIA_PROMPT,
+    _years_ago_label,
     build_nostalgia_user,
     clean_llm_text,
     format_golden_line,
     format_nostalgia_hint,
     format_year_back_line,
-    is_self_declining_text,
     is_unchanged_response,
+    parse_nostalgia_answer,
+    render_episode_block,
 )
 
 
@@ -31,21 +34,21 @@ _PREV_NOSTALGIA_PROMPT_REFERENCE = """\
 Если вспоминать неуместно или память бедна - ответь ровно одним словом: UNCHANGED
 """
 
-# Эталонный слепок НОВОГО канона (ASAP5 W1, 27.10.2026): «эталон = код =
-# тесты». FIX-CORRECTIVE-R1 (21.10.2026): канон round 10.15 заменён правкой
-# владельца (директива §3 + Addendum #3): императивы «Вбрось…»/«пробило»
-# сняты, семантическая оценка ценности кандидата, расширенное право отказа;
-# прежние байты — PREV_NOSTALGIA_PROMPT_1021 (в модуле канона).
-# ASAP5 W1 (source-2026-10-26 §4/§6/§8): канон R1 дополнен директивой
-# владельца §8 дословно (повод/связь, запрет склейки, промолчать), provenance
-# «Переслано» (§6) и формой отказа ровно UNCHANGED без публикации
-# текста-самоотказа (§5); прежние байты R1 — PREV_NOSTALGIA_PROMPT_1026.
+# Эталонный слепок канона ASAP5 W1 (27.10.2026) — прежние байты сохранены в
+# модуле как PREV_NOSTALGIA_PROMPT_1027W1 (откат/дифф).
+# P0 NOSTALGIA REWORK W1 (source-2026-10-27 NOST-01/02/04): память —
+# многолетние исторические эпизоды; ответ типизирован (UNCHANGED / SAY +
+# реплика); директива владельца §8, provenance «Переслано» и анти-вымысел —
+# дословно.
+# P0 NOSTALGIA REWORK W2 (source-2026-10-27 NOST-05/09): литературный шаблон
+# («кстати» 1-2 фразы) и скрытая квота {max_words} сняты; критерий
+# «объём ≠ интересность» добавлен; эталон обновлён под новые байты.
 _NOSTALGIA_PROMPT_REFERENCE = """\
-Ты - тот же токсично-тёплый участник чата. В чате давно тихо. Тебе дают кусок памяти чата: события примерно год назад в этот день, старые факты по последней теме, а также лор чата и список местных мемов. Вспоминай прошлое естественно, когда есть интересная связь с разговором или само воспоминание действительно заслуживает внимания - забавная, живая или характерная деталь, из которой складывается история. Не склеивай несвязанные события и не вытягивай смысл из случайных фактов. Говори своими словами, сохраняя характер, юмор и свободу выражения: с иронией и сленгом из лора, будто вспомнил вслух, обычно 1-2 короткими фразами «кстати...», ленивая печать, без маркдауна, без кавычек-ёлочек и длинных тире. Максимум {max_words} слов в ответе.
+Ты - тот же токсично-тёплый участник чата. Тебе дают кусок памяти чата: эпизоды из истории этого чата за прошлые годы (один год, два, три и старше - ровно по тому, что реально есть в архиве, у каждого эпизода свои даты), старые факты по последней теме, а также лор чата и список местных мемов. Вспоминай прошлое естественно, когда есть интересная связь с разговором или само воспоминание действительно заслуживает внимания - забавная, живая или характерная деталь, из которой складывается история. Оценивай содержание, а не объём: много сообщений само по себе не делает эпизод интересным, а короткая меткая реплика может запомниться лучше длинной перепалки. Не склеивай несвязанные события и не вытягивай смысл из случайных фактов. Говори своими словами, сохраняя характер, юмор и свободу выражения: с иронией и сленгом из лора, будто вспомнил вслух. Форма свободная - короткая ремарка, наблюдение, развёрнутая история или естественное продолжение разговора; обязательных «кстати» нет, драматизация и пафос без повода не нужны. Ленивая печать, без маркдауна, без кавычек-ёлочек и длинных тире.
 
 Строки памяти с пометкой «Переслано» - чужие новости и материалы не из этого чата: событие из пересланного текста - не событие чата, а люди в нём - не участники чата.
 
-Если из воспоминания не получается осмысленной реплики, лучше промолчи: ответь ровно одним словом - UNCHANGED. Если вспоминать неуместно, память бедна или кандидат скучный/односложный - тоже UNCHANGED. Отказ - нормальный и чаще всего правильный исход: не вытягивай воспоминание из слабого факта, не приписывай участникам того, чего нет в строках памяти и не публикуй текст о том, что вспоминать нечего или что история не та. Решил не вспоминать - ровно одно слово UNCHANGED, а не реплика.
+Ответ строй так: первой строкой ровно один вердикт - UNCHANGED или SAY. Если из воспоминания не получается осмысленной реплики, лучше промолчи: вердикт UNCHANGED и после него ничего. Если вспоминать неуместно, память бедна или кандидат скучный/односложный - тоже UNCHANGED. Отказ - нормальный и чаще всего правильный исход: не вытягивай воспоминание из слабого факта, не приписывай участникам того, чего нет в строках памяти и не публикуй текст о том, что вспоминать нечего или что история не та. Решил не вспоминать - ровно одно слово UNCHANGED, а не реплика. Решил вспомнить - вердикт SAY, а со второй строки сама реплика: своими словами, без объяснений, почему она годится, и без пересказа памяти от начала до конца. Если память предъявлена блоками с номерами «№», укажи после SAY номер блока, из которого родилась реплика (например SAY 2); если номеров нет - просто SAY.
 """
 
 
@@ -66,10 +69,50 @@ class TestCanon:
     def test_prompt_canon_role_and_unchanged(self):
         text = NOSTALGIA_PROMPT
         assert "токсично-тёплый участник чата" in text
-        assert "1-2 короткие фразы" in text or "1-2" in text
         assert "UNCHANGED" in text
         # user-блок «В чате давно тихо. Вот память:» собирается отдельно
         assert "Вот память:" not in text
+        # NOST-09.1 (W2): предпосылка «давно тихо» ушла из канона
+        # (сценарий A/B несёт user-блок)
+        assert "давно тихо" not in text
+
+    def test_prompt_canon_no_literary_template(self):
+        """NOST-09.1 (W2, source NOST-09): обязательного литературного
+        шаблона нет — «кстати»-форма и фиксированная длина не
+        предписываются; форма свободная; драматизация без повода не нужна.
+        Голос (ирония/сленг из лора) и технические правила вывода
+        сохранены."""
+        text = NOSTALGIA_PROMPT
+        assert "обычно 1-2 короткими фразами" not in text
+        assert "короткими фразами «кстати" not in text
+        assert "Максимум" not in text
+        assert "Форма свободная" in text
+        assert "драматизация и пафос без повода не нужны" in text
+        assert "с иронией и сленгом из лора" in text
+        assert "будто вспомнил вслух" in text
+        assert "без маркдауна" in text
+
+    def test_prompt_canon_volume_is_not_interest(self):
+        """NOST-05.2 (W2): объём ≠ интересность зафиксирован в каноне —
+        количество сообщений не подменяет содержательную ценность."""
+        for canon in (NOSTALGIA_PROMPT, NOSTALGIA_CORE_CANON):
+            assert "Оценивай содержание, а не объём" in canon
+            assert "не делает эпизод интересным" in canon
+
+    def test_prompt_canon_no_hidden_length_quota(self):
+        """NOST-09.2 (W2, правило владельца о квотах): скрытой квоты длины
+        ({max_words}) в канонах нет; единственный слот длины реплики —
+        пользовательская настройка nostalgia_max_send_chars (clean_llm_text
+        в воркере). Слепки прежних байт сохранены для отката/диффа."""
+        from services.nostalgia_prompts import (
+            PREV_NOSTALGIA_CORE_CANON_1027W1,
+            PREV_NOSTALGIA_PROMPT_1027W1,
+        )
+        for canon in (NOSTALGIA_PROMPT, NOSTALGIA_CORE_CANON):
+            assert "{max_words}" not in canon
+        # прежние байты (W1) не переписываются — там слот был
+        assert "{max_words}" in PREV_NOSTALGIA_PROMPT_1027W1
+        assert "{max_words}" in PREV_NOSTALGIA_CORE_CANON_1027W1
 
     def test_prompt_canon_living_style_markers(self):
         # ТЗ §3: живой стиль — ирония/сленг из лора, «вспомнил вслух».
@@ -91,8 +134,8 @@ class TestCanon:
         assert "Отказ - нормальный и чаще всего правильный исход" in text
         assert "не приписывай участникам того, чего нет в строках памяти" \
             in text
-        # без критериев длины (Addendum #3: семантика, не слова)
-        assert "слов" in text  # только max_words-слот
+        # без критериев длины (Addendum #3: семантика, не слова;
+        # NOST-09.2 W2: слот {max_words} удалён вовсе)
         assert "короче" not in text and "длиннее" not in text
 
     def test_asap5_owner_directive_verbatim(self):
@@ -142,8 +185,9 @@ class TestCanon:
 
     def test_core_canon_refusal_and_semantics(self):
         """CORE-канон (ON-путь) синхронен: директива §8 + право отказа +
-        анти-вымысел; прежние байты — PREV_NOSTALGIA_CORE_CANON_1021 (R1) и
-        PREV_NOSTALGIA_CORE_CANON_1026 (R1→ASAP5 W1)."""
+        анти-вымысел; прежние байты — PREV_NOSTALGIA_CORE_CANON_1021 (R1),
+        PREV_NOSTALGIA_CORE_CANON_1026 (R1→ASAP5 W1) и
+        PREV_NOSTALGIA_CORE_CANON_1027W1 (W1→W2)."""
         from services.nostalgia_prompts import (
             NOSTALGIA_CORE_CANON,
             PREV_NOSTALGIA_CORE_CANON_1021,
@@ -153,19 +197,20 @@ class TestCanon:
         assert "скучный/односложный" in NOSTALGIA_CORE_CANON
         assert "Отказ - нормальный и чаще всего правильный исход" \
             in NOSTALGIA_CORE_CANON
-        assert "{max_words}" in NOSTALGIA_CORE_CANON
+        # NOST-09.2 (W2): скрытая квота длины удалена и из CORE-канона
+        assert "{max_words}" not in NOSTALGIA_CORE_CANON
         assert "—" not in NOSTALGIA_CORE_CANON
         # прежние байты заморожены: императив «вбрось» и узкий отказ
         assert "вбрось этот старый факт" in PREV_NOSTALGIA_CORE_CANON_1021
         assert "Если вспоминать неуместно или память бедна" \
             in PREV_NOSTALGIA_CORE_CANON_1021
 
-    def test_prompt_has_max_words_placeholder(self):
-        assert "{max_words}" in NOSTALGIA_PROMPT
-        filled = NOSTALGIA_PROMPT.format(max_words=60)
-        assert "{max_words}" not in filled
-        # ровно один плейсхолдер (ровно одна подстановка)
-        assert NOSTALGIA_PROMPT.count("{max_words}") == 1
+    def test_prompt_no_max_words_placeholder(self):
+        """NOST-09.2 (W2): слота {max_words} в каноне больше нет — канон не
+        требует подстановки, format() без параметров безопасен."""
+        assert "{max_words}" not in NOSTALGIA_PROMPT
+        assert NOSTALGIA_PROMPT.format() == NOSTALGIA_PROMPT
+        assert NOSTALGIA_CORE_CANON.format() == NOSTALGIA_CORE_CANON
 
     def test_prompt_no_em_dash_in_output_rules(self):
         # канон-стиль: длинных тире нет (дефис «-» допустим — дефисные
@@ -370,43 +415,153 @@ class TestCleanText:
         assert clean_llm_text(None, 400) == ""
 
 
-class TestSelfDeclineGuard:
-    """ASAP5 W1 (source §4/§5, инцидент «не та история»): узкий страж
-    самоотказа. Явный вердикт «эта история не годится» → True (текст не
-    публикуется); ироничные формы с внешним сходством и обычные реплики —
-    False (запрет владельца на универсальный словесный бан)."""
+class TestTypedVerdictProtocol:
+    """P0 NOSTALGIA REWORK W1 (source-2026-10-27 NOST-01): семантический
+    страж по фразам (_SELF_DECLINE_* / is_self_declining_text) УДАЛЁН
+    (запрещено искать смысл перечислением фраз). Отказ — типизированный
+    вердикт того же LLM-вызова: ровно UNCHANGED (формальный контракт
+    сохранён) или SAY + реплика со второй строки; ответ без вердикта —
+    легаси-контент (обратная совместимость). Парсер — детерминированный
+    разбор служебного маркера, не смысловой анализ текста."""
 
-    def test_incident_verdict_detected(self):
-        # точная форма инцидента: склейка + вердикт «не та история»
-        incident = ("Вспоминать тут особо нечего, кроме того, что Вера "
-                    "Косачева умерла за 300 метров до финиша, а Вася тогда "
-                    "написал про тромбы ебаные. Это не та история, из "
-                    "которой делают кстати")
-        assert is_self_declining_text(incident)
-        assert is_self_declining_text("это не та история")
-        assert is_self_declining_text("История не та, короче")
-        # «вспоминать нечего» без содержательного поворота — вердикт
-        assert is_self_declining_text("Тут вспоминать нечего")
-        assert is_self_declining_text("нечего вспоминать, опять тишина")
+    def test_self_decline_hardcode_removed(self):
+        """NOST-01/NOST-16: семантический хардкод старой реализации удалён
+        из модуля (ни функции-стража, ни списков фраз не существует)."""
+        import services.nostalgia_prompts as np_mod
+        assert not hasattr(np_mod, "is_self_declining_text")
+        assert not hasattr(np_mod, "_SELF_DECLINE_VERDICT_RES")
+        assert not hasattr(np_mod, "_SELF_DECLINE_NOTHING_RE")
+        assert not hasattr(np_mod, "_SELF_DECLINE_NOTHING_REV_RE")
+        assert not hasattr(np_mod, "_SELF_DECLINE_ALL_RES")
 
-    def test_ironic_twist_and_normal_speech_not_blocked(self):
-        """Ирония с поворотом «кроме/разве что/только» несёт настоящее
-        воспоминание — не блокируется; обычные реплики — не блокируются."""
-        assert not is_self_declining_text(
-            "Вспоминать тут особо нечего, кроме моего позора годичной "
-            "давности, ага")
-        assert not is_self_declining_text(
-            "вспоминать нечего, разве что как вася торт уронил")
-        assert not is_self_declining_text(
-            "кстати, год назад мы разъехались по домам в три ночи")
-        assert not is_self_declining_text(
-            "год назад вася сказал, что это лучший мем чата")
-        assert not is_self_declining_text("ничего не помню, я тогда спал")
-        assert not is_self_declining_text("")
-        assert not is_self_declining_text(None)
+    def test_unchanged_verdict(self):
+        # ровно UNCHANGED (формальный контракт, spec §3.5.4) — отказ
+        assert parse_nostalgia_answer("UNCHANGED") == ("unchanged", "")
+        assert parse_nostalgia_answer("  unchanged \n") == \
+            ("unchanged", "")
+        assert parse_nostalgia_answer("Unchanged") == ("unchanged", "")
+        assert parse_nostalgia_answer("") == ("legacy", "")
+        assert parse_nostalgia_answer(None) == ("legacy", "")
 
-    def test_unchanged_flow_untouched(self):
-        # страж не пересекается с контрактом UNCHANGED (is_unchanged_response
-        # решает раньше; страж срабатывает только на прозе-самоотказе)
-        assert not is_self_declining_text("UNCHANGED")
-        assert is_unchanged_response("UNCHANGED")
+    def test_say_verdict_extracts_replica(self):
+        # SAY + вторая строка — реплика без маркера
+        verdict, text = parse_nostalgia_answer(
+            "SAY\nкстати, год назад торт у васи пол отвесил")
+        assert verdict == "say"
+        assert text == "кстати, год назад торт у васи пол отвесил"
+
+    def test_say_multiline_replica_kept(self):
+        verdict, text = parse_nostalgia_answer(
+            "SAY\nпервая строка\nвторая строка")
+        assert verdict == "say"
+        assert text == "первая строка\nвторая строка"
+
+    def test_bare_say_no_content_is_empty_say(self):
+        # ровно SAY без содержимого — вердикт say, текста нет (пусто →
+        # вызывающий решает как empty)
+        assert parse_nostalgia_answer("SAY") == ("say", "")
+        assert parse_nostalgia_answer("  SAY  \n ") == ("say", "")
+
+    def test_legacy_free_text_treated_as_content(self):
+        # ответ без вердикта (старые клиенты/моки) — легаси-контент
+        assert parse_nostalgia_answer(
+            "кстати, помню как тогда было") == \
+            ("legacy", "кстати, помню как тогда было")
+        # слово SAY внутри контента (не первой строкой) не маркер
+        assert parse_nostalgia_answer(
+            "ну это было say-моментом, короче") == \
+            ("legacy", "ну это было say-моментом, короче")
+
+    def test_canon_decline_form_pins_kept(self):
+        # пины формы отказа W1 сохранены дословно в обоих канонах
+        for canon in (NOSTALGIA_PROMPT, NOSTALGIA_CORE_CANON):
+            assert "не публикуй текст о том, что вспоминать нечего" in canon
+            assert "что история не та" in canon
+            assert "ровно одно слово UNCHANGED, а не реплика" in canon
+            assert "первой строкой ровно один вердикт - UNCHANGED или SAY" \
+                in canon
+
+    def test_prev_1027_snapshot_is_outgoing_bytes(self):
+        """PREV_1027 — байт-в-байт слепок канона ASAP5 W1 для отката/диффа
+        (прецедент PREV_*_1026)."""
+        from services.nostalgia_prompts import (
+            PREV_NOSTALGIA_CORE_CANON_1027,
+            PREV_NOSTALGIA_PROMPT_1027,
+        )
+        assert "события примерно год назад в этот день" \
+            in PREV_NOSTALGIA_PROMPT_1027
+        assert "Ответ строй так" not in PREV_NOSTALGIA_PROMPT_1027
+        assert "события примерно год назад в этот день" \
+            in PREV_NOSTALGIA_CORE_CANON_1027
+        assert PREV_NOSTALGIA_PROMPT_1027 != NOSTALGIA_PROMPT
+        assert PREV_NOSTALGIA_CORE_CANON_1027 != NOSTALGIA_CORE_CANON
+
+
+class TestEpisodesRender:
+    """P0 REWORK W1 (NOST-02/04): блоки исторических эпизодов в user-блоке —
+    честные заголовки по фактическим границам, provenance строк, имена по
+    uid."""
+
+    def test_years_ago_labels(self):
+        assert _years_ago_label(1) == "1 год назад"
+        assert _years_ago_label(2) == "2 года назад"
+        assert _years_ago_label(3) == "3 года назад"
+        assert _years_ago_label(5) == "5 лет назад"
+        assert _years_ago_label(11) == "11 лет назад"
+        assert _years_ago_label(12) == "12 лет назад"
+        assert _years_ago_label(22) == "22 года назад"
+
+    def test_episode_block_header_and_lines(self):
+        ep = {"years_ago": 2, "start_ts": 1_700_000_000,
+              "end_ts": 1_700_100_000,
+              "lines": ["[Вася 2023-11-14]: старт", "[Вася 2023-11-15]: финал"]}
+        block = render_episode_block(ep)
+        assert block.startswith("2 года назад (")
+        assert "—" in block and "):" in block
+        assert "[Вася 2023-11-14]: старт" in block
+        assert "[Вася 2023-11-15]: финал" in block
+
+    def test_episode_block_empty_lines(self):
+        assert render_episode_block({"years_ago": 3, "lines": []}) == ""
+        assert render_episode_block({}) == ""
+
+    def test_display_names_override_stale_author(self):
+        """NOST-07.3/T26: актуальный алиас по uid приоритетнее
+        исторического author_name (старое имя не подменяет актуальное)."""
+        row = {"user_id": 42, "author_name": "СтарыйВася", "text": "текст",
+               "timestamp": _ts(365)}
+        line = format_year_back_line(row, {42: "Вася"})
+        assert line.startswith("[Вася ")
+        assert "СтарыйВася" not in line
+
+    def test_display_names_fallback_author_name(self):
+        """Без алиаса — исторический author_name (старые имена остаются
+        пригодными). Воркер не кладёт в карту «имя = сам id» (прецедент
+        direct_chat: «автор 12345» не выдумывается), поэтому рендер не
+        встречает такого значения; пустая карта/None — author_name."""
+        row = {"user_id": 42, "author_name": "Вася", "text": "текст",
+               "timestamp": _ts(365)}
+        assert format_year_back_line(row, {}).startswith("[Вася ")
+        assert format_year_back_line(row, None).startswith("[Вася ")
+
+    def test_build_user_with_episodes_replaces_year_section(self):
+        """Непустой episodes → историческая секция из блоков эпизодов;
+        легаси-путь year_lines сохранён для обратной совместимости."""
+        ep = {"years_ago": 2, "start_ts": 1_700_000_000,
+              "end_ts": 1_700_010_000,
+              "lines": ["[Вася 2023-11-14]: поехали на озеро"]}
+        user = build_nostalgia_user([], [], episodes=[ep])
+        assert "Эпизоды из истории чата за прошлые годы:" in user
+        assert "2 года назад" in user
+        assert "[Вася 2023-11-14]: поехали на озеро" in user
+        # легаси: без episodes — прежняя секция
+        legacy = build_nostalgia_user(["[Вася 2024-07-12]: a"], [])
+        assert "События примерно год назад в этот день" in legacy
+        assert "Эпизоды из истории чата" not in legacy
+
+    def test_build_user_episodes_and_golden_order(self):
+        ep = {"years_ago": 1, "start_ts": 1_700_000_000,
+              "end_ts": 1_700_010_000, "lines": ["[Вася 2023-11-14]: а"]}
+        user = build_nostalgia_user([], ["[2023-01-01] b"], episodes=[ep])
+        assert user.index("Эпизоды из истории чата") < \
+            user.index("Старые факты по последней теме")
