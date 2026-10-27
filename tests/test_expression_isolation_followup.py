@@ -153,4 +153,8 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # internal.nostalgia.candidate — директива владельца §8 дословно,
     # provenance «Переслано» и форма отказа ровно UNCHANGED (метка
     # nostalgia-asap5-w1-source; прежние байты R1 — PREV_*_1026).
-    assert pr.FACTORY_SET_SHA256_12 == "82031ca737ed"
+    # POST-ASAP5 W1-бамп 27.10.2026 (§3/§7 source-2026-10-27.md): канон L1 —
+    # секция «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» (метка
+    # l1-planner-intent-update; прежние байты ред.4 —
+    # PREV_DIRECT_L1_PLANNER_PA5W1, 422e9d73d316).
+    assert pr.FACTORY_SET_SHA256_12 == "517ec51bec11"

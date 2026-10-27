@@ -27,6 +27,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from services import direct_l1 as _l1  # noqa: E402
+from services import chat_prompts as cp  # noqa: E402
 from services.chat_prompts import (  # noqa: E402
     DIRECT_L1_PLANNER_SYSTEM_PROMPT,
     PREV_DIRECT_L1_PLANNER_1022,
@@ -61,9 +62,11 @@ def test_canon_schema_has_delivery_fields():
     ASAP 2 (§4.1 asap2 source): между секцией участия и ПРАВИЛАМИ вставлен
     контракт «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» (текст владельца)."""
     canon = DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    # POST-ASAP5 W1: активный канон = прежние байты + секция понимания
     assert canon == (_DIRECT_L1_PLANNER_BASE_R3
                      + _DIRECT_L1_CLARIFICATION_CONTRACT
                      + _DIRECT_L1_CONTINUATION_R3B
+                     + cp._DIRECT_L1_INTENT_UPDATE_PA5
                      + _DIRECT_L1_PLANNER_RULES)
     assert '"action": "reply|react|silent"' in canon
     assert '"delivery": "chat|reply|null"' in canon
@@ -212,11 +215,14 @@ def test_migration_ladder_leads_prod_109_to_new_canon():
     assert PREV_DIRECT_L1_PLANNER_P0CINT not in targets.values()
     assert PREV_DIRECT_L1_PLANNER_P0CINTR2 not in targets.values()
     assert PREV_DIRECT_L1_PLANNER_R3B not in targets.values()
+    from services.chat_prompts import PREV_DIRECT_L1_PLANNER_PA5W1
+    assert PREV_DIRECT_L1_PLANNER_PA5W1 not in targets.values()
     from services.prompt_migrations import ROLLBACK_MIGRATIONS
     # ADR-1013-3: цепочка отката L1 —
-    # active→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
+    # active→PA5W1→P0CINTR2→P0CINT→P0CS2→P0CS→R3b→R3→2.58.113
     assert ROLLBACK_MIGRATIONS["prompts.direct_l1_planner_system_prompt"] == [
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_PA5W1),
+        (PREV_DIRECT_L1_PLANNER_PA5W1, PREV_DIRECT_L1_PLANNER_P0CINTR2),
         (PREV_DIRECT_L1_PLANNER_P0CINTR2, PREV_DIRECT_L1_PLANNER_P0CINT),
         (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),
         (PREV_DIRECT_L1_PLANNER_P0CS2, PREV_DIRECT_L1_PLANNER_P0CS),

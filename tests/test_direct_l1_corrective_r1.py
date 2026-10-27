@@ -75,12 +75,15 @@ def test_l1_rules_positive_criteria_present():
     assert "Короткая\n   реплика вроде «а этот?»" in rules
     # ASAP 2 (§4.1 asap2 source): канон = база + контракт уточнений + правила
     # SPEECH-CANON R3b: + узкое усиление продолжения (текст §4.1 цел)
+    # POST-ASAP5 W1: + секция «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» (§3/§7)
     from services.chat_prompts import (_DIRECT_L1_CLARIFICATION_CONTRACT,
                                        _DIRECT_L1_CONTINUATION_R3B,
+                                       _DIRECT_L1_INTENT_UPDATE_PA5,
                                        _DIRECT_L1_PLANNER_BASE_R3)
     new_canon = (_DIRECT_L1_PLANNER_BASE_R3
                  + _DIRECT_L1_CLARIFICATION_CONTRACT
-                 + _DIRECT_L1_CONTINUATION_R3B + rules)
+                 + _DIRECT_L1_CONTINUATION_R3B
+                 + _DIRECT_L1_INTENT_UPDATE_PA5 + rules)
     assert new_canon == DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert '"action": "reply|react|silent"' in new_canon
 

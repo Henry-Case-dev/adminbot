@@ -111,7 +111,9 @@ def test_l1_continuation_instruction_present_once_and_semantic():
 
 
 def test_l1_owner_contract_byte_intact():
-    """Текст владельца §4.1 в каноне не изменён ни на байт (R3b — добавка)."""
+    """Текст владельца §4.1 в каноне не изменён ни на байт (R3b — добавка).
+    POST-ASAP5 W1: активный канон = прежние байты ред.4 + секция
+    «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ»; прежние байты заморожены в PA5W1."""
     contract = cp._DIRECT_L1_CLARIFICATION_CONTRACT
     assert contract in cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     # SPEECH-P0-CORE-SERIOUS: правила R3b заморожены, активные правила — их
@@ -122,9 +124,14 @@ def test_l1_owner_contract_byte_intact():
     assert cp.PREV_DIRECT_L1_PLANNER_R3B == (
         cp._DIRECT_L1_PLANNER_BASE_R3 + contract
         + cp._DIRECT_L1_CONTINUATION_R3B + cp._DIRECT_L1_PLANNER_RULES_R3B)
-    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
+    # POST-ASAP5 W1: слепок ред.4 (до секции) и новая композиция с секцией
+    assert cp.PREV_DIRECT_L1_PLANNER_PA5W1 == (
         cp._DIRECT_L1_PLANNER_BASE_R3 + contract
         + cp._DIRECT_L1_CONTINUATION_R3B + cp._DIRECT_L1_PLANNER_RULES)
+    assert cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT == (
+        cp._DIRECT_L1_PLANNER_BASE_R3 + contract
+        + cp._DIRECT_L1_CONTINUATION_R3B
+        + cp._DIRECT_L1_INTENT_UPDATE_PA5 + cp._DIRECT_L1_PLANNER_RULES)
     assert hashlib.sha256(
         cp.PREV_DIRECT_L1_PLANNER_R3.encode("utf-8")).hexdigest()[:12] == \
         "ab6817a18657"
@@ -132,6 +139,8 @@ def test_l1_owner_contract_byte_intact():
         cp.PREV_DIRECT_L1_PLANNER_R3B.encode("utf-8")).hexdigest()[:12] == \
         "6c2ddc17c998"
     assert cp.PREV_DIRECT_L1_PLANNER_R3B != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
+    assert cp.PREV_DIRECT_L1_PLANNER_PA5W1 != \
+        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
 
 
 # ── лестница, откат, идемпотентность, кастом ────────────────────────────────
@@ -139,6 +148,8 @@ def test_l1_owner_contract_byte_intact():
 def test_ladder_and_rollback_chain():
     steps_l1 = dict(pm.PROMPT_MIGRATIONS[L1_KEY])
     steps_l2 = dict(pm.PROMPT_MIGRATIONS[L2_KEY])
+    assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_PA5W1] == \
+        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_R3B] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_R3] == \
@@ -148,10 +159,12 @@ def test_ladder_and_rollback_chain():
     # прежние ступени стека целы
     assert steps_l1[cp.PREV_DIRECT_L1_PLANNER_CLAR] == \
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    # цепочка отката: L1 — material-priority → P0CS2 → P0CS → R3b → R3 →
-    # 2.58.113 (5 шагов), L2 — 1 шаг
+    # цепочка отката: L1 — intent-update → material-priority (P0CINTR2) →
+    # P0CINT → P0CS2 → P0CS → R3b → R3 → 2.58.113 (7 шагов), L2 — 1 шаг
     assert pm.ROLLBACK_MIGRATIONS[L1_KEY] == [
         (cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
+         cp.PREV_DIRECT_L1_PLANNER_PA5W1),
+        (cp.PREV_DIRECT_L1_PLANNER_PA5W1,
          cp.PREV_DIRECT_L1_PLANNER_P0CINTR2),
         (cp.PREV_DIRECT_L1_PLANNER_P0CINTR2,
          cp.PREV_DIRECT_L1_PLANNER_P0CINT),
@@ -166,6 +179,7 @@ def test_ladder_and_rollback_chain():
     # новые слепки — известные каноны, не «кастом»; активные байты отличны
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_R3)
     assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_R3B)
+    assert pr.is_known_canon(cp.PREV_DIRECT_L1_PLANNER_PA5W1)
     assert pr.is_known_canon(cp.PREV_CHAT_VERBALIZER_CLAR)
     assert cp.PREV_DIRECT_L1_PLANNER_R3 != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert cp.PREV_CHAT_VERBALIZER_CLAR != cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
@@ -176,7 +190,7 @@ def test_labels_and_fingerprint_consistent():
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pr.factory_text("direct.base.l2_writer") == \
         cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
-    assert "l1-planner-material-priority" in pr.factory_revision(
+    assert "l1-planner-intent-update" in pr.factory_revision(
         "direct.base.l1_planner")
     assert "l2-writer-clar-boundary" in pr.factory_revision(
         "direct.base.l2_writer")
@@ -213,17 +227,22 @@ async def test_migration_idempotent_rollback_custom_kept():
             cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     finally:
         hot.set_config_cache(None)
-    # откат — цепочка: 1-й вызов снимает редакцию 4 (→ P0CINTR2), 2-й —
-    # редакцию 3 (→ P0CINT), 3-й — приоритет разбора (→ P0CS2), 4-й —
-    # смысловую маршрутизацию (→ P0CS), 5-й — P0CS→R3b, 6-й — R3b→R3,
-    # 7-й — L1 до 2.58.113, 8-й — no-op
+    # откат — цепочка: 1-й вызов снимает секцию PA5W1 (→ ред.4), 2-й —
+    # редакцию 4 (→ P0CINTR2), 3-й — редакцию 3 (→ P0CINT), 4-й — приоритет
+    # разбора (→ P0CS2), 5-й — смысловую маршрутизацию (→ P0CS), 6-й —
+    # P0CS→R3b, 7-й — R3b→R3, 8-й — L1 до 2.58.113, 9-й — no-op
     back = _Cache({L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                    L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT})
     assert await pm.rollback_prompt_canons(back) == {
         L1_KEY: "rolled_back", L2_KEY: "rolled_back"}
     assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINTR2,
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W1,
         L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
+    back.apply_writes()
+    back.set_calls.clear()
+    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
+    assert {k: v for k, v, _c in back.set_calls} == {
+        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINTR2}
     back.apply_writes()
     back.set_calls.clear()
     assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}

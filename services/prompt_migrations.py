@@ -56,6 +56,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CS2,
     PREV_DIRECT_L1_PLANNER_P0CINT,
     PREV_DIRECT_L1_PLANNER_P0CINTR2,
+    PREV_DIRECT_L1_PLANNER_PA5W1,
     CORE_REAL_EVENTS_PARAGRAPH,
     CORE_FREE_SPEECH_PARAGRAPH,
     PREV_PERSONALITY_CORE_FULL_TEXT,
@@ -250,6 +251,13 @@ PROMPT_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
         # P0C-INT R3 (26.10.2026, `probes_final5-rerun.md` §4): редакция 4 —
         # `response_act` отделён от `tone` (грубость меняет только манеру);
         # верхняя ступень — редакция 3 (PREV_..._P0CINTR2, 9391).
+        # POST-ASAP5 W1 (27.10.2026, §3/§7 source-2026-10-27.md): редакция 5 —
+        # секция «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» (пересмотр постановки при
+        # уточнении, различение уточнение/возражение/новый вопрос, прежний
+        # ответ - контекст, а не доказательство). Верхняя ступень — редакция 4
+        # (PREV_..._P0CINTR2) и слепок активных байтов ред.4 до секции
+        # (PREV_..._PA5W1). Кастомы владельца не перетираются.
+        (PREV_DIRECT_L1_PLANNER_PA5W1, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CINTR2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CINT, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
         (PREV_DIRECT_L1_PLANNER_P0CS2, DIRECT_L1_PLANNER_SYSTEM_PROMPT),
@@ -448,10 +456,15 @@ ROLLBACK_MIGRATIONS: dict[str, list[tuple[str, str]]] = {
     # оценкой и не выбирает hostile_rebuff. Откат снимает ТОЛЬКО новую
     # редакцию — на активные байты ред.2 (P0CINT, 9288), затем P0CS2; стек
     # прежних ступеней цел (ADR-1013-3).
+    # POST-ASAP5 W1 (27.10.2026, §3/§7): откат снимает только секцию
+    # «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ» — на активные байты ред.4
+    # (PREV_..._PA5W1); стек прежних ступеней цел (ADR-1013-3).
     "prompts.direct_l1_planner_system_prompt": [
-        # ступень 0: активный канон ред.4 → P0CINTR2 (активные байты ред.3)
-        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_P0CINTR2),
-        # ступень 1: P0CINTR2 → P0CINT (активные байты ред.2)
+        # ступень 0: активный канон ред.5 (PA5W1) → активные байты ред.4
+        (DIRECT_L1_PLANNER_SYSTEM_PROMPT, PREV_DIRECT_L1_PLANNER_PA5W1),
+        # ступень 1: PA5W1 → P0CINTR2 (активные байты ред.4)
+        (PREV_DIRECT_L1_PLANNER_PA5W1, PREV_DIRECT_L1_PLANNER_P0CINTR2),
+        # ступень 2: P0CINTR2 → P0CINT (активные байты ред.3→2)
         (PREV_DIRECT_L1_PLANNER_P0CINTR2, PREV_DIRECT_L1_PLANNER_P0CINT),
         # ступень 2: P0CINT → P0CS2 (активные байты ред.1)
         (PREV_DIRECT_L1_PLANNER_P0CINT, PREV_DIRECT_L1_PLANNER_P0CS2),

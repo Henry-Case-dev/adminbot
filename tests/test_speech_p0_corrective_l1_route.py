@@ -156,12 +156,21 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
     assert len(prev2) == 9145 and _sha12(prev2) == "f6f5d3b1fc1d"
     for prev in (prev2, prev3, prev4):
         assert prev != cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
-    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "422e9d73d316"
+    # POST-ASAP5 W1: активный канон ред.5 = байты ред.4 (PA5W1, прежний
+    # пин 422e9d73d316) + секция «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ»
+    prev5 = cp.PREV_DIRECT_L1_PLANNER_PA5W1
+    assert prev5 == (cp._DIRECT_L1_PLANNER_BASE_R3
+                     + cp._DIRECT_L1_CLARIFICATION_CONTRACT
+                     + cp._DIRECT_L1_CONTINUATION_R3B
+                     + cp._DIRECT_L1_PLANNER_RULES)
+    assert len(prev5) == 9750 and _sha12(prev5) == "422e9d73d316"
+    assert _sha12(cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT) == "902dd00edf52"
     # усиление не отменило прежние ветки
     assert "response_act=research" in prev2
     # ступень вперёд и цель отката указывают на новый слепок
     steps = dict(pm.PROMPT_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"])
+    assert steps[prev5] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps[prev4] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps[prev3] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert steps[prev2] == cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
@@ -171,10 +180,11 @@ def test_l1_prev_p0cs2_is_previous_active_bytes():
         cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT
     assert pm.ROLLBACK_MIGRATIONS[
         "prompts.direct_l1_planner_system_prompt"][0] == (
-            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev4)
+            cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT, prev5)
     assert pm.ROLLBACK_MIGRATIONS[
-        "prompts.direct_l1_planner_system_prompt"][1] == (
-            prev4, prev3)
+        "prompts.direct_l1_planner_system_prompt"][1] == (prev5, prev4)
+    assert pm.ROLLBACK_MIGRATIONS[
+        "prompts.direct_l1_planner_system_prompt"][2] == (prev4, prev3)
 
 
 # ── 3. Payload: research 1×1, answer 0×0, без дублей ────────────────────────

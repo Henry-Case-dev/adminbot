@@ -48,6 +48,7 @@ from services.chat_prompts import (
     PREV_DIRECT_L1_PLANNER_P0CS2,
     PREV_DIRECT_L1_PLANNER_P0CINT,
     PREV_DIRECT_L1_PLANNER_P0CINTR2,
+    PREV_DIRECT_L1_PLANNER_PA5W1,
     PREV_DIRECT_L1_PLANNER_W1,
     PREV_R8_CHAT_SYSTEM_PROMPT,
     PREV_R9_CHAT_SYSTEM_PROMPT,
@@ -294,7 +295,10 @@ _ROLLBACK_TARGET_BY_KEY: dict[str, str] = {
     # P0-CORRECTIVE (25.10.2026): верхняя ступень — смысловая маршрутизация
     # L1; откат снимает только её → текущие активные байты P0CS. Ред.2:
     # первый откат снимает приоритет разбора → P0CS2 (f6f5d3b1fc1d).
-    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_P0CINTR2,
+    # POST-ASAP5 W1 (27.10.2026): первый откат снимает секцию «ИЗМЕНЕНИЕ
+    # ЗАДАЧИ И ВОЗРАЖЕНИЯ» → байты ред.4 (PREV_DIRECT_L1_PLANNER_PA5W1,
+    # 422e9d73d316).
+    "prompts.direct_l1_planner_system_prompt": PREV_DIRECT_L1_PLANNER_PA5W1,
     # ASAP W1 (P0-F «точечно»): откат → прод-канон 2.58.110 (с identity).
     "prompts.factcheck_verbalizer_system_prompt":
         PREV_FACTCHECK_VERBALIZER_W1,
@@ -751,11 +755,11 @@ class TestMca23Migration:
     async def test_r3b_rollback_chain_restores_258113_bytes(self):
         """REL-F1 (24.10.2026): полный откат канонов до байтов 2.58.113.
 
-        Dry-run на копии текущих канонов (L1 ``23aae0c9`` = смысловая
-        маршрутизация + приоритет разбора, L2 ``83ff62bb``): процедура runbook'а
-        «повторный ``rollback_prompt_canons``» обязана вернуть именно БАЙТЫ
-        2.58.113 (L1 ``c987c03e``, L2 ``d1b210c1``), а не только отчёт;
-        лишний вызов — no-op; повторный deploy новых канонов снова
+        Dry-run на копии текущих канонов (L1 ``902dd00e`` = ред.5 с секцией
+        «ИЗМЕНЕНИЕ ЗАДАЧИ И ВОЗРАЖЕНИЯ», L2 ``83ff62bb``): процедура
+        runbook'а «повторный ``rollback_prompt_canons``» обязана вернуть
+        именно БАЙТЫ 2.58.113 (L1 ``c987c03e``, L2 ``d1b210c1``), а не только
+        отчёт; лишний вызов — no-op; повторный deploy новых канонов снова
         применяется; кастом владельца не перетирается ни на одном шаге.
         """
         l1_key = "prompts.direct_l1_planner_system_prompt"
@@ -768,12 +772,20 @@ class TestMca23Migration:
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
-            ("422e9d73d316", "83ff62bbee40")
+            ("902dd00edf52", "83ff62bbee40")
 
-        # шаг 1: снимается редакция 4 L1 (→ P0CINTR2, байты ред.3) и ступень
-        # R3b L2
+        # шаг 0: снимается секция PA5W1 L1 (→ байты ред.4, 422e9d73d316)
+        # и ступень R3b L2
         assert await rollback_prompt_canons(cache) == {
             l1_key: "rolled_back", l2_key: "rolled_back"}
+        cache.apply_writes()
+        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_PA5W1
+        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+        assert sha12(cache.values[l1_key]) == "422e9d73d316"
+
+        # шаг 1: снимается редакция 4 L1 (→ P0CINTR2, байты ред.3);
+        # L2 уже на 2.58.113
+        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
         cache.apply_writes()
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CINTR2
         assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
