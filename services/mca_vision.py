@@ -2208,6 +2208,11 @@ def pipeline_stage_event(stage: str, outcome: str, *, reason_code=None,
 # исход; failed/pending/unavailable — НЕ success-кеш. ──
 
 REUSABLE_ANALYSIS_STATUSES = frozenset({"ready", "no_text"})
+# W2 (ASAP5 §13): честные терминальные статусы гранулы — существующий
+# словарь схемы CHECK (database.finish_media_analysis), новых состояний НЕТ.
+TERMINAL_ANALYSIS_STATUSES = frozenset(
+    {"ready", "no_text", "unreadable", "unsupported", "unavailable",
+     "failed"})
 
 
 def analysis_from_row(row: dict | None) -> VisionAnalysis | None:
@@ -2238,23 +2243,210 @@ async def resolve_ready_for_asset(db, asset: dict | None,
                                   access_scope: str) -> dict | None:
     """Единая точка чтения готового анализа (T-5119 «сначала кеш»):
     по asset-грануле → по content_hash (та же область доступа; TH-5).
+    W2 (ASAP5 §13/§14): переиспользуемые исходы — ready И no_text
+    («текста нет» — успешный результат, а не вечное ожидание).
     Автор/дата/пересылка — вызывающий берёт из ТЕКУЩЕГО сообщения."""
     if db is None or not asset:
         return None
+    asset_id = str(asset.get("asset_id") or "")
+    content_hash = str(asset.get("content_hash") or "")
     try:
         ready = await db.get_ready_analysis(
-            str(asset.get("asset_id")), access_scope,
+            asset_id, access_scope,
             quality_profile=QUALITY_PROFILE_DEFAULT)
         if ready is not None:
             return ready
-        content_hash = str(asset.get("content_hash") or "")
         if content_hash:
-            return await db.find_ready_analysis_by_content_hash(
+            ready = await db.find_ready_analysis_by_content_hash(
                 content_hash, access_scope,
                 quality_profile=QUALITY_PROFILE_DEFAULT)
+            if ready is not None:
+                return ready
     except Exception:
         logger.warning("[vision] ready lookup failed", exc_info=True)
+    return await _find_reusable_no_text_analysis(db, asset_id, access_scope,
+                                                 content_hash)
+
+
+async def _find_reusable_no_text_analysis(db, asset_id: str,
+                                          access_scope: str,
+                                          content_hash: str) -> dict | None:
+    """W2 (ASAP5 §13/§14): no_text — УСПЕШНЫЙ исход «текста на изображении
+    нет» (D19: reusable), но SQL-хелперы БД читают только status='ready'.
+    Дочитка no_text-гранулы (по активу → по content_hash, та же область
+    доступа) без нового API-вызова. Read-only; ошибка чтения → None."""
+    try:
+        cur = await db.db.execute(
+            "SELECT * FROM mca_media_analyses WHERE asset_id=? AND "
+            "access_scope=? AND analysis_schema_version=? AND "
+            "quality_profile=? AND status='no_text' ORDER BY id DESC "
+            "LIMIT 1", (str(asset_id), access_scope,
+                        ANALYSIS_SCHEMA_VERSION, QUALITY_PROFILE_DEFAULT))
+        row = await cur.fetchone()
+        if row is not None:
+            return dict(row)
+    except Exception:
+        logger.debug("[vision] no_text lookup failed", exc_info=True)
+        return None
+    if content_hash:
+        # ready-ветка уже проверена вызывающим — вернётся no_text или None.
+        return await find_reusable_analysis_by_content_hash(
+            db, content_hash, access_scope)
     return None
+
+
+async def find_reusable_analysis_by_content_hash(db, content_hash: str,
+                                                 access_scope: str
+                                                 ) -> dict | None:
+    """W2 (ASAP5 §13/§15): переиспользуемый исход по СОДЕРЖИМОМУ —
+    ready И no_text (D19: оба success-исхода; тот же контент получает то же
+    vision-представление без нового вызова). Та же область доступа (TH-5).
+    Никогда не бросает."""
+    if db is None or not content_hash:
+        return None
+    try:
+        ready = await db.find_ready_analysis_by_content_hash(
+            content_hash, access_scope,
+            quality_profile=QUALITY_PROFILE_DEFAULT)
+        if ready is not None:
+            return ready
+    except Exception:
+        logger.debug("[vision] ready-by-hash lookup failed", exc_info=True)
+    try:
+        cur = await db.db.execute(
+            "SELECT a.* FROM mca_media_analyses a JOIN mca_media_assets m "
+            "ON m.asset_id = a.asset_id WHERE m.content_hash=? AND "
+            "a.access_scope=? AND a.analysis_schema_version=? AND "
+            "a.quality_profile=? AND a.status='no_text' ORDER BY a.id "
+            "DESC LIMIT 1", (content_hash, access_scope,
+                             ANALYSIS_SCHEMA_VERSION,
+                             QUALITY_PROFILE_DEFAULT))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
+    except Exception:
+        logger.debug("[vision] no_text-by-hash lookup failed",
+                     exc_info=True)
+        return None
+
+
+# ── W2 (ASAP5 §12–§16): фактическое состояние гранулы — read-only ───────────
+# Единая точка честного терминала: потребители (тул, рендер) отличают
+# «ещё работает» от «завершилось и не будет результата», не создавая
+# нового сервиса состояний (§13: существующие durable-статусы).
+
+async def latest_asset_analysis(db, asset_id: str,
+                                access_scope: str) -> dict | None:
+    """Последняя analysis-строка гранулы (read-only). Никогда не бросает."""
+    if db is None or not asset_id:
+        return None
+    try:
+        cur = await db.db.execute(
+            "SELECT * FROM mca_media_analyses WHERE asset_id=? AND "
+            "access_scope=? AND analysis_schema_version=? AND "
+            "quality_profile=? ORDER BY id DESC LIMIT 1",
+            (str(asset_id), access_scope, ANALYSIS_SCHEMA_VERSION,
+             QUALITY_PROFILE_DEFAULT))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
+    except Exception:
+        logger.debug("[vision] latest analysis read failed", exc_info=True)
+        return None
+
+
+async def asset_active_job(db, asset_id: str) -> dict | None:
+    """Активная (queued/running) durable-джоба гранулы (read-only).
+    None — связанной живой задачи нет. Никогда не бросает."""
+    if db is None or not asset_id:
+        return None
+    try:
+        cur = await db.db.execute(
+            "SELECT * FROM task_jobs WHERE coalesce_key=? AND "
+            "status IN ('queued','running') ORDER BY created_at DESC, "
+            "job_id DESC LIMIT 1", (f"vision:asset:{asset_id}",))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
+    except Exception:
+        logger.debug("[vision] active job read failed", exc_info=True)
+        return None
+
+
+async def asset_terminal_job(db, asset_id: str) -> dict | None:
+    """Последняя терминальная джоба гранулы (read-only) — для честного
+    исхода, когда analysis-строки нет (OFF/asset lost/recovery)."""
+    if db is None or not asset_id:
+        return None
+    try:
+        cur = await db.db.execute(
+            "SELECT * FROM task_jobs WHERE coalesce_key=? AND "
+            "status IN ('failed','cancelled','interrupted') "
+            "ORDER BY COALESCE(finished_at, updated_at) DESC, job_id DESC "
+            "LIMIT 1", (f"vision:asset:{asset_id}",))
+        row = await cur.fetchone()
+        return dict(row) if row is not None else None
+    except Exception:
+        logger.debug("[vision] terminal job read failed", exc_info=True)
+        return None
+
+
+async def asset_vision_outcome(db, asset_id: str,
+                               access_scope: str) -> dict | None:
+    """Честный терминальный исход гранулы (§14/§16) или None — анализ ещё
+    возможен (живая задача с возможным retry / нет durable-данных).
+    Приоритет: analysis-строка → активная задача → терминальная джоба.
+    Никогда не бросает."""
+    if db is None or not asset_id:
+        return None
+    row = await latest_asset_analysis(db, asset_id, access_scope)
+    if row is not None:
+        status = str(row.get("status") or "")
+        if status in REUSABLE_ANALYSIS_STATUSES:
+            return None          # готовый результат отдаёт resolve_ready
+        if status in TERMINAL_ANALYSIS_STATUSES:
+            if await asset_active_job(db, asset_id) is not None:
+                return None      # retry запланирован — ожидание честно
+            return {"status": status,
+                    "reason": str(row.get("error_reason") or "")
+                    or _reason_by_status(status)}
+        return None              # pending/running — работа идёт
+    if await asset_active_job(db, asset_id) is not None:
+        return None
+    job = await asset_terminal_job(db, asset_id)
+    if job is None:
+        return None              # задач не было: постановка не выполнялась
+    return {"status": "job_terminal",
+            "reason": str(job.get("reason_code") or "") or "vision_failed"}
+
+
+# ToolResult-статусы из reason-кодов терминальных джоб (без analysis-строки):
+# существующий словарь reason (269), новые коды НЕ вводятся.
+_JOB_REASON_STATUS = {
+    "vision_disabled": "disabled",
+    "vision_missing_source": "missing",
+    "vision_unavailable": "unavailable",
+    "vision_rate_limited": "unavailable",
+    "vision_unsupported": "unsupported",
+    "vision_unreadable": "failed",
+    "vision_failed": "failed",
+}
+
+
+def terminal_tool_result(outcome: dict, *, asset_id: str, chat_id: int,
+                         tg_message_id: int) -> dict:
+    """ToolResult-контракт D22 из фактического терминального исхода (§14):
+    ни один терминал не выдаётся за pending; reason — существующий словарь."""
+    status = str(outcome.get("status") or "")
+    reason = str(outcome.get("reason") or "")
+    if status == "unsupported":
+        tool_status = "unsupported"
+    elif status == "unavailable":
+        tool_status = "unavailable"
+    elif status == "job_terminal":
+        tool_status = _JOB_REASON_STATUS.get(reason, "failed")
+    else:
+        tool_status = "failed"
+    return {"status": tool_status, "reason": reason or "vision_failed",
+            "asset_id": str(asset_id), "job_linked": False,
+            "message_key": f"{int(chat_id)}:{int(tg_message_id)}"}
 
 
 # ── Обработка durable-джобы: конвейер download→decode→vision→validate→
@@ -2465,13 +2657,13 @@ async def process_asset_job(job: dict, *, db=None, bot=None,
     # Кеш по СОДЕРЖИМОМУ (D19/A77): тот же content_hash в этой области
     # доступа → переиспользование БЕЗ vision-вызова (0 токенов). Проверка
     # после загрузки (hash вычислен) и ДО вызова модели.
+    # W2 (ASAP5 §13/§15): ready И no_text — оба success-исхода.
     scope = access_scope_for(chat_id)
     ready_by_hash = None
     if content_hash:
         try:
-            ready_by_hash = await db.find_ready_analysis_by_content_hash(
-                content_hash, scope,
-                quality_profile=QUALITY_PROFILE_DEFAULT)
+            ready_by_hash = await find_reusable_analysis_by_content_hash(
+                db, content_hash, scope)
         except Exception:
             ready_by_hash = None
     if ready_by_hash is not None:
@@ -3210,6 +3402,20 @@ async def backfill_sweep(db, bot, *, store=None, batch: int = BACKFILL_BATCH,
 OCR_LINE_LABEL = "Текст на изображении (OCR, не слова автора сообщения)"
 DESC_LABEL = "Визуальное описание (результат модели)"
 PENDING_LINE = "изображение, содержание ещё не распознано"
+# W2 (ASAP5 §13, состояние 6): no_text — успешный исход «текста нет»,
+# различимый от pending («анализа ещё нет») и от ошибки (§13: потребитель
+# не должен путать «нет анализа» и «на фото нет текста»).
+NO_TEXT_LINE = "текста на изображении не обнаружено (распознавание выполнено)"
+# W2 (ASAP5 §13/§14): терминальные неудачи — свои честные строки вместо
+# вечного «содержание ещё не распознано» (существующие статусы analysis).
+ANALYSIS_FAILURE_LINES = {
+    "unavailable": "распознавание не выполнено: провайдер недоступен",
+    "failed": "распознавание не удалось (ошибка обработки)",
+    "unreadable": ("изображение не удалось прочитать (файл повреждён или "
+                   "формат не читается)"),
+    "unsupported": "формат изображения не поддерживается распознаванием",
+    "job_terminal": "распознавание не удалось (ошибка обработки)",
+}
 RECONSTRUCTION_MARK = "нынешняя реконструкция"
 # ASAP5 §10: честная маркировка уровня «анализ превью» — превью (кадр-обложка)
 # НЕ выдаётся за полный просмотр видео, и видео с пригодным превью не
@@ -3368,6 +3574,15 @@ async def render_media_context_async(db, *, chat_id: int,
         is_video_preview = kind == ASSET_KIND_VIDEO_PREVIEW
         is_anim_preview = kind == ASSET_KIND_ANIMATION_PREVIEW
         if analysis is None:
+            # W2 (ASAP5 §13/§14): терминальная неудача гранулы — честная
+            # строка фактического исхода вместо вечного «ещё не распознано».
+            outcome = await asset_vision_outcome(
+                db, str(asset.get("asset_id") or ""), scope)
+            failure_line = ANALYSIS_FAILURE_LINES.get(
+                str(outcome.get("status") or "")) if outcome else None
+            if failure_line:
+                lines.append(failure_line)
+                continue
             if kind == ASSET_KIND_ANIMATION:
                 # D18: байты mp4/TGS/WebM — своим медиапайплайнам. Если в
                 # этом же блоке есть обложка (ASAP5 §10), представление даёт
@@ -3390,6 +3605,10 @@ async def render_media_context_async(db, *, chat_id: int,
             # §10: обложка анимации — честное визуальное представление без
             # заявки на понимание движения.
             lines.append(ANIMATION_PREVIEW_NOTE)
+        if analysis_from_row(analysis).status == "no_text":
+            # W2 (ASAP5 §13): успешный анализ без текста — явная строка,
+            # не молчание и не pending.
+            lines.append(NO_TEXT_LINE)
         analysis_revision = int(analysis.get("revision") or 0) \
             if analysis_revision is None else analysis_revision
         completed = int(analysis.get("completed_at") or 0)
@@ -3555,10 +3774,24 @@ async def runtime_snapshot(db=None, chat_id: int | None = None) -> dict:
     except Exception:
         snapshot["queue"] = None
     try:
-        cur = await db.db.execute(
-            "SELECT a.status, a.analyzer_model, a.completed_at, "
-            "a.error_reason, a.revision FROM mca_media_analyses a "
-            "ORDER BY a.id DESC LIMIT 1")
+        # W2 (ASAP5 §12, класс дефекта P0V «глобальное вместо per-chat»):
+        # на per-chat витрине «последний анализ» — строка ЭТОГО чата
+        # (join по активу), а не последняя строка любого чата; глобальный
+        # снапшот сохраняет прежнюю строку + честную атрибуцию
+        # (asset_id/chat_id, LEFT JOIN — строка без актива не теряется).
+        if chat_id is not None:
+            cur = await db.db.execute(
+                "SELECT a.status, a.analyzer_model, a.completed_at, "
+                "a.error_reason, a.revision, a.asset_id, m.chat_id "
+                "FROM mca_media_analyses a LEFT JOIN mca_media_assets m "
+                "ON m.asset_id = a.asset_id WHERE m.chat_id = ? "
+                "ORDER BY a.id DESC LIMIT 1", (int(chat_id),))
+        else:
+            cur = await db.db.execute(
+                "SELECT a.status, a.analyzer_model, a.completed_at, "
+                "a.error_reason, a.revision, a.asset_id, m.chat_id "
+                "FROM mca_media_analyses a LEFT JOIN mca_media_assets m "
+                "ON m.asset_id = a.asset_id ORDER BY a.id DESC LIMIT 1")
         row = await cur.fetchone()
         snapshot["last"] = (dict(row) if row is not None else None)
     except Exception:
@@ -3758,6 +3991,9 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
         result = {
             "status": "ready",
             "cache_hit": True,
+            # W2 (ASAP5 §13): no_text — успешный исход «текста нет»,
+            # различимый от «анализа ещё нет» (§13, состояние 6).
+            "no_text": str(ready.get("status") or "") == "no_text",
             "analysis_revision": int(ready.get("revision") or 1),
             "analysis_id": int(ready.get("id") or 0),
             "asset_id": asset_id,
@@ -3774,7 +4010,7 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
     # Нет готового: durable manual-джоба (singleflight по грануле актива) +
     # ограниченное ожидание ready; timeout → честный pending («посмотрю»).
     dedup = _trigger_seen(chat_id, asset_id, question)
-    store = _job_store() if dedup else None
+    enqueue_failed = False
     if not dedup:
         try:
             from services.task_supervisor import TaskJobStore
@@ -3794,6 +4030,20 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
                                  chat_id=chat_id, operation_id=asset_id)
         except Exception:
             logger.warning("[vision] manual enqueue failed", exc_info=True)
+            enqueue_failed = True
+    if enqueue_failed:
+        # W2 (ASAP5 §14): постановка не удалась — «распознавание идёт»
+        # можно говорить только при РЕАЛЬНО живой задаче (напр. auto-intake);
+        # иначе честный фактический исход, а не выдуманный pending.
+        outcome = await asset_vision_outcome(db, asset_id, scope)
+        if outcome is not None:
+            return terminal_tool_result(
+                outcome, asset_id=asset_id, chat_id=chat_id,
+                tg_message_id=int(asset.get("tg_message_id") or 0))
+        if await asset_active_job(db, asset_id) is None:
+            return {"status": "failed", "reason": "vision_failed",
+                    "asset_id": asset_id, "job_linked": False,
+                    "message_key": f"{chat_id}:{asset.get('tg_message_id')}"}
     deadline = time.monotonic() + max(0, int(wait_seconds))
     event = _register_waiter(asset_id)
     try:
@@ -3814,6 +4064,7 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
             if ready is not None:
                 return {
                     "status": "ready", "cache_hit": False,
+                    "no_text": str(ready.get("status") or "") == "no_text",
                     "analysis_revision": int(ready.get("revision") or 1),
                     "analysis_id": int(ready.get("id") or 0),
                     "asset_id": asset_id,
@@ -3824,6 +4075,14 @@ async def recognize_target(db, *, chat_id: int, reply_tg_id=None,
                         ready.get("visual_description") or ""),
                     "uncertainty": analysis_from_row(ready).uncertainty,
                 }
+            # W2 (ASAP5 §14/§16): терминальный исход гранулы (analysis-строка
+            # или джоба без живого retry) — честный ответ немедленно, не
+            # «бесконечное ожидание» уже умершей задачи.
+            outcome = await asset_vision_outcome(db, asset_id, scope)
+            if outcome is not None:
+                return terminal_tool_result(
+                    outcome, asset_id=asset_id, chat_id=chat_id,
+                    tg_message_id=int(asset.get("tg_message_id") or 0))
             # Событийное ожидание (D23): wake по завершении job; bounded
             # общий лимит; без LLM-опросов.
             try:

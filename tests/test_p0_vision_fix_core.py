@@ -2063,3 +2063,406 @@ async def test_asap5_bot_text_message_not_intake_not_saved(tmp_path):
         assert await db.get_media_assets_for_message(CHAT, 885) == []
     finally:
         await db.close()
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# ASAP5 §12–§17 (wave W2, slice ASAP5-VISION): актуальное состояние Vision —
+# честный статус на каждой поверхности (тул/рендер/снапшот), различимые
+# состояния (no_text ≠ «нет анализа» ≠ ошибка), pending только при живой
+# задаче, терминальные исходы наблюдаемы, никаких выдуманных обещаний.
+# TEST-LIFECYCLE: CONTRACT owner=ASAP5-VISION (states/снапшот/схема тул-описания)
+# TEST-LIFECYCLE: REGRESSION owner=ASAP5-VISION (no_text reusable;
+#                  enqueue-failure honesty; terminal-during-wait race)
+# TEST-LIFECYCLE: INTEGRATION owner=ASAP5-VISION (intake→job→render→tool
+#                  сквозные сценарии §15/§16)
+# ════════════════════════════════════════════════════════════════════════════
+
+_NO_TEXT_BODY = {"choices": [{"message": {"content": json.dumps({
+    "ocr_blocks": [], "visual_description": "",
+    "uncertainty": [], "self_reported_confidence": 0.9})}}],
+    "usage": {"prompt_tokens": 4, "completion_tokens": 2}}
+
+
+async def _w2_process(db, tg_id, serial, transport, *, bot=None):
+    """Стандартный прогон одной джобы: intake → enqueue → claim → process.
+    Джоба выбирается строго по грануле актива (не «первая в чате»)."""
+    import json as _json
+    msg = _photo_message(tg_id=tg_id, serial=serial)
+    assets = await mca_vision.register_intake_assets(db, msg)
+    assert assets
+    await mca_vision.enqueue_intake_jobs(db, msg, assets)
+    queued = [j for j in await _active_vision(db, "queued")
+              if str(_json.loads(j.get("payload") or "{}").get(
+                  "asset_id") or "") == assets[0]]
+    assert queued
+    job = await _claimed_job(db, queued[0]["job_id"])
+    await mca_vision.process_asset_job(
+        job, db=db, bot=bot or _FakeBot({f"fid_{serial}": make_png()}),
+        transport=transport)
+    return assets[0]
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_no_text_is_not_pending(tmp_path):
+    """CONTRACT (ASAP5 §13/§14): no_text — УСПЕШНЫЙ исход «текста нет».
+    Потребитель (рендер/тул) не имеет права показывать вечное «ещё не
+    распознано» или добиваться ожиданием готовый анализ. До W2:
+    get_ready_analysis читал только status='ready' → no_text-гранула
+    выглядела pending вечно (дефект §14 «задача готова, а считается
+    выполняющейся»)."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        asset_id = await _w2_process(db, 901, serial=1,
+                                     transport=Transport(
+                                         default=(200, _NO_TEXT_BODY)))
+        scope = mca_vision.access_scope_for(CHAT)
+        # сервисный контракт (единая точка чтения): no_text — reusable
+        assets_now = await db.get_media_assets_for_message(CHAT, 901)
+        row = await mca_vision.resolve_ready_for_asset(db, assets_now[0],
+                                                       scope)
+        assert row is not None and row["status"] == "no_text"
+        # DB-хелпер читает только 'ready'; no_text-дочитка — сервисный слой
+        assert await db.get_ready_analysis(asset_id, scope) is None
+        # рендер: честная строка «текста нет», НЕ pending
+        from services import message_identity
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="photo", author_name="Sergey", tg_message_id=901)
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=901)
+        assert rendered is not None
+        assert mca_vision.NO_TEXT_LINE in rendered["lines"]
+        assert mca_vision.PENDING_LINE not in rendered["lines"]
+        assert rendered["knowledge_time"] is not None
+        # тул-путь: готовый no_text — ready+no_text, НЕ pending и не wait-drain
+        mca_vision._PENDING_TRIGGERS.clear()
+        res = await mca_vision.recognize_target(
+            db, chat_id=CHAT, reply_tg_id=901, wait_seconds=0)
+        assert res["status"] == "ready"
+        assert res.get("no_text") is True
+        assert res["asset_id"] == asset_id
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_no_text_hash_reuse_same_bytes(tmp_path):
+    """CONTRACT (ASAP5 §13/§15): тот же контент (content_hash) в другом
+    сообщении получает ТОТ ЖЕ результат без нового провайдер-вызова —
+    no_text тоже переиспользуемый исход (D19)."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        png = make_png(21, 21)
+        bot = _FakeBot({"fid_1": png, "fid_2": png})   # те же байты
+        await _w2_process(db, 911, serial=1,
+                          transport=Transport(default=(200, _NO_TEXT_BODY)),
+                          bot=bot)
+        t2 = Transport(default=(200, _NO_TEXT_BODY))
+        await _w2_process(db, 912, serial=2, transport=t2, bot=bot)
+        assert t2.calls == []              # хит по content_hash, 0 вызовов
+        scope = mca_vision.access_scope_for(CHAT)
+        for tg in (911, 912):
+            assets = await db.get_media_assets_for_message(CHAT, tg)
+            row = await mca_vision.resolve_ready_for_asset(db, assets[0],
+                                                           scope)
+            assert row is not None and row["status"] == "no_text"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_enqueue_failure_honest_no_fake_pending(tmp_path):
+    """CONTRACT (ASAP5 §14): если постановка задачи завершилась ошибкой,
+    нельзя сообщать «распознавание идёт», не подтвердив существование
+    задания. Нет живой задачи → честный failed (job_linked=False); живая
+    задача существует (напр. auto-intake) → pending остаётся честным."""
+    from services.task_supervisor import TaskJobStore
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        await mca_vision.register_intake_assets(
+            db, _photo_message(tg_id=921, serial=1))
+        mca_vision._PENDING_TRIGGERS.clear()
+
+        async def _boom(self, **kwargs):
+            raise RuntimeError("store down")
+
+        monkey = getattr(db, "_w2_monkey", None)
+        # monkeypatch на уровне метода класса — recognize_target строит
+        # TaskJobStore(db) внутри вызова.
+        saved = TaskJobStore.enqueue
+        TaskJobStore.enqueue = _boom
+        try:
+            # (A) задач нет вообще → failed, не «идёт работа»
+            res = await mca_vision.recognize_target(
+                db, chat_id=CHAT, reply_tg_id=921, wait_seconds=0)
+            assert res["status"] == "failed"
+            assert res["reason"] == "vision_failed"
+            assert res.get("job_linked") is False
+        finally:
+            TaskJobStore.enqueue = saved
+        # (B) живая auto-intake задача существует → pending честен
+        msg = _photo_message(tg_id=922, serial=2)
+        assets2 = await mca_vision.register_intake_assets(db, msg)
+        await mca_vision.enqueue_intake_jobs(db, msg, assets2)
+        mca_vision._PENDING_TRIGGERS.clear()
+        TaskJobStore.enqueue = _boom
+        try:
+            res = await mca_vision.recognize_target(
+                db, chat_id=CHAT, reply_tg_id=922, wait_seconds=0)
+            assert res["status"] == "pending"
+            assert res.get("job_linked") is True
+        finally:
+            TaskJobStore.enqueue = saved
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_terminal_failure_observed_not_drained(tmp_path):
+    """CONTRACT/RACE (ASAP5 §14/§16): обработка завершилась неудачей
+    терминально (retry не запланирован) → повторный вопрос того же триггера
+    (dedup, без новой джобы) получает честный терминальный исход немедленно,
+    а не бюджет ожидания с «вечным pending». Новый триггер (другой вопрос)
+    честно ставит bounded-retry → pending при живой задаче."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        msg = _photo_message(tg_id=931, serial=1)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)
+        queued = await _active_vision(db, "queued")
+        job = await _claimed_job(db, queued[0]["job_id"])
+        # non-retryable терминал: vision_failed (http_500)
+        t = Transport(script=[(500, _err("boom", "500")),
+                              (500, _err("boom", "500"))])
+        await mca_vision.process_asset_job(job, db=db,
+                                           bot=_FakeBot({"fid_1":
+                                                         make_png()}),
+                                           transport=t)
+        store = await _store(db)
+        assert (await store.get(job["job_id"]))["status"] == "failed"
+        # повтор вопроса → dedup → без новой джобы → терминал сразу
+        mca_vision._PENDING_TRIGGERS.clear()
+        mca_vision._trigger_seen(CHAT, assets[0], "")
+        started = time.monotonic()
+        res = await mca_vision.recognize_target(
+            db, chat_id=CHAT, reply_tg_id=931, wait_seconds=6)
+        elapsed = time.monotonic() - started
+        assert res["status"] == "failed"
+        assert res["reason"] == "vision_failed"
+        assert res.get("job_linked") is False
+        assert elapsed < 5.0        # не ждёт весь бюджет ожидания
+        # новый вопрос → bounded manual-retry ставится → честный pending
+        mca_vision._PENDING_TRIGGERS.clear()
+        res2 = await mca_vision.recognize_target(
+            db, chat_id=CHAT, reply_tg_id=931, question="что тут?",
+            wait_seconds=0)
+        assert res2["status"] == "pending"
+        assert res2.get("job_linked") is True
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_failure_during_wait_is_reported(tmp_path):
+    """INTEGRATION/RACE (ASAP5 §16): Vision падает, ПОКА тул-путь ждёт
+    готовность → wait-цикл видит фактический терминал (event + durable
+    исход) и отвечает честным failed до истечения бюджета."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        msg = _photo_message(tg_id=941, serial=1)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)
+        queued = await _active_vision(db, "queued")
+        store = await _store(db)
+        jid = queued[0]["job_id"]
+        mca_vision._PENDING_TRIGGERS.clear()
+        # помечаем триггер: recognize_target НЕ ставит вторую джобу
+        # (singleflight того же вопроса), а ждёт связанную
+        mca_vision._trigger_seen(CHAT, assets[0], "")
+        t = Transport(script=[(500, _err("boom", "500"))],
+                      default=(500, _err("boom", "500")))
+
+        async def _run_and_fail():
+            job = await _claimed_job(db, jid)
+            await mca_vision.process_asset_job(
+                job, db=db, bot=_FakeBot({"fid_1": make_png()}),
+                transport=t)
+
+        runner = asyncio.create_task(_run_and_fail())
+        try:
+            res = await mca_vision.recognize_target(
+                db, chat_id=CHAT, reply_tg_id=941, wait_seconds=10)
+        finally:
+            await runner
+        assert res["status"] == "failed"
+        assert res["reason"] == "vision_failed"
+        assert (await store.get(jid))["status"] == "failed"
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_render_failure_lines_distinct_from_pending(tmp_path):
+    """CONTRACT (ASAP5 §13): терминальные состояния различимы в рендере:
+    failed/unavailable — свои честные строки; выполняющаяся задача —
+    прежний pending (регрессия поведения «идёт работа»)."""
+    from services import message_identity
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="photo", author_name="Sergey", tg_message_id=951)
+        await message_identity.save_live_message(
+            db, chat_id=CHAT, user_id=42, text=None, caption=None,
+            timestamp=1760000000, sent_at=1760000000, ingested_at=1760000000,
+            media_type="photo", author_name="Sergey", tg_message_id=952)
+        # (1) in-flight: только джоба — pending остаётся (регрессия)
+        msg = _photo_message(tg_id=951, serial=1)
+        await mca_vision.register_intake_assets(db, msg)
+        await mca_vision.enqueue_intake_jobs(db, msg, await
+                                             db.get_media_assets_for_message(
+                                                 CHAT, 951))
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=951)
+        assert rendered is not None
+        assert mca_vision.PENDING_LINE in rendered["lines"]
+        # (2) терминальный failed: http_500 → своя строка, НЕ pending
+        await _w2_process(db, 952, serial=2,
+                          transport=Transport(default=(500,
+                                                       _err("boom",
+                                                            "500"))))
+        rendered = await mca_vision.render_media_context_async(
+            db, chat_id=CHAT, tg_message_id=952)
+        assert rendered is not None
+        assert (mca_vision.ANALYSIS_FAILURE_LINES["failed"]
+                in rendered["lines"])
+        assert mca_vision.PENDING_LINE not in rendered["lines"]
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_coalesce_singleflight_no_double_recognition(tmp_path):
+    """INTEGRATION (ASAP5 §16): повторная постановка того же актива не
+    создаёт вторую активную задачу (coalesce singleflight); повтор после
+    завершения отдаёт готовый результат БЕЗ нового vision-вызова."""
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        _cap_ok()
+        msg = _photo_message(tg_id=961, serial=1)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)   # дубль
+        active = await _active_vision(db)
+        assert len(active) == 1                 # singleflight по грануле
+        t = Transport(default=(200, ASYNC_ANALYSIS_BODY))
+        job = await _claimed_job(db, active[0]["job_id"])
+        await mca_vision.process_asset_job(job, db=db,
+                                           bot=_FakeBot({"fid_1":
+                                                         make_png()}),
+                                           transport=t)
+        assert len(t.calls) == 1                # ровно один vision-вызов
+        # повтор той же джобы после завершения: кеш гранулы, без вызова
+        t2 = Transport(default=(200, ASYNC_ANALYSIS_BODY))
+        store = await _store(db)
+        assert (await store.get(job["job_id"]))["status"] == "completed"
+        # повторная постановка после терминала → новая джоба, кеш → 0 вызовов
+        await mca_vision.enqueue_intake_jobs(db, msg, assets)
+        queued2 = await _active_vision(db, "queued")
+        assert len(queued2) == 1
+        job2 = await _claimed_job(db, queued2[0]["job_id"])
+        await mca_vision.process_asset_job(job2, db=db,
+                                           bot=_FakeBot({"fid_1":
+                                                         make_png()}),
+                                           transport=t2)
+        assert t2.calls == []                   # готовый анализ переиспользован
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_asap5_w2_snapshot_last_is_per_chat(tmp_path):
+    """CONTRACT (ASAP5 §12, класс дефекта P0V): «последний анализ» на
+    per-chat витрине — анализ ЭТОГО чата, а не глобально последняя строка
+    другого чата. Глобальный снапшот сохраняет прежнюю строку + честную
+    атрибуцию (asset_id/chat_id)."""
+    from aiogram.types import Chat as _Chat
+    import datetime as _dt
+
+    def _msg(chat_id, tg_id, serial):
+        from aiogram.types import Message, PhotoSize, User
+        return Message(
+            message_id=tg_id,
+            date=_dt.datetime(2026, 10, 26, 12, 0, 0, tzinfo=_dt.timezone.utc),
+            chat=_Chat(id=chat_id, type="supergroup", title="T"),
+            from_user=User(id=42, is_bot=False, first_name="Sergey"),
+            photo=[PhotoSize(file_id=f"fid_{serial}",
+                             file_unique_id=f"uniq_{serial}",
+                             width=800, height=600, file_size=12345)])
+
+    async def _analyze(db, chat_id, tg_id, serial, status, reason=None):
+        msg = _msg(chat_id, tg_id, serial)
+        assets = await mca_vision.register_intake_assets(db, msg)
+        rec = {
+            "asset_id": assets[0],
+            "access_scope": mca_vision.access_scope_for(chat_id),
+            "analysis_schema_version": mca_vision.ANALYSIS_SCHEMA_VERSION,
+            "analyzer_provider": "main", "analyzer_model": "m",
+            "analyzer_config_revision": None,
+            "prompt_version": mca_vision.PROMPT_VERSION,
+            "quality_profile": mca_vision.QUALITY_PROFILE_DEFAULT,
+            "status": "running", "config_revision": None, "revision": 1,
+        }
+        aid = await db.record_media_analysis(rec)
+        assert await db.finish_media_analysis(
+            aid, expected_revision=1, status=status, error_reason=reason)
+        return assets[0]
+
+    CHAT_A = -1005550002
+    CHAT_B = -1005550003
+    db = await _fresh_db(tmp_path)
+    try:
+        mca_vision.bind_runtime(db)
+        await _analyze(db, CHAT_A, 971, 1, "ready")
+        await _analyze(db, CHAT_B, 972, 2, "failed",
+                       reason="vision_failed")
+        snap_a = await mca_vision.runtime_snapshot(db, chat_id=CHAT_A)
+        snap_b = await mca_vision.runtime_snapshot(db, chat_id=CHAT_B)
+        glob = await mca_vision.runtime_snapshot(db)
+        assert snap_a["last"]["status"] == "ready"       # свой чат, не чужой
+        assert snap_b["last"]["status"] == "failed"
+        assert glob["last"]["status"] == "failed"        # последняя глобально
+        assert "chat_id" in glob["last"] and "asset_id" in glob["last"]
+    finally:
+        await db.close()
+
+
+def test_asap5_w2_tool_schema_no_false_promises():
+    """CONTRACT (ASAP5 §17): описание recognize_image не подталкивает LLM
+    к обещаниям, которые код не исполняет: нет самостоятельной отправки
+    результата позднее и выдуманного времени; pending = «ещё обрабатывается»,
+    no_text = «анализ выполнен, текста нет», unavailable/failed — фактическая
+    причина, а не «не умею смотреть картинки»."""
+    from services.tool_schemas import TOOL_RECOGNIZE_IMAGE
+    desc = TOOL_RECOGNIZE_IMAGE["function"]["description"]
+    assert "say you are going to look" not in desc       # было: приглашение
+    assert "never claim you already saw it" in desc      # канон сохранён
+    assert "never promise" in desc
+    assert "no_text" in desc
+    assert "unavailable" in desc and "failed" in desc
+    assert "disabled" in desc
