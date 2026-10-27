@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/asap5-multimodal/source-2026-10-26-excerpt.md",
   "source_sha256": "e8cb2b1ed3b96721b6d19d47e970410b3c9a0e5c121fc21f423c0fcf887604a8",
-  "candidate_commit": "",
+  "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
@@ -2115,8 +2115,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00502",
@@ -2132,8 +2141,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00504",
@@ -2149,8 +2167,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00506",
@@ -2166,8 +2193,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00508",
@@ -2183,8 +2219,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00510",
@@ -2200,8 +2245,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00512",
@@ -2217,8 +2271,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00514",
@@ -2234,8 +2297,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00516",
@@ -2251,8 +2323,17 @@
       "dup_of": "capability_registry.py/direct_capabilities.py/media_execution.py/postgen_vision существуют; генерация проверена релизами p0-vision-universal 2.58.91/94/95 (scenario-5-generate, g0-generation-ready, p4b-generation)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §1/§2; tests/test_asap5_image_admin.py::test_image_edit_capability_ready_from_real_sources + test_edit_unsupported_does_not_disable_generation + test_edit_unknown_capability_stays_honest + test_capability_view_lists_edit_separately + test_capability_tools_map_includes_edit + test_active_tools_gate_edit_with_image_module",
+          "observation": "Различия распознавание/генерация/редактирование доходят до Writer из СУЩЕСТВУЮЩИХ источников: capability_registry получил отдельную способность image_edit (реальные источники: модуль/ключ/модель/квота + provider edit-capability из image_capabilities без сети: yes→ready, no→unsupported, unknown→not_configured с reason edit_capability_unknown — поддержка НЕ выдумывается); direct_capabilities.CAPABILITY_TOOLS + response_extent.CAPABILITY_TOOLS дополнены image_edit→edit_image; анонс инструмента гейтится тем же модулем изображений. Недоступность одной операции не означает недоступности остальных: edit unsupported при generate ready — проверено тестом. Новая система возможностей НЕ создана.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00520",
@@ -2268,8 +2349,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §3 (root cause + fix); tests/test_asap5_image_admin.py::test_generation_success_strips_stale_inability_claim (RED→GREEN) + test_failed_generation_keeps_notice_honestly + test_strip_stale_notices_removes_only_target_capability + test_sync_claim_ignores_failed_tool_output; notice_block §19-формулировка",
+          "observation": "ROOT CAUSE (§19 источника, установлен на фактическом пути L1 → Capability Registry → ToolRouter → Media Execution → ToolResult → Writer): <capability_notice> инжектится в контекст Writer'а на момент планирования хода по состоянию реестра, при этом инструмент generate_image остаётся анонсирован и может успешно исполниться позже в этом же ходе (транзиентный провайдер восстанавливается в окне outcome-cooldown 120 c). Устаревшая инструкция «объясни отказ» рядом с подтверждённой отправкой — противоречивые инструкции + игнорирование ToolResult + устаревшая информация в контексте: Writer пишет «не умею рисовать» при фактически отправленном изображении, а в следующем ходе повторяет отрицание (своего фото в текстовой истории нет — прежний дизайн). FIX (не формулировкой): после фактического успеха media-инструмента (generate_image/edit_image) устаревшие capability-notice этой capability выветриваются из модельного контекста (deepcopy цикла, оригинал не тронут) — заявление синхронно с ToolResult; заметка в notice_block про фактический результат — defense-in-depth. Успех снимает пометку, неуспех сохраняет честный отказ. RED: 27/29 новых тестов падают на базе ad239f73.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00522",
@@ -2285,8 +2375,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §3 (root cause + fix); tests/test_asap5_image_admin.py::test_generation_success_strips_stale_inability_claim (RED→GREEN) + test_failed_generation_keeps_notice_honestly + test_strip_stale_notices_removes_only_target_capability + test_sync_claim_ignores_failed_tool_output; notice_block §19-формулировка",
+          "observation": "ROOT CAUSE (§19 источника, установлен на фактическом пути L1 → Capability Registry → ToolRouter → Media Execution → ToolResult → Writer): <capability_notice> инжектится в контекст Writer'а на момент планирования хода по состоянию реестра, при этом инструмент generate_image остаётся анонсирован и может успешно исполниться позже в этом же ходе (транзиентный провайдер восстанавливается в окне outcome-cooldown 120 c). Устаревшая инструкция «объясни отказ» рядом с подтверждённой отправкой — противоречивые инструкции + игнорирование ToolResult + устаревшая информация в контексте: Writer пишет «не умею рисовать» при фактически отправленном изображении, а в следующем ходе повторяет отрицание (своего фото в текстовой истории нет — прежний дизайн). FIX (не формулировкой): после фактического успеха media-инструмента (generate_image/edit_image) устаревшие capability-notice этой capability выветриваются из модельного контекста (deepcopy цикла, оригинал не тронут) — заявление синхронно с ToolResult; заметка в notice_block про фактический результат — defense-in-depth. Успех снимает пометку, неуспех сохраняет честный отказ. RED: 27/29 новых тестов падают на базе ad239f73.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00524",
@@ -2302,8 +2401,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §3 (root cause + fix); tests/test_asap5_image_admin.py::test_generation_success_strips_stale_inability_claim (RED→GREEN) + test_failed_generation_keeps_notice_honestly + test_strip_stale_notices_removes_only_target_capability + test_sync_claim_ignores_failed_tool_output; notice_block §19-формулировка",
+          "observation": "ROOT CAUSE (§19 источника, установлен на фактическом пути L1 → Capability Registry → ToolRouter → Media Execution → ToolResult → Writer): <capability_notice> инжектится в контекст Writer'а на момент планирования хода по состоянию реестра, при этом инструмент generate_image остаётся анонсирован и может успешно исполниться позже в этом же ходе (транзиентный провайдер восстанавливается в окне outcome-cooldown 120 c). Устаревшая инструкция «объясни отказ» рядом с подтверждённой отправкой — противоречивые инструкции + игнорирование ToolResult + устаревшая информация в контексте: Writer пишет «не умею рисовать» при фактически отправленном изображении, а в следующем ходе повторяет отрицание (своего фото в текстовой истории нет — прежний дизайн). FIX (не формулировкой): после фактического успеха media-инструмента (generate_image/edit_image) устаревшие capability-notice этой capability выветриваются из модельного контекста (deepcopy цикла, оригинал не тронут) — заявление синхронно с ToolResult; заметка в notice_block про фактический результат — defense-in-depth. Успех снимает пометку, неуспех сохраняет честный отказ. RED: 27/29 новых тестов падают на базе ad239f73.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00526",
@@ -2319,8 +2427,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §3 (root cause + fix); tests/test_asap5_image_admin.py::test_generation_success_strips_stale_inability_claim (RED→GREEN) + test_failed_generation_keeps_notice_honestly + test_strip_stale_notices_removes_only_target_capability + test_sync_claim_ignores_failed_tool_output; notice_block §19-формулировка",
+          "observation": "ROOT CAUSE (§19 источника, установлен на фактическом пути L1 → Capability Registry → ToolRouter → Media Execution → ToolResult → Writer): <capability_notice> инжектится в контекст Writer'а на момент планирования хода по состоянию реестра, при этом инструмент generate_image остаётся анонсирован и может успешно исполниться позже в этом же ходе (транзиентный провайдер восстанавливается в окне outcome-cooldown 120 c). Устаревшая инструкция «объясни отказ» рядом с подтверждённой отправкой — противоречивые инструкции + игнорирование ToolResult + устаревшая информация в контексте: Writer пишет «не умею рисовать» при фактически отправленном изображении, а в следующем ходе повторяет отрицание (своего фото в текстовой истории нет — прежний дизайн). FIX (не формулировкой): после фактического успеха media-инструмента (generate_image/edit_image) устаревшие capability-notice этой capability выветриваются из модельного контекста (deepcopy цикла, оригинал не тронут) — заявление синхронно с ToolResult; заметка в notice_block про фактический результат — defense-in-depth. Успех снимает пометку, неуспех сохраняет честный отказ. RED: 27/29 новых тестов падают на базе ad239f73.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00528",
@@ -2336,8 +2453,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §3 (root cause + fix); tests/test_asap5_image_admin.py::test_generation_success_strips_stale_inability_claim (RED→GREEN) + test_failed_generation_keeps_notice_honestly + test_strip_stale_notices_removes_only_target_capability + test_sync_claim_ignores_failed_tool_output; notice_block §19-формулировка",
+          "observation": "ROOT CAUSE (§19 источника, установлен на фактическом пути L1 → Capability Registry → ToolRouter → Media Execution → ToolResult → Writer): <capability_notice> инжектится в контекст Writer'а на момент планирования хода по состоянию реестра, при этом инструмент generate_image остаётся анонсирован и может успешно исполниться позже в этом же ходе (транзиентный провайдер восстанавливается в окне outcome-cooldown 120 c). Устаревшая инструкция «объясни отказ» рядом с подтверждённой отправкой — противоречивые инструкции + игнорирование ToolResult + устаревшая информация в контексте: Writer пишет «не умею рисовать» при фактически отправленном изображении, а в следующем ходе повторяет отрицание (своего фото в текстовой истории нет — прежний дизайн). FIX (не формулировкой): после фактического успеха media-инструмента (generate_image/edit_image) устаревшие capability-notice этой capability выветриваются из модельного контекста (deepcopy цикла, оригинал не тронут) — заявление синхронно с ToolResult; заметка в notice_block про фактический результат — defense-in-depth. Успех снимает пометку, неуспех сохраняет честный отказ. RED: 27/29 новых тестов падают на базе ad239f73.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00540",
@@ -2353,8 +2479,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "FAILED",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §3 (root cause + fix); tests/test_asap5_image_admin.py::test_generation_success_strips_stale_inability_claim (RED→GREEN) + test_failed_generation_keeps_notice_honestly + test_strip_stale_notices_removes_only_target_capability + test_sync_claim_ignores_failed_tool_output; notice_block §19-формулировка",
+          "observation": "ROOT CAUSE (§19 источника, установлен на фактическом пути L1 → Capability Registry → ToolRouter → Media Execution → ToolResult → Writer): <capability_notice> инжектится в контекст Writer'а на момент планирования хода по состоянию реестра, при этом инструмент generate_image остаётся анонсирован и может успешно исполниться позже в этом же ходе (транзиентный провайдер восстанавливается в окне outcome-cooldown 120 c). Устаревшая инструкция «объясни отказ» рядом с подтверждённой отправкой — противоречивые инструкции + игнорирование ToolResult + устаревшая информация в контексте: Writer пишет «не умею рисовать» при фактически отправленном изображении, а в следующем ходе повторяет отрицание (своего фото в текстовой истории нет — прежний дизайн). FIX (не формулировкой): после фактического успеха media-инструмента (generate_image/edit_image) устаревшие capability-notice этой capability выветриваются из модельного контекста (deepcopy цикла, оригинал не тронут) — заявление синхронно с ToolResult; заметка в notice_block про фактический результат — defense-in-depth. Успех снимает пометку, неуспех сохраняет честный отказ. RED: 27/29 новых тестов падают на базе ad239f73.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00544",
@@ -2370,8 +2505,17 @@
       "dup_of": "media_execution.py: интерфейс submit_edit существует (строка 374); прямых вызовов из Direct Chat не найдено (проверка кода 2026-10-27) — соединение отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §4; tests/test_asap5_image_admin.py::test_edit_intent_detected_and_distinct_from_create + test_edit_intent_is_not_create_actionable + test_negated_edit_is_not_actionable + test_create_regressions_stay_create + test_edit_image_dispatch_routes_to_submit_edit + test_edit_image_without_source_is_honest_error_no_generation + test_edit_image_model_without_edit_capability_honest + test_edit_image_failure_is_not_reported_as_success + test_tool_canon_15_edit_image_at_tail",
+          "observation": "Реальный маршрут Direct Chat подключён к СУЩЕСТВУЮЩЕМУ media_execution.submit_edit через существующий инструментальный путь: инструмент edit_image (канон 15, в хвост, первые 14 байт-в-байт) → tool_router._edit_image → detect_adapter().submit_edit → cover_style_edit.edit_image (единая точка edit-исполнения; второй редактор/набор провайдеров не созданы). Изменение исходника ≠ создание нового: генерация в edit-пути не вызывается, edit-интент не actionable для пре-гейта генерации (veto проверен runtime-чеком), capability image_edit выбирает операцию (unsupported модель → честный отказ, не генерация). Reply определяет исходник (target/reply_to → реестр mca_media_assets, скачивание существующим download_telegram_file); доступ к предыдущему результату генерации сохранён (бот-медиа в реестре — шов W1 §7.1); результат связан с исходным запросом (reply_to + source в полезной нагрузке); без исходника — честный no_source_image (никакой генерации «вместо»); ошибка не выдаётся за успех (submit_edit ok=False → error, отправки нет, исход RESULT_FAILED в реестре); повтор не создаёт дубликат в ходе (image_request_handled); доставка и fallback/retry — существующие (telegram_send.send_photo; штатные окна политики edit).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00546",
@@ -2387,8 +2531,17 @@
       "dup_of": "media_execution.py: интерфейс submit_edit существует (строка 374); прямых вызовов из Direct Chat не найдено (проверка кода 2026-10-27) — соединение отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §4; tests/test_asap5_image_admin.py::test_edit_intent_detected_and_distinct_from_create + test_edit_intent_is_not_create_actionable + test_negated_edit_is_not_actionable + test_create_regressions_stay_create + test_edit_image_dispatch_routes_to_submit_edit + test_edit_image_without_source_is_honest_error_no_generation + test_edit_image_model_without_edit_capability_honest + test_edit_image_failure_is_not_reported_as_success + test_tool_canon_15_edit_image_at_tail",
+          "observation": "Реальный маршрут Direct Chat подключён к СУЩЕСТВУЮЩЕМУ media_execution.submit_edit через существующий инструментальный путь: инструмент edit_image (канон 15, в хвост, первые 14 байт-в-байт) → tool_router._edit_image → detect_adapter().submit_edit → cover_style_edit.edit_image (единая точка edit-исполнения; второй редактор/набор провайдеров не созданы). Изменение исходника ≠ создание нового: генерация в edit-пути не вызывается, edit-интент не actionable для пре-гейта генерации (veto проверен runtime-чеком), capability image_edit выбирает операцию (unsupported модель → честный отказ, не генерация). Reply определяет исходник (target/reply_to → реестр mca_media_assets, скачивание существующим download_telegram_file); доступ к предыдущему результату генерации сохранён (бот-медиа в реестре — шов W1 §7.1); результат связан с исходным запросом (reply_to + source в полезной нагрузке); без исходника — честный no_source_image (никакой генерации «вместо»); ошибка не выдаётся за успех (submit_edit ok=False → error, отправки нет, исход RESULT_FAILED в реестре); повтор не создаёт дубликат в ходе (image_request_handled); доставка и fallback/retry — существующие (telegram_send.send_photo; штатные окна политики edit).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00548",
@@ -2404,8 +2557,17 @@
       "dup_of": "media_execution.py: интерфейс submit_edit существует (строка 374); прямых вызовов из Direct Chat не найдено (проверка кода 2026-10-27) — соединение отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §4; tests/test_asap5_image_admin.py::test_edit_intent_detected_and_distinct_from_create + test_edit_intent_is_not_create_actionable + test_negated_edit_is_not_actionable + test_create_regressions_stay_create + test_edit_image_dispatch_routes_to_submit_edit + test_edit_image_without_source_is_honest_error_no_generation + test_edit_image_model_without_edit_capability_honest + test_edit_image_failure_is_not_reported_as_success + test_tool_canon_15_edit_image_at_tail",
+          "observation": "Реальный маршрут Direct Chat подключён к СУЩЕСТВУЮЩЕМУ media_execution.submit_edit через существующий инструментальный путь: инструмент edit_image (канон 15, в хвост, первые 14 байт-в-байт) → tool_router._edit_image → detect_adapter().submit_edit → cover_style_edit.edit_image (единая точка edit-исполнения; второй редактор/набор провайдеров не созданы). Изменение исходника ≠ создание нового: генерация в edit-пути не вызывается, edit-интент не actionable для пре-гейта генерации (veto проверен runtime-чеком), capability image_edit выбирает операцию (unsupported модель → честный отказ, не генерация). Reply определяет исходник (target/reply_to → реестр mca_media_assets, скачивание существующим download_telegram_file); доступ к предыдущему результату генерации сохранён (бот-медиа в реестре — шов W1 §7.1); результат связан с исходным запросом (reply_to + source в полезной нагрузке); без исходника — честный no_source_image (никакой генерации «вместо»); ошибка не выдаётся за успех (submit_edit ok=False → error, отправки нет, исход RESULT_FAILED в реестре); повтор не создаёт дубликат в ходе (image_request_handled); доставка и fallback/retry — существующие (telegram_send.send_photo; штатные окна политики edit).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00550",
@@ -2421,8 +2583,17 @@
       "dup_of": "media_execution.py: интерфейс submit_edit существует (строка 374); прямых вызовов из Direct Chat не найдено (проверка кода 2026-10-27) — соединение отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §4; tests/test_asap5_image_admin.py::test_edit_intent_detected_and_distinct_from_create + test_edit_intent_is_not_create_actionable + test_negated_edit_is_not_actionable + test_create_regressions_stay_create + test_edit_image_dispatch_routes_to_submit_edit + test_edit_image_without_source_is_honest_error_no_generation + test_edit_image_model_without_edit_capability_honest + test_edit_image_failure_is_not_reported_as_success + test_tool_canon_15_edit_image_at_tail",
+          "observation": "Реальный маршрут Direct Chat подключён к СУЩЕСТВУЮЩЕМУ media_execution.submit_edit через существующий инструментальный путь: инструмент edit_image (канон 15, в хвост, первые 14 байт-в-байт) → tool_router._edit_image → detect_adapter().submit_edit → cover_style_edit.edit_image (единая точка edit-исполнения; второй редактор/набор провайдеров не созданы). Изменение исходника ≠ создание нового: генерация в edit-пути не вызывается, edit-интент не actionable для пре-гейта генерации (veto проверен runtime-чеком), capability image_edit выбирает операцию (unsupported модель → честный отказ, не генерация). Reply определяет исходник (target/reply_to → реестр mca_media_assets, скачивание существующим download_telegram_file); доступ к предыдущему результату генерации сохранён (бот-медиа в реестре — шов W1 §7.1); результат связан с исходным запросом (reply_to + source в полезной нагрузке); без исходника — честный no_source_image (никакой генерации «вместо»); ошибка не выдаётся за успех (submit_edit ok=False → error, отправки нет, исход RESULT_FAILED в реестре); повтор не создаёт дубликат в ходе (image_request_handled); доставка и fallback/retry — существующие (telegram_send.send_photo; штатные окна политики edit).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00564",
@@ -2438,8 +2609,17 @@
       "dup_of": "media_execution.py: интерфейс submit_edit существует (строка 374); прямых вызовов из Direct Chat не найдено (проверка кода 2026-10-27) — соединение отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §4; tests/test_asap5_image_admin.py::test_edit_intent_detected_and_distinct_from_create + test_edit_intent_is_not_create_actionable + test_negated_edit_is_not_actionable + test_create_regressions_stay_create + test_edit_image_dispatch_routes_to_submit_edit + test_edit_image_without_source_is_honest_error_no_generation + test_edit_image_model_without_edit_capability_honest + test_edit_image_failure_is_not_reported_as_success + test_tool_canon_15_edit_image_at_tail",
+          "observation": "Реальный маршрут Direct Chat подключён к СУЩЕСТВУЮЩЕМУ media_execution.submit_edit через существующий инструментальный путь: инструмент edit_image (канон 15, в хвост, первые 14 байт-в-байт) → tool_router._edit_image → detect_adapter().submit_edit → cover_style_edit.edit_image (единая точка edit-исполнения; второй редактор/набор провайдеров не созданы). Изменение исходника ≠ создание нового: генерация в edit-пути не вызывается, edit-интент не actionable для пре-гейта генерации (veto проверен runtime-чеком), capability image_edit выбирает операцию (unsupported модель → честный отказ, не генерация). Reply определяет исходник (target/reply_to → реестр mca_media_assets, скачивание существующим download_telegram_file); доступ к предыдущему результату генерации сохранён (бот-медиа в реестре — шов W1 §7.1); результат связан с исходным запросом (reply_to + source в полезной нагрузке); без исходника — честный no_source_image (никакой генерации «вместо»); ошибка не выдаётся за успех (submit_edit ok=False → error, отправки нет, исход RESULT_FAILED в реестре); повтор не создаёт дубликат в ходе (image_request_handled); доставка и fallback/retry — существующие (telegram_send.send_photo; штатные окна политики edit).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00566",
@@ -2455,8 +2635,17 @@
       "dup_of": "media_execution.py: интерфейс submit_edit существует (строка 374); прямых вызовов из Direct Chat не найдено (проверка кода 2026-10-27) — соединение отсутствует",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §4; tests/test_asap5_image_admin.py::test_edit_intent_detected_and_distinct_from_create + test_edit_intent_is_not_create_actionable + test_negated_edit_is_not_actionable + test_create_regressions_stay_create + test_edit_image_dispatch_routes_to_submit_edit + test_edit_image_without_source_is_honest_error_no_generation + test_edit_image_model_without_edit_capability_honest + test_edit_image_failure_is_not_reported_as_success + test_tool_canon_15_edit_image_at_tail",
+          "observation": "Реальный маршрут Direct Chat подключён к СУЩЕСТВУЮЩЕМУ media_execution.submit_edit через существующий инструментальный путь: инструмент edit_image (канон 15, в хвост, первые 14 байт-в-байт) → tool_router._edit_image → detect_adapter().submit_edit → cover_style_edit.edit_image (единая точка edit-исполнения; второй редактор/набор провайдеров не созданы). Изменение исходника ≠ создание нового: генерация в edit-пути не вызывается, edit-интент не actionable для пре-гейта генерации (veto проверен runtime-чеком), capability image_edit выбирает операцию (unsupported модель → честный отказ, не генерация). Reply определяет исходник (target/reply_to → реестр mca_media_assets, скачивание существующим download_telegram_file); доступ к предыдущему результату генерации сохранён (бот-медиа в реестре — шов W1 §7.1); результат связан с исходным запросом (reply_to + source в полезной нагрузке); без исходника — честный no_source_image (никакой генерации «вместо»); ошибка не выдаётся за успех (submit_edit ok=False → error, отправки нет, исход RESULT_FAILED в реестре); повтор не создаёт дубликат в ходе (image_request_handled); доставка и fallback/retry — существующие (telegram_send.send_photo; штатные окна политики edit).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00581",
@@ -2472,8 +2661,17 @@
       "dup_of": "services/image_context_memory.py (существующий журнал операций с изображениями)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §5; tests/test_asap5_image_admin.py::test_clarify_not_repeated_within_ttl; test_edit_image_dispatch_routes_to_submit_edit (source-linkage); runtime-чек veto/clarify",
+          "observation": "Мультимодальный диалог учитывает существующие контекст и журнал операций: та же связка <image_result> + postgen-блок (факт отправки) продолжает работать для генерации; edit-путь связывает результат с исходным запросом (reply + source{chat_id,message_id} в JSON инструмента) и резолвит исходник из канонического реестра (пользователь не прикладывает тот же доступный исходник снова); уточняющий вопрос clarify НЕ повторяется ход за ходом (TTL-кеш 600 c в памяти процесса, bounded 512 чатов; после TTL вопрос возможен снова — не «навсегда заглушен»); техническая неисправность не подменяется искусственной неоднозначностью (router отвечает честными кодами no_source_image/edit_unsupported/timeout).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00583",
@@ -2489,8 +2687,17 @@
       "dup_of": "services/image_context_memory.py (существующий журнал операций с изображениями)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §5; tests/test_asap5_image_admin.py::test_clarify_not_repeated_within_ttl; test_edit_image_dispatch_routes_to_submit_edit (source-linkage); runtime-чек veto/clarify",
+          "observation": "Мультимодальный диалог учитывает существующие контекст и журнал операций: та же связка <image_result> + postgen-блок (факт отправки) продолжает работать для генерации; edit-путь связывает результат с исходным запросом (reply + source{chat_id,message_id} в JSON инструмента) и резолвит исходник из канонического реестра (пользователь не прикладывает тот же доступный исходник снова); уточняющий вопрос clarify НЕ повторяется ход за ходом (TTL-кеш 600 c в памяти процесса, bounded 512 чатов; после TTL вопрос возможен снова — не «навсегда заглушен»); техническая неисправность не подменяется искусственной неоднозначностью (router отвечает честными кодами no_source_image/edit_unsupported/timeout).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00585",
@@ -2506,8 +2713,17 @@
       "dup_of": "services/image_context_memory.py (существующий журнал операций с изображениями)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §5; tests/test_asap5_image_admin.py::test_clarify_not_repeated_within_ttl; test_edit_image_dispatch_routes_to_submit_edit (source-linkage); runtime-чек veto/clarify",
+          "observation": "Мультимодальный диалог учитывает существующие контекст и журнал операций: та же связка <image_result> + postgen-блок (факт отправки) продолжает работать для генерации; edit-путь связывает результат с исходным запросом (reply + source{chat_id,message_id} в JSON инструмента) и резолвит исходник из канонического реестра (пользователь не прикладывает тот же доступный исходник снова); уточняющий вопрос clarify НЕ повторяется ход за ходом (TTL-кеш 600 c в памяти процесса, bounded 512 чатов; после TTL вопрос возможен снова — не «навсегда заглушен»); техническая неисправность не подменяется искусственной неоднозначностью (router отвечает честными кодами no_source_image/edit_unsupported/timeout).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00587",
@@ -2523,8 +2739,17 @@
       "dup_of": "services/image_context_memory.py (существующий журнал операций с изображениями)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §5; tests/test_asap5_image_admin.py::test_clarify_not_repeated_within_ttl; test_edit_image_dispatch_routes_to_submit_edit (source-linkage); runtime-чек veto/clarify",
+          "observation": "Мультимодальный диалог учитывает существующие контекст и журнал операций: та же связка <image_result> + postgen-блок (факт отправки) продолжает работать для генерации; edit-путь связывает результат с исходным запросом (reply + source{chat_id,message_id} в JSON инструмента) и резолвит исходник из канонического реестра (пользователь не прикладывает тот же доступный исходник снова); уточняющий вопрос clarify НЕ повторяется ход за ходом (TTL-кеш 600 c в памяти процесса, bounded 512 чатов; после TTL вопрос возможен снова — не «навсегда заглушен»); техническая неисправность не подменяется искусственной неоднозначностью (router отвечает честными кодами no_source_image/edit_unsupported/timeout).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00597",
@@ -2540,8 +2765,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00599",
@@ -2557,8 +2791,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00601",
@@ -2574,8 +2817,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00613",
@@ -2591,8 +2843,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00615",
@@ -2608,8 +2869,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00617",
@@ -2625,8 +2895,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00619",
@@ -2642,8 +2921,17 @@
       "dup_of": "",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §6; tests/test_asap5_image_admin.py::test_media_types_group_and_params_registered + test_media_type_for_asset_matrix + test_media_type_default_enabled_and_hot_override + test_enqueue_gates_disabled_media_type; tests/test_frontend_tab_mapping.py::test_mod_vision_composition",
+          "observation": "В существующем разделе «Модули → Распознавание изображений» подраздел «Типы медиа» (flags_vision_media_types на вкладке mod_vision; отдельного модуля GIF, панели стикеров и второго Vision-раздела нет): 5 переключателей — фото и изображения-документы; статические стикеры; GIF и анимации; анимированные и видеостикеры; превью видео и видеосообщений. Заводские значения включены (Settings default True); главный переключатель Vision сохраняет приоритет (гейт = env-мастер K1 + auto K2 + requested + тип); глобальные и чатовые настройки — существующие каталог параметров/per_chat + hot-reload (env→hot→per-chat резолвер). Флаги гейтят только enqueue авто-разбора: канонический реестр активов остаётся полным (тест проверяет: тип выключен → джобы нет, актив в реестре есть; тип включён → джоба создаётся).",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00635",
@@ -2659,8 +2947,17 @@
       "dup_of": "p0-vision-universal P0V-UI VERIFIED: фактический провайдер/модель/тип подключения в админке; review-postgen-diag (диагностика postgen)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §7; tests/test_asap5_image_admin.py::test_runtime_snapshot_diag_fields_no_db + test_runtime_snapshot_queue_counts_and_last_error; web/app.js visionStateLine/visionStateFacts",
+          "observation": "Диагностика Vision (GET /api/vision/state → runtime_snapshot + вкладка «Распознавание изображений») показывает: включён ли Vision (requested/effective + человеческая причина — было, P0V-UI); провайдера/модель/тип подключения (было, D12); доступные типы медиа (effective-тумблеры §22, НОВОЕ); типы, требующие преобразования (gif_animations/animated_stickers/video_previews — по кадру-обложке, честная маркировка W1); ожидающие/выполняющиеся задачи (queue.queued/running — было) и завершённые с ошибкой (queue.failed из существующих durable-строк task_jobs, НОВОЕ); последняя существенная ошибка (last_error: reason_code + время из той же очереди, НОВОЕ). Отдельное хранилище статистики не создано; интерфейс не перегружен техническими деталями (короткие человеческие строки). Честная граница: playwright-набор test_p0_vision_ui_e2e в этой среде не выполняется (нет playwright, ошибки идентичны базе ad239f73 — не регрессия); UI-рендер проверен статическими parity-тестами web/app.js + картой вкладок.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00637",
@@ -2676,8 +2973,17 @@
       "dup_of": "p0-vision-universal P0V-UI VERIFIED: фактический провайдер/модель/тип подключения в админке; review-postgen-diag (диагностика postgen)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §7; tests/test_asap5_image_admin.py::test_runtime_snapshot_diag_fields_no_db + test_runtime_snapshot_queue_counts_and_last_error; web/app.js visionStateLine/visionStateFacts",
+          "observation": "Диагностика Vision (GET /api/vision/state → runtime_snapshot + вкладка «Распознавание изображений») показывает: включён ли Vision (requested/effective + человеческая причина — было, P0V-UI); провайдера/модель/тип подключения (было, D12); доступные типы медиа (effective-тумблеры §22, НОВОЕ); типы, требующие преобразования (gif_animations/animated_stickers/video_previews — по кадру-обложке, честная маркировка W1); ожидающие/выполняющиеся задачи (queue.queued/running — было) и завершённые с ошибкой (queue.failed из существующих durable-строк task_jobs, НОВОЕ); последняя существенная ошибка (last_error: reason_code + время из той же очереди, НОВОЕ). Отдельное хранилище статистики не создано; интерфейс не перегружен техническими деталями (короткие человеческие строки). Честная граница: playwright-набор test_p0_vision_ui_e2e в этой среде не выполняется (нет playwright, ошибки идентичны базе ad239f73 — не регрессия); UI-рендер проверен статическими parity-тестами web/app.js + картой вкладок.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00639",
@@ -2693,8 +2999,17 @@
       "dup_of": "p0-vision-universal P0V-UI VERIFIED: фактический провайдер/модель/тип подключения в админке; review-postgen-diag (диагностика postgen)",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "49408a1881d3372ec59a9ebbc53008ba3958997f",
+          "type": "test",
+          "ref": "w2-image-admin.md §7; tests/test_asap5_image_admin.py::test_runtime_snapshot_diag_fields_no_db + test_runtime_snapshot_queue_counts_and_last_error; web/app.js visionStateLine/visionStateFacts",
+          "observation": "Диагностика Vision (GET /api/vision/state → runtime_snapshot + вкладка «Распознавание изображений») показывает: включён ли Vision (requested/effective + человеческая причина — было, P0V-UI); провайдера/модель/тип подключения (было, D12); доступные типы медиа (effective-тумблеры §22, НОВОЕ); типы, требующие преобразования (gif_animations/animated_stickers/video_previews — по кадру-обложке, честная маркировка W1); ожидающие/выполняющиеся задачи (queue.queued/running — было) и завершённые с ошибкой (queue.failed из существующих durable-строк task_jobs, НОВОЕ); последняя существенная ошибка (last_error: reason_code + время из той же очереди, НОВОЕ). Отдельное хранилище статистики не создано; интерфейс не перегружен техническими деталями (короткие человеческие строки). Честная граница: playwright-набор test_p0_vision_ui_e2e в этой среде не выполняется (нет playwright, ошибки идентичны базе ad239f73 — не регрессия); UI-рендер проверен статическими parity-тестами web/app.js + картой вкладок.",
+          "artifact_path": "plans/features/asap5-multimodal/evidence/w2-image-admin.md",
+          "artifact_sha256": "5036e00ee82ce002bb054090adccff9b4b5c581d3eebc603de894227d5b66c00"
+        }
+      ]
     },
     {
       "source_id": "M00666",
