@@ -3363,7 +3363,9 @@ class ToolRouter:
                          f"{_row_field(first, 'id')}")
             page_to = (f"{_row_field(last, 'timestamp')}:"
                        f"{_row_field(last, 'id')}")
-        lines = self._history_lines(rows)
+        # P0-HA волна 4 (блокер 2 review-w4): строки страницы выборки несут
+        # Telegram user_id (сравнение людей по uid, не по id сообщения).
+        lines = self._history_lines(rows, with_user_id=True)
         return {"rows": rows, "lines": lines, "page_from": page_from,
                 "page_to": page_to,
                 "fetched": len(rows)}
@@ -3505,11 +3507,18 @@ class ToolRouter:
         rows.sort(key=lambda r: int(r.get("timestamp") or 0))
         return len(rows), self._history_lines(rows)
 
-    def _history_lines(self, rows) -> list[str]:
+    def _history_lines(self, rows, *, with_user_id: bool = False) -> list[str]:
         """Строки smart_messages → канонические строки контекста (10.20,
         БЛОК 0, ADR-1020-1 ред. 3, точка 8): «[ts | Имя | ID | Переслано]:
         текст» (R16-каскад имён; пустой текст без медиа пропускается;
-        медиа-событие — маркером)."""
+        медиа-событие — маркером).
+
+        P0-HA волна 4 (блокер 2 review-w4): ``with_user_id=True`` — только
+        строки КОЛИЧЕСТВЕННОЙ ВЫБОРКИ (путь A `get_recent_history`) несут
+        Telegram user_id тем же приёмом, что `_speaker_tag` («Имя [uid]»):
+        анализ последних N различает одинаковые имена разных участников и
+        сравнивает людей по uid, а не по id сообщения. Путь B (FTS-query) и
+        прочие вызовы — прежний формат (байт-паритет)."""
         lines: list[str] = []
         for row in rows or []:
             try:
@@ -3524,8 +3533,13 @@ class ToolRouter:
                 text = f"[медиа: {media}]"
             forward_source = (item.get("forward_source")
                               if item.get("is_forward") else None)
+            author = self._resolve_name(item)
+            if with_user_id:
+                uid = item.get("user_id")
+                if uid not in (None, "", 0):
+                    author = f"{author} [{uid}]"
             lines.append(format_context_item(
-                ts=item.get("timestamp"), author=self._resolve_name(item),
+                ts=item.get("timestamp"), author=author,
                 item_id=resolve_item_id(
                     tg_message_id=item.get("tg_message_id"),
                     message_id=item.get("id")),

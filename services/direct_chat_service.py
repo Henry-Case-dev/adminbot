@@ -494,6 +494,56 @@ def _history_line_item_id(line: str) -> str:
     return ""
 
 
+# ── P0-HA QUALITY на ходе (блокер 1 review-w4): страховки §12–§13 ────────────
+# Детерминированные функции уже написаны в claim_envelope (волна 4b) — здесь
+# ТОЛЬКО их применение к находке сегмента до записи в покрытие. Сбой любой
+# страховки — честный флаг guard_error, не краш сегмента (H19-семантика).
+_HA_LINE_STAMP_RE = re.compile(
+    r"^\[(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?")
+# Срез придуманного числа: тот же класс фраз, что _COUNT_CLAIM_RE
+# (раз/сообщени/упоминан/материал/случа) — только у конкретного
+# нарушающего числа (детектор и срез согласованы).
+_HA_COUNT_STRIP_RE = (r"(?<!\w){n}\s*(?:раз[а-яё]*|сообщени[а-яё]*|"
+                      r"упоминан[а-яё]*|материал[а-яё]*|случа[а-яё]*)")
+
+
+def _ha_line_stamp_ts(line: str) -> int | None:
+    """Epoch (UTC) из метки головы канонической строки выборки
+    «[ДД.ММ.ГГГГ ЧЧ:ММ | …]» (штамп рендерится в UTC — см. _fmt_ts).
+    Разметки/кривой штамп нет → None. Никогда не бросает."""
+    match = _HA_LINE_STAMP_RE.match(str(line or "").lstrip())
+    if match is None:
+        return None
+    day, month, year = int(match.group(1)), int(match.group(2)), \
+        int(match.group(3))
+    hour = int(match.group(4) or 0)
+    minute = int(match.group(5) or 0)
+    try:
+        moment = datetime.datetime(year, month, day, hour, minute,
+                                   tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+    return int(moment.timestamp())
+
+
+def _ha_strip_invented_claims(note: str, counts: list,
+                              dates: list) -> str:
+    """Срезать из note придуманные количества/даты (блокер 1: выдуманное
+    число или дату не класть в note как факт). Детерминированно: только
+    нарушающие значения, формулировка вокруг сохраняется. Никогда не
+    бросает."""
+    cleaned = str(note or "")
+    for value in dates:
+        cleaned = cleaned.replace(str(value), " ")
+    for count in counts:
+        try:
+            pattern = _HA_COUNT_STRIP_RE.format(n=int(count))
+        except (TypeError, ValueError):                   # pragma: no cover
+            continue
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+    return " ".join(cleaned.split())
+
+
 def _segment_json(text: str) -> list | None:
     """Robust-парсер ответа сегмента (детерминированный repair: fences/
     окружающий текст допустим; второй LLM-вызов НЕ делается — прецедент
@@ -3938,7 +3988,13 @@ class DirectChatService:
                     character_block=character_block,
                     style_directives=style_directives,
                     numeric_contract=numeric_contract,
-                    plan=response_plan)
+                    plan=response_plan,
+                    # P0-HA QUALITY (блокер 4 review-w4): выборка хода есть
+                    # и при выключенном L1 — system Stage-2 получает ту же
+                    # инструкцию сборки; без выборки "" → байт-паритет.
+                    history_assembly_block=(
+                        HISTORY_COVERAGE_ASSEMBLY_BLOCK
+                        if history_sample is not None else ""))
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -4866,7 +4922,7 @@ class DirectChatService:
             rows = list(page.get("rows") or [])
             if not rows:
                 return
-            lines = router._history_lines(rows)
+            lines = router._history_lines(rows, with_user_id=True)
             for row, line in zip(rows, lines):
                 d = dict(row)
                 yield {"line": line,
@@ -4956,6 +5012,8 @@ class DirectChatService:
             разбора: остаются статус, диапазон, refs, короткие note."""
             nonlocal llm_calls, reason, complete
             ids = {e["item_id"] for e in ents if e["item_id"]}
+            line_by_id = {e["item_id"]: e["line"] for e in ents
+                          if e["item_id"]}
             prev = segments[-1] if segments else None
             state = {
                 "no": len(segments) + 1,
@@ -5024,13 +5082,22 @@ class DirectChatService:
                 state["reason"] = "llm_error"
             else:
                 for ev in events:
-                    own = [r for r in ev["refs"] if r in ids]
-                    older = [r for r in ev["refs"]
-                             if r not in ids and r in owner_of]
+                    # Трассировка §13 (шов own через ЕДИНЫЙ валидатор
+                    # claim_envelope — без второй копии логики): вне
+                    # выборки/сегментов — отброшено, не свидетельство.
+                    kept, _dropped = _ce.validate_finding_refs(
+                        ev["refs"], ids | set(owner_of))
+                    own = [r for r in kept if r in ids]
+                    older = [r for r in kept if r not in ids]
                     if own:
+                        guarded = self._ha_guard_event(
+                            ev["note"], own, line_by_id)
                         state["events"].append(
-                            {"refs": own, "note": ev["note"],
-                             "continues": ev["continues"], "mentions": 0})
+                            {"refs": own, "note": guarded["note"],
+                             "continues": ev["continues"], "mentions": 0,
+                             "kind": guarded["kind"],
+                             "flags": guarded["flags"],
+                             "owner": guarded["owner"]})
                         idx = len(state["events"]) - 1
                         for r in own:
                             owner_of.setdefault(r, (state["no"], idx))
@@ -5195,6 +5262,80 @@ class DirectChatService:
                 seg["events"][ev_idx]["mentions"] += 1
                 return
 
+    def _ha_guard_event(self, note: str, own_refs: list,
+                        line_by_id: dict) -> dict:
+        """Применить детерминированные страховки качества (claim_envelope)
+        к находке сегмента ДО записи в покрытие (блокер 1 review-w4).
+
+        Возвращает {"note", "kind", "flags", "owner"}: note — со срезанными
+        придуманными количествами/датами; kind — класс находки
+        (classify_finding_kind по строкам сегмента, включая uid автора);
+        flags — machine-коды (trait_unverified / attribution_conflict /
+        invented_count:N / invented_date:ДД.ММ.ГГГГ / guard_error); owner —
+        исходный автор пересланного содержимого (только для однозначных
+        пересылок). Ход использует ЭТИ функции впервые: без применения
+        шутка становилась чертой, пересылка — действием переславшего,
+        «5 раз» при двух refs — свидетельством (REQ-HA-QUALITY-*). Сбой
+        любой страховки — flag guard_error и нетронутая находка (сегмент не
+        падает). Никогда не бросает."""
+        result = {"note": str(note or ""), "kind": "", "flags": [],
+                  "owner": ""}
+        try:
+            lines = [line_by_id.get(r, "") for r in own_refs]
+            identities = [_ce.parse_finding_identity(ln) for ln in lines]
+            distinct = max(1, len({str(r) for r in own_refs}))
+            is_forward = any(i.is_forward for i in identities)
+            bot_uid = None
+            bot_id = getattr(self, "bot_id", None)
+            if bot_id is not None:
+                try:
+                    bot_uid = int(bot_id)
+                except (TypeError, ValueError):
+                    bot_uid = None
+            is_bot = any(i.user_id is not None and i.user_id == bot_uid
+                         for i in identities)
+            result["kind"] = _ce.classify_finding_kind(
+                result["note"], distinct_refs=distinct,
+                is_forward=is_forward, is_bot_author=is_bot)
+            # единичная шутка/реплика/высказывание бота — не черта (строка 469)
+            if _ce.note_claims_stable_trait(result["note"]) and \
+                    not _ce.stable_trait_claim_allowed(result["kind"],
+                                                       distinct):
+                result["flags"].append("trait_unverified")
+            # пересылка приписана переславшему → конфликт (H26)
+            if any(_ce.attribution_conflict(result["note"], i)
+                   for i in identities):
+                result["flags"].append("attribution_conflict")
+            if is_forward:
+                owners: list = []
+                for i in identities:
+                    owner = _ce.finding_attribution_owner(i)
+                    if owner and owner not in owners:
+                        owners.append(owner)
+                if len(owners) == 1:
+                    result["owner"] = owners[0]
+            # придуманные количества/даты — срезаются из note как факт
+            counts = _ce.invented_count_violations(result["note"], distinct)
+            ts_by_ref = {}
+            for ref in own_refs:
+                stamp = _ha_line_stamp_ts(line_by_id.get(ref, ""))
+                if stamp is not None:
+                    ts_by_ref[ref] = stamp
+            dates = _ce.invented_date_violations(result["note"], ts_by_ref)
+            if counts:
+                result["flags"].append(
+                    "invented_count:" + ",".join(str(int(c)) for c in counts))
+            if dates:
+                result["flags"].append(
+                    "invented_date:" + ",".join(str(d) for d in dates))
+            if counts or dates:
+                result["note"] = _ha_strip_invented_claims(
+                    result["note"], counts, dates)
+        except Exception:
+            result = {"note": str(note or ""), "kind": "", "flags":
+                      ["guard_error"], "owner": ""}
+        return result
+
     @staticmethod
     def _render_history_coverage(bound, segments, *, available, processed,
                                  failed, mentions, complete, reason,
@@ -5245,8 +5386,14 @@ class DirectChatService:
                 line = "event refs=" + ",".join(e["refs"])
                 if e["continues"]:
                     line += " continues=1"
+                if e.get("kind"):
+                    line += f" kind={e['kind']}"
+                if e.get("flags"):
+                    line += " flags=" + ",".join(e["flags"])
                 if e["mentions"]:
                     line += f" mentions={e['mentions']}"
+                if e.get("owner"):
+                    line += f" owner={e['owner']}"
                 if e["note"]:
                     line += f" note={e['note']}"
                 event_lines.append(line)
@@ -5661,7 +5808,8 @@ class DirectChatService:
                                         character_block: str = "",
                                         style_directives: str = "",
                                         numeric_contract=None,
-                                        plan=None
+                                        plan=None,
+                                        history_assembly_block: str = ""
                                         ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
@@ -5703,6 +5851,15 @@ class DirectChatService:
         старый cap-текст (PG-кастом не правится, WARN в лог) и на Stage-2
         передаётся max_output_tokens. plan=None (тесты/legacy) → байт-
         паритет прежней сборки.
+
+        P0-HA QUALITY (волна 4, блокер 4 review-w4): `history_assembly_block`
+        — опциональный блок инструкции финальной сборки по находкам истории
+        (default "" → байт-паритет). Шов хода передаёт ПОЛНЫЙ
+        HISTORY_COVERAGE_ASSEMBLY_BLOCK ТОЛЬКО при активной выборке
+        (System2 может нести выборку при выключенном L1 —@@HISTORY_COVERAGE
+        на этом пути не возникает, но правило качества сборки должны
+        получать оба Writer-канала); аппенд в system Stage-2 ПОСЛЕ scrub,
+        целиком, как в `_l2_write_answer`.
         """
         draft_text = strip_reasoning_tags(str(raw).strip())
         form_contract = (_nc.FormContract(source_text=draft_text)
@@ -5809,6 +5966,14 @@ class DirectChatService:
                 logger.warning(
                     "[direct] extent-conflict scrub | chat=%s | "
                     "stage=verbalizer | removed=%d", chat_id, _scrubbed)
+            # ── P0-HA QUALITY (волна 4, блокер 4 review-w4): ход с выборкой
+            # истории получает ту же инструкцию финальной сборки, что L2
+            # Writer. Аппенд ПОСЛЕ scrub, ЦЕЛИКОМ, ровно один раз; пустая
+            # строка (без выборки) — байт-паритет прежней сборки
+            # (ADDENDUM #3 §2.10: инструкции не сокращаются).
+            if history_assembly_block:
+                verbalizer_system = (verbalizer_system + "\n\n"
+                                     + history_assembly_block)
             # MCA-23 (W3, §Model slots): longform-план получает явный
             # max_tokens; compact/micro/None → None (ключ не едет, паритет).
             _longform_tokens = (_extent.longform_max_output_tokens()
@@ -6175,7 +6340,8 @@ class DirectChatService:
         else:
             global_ctx = await self._build_global_context(
                 chat_id, window, roster, suffix_map,
-                trigger_message_id=trigger_message_id)
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
         # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
         # P0-HA ISOLATION (§3): при активной выборке RAG-память (включая
@@ -6190,12 +6356,11 @@ class DirectChatService:
             # (head=P2 / middle=P3 / tail=P1) на слоте global.
             pass
         elif global_ctx:
-            # P0-HA ISOLATION (§3): legacy-путь (композер OFF) — head-конспект
-            # (running/L2) в global_ctx — дополнение вне диапазона при
-            # активной выборке; дедуп RAG уже прошёл, баннер в него не попадает.
-            if history_sample is not None:
-                global_ctx = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
-                              f"\n{global_ctx}")
+            # P0-HA ISOLATION (блокер 3 review-w4): legacy-путь (композер
+            # OFF) — баннер дополнения ставит сам `_build_global_context`
+            # ТОЛЬКО над head-конспектом; дословный хвост окна (внутри
+            # диапазона) не метится. Дедуп RAG уже прошёл, баннер в него
+            # не попадает.
             blocks.append(("global", global_ctx))
         if composer_mode:
             thread = self._render_thread(chain, suffix_map, None,
@@ -9345,7 +9510,9 @@ class DirectChatService:
                                     roster: list | None = None,
                                     suffix_map: dict[int, str] | None = None,
                                     trigger_message_id=None,
-                                    truncate: bool = True) -> str:
+                                    truncate: bool = True,
+                                    history_sample: dict | None = None
+                                    ) -> str:
         """Последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений (окно уже ASC),
         «{имя} [{uid}]: текст» (C1). Epic 60 (64.6): валидный бегущий конспект
         → конспект + дословный хвост (ts > window_end_ts). Раунд 8 (D2/Q8):
@@ -9362,7 +9529,12 @@ class DirectChatService:
         по expires_at — тихий чат держит конспект до пересборки по
         заполнению).
         roster/suffix_map — участники карты текущего рендера (C2/C3):
-        суффиксы-дискриминаторы строк и имена для importance-маркеров E1."""
+        суффиксы-дискриминаторы строк и имена для importance-маркеров E1.
+        P0-HA (блокер 3 review-w4): ``history_sample`` — активная выборка
+        хода; баннер дополнения ставится ТОЛЬКО над head-конспектом
+        (running/L2 — память вне диапазона, зеркально `_ha_head_text`
+        композерного пути); дословный хвост окна не метится «вне выборки».
+        Verbatim-only режим (конспекта нет) — баннера нет вовсе."""
         roster = roster or []
         suffix_map = suffix_map or {}
         summary_text = None
@@ -9484,6 +9656,13 @@ class DirectChatService:
                 else:
                     head, tail = [], [ln for ln in lines if ln.strip()]
         body = "\n".join(head + tail)
+        # P0-HA ISOLATION (блокер 3 review-w4): на legacy-пути (композер
+        # OFF) баннер дополнения — только над head-конспектом (память вне
+        # диапазона); дословные строки окна (внутри диапазона) и
+        # verbatim-only сборка без конспекта не метятся.
+        if history_sample is not None and summary_text is not None and head:
+            body = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
+                    f"\n{body}")
         return f"<Global_Context>\n{escape_xml_text(body)}\n</Global_Context>"
 
     def _row_speaker(self, row) -> tuple[str, int | None]:

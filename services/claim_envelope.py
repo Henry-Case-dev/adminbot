@@ -521,20 +521,44 @@ TRAIT_CAPABLE_KINDS = frozenset({FINDING_KIND_REPEAT_THEME,
                                  FINDING_KIND_DISPUTE})
 MIN_TRAIT_REFS = 2
 
-# Закрытые маркер-наборы (casefold-подстроки; порядок проверки значим).
+# Закрытые маркер-наборы (casefold; ПО ЛЕВОЙ ГРАНИЦЕ СЛОВА — «сми» внутри
+# «космический» маркером не считается; префикс-глаголы покрытия —
+# «поспор»/«заспор»/«пошут»/«пообещ» — частью того же набора). Порядок
+# проверки в `classify_finding_kind` значим.
 _FORWARD_MARKERS = ("переслан", "переслал", "форвард", "forward")
 _NEWS_MARKERS = ("новост", "статья", "статьи", "сми", "пресс",
                  "репортаж", "в сети", "в интернете")
-_JOKE_MARKERS = ("шутк", "шучу", "шутил", "прикол", "сарказм", "ирони",
-                 "лол", "кек")
-_DISPUTE_MARKERS = ("спор", "разноглас", "конфликт", "поссор", "перебран",
-                    "стычка")
+_JOKE_MARKERS = ("шутк", "шучу", "шутил", "пошут", "прикол", "сарказм",
+                 "ирони", "лол", "кек")
+_DISPUTE_MARKERS = ("спор", "поспор", "заспор", "разноглас", "конфликт",
+                    "поссор", "перебран", "стычка")
 _REPEAT_MARKERS = ("повторя", "снова", "опять", "регулярно", "постоянно",
                    "не в первый раз", "возвращается к теме")
 _CLAIM_MARKERS = ("заявил", "заявила", "утвержда", "утвержд", "обещал",
-                  "обещала", "по его словам", "по её словам", "сказал, что")
+                  "обещала", "пообещ", "по его словам", "по её словам",
+                  "сказал, что")
 _SINGLE_MARKERS = ("единичн", "одна реплика", "одна фраза", "одноразов",
                    "лишь одн")
+# Обобщающий язык «устойчивой характеристики» в note (строка 469; закрытый
+# набор для `note_claims_stable_trait` — страховка, не смысловой разбор).
+_TRAIT_NOTE_MARKERS = (
+    "любит", "обожает", "ненавидит", "терпеть не может",
+    "склонен", "склонна", "склонны",
+    "по характеру", "по натуре", "черта характера",
+    "в его характере", "в её характере",
+    "всегда", "постоянно", "регулярно", "каждый раз",
+    "известен тем", "известна тем", "славится",
+)
+
+
+def _marker_hit(text: str, marker: str) -> bool:
+    """Маркер по левой границе слова (блокер 1 review-w4: «сми» — подстрока
+    «космический» — маркером не считается). Никогда не бросает."""
+    try:
+        return re.search(r"(?<!\w)" + re.escape(marker), text) is not None
+    except re.error:                                      # pragma: no cover
+        return marker in text
+
 
 # Числовые утверждения в note: «N раз», «N сообщений», «N упоминаний» —
 # проверяемы по числу уникальных refs события (§13 строка 487).
@@ -551,16 +575,19 @@ class FindingIdentity:
 
     ``display_name`` — имя из заголовка строки (алиас-каскад R7 по user_id,
     повторно НЕ резолвится); ``ref`` — id сообщения («tg:123»), основной
-    ключ трассировки утверждений; ``forward_source`` — исходный автор из
-    поля «Переслано: X» ("" — не пересылка). Telegram user_id остаётся
-    первичной идентичностью участника: похожие имена разных id НИКОГДА не
-    сливаются (строка 473; проверка H25) — слияние возможно только по
-    совпадению ref/id, см. `identity_matches`."""
+    ключ трассировки утверждений; ``user_id`` — Telegram user_id автора из
+    суффикса «Имя [uid]» (волна 4, блокер 2 review-w4: строки выборки несут
+    uid тем же приёмом, что `_speaker_tag`; uid — первичная идентичность
+    участника, ref сообщения — ключ трассировки, а не личность);
+    ``forward_source`` — исходный автор из поля «Переслано: X» ("" — не
+    пересылка). Похожие имена разных id НИКОГДА не сливаются (строка 473;
+    проверка H25) — см. `identity_matches`."""
 
     display_name: str = ""
     ref: str = ""
     forward_source: str = ""
     is_forward: bool = False
+    user_id: int | None = None
 
 
 _HISTORY_LINE_HEAD_RE = re.compile(r"\]: ")
@@ -568,6 +595,7 @@ _HISTORY_REF_FORMAT_RE = re.compile(r"^(?:tg|msg|fact):\d+$")
 _HISTORY_STAMP_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}(?:\s+\d{1,2}:\d{2})?$"
                                r"|^\d{2}\.\d{4}$")
 _FORWARD_FIELD_PREFIX = "Переслано:"
+_UID_SUFFIX_RE = re.compile(r"\[(\d{1,18})\]\s*$")
 
 
 def parse_finding_identity(line: str | None) -> FindingIdentity:
@@ -600,9 +628,18 @@ def parse_finding_identity(line: str | None) -> FindingIdentity:
             continue
         if not name and not _HISTORY_STAMP_RE.match(field):
             name = field
+    user_id = None
+    uid_match = _UID_SUFFIX_RE.search(name)
+    if uid_match is not None:
+        try:
+            user_id = int(uid_match.group(1))
+            name = name[:uid_match.start()].rstrip()
+        except ValueError:                                # pragma: no cover
+            user_id = None
     return FindingIdentity(display_name=name, ref=ref,
                            forward_source=forward_source,
-                           is_forward=bool(forward_source))
+                           is_forward=bool(forward_source),
+                           user_id=user_id)
 
 
 def finding_attribution_owner(identity: FindingIdentity | None) -> str:
@@ -637,12 +674,26 @@ def attribution_conflict(note: str | None,
                           text, re.IGNORECASE))
 
 
-def identity_matches(ref_a: str | None, ref_b: str | None) -> bool:
-    """Строгая идентичность участников (строка 475): только совпадение
-    id/ref сообщения. Похожие display name НЕ сливаются (проверка H25);
-    пустой ref идентичности не устанавливает."""
-    a, b = str(ref_a or "").strip(), str(ref_b or "").strip()
-    return bool(a) and a == b
+def _identity_key(value) -> tuple:
+    """Ключ идентичности (волна 4, блокер 2 review-w4): у FindingIdentity —
+    Telegram user_id («uid», …), без него — ref сообщения («ref», …);
+    строка трактуется как ref (совместимость прежних вызовов)."""
+    if isinstance(value, FindingIdentity):
+        if value.user_id not in (None, 0):
+            return ("uid", int(value.user_id))
+        return ("ref", str(value.ref or "").strip())
+    return ("ref", str(value or "").strip())
+
+
+def identity_matches(a, b) -> bool:
+    """Строгая идентичность участников (строка 475): Telegram user_id —
+    ПЕРВИЧНЫЙ ключ (блокер 2 review-w4: два uid с одним именем — разные
+    люди, два сообщения одного uid — один человек; ref/id сообщения —
+    не личность). Без uid у сравниваемых — совместимый падение на
+    совпадение ref/id сообщения. Пустой ключ идентичности не
+    устанавливает. Никогда не бросает."""
+    key_a, key_b = _identity_key(a), _identity_key(b)
+    return key_a == key_b and bool(key_a[1])
 
 
 def classify_finding_kind(note: str | None, *, distinct_refs: int = 0,
@@ -657,21 +708,21 @@ def classify_finding_kind(note: str | None, *, distinct_refs: int = 0,
     закрытые, неизвестный текст даёт консервативный fallback. Никогда не
     бросает."""
     text = " ".join(str(note or "").split()).casefold()
-    if is_forward or any(m in text for m in _FORWARD_MARKERS):
+    if is_forward or any(_marker_hit(text, m) for m in _FORWARD_MARKERS):
         return FINDING_KIND_FORWARDED
     if is_bot_author:
         return FINDING_KIND_BOT_STATEMENT
-    if any(m in text for m in _NEWS_MARKERS):
+    if any(_marker_hit(text, m) for m in _NEWS_MARKERS):
         return FINDING_KIND_EXTERNAL_NEWS
-    if any(m in text for m in _JOKE_MARKERS):
+    if any(_marker_hit(text, m) for m in _JOKE_MARKERS):
         return FINDING_KIND_JOKE
-    if any(m in text for m in _DISPUTE_MARKERS):
+    if any(_marker_hit(text, m) for m in _DISPUTE_MARKERS):
         return FINDING_KIND_DISPUTE
-    if any(m in text for m in _REPEAT_MARKERS):
+    if any(_marker_hit(text, m) for m in _REPEAT_MARKERS):
         return FINDING_KIND_REPEAT_THEME
-    if any(m in text for m in _CLAIM_MARKERS):
+    if any(_marker_hit(text, m) for m in _CLAIM_MARKERS):
         return FINDING_KIND_PARTICIPANT_CLAIM
-    if any(m in text for m in _SINGLE_MARKERS):
+    if any(_marker_hit(text, m) for m in _SINGLE_MARKERS):
         return FINDING_KIND_SINGLE_REMARK
     try:
         refs = max(0, int(distinct_refs))
@@ -693,6 +744,17 @@ def stable_trait_claim_allowed(kind: str, distinct_ref_count: int) -> bool:
     except (TypeError, ValueError):
         return False
     return refs >= MIN_TRAIT_REFS
+
+
+def note_claims_stable_trait(note: str | None) -> bool:
+    """Note утверждает устойчивую характеристику/обобщение о человеке
+    (строка 469): закрытый маркер-набор обобщающего языка по границе
+    слова (страховка, не смысловой разбор). Неизвестный текст → False
+    (консервативно — черта не заявлена). Никогда не бросает."""
+    text = " ".join(str(note or "").split()).casefold()
+    if not text:
+        return False
+    return any(_marker_hit(text, m) for m in _TRAIT_NOTE_MARKERS)
 
 
 def validate_finding_refs(refs, known_refs) -> tuple[list, list]:

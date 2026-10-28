@@ -105,10 +105,11 @@ class TestDepthPath:
                 "get_recent_history", {"depth": 10}, _ctx())
         finally:
             await db.db.close()
+        # P0-HA волна 4 (блокер 2): строки выборки несут Telegram user_id.
         assert _page_body(out) == [
-            f"[{_stamp(100)} | вася | msg:2]: первое",
-            f"[{_stamp(200)} | петя | msg:3]: второе",
-            f"[{_stamp(300)} | вася | msg:4]: третье",
+            f"[{_stamp(100)} | вася [1] | msg:2]: первое",
+            f"[{_stamp(200)} | петя [2] | msg:3]: второе",
+            f"[{_stamp(300)} | вася [1] | msg:4]: третье",
         ]
         assert "чужой чат" not in out
 
@@ -272,9 +273,9 @@ class TestNameCascade:
         out = await ToolRouter(_deps(db=db, aliases=aliases)).dispatch(
             "get_recent_history", {"depth": 3}, _ctx())
         assert _page_body(out) == [
-            f"[{_stamp(1)} | Леха]: без имени",
-            f"[{_stamp(2)} | Автор]: с автором",
-            f"[{_stamp(3)} | 42]: только id",
+            f"[{_stamp(1)} | Леха [555]]: без имени",
+            f"[{_stamp(2)} | Автор [777]]: с автором",
+            f"[{_stamp(3)} | 42 [42]]: только id",
         ]
 
     @pytest.mark.asyncio
@@ -288,8 +289,8 @@ class TestNameCascade:
         out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 3}, _ctx())
         assert _page_body(out) == [
-            f"[{_stamp(1)} | вася]: [медиа: video]",
-            f"[{_stamp(3)} | вася]: обычное",
+            f"[{_stamp(1)} | вася [1]]: [медиа: video]",
+            f"[{_stamp(3)} | вася [1]]: обычное",
         ]
 
 

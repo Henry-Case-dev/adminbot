@@ -5,9 +5,10 @@
 Покрытие: различение типов материала (REQ-HA-QUALITY-CLASSIFY), единичная
 шутка/реплика не становится устойчивой характеристикой (строка 469),
 пересылка приписана исходному автору, а не переславшему (H26), похожие
-имена разных участников не сливаются — identity по ref/id (H25), значимые
-утверждения трассируются до refs выборки (REQ-HA-CLAIMS-TRACE), количества
-и даты не придумываются (REQ-HA-NO-INVENTED-STATS), собственные
+имена разных участников не сливаются — identity по Telegram user_id
+(волна 4: uid — первичный ключ, ref сообщения — не личность; H25),
+значимые утверждения трассируются до refs выборки (REQ-HA-CLAIMS-TRACE),
+количества и даты не придумываются (REQ-HA-NO-INVENTED-STATS), собственные
 высказывания бота — материал выборки на общих правилах, не авто-правда.
 Без сети, без БД; тексты сообщений в логи/утверждения не попадают.
 """
@@ -277,11 +278,40 @@ class TestForwardedAttribution:
                                     identity) is False
 
 
-# ── идентичность по user id (H25) ───────────────────────────────────────────
+# ── идентичность по Telegram user id (H25, волна 4: uid — первичный ключ) ───
 
 class TestIdentityByRef:
+    def test_same_display_name_different_uids_not_merged(self):
+        """Два «Алексея» с разными user_id — разные участники, сколько бы
+        сообщений ни было (строка 475: uid — первичная идентичность)."""
+        line_a = format_context_item(ts=TS_29_OCT, author="Алексей [111]",
+                                     item_id="tg:11", text="я за",
+                                     kind="msg")
+        line_b = format_context_item(ts=TS_29_OCT, author="Алексей [222]",
+                                     item_id="tg:22", text="я против",
+                                     kind="msg")
+        a, b = parse_finding_identity(line_a), parse_finding_identity(line_b)
+        assert a.user_id == 111 and b.user_id == 222
+        assert a.display_name == b.display_name == "Алексей"
+        assert identity_matches(a, b) is False
+
+    def test_same_uid_two_messages_is_one_person(self):
+        """Два сообщения одного uid — один человек (ref сообщения — не
+        личность: сравнение по message id давало ложное «разные»)."""
+        line_a = format_context_item(ts=TS_29_OCT, author="Алексей [111]",
+                                     item_id="tg:11", text="я за",
+                                     kind="msg")
+        line_b = format_context_item(ts=TS_29_OCT, author="Алексей [111]",
+                                     item_id="tg:22", text="и ещё раз",
+                                     kind="msg")
+        a, b = parse_finding_identity(line_a), parse_finding_identity(line_b)
+        assert a.user_id == b.user_id == 111
+        assert a.ref != b.ref
+        assert identity_matches(a, b) is True
+
     def test_same_display_name_different_refs_not_merged(self):
-        """Два «Алексея» с разными сообщениями — разные участники."""
+        """Без uid (строки без разметки user_id) — совместимый падение на
+        сравнение ref сообщения: разные ref — разные участники."""
         line_a = format_context_item(ts=TS_29_OCT, author="Алексей",
                                      item_id="tg:11", text="я за",
                                      kind="msg")

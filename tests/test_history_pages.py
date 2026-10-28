@@ -91,8 +91,14 @@ def _body_lines(out: str) -> list[str]:
 def _expected_line(row) -> str:
     item = dict(row)
     text = str(item.get("text") or "").strip()
+    # P0-HA волна 4 (блокер 2 review-w4): строки выборки несут Telegram
+    # user_id тем же приёмом, что `_speaker_tag` («Имя [uid]»).
+    uid = item.get("user_id")
+    author = str(item.get("author_name") or "")
+    if uid not in (None, "", 0):
+        author = f"{author} [{uid}]"
     return format_context_item(
-        ts=item.get("timestamp"), author=item.get("author_name") or "",
+        ts=item.get("timestamp"), author=author,
         item_id=resolve_item_id(tg_message_id=item.get("tg_message_id"),
                                 message_id=item.get("id")),
         forward_source=None, text=text, kind="msg")
