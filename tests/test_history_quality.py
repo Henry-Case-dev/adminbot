@@ -405,6 +405,39 @@ class TestNoInventedStats:
         assert invented_date_violations("версия 2.10 вышла",
                                         {"tg:1": TS_29_OCT}) == []
 
+    def test_unsupported_nonpadded_dates_flagged_as_written(self):
+        """Неприбитые нулём формы (блокер B review-w4-fix): флаг несёт
+        ТОЧНОЕ написание из note, не нормализованную запись — строка
+        флага совпадает с тем, что срезается из note."""
+        ts_by_ref = {"tg:1": TS_29_OCT}
+        assert invented_date_violations(
+            "5.10.2024 была встреча", ts_by_ref) == ["5.10.2024"]
+        assert invented_date_violations(
+            "15.3.2025 была встреча", ts_by_ref) == ["15.3.2025"]
+        assert invented_date_violations(
+            "5.3.2025 была встреча", ts_by_ref) == ["5.3.2025"]
+
+    def test_mixed_padding_writings_flagged_separately(self):
+        """Оба написания одной даты в одной note — два разных среза в
+        порядке обнаружения (у каждого своё написание)."""
+        ts_by_ref = {"tg:1": TS_29_OCT}
+        assert invented_date_violations(
+            "5.10.2024 и 05.10.2024",
+            ts_by_ref) == ["5.10.2024", "05.10.2024"]
+
+    def test_nonpadded_date_supported_by_stamp_not_flagged(self):
+        """Дата, которую подтверждает штамп ref, не помечается — и в
+        неприбитой форме тоже (сравнение по календарному дню)."""
+        ts = int(datetime.datetime(
+            2024, 10, 5, 12, 0, tzinfo=datetime.timezone.utc).timestamp())
+        assert invented_date_violations(
+            "5.10.2024 была встреча", {"tg:1": ts}) == []
+
+    def test_non_calendar_full_numeric_not_dates(self):
+        """Некалендарные полные тройки (32.13.2024) — гард молчит."""
+        assert invented_date_violations(
+            "32.13.2024 была встреча", {"tg:1": TS_29_OCT}) == []
+
 
 # ── бот на общих правилах выборки ───────────────────────────────────────────
 

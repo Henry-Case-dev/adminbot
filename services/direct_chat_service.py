@@ -348,6 +348,13 @@ _HA_SUPPLEMENT_BANNER = ("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ {sample_id}
                          "события внутри запрошенного диапазона.")
 _HA_SUPPLEMENT_BANNER_PLAIN = ("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ: не подтверждает "
                                "события внутри запрошенного диапазона.")
+# Явная граничная строка (блокер A review-w4-fix): закрывает регион
+# дополнения внутри <Global_Context> (композер OFF) и объявляет дословные
+# строки окна (внутри диапазона) — фраза «не подтверждает события» их не
+# накрывает. Префикс «фон: » — из allowlist служебных меток
+# canonical_context (не «голый текст»).
+_HA_INRANGE_TAIL_LABEL = ("фон: ниже — дословные сообщения "
+                          "запрошенного диапазона")
 
 
 def _ha_sample_id(history_sample) -> str:
@@ -9530,11 +9537,13 @@ class DirectChatService:
         заполнению).
         roster/suffix_map — участники карты текущего рендера (C2/C3):
         суффиксы-дискриминаторы строк и имена для importance-маркеров E1.
-        P0-HA (блокер 3 review-w4): ``history_sample`` — активная выборка
-        хода; баннер дополнения ставится ТОЛЬКО над head-конспектом
-        (running/L2 — память вне диапазона, зеркально `_ha_head_text`
-        композерного пути); дословный хвост окна не метится «вне выборки».
-        Verbatim-only режим (конспекта нет) — баннера нет вовсе."""
+        P0-HA (блокер 3 review-w4, блокер A review-w4-fix): ``history_sample``
+        — активная выборка хода; баннер дополнения возглавляет ТОЛЬКО
+        head-конспект (running/L2 — память вне диапазона, зеркально
+        `_ha_head_text` композерного пути); дословный хвост окна идёт после
+        явной граничной строки `_HA_INRANGE_TAIL_LABEL` (in-range регион —
+        «не подтверждает события» его не накрывает). Verbatim-only режим
+        (конспекта нет) — баннера и границы нет вовсе."""
         roster = roster or []
         suffix_map = suffix_map or {}
         summary_text = None
@@ -9656,13 +9665,19 @@ class DirectChatService:
                 else:
                     head, tail = [], [ln for ln in lines if ln.strip()]
         body = "\n".join(head + tail)
-        # P0-HA ISOLATION (блокер 3 review-w4): на legacy-пути (композер
-        # OFF) баннер дополнения — только над head-конспектом (память вне
-        # диапазона); дословные строки окна (внутри диапазона) и
-        # verbatim-only сборка без конспекта не метятся.
+        # P0-HA ISOLATION (блокер A review-w4-fix): на legacy-пути (композер
+        # OFF) баннер дополнения возглавляет ТОЛЬКО head-конспект (память
+        # вне диапазона); дословные строки окна (внутри диапазона) идут
+        # ПОСЛЕ явной граничной строки — «не подтверждает события» их не
+        # накрывает. Verbatim-only сборка (конспекта нет) и ход без выборки
+        # — прежний вывод без баннера и границы (байт-паритет).
         if history_sample is not None and summary_text is not None and head:
-            body = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
-                    f"\n{body}")
+            lines_out = [_ha_supplement_banner(_ha_sample_id(history_sample))]
+            lines_out.extend(head)
+            if tail:
+                lines_out.append(_HA_INRANGE_TAIL_LABEL)
+                lines_out.extend(tail)
+            body = "\n".join(lines_out)
         return f"<Global_Context>\n{escape_xml_text(body)}\n</Global_Context>"
 
     def _row_speaker(self, row) -> tuple[str, int | None]:

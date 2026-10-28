@@ -54,6 +54,11 @@ from services.tool_router import (
 
 CHAT_ID = -1001234567890
 
+# Граничная строка in-range региона <Global_Context> (блокер A review-w4-fix)
+# — пин литерала: зеркалит services.direct_chat_service._HA_INRANGE_TAIL_LABEL.
+HA_INRANGE_TAIL_LABEL = ("фон: ниже — дословные сообщения "
+                         "запрошенного диапазона")
+
 
 @pytest.fixture(autouse=True)
 def _pg_down():
@@ -390,6 +395,55 @@ class TestSegmentGuards:
         assert "invented_date:15.03.2025" in _event_field(events[0], "flags")
 
     @pytest.mark.asyncio
+    async def test_invented_date_nonpadded_stripped_and_flagged(self):
+        """Неприбитая нулём дата (блокер B review-w4-fix): срезается из
+        note, флаг несёт ТОЧНОЕ написание из note («5.10.2024», не
+        нормализованную «05.10.2024»)."""
+        rows = [{"user_id": 1, "author_name": "вася",
+                 "text": _pad("встреча")}]
+
+        block = await self._run(
+            rows, _note_responder("5.10.2024 была встреча"))
+        _fields, events = _coverage(block)
+        assert len(events) == 1
+        note = _event_field(events[0], "note")
+        assert "5.10.2024" not in note
+        assert "встреча" in note
+        assert "invented_date:5.10.2024" in _event_field(events[0], "flags")
+
+    @pytest.mark.asyncio
+    async def test_invented_date_month_nonpadded_stripped(self):
+        """«15.3.2025» (месяц без нуля): тот же срез из note и точный
+        флаг, что и у прибитой формы."""
+        rows = [{"user_id": 1, "author_name": "вася",
+                 "text": _pad("встреча")}]
+
+        block = await self._run(
+            rows, _note_responder("15.3.2025 была встреча"))
+        _fields, events = _coverage(block)
+        assert len(events) == 1
+        note = _event_field(events[0], "note")
+        assert "15.3.2025" not in note
+        assert "встреча" in note
+        assert "invented_date:15.3.2025" in _event_field(events[0], "flags")
+
+    @pytest.mark.asyncio
+    async def test_ref_stamp_date_stays_in_note(self):
+        """Дата, которую подтверждает штамп ref-строки (ts=1 →
+        01.01.1970): в note остаётся, флага выдуманной нет."""
+        rows = [{"user_id": 1, "author_name": "вася",
+                 "text": _pad("встреча")}]
+
+        block = await self._run(
+            rows, _note_responder("01.01.1970 была встреча"))
+        _fields, events = _coverage(block)
+        assert len(events) == 1
+        note = _event_field(events[0], "note")
+        assert "01.01.1970" in note
+        assert "встреча" in note
+        assert " flags=" not in events[0]
+
+    @pytest.mark.asyncio
     async def test_forward_attribution_owner_and_conflict(self):
         """Пересылка от РБК: контент — слова исходного автора; «Вася
         сообщил» — конфликт атрибуции, владелец указан."""
@@ -636,8 +690,11 @@ class TestComposerOffBannerPlacement:
 
     @pytest.mark.asyncio
     async def test_banner_on_conspect_only_in_range_lines_unlabeled(self):
-        """OFF + выборка + конспект: баннер над конспектом, дословная строка
-        окна без метки дополнения."""
+        """OFF + выборка + конспект: баннер возглавляет ТОЛЬКО регион
+        конспекта (вне диапазона); дословные строки окна идут после явной
+        граничной строки in-range региона — «не подтверждает события
+        внутри запрошенного диапазона» их не накрывает (блокер A
+        review-w4-fix: баннер над склейкой head+tail был дефектом)."""
         window = [_window_row(10, "вася", "свежее сообщение из окна", 500, 7)]
         blocks = await self._global_block(
             window, {"summary": "конспект прошлого фона", "raw_count": 7,
@@ -649,9 +706,42 @@ class TestComposerOffBannerPlacement:
         assert global_block.count("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ") == 1
         verbatim = [ln for ln in lines if "свежее сообщение из окна" in ln]
         assert verbatim, "дословный хвост окна потерян"
-        idx = lines.index(verbatim[0])
-        assert "ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ" not in lines[idx - 1]
-        assert "конспект из 7 сообщений" in global_block
+        idx_verbatim = lines.index(verbatim[0])
+        # порядок регионов: баннер → конспект → граница → дословные строки
+        assert HA_INRANGE_TAIL_LABEL in lines, \
+            "in-range регион не отделён явной граничной строкой"
+        idx_boundary = lines.index(HA_INRANGE_TAIL_LABEL)
+        idx_conspect = next(i for i, ln in enumerate(lines)
+                            if "конспект из 7 сообщений" in ln)
+        assert 1 < idx_conspect < idx_boundary < idx_verbatim
+        # регион дополнения (баннер..граница) несёт конспект; in-range
+        # регион (после границы) — без меток дополнения
+        supplement_region = "\n".join(lines[1:idx_boundary])
+        assert "конспект прошлого фона" in supplement_region
+        inrange_region = "\n".join(lines[idx_boundary:])
+        assert "ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ" not in inrange_region
+        assert "вне выборки" not in inrange_region
+
+    @pytest.mark.asyncio
+    async def test_inrange_region_covers_all_window_lines(self):
+        """Все дословные строки окна — в in-range регионе после граничной
+        строки, ни одна не осталась под баннером дополнения."""
+        window = [_window_row(10, "вася", "первое сообщение окна", 500, 7),
+                  _window_row(11, "петя", "второе сообщение окна", 510, 8)]
+        blocks = await self._global_block(
+            window, {"summary": "конспект прошлого фона", "raw_count": 7,
+                     "window_end_ts": 0}, with_sample=True)
+        global_block = next(t for k, t in blocks if k == "global")
+        lines = global_block.splitlines()
+        idx_boundary = lines.index(HA_INRANGE_TAIL_LABEL)
+        for marker in ("первое сообщение окна", "второе сообщение окна"):
+            hit = [ln for ln in lines if marker in ln]
+            assert hit, f"строка окна потеряна: {marker}"
+            assert lines.index(hit[0]) > idx_boundary, \
+                f"строка окна под баннером дополнения: {marker}"
+        inrange_region = "\n".join(lines[idx_boundary:])
+        assert "ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ" not in inrange_region
+        assert "вне выборки" not in inrange_region
 
     @pytest.mark.asyncio
     async def test_verbatim_only_global_gets_no_banner(self):

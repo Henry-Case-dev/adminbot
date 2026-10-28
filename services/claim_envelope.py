@@ -795,11 +795,14 @@ def invented_count_violations(note: str | None,
 def invented_date_violations(note: str | None, ts_by_ref) -> list[str]:
     """Придуманные даты (строка 487): полная дата «ДД.ММ.ГГГГ» в note без
     ни одного ref-сообщения выборки с этой датой (UTC ±1 сутки — допуск
-    локального сдвига чата без чтения per-chat tz). Никогда не бросает."""
+    локального сдвига чата без чтения per-chat tz). Возвращает ТОЧНЫЕ
+    подстроки note в найденном написании — включая день/месяц без ведущего
+    нуля («5.10.2024», «15.3.2025»): строка флага совпадает с тем, что
+    срезается из note (блокер B review-w4-fix). Никогда не бросает."""
     text = str(note or "")
     if not text:
         return []
-    candidates: list[tuple[int, int, int]] = []
+    matched: list[tuple[str, int, int, int]] = []
     for match in _DATE_CLAIM_RE.finditer(text):
         try:
             day, month, year = (int(match.group(1)), int(match.group(2)),
@@ -807,8 +810,8 @@ def invented_date_violations(note: str | None, ts_by_ref) -> list[str]:
             datetime.date(year, month, day)
         except (TypeError, ValueError):          # не календарная дата
             continue
-        candidates.append((day, month, year))
-    if not candidates:
+        matched.append((match.group(0), day, month, year))
+    if not matched:
         return []
     stamps: list[int] = []
     for value in (ts_by_ref or {}).values():
@@ -817,7 +820,7 @@ def invented_date_violations(note: str | None, ts_by_ref) -> list[str]:
         except (TypeError, ValueError):
             continue
     out: list[str] = []
-    for day, month, year in candidates:
+    for value, day, month, year in matched:
         supported = False
         for seconds in stamps:
             try:
@@ -833,8 +836,8 @@ def invented_date_violations(note: str | None, ts_by_ref) -> list[str]:
                     break
             if supported:
                 break
-        if not supported:
-            out.append(f"{day:02d}.{month:02d}.{year:04d}")
+        if not supported and value not in out:
+            out.append(value)
     return out
 
 
