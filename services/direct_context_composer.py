@@ -50,7 +50,7 @@ COMPOSER_POLICY_VERSION = "asap3-composer-1"
 # ── Приоритет-модель (§8 × §12; сквозная карта spec §3.4, D-PM-7) ───────────
 P0 = 0        # MUST KEEP: current/replied/branch/target/relations/protected/lore/episode
 P1 = 1        # fresh verbatim tail; <Conversation_Thread>; strong episodes
-P2 = 2        # running summary (background); Global head; RAG; level-2; map; nostalgia; mood
+P2 = 2        # running summary (background); Global head; RAG; history_supplement (P0-HA: вне-диапазонное дополнение); level-2; map; nostalgia; mood
 P3 = 3        # middle-подбор; слабый фон; anchors (стиль)
 
 # kind → приоритет (канонические kind'и блоков сервиса + части композера).
@@ -70,6 +70,9 @@ BLOCK_PRIORITY: dict[str, int] = {
     # P2
     "global_head": P2,
     "rag": P2,
+    # P0-HA ISOLATION (§3): вне-диапазонное дополнение — P2 (как RAG и
+    # конспект, НЕ P0); под давлением окна вытесняется раньше периода.
+    "history_supplement": P2,
     "map": P2,
     "nostalgia": P2,
     "mood": P2,
@@ -89,6 +92,10 @@ PIECE_KEEP: dict[str, str] = {
     "global_head": "head",
     "episode": "span",
     "branch": "span",
+    # P0-HA ISOLATION: баннер дополнения — голова piece'а, удерживается
+    # при внутренней усечении (сам piece P2 — вытесняется целиком раньше
+    # периода).
+    "history_supplement": "head",
 }
 
 # Канонический порядок слотов materialize (порядок блоков payload НЕ меняется
@@ -98,20 +105,24 @@ CANONICAL_ORDER: dict[str, int] = {
     "map": 0,
     "branch": 1,
     "episode": 2,
-    "rag": 3,
-    "global_head": 4,
-    "global_middle": 5,
-    "global_tail": 6,
-    "thread": 7,
-    "target": 8,
-    "relations": 9,
-    "protected": 10,
-    "lore": 11,
-    "nostalgia": 12,
-    "mood": 13,
-    "current": 14,
-    "anchors": 15,
-    "sandwich": 16,
+    # P0-HA ISOLATION (§3): слот дополнения сразу после episode;
+    # последующие индексы сдвинуты на +1 (относительный порядок прежних
+    # kind'ов не меняется — порядок блоков payload тот же).
+    "history_supplement": 3,
+    "rag": 4,
+    "global_head": 5,
+    "global_middle": 6,
+    "global_tail": 7,
+    "thread": 8,
+    "target": 9,
+    "relations": 10,
+    "protected": 11,
+    "lore": 12,
+    "nostalgia": 13,
+    "mood": 14,
+    "current": 15,
+    "anchors": 16,
+    "sandwich": 17,
 }
 
 
