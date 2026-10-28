@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-28T19:12:35+12:00",
+  "updated": "2026-10-28",
   "tasks": [
     {
       "id": "soul-1",
@@ -251,12 +251,14 @@
     },
     {
       "id": "p0-admin-cache-toggle-save",
-      "status": "BUILDING",
+      "status": "READY_FOR_LIVE",
       "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
       "source_sha256": "B8EC2E211686BCC1BC436C9A969EA7562CC1400EF8A6D84851AF260EA8CF5254",
-      "maps": [],
-      "coverage_complete": false,
-      "source_note": "P0 (28.10, скриншот владельца): рубильник Exact Match Cache в админке (Модули → Умный кэш) не сохраняется — «Сохранено 0 из 1». Требование: починить сохранение + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Base: release/p0-2026-10-26 2.58.139 @ 95e6c7c9. Производственный скриншот владельца 28.10."
+      "maps": [
+        "plans/features/p0-admin-cache-toggle-save/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 (28.10, скриншот владельца): рубильник Exact Match Cache в админке (Модули → Умный кэш) не сохраняется — «Сохранено 0 из 1». Требование: починить сохранение + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Base: release/p0-2026-10-26 2.58.139 @ 95e6c7c9. Производственный скриншот владельца 28.10. Инженерная приёмка ЗАКРЫТА: deployed 2.58.140 @ 5c8bf35d (кандидат a602aa61, review Approved), TOG-1..TOG-5 VERIFIED (гейт plan+review EXIT 0). READY_FOR_LIVE = добровольное переприменение тумблера владельцем в TMA (standing rule PET_PROJECT 18.10.2026: добровольное наблюдение, релиз уже выполнен штатно, owner_optional не блокирует)."
     }
   ],
   "owner_inputs": [
@@ -460,8 +462,8 @@
       "target_task_ids": [
         "p0-admin-cache-toggle-save"
       ],
-      "reconciled": false,
-      "note": "Баг: сохранение рубильника Exact Match Cache падает («Сохранено 0 из 1»). Требование: исправить + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Скриншот владельца 28.10.",
+      "reconciled": true,
+      "note": "Баг: сохранение рубильника Exact Match Cache падает («Сохранено 0 из 1»). Требование: исправить + аудит остальных параметров/рубильников админки. ЗАКРЫТО 28.10.2026: фикс a602aa61 (review Approved) задеплоен как 2.58.140 @ 5c8bf35d; live-зонд: chat-scope toggle ON/OFF → 200, readback оба направления, SmartCache get_hit/get_miss; аудит: Builder 106/106, независимое воспроизведение ревьюера 107/107 PASS; карта strict plan/review EXIT 0; карта p0-admin-cache-toggle-save/requirements-map.json.",
       "origin": "root chat 28.10.2026 + скриншот владельца",
       "received": "2026-10-28"
     }
