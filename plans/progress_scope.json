@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-28T22:56:30+12:00",
+  "updated": "2026-10-29T00:18:18+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -477,6 +477,18 @@
       "note": "Local maintenance done 28.10: 71 clean worktrees removed without --force, branches kept, main repo intact. 55 dirty/unique worktrees and scratch DBs retained. WorkspaceData + epic-close installed. Plans: 19 archived, 0 deleted. No SSH.",
       "recorded_in": "plans/reports/local-workspace-cleanup-2026-10-28.md",
       "origin": "root chat 28.10.2026",
+      "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-28-WORKTREE-FINAL-CLEANUP",
+      "source_path": "plans/owner_inputs/2026-10-28-worktree-final-cleanup.md",
+      "source_sha256": "F74CFFE1080EE1FF2B5387B710E7F1CF72C3123F19AF29B5B50FC1864805EFC4",
+      "kind": "amendment",
+      "target_task_ids": [],
+      "reconciled": true,
+      "note": "DONE 29.10: 126/126 extra worktrees removed across both passes (71 clean + 55 dispositioned), 40 preserve/* refs kept unique review evidence, unique untracked data quarantined with sha256 manifests, scratch 43.4->1.5GB, temp 6.4->0.65GB, cache deleted. Main repo intact (HEAD a556797a, zero tracked deletions). Reports: worktree-final-cleanup-2026-10-28.md, scratch-final-cleanup-2026-10-28.md.",
+      "recorded_in": "plans/reports/worktree-final-cleanup-2026-10-28.md",
+      "origin": "root chat 28.10.2026 (evening)",
       "received": "2026-10-28"
     }
   ]
