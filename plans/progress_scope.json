@@ -438,7 +438,7 @@
       "target_task_ids": [
         "p0-factcheck-post-release"
       ],
-      "reconciled": false,
+      "reconciled": true,
       "note": "Обязательная корректива Fact-check: поиск — необязательный инструмент, не условие работы; empty evidence ≠ insufficient; continue analysis без выдумок (честная неопределённость); ПОЛНОЕ удаление verdict-cache (handlers legacy, orchestrator envelope/legacy, temporal cache, mca_gates gate, скрытые пути); taxonomy причин поиска; частичные доказательства сохраняются; вербализация без сочинительства; директива аналитика §8; F1-F30 регрессии. Заменяет предыдущую версию коррективы.",
       "origin": "root chat 28.10.2026",
       "received": "2026-10-28"
