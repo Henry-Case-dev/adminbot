@@ -523,6 +523,24 @@ def _row_importance(row) -> int:
         return 5
 
 
+# ── P0-HA RELEVANCE (source-2026-10-29.md §10/§11) ─────────────────────────
+# §10: собственные пересказы бота — НЕ независимое доказательство значимости
+# события. Provenance-механизм по origin-колонке («факт порожден выходом
+# бота»), НЕ список тем/имён; память не удаляется и не обнуляется.
+_BOT_GENERATED_ORIGINS = frozenset({"bot_self_reply", "bot_direct_reply"})
+
+# §11 «Повторяемость уже использованного воспоминания»: bounded-штраф
+# релевантности факту, недавно ПОДАВАВШЕМУСЯ в контекст ответов. Не удаление
+# и не обнуление: потолок штрафа сопоставим с существующими expired/belief-
+# пенальти; сильное смысловое совпадение (явный вопрос о старом событии)
+# по-прежнему находит факт (H24). Process-local, R17: только id/счётчики.
+_RAG_USAGE_WINDOW_SEC = 6 * 3600     # «недавно» — окно с последней подачи
+_RAG_USAGE_PENALTY_STEP = 0.05       # за одну недавнюю подачу
+_RAG_USAGE_PENALTY_CAP = 0.30        # жёсткий потолок штрафа (bounded)
+_RAG_USAGE_MAX_CHATS = 64            # вытеснение в process-local кэше
+_RAG_USAGE_MAX_PER_CHAT = 512
+
+
 def _effective_weight(weight, confirmed_at, now: int) -> float:
     """66.3 (T-481): w_eff = weight × 0.5^(Δдней/half_life) от last_confirmed_at;
     floor GRAPH_TIME_DECAY_FLOOR. Decay — ТОЛЬКО множитель ранга при чтении
@@ -1645,6 +1663,10 @@ class MemoryManager:
             _ecp.REGISTRY.bind_db(db)
         except Exception:      # контракт не рвёт инициализацию
             pass
+        # P0-HA RELEVANCE (§11): process-local учёт подач фактов в ответы
+        # (chat_id → fact_id → [подачи за окно, ts последней]). Только
+        # счётчики (R17), bounded-размер, содержимое фактов не хранится.
+        self._rag_usage: dict[int, dict[int, list]] = {}
 
     # ── Initialization (R3: graceful sqlite-vec load + self-heal) ──────────
 
@@ -4013,6 +4035,62 @@ class MemoryManager:
 
     # ── RAG-факты direct-пути (Раунд 8: F1/T-807, F2/T-808, F4/T-810) ──
 
+    def _mark_rag_usage(self, chat_id: int, fact_ids, now: int) -> None:
+        """P0-HA RELEVANCE (§11): пометка «факт подавался в контекст ответа».
+
+        Process-local (перезапуск процесса сбрасывает — штраф bounded и
+        recency-природы, durable-учёт не требуется). Bounded: превышение
+        лимитов вытесняет самые старые записи. Только id/счётчики (R17).
+        Никогда не бросает (учёт не может сломать выдачу)."""
+        try:
+            per_chat = self._rag_usage.get(chat_id)
+            if per_chat is None:
+                if len(self._rag_usage) >= _RAG_USAGE_MAX_CHATS:
+                    oldest = min(
+                        self._rag_usage,
+                        key=lambda c: max((e[1] for e in
+                                           self._rag_usage[c].values()),
+                                          default=0))
+                    self._rag_usage.pop(oldest, None)
+                per_chat = self._rag_usage[chat_id] = {}
+            now = int(now)
+            for fid in fact_ids:
+                entry = per_chat.get(fid)
+                if entry is None:
+                    if len(per_chat) >= _RAG_USAGE_MAX_PER_CHAT:
+                        oldest_fid = min(per_chat,
+                                         key=lambda f: per_chat[f][1])
+                        per_chat.pop(oldest_fid, None)
+                    per_chat[fid] = [1, now]
+                else:
+                    entry[0] += 1
+                    entry[1] = now
+        except Exception:
+            logger.debug("graphrag RAG: usage mark skipped | chat_id=%s",
+                         chat_id)
+
+    def _rag_usage_penalty(self, chat_id: int, fact_id, now: int) -> float:
+        """P0-HA RELEVANCE (§11): bounded-штраф релевантности за недавние
+        повторные подачи того же факта в ответы.
+
+        Молчание дольше окна → 0; внутри окна — min(cap, step × подачи).
+        Детерминированный; любые темы/имена при одинаковых условиях
+        штрафуются одинаково (без списков тем). Факт остаётся находимым:
+        потолок не обнуляет ранг (H24)."""
+        try:
+            per_chat = self._rag_usage.get(chat_id)
+            if not per_chat:
+                return 0.0
+            entry = per_chat.get(fact_id)
+            if entry is None:
+                return 0.0
+            if int(now) - entry[1] > _RAG_USAGE_WINDOW_SEC:
+                return 0.0
+            return min(_RAG_USAGE_PENALTY_CAP,
+                       _RAG_USAGE_PENALTY_STEP * entry[0])
+        except Exception:
+            return 0.0
+
     async def get_rag_facts(self, chat_id: int, query: str, *,
                             include_direct_reply: bool = False,
                             include_self: bool = False) -> list:
@@ -4027,11 +4105,16 @@ class MemoryManager:
         выключенный RAG/любая ошибка → [] (WARNING).
         Раунд 10.14 (F1, ADR-1014-2 D7): include_self=True (только direct-
         путь) → origin='bot_self_reply' участвует; default False — self не
-        виден чужим пайплайнам."""
+        виден чужим пайплайнам.
+        P0-HA RELEVANCE (§10/§11): поданные факты (только direct-путь,
+        include_self=True) помечаются process-local учётом подач; повторные
+        подачи того же факта получают bounded-штраф релевантности (см.
+        _rag_usage_penalty) — собственные пересказы бота не поддерживают
+        заметность темы. Поиск при явном запросе остаётся находимым (H24)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
-            return await self._search_graph_facts(
+            facts = await self._search_graph_facts(
                 chat_id, str(query or ""),
                 (hot.get("limits.graph_rag_facts_limit",
                          settings.GRAPH_RAG_FACTS_LIMIT) or 0),
@@ -4042,6 +4125,31 @@ class MemoryManager:
                 "graphrag RAG: facts search failed — empty list | chat_id=%s",
                 chat_id, exc_info=True)
             return []
+        # P0-HA RELEVANCE (§11): include_self=True — уникальный признак
+        # direct-пути (ambient-инжект <RAG_Memory>). Поданные факты помечаются
+        # для bounded-штрафа повторной подачи. Явные tool-пути (include_self
+        # по умолчанию False) НЕ помечаются: явный вопрос пользователя — не
+        # гиперфиксация. Fail-open: пометка не может уронить выдачу.
+        if include_self and facts:
+            marked: list[int] = []
+            for item in facts:
+                try:
+                    if isinstance(item, dict):
+                        item_id = str(item.get("item_id")
+                                      or (f"fact:{item['id']}"
+                                          if item.get("id") is not None
+                                          else ""))
+                    elif isinstance(item, (tuple, list)) and len(item) > 4:
+                        item_id = str(item[4] or "")
+                    else:
+                        continue
+                    if item_id.startswith("fact:"):
+                        marked.append(int(item_id[5:]))
+                except (TypeError, ValueError, IndexError, KeyError):
+                    continue
+            if marked:
+                self._mark_rag_usage(chat_id, marked, int(time.time()))
+        return facts
 
     async def retrieve_fact_candidates(self, chat_id, query, *,
                                        limit=None, include_direct_reply=False,
@@ -4358,22 +4466,40 @@ class MemoryManager:
                                       now)
                     * _importance_factor(_row_importance(r)))
             if r["id"] in expired_row_ids:
-                return base - expired_penalty
-            return base
+                base -= expired_penalty
+            # P0-HA RELEVANCE (§11): bounded-штраф за недавние повторные
+            # подачи того же факта в ответы — важность не подменяет
+            # релевантность, навязчивое всплытие затухает; явный запрос
+            # находит факт (штраф ограничен, не ноль).
+            return base - self._rag_usage_penalty(chat_id, r["id"], now)
 
         ranked = sorted(list(rows) + expired_rows, key=_rank_key,
                         reverse=True)
         kept = ranked[:limit]
         fresh_kept = [r for r in kept if r["id"] not in expired_row_ids]
         if fresh_kept and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
-            try:
-                await self.db.touch_graph_facts(
-                    [r["id"] for r in fresh_kept], (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
-                    (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
-                    now)
-            except Exception:
-                logger.warning("graphrag RAG: touch failed | chat_id=%s",
-                               chat_id, exc_info=True)
+            # P0-HA RELEVANCE (§10): факты с provenance «порождены выходом
+            # бота» (bot_self_reply/bot_direct_reply) НЕ получают продление
+            # TTL от RAG-хитов («используется — живёт»): частота собственных
+            # пересказов бота не увеличивает значимость события. Provenance
+            # по origin-колонке, не список тем; память не удаляется.
+            touch_ids = [r["id"] for r in fresh_kept
+                         if str(r["origin"] or "")
+                         not in _BOT_GENERATED_ORIGINS]
+            bot_skipped = len(fresh_kept) - len(touch_ids)
+            if touch_ids:
+                try:
+                    await self.db.touch_graph_facts(
+                        touch_ids, (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
+                        (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
+                        now)
+                except Exception:
+                    logger.warning("graphrag RAG: touch failed | chat_id=%s",
+                                   chat_id, exc_info=True)
+            if bot_skipped:
+                # R17-safe: только счётчики, без содержимого фактов.
+                logger.info("graphrag RAG: touch bot-origin skipped=%d | "
+                            "chat_id=%s", bot_skipped, chat_id)
         # Фаза 2 (T-759): рендер ts = COALESCE(message_timestamp, created_at);
         # F1/T-1418: + target_user (автор факта — 4-й элемент).
         # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
@@ -4488,6 +4614,10 @@ class MemoryManager:
             score = cosine * w_eff * _importance_factor(_row_importance(row))
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
+            # P0-HA RELEVANCE (§11): bounded-штраф за недавние повторные
+            # подачи (важность не подменяет релевантность; ограничен —
+            # явный запрос о старом событии находит факт, H24).
+            score -= self._rag_usage_penalty(chat_id, fid, now)
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, vec))
         # B03.2: архивная (expired) часть — ниже свежей: пенальти к score
@@ -4501,6 +4631,9 @@ class MemoryManager:
                      - expired_penalty)
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
+            # P0-HA RELEVANCE (§11): тот же bounded-штраф повторных подач
+            # для архивного top-up (симметрично свежей части).
+            score -= self._rag_usage_penalty(chat_id, fid, now)
             by_id[fid] = row
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, None))
@@ -4522,14 +4655,25 @@ class MemoryManager:
         await self._resurrect_resonant(
             chat_id, fresh_chosen, by_id, cosine_by_id, threshold, now)
         if fresh_chosen and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
-            try:
-                await self.db.touch_graph_facts(
-                    fresh_chosen, (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
-                    (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
-                    now)
-            except Exception:
-                logger.warning("graphrag RAG: touch failed | chat_id=%s",
-                               chat_id, exc_info=True)
+            # P0-HA RELEVANCE (§10): provenance «порождены выходом бота» —
+            # без продления TTL от RAG-хитов (см. FTS-путь).
+            touch_ids = [f for f in fresh_chosen
+                         if str((by_id.get(f) or {}).get("origin") or "")
+                         not in _BOT_GENERATED_ORIGINS]
+            bot_skipped = len(fresh_chosen) - len(touch_ids)
+            if touch_ids:
+                try:
+                    await self.db.touch_graph_facts(
+                        touch_ids, (hot.get("limits.graph_fact_touch_extend_days", settings.GRAPH_FACT_TOUCH_EXTEND_DAYS) or 0),
+                        (hot.get("limits.chat_direct_reply_ttl_days", settings.CHAT_DIRECT_REPLY_TTL_DAYS) or 0), (hot.get("limits.graph_fact_ttl_days", settings.GRAPH_FACT_TTL_DAYS) or 0),
+                        now)
+                except Exception:
+                    logger.warning("graphrag RAG: touch failed | chat_id=%s",
+                                   chat_id, exc_info=True)
+            if bot_skipped:
+                # R17-safe: только счётчики, без содержимого фактов.
+                logger.info("graphrag RAG: touch bot-origin skipped=%d | "
+                            "chat_id=%s", bot_skipped, chat_id)
         # Фаза 2 (T-759): KNN-путь — ts = message_timestamp or created_at
         # (импортированные факты: дата сообщения, не дата импорта).
         # F1/T-1418: + target_user (автор факта — 4-кортеж).
@@ -4673,19 +4817,39 @@ class MemoryManager:
             hot_low = {n.casefold() for n in hot_names}
             archived = await self.db.list_archived_beliefs(
                 chat_id=chat_id, limit=200)
-            out: list = []
+            matched: list[dict] = []
             for belief in archived:
                 anchor = next(iter(significant_tokens(belief["fact"])), None)
                 target = str(belief.get("target_user") or "").strip().casefold()
                 if (anchor and anchor in hot_low) or \
                         (target and target in hot_low):
-                    out.append((
-                        belief.get("origin"), belief["fact"],
-                        belief.get("message_timestamp")
-                        or belief.get("created_at"),
-                        belief.get("target_user")))
+                    matched.append(belief)
+            # P0-HA RELEVANCE (§11): повторно инжектируемые тем же ходом
+            # archived-beliefs сдвигаются вниз ограниченным штрафом подач —
+            # навязчивое всплытие затухает (stable sort: пустой учёт →
+            # прежний порядок id DESC, байт-паритет). Не удаление: belief
+            # остаётся в выдаче, если слоты позволяют (bounded).
+            now_i = int(time.time())
+            matched.sort(key=lambda b: self._rag_usage_penalty(
+                chat_id, b.get("id"), now_i))
+            out: list = []
+            shown_ids: list[int] = []
+            for belief in matched:
                 if len(out) >= cap:
                     break
+                out.append((
+                    belief.get("origin"), belief["fact"],
+                    belief.get("message_timestamp")
+                    or belief.get("created_at"),
+                    belief.get("target_user")))
+                try:
+                    shown_ids.append(int(belief.get("id")))
+                except (TypeError, ValueError):
+                    continue
+            if shown_ids:
+                # Пометка «показано в ответе» (§11) — тот же process-local
+                # учёт, что у direct-RAG (повторная активация затухает).
+                self._mark_rag_usage(chat_id, shown_ids, now_i)
             if out:
                 logger.info(
                     "graphrag: graph-activation injected archived beliefs | "
