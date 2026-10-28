@@ -1,6 +1,6 @@
 {
   "schema": "openworkflow-progress-scope-v1",
-  "updated": "2026-10-28T17:48:03+12:00",
+  "updated": "2026-10-28T19:12:35+12:00",
   "tasks": [
     {
       "id": "soul-1",
@@ -248,6 +248,15 @@
       "maps": [],
       "coverage_complete": false,
       "source_note": "FACTCHECK POST-RELEASE CORRECTIVE (28.10, заменяет предыдущую версию): evidence-пусто ≠ анализ невозможен (§1-2); устойчивость pipeline без каскадов блокировок (§4); taxonomy причин поиска (§5); ПОЛНОЕ УДАЛЕНИЕ кеша готовых вердиктов во всех маршрутах (§6, решение владельца); вербализация передаёт содержание (§7); директива аналитика (§8); регрессии F1-F30 (§9); существующая архитектура (§10); отчёт (§11). Порядок §10.5. Base: release/p0-2026-10-26 (2.58.136+; factcheck-media 2.58.131 уже в линии). | 28.10 ЗАКРЫТО: 60/61 required VERIFIED (release-gate: только FC-05B live-наблюдение + структурный класс deployed=bump), deployed 2.58.139 @ 95e6c7c9, live probe 8/8. | Статус уточнён: инженерная часть закрыта (60/61 VERIFIED), FC-05B — наблюдение частоты ложных отрицаний на живой поисковой выдаче (READY_FOR_LIVE, пост-деплой). | Статус BUILDING = живое наблюдение FC-05B (частота ложных отрицаний фильтра на живой выдаче) продолжается; инженерная часть 60/61 VERIFIED, деплой 2.58.139 live 8/8."
+    },
+    {
+      "id": "p0-admin-cache-toggle-save",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
+      "source_sha256": "B8EC2E211686BCC1BC436C9A969EA7562CC1400EF8A6D84851AF260EA8CF5254",
+      "maps": [],
+      "coverage_complete": false,
+      "source_note": "P0 (28.10, скриншот владельца): рубильник Exact Match Cache в админке (Модули → Умный кэш) не сохраняется — «Сохранено 0 из 1». Требование: починить сохранение + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Base: release/p0-2026-10-26 2.58.139 @ 95e6c7c9. Производственный скриншот владельца 28.10."
     }
   ],
   "owner_inputs": [
@@ -441,6 +450,19 @@
       "reconciled": true,
       "note": "Обязательная корректива Fact-check: поиск — необязательный инструмент, не условие работы; empty evidence ≠ insufficient; continue analysis без выдумок (честная неопределённость); ПОЛНОЕ удаление verdict-cache (handlers legacy, orchestrator envelope/legacy, temporal cache, mca_gates gate, скрытые пути); taxonomy причин поиска; частичные доказательства сохраняются; вербализация без сочинительства; директива аналитика §8; F1-F30 регрессии. Заменяет предыдущую версию коррективы.",
       "origin": "root chat 28.10.2026",
+      "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-28-ADMIN-CACHE-TOGGLE-SAVE",
+      "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
+      "source_sha256": "B8EC2E211686BCC1BC436C9A969EA7562CC1400EF8A6D84851AF260EA8CF5254",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-admin-cache-toggle-save"
+      ],
+      "reconciled": false,
+      "note": "Баг: сохранение рубильника Exact Match Cache падает («Сохранено 0 из 1»). Требование: исправить + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Скриншот владельца 28.10.",
+      "origin": "root chat 28.10.2026 + скриншот владельца",
       "received": "2026-10-28"
     }
   ]
