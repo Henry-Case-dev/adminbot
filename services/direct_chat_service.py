@@ -203,6 +203,8 @@ from services.negative_constraints import (
     verbalize_validated,
 )
 from services.prompt_style_blocks import (
+    HISTORY_COVERAGE_ASSEMBLY_BLOCK,
+    HISTORY_EXTRACTION_QUALITY_BLOCK,
     compose_verbalizer_system,
     resolve_prompt,
 )
@@ -278,6 +280,11 @@ _HISTORY_SEGMENT_NOTE_MAX = 200       # техпредел производно�
 # Промпт машинного извлечения фактов из сегмента стенограммы — НЕ канон,
 # вне PG (прецедент _CHAT_RAG_RERANK_SYSTEM_PROMPT из summary_memory).
 # Без тем, без имён, без инструкций личности; вернуть JSON и ничего больше.
+# P0-HA QUALITY (волна 4b, wiring §12 ТЗ): в хвост аппенден ПОЛНЫЙ текст
+# HISTORY_EXTRACTION_QUALITY_BLOCK (типы материала выборки, атрибуция
+# пересылок, запрет придуманных количеств/дат/порядка). Расширение
+# инструкции: существующий текст не тронут байт-в-байт, блок не режется
+# (ADDENDUM #3 §2.10).
 _HISTORY_SEGMENT_SYSTEM_PROMPT = (
     "Ты — извлекатель фактов из куска стенограммы чата. Дан сегмент строк "
     "вида «[дата | имя | id]: текст» и строки контекста соседних сегментов "
@@ -291,6 +298,7 @@ _HISTORY_SEGMENT_SYSTEM_PROMPT = (
     "контексте предыдущего сегмента и продолжается в данном. Значимых "
     "событий нет — верни {\"events\":[],\"status\":\"ok\"}. Никаких "
     "пояснений."
+    "\n\n" + HISTORY_EXTRACTION_QUALITY_BLOCK
 )
 _HISTORY_SEGMENT_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 _HISTORY_REF_RE = re.compile(r"^(?:tg|msg|fact):\d+$")
@@ -3996,7 +4004,14 @@ class DirectChatService:
                         max_tokens=(longform_max_tokens
                                     if response_plan is not None
                                     and response_plan.is_longform()
-                                    else None))
+                                    else None),
+                        # P0-HA QUALITY (wiring §13): инструкция финальной
+                        # сборки — ТОЛЬКО ходу с выборкой истории; без
+                        # выборки параметр пуст → байт-паритет прежнего
+                        # хода (Writer/system не меняются).
+                        history_assembly_block=(
+                            HISTORY_COVERAGE_ASSEMBLY_BLOCK
+                            if history_sample is not None else ""))
                     if _l2 is not None:
                         # F3-семантика: режим несёт стиль и канал доставки.
                         raw, response_mode = _l2
@@ -5410,7 +5425,8 @@ class DirectChatService:
                                speech_block: str = "",
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
-                               max_tokens=None, diag_out: dict | None = None
+                               max_tokens=None, diag_out: dict | None = None,
+                               history_assembly_block: str = ""
                                ) -> tuple[str, str] | None:
         """ASAP 7 (F1, §1.2) + v6 D04 (§18C.4): L2 WRITER —
         Вербализатор-канал на ВСЕХ Direct-путях. Тот же prompt-канал/
@@ -5431,6 +5447,12 @@ class DirectChatService:
         факты слоя «Выражение» этого вызова (маркер/режим/провайдер) для
         «Проверить вживую»; точки диагностики §6 (``policy_not_injected``,
         ``provider_limitation``, ``postprocess_changed``) эмитятся здесь же.
+
+        P0-HA QUALITY (wiring): ``history_assembly_block`` — опциональный
+        блок инструкции финальной сборки по накопленным находкам истории
+        (default "" → байт-паритет всех прежних потребителей). Передаётся
+        швом хода ТОЛЬКО при активной выборке; аппендится в ФИНАЛЬНЫЙ
+        system после scrub целиком.
         """
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         response_mode = _l1.plan_response_mode(response_plan)
@@ -5516,6 +5538,16 @@ class DirectChatService:
             logger.warning(
                 "[direct] extent-conflict scrub | chat=%s | "
                 "stage=l2_writer | removed=%d", chat_id, _scrubbed)
+        # ── P0-HA QUALITY (волна 4b, wiring §13 ТЗ): ход с выборкой
+        # истории получает инструкцию финальной сборки по накопленным
+        # находкам (@@HISTORY_COVERAGE едет в Tool_Evidence того же хода).
+        # Блок приходит из шва хода ТОЛЬКО при активной выборке; пустая
+        # строка (без выборки) — байт-паритет прежней сборки. Аппенд ПОСЛЕ
+        # scrub, ЦЕЛИКОМ, без усечения и переформулировки (ADDENDUM #3
+        # §2.10: инструкции не сокращаются).
+        if history_assembly_block:
+            verbalizer_system = (verbalizer_system + "\n\n"
+                                 + history_assembly_block)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user",
