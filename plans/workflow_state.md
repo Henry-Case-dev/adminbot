@@ -1,17 +1,17 @@
 ﻿# Workflow State
 
-Task: worktree-final-cleanup-2026-10-28 (continuation of local-workspace-cleanup-2026-10-28)
-Task source: root prompt
-Status: done
-Primary phase: cleanup
-Active feature: none
-Active lanes: none
-Join barriers: none
-Last verified: 126/126 extra worktrees removed over both passes; 40 preserve/* refs hold unique review evidence; quarantine manifests verified; scratch 43.4GB -> 1.5GB; main repo HEAD a556797a intact, zero tracked deletions; housekeeping unittest 11/11 OK. Reports committed on master.
-Next unlocks: none for this maintenance. Owner-only leftovers: adminbot-clean broken clone (104MB) and w5_iso/migrate_history (1.08GB owner data) in Temp\opencode — removal is an owner decision, nothing blocked. Product observation leftovers unchanged.
-Next execution: none
-Review: not_applicable
-Deployment: not_applicable
+Task: p0-history-analysis (active) + release-then-migrate (queued, governs deploy order)
+Task source: root prompt 2026-10-29 x2 (sha A2B977B9; sha CCC20476)
+Status: in_progress
+Primary phase: build (RELEVANCE) + binding (wave 4)
+Active feature: p0-history-analysis
+Active lanes: PM binding wave-4 rows on 3bc1204c (running); Builder RELEVANCE (running)
+Join barriers: RELEVANCE verdict -> binding -> ACCEPT H1-H32 -> RELEASE GATE A-C on OLD VPS -> migration D-E
+Last verified: wave 4 Approved on 3bc1204c — all 11 rows (6 ISOLATION + 5 QUALITY) approvable (review-w4-fix4.md; fix lineage 65478d5e->e7caf77e->6d800b07->e660e8c3->3bc1204c, each cycle RED->GREEN; final: boundary only before surviving window lines incl. standard-ceiling recount, date-token strip, guards live on turn, uid identity, system2 wiring); regression 637 green on reviewer sets
+Next unlocks: RELEVANCE verdict -> binding -> ACCEPT (H1-H32 behavior) -> deploy old VPS -> release gate -> migration D-E
+Next execution: awaiting_children
+Review: approved (DEPTH, TRUNC-PAGES, SEGMENTS, ISOLATION, QUALITY); pending (RELEVANCE)
+Deployment: pending (old VPS first; migration gated)
 Human gate: none
-Progress scope: plans/progress_scope.json | mapping_incomplete
-Updated: 2026-10-29T00:20+12:00
+Progress scope: plans/progress_scope.json | stale (34/125 bound; wave-4 binding in progress)
+Updated: 2026-10-29T08:05+12:00

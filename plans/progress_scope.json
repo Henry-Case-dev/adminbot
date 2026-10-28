@@ -245,8 +245,10 @@
       "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-10-28-factcheck-post-release-corrective.md",
       "source_sha256": "3C0F035BDF4266DE37B41C3DF63FAF57D4E8E116C67B47D00F22F5C985989DA6",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/p0-factcheck-post-release/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "source_note": "FACTCHECK POST-RELEASE CORRECTIVE (28.10, заменяет предыдущую версию): evidence-пусто ≠ анализ невозможен (§1-2); устойчивость pipeline без каскадов блокировок (§4); taxonomy причин поиска (§5); ПОЛНОЕ УДАЛЕНИЕ кеша готовых вердиктов во всех маршрутах (§6, решение владельца); вербализация передаёт содержание (§7); директива аналитика (§8); регрессии F1-F30 (§9); существующая архитектура (§10); отчёт (§11). Порядок §10.5. Base: release/p0-2026-10-26 (2.58.136+; factcheck-media 2.58.131 уже в линии). | 28.10 ЗАКРЫТО: 60/61 required VERIFIED (release-gate: только FC-05B live-наблюдение + структурный класс deployed=bump), deployed 2.58.139 @ 95e6c7c9, live probe 8/8. | Статус уточнён: инженерная часть закрыта (60/61 VERIFIED), FC-05B — наблюдение частоты ложных отрицаний на живой поисковой выдаче (READY_FOR_LIVE, пост-деплой). | Статус BUILDING = живое наблюдение FC-05B (частота ложных отрицаний фильтра на живой выдаче) продолжается; инженерная часть 60/61 VERIFIED, деплой 2.58.139 live 8/8."
     },
     {
@@ -259,6 +261,28 @@
       ],
       "coverage_complete": true,
       "source_note": "P0 (28.10, скриншот владельца): рубильник Exact Match Cache в админке (Модули → Умный кэш) не сохраняется — «Сохранено 0 из 1». Требование: починить сохранение + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Base: release/p0-2026-10-26 2.58.139 @ 95e6c7c9. Производственный скриншот владельца 28.10. Инженерная приёмка ЗАКРЫТА: deployed 2.58.140 @ 5c8bf35d (кандидат a602aa61, review Approved), TOG-1..TOG-5 VERIFIED (гейт plan+review EXIT 0). READY_FOR_LIVE = добровольное переприменение тумблера владельцем в TMA (standing rule PET_PROJECT 18.10.2026: добровольное наблюдение, релиз уже выполнен штатно, owner_optional не блокирует)."
+    },
+    {
+      "id": "p0-history-analysis",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-10-29-history-analysis-p0-corrective.md",
+      "source_sha256": "A2B977B9EEBD2F55F0FDFC6F79E517AAA3644B30A2DE470EC21D34A0FB2BB4E0",
+      "maps": [
+        "plans/features/p0-history-analysis/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "updated": "2026-10-29",
+      "source_note": "P0 CORRECTIVE 29.10 (root chat, дословный снимок): полноценный анализ истории чата — убрать потолок 150 сообщений и обрезку 3500 символов в get_recent_history; динамическая глубина с постраничным извлечением без нового общего потолка; сегментный анализ больших выборок с фиксацией границы выборки; изоляция запрошенного диапазона от старой памяти (RAG/GraphRAG/Golden Facts/Lore/self-echo); устранение гиперфикса на старых темах (Внуково) без хардкодов и чёрных списков; качество анализа участников; регрессии H1-H32; инцидент-аудит 400 сообщений (read-only, без живых тестов в чатах). Очередь: после ранее зарегистрированных обязательных задач; затем инженерная приёмка + штатный deployment. | Intake согласован 29.10: карта plans/features/p0-history-analysis/requirements-map.json (required=125: инвентарь 38 + PM 87; context/duplicate 251; unclassified 0; H1-H32 отдельными строками; 9 слайсов AUDIT/DEPTH/TRUNC-PAGES/SEGMENTS/ISOLATION/RELEVANCE/QUALITY/ACCEPT/DEPLOY; строгий slice-граф); план-гейт EXIT 0 (инвентарь 184, manual 192, errors 0) перепроверен оркестратором; инцидент-аудит завершён (evidence/incident-audit.md: двойная потеря подтверждена репро — из 400 сообщений до LLM доходит 35; простой путь 9% охвата; тай-стемпы 120 групп; канал Внуково статически доказан). Волна 1: DEPTH (не блокируется Architect) параллельно с контрактной валидацией Architect (TRUNC-PAGES/SEGMENTS/ISOLATION)."
+    },
+    {
+      "id": "release-then-migrate",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
+      "source_sha256": "CCC204766633F595B486794E1B7FD2E831520BE1AE00931CD63182A69D4EB301",
+      "maps": [],
+      "coverage_complete": false,
+      "updated": "2026-10-29",
+      "source_note": "P0 RELEASE-THEN-MIGRATE 29.10 (root chat, дословный снимок): строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS nik@198.46.175.136 -> (C) приёмка релиза на старом production -> (D) только после release gate подготовка/перенос на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка §7.1. MIGRATION_SOURCE_SHA = SHA принятого старого production; перенос именно этой версии. Запреты: без удаления данных, без двух живых ботов, без одновременного обновления приложения и сервера, без переимпорта истории/перестройки эмбеддингов, без тестов в рабочих чатах, без чистых установок поверх. Секреты нового VPS — только из локального deploy_commands.txt, не в код/логи/git. Старый VPS сохраняется как fallback. Детальная карта/чек-лист — при старте фазы D (после релизного гейта задачи p0-history-analysis). Фазы A-C исполняются в рамках DEPLOY-слайса p0-history-analysis."
     }
   ],
   "owner_inputs": [
@@ -483,13 +507,40 @@
       "id": "OI-2026-10-28-WORKTREE-FINAL-CLEANUP",
       "source_path": "plans/owner_inputs/2026-10-28-worktree-final-cleanup.md",
       "source_sha256": "F74CFFE1080EE1FF2B5387B710E7F1CF72C3123F19AF29B5B50FC1864805EFC4",
-      "kind": "amendment",
+      "kind": "decision",
       "target_task_ids": [],
       "reconciled": true,
       "note": "DONE 29.10: 126/126 extra worktrees removed across both passes (71 clean + 55 dispositioned), 40 preserve/* refs kept unique review evidence, unique untracked data quarantined with sha256 manifests, scratch 43.4->1.5GB, temp 6.4->0.65GB, cache deleted. Main repo intact (HEAD a556797a, zero tracked deletions). Reports: worktree-final-cleanup-2026-10-28.md, scratch-final-cleanup-2026-10-28.md.",
       "recorded_in": "plans/reports/worktree-final-cleanup-2026-10-28.md",
       "origin": "root chat 28.10.2026 (evening)",
       "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-29-HISTORY-ANALYSIS",
+      "source_path": "plans/owner_inputs/2026-10-29-history-analysis-p0-corrective.md",
+      "source_sha256": "A2B977B9EEBD2F55F0FDFC6F79E517AAA3644B30A2DE470EC21D34A0FB2BB4E0",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-history-analysis"
+      ],
+      "reconciled": true,
+      "note": "P0 CORRECTIVE 29.10: динамический get_recent_history (без потолка 150 и обрезки 3500), постраничное/сегментное исследование больших выборок, фиксация границы выборки, изоляция диапазона от старой памяти, анти-гиперфикс на старых темах без хардкодов, регрессии H1-H32, инцидент-аудит, деплой. Зарегистрировано в очередь после ранее принятых обязательных задач. | Сверено 29.10: карта 125 required покрывает все части директивы (Части I-VIII, H1-H32, запреты §20, DONE §21, отчёт §22), план-гейт EXIT 0; дельта против P0 DELTA/Direct Chat/NOST сверена PM, конфликтов нет.",
+      "origin": "root chat 29.10.2026",
+      "received": "2026-10-29"
+    },
+    {
+      "id": "OI-2026-10-29-RELEASE-THEN-MIGRATE",
+      "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
+      "source_sha256": "CCC204766633F595B486794E1B7FD2E831520BE1AE00931CD63182A69D4EB301",
+      "kind": "new_task",
+      "target_task_ids": [
+        "release-then-migrate",
+        "p0-history-analysis"
+      ],
+      "reconciled": false,
+      "note": "P0 RELEASE-THEN-MIGRATE 29.10: строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS -> (C) приёмка на старом production -> (D) подготовка/миграция на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка (§7.1). Перестановка этапов запрещена; миграция не начинается до релизного гейта. MIGRATION_SOURCE_SHA = принятый SHA старого production. Секреты/пароль нового VPS не в код/логи/git. Read-only инвентаризация старого, подготовка нового без запуска бота, предварительная синхронизация, короткий cutover, проверки без потерь, rollback-план, перенос deploy target. Регистрация сейчас; детальная карта при старте миграционной фазы.",
+      "origin": "root chat 29.10.2026",
+      "received": "2026-10-29"
     }
   ]
 }

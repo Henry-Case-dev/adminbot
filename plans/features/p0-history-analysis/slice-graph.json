@@ -1,0 +1,119 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "slices": [
+    {
+      "id": "AUDIT",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/p0-history-analysis/evidence/audit.md"
+      ],
+      "acceptance": "Аудит-артефакт отвечает на 12 вопросов Части I по фактическому пути инцидента на read-only данных/изолированной репродукции, без живых тестов и без непроверенных причин."
+    },
+    {
+      "id": "DEPTH",
+      "depends_on": [],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/tool_schemas.py",
+        "services/database.py",
+        "tests/test_history_depth.py"
+      ],
+      "acceptance": "depth передаётся без клампа 150; дефолт 50 сохранён; большие выборки читаются страницами от фиксированной границы; чрезмерный N обрабатывается устойчиво с честной неполнотой."
+    },
+    {
+      "id": "TRUNC-PAGES",
+      "depends_on": [
+        "DEPTH"
+      ],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/tool_schemas.py",
+        "tests/test_history_pages.py"
+      ],
+      "acceptance": "Символьная обрезка устранена целиком (без замены большим числом и переноса в соседний слой); страницы из целых сообщений; структурированные поля продолжения; суммаризация только после исследования участка."
+    },
+    {
+      "id": "SEGMENTS",
+      "depends_on": [
+        "TRUNC-PAGES"
+      ],
+      "write_scope": [
+        "services/tool_router.py",
+        "services/direct_chat_service.py",
+        "services/direct_context_composer.py",
+        "tests/test_history_segments.py"
+      ],
+      "acceptance": "Этап A фиксирует выборку N, этап B обрабатывает её сегментами без потери охвата; агрегация опирается на все сегменты со ссылками на исходные сообщения; пропуск сегмента виден как неполнота."
+    },
+    {
+      "id": "ISOLATION",
+      "depends_on": [
+        "AUDIT",
+        "SEGMENTS"
+      ],
+      "write_scope": [
+        "services/direct_chat_service.py",
+        "services/direct_context_composer.py",
+        "services/mca_retrieval_context.py",
+        "tests/test_history_isolation.py"
+      ],
+      "acceptance": "Факты диапазона выводятся из сообщений выборки; реальные границы передаются в RetrievalRequest (time_from/time_to/scope/mode); вне-диапазонная память присутствует только явно отделённым дополнением."
+    },
+    {
+      "id": "RELEVANCE",
+      "depends_on": [
+        "AUDIT",
+        "ISOLATION"
+      ],
+      "write_scope": [
+        "services/mca_retrieval_context.py",
+        "services/summary_memory.py",
+        "services/canonical_context.py",
+        "tests/test_history_relevance.py"
+      ],
+      "acceptance": "Установлен источник гиперфиксации на старых темах; важность не подменяет релевантность; собственные повторы бота не усиливают значимость; без удалений памяти, чёрных списков и глобального отключения GraphRAG/Lore."
+    },
+    {
+      "id": "QUALITY",
+      "depends_on": [
+        "AUDIT",
+        "SEGMENTS"
+      ],
+      "write_scope": [
+        "services/prompt_composer.py",
+        "services/prompt_style_blocks.py",
+        "services/claim_envelope.py",
+        "tests/test_history_quality.py"
+      ],
+      "acceptance": "Идентичности по Telegram user_id без смешения похожих имён; пересылки атрибутированы; значимые утверждения внутренне сопоставимы с сообщениями выборки; без придуманной статистики/дат."
+    },
+    {
+      "id": "ACCEPT",
+      "depends_on": [
+        "DEPTH",
+        "TRUNC-PAGES",
+        "SEGMENTS",
+        "ISOLATION",
+        "RELEVANCE",
+        "QUALITY"
+      ],
+      "write_scope": [
+        "tests/test_history_regression_h.py",
+        "plans/features/p0-history-analysis/evidence/acceptance.md"
+      ],
+      "acceptance": "Все 32 поведенческие проверки H1-H32 пройдены на кандидате без семантических хардкодов и без живых тестов в рабочих чатах; сверка дифа с принятыми контрактами §19 пройдена."
+    },
+    {
+      "id": "DEPLOY",
+      "depends_on": [
+        "ACCEPT",
+        "AUDIT"
+      ],
+      "write_scope": [
+        "plans/features/p0-history-analysis/evidence/release.md",
+        "plans/features/p0-history-analysis/evidence/owner-report.md"
+      ],
+      "acceptance": "13 подтверждений §21 зафиксированы Reviewer; штатный безопасный деплой выполнен; postdeploy-проверка поведения/логов проведена; отчёт владельцу §22 отправлен в установленном формате."
+    }
+  ]
+}
