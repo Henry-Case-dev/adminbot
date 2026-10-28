@@ -55,6 +55,18 @@ _SYNTHETIC_SECRET_GROUPS = frozenset({"keys_random"})
 # Расширение категории — только с добавлением её в pg_db.SEED_CATEGORIES.
 _SETTINGS_BACKED_SYNTH_CATEGORIES = frozenset({"temporal"})
 
+# FC-06C (P0-FACTCHECK §6.3, 28.10.2026): настройки кеша готовых Fact-check
+# вердиктов удалены из каталога (ParamSpec снят) — сохранённые PG-значения
+# (сид round 10.44, ON CONFLICT DO NOTHING) должны игнорироваться БЕЗОПАСНО
+# при обновлении: читателей у ключей нет (W1 удалил кеш), строка БД не
+# трогается (откат каталога обратим), POST /api/config отвергает ключ
+# (422 «неизвестный ключ») — новые строки не появляются. /api/config не
+# отдаёт их → в админке нет мёртвых тумблеров (§6.3).
+_REMOVED_SETTING_KEYS: frozenset[str] = frozenset((
+    "temporal.freshness_current_ttl_hours",
+    "temporal.freshness_historical_ttl_hours",
+))
+
 # D08 (asap8-v6, Wave A1): честные дефолты PG-only bool-ключей каталога
 # (settings_field/env_name = None) для синтетики get_all(). Значения —
 # ЗЕРКАЛО рантайм-резолверов, не выдумка:
@@ -513,11 +525,22 @@ class ConfigCache:
     # ── sync-чтение (горячие точки) ────────────────────────────────────────
 
     def get(self, key: str, default=None):
-        """Синхронное чтение значения по ключу bot_settings."""
+        """Синхронное чтение значения по ключу bot_settings.
+
+        FC-06C (P0-FACTCHECK §6.3): ключи из `_REMOVED_SETTING_KEYS`
+        (настройка удалена из каталога вместе с кешем готовых вердиктов)
+        игнорируются безопасно — default, даже если строка в БД осталась."""
+        if key in _REMOVED_SETTING_KEYS:
+            return default
         return self._settings.get(key, default)
 
     def get_all(self) -> dict:
         """Снапшот всех bot_settings (копия — не мутировать).
+
+        FC-06C: сохранённые PG-значения удалённых настроек
+        (`_REMOVED_SETTING_KEYS`) в снапшот не попадают — админка не
+        показывает мёртвые тумблеры (§6.3: «не оставлять переключателей,
+        которые ни на что не влияют»); строка БД не трогается.
 
         D13 (asap5-final-fixes, T-5262, 14A.0 bootstrap paradox): снапшот
         ДОПОЛНЯЕТСЯ синтетическими catalog-only items для НЕзаданных
@@ -540,7 +563,8 @@ class ConfigCache:
         `_synthetic_group_items`. Синхронное `get()` читает только
         bot_settings: рантайм-резолверы (hot_config) синтетикой не
         затрагиваются."""
-        snapshot = dict(self._settings)
+        snapshot = {k: v for k, v in self._settings.items()
+                    if k not in _REMOVED_SETTING_KEYS}
         snapshot.update(self._synthetic_group_items())
         return snapshot
 

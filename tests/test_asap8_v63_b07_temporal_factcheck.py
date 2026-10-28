@@ -102,13 +102,15 @@ class TestSeedTemporal:
 
     def test_all_temporal_specs_are_seedable(self):
         """Каждый temporal-ключ каталога: категория сидируема, не секрет,
-        Settings-field есть → `_seed_settings` его сидит из канона."""
+        Settings-field есть → `_seed_settings` его сидит из канона.
+        FC-06C (§6.3): temporal.freshness_* удалены из каталога вместе
+        с кешем готовых вердиктов (сохранённые PG-значения игнорируются
+        config_cache._REMOVED_SETTING_KEYS)."""
         from services.pg_db import SEED_CATEGORIES
         temporal = [s for s in pc.REGISTRY.values()
                     if s.category == pc.CATEGORY_TEMPORAL]
-        assert {"temporal.default_mode", "temporal.tool_enabled",
-                "temporal.freshness_current_ttl_hours",
-                "temporal.freshness_historical_ttl_hours"} == \
+        assert {"temporal.default_mode",
+                "temporal.tool_enabled"} == \
             {s.pg_key for s in temporal}
         for spec in temporal:
             assert spec.category in SEED_CATEGORIES
@@ -140,7 +142,8 @@ class TestSeedTemporal:
     def test_missing_settings_backed_temporal_synthesized(self):
         """config_cache: историческая БД без temporal-строк → /api/config
         получает честные Settings-дефолты (деривация на чтении, БД без
-        записи), runtime-hot не затронут."""
+        записи), runtime-hot не затронут. FC-06C (§6.3): freshness-ключи
+        удалены из каталога — синтетика их больше не создаёт."""
         from services.config_cache import ConfigCache
         conn = _SettingsConn()
         cache = ConfigCache(pg=_Pg(conn), retry_attempts=1, retry_delay=0)
@@ -149,8 +152,8 @@ class TestSeedTemporal:
             bool(settings.TEMPORAL_TOOL_ENABLED)
         assert snapshot["temporal.default_mode"] == \
             str(settings.TEMPORAL_DEFAULT_MODE)
-        assert snapshot["temporal.freshness_current_ttl_hours"] == \
-            settings.TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS
+        assert "temporal.freshness_current_ttl_hours" not in snapshot
+        assert "temporal.freshness_historical_ttl_hours" not in snapshot
         assert cache.get_updated_at("temporal.tool_enabled") is None, \
             "синтетический item — источник default, не persistent"
 
@@ -196,17 +199,18 @@ class TestGateLifecycle:
             set_config_cache(None)
 
     def test_select_modes_and_ttl_specs(self):
-        """Режимы contextual/current/historical/knowable-at-time и TTL —
-        каталоговые select/int на поверхности Фактчека (backend-резолв)."""
+        """Режимы contextual/current/historical/knowable-at-time —
+        каталоговый select на поверхности Фактчека (backend-резолв).
+        FC-06C (§6.3): TTL-спеки удалены из каталога вместе с кешем
+        готовых вердиктов."""
         mode = pc.get_by_pg_key("temporal.default_mode")
         assert mode.widget == "select"
         assert "contextual" in mode.select_options
         assert "knowable_at_time" in mode.select_options
-        for key in ("temporal.freshness_current_ttl_hours",
-                    "temporal.freshness_historical_ttl_hours"):
-            spec = pc.get_by_pg_key(key)
-            assert spec.type == "int"
-            assert spec.group == "temporal_factcheck"
+        assert pc.get_by_pg_key("temporal.freshness_current_ttl_hours") \
+            is None
+        assert pc.get_by_pg_key("temporal.freshness_historical_ttl_hours") \
+            is None
         from services.temporal_factcheck import resolve_requested_mode
         assert resolve_requested_mode(None, "contextual") == \
             ("contextual", False)

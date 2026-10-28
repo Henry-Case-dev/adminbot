@@ -152,16 +152,18 @@ class TestCacheHitInHandlers:
     (LLM/Tavily/Trafilatura не вызываются — моки)."""
 
     @pytest.mark.asyncio
-    async def test_factcheck_second_call_served_from_cache(self, tmp_path, monkeypatch):
+    async def test_factcheck_second_call_runs_fresh_check(self, tmp_path, monkeypatch):
+        """P0-FACTCHECK-CORRECTIVE (§6, решение владельца 28.10.2026): кеш
+        готовых вердиктов Fact-check удалён — второй вызов с тем же текстом
+        выполняет НОВУЮ проверку (актуальный сервисный вызов и свежий
+        ответ), старый вердикт не отдаётся. SmartCache других подсистем
+        (web — ниже) не затронут."""
         import handlers.factcheck as fc_mod
 
         monkeypatch.setattr(
             "services.smart_cache.settings",
             replace(settings, SMART_CACHE_ENABLED=True),
         )
-        # MCA-20: тест охраняет ЛЕГАСИ exact-match контракт (slug
-        # `factcheck`) — OFF-путь K1 (бит-в-бит d298f1f). ON-путь
-        # (`factcheck_temporal`, составной ключ) покрывают тесты mca-20.
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled",
             lambda: False)
@@ -175,13 +177,15 @@ class TestCacheHitInHandlers:
             msg = _fc_message(target_text="та же ссылка")
             await fc_mod.factcheck_handler(msg, bot=bot)
             assert service.check_claim.await_count == 1
-            # второй вызов с тем же контентом → кэш-хит, сервис НЕ вызван
+            # второй вызов с тем же контентом → НОВАЯ проверка (кеша нет);
+            # свежий вердикт отвечает на ЦЕЛЕВОЕ сообщение (5.4b)
             fc_mod._cooldown._last.clear()
+            service.check_claim = AsyncMock(return_value="вердикт два")
             msg2 = _fc_message(target_text="та же ссылка", message_id=22)
             await fc_mod.factcheck_handler(msg2, bot=bot)
             assert service.check_claim.await_count == 1
-            assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 22
-            assert bot.send_message.await_args.args[1] == "вердикт один"
+            assert bot.send_message.await_args.kwargs["reply_to_message_id"] == 1
+            assert bot.send_message.await_args.args[1] == "вердикт два"
         finally:
             fc_mod.setup_factcheck(None)
             fc_mod._cooldown._last.clear()

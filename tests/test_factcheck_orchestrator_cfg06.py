@@ -306,7 +306,10 @@ class TestRoutes:
         assert call["chat_id"] == CHAT_ID
 
     @pytest.mark.asyncio
-    async def test_legacy_cache_write_after_delivery(self, v2_on):
+    async def test_legacy_run_no_verdict_cache_write(self, v2_on):
+        """P0-FACTCHECK-CORRECTIVE (§6): кеш готовых вердиктов удалён —
+        доставка одна, в SmartCache ничего не пишется, повторный вызов
+        вычисляется заново."""
         db = FakeDB()
         svc = FakeService()
         cache = FakeCache()
@@ -314,10 +317,15 @@ class TestRoutes:
         await orch.run_factcheck(_req(), service=svc, db=db, bot=bot,
                                  cache=cache)
         assert len(bot.sent) == 1
-        assert cache.store                     # 59.2: запись после доставки
+        assert not cache.store               # записей вердикт-кеша нет
+        # повторный прогон — новая проверка (не выдача старого ответа)
+        await orch.run_factcheck(_req(), service=svc, db=db, bot=bot,
+                                 cache=cache)
+        assert len(svc.check_claim_calls) == 2
+        assert len(bot.sent) == 2
 
     @pytest.mark.asyncio
-    async def test_envelope_branch_cache_and_links(self, v2_on, monkeypatch):
+    async def test_envelope_branch_fresh_run_and_links(self, v2_on, monkeypatch):
         origin = {"text": "в килякете выпало 120 мм", "caption": None,
                   "origin_type": None, "origin_sent_at": None,
                   "sent_at": 1700000000, "current_revision": None,
@@ -327,9 +335,8 @@ class TestRoutes:
         db = FakeDB(rows=[], origin_row=origin)
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled", lambda: True)
-        monkeypatch.setattr(
-            "services.mca_gates.temporal_factcheck_cache_enabled",
-            lambda: True)
+        # FC-06C (§6.3): патч cache_enabled снят — гейт удалён вместе с кешем
+        # готовых вердиктов; повторный тезис всегда новая проверка.
         svc = FakeService()
         cache = FakeCache()
         bot = FakeBot()
@@ -337,7 +344,7 @@ class TestRoutes:
                                  cache=cache)
         assert svc.envelope_calls              # envelope-ветка
         assert not svc.check_claim_calls
-        assert cache.markers                   # составной кеш записан
+        assert not cache.markers               # вердикт-кеш не пишется (§6.1)
         assert len(bot.sent) == 1
         # W5 renderer: URL из EvidenceMap текущего прогона идёт ТОЛЬКО как
         # href (кликабельная ссылка); в видимом тексте полного URL нет.

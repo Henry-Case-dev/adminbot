@@ -46,11 +46,10 @@ _lock_exhausted_total = 0
 
 _NORMALIZERS = {
     "factcheck": "text",
-    # MCA-20 (ADR-1028-20 D9/D12, round 10.44): составной ключ временного
-    # фактчека (scope+claim+target revision+origin fingerprint+режим+период+
-    # tzr1+related+pipeline). Legacy slug `factcheck` остаётся для
-    # OFF-пути (бит-в-бит d298f1f) — namespace сменился без удаления.
-    "factcheck_temporal": "text",
+    # FC-06C (P0-FACTCHECK §6.3, 28.10.2026): slug-регистрация
+    # `factcheck_temporal` снята вместе с кешем готовых вердиктов (W1) —
+    # внешних пользователей не осталось (SmartCache модуль и остальные
+    # слаги живут). Новый механизм кеша взамен старого не создаётся.
     # CFG-06 W1 (06I.9): кеш широкого контекст-среза (версия+диапазон+ID
     # сообщений в компонентах ключа; см. services/factcheck_context.py).
     "factcheck_wide_context": "text",

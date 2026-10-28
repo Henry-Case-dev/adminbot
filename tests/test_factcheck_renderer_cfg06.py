@@ -69,11 +69,11 @@ class TestRenderStructure:
     def test_snapshot_refuted_with_links(self):
         p = fr.render_factcheck(_presentation(), _verdict())
         assert p.parse_mode == "HTML"
+        # P0-FACTCHECK-CORRECTIVE (§7.4): обязательная композиция снята —
+        # тело вербализатора проходит как есть (без принудительного списка)
         assert p.text == (
             "<b>Не подтверждается</b>\n\n"
-            "• Тезис не подтверждается.\n"
-            "• Данные расходятся.\n"
-            "• Источник один.\n\n"
+            "Тезис не подтверждается. Данные расходятся. Источник один.\n\n"
             "Источники:\n"
             "1. <a href=\"https://example.org/a\">example.org</a> — пересказ")
         # снапшот фиксирован: egress-поля в разметке не появляются
@@ -82,7 +82,7 @@ class TestRenderStructure:
     def test_no_verdict_no_headline(self):
         p = fr.render_factcheck(_presentation(), None)
         assert "<b>" not in p.text
-        assert p.text.startswith("• Тезис не подтверждается.")
+        assert p.text.startswith("Тезис не подтверждается.")
 
     def test_unknown_enum_no_fabricated_headline(self):
         v = _verdict(factual="загадочный-статус")
@@ -94,24 +94,30 @@ class TestRenderStructure:
                                 None)
         assert p.text == "Один тезис."
 
-    def test_two_points(self):
-        p = fr.render_factcheck(
-            _presentation(text="Первое предложение. Второе предложение.",
-                          links=()), None)
-        assert p.text == ("• Первое предложение.\n"
-                          "• Второе предложение.")
-
-    def test_seven_sentences_four_points_order_kept(self):
+    def test_body_passes_through_without_forced_grouping(self):
+        """P0-FACTCHECK-CORRECTIVE (§7.4): структура определяется
+        содержанием — renderer не перекладывает тело в список 2–4 пунктов
+        и ничего не выбрасывает."""
         body = " ".join(f"Предложение номер {i}." for i in range(1, 8))
         p = fr.render_factcheck(_presentation(text=body, links=()), None)
-        bullets = [ln for ln in p.text.split("\n") if ln.startswith("• ")]
-        assert len(bullets) == 4
-        joined = " ".join(bullets)
+        assert p.text == body               # байт-в-байт, без группировки
         for i in range(1, 8):
-            assert f"Предложение номер {i}." in joined   # ничего не выброшено
-        # порядок сохранён (группы подряд)
-        assert joined.index("номер 1") < joined.index("номер 4") \
-            < joined.index("номер 7")
+            assert f"Предложение номер {i}." in p.text
+
+    def test_part_bindings_still_bulleted(self):
+        """FC-RENDER сохранён: разбор ключевых утверждений со ссылками
+        остаётся структурированным списком (привязка источников)."""
+        v = _verdict()
+        v = orch.CheckedVerdict(
+            verdict_text=v.verdict_text, route="envelope_temporal",
+            factual_verdict="refuted",
+            evidence=v.evidence,
+            parts=({"part_id": "p1", "text": "Число линий не сходится",
+                    "factual_verdict": "refuted",
+                    "evidence_refs": ["ev-1"]},))
+        p = fr.render_factcheck(_presentation(text="Вывод один.", links=()), v)
+        assert "По утверждениям:" in p.text
+        assert "• Число линий не сходится — не подтверждается:" in p.text
 
     def test_insufficient_evidence_headline(self):
         v = _verdict(factual="insufficient_evidence", with_evidence=False)
@@ -577,9 +583,7 @@ class TestOrchestratorW5Delivery:
             monkeypatch.setattr(
                 "services.mca_gates.temporal_factcheck_enabled",
                 lambda: True)
-            monkeypatch.setattr(
-                "services.mca_gates.temporal_factcheck_cache_enabled",
-                lambda: True)
+            # FC-06C (§6.3): патч cache_enabled снят — гейт удалён с кешем.
             monkeypatch.setattr(orch, "get_smartmodule_concurrency_pool",
                                 lambda: _FakePool())
             monkeypatch.setattr(orch, "typing_active", _FakeTyping)

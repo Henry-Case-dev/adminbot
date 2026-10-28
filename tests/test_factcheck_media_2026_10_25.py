@@ -279,8 +279,10 @@ class TestTextOnlyUnchanged:
         assert calls == [77]          # медиа-шов существует, но материалов нет
 
     @pytest.mark.asyncio
-    async def test_cache_hit_notice_free_for_text(self, handler_env,
-                                                  monkeypatch):
+    async def test_stale_cache_entry_not_served_for_text(self, handler_env,
+                                                         monkeypatch):
+        """P0-FACTCHECK-CORRECTIVE (§6.4): записи прежнего механизма кеша
+        не отдаются — текстовый тезис проходит свежую проверку."""
         monkeypatch.setattr(mca_vision, "render_media_context_async",
                             _render({}))
         service = _service()
@@ -289,9 +291,11 @@ class TestTextOnlyUnchanged:
         monkeypatch.setattr(fh, "get_smart_cache", lambda: cache)
         target = _make_msg(text="тезис", message_id=77)
         await _run(handler_env, service, FakeDb(), target)
-        service.check_claim.assert_not_awaited()
-        handler_env._reply.assert_awaited_once()
-        assert handler_env._reply.await_args.args[2] == "старый вердикт"
+        service.check_claim.assert_awaited_once()   # проверка выполнена
+        handler_env.send_chunked_reply.assert_awaited()
+        sent = " ".join(str(c.args[1]) for c in
+                        handler_env.send_chunked_reply.await_args_list)
+        assert "старый вердикт" not in sent
 
 
 # ── 2-4. Одиночные изображения ──────────────────────────────────────────────

@@ -165,7 +165,9 @@ class TestCompleteness:
         #   MCA-20 (ADR-1028-20 D13, round 10.44): +4 instance-поля
         #   TEMPORAL_* (группа temporal_factcheck) → 439→454 (ClassVar-KS
         #   не в счёте).
-        assert len(fields) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        #   P0-FACTCHECK §6.3 (FC-06C, 28.10.2026): −2 instance-поля
+        #   TEMPORAL_FRESHNESS_* (кеш готовых вердиктов удалён W1) → 465.
+        assert len(fields) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
         assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
 
@@ -564,10 +566,15 @@ class TestGroups8424:
         # (flags_module_factcheck in-place, pg_id-ренейм) → flags 102,
         # итого 582.
         # ASAP5 §22 (27.10.2026, REQ-ADMIN-TYPES): +5 флагов «Типы медиа»
-        # (flags_vision_media_types) → flags 107, итого 587.
+        # (flags_vision_media_types) → flags 107.
+        # P0-FACTCHECK §6.3 (FC-06C, 28.10.2026): temporal −2 (мёртвые
+        # TTL-ключи TEMPORAL_FRESHNESS_*, кеш готовых вердиктов удалён W1)
+        # → temporal 2. memory 48 — фактический счётчик дерева (бамп
+        # параллельного лейна, пин 47 отставал — W1 incidental #1).
+        # Итого categorized 561.
         assert counts == {"prompts": 25, "models": 74, "keys": 35,
                           "limits": 226, "flags": 107, "reactions": 39,
-                          "content": 5, "memory": 47, "temporal": 4}
+                          "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 
 

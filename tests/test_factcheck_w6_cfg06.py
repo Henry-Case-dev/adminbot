@@ -194,11 +194,14 @@ class TestUnifiedRetrieval:
             assert field in line
 
 
-# ── Envelope cache-hit → единая доставка (renderer) ─────────────────────────
+# ── §6: вердикт-кеш удалён — единая доставка свежего результата ─────────────
 
-class TestEnvelopeCacheHitRender:
+class TestEnvelopeFreshRunDelivery:
     @pytest.mark.asyncio
-    async def test_cache_hit_delivered_via_renderer(self, v2_on):
+    async def test_stale_cache_entries_are_not_served(self, v2_on):
+        """P0-FACTCHECK-CORRECTIVE (§6.1/§6.4): записи прежнего механизма
+        кеша не читаются — каждое обращение доставляет свежий результат
+        одним сообщением (renderer → одна доставка)."""
         origin = {"text": "в килякете 120 мм", "caption": None,
                   "origin_type": None, "origin_sent_at": None,
                   "sent_at": 1700000000, "current_revision": None,
@@ -207,17 +210,7 @@ class TestEnvelopeCacheHitRender:
                   "author_name": "Вася", "forward_source": None}
         db = FakeDB(origin_row=origin)
         cache = FakeCache()
-        # собрать тот же envelope, что построит прогон, и засеять кеш
-        envelope, _ = await tf.build_envelope(
-            db, tf.InputRef(kind="reply", chat_id=CHAT_ID,
-                            target_tg_message_id=TARGET_TG,
-                            trigger_tg_message_id=TRIGGER_TG),
-            default_mode="contextual")
-        assert envelope is not None
-        scope = f"chat:{CHAT_ID}"
-        key = tf.temporal_cache_key_with_bucket(envelope, scope=scope,
-                                                bucket="volatile")
-        cache.markers[key] = json.dumps({
+        cache.markers["любой-ключ-прежнего-механизма"] = json.dumps({
             "text": "Кешированный текст вердикта прошлой проверки.",
             "as_of": 1760900000, "factual_verdict": "refuted",
             "temporal_status": "current", "assessment_mode": "contextual",
@@ -232,12 +225,9 @@ class TestEnvelopeCacheHitRender:
                              target_tg_message_id=TARGET_TG,
                              target_text="в килякете 120 мм", kind="reply"),
             service=svc, db=db, bot=bot, cache=cache)
-        assert svc.envelope_calls == []          # вычисления не было
-        assert len(bot.sent) == 1                # ОДНА доставка, не plain+render
-        sent = bot.sent[0]
-        assert sent.get("parse_mode") == "HTML"  # через renderer
-        assert "Не подтверждается" in sent["text"]   # enum → заголовок
-        assert "Кешированный текст вердикта" in sent["text"]
+        assert svc.envelope_calls              # проверка ВЫПОЛНЕНА заново
+        assert len(bot.sent) == 1              # ОДНА доставка
+        assert "Кешированный текст вердикта" not in bot.sent[0]["text"]
 
 
 def _decision(claim="в Килякете выпало 120 мм осадков за сутки — это рекорд"):

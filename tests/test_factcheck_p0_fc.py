@@ -463,25 +463,15 @@ class TestFC08Image:
         assert COMPOSITE.split(".")[0] in captured["claim"]  # подпись цела
 
 
-# ── FC-09: кеш не скрывает новую проверку ───────────────────────────────────
+# ── FC-09: повторный тезис — новая проверка (кеш вердиктов удалён) ──────────
 
-class TestFC09Cache:
-    def test_cache_namespace_bumped_and_media_sensitive(self):
-        req = orch.FactcheckRequest(
-            chat_id=CHAT_ID, trigger_tg_message_id=TRIGGER_TG,
-            target_tg_message_id=TARGET_TG, target_text=COMPOSITE)
-        plain = orch._v2_cache_input(req)
-        with_image = orch._v2_cache_input(
-            req, COMPOSITE + "\n\nТекст с изображения (OCR):\n283365")
-        assert "fcv4" in plain and "fp3" in plain
-        assert plain != with_image          # распознанный текст — новый ключ
-        assert "fcv3" not in plain          # старые записи не переиспользуются
-
+class TestFC09RepeatFreshRun:
     @pytest.mark.asyncio
     async def test_old_cached_key_does_not_block_new_check(
             self, monkeypatch, planner_on):
         cache = FakeCache()
-        # старая запись под прежней версией контура
+        # записи прежних версий контура ни на что не влияют: кеш вердиктов
+        # удалён, повторный тезис всегда вычисляется заново
         old_key = cache.build_key(
             "factcheck", f"fcv3\x00fcv3\x00fp2\x00{COMPOSITE}")
         cache.store[old_key] = "Старый ошибочный вердикт"
@@ -503,8 +493,9 @@ class TestFC09Cache:
                 target_tg_message_id=TARGET_TG, target_text=COMPOSITE),
             service=service, db=FakeDB(origin_row=_origin_row(COMPOSITE)),
             bot=bot, cache=cache)
-        assert service.check_claim_calls           # проверка ВЫПОЛНЕНА
-        assert bot.sent and "Исправленный вердикт" in bot.sent[-1]["text"]
+        assert len(service.check_claim_calls) == 1       # проверка была
+        assert any("Исправленный вердикт" in m["text"]
+                   for m in bot.sent)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -636,7 +627,11 @@ class TestF2EnvelopeEvidencePath:
         assert "Недостаточно данных для проверки" not in markup
 
     @pytest.mark.asyncio
-    async def test_model_not_called_without_citable_evidence(self):
+    async def test_model_called_but_unbacked_positive_downgraded(self):
+        """P0-FACTCHECK-CORRECTIVE (§2.4): аналитический вызов выполняется
+        даже без цитируемого evidence; положительный вердикт без внешних
+        доказательств и без помеченного основания самостоятельной проверки
+        понижается сервером до honest insufficient_evidence."""
         llm = _JsonLLM(verdict={"factual_verdict": "supported"})
         env, _ = await tf.build_envelope(
             FakeDB(origin_row=_origin_row(COMPOSITE)),
@@ -649,13 +644,17 @@ class TestF2EnvelopeEvidencePath:
             fetch_errors=0, budget_exhausted=False)
         run = await _service(llm=llm).check_claim_envelope(
             env, retrieval=outcome)
-        # положительный вердикт без доказательств не проходит
+        # существующий аналитик вызван (анализ не блокируется пустым evidence)
+        assert "temporal_verdict" in llm.steps
+        # «вспомнил цифру → подтверждено» не проходит: положительный вердикт
+        # без basis-пометки → честная неопределённость (no-false-acceptance)
         assert run.verdict.factual_verdict == "insufficient_evidence"
-        assert "temporal_verdict" not in llm.steps
+        assert "unbacked_positive" in (run.verdict.uncertainty or {})
 
 
-class TestF3TemporalCachePath:
-    """F3: старый `factcheck_temporal` (tf2) не скрывает новую проверку."""
+class TestF3RepeatFreshRun:
+    """F3/§6.4: кеш готовых вердиктов удалён — повторный тезис и старые
+    технические ошибки не подменяют новую проверку."""
 
     async def _envelope(self):
         env, _ = await tf.build_envelope(
@@ -666,41 +665,31 @@ class TestF3TemporalCachePath:
         return env
 
     @pytest.mark.asyncio
-    async def test_old_tf2_entry_is_not_served(self):
+    async def test_repeat_claim_runs_fresh_analysis(self):
+        llm = _JsonLLM()
+        service = _service(llm=llm)
         env = await self._envelope()
-        scope = f"chat:{CHAT_ID}"
-        cache = FakeCache()
-        verdict = tf.TemporalVerdict(
-            factual_verdict="insufficient_evidence", temporal_status="current",
-            evaluated_period={}, assessment_mode="contextual", as_of=1)
-        old = tf.TEMPORAL_PIPELINE_VERSION
-        try:
-            tf.TEMPORAL_PIPELINE_VERSION = "tf2"
-            old_key = tf.build_temporal_cache_key(env, scope=scope)
-            assert await tf.write_temporal_cache(
-                cache, env, scope=scope, text="Старый вердикт", verdict=verdict)
-        finally:
-            tf.TEMPORAL_PIPELINE_VERSION = old
-        assert tf.TEMPORAL_PIPELINE_VERSION == "tf3"
-        new_key = tf.build_temporal_cache_key(env, scope=scope)
-        assert new_key != old_key
-        _key, _bucket, cached = await tf.read_temporal_cache(
-            cache, env, scope=scope)
-        assert cached is None                    # старый вердикт НЕ отдан
+        outcome = fsp.RetrievalOutcome(
+            evidence_map=None, search_text="", queries_attempted=1,
+            queries_used=0, refs_collected=0, fetch_errors=0,
+            budget_exhausted=False, provider_failures=1)
+        run1 = await service.check_claim_envelope(env, retrieval=outcome)
+        calls_after_first = llm.steps.count("temporal_verdict")
+        run2 = await service.check_claim_envelope(env, retrieval=outcome)
+        # второй прогон = новый аналитический вызов, не выдача старого ответа
+        assert calls_after_first == 1
+        assert llm.steps.count("temporal_verdict") == 2
+        assert run1.verdict_text is not None and run2.verdict_text is not None
+        assert run2.cache_hit is False
 
     @pytest.mark.asyncio
-    async def test_new_tf3_entry_is_served(self):
-        env = await self._envelope()
-        scope = f"chat:{CHAT_ID}"
-        cache = FakeCache()
-        verdict = tf.TemporalVerdict(
-            factual_verdict="insufficient_evidence", temporal_status="current",
-            evaluated_period={}, assessment_mode="contextual", as_of=1)
-        assert await tf.write_temporal_cache(
-            cache, env, scope=scope, text="Новый вердикт", verdict=verdict)
-        _key, _bucket, cached = await tf.read_temporal_cache(
-            cache, env, scope=scope)
-        assert cached is not None and cached.get("text") == "Новый вердикт"
+    async def test_temporal_cache_machinery_removed(self):
+        """F17: временный/legacy пути не читают и не пишут вердикт-кеш —
+        механизм удалён целиком (§6.1)."""
+        for name in ("build_temporal_cache_key", "read_temporal_cache",
+                     "write_temporal_cache",
+                     "temporal_cache_key_with_bucket"):
+            assert not hasattr(tf, name), f"{name} должен быть удалён"
 
 
 class TestF4BudgetPerPart:
@@ -865,8 +854,8 @@ class _CapturingLLM(_JsonLLM):
 def _patch_orchestrator_seams(monkeypatch, *, evaluate):
     monkeypatch.setattr(
         "services.mca_gates.temporal_factcheck_enabled", lambda: True)
-    monkeypatch.setattr(
-        "services.mca_gates.temporal_factcheck_cache_enabled", lambda: False)
+    # FC-06C (§6.3): патч temporal_factcheck_cache_enabled снят — гейт
+    # удалён вместе с кешем готовых вердиктов (кеша больше нет).
     monkeypatch.setattr(orch, "get_smartmodule_concurrency_pool",
                         lambda: _Pool())
     monkeypatch.setattr(orch, "typing_active", _Typing)
@@ -911,8 +900,10 @@ class TestFC05RealServicePath:
         assert "истёк лимит времени на поиск" in run.verdict_text
         markup = _presentation_from_run(run)
         assert "истёк лимит времени" in markup
-        assert "ограничение проверки, а не опровержение" in fr.visible_text(
-            markup)
+        # P0-FACTCHECK-CORRECTIVE (§7.3): заголовок уже называет то же
+        # ограничение — второй раз концовкой оно НЕ дублируется
+        assert "ограничение проверки, а не опровержение" not in \
+            fr.visible_text(markup)
         assert "Недостаточно данных для проверки" not in markup
 
     @pytest.mark.asyncio
@@ -949,7 +940,9 @@ class TestFC05RealServicePath:
         assert run.evidence_rows == ()
         sent = "\n".join(m["text"] for m in bot.sent)
         assert "Проверка не завершена: истёк лимит времени" in sent
-        assert "ограничение проверки, а не опровержение" in sent
+        # §7.3: концовка с тем же ограничением (технический notice) при
+        # техническом заголовке не добавляется — дубля нет
+        assert "ограничение проверки, а не опровержение" not in sent
         assert "Недостаточно данных для проверки" not in sent
 
 

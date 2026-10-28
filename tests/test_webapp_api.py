@@ -1441,7 +1441,9 @@ class TestParamPermissionFlagsApi:
         # 10.23 (F5/ADR-1023-5 D5): +5 categorized → 421.
         # 10.24 (F21/ADR-1024-22 D8): +1 categorized (BUDGETS_ENABLED) → 434.
         # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* → categorized 546.
-        assert len(items) == len(categorized) == 562
+        # P0-FACTCHECK §6.3 (FC-06C, round 10.48): −2 мёртвых TTL-ключа
+        # TEMPORAL_FRESHNESS_* → categorized 561.
+        assert len(items) == len(categorized) == 561
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

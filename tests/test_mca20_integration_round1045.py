@@ -291,21 +291,24 @@ class TestObservabilityContract:
         assert pr._GATE_RESOLVERS.get("MCA_TEMPORAL_FACTCHECK_ENABLED") \
             == "temporal_factcheck_enabled"
 
-    def test_kill_switches_registry_83(self):
+    def test_kill_switches_registry_84(self):
         names = {"MCA_TEMPORAL_FACTCHECK_ENABLED",
-                 "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
-                 "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED"}
+                 "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED"}
         assert names <= set(mca_gates.KILL_SWITCHES)
         # MCA-12 (round 10.46, ADR-1028-21 §8.3): санкционированный bump
         # реестра 83 → 85 (+2 MCA_STORIES_*) — счётчик обновлён по конвенции.
-        assert len(mca_gates.KILL_SWITCHES) == 85
+        # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 85 → 84 — K3
+        # MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED удалён вместе с кешем готовых
+        # вердиктов (переключатель, ни на что не влияющий, не остаётся).
+        assert len(mca_gates.KILL_SWITCHES) == 84
+        assert "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED" \
+            not in mca_gates.KILL_SWITCHES
 
     def test_gate_inertness(self):
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(mca_gates, "temporal_factcheck_enabled",
                        lambda: False)
             assert mca_gates.temporal_factcheck_tool_enabled() is False
-            assert mca_gates.temporal_factcheck_cache_enabled() is False
         assert mca_gates.temporal_factcheck_enabled() is True
         assert mca_gates.temporal_factcheck_tool_enabled() is True
 
@@ -422,9 +425,11 @@ class TestHandlerPaths:
         return fh
 
     @pytest.mark.asyncio
-    async def test_off_path_uses_legacy_slug(self, monkeypatch):
-        """K1 OFF → легаси-путь: build_key('factcheck', ...) и legacy
-        check_claim; temporal-конур не вызывается (бит-в-бит d298f1f)."""
+    async def test_off_path_uses_legacy_computation(self, monkeypatch):
+        """K1 OFF → легаси-путь: legacy check_claim; temporal-конур не
+        вызывается. P0-FACTCHECK-CORRECTIVE (§6): вердикт-кеш удалён —
+        build_key('factcheck')/cache.get/set больше не существуют,
+        проверка выполняется всегда."""
         fh = self._patch_light(monkeypatch)
         monkeypatch.setattr(fh, "_temporal_on", lambda: False)
         called = {}
@@ -435,6 +440,7 @@ class TestHandlerPaths:
                 return "k-" + slug
 
             async def get(self, key):
+                called["get"] = key
                 return None
 
             async def set(self, key, value):
@@ -456,7 +462,9 @@ class TestHandlerPaths:
         msg.chat.id = 1
         target.chat = msg.chat
         await fh.factcheck_handler(msg, bot=bot)
-        assert called["slug"] == "factcheck"
+        # кеш вердиктов удалён (§6.1): ни чтения, ни записи под slug
+        assert "slug" not in called and "get" not in called \
+            and "set" not in called
         service.check_claim.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -523,9 +531,10 @@ class TestHandlerPaths:
         await db.close()
 
     @pytest.mark.asyncio
-    async def test_on_path_cache_hit_replies_without_llm(self, monkeypatch):
-        """A70/CA-20-9: hit отдаёт сохранённый текст с ЧЕСТНЫМ as_of (внутри
-        payload), LLM не вызывается."""
+    async def test_on_path_replies_from_fresh_run(self, monkeypatch):
+        """P0-FACTCHECK-CORRECTIVE (§6/§6.4): кеш готовых вердиктов удалён —
+        повторное обращение выполняет НОВУЮ проверку (актуальный вызов
+        сервиса и reply), старые записи SmartCache не читаются."""
         fh = self._patch_light(monkeypatch)
         monkeypatch.setattr(fh, "_temporal_on", lambda: True)
         envelope = _env()
@@ -544,6 +553,8 @@ class TestHandlerPaths:
                 pass
 
             async def get_update_marker(self, key, *, ttl_seconds):
+                # под ключом «лежит» старый вердикт прежнего механизма —
+                # читать его больше никто не приходит
                 return json.dumps({
                     "text": "старый вердикт", "as_of": 1700000000,
                     "factual_verdict": "supported",
@@ -554,8 +565,15 @@ class TestHandlerPaths:
                 pass
         monkeypatch.setattr(fh, "get_smart_cache", lambda: FakeCache())
         service = MagicMock()
-        service.check_claim_envelope = AsyncMock(
-            side_effect=AssertionError("LLM не должен вызываться на hit"))
+        run = SimpleNamespace(
+            verdict_text="свежий вердикт",
+            verdict=SimpleNamespace(
+                factual_verdict="insufficient_evidence",
+                temporal_status="unknown", evaluated_period={},
+                uncertainty={}, reason=None, as_of=1700000000,
+                evidence_refs=(), parts=()),
+            evidence_rows=(), fallback_used=False)
+        service.check_claim_envelope = AsyncMock(return_value=run)
         fh.setup_factcheck(service)
         bot = AsyncMock()
         target = _fake_msg(text="утверждение", message_id=77)
@@ -566,9 +584,14 @@ class TestHandlerPaths:
         monkeypatch.setattr(tf, "record_temporal_run",
                             AsyncMock(return_value="tfr-x"))
         await fh.factcheck_handler(msg, bot=bot)
-        service.check_claim_envelope.assert_not_awaited()
-        fh._reply.assert_awaited_once()
-        assert fh._reply.await_args.args[2] == "старый вердикт"
+        # актуальная проверка выполнена, старый вердикт не отдан
+        service.check_claim_envelope.assert_awaited_once()
+        fh.send_chunked_reply.assert_awaited()
+        sent_texts = " ".join(
+            str(c.args[2]) for c in fh.send_chunked_reply.await_args_list
+            if len(c.args) >= 3)
+        assert "свежий вердикт" in sent_texts
+        assert "старый вердикт" not in sent_texts
 
 
 class _NullCtx:
@@ -662,10 +685,9 @@ class TestSanctions:
         from services import param_catalog as pc
         keys = {spec.pg_key for spec in pc.REGISTRY.values()
                 if spec.category == "temporal"}
-        assert keys == {"temporal.default_mode",
-                        "temporal.freshness_current_ttl_hours",
-                        "temporal.freshness_historical_ttl_hours",
-                        "temporal.tool_enabled"}
+        # FC-06C (§6.3): temporal.freshness_* удалены из каталога вместе
+        # с кешем готовых вердиктов.
+        assert keys == {"temporal.default_mode", "temporal.tool_enabled"}
         group = pc.get_group("temporal_factcheck")
         assert group is not None and group.category == "temporal"
         assert pc.group_tab("temporal_factcheck") == "mod_factcheck"
@@ -673,19 +695,20 @@ class TestSanctions:
         assert mode.select_options == ("contextual", "current",
                                        "historical_truth", "knowable_at_time")
 
-    def test_smart_cache_slug_registered(self):
+    def test_smart_cache_slug_removed(self):
+        """FC-06C (§6.3): slug-регистрация `factcheck_temporal` снята вместе
+        с кешем вердиктов; SmartCache жив для остальных слагов."""
         from services.smart_cache import _NORMALIZERS, build_key
-        assert _NORMALIZERS.get("factcheck_temporal") == "text"
-        build_key("factcheck_temporal", "ok")
+        assert "factcheck_temporal" not in _NORMALIZERS
+        build_key("factcheck", "ok")          # legacy slug жив (OFF-путь)
+        build_key("search", "ok")             # кеш поиска не затронут
 
     def test_settings_temporal_fields(self):
         from config.settings import Settings
         fields = {f.name: getattr(Settings, f.name) for f in
                   dataclasses.fields(Settings) if f.name.startswith(
                       "TEMPORAL_")}
-        assert set(fields) == {
-            "TEMPORAL_DEFAULT_MODE", "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
-            "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS", "TEMPORAL_TOOL_ENABLED"}
-        assert fields["TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS"] == 6
-        assert fields["TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS"] == 720
+        # FC-06C (§6.3): мёртвые TTL-поля кеша удалены из Settings.
+        assert set(fields) == {"TEMPORAL_DEFAULT_MODE",
+                               "TEMPORAL_TOOL_ENABLED"}
         assert fields["TEMPORAL_TOOL_ENABLED"] is True

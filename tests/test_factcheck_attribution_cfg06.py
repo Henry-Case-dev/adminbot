@@ -477,9 +477,7 @@ class TestOrchestratorAttribution:
         from services import factcheck_orchestrator as orch
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled", lambda: True)
-        monkeypatch.setattr(
-            "services.mca_gates.temporal_factcheck_cache_enabled",
-            lambda: True)
+        # FC-06C (§6.3): патч cache_enabled снят — гейт удалён вместе с кешем.
         origin = {"text": CLAIM_FOUND, "caption": None, "origin_type": None,
                   "origin_sent_at": None, "sent_at": FOUND_TS,
                   "current_revision": None, "content_hash": None,

@@ -2464,22 +2464,10 @@ _TEMPORAL: list[ParamSpec] = [
               select_labels=("Контекстный (по умолчанию)",
                              "Актуальность сейчас", "Как было тогда",
                              "Знание на момент")),
-    ParamSpec("TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
-              "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS", CATEGORY_TEMPORAL,
-              "Срок свежих вердиктов, часов", "int",
-              pg_id="temporal.freshness_current_ttl_hours",
-              group="temporal_factcheck",
-              description="Сколько часов кешируется проверка «меняющихся» "
-                          "утверждений (курсы, должности, события «сейчас»). "
-                          "Меньше — чаще перепроверка."),
-    ParamSpec("TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS",
-              "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS", CATEGORY_TEMPORAL,
-              "Срок исторических вердиктов, часов", "int",
-              pg_id="temporal.freshness_historical_ttl_hours",
-              group="temporal_factcheck",
-              description="Сколько часов кешируется проверка «исторических» "
-                          "выводов (то, что было верно тогда). Правка "
-                          "исходного сообщения инвалидирует кеш сама."),
+    # FC-06C (P0-FACTCHECK §6.3, 28.10.2026): ParamSpec'и мёртвых TTL-настроек
+    # кеша готовых вердиктов TEMPORAL_FRESHNESS_{CURRENT,HISTORICAL}_TTL_HOURS
+    # (pg_id temporal.freshness_*) удалены вместе с кешем (W1). Сохранённые
+    # PG-значения игнорируются безопасно (config_cache._REMOVED_SETTING_KEYS).
     ParamSpec("TEMPORAL_TOOL_ENABLED", "TEMPORAL_TOOL_ENABLED",
               CATEGORY_TEMPORAL, "Инструмент fact_check включён", "bool",
               pg_id="temporal.tool_enabled",

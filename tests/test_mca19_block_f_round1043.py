@@ -42,7 +42,9 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 # ── Δ каталога +9 (F8-переиздание) ──────────────────────────────────────────
 
 def test_catalog_counts_sanctioned():
-    assert len(pc.REGISTRY) == 587          # 510 → 519 (+9)
+    # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 587 → 586 (−2 мёртвых
+    # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
+    assert len(pc.REGISTRY) == 586          # 510 → 519 (+9) → 586 (FC-06C)
     assert len(pc.GROUPS) == 121            # 108 → 112 (+4 группы)
     assert len(pc._TAB_BY_GROUP) == 119     # 106 → 110
     assert len(pc.TAB_RULES) == 23          # 21 → 22 (mod_vision)
@@ -112,12 +114,15 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # ASAP 7 F2 (§1.6): +9 L1 Planner; F4 §3.2: +13 — 560+header=561.
     # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* → 571+header=572.
     # SOUL-1 mobile-prompts (2026-10-16): +1 → 572+header=573.
-    assert len(tsv) == 588
+    # P0-FACTCHECK §6.3 (FC-06C, round 10.48): −2 мёртвых TTL-ключа
+    # TEMPORAL_FRESHNESS_* → 586+header=587 (reissue по фактическому
+    # каталогу дерева; пин 588 на базе расходился с TSV — W1 incidental #1).
+    assert len(tsv) == 587
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
-    # ASAP 7 F2: reissue под 560/149 (см. meta.md).
-    assert "587" in meta and "411" in meta and "176" in meta
+    # ASAP 7 F2: reissue под 560/149 (см. meta.md); FC-06C: 586/175.
+    assert "586" in meta and "411" in meta and "175" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────
@@ -125,8 +130,9 @@ def test_screen_map_and_registry_artifacts_regenerated():
 def test_kill_switches_registry_80():
     # MCA-20 (round 10.44): 80 → 83 (+3 temporal factcheck).
     # MCA-12 (round 10.46, ADR-1028-21 §8.3): 83 → 85 (+2 MCA_STORIES_*) —
-    # санкционированный bump по конвенции.
-    assert len(mca_gates.KILL_SWITCHES) == 85      # 80 → 83 → 85
+    # санкционированный bump по конвенции. FC-06C (§6.3, round 10.48):
+    # 85 → 84 — K3-гейт кеша готовых вердиктов удалён вместе с кешем.
+    assert len(mca_gates.KILL_SWITCHES) == 84      # 80 → 83 → 85 → 84
     assert VISION_KILL_SWITCHES <= set(mca_gates.KILL_SWITCHES)
     for name in VISION_KILL_SWITCHES:
         default, off_parity = mca_gates.KILL_SWITCHES[name]

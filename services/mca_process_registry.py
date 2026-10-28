@@ -1267,17 +1267,14 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
         stages=("target_resolve", "origin_date_resolve", "claim_decompose",
                 "temporal_search", "evidence_validate", "verdict",
                 "verbalize", "deliver"),
-        branches=("analyst", "single_fallback", "cache_hit", "bypass"),
+        branches=("analyst", "single_fallback", "bypass"),
         trigger_kind="on_demand",
         settings_ref=("MCA_TEMPORAL_FACTCHECK_ENABLED",
                       "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
-                      "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED",
                       "TEMPORAL_DEFAULT_MODE",
-                      "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
-                      "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS",
                       "TEMPORAL_TOOL_ENABLED"),
         state_source=("mca_factcheck_runs", "mca_factcheck_evidence"),
-        recovery_ops=("cache_bypass", "single_fallback"),
+        recovery_ops=("single_fallback",),
         widget_id="Временной фактчек",
         stages_to_events={s: "factcheck_temporal" for s in (
             "target_resolve", "origin_date_resolve", "claim_decompose",
@@ -1297,8 +1294,8 @@ PROCESS_REGISTRY: tuple[ProcessDefinition, ...] = (
              "(temporal_date_extract_failed ≠ temporal_date_unknown); "
              "fallback не меняет historical↔current молча "
              "(temporal_fallback_mode + assessment_mode); кеш готовых "
-             "вердиктов — slug factcheck_temporal/tzr1, unknown origin → "
-             "авто-bypass (temporal_cache_disabled); K1 OFF → честный "
+             "вердиктов удалён (FC-06C §6.3, повторная проверка — новый "
+             "анализ); K1 OFF → честный "
              "disabled/not_run",
     ),
 )
