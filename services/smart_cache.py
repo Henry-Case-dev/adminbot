@@ -315,10 +315,19 @@ class SmartCache:
 
     async def get(self, key: str) -> str | None:
         """None = miss/просрочен/выключен. Просроченный → DELETE + None.
-        Ошибки БД — WARNING + miss (кэш НЕ роняет хендлер)."""
-        if not settings.SMART_CACHE_ENABLED:
+        Ошибки БД — WARNING + miss (кэш НЕ роняет хендлер).
+        P0 admin-toggle-save (28.10.2026): рубильник/TTL — горячие точки
+        (T-619, тот же паттерн, что get_dedup/_sweep_ttl). Раньше get()
+        читал ТОЛЬКО settings.SMART_CACHE_ENABLED — админ-тумблер
+        «Exact Match Cache» не влиял на чтение (env-дефолт False в проде →
+        кэш писал, но никогда не отдавал). settings остаётся дефолтом
+        (аварийный рубильник R51-3 через hot-фолбэк)."""
+        if not hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
             return None
-        return await self._read(key, settings.SMART_CACHE_TTL_SECONDS)
+        return await self._read(
+            key,
+            hot.get("limits.smart_cache_ttl_seconds",
+                    settings.SMART_CACHE_TTL_SECONDS))
 
     async def set(self, key: str, payload: str) -> None:
         """INSERT OR REPLACE + ленивая очистка: (1) истёкшие по TTL,

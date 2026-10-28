@@ -105,7 +105,14 @@ ROUTES_SHA256_F11 = (
     # новых endpoint'ов нет (Δ routes=0), RBAC/маскировка не менялись.
     # Хэш переутверждён осознанно (L-F11S-1), routes-инвентарь f8_baseline
     # не менялся.
-    "a75a3333a2be82f0f5ac0f4cad3dd799d43cd6e6a456cd2a47add8fef9e8bf06")
+    # P0 admin-toggle-save (28.10.2026): починка chat-пути POST /api/config —
+    # один ограниченный ретрай на ChatParamsConflict (merge на свежий root)
+    # + ensure профиля группового чата. Root cause бага «Сохранено 0 из 1»
+    # (тумблер «Exact Match Cache»): строгий 409 на устаревший optimistic-
+    # токен ронял ВСЕ per-chat сохранения при конкурентных chat_params-
+    # записях. Новых endpoint'ов нет (Δ routes=0), RBAC/маскировка/DDL не
+    # менялись. Хэш переутверждён осознанно (L-F11S-1).
+    "b63dab2a47117c6805886d7a412f8f1659fd1b9d1d8f8c0700937dce0c60c085")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

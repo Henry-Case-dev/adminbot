@@ -342,13 +342,17 @@ class TestPerChatOverridesMerge:
         assert resp.status_code == 403, resp.text
         assert webapp.cp.store.get(CHAT, {}).get("overrides", {}) == {}
 
-    # (e) updated_at / 409
+    # (e) updated_at-токен. P0 admin-toggle-save (28.10.2026): strict-409 на
+    # ЛЮБОЙ устаревший токен был корневой причиной бага «Сохранено 0 из 1»
+    # (конкурентные chat_params-записи систематически устаревают токен UI).
+    # Новый контракт: устаревший токен → ОДИН ограниченный ретрай с merge
+    # на свежий root → 200 (чужие ключи сохраняются); актуальный токен → 200.
     def test_updated_at_conflict_and_ok(self, webapp):
         webapp.cp.seed(CHAT, overrides={}, updated_at="T0")
-        bad = _post(webapp, K2, 22, updated_at="WRONG")
-        assert bad.status_code == 409, bad.text
-        assert bad.json()["detail"]["code"] == "conflict"
-        assert webapp.cp.store[CHAT]["overrides"] == {}
+        stale = _post(webapp, K2, 22, updated_at="WRONG")
+        assert stale.status_code == 200, stale.text
+        # merge на свежем root: ключ применён, ничего лишнего не потеряно
+        assert webapp.cp.store[CHAT]["overrides"] == {K2: 22}
         current = webapp.cp.store[CHAT]["updated_at"]
         ok = _post(webapp, K2, 22, updated_at=current)
         assert ok.status_code == 200, ok.text

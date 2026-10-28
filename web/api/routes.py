@@ -606,6 +606,62 @@ async def get_config(
     return out
 
 
+async def _write_chat_overrides_with_retry(
+    chat_id: int,
+    new_overrides: dict,
+    meta: dict,
+    cache: ConfigCache,
+    *,
+    expected_updated_at: str | None,
+) -> dict:
+    """P0 admin-toggle-save (28.10.2026): запись per-chat overrides с ОДНИМ
+    ограниченным ретраем на ``ChatParamsConflict``.
+
+    Root cause бага «Сохранено 0 из 1; не сохранено: Exact Match Cache»
+    (Модули → Умный кэш, прод 2.58.139): optimistic-токен UI
+    (``configChatUpdatedAt``) систематически устаревает — chat_params пишут
+    и другие потоки (гейты модулей, speech/persona правки, вторая вкладка
+    TMA на другом устройстве), а ``set_gates_opt_in`` сдвигает
+    ``chat_profiles.updated_at`` вообще без NOTIFY (исправлено там же).
+    Strict-409 превращал ЛЮБУЮ конкурентную мета-запись в полный провал
+    сохранения тумблера; recovery в UI сравнивал значения и оставлял
+    черновик dirty → повторное «Сохранить изменения» ловило 409 снова
+    (токен мог быть отдан снова устаревшим из ``ChatParamsCache`` TTL 120 с).
+
+    Семантика ретрая: перечитываем СВЕЖИЙ root (напрямую PG, мимо кэша) и
+    мержим патч ПОВЕРХ него — чужие ключи не теряются (база merge свежая);
+    last-writer-wins только на пересекающихся ключах (приемлемо для
+    админ-UI владельца в 1-2 чатах). Первая попытка сохраняет честный
+    optimistic-протокол (включая идемпотентный short-circuit D-409-1).
+    Права/типизация проверены до записи и не зависят от value_overrides
+    (матрица прав — perm_overrides), пере-проверка не нужна.
+    Профиль чата отсутствует (current_updated_at=None; join-событие
+    потеряно) → ensure дефолтного профиля, как DM-ветка F-14 выше."""
+    try:
+        return await chat_params.set_chat_params(
+            chat_id, {"overrides": new_overrides, "meta": meta},
+            changed_by=meta.get("updated_by"), pg=cache.pg,
+            expected_updated_at=expected_updated_at)
+    except chat_params.ChatParamsConflict as exc:
+        if getattr(exc, "current_updated_at", None) is None:
+            await chat_params.ensure_scope_profile(chat_id, dm=False,
+                                                   pg=cache.pg)
+            return await chat_params.set_chat_params(
+                chat_id, {"overrides": new_overrides, "meta": meta},
+                changed_by=meta.get("updated_by"), pg=cache.pg,
+                expected_updated_at=None)
+        fresh_root = await chat_params.get_all_chat_params(chat_id,
+                                                           pg=cache.pg)
+        fresh_overrides = dict(fresh_root.get("overrides") or {})
+        fresh_overrides.update(new_overrides)
+        fresh_meta = dict(fresh_root.get("meta") or {})
+        fresh_meta["updated_by"] = meta.get("updated_by")
+        return await chat_params.set_chat_params(
+            chat_id, {"overrides": fresh_overrides, "meta": fresh_meta},
+            changed_by=meta.get("updated_by"), pg=cache.pg,
+            expected_updated_at=None)
+
+
 @api_router.post("/config")
 async def post_config(
     request: Request,
@@ -703,9 +759,8 @@ async def post_config(
     meta = dict(root.get("meta") or {})
     meta["updated_by"] = user.id
     try:
-        new_root = await chat_params.set_chat_params(
-            chat_id, {"overrides": new_overrides, "meta": meta},
-            changed_by=user.id, pg=cache.pg,
+        new_root = await _write_chat_overrides_with_retry(
+            chat_id, new_overrides, meta, cache,
             expected_updated_at=payload.updated_at)
     except chat_params.ChatParamsConflict as exc:
         raise HTTPException(

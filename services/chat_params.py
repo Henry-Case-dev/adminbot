@@ -504,6 +504,16 @@ async def set_gates_opt_in(chat_id: int, pg=None) -> None:
         raise ChatLorePgUnavailable("PostgreSQL недоступен (пул отсутствует)")
     async with pool.acquire() as conn:
         await conn.execute(UPSERT_GATES_OPT_IN_SQL, chat_id)
+        # P0 admin-toggle-save (28.10.2026): UPDATE сдвигает
+        # chat_profiles.updated_at (optimistic-токен UI), но NOTIFY не
+        # посылал — кэши (ChatParamsCache TTL 120 с) отдаляли устаревший
+        # токен → мусорный 409 на следующей записи UI. Тот же канал, что
+        # set_chat_params; fail-open (не-PG двойники — skip).
+        try:
+            await conn.execute(NOTIFY_SQL, str(chat_id))
+        except Exception:
+            logger.debug("[chat_params] gates_opt_in notify skipped",
+                         exc_info=True)
 
 
 # ═══ F-14 (dm-user-settings, spec §3.1/§4.1) — DM-скоуп ══════════════════════

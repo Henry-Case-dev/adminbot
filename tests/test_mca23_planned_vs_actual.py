@@ -54,7 +54,10 @@ ROUTES_SHA256_F11 = (
     # P0 corrective 25.10.2026 (F7): аддитивное R17-safe поле `aliases` в
     # GET /api/direct/context-diagnostics (Δ routes=0) — re-pin синхронно с
     # каноном tests/test_round1025_f8_registry.py (L-F11S-1).
-    "a75a3333a2be82f0f5ac0f4cad3dd799d43cd6e6a456cd2a47add8fef9e8bf06")
+    # P0 admin-toggle-save (28.10.2026): починка chat-пути POST /api/config
+    # (ограниченный ретрай на ChatParamsConflict; Δ routes=0) — re-pin
+    # синхронно с каноном (L-F11S-1).
+    "b63dab2a47117c6805886d7a412f8f1659fd1b9d1d8f8c0700937dce0c60c085")
 
 
 @pytest.fixture(autouse=True)
