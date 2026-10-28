@@ -533,7 +533,10 @@ _BOT_GENERATED_ORIGINS = frozenset({"bot_self_reply", "bot_direct_reply"})
 # релевантности факту, недавно ПОДАВАВШЕМУСЯ в контекст ответов. Не удаление
 # и не обнуление: потолок штрафа сопоставим с существующими expired/belief-
 # пенальти; сильное смысловое совпадение (явный вопрос о старом событии)
-# по-прежнему находит факт (H24). Process-local, R17: только id/счётчики.
+# по-прежнему находит факт (H24). Правка ревью #2: штраф применяется
+# ПОСЛЕ отбора выдачи (состав доставки определяет базовый penalty-free
+# ранг) и влияет только на ПОРЯДОК уже отобранных фактов — никогда на
+# их СОСТАВ. Process-local, R17: только id/счётчики.
 _RAG_USAGE_WINDOW_SEC = 6 * 3600     # «недавно» — окно с последней подачи
 _RAG_USAGE_PENALTY_STEP = 0.05       # за одну недавнюю подачу
 _RAG_USAGE_PENALTY_CAP = 0.30        # жёсткий потолок штрафа (bounded)
@@ -4078,7 +4081,8 @@ class MemoryManager:
         штрафуются — H24. Молчание дольше окна → 0; внутри окна —
         min(cap, step × подачи). Детерминированный; любые темы/имена при
         одинаковых условиях штрафуются одинаково (без списков тем). Факт
-        остаётся находимым: потолок не обнуляет ранг (H24)."""
+        остаётся находимым: штраф влияет только на позицию в уже
+        отобранной выдаче, состав доставки не меняет (H24)."""
         try:
             per_chat = self._rag_usage.get(chat_id)
             if not per_chat:
@@ -4113,7 +4117,9 @@ class MemoryManager:
         _search_graph_facts/_knn_graph_facts, пока известен graph_facts.id
         (в том числе факты с tg_message_id — их наружный item_id «tg:…» id
         факта не несёт); повторные подачи получают bounded-штраф
-        релевантности (см. _rag_usage_penalty). Пометка и штраф действуют
+        релевантности (см. _rag_usage_penalty), влияющий только на ПОРЯДОК
+        уже отобранной выдачи — состав доставки определяет базовый
+        penalty-free ранг (H24). Пометка и штраф действуют
         ТОЛЬКО на этом passive-пути доставки контекста: явные запросы
         (tool/search-пути, include_self=False) не помечаются и не
         штрафуются — явный вопрос о старом событии находит его даже при
@@ -4444,25 +4450,34 @@ class MemoryManager:
                 and r["expires_at"] <= now_i]
         expired_row_ids = {r["id"] for r in expired_rows}
 
-        def _rank_key(r):
+        def _base_rank_key(r):
             base = (_effective_weight(r["weight"], r["last_confirmed_at"],
                                       now)
                     * _importance_factor(_row_importance(r)))
             if r["id"] in expired_row_ids:
                 base -= expired_penalty
-            # P0-HA RELEVANCE (§11): bounded-штраф за недавние повторные
-            # подачи того же факта — ТОЛЬКО passive direct-доставка
-            # (include_self=True). Явный запрос пользователя (tool/search-
-            # пути, include_self=False) не штрафуется: штраф 0.30 больше
-            # разрыва между соседями FTS-ранга и без гейта вытеснял бы из
-            # выдачи цель, которая без штрафа в неё входила (H24).
-            if include_self:
-                return base - self._rag_usage_penalty(chat_id, r["id"], now)
             return base
 
-        ranked = sorted(list(rows) + expired_rows, key=_rank_key,
+        # Состав выдачи (top-limit) определяет базовый penalty-free ранг
+        # (B4-1/B03.2-пенальти в базе, стабильная сортировка — равные w_eff
+        # сохраняют FTS-порядок).
+        ranked = sorted(list(rows) + expired_rows, key=_base_rank_key,
                         reverse=True)
         kept = ranked[:limit]
+        # P0-HA RELEVANCE (§11, правка ревью #2): bounded-штраф повторных
+        # подач — ТОЛЬКО passive direct-доставка (include_self=True) и
+        # ТОЛЬКО порядок уже отобранной выдачи: fact, входивший бы в
+        # top-limit без штрафа, остаётся в выдаче на затухшей позиции
+        # (H24); штраф никогда не выталкивает факт за границу top-limit и
+        # не проталкивает чужие внутрь. Пустой учёт → перестановка
+        # тождественна (байт-паритет).
+        if include_self and len(kept) > 1:
+            kept = sorted(
+                kept,
+                key=lambda r: (_base_rank_key(r)
+                               - self._rag_usage_penalty(chat_id, r["id"],
+                                                         now)),
+                reverse=True)
         fresh_kept = [r for r in kept if r["id"] not in expired_row_ids]
         if fresh_kept and hot.get("flags.graph_fact_touch_enabled", settings.GRAPH_FACT_TOUCH_ENABLED):
             # P0-HA RELEVANCE (§10): факты с provenance «порождены выходом
@@ -4599,6 +4614,7 @@ class MemoryManager:
             "limits.belief_resonance_threshold",
             settings.BELIEF_RESONANCE_THRESHOLD) or 0.78)
         cosine_by_id: dict = {}
+        base_score_by_id: dict = {}
         sims: list = []
         for fid, cosine, vec in ranked:
             row = by_id.get(fid)
@@ -4610,11 +4626,11 @@ class MemoryManager:
             score = cosine * w_eff * _importance_factor(_row_importance(row))
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
-            # P0-HA RELEVANCE (§11): bounded-штраф повторных подач — только
-            # passive direct-доставка (include_self=True); явный запрос не
-            # штрафуется (H24 при конкуренции).
-            if include_self:
-                score -= self._rag_usage_penalty(chat_id, fid, now)
+            # P0-HA RELEVANCE (§11, правка ревью #2): bounded-штраф повторных
+            # подач НЕ входит в selection-score — состав выдачи определяет
+            # базовый penalty-free ранг (H24 при конкуренции); штраф
+            # применяется после отбора, только к порядку.
+            base_score_by_id[fid] = float(score)
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, vec))
         # B03.2: архивная (expired) часть — ниже свежей: пенальти к score
@@ -4628,23 +4644,43 @@ class MemoryManager:
                      - expired_penalty)
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
-            # P0-HA RELEVANCE (§11): тот же bounded-штраф повторных подач
-            # для архивного top-up (симметрично свежей части), только на
-            # passive direct-доставке (include_self=True).
-            if include_self:
-                score -= self._rag_usage_penalty(chat_id, fid, now)
+            # P0-HA RELEVANCE (§11, правка ревью #2): тот же перенос штрафа
+            # подач из selection-score в пост-селекционный порядок (симметрично
+            # свежей части), только passive direct-доставка (include_self=True).
+            base_score_by_id[fid] = float(score)
             by_id[fid] = row
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, None))
         if not sims:
             return []
-        if hot.get("flags.graph_mmr_enabled", settings.GRAPH_MMR_ENABLED):
+        mmr_on = bool(hot.get("flags.graph_mmr_enabled",
+                              settings.GRAPH_MMR_ENABLED))
+        if mmr_on:
             if any(vec is None for _, _, vec in sims):
                 sims = await self._attach_vectors(sims)
             chosen = _mmr_select(sims, limit, (hot.get("limits.graph_mmr_lambda", settings.GRAPH_MMR_LAMBDA) or 0))
         else:
             sims.sort(key=lambda s: s[1], reverse=True)
             chosen = [s[0] for s in sims[:limit]]
+        # P0-HA RELEVANCE (§11, правка ревью #2): штраф подач — только
+        # порядок УЖЕ отобранной выдачи, состав определяет базовый
+        # penalty-free ранг (H24). Пустой учёт → перестановка тождественна
+        # (байт-паритет, включая MMR-порядок диверсификации).
+        if include_self and len(chosen) > 1:
+            if mmr_on:
+                # MMR-порядок (жадная диверсификация) — базовый порядок
+                # выбранного множества; штраф стабильной перестановкой
+                # опускает затухнувшие факты, не меняя множество.
+                chosen = sorted(
+                    chosen,
+                    key=lambda f: self._rag_usage_penalty(chat_id, f, now))
+            else:
+                chosen = sorted(
+                    chosen,
+                    key=lambda f: (base_score_by_id.get(f, 0.0)
+                                   - self._rag_usage_penalty(chat_id, f,
+                                                             now)),
+                    reverse=True)
         # F2/T-1427 (§4.2): выбранный архивный belief с cosine ≥ порога —
         # «воскрешение»: status='confirmed', вес=base, last_confirmed_at=now
         # (+ событие телеметрии). Fail-open: ошибка БД не роняет RAG.
@@ -4829,19 +4865,19 @@ class MemoryManager:
                 if (anchor and anchor in hot_low) or \
                         (target and target in hot_low):
                     matched.append(belief)
-            # P0-HA RELEVANCE (§11): повторно инжектируемые тем же ходом
-            # archived-beliefs сдвигаются вниз ограниченным штрафом подач —
-            # навязчивое всплытие затухает (stable sort: пустой учёт →
-            # прежний порядок id DESC, байт-паритет). Не удаление: belief
-            # остаётся в выдаче, если слоты позволяют (bounded).
+            # P0-HA RELEVANCE (§11, правка ревью #2): состав выдачи
+            # определяет базовый порядок (id DESC из list_archived_beliefs);
+            # ограниченный штраф подач только стабильной перестановкой
+            # опускает уже отобранные beliefs ниже и никогда не выталкивает
+            # их за границу cap. Пустой учёт → прежний порядок id DESC
+            # (байт-паритет). Не удаление: belief остаётся в выдаче.
             now_i = int(time.time())
-            matched.sort(key=lambda b: self._rag_usage_penalty(
+            selected = matched[:cap]
+            selected.sort(key=lambda b: self._rag_usage_penalty(
                 chat_id, b.get("id"), now_i))
             out: list = []
             shown_ids: list[int] = []
-            for belief in matched:
-                if len(out) >= cap:
-                    break
+            for belief in selected:
                 out.append((
                     belief.get("origin"), belief["fact"],
                     belief.get("message_timestamp")

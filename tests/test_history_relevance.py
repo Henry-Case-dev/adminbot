@@ -11,9 +11,13 @@ REQ-HA-P07-NO-GLOBAL-OFF / REQ-HA-P08-NO-TOPIC-EXCEPTIONS):
   §10/§11: повторные подачи того же факта в ответы затухают — bounded-штраф
        релевантности (не удаление, не обнуление);
   H24: явный запрос о старом событии находит долговременную память несмотря
-       на штраф; при конкуренции (≥limit фактов с общим токеном) явный
-       запрос не штрафуется вовсе (разделение ACTIVE-запрос / PASSIVE-
-       доставка); GraphRAG/Lore не выключаются, память не удаляется;
+       на штраф; явный запрос не штрафуется вовсе (разделение ACTIVE-запрос /
+       PASSIVE-доставка); GraphRAG/Lore не выключаются, память не удаляется;
+  §11 (правка ревью #2): штраф подач на passive-доставке влияет ТОЛЬКО на
+       порядок уже отобранной выдачи и никогда — на её состав: факт,
+       входивший бы в top-limit без штрафа, остаётся в выдаче на затухшей
+       позиции; пустой учёт — байт-идентичный порядок; граф-активация и
+       KNN (fresh/archive) — та же семантика membership;
   §11: учёт подач покрывает и факты с tg_message_id (пометка по
        graph_facts.id внутри retrieval, не по наружному item_id);
        повторная подача затухает симметрично соседям;
@@ -313,12 +317,14 @@ class TestExplicitAskStillFinds:
 # ── H24 при конкуренции: явный запрос не вытесняется штрафом подач ──────────
 
 class TestExplicitAskCompetitive:
-    """Блокер 1 ревью (REQ-HA-IMPORTANCE-VS-RELEVANCE / P07, H24): штраф
-    подач (до 0.30) больше разрыва между соседями FTS-ранга, поэтому на
-    явном запросе он вытеснял цель из top-10, когда с ней конкурирует хотя
-    бы десяток фактов с общим ключом. Разделение ACTIVE/PASSIVE: явный
-    запрос пользователя (include_self=False) не штрафуется; passive-
-    доставка контекста (include_self=True) продолжает затухать."""
+    """Блокер 1 ревью (REQ-HA-IMPORTANCE-VS-RELEVANCE / P07, H24) и правка
+    ревью #2: штраф подач (до 0.30) применялся ВО ВРЕМЯ отбора top-k и
+    вытеснял цель из выдачи даже на чат-пути, когда с ней конкурирует хотя
+    бы десяток фактов с общим ключом. Семантика после правки: состав
+    доставки определяет базовый penalty-free ранг; явный запрос
+    (include_self=False) не штрафуется вовсе; passive-доставка
+    (include_self=True) затухает только ПОРЯДКОМ уже отобранной выдачи —
+    штраф никогда не меняет состав (set membership)."""
 
     _NEIGHBORS = 12  # больше дефолтного лимита 10
     _QUERY_TOKENS = f"{_TOPIC_B} старое событие"
@@ -351,11 +357,13 @@ class TestExplicitAskCompetitive:
         assert ids[0] == target_fid                          # цель — первая
 
     @pytest.mark.asyncio
-    async def test_passive_delivery_still_dampens_amid_shared_keyword(
+    async def test_passive_penalty_never_changes_set_membership(
             self, db, monkeypatch):
-        """Затухание не снято: на passive-доставке (ambient-инжект,
-        include_self=True) помеченная до потолка цель уступает слоты
-        непомеченным соседям с общим токеном."""
+        """H24 на чат-пути (правка ревью #2): ambient-доставка
+        (include_self=True, как _build_rag_block) цели в топ-10 НЕ теряет:
+        состав выдачи = penalty-free эталон, помеченная до потолка цель
+        остаётся в выдаче на затухшей (нижней) позиции; соседи не
+        вытесняются штрафом и не проталкиваются за границу множества."""
         _hot_cache(monkeypatch, {
             **_base_flags(),
             "limits.graph_rag_facts_limit": 10,
@@ -363,11 +371,67 @@ class TestExplicitAskCompetitive:
         target_fid = await self._seed(db)
         memory = MemoryManager(db, _FakeLLM())
         memory._mark_rag_usage(
-            CHAT_ID, [target_fid] * 8, int(time.time()))
+            CHAT_ID, [target_fid] * 8, int(time.time()))     # кап 0.30
+        # Penalty-free эталон: явный запрос (include_self=False) — тот же
+        # top-10 по базовому рангу (учёт подач не пишет).
+        reference = await memory.get_rag_facts(CHAT_ID, self._QUERY_TOKENS)
+        ref_ids = _fact_ids(reference)
+        assert len(ref_ids) == 10
+        assert ref_ids[0] == target_fid                      # цель — первая
+        # Ambient-доставка: СОСТАВ тот же, цель — на затухшей позиции.
         facts = await memory.get_rag_facts(
             CHAT_ID, self._QUERY_TOKENS,
             include_direct_reply=True, include_self=True)
-        assert target_fid not in _fact_ids(facts)            # вытеснена
+        ids = _fact_ids(facts)
+        assert len(facts) == 10
+        assert set(ids) == set(ref_ids)                      # состав не изменился
+        assert ids[-1] == target_fid                         # затухла вниз
+        # Относительный порядок соседей сохранён (перестановка — только цель).
+        assert [i for i in ids if i != target_fid] == [
+            i for i in ref_ids if i != target_fid]
+
+    @pytest.mark.asyncio
+    async def test_passive_empty_usage_byte_identical_ordering(
+            self, db, monkeypatch):
+        """Байт-паритет пустого учёта: ambient-выдача без помеченных фактов
+        совпадает байт-в-байт (те же кортежи, тот же порядок) с penalty-free
+        эталоном — пост-селекционная перестановка при пустом учёте
+        тождественна."""
+        _hot_cache(monkeypatch, {
+            **_base_flags(),
+            "limits.graph_rag_facts_limit": 10,
+        })
+        await self._seed(db)
+        memory = MemoryManager(db, _FakeLLM())
+        reference = await memory.get_rag_facts(CHAT_ID, self._QUERY_TOKENS)
+        assert memory._rag_usage.get(CHAT_ID) in (None, {})
+        facts = await memory.get_rag_facts(
+            CHAT_ID, self._QUERY_TOKENS,
+            include_direct_reply=True, include_self=True)
+        assert facts == reference
+
+    @pytest.mark.asyncio
+    async def test_knn_empty_usage_penalty_order_equals_base_order(
+            self, db, monkeypatch):
+        """Свойство идентичности (KNN): при пустом учёте подач
+        пост-селекционная перестановка тождественна — порядок выдачи
+        совпадает с базовым penalty-free порядком."""
+        _hot_cache(monkeypatch, _base_flags())
+        fid_a = await _add_fact(db, f"{_TOPIC_C} якорное событие")
+        fid_b = await _add_fact(db, f"{_TOPIC_C} фоновое событие")
+        fid_c = await _add_fact(db, f"{_TOPIC_C} позднее событие")
+        memory = MemoryManager(db, _FakeLLM())
+
+        async def _candidates(chat_id, vector, fetch_k, *a, **kw):
+            return [(fid_c, 0.70, None), (fid_a, 0.95, None),
+                    (fid_b, 0.82, None)]
+
+        monkeypatch.setattr(memory, "_vec_candidates", _candidates)
+        passive_rows = await memory._knn_graph_facts(
+            CHAT_ID, [0.1], 5, include_self=True)
+        assert _fact_ids(passive_rows) == [fid_a, fid_b, fid_c]
+        tool_rows = await memory._knn_graph_facts(CHAT_ID, [0.1], 5)
+        assert _fact_ids(tool_rows) == [fid_a, fid_b, fid_c]
 
     @pytest.mark.asyncio
     async def test_explicit_knn_query_not_dampened(self, db, monkeypatch):
@@ -493,11 +557,13 @@ class TestGraphActivationDampening:
         await db.upsert_node(CHAT_ID, "Засургуч", "user")
 
     @pytest.mark.asyncio
-    async def test_repeated_activation_rotates_belief_out(self, db,
-                                                          monkeypatch):
-        """Belief, многократно инжектировавшийся активацией, уступает слот
-        равному по связи соседу; сам остаётся в памяти и находим по явному
-        запросу (H24)."""
+    async def test_repeated_activation_dampens_order_not_membership(
+            self, db, monkeypatch):
+        """Правка ревью #2: belief, многократно инжектировавшийся
+        активацией, опускается в порядке уже отобранной выдачи, но НЕ
+        теряет слот — состав доставки определяет базовый порядок (id DESC),
+        штраф подач за границу cap никого не выталкивает. Память жива и
+        находима по явному запросу (H24)."""
         _hot_cache(monkeypatch, {
             **_base_flags(),
             "flags.belief_decay_enabled": True,
@@ -514,16 +580,20 @@ class TestGraphActivationDampening:
             status="archived_belief",
             belief_meta='{"base_weight":0.6,"decay_months":0}')
         memory = MemoryManager(db, _FakeLLM())
-        first = await memory.graph_activation_facts(CHAT_ID, limit=1)
+        first = await memory.graph_activation_facts(CHAT_ID, limit=2)
         # Пустой учёт → прежний порядок id DESC: свежий belief первым.
-        assert first and first[0][1] == "марево и засургуч другой эпизод"
+        assert [f[1] for f in first] == [
+            "марево и засургуч другой эпизод",
+            "марево и засургуч закрепились давно"]
 
         # Симуляция навязчивых повторных инжектов того же belief.
         now = int(time.time())
         memory._mark_rag_usage(CHAT_ID, [bid_other] * 6, now)
-        second = await memory.graph_activation_facts(CHAT_ID, limit=1)
-        # Затухание: повторно использованный belief уступает слот соседу.
-        assert second[0][1] == "марево и засургуч закрепились давно"
+        second = await memory.graph_activation_facts(CHAT_ID, limit=2)
+        # Состав не изменился (штраф не выталкивает за границу cap),
+        # порядок: затухнувший belief опустился на последнюю позицию.
+        assert {f[1] for f in second} == {f[1] for f in first}
+        assert second[-1][1] == "марево и засургуч другой эпизод"
         # Память жива, записи не удалялись.
         rows = await db.search_graph_facts_fts(
             CHAT_ID, "марево", 10, now, include_archived=True)
