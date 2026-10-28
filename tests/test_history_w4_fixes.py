@@ -38,6 +38,7 @@ from services.claim_envelope import (
 from services.database import DatabaseService
 from services.direct_chat_service import (
     DirectChatService,
+    _ha_strip_invented_claims,
     _history_line_item_id,
 )
 from services.prompt_style_blocks import (
@@ -565,6 +566,61 @@ class TestSegmentGuards:
         assert _event_field(events[0], "note") == "обсуждали релиз"
 
 
+# ── блокер B review-w4-fix2: срез даты — целый токен ────────────────────────
+
+class TestInventedDateTokenBoundary:
+    """«5.10.2024» — подстрока «15.10.2024» и «05.10.2024»: сырой
+    str.replace уничтожал подтверждённую штампом дату и оставлял обрывок
+    «1». Срез — только целый токен даты (границы по слову/цифре);
+    одиночные неприбитые формы срезаются как прежде (флаг — точное
+    написание из note)."""
+
+    def _svc(self) -> DirectChatService:
+        svc = object.__new__(DirectChatService)
+        svc.bot_id = 999
+        return svc
+
+    @staticmethod
+    def _line(ts: int) -> str:
+        return format_context_item(ts=ts, author="vasya [10]",
+                                   item_id="tg:1", text="встреча",
+                                   kind="msg")
+
+    def test_strip_is_whole_token(self):
+        """Чистая функция: подтверждённая «15.10.2024» не задета срезом
+        выдуманной «5.10.2024»."""
+        assert _ha_strip_invented_claims(
+            "15.10.2024 ok 5.10.2024 bad", [], ["5.10.2024"]) \
+            == "15.10.2024 ok bad"
+
+    def test_confirmed_date_survives_short_invented_neighbour(self):
+        """Штамп 15.10.2024 подтверждает «15.10.2024»; соседняя выдуманная
+        «5.10.2024» уходит целиком — без обрывка «1 was real»."""
+        result = self._svc()._ha_guard_event(
+            "15.10.2024 was real, but 5.10.2024 was not",
+            ["tg:1"], {"tg:1": self._line(1728993600)})  # 15.10.2024 12:00
+        assert result["note"] == "15.10.2024 was real, but was not"
+        assert result["flags"] == ["invented_date:5.10.2024"]
+
+    def test_march_pair_same_behavior(self):
+        """Та же пара «15.03.2025» / «5.03.2025» при штампе 15.03.2025."""
+        result = self._svc()._ha_guard_event(
+            "15.03.2025 was real, but 5.03.2025 was not",
+            ["tg:1"], {"tg:1": self._line(1742031000)})  # 15.03.2025 09:30
+        assert result["note"] == "15.03.2025 was real, but was not"
+        assert result["flags"] == ["invented_date:5.03.2025"]
+
+    def test_two_invented_dates_both_stripped_whole(self):
+        """Обе даты выдуманы (штамп не подтверждает ни одну): длинная
+        «15.10.2024» уходит ЦЕЛИКОМ, цифры «1» в note не остаётся; флаг —
+        оба точных написания в порядке детектора."""
+        result = self._svc()._ha_guard_event(
+            "5.10.2024 and 15.10.2024 both invented",
+            ["tg:1"], {"tg:1": self._line(1000)})        # 01.01.1970
+        assert result["note"] == "and both invented"
+        assert result["flags"] == ["invented_date:5.10.2024,15.10.2024"]
+
+
 # ── блокер 3: композер OFF — баннер только у конспекта ──────────────────────
 
 class _FakeMemory:
@@ -661,7 +717,8 @@ class _Msg:
 
 
 class TestComposerOffBannerPlacement:
-    async def _global_block(self, window, summary, with_sample):
+    async def _global_block(self, window, summary, with_sample,
+                            max_tokens=None):
         import services.budget_gate as bg
 
         async def _master(chat_id=None):
@@ -671,6 +728,14 @@ class TestComposerOffBannerPlacement:
         bg.budgets_enabled = _master
         try:
             svc, dcs = _off_service(window, summary)
+            prev_limit = None
+            if max_tokens is not None:
+                # штатная ветка усечения: потолок фона ниже конспекта
+                # (settings — frozen dataclass: патч через object.__setattr__)
+                prev_limit = dcs.settings.CHAT_GLOBAL_CONTEXT_MAX_TOKENS
+                object.__setattr__(dcs.settings,
+                                   "CHAT_GLOBAL_CONTEXT_MAX_TOKENS",
+                                   max_tokens)
             prev = dcs.chat_summary_enabled
 
             async def _summ_on(chat_id):
@@ -684,6 +749,10 @@ class TestComposerOffBannerPlacement:
                                     if with_sample else None))
             finally:
                 dcs.chat_summary_enabled = prev
+                if prev_limit is not None:
+                    object.__setattr__(dcs.settings,
+                                       "CHAT_GLOBAL_CONTEXT_MAX_TOKENS",
+                                       prev_limit)
             return blocks
         finally:
             bg.budgets_enabled = old
@@ -761,6 +830,50 @@ class TestComposerOffBannerPlacement:
         global_block = next(t for k, t in blocks if k == "global")
         assert "ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ" not in global_block
         assert "обычное сообщение" in global_block
+
+    @pytest.mark.asyncio
+    async def test_overflow_conspect_remainder_stays_under_banner(self):
+        """Конспект длиннее потолка фона (штатная keep-head ветка
+        усечения, блокер A review-w4-fix2): выживший остаток конспекта
+        остаётся под баннером дополнения; граничной строки нет — её может
+        открыть только выжившая строка окна, а усечение её унесло.
+        Инвариант: после границы не бывает не-оконного контента."""
+        long_summary = ("CONSPECTUS_TAIL_MARKER остаток конспекта "
+                        + "заполнение фона " * 300)
+        window = [_window_row(10, "вася", "свежее сообщение из окна", 500, 7)]
+        blocks = await self._global_block(
+            window, {"summary": long_summary, "raw_count": 100,
+                     "window_end_ts": 0}, with_sample=True, max_tokens=40)
+        global_block = next(t for k, t in blocks if k == "global")
+        lines = global_block.splitlines()
+        assert lines[1].startswith("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ hs_ab12cd34ef56")
+        # дословная строка окна срезана потолком (стенд переполнения верен)
+        assert "свежее сообщение из окна" not in global_block, \
+            "строка окна пережила усечение — стенд не переполнен"
+        assert "CONSPECTUS_TAIL_MARKER" in global_block, \
+            "остаток конспекта не пережил keep-head срез — стенд неверен"
+        assert HA_INRANGE_TAIL_LABEL not in lines, \
+            "граница без выживших строк окна: остаток конспекта " \
+            "назван дословными сообщениями диапазона"
+        idx_conspect = next(i for i, ln in enumerate(lines)
+                            if "CONSPECTUS_TAIL_MARKER" in ln)
+        assert 1 < idx_conspect, "остаток конспекта не под баннером"
+
+    @pytest.mark.asyncio
+    async def test_no_inrange_lines_no_boundary(self):
+        """Все строки окна старше window_end_ts (дословный хвост пуст):
+        баннер над конспектом, граничной строки нет — инвариант «граница
+        только перед строками окна»."""
+        window = [_window_row(10, "вася", "старое сообщение окна", 500, 7)]
+        blocks = await self._global_block(
+            window, {"summary": "конспект прошлого фона", "raw_count": 7,
+                     "window_end_ts": 10 ** 9}, with_sample=True)
+        global_block = next(t for k, t in blocks if k == "global")
+        lines = global_block.splitlines()
+        assert "старое сообщение окна" not in global_block
+        assert "конспект прошлого фона" in global_block
+        assert HA_INRANGE_TAIL_LABEL not in lines
+        assert global_block.count("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ") == 1
 
 
 # ── блокер 4: system2 Stage-2 получает assembly-блок при выборке ────────────

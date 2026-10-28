@@ -537,11 +537,18 @@ def _ha_strip_invented_claims(note: str, counts: list,
                               dates: list) -> str:
     """Срезать из note придуманные количества/даты (блокер 1: выдуманное
     число или дату не класть в note как факт). Детерминированно: только
-    нарушающие значения, формулировка вокруг сохраняется. Никогда не
-    бросает."""
+    нарушающие значения, формулировка вокруг сохраняется. Даты — целыми
+    ТОКЕНАМИ (блокер B review-w4-fix2): «5.10.2024» — подстрока
+    «15.10.2024» и «05.10.2024», сырой replace уничтожал подтверждённую
+    дату и оставлял обрывок «1»; границы `(?<!\\w)…(?!\\w)` зеркалят
+    `\\b…\\b` детектора `_DATE_CLAIM_RE`. Никогда не бросает."""
     cleaned = str(note or "")
     for value in dates:
-        cleaned = cleaned.replace(str(value), " ")
+        token = str(value).strip()
+        if not token:
+            continue
+        cleaned = re.sub(r"(?<!\w)" + re.escape(token) + r"(?!\w)",
+                         " ", cleaned)
     for count in counts:
         try:
             pattern = _HA_COUNT_STRIP_RE.format(n=int(count))
@@ -9537,13 +9544,18 @@ class DirectChatService:
         заполнению).
         roster/suffix_map — участники карты текущего рендера (C2/C3):
         суффиксы-дискриминаторы строк и имена для importance-маркеров E1.
-        P0-HA (блокер 3 review-w4, блокер A review-w4-fix): ``history_sample``
-        — активная выборка хода; баннер дополнения возглавляет ТОЛЬКО
-        head-конспект (running/L2 — память вне диапазона, зеркально
-        `_ha_head_text` композерного пути); дословный хвост окна идёт после
-        явной граничной строки `_HA_INRANGE_TAIL_LABEL` (in-range регион —
-        «не подтверждает события» его не накрывает). Verbatim-only режим
-        (конспекта нет) — баннера и границы нет вовсе."""
+        P0-HA (блокер 3 review-w4, блокер A review-w4-fix, блокер A
+        review-w4-fix2): ``history_sample`` — активная выборка хода;
+        баннер дополнения возглавляет ТОЛЬКО head-конспект (running/L2 —
+        память вне диапазона, зеркально `_ha_head_text` композерного
+        пути); дословный хвост окна идёт после явной граничной строки
+        `_HA_INRANGE_TAIL_LABEL` (in-range регион — «не подтверждает
+        события» его не накрывает). Граница ставится ТОЛЬКО перед
+        выжившими строками окна: если усечение оставило в фоне один
+        конспект (keep-head срез), остаток конспекта остаётся под
+        баннером без границы (после границы не бывает не-оконного
+        контента). Verbatim-only режим (конспекта нет) — баннера и
+        границы нет вовсе."""
         roster = roster or []
         suffix_map = suffix_map or {}
         summary_text = None
@@ -9585,6 +9597,11 @@ class DirectChatService:
                                chat_id, exc_info=True)
         head: list[str] = []
         tail: list[str] = []
+        # блокер A review-w4-fix2: сколько ХВОСТОВЫХ строк tail — дословные
+        # строки окна (в summary-ветке весь tail; после keep-head среза —
+        # выживший суффикс строк окна или 0: остаток конспекта границу не
+        # открывает).
+        window_tail_lines = 0
         if summary_text is not None:
             # E2/D5: «широкий фон:» + L2 первой строкой body (метка-префикс),
             # затем метка summary-режима (возраст НЕ вводим — конспект живёт
@@ -9602,6 +9619,7 @@ class DirectChatService:
                     continue
                 tail.append(self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id))
+            window_tail_lines = len(tail)
         else:
             _g_limit = int(await _cp_g(
                 chat_id, "limits.chat_global_context_limit",
@@ -9654,6 +9672,7 @@ class DirectChatService:
                 # держится); метка-строка («широкий фон: …»/«фон: …»)
                 # сохраняется первой.
                 body = "\n".join(head + tail)
+                win_start = len("\n".join(head)) + 1
                 if kind == "tokens":
                     body = truncate_to_tokens_keep_head(body, max(1, budget))
                 else:
@@ -9664,18 +9683,35 @@ class DirectChatService:
                     tail = [ln for ln in lines[1:] if ln.strip()]
                 else:
                     head, tail = [], [ln for ln in lines if ln.strip()]
+                # блокер A review-w4-fix2: после среза tail — остаток
+                # конспекта (строки окна шли в body после конспекта и
+                # срезаны концом). Строки окна в tail — только выживший
+                # суффикс за границей конспекта (win_start) в усечённом
+                # body; если контента за ней нет — весь tail конспект и
+                # граница не ставится вовсе.
+                window_tail_lines = 0
+                if tail and len(body) > win_start:
+                    window_tail_lines = sum(
+                        1 for ln in body[win_start:].split("\n")
+                        if ln.strip())
         body = "\n".join(head + tail)
-        # P0-HA ISOLATION (блокер A review-w4-fix): на legacy-пути (композер
-        # OFF) баннер дополнения возглавляет ТОЛЬКО head-конспект (память
-        # вне диапазона); дословные строки окна (внутри диапазона) идут
-        # ПОСЛЕ явной граничной строки — «не подтверждает события» их не
-        # накрывает. Verbatim-only сборка (конспекта нет) и ход без выборки
+        # P0-HA ISOLATION (блокер A review-w4-fix, fix2): на legacy-пути
+        # (композер OFF) баннер дополнения возглавляет ТОЛЬКО head-конспект
+        # (память вне диапазона); дословные строки окна (внутри диапазона)
+        # идут ПОСЛЕ явной граничной строки — «не подтверждает события» их
+        # не накрывает. Граница — только перед выжившими строками окна
+        # (инвариант: после границы не бывает не-оконного контента);
+        # остаток конспекта, переживший keep-head срез, остаётся под
+        # баннером. Verbatim-only сборка (конспекта нет) и ход без выборки
         # — прежний вывод без баннера и границы (байт-паритет).
         if history_sample is not None and summary_text is not None and head:
             lines_out = [_ha_supplement_banner(_ha_sample_id(history_sample))]
             lines_out.extend(head)
-            if tail:
+            if window_tail_lines:
+                lines_out.extend(tail[:len(tail) - window_tail_lines])
                 lines_out.append(_HA_INRANGE_TAIL_LABEL)
+                lines_out.extend(tail[len(tail) - window_tail_lines:])
+            else:
                 lines_out.extend(tail)
             body = "\n".join(lines_out)
         return f"<Global_Context>\n{escape_xml_text(body)}\n</Global_Context>"
