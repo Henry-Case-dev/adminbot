@@ -10,7 +10,7 @@ Production: **2.58.138 @ `1e438e3a`**, healthz 200, NRestarts 0, журнал ч
 
 Released this cycle: 131 (речь+Fact-check), 132 (P0 DELTA), 133 (lore echo), 134 (DELTA-DEPTH), 137 (nostalgia rework W1+W2), 138 (COR-01/02/03). Все карты закрыты гейтами (единственная структурная заметка deployed=bump≠candidate — задокументированный класс).
 
-⚠️ Owner/ops action: диск сервера 96% (1.1G свободно) — нужна ревизия retention (журнал/бэкапы); удаление файлов агентом не выполнялось.
+✅ Диск: ревизия выполнена 28.10 (владелец авторизовал): 96% → 74% (5.9G свободно, освобождено 4.3G); рекомендация — авто-retention для backups/ (каждый pre-deploy бэкап ≈1.5G). Отчёт: plans/reports/disk-analysis-2026-10-28.md
 
 Remaining honest opens (вне знаменателя или внешние):
 - p0-nostalgia-rework NOST-15/16: SAY-семантика наблюдается естественными прод-тиками (офлайн T17–T23 зелёные; UNCHANGED×2 live).
@@ -24,6 +24,6 @@ Closed maps (гейты): p0-delta 133/133, asap-speech-arch 98/98, p0-correctiv
 Active lanes: none. Next: наблюдение прод-тиков; новые коррективы владельца — по мере поступления.
 
 Review: approved (all shipped slices)
-Deployment: verified 2.58.138
+Deployment: verified 2.58.139
 Human gate: none
-Updated: 2026-10-28T09:15+12:00
+Updated: 2026-10-28T08:50+12:00
