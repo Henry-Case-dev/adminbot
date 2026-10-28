@@ -42,3 +42,10 @@
 Признак нарушения: инструкция (Personality Core, Expression, Style Policy, авторские примеры, функциональные системные промпты) сокращается, вытесняется или исчезает из payload по локальному бюджету при достаточном реальном окне. Если ограничение одновременно затрагивает инструкции и данные — устраняется только квота инструкций, остальные функции механизма сохраняются.
 
 Reviewer отклоняет новые искусственные квоты инструкций независимо от места реализации: имя переменной или функции значения не имеет.
+
+
+## Project-specific workspace and backup hygiene (28 Oct 2026)
+
+Create new workflow-owned temporary output only through the installed global `tools/workflow_housekeeping.py`. `allocate` writes under that config's `WorkspaceData/runs/`. New parallel Git worktrees use `worktree-path` (under `WorkspaceData/worktrees/`) and `git worktree add`, then `register-worktree`. Do not create sibling checkouts beside this repository. Do not hardcode a project path or a sibling worktree name pattern. Existing leftover checkouts must be classified against `git worktree list --porcelain`, cleanliness, commit reachability and active use before any `git worktree remove` (never `--force`, never delete the branch). Unknown or dirty trees stay.
+
+Server-side `backups/`, `pre_migration_*.db`, `local_database.db`, and live production assets are not temporary workspace trash. `plans/reports/disk-analysis-2026-10-28.md` documents the owner's preference to retain 1–2 usable recent backups; only apply targeted retention after checking actual backup provenance, recoverability, and the rollback requirement. Preserve project-specific SSH/fail2ban rules and PET_PROJECT release policy unchanged.
