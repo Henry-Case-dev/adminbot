@@ -477,13 +477,11 @@ class Settings:
     # Гейтят выполнение в своих handler-точках (spec §5.3); ON = прежнее
     # поведение байт-в-байт. Группы: см. services/param_catalog.py _FLAGS.
     # ── Раунд 10.44 (MCA-20, ADR-1028-20 D13/§7.2): группа temporal_factcheck
-    # (категория temporal, вкладка mod_factcheck) — 4 migratable-настройки
-    # владельца. Дефолты: contextual / 6 / 720 / ON.
+    # (категория temporal, вкладка mod_factcheck) — migratable-настройки
+    # владельца. Дефолты: contextual / ON. (FC-06C §6.3, 28.10.2026: мёртвые
+    # TTL-настройки кеша готовых вердиктов TEMPORAL_FRESHNESS_* удалены
+    # вместе с кешем; сохранённые PG-значения игнорируются config_cache.)
     TEMPORAL_DEFAULT_MODE: str = _env_str("TEMPORAL_DEFAULT_MODE", "contextual")
-    TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS: int = _env_int_min(
-        "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS", 6, 1)
-    TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS: int = _env_int_min(
-        "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS", 720, 1)
     TEMPORAL_TOOL_ENABLED: bool = _env_bool("TEMPORAL_TOOL_ENABLED", True)
     FACTCHECK_ENABLED: bool = _env_bool("FACTCHECK_ENABLED", True)
     SEARCH_ENABLED: bool = _env_bool("SEARCH_ENABLED", True)
@@ -1711,20 +1709,17 @@ class Settings:
     MCA_VISION_REOCR_BUDGET: ClassVar[int] = _env_int_min(
         "MCA_VISION_REOCR_BUDGET", 2, 0)
     # ── Раунд 10.44 (MCA-20, ADR-1028-20 §8.3/D13): kill-switches Temporal
-    # Factcheck ─ ровно 3 рубильника фичи (80→83); env-only ClassVar, default
+    # Factcheck ─ рубильники фичи (FC-06C §6.3, 28.10.2026: 83→82 — K3 кеш
+    # готовых вердиктов удалён вместе с кешем); env-only ClassVar, default
     # ON, резолв per-call (`services/mca_gates.py`), никогда не бросают;
     # OFF = бит-в-бит d298f1f/2.58.63. K1 master (ON-путь envelope-пайплайна;
     # OFF → легаси-путь хендлера с легаси-кеш-слагом `factcheck`); K2 — tool
-    # `fact_check` (OFF — скрытие + серверная проверка, defence in depth);
-    # K3 — кеш готовых вердиктов (OFF → всегда вычислять; кеш поиска/загрузок
-    # не трогается). В param_catalog НЕ добавляются (Δ каталога = 0 для
-    # рубильников).
+    # `fact_check` (OFF — скрытие + серверная проверка, defence in depth).
+    # В param_catalog НЕ добавляются (Δ каталога = 0 для рубильников).
     MCA_TEMPORAL_FACTCHECK_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_TEMPORAL_FACTCHECK_ENABLED", True)
     MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED: ClassVar[bool] = _env_bool(
         "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED", True)
-    MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED: ClassVar[bool] = _env_bool(
-        "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED", True)
     # Env-only аварийные потолки/лимиты (не каталог; ADR D13): клампят
     # владельческие значения каталога temporal_factcheck. MAX_RUNS_LIST —
     # потолок выборки runs для виджета «Аналитики»; MAX_EVIDENCE_PER_RUN —

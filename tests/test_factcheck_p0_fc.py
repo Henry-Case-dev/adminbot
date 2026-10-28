@@ -854,8 +854,8 @@ class _CapturingLLM(_JsonLLM):
 def _patch_orchestrator_seams(monkeypatch, *, evaluate):
     monkeypatch.setattr(
         "services.mca_gates.temporal_factcheck_enabled", lambda: True)
-    monkeypatch.setattr(
-        "services.mca_gates.temporal_factcheck_cache_enabled", lambda: False)
+    # FC-06C (§6.3): патч temporal_factcheck_cache_enabled снят — гейт
+    # удалён вместе с кешем готовых вердиктов (кеша больше нет).
     monkeypatch.setattr(orch, "get_smartmodule_concurrency_pool",
                         lambda: _Pool())
     monkeypatch.setattr(orch, "typing_active", _Typing)

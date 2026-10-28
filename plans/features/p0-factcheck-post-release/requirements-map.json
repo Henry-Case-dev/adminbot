@@ -2,7 +2,7 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-factcheck-post-release/source-2026-10-28.md",
   "source_sha256": "3c0f035bdf4266de37b41c3df63faf57d4e8e116c67b47d00f22f5c985989da6",
-  "candidate_commit": "",
+  "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
   "deployed_commit": "",
   "strict_evidence": true,
   "slice_graph_path": "",
@@ -2796,8 +2796,15 @@
       "acceptance": "Конфигурация и UI: неиспользуемые настройки кеширования готовых Fact-check-вердиктов удалены из действующей конфигурации и админки; не осталось переключателей, которые фактически больше ни на что не влияют; новый механизм кеша взамен старого не создан, аналогичное хранение готовых вердиктов под другим именем не введено; устаревшие настройки и данные обрабатываются безопасно при обновлении.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "type": "test+review",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w2.md (§FC-08/§6.3; full suite skipped per owner 28.10, targeted sets green)",
+          "observation": "FC-08 verbatim directive (byte-identity to source anchor, exactly-once both paths); §6.3 cleanup: gate/env/TTL/slug removed, registry --check OK, safe stored-value handling"
+        }
+      ]
     },
     {
       "source_id": "L00507",
@@ -3126,8 +3133,15 @@
       "acceptance": "В действующий Analyst System Prompt (с проверкой его реального прохождения через Composer) добавлена дословная смысловая директива: «Проверяй утверждение по всем доступным данным. Внешний поиск используй для получения актуальных доказательств, но его недоступность не отменяет анализ. Проверяй логику, расчёты, внутренние противоречия и известные технические принципы. Различай подтверждённые факты, самостоятельные выводы и предположения. Не выдумывай источники и неизвестные характеристики. Если точный факт установить нельзя, объясни, что удалось выяснить и чего не хватает.» Директива используется в соответствующем существующем компоненте, дополняет архитектурное исправление, а не заменяет его; без нового многословного эссе инструкций, без переписывания Personality Core, без дублирования одной и той же инструкции во всех слоях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "type": "test+review",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w2.md (§FC-08/§6.3; full suite skipped per owner 28.10, targeted sets green)",
+          "observation": "FC-08 verbatim directive (byte-identity to source anchor, exactly-once both paths); §6.3 cleanup: gate/env/TTL/slug removed, registry --check OK, safe stored-value handling"
+        }
+      ]
     },
     {
       "source_id": "L00612",

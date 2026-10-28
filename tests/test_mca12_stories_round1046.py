@@ -169,8 +169,9 @@ def _clean_events():
 def test_kill_switches_85_and_defaults():
     names = {"MCA_STORIES_VITRINA_ENABLED", "MCA_STORIES_MANAGE_ENABLED"}
     assert names <= set(mca_gates.KILL_SWITCHES)
-    # отсчёт от пост-mca-20 (83) → 85
-    assert len(mca_gates.KILL_SWITCHES) == 85
+    # отсчёт от пост-mca-20 (83) → 85; FC-06C (§6.3): 85 → 84 (K3-гейт
+    # кеша вердиктов удалён вместе с кешем).
+    assert len(mca_gates.KILL_SWITCHES) == 84
     for name in names:
         default, off_parity = mca_gates.KILL_SWITCHES[name]
         assert default is True

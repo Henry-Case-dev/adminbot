@@ -72,14 +72,18 @@ def test_no_ddl_catalog_ks_tools_delta():
     finally:
         loop.run_until_complete(d.close())
         loop.close()
-    assert len(mca_gates.KILL_SWITCHES) == 85         # Δ KS = 0
+    # FC-06C (P0-FACTCHECK §6.3): 85→84 — K3-гейт кеша вердиктов удалён
+    # вместе с кешем готовых вердиктов.
+    assert len(mca_gates.KILL_SWITCHES) == 84         # Δ KS = −1 (FC-06C)
     assert len(TOOL_CALLING_TOOLS) == 15              # Δ тулов = 0
     # REGISTRY 523 (F8 --check отдельно; здесь — канон-число каталога)
     # ASAP 7 F2 (§1.6): +9 PG-only ключей L1 Planner (538→547).
     # Параллельный лейн F4 (§3.2, in-flight на момент снимка): +13
     # (stories/character §3.2) → 560; финальное значение фиксирует лейн,
     # приземляющийся последним (ребейзер — один sed).
-    assert len(pc.REGISTRY) == 587
+    # P0-FACTCHECK §6.3 (FC-06C): 587 → 586 (−2 мёртвых TTL-ключа
+    # TEMPORAL_FRESHNESS_*, кеш готовых вердиктов удалён W1).
+    assert len(pc.REGISTRY) == 586
 
 
 def test_registry_47_no_new_widgets():

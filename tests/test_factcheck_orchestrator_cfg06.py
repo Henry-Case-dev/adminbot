@@ -335,9 +335,8 @@ class TestRoutes:
         db = FakeDB(rows=[], origin_row=origin)
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled", lambda: True)
-        monkeypatch.setattr(
-            "services.mca_gates.temporal_factcheck_cache_enabled",
-            lambda: True)   # гейт-флаг больше ни на что не влияет (§6.3)
+        # FC-06C (§6.3): патч cache_enabled снят — гейт удалён вместе с кешем
+        # готовых вердиктов; повторный тезис всегда новая проверка.
         svc = FakeService()
         cache = FakeCache()
         bot = FakeBot()

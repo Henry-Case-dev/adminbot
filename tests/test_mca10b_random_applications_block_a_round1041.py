@@ -254,7 +254,9 @@ def test_kill_switch_registry_73_and_defaults():
     # реестра 80→83 (+3 MCA_TEMPORAL_FACTCHECK_*) — та же конвенция.
     # mca-12 (round 10.46, ADR-1028-21 §8.3): санкционированный bump
     # реестра 83→85 (+2 MCA_STORIES_*) — та же конвенция.
-    assert len(mca_gates.KILL_SWITCHES) == 85
+    # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 85→84 — K3-гейт кеша готовых
+    # вердиктов удалён вместе с кешем (переключатель без эффекта).
+    assert len(mca_gates.KILL_SWITCHES) == 84
     assert "MCA_RANDOM_USES_ENABLED" in mca_gates.KILL_SWITCHES
     assert mca_gates.KILL_SWITCHES["MCA_RANDOM_USES_ENABLED"][0] is True
     assert mca_gates.random_uses_enabled() is True

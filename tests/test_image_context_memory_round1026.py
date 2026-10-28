@@ -1156,8 +1156,11 @@ class TestFlagsAndCanon:
         # ASAP-3.1 (ADR-1028-3, санкция spec 10.1): +1 ключ → 484.
         # ASAP5 §22 (27.10.2026): +5 тумблеров «Типы медиа» → 587; группа
         # flags_vision_media_types → 121/119. Поля Settings: +5 VISION_MEDIA_*.
-        assert len(pc.REGISTRY) == 587
-        assert len(dataclasses.fields(Settings)) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        # P0-FACTCHECK §6.3 (FC-06C, 28.10.2026): 587 → 586 (−2 мёртвых
+        # TTL-ключа TEMPORAL_FRESHNESS_*); поля Settings 466 → 465 (−2
+        # TEMPORAL_FRESHNESS_* — кеш готовых вердиктов удалён W1).
+        assert len(pc.REGISTRY) == 586
+        assert len(dataclasses.fields(Settings)) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов
         assert len(pc.GROUPS) == 121
         assert len(pc._TAB_BY_GROUP) == 119
         assert len(pc.TAB_RULES) == 23

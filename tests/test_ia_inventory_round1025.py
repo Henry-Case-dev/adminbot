@@ -53,7 +53,8 @@ class TestCatalogFrozen:
         # ASAP 4.4 (T-4880): санкционированная Δ +1 (488→489) — owner-ключ
         # keys.embedding_quota_group_labels.
         # SOUL-1 mobile-prompts (2026-10-16): +1 → REGISTRY 572.
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 587
+        # P0-FACTCHECK §6.3 (FC-06C): −2 мёртвых TTL-ключа → REGISTRY 586.
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 586
         assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 121
         # ASAP 7 F2: +3 группы L1 Planner (mod_direct); F4 in-flight — факт.
         assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 119

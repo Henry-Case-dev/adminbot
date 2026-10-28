@@ -444,11 +444,12 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "для устаревших вызовов остаётся (defence in depth; инертен при "
         "мастере OFF)",
     ),
-    # ── mca-20 (ADR-1028-20 §8.3/D13, санкция T-5131): ровно 3 kill-switch
-    # фичи (80→83); env-only, default ON, OFF = бит-в-бит d298f1f/2.58.63.
+    # ── mca-20 (ADR-1028-20 §8.3/D13, санкция T-5131): kill-switch фичи
+    # (83→82; FC-06C §6.3: K3 кеш готовых вердиктов удалён вместе с кешем —
+    # переключатель, ни на что не влияющий, в реестре не остаётся);
+    # env-only, default ON, OFF = бит-в-бит d298f1f/2.58.63.
     # K1 — master (ON-путь envelope-пайплайна; OFF → легаси-путь хендлера,
-    # включая легаси-кеш-слаг `factcheck`); K2 — tool `fact_check`; K3 — кеш
-    # готовых вердиктов (кеш поиска/загрузок не трогается).
+    # включая легаси-кеш-слаг `factcheck`); K2 — tool `fact_check`.
     "MCA_TEMPORAL_FACTCHECK_ENABLED": (
         True,
         "OFF → бит-в-бит d298f1f/2.58.63: ON-путь envelope-пайплайна не "
@@ -460,12 +461,6 @@ KILL_SWITCHES: dict[str, tuple[bool, str]] = {
         "OFF → tool fact_check скрыт из набора; серверная проверка OFF для "
         "устаревших вызовов остаётся (defence in depth; инертен при мастере "
         "OFF)",
-    ),
-    "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED": (
-        True,
-        "OFF → готовые вердикты всегда вычисляются без кеширования (reason "
-        "temporal_cache_disabled); кеш поиска/загрузок (slug "
-        "search/web/youtube) не затрагивается; инертен при мастере OFF",
     ),
     # ── mca-12 (ADR-1028-21 §8.3/D13, санкция T-5154): ровно 2 kill-switch
     # фичи (83→85); env-only, default ON, OFF = паритет по своей оси.
@@ -2222,15 +2217,15 @@ def vision_reocr_budget() -> int:
 
 # ── mca-20 (ADR-1028-20 §8.3/D13): kill-switch'и Temporal Factcheck + ──────
 # env-only лимиты. Ровно 3 рубильника фичи (80→83); резолв per-call, никогда
-# не бросают. Инертности: master OFF ⇒ tool/кеш вердиктов недостижимы
+# не бросают. Инертности: master OFF ⇒ tool вердиктов недостижим
 # (легаси-путь хендлера живёт без envelope-контура).
 
 def temporal_factcheck_enabled() -> bool:
     """`MCA_TEMPORAL_FACTCHECK_ENABLED` (мастер, env-only, default ON; K1).
 
     ON → envelope-пайплайн временного фактчека существует (TemporalClaim
-    Envelope/cascade/кеш `factcheck_temporal`/run v33). OFF → бит-в-бит
-    d298f1f/2.58.63 (легаси-путь хендлера)."""
+    Envelope/cascade/run v33; кеш готовых вердиктов удалён — FC-06C §6.3).
+    OFF → бит-в-бит d298f1f/2.58.63 (легаси-путь хендлера)."""
     return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_ENABLED", True))
 
 
@@ -2246,16 +2241,11 @@ def temporal_factcheck_tool_enabled() -> bool:
     return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED", True))
 
 
-def temporal_factcheck_cache_enabled() -> bool:
-    """`MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED` (env-only, default ON; K3;
-    инертен при K1).
-
-    ON → готовые вердикты кешируются под slug `factcheck_temporal` (при
-    построимом ключе). OFF → всегда вычислять без кеширования вердиктов;
-    кеш поиска/загрузок не затрагивается."""
-    if not temporal_factcheck_enabled():
-        return False
-    return bool(getattr(settings, "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED", True))
+# FC-06C (P0-FACTCHECK §6.3, 28.10.2026): гейт `temporal_factcheck_cache_
+# enabled` (K3, `MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED`) удалён вместе с
+# кешем готовых вердиктов (W1): читателей в production коде не осталось,
+# переключатель, ни на что не влияющий, в реестре не остаётся. Env-переменная
+# в настройках больше не регистрируется; кеш поиска/загрузок не затронут.
 
 
 def temporal_max_runs_list() -> int:

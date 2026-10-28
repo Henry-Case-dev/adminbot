@@ -291,21 +291,24 @@ class TestObservabilityContract:
         assert pr._GATE_RESOLVERS.get("MCA_TEMPORAL_FACTCHECK_ENABLED") \
             == "temporal_factcheck_enabled"
 
-    def test_kill_switches_registry_83(self):
+    def test_kill_switches_registry_84(self):
         names = {"MCA_TEMPORAL_FACTCHECK_ENABLED",
-                 "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",
-                 "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED"}
+                 "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED"}
         assert names <= set(mca_gates.KILL_SWITCHES)
         # MCA-12 (round 10.46, ADR-1028-21 §8.3): санкционированный bump
         # реестра 83 → 85 (+2 MCA_STORIES_*) — счётчик обновлён по конвенции.
-        assert len(mca_gates.KILL_SWITCHES) == 85
+        # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 85 → 84 — K3
+        # MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED удалён вместе с кешем готовых
+        # вердиктов (переключатель, ни на что не влияющий, не остаётся).
+        assert len(mca_gates.KILL_SWITCHES) == 84
+        assert "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED" \
+            not in mca_gates.KILL_SWITCHES
 
     def test_gate_inertness(self):
         with pytest.MonkeyPatch.context() as mp:
             mp.setattr(mca_gates, "temporal_factcheck_enabled",
                        lambda: False)
             assert mca_gates.temporal_factcheck_tool_enabled() is False
-            assert mca_gates.temporal_factcheck_cache_enabled() is False
         assert mca_gates.temporal_factcheck_enabled() is True
         assert mca_gates.temporal_factcheck_tool_enabled() is True
 
@@ -682,10 +685,9 @@ class TestSanctions:
         from services import param_catalog as pc
         keys = {spec.pg_key for spec in pc.REGISTRY.values()
                 if spec.category == "temporal"}
-        assert keys == {"temporal.default_mode",
-                        "temporal.freshness_current_ttl_hours",
-                        "temporal.freshness_historical_ttl_hours",
-                        "temporal.tool_enabled"}
+        # FC-06C (§6.3): temporal.freshness_* удалены из каталога вместе
+        # с кешем готовых вердиктов.
+        assert keys == {"temporal.default_mode", "temporal.tool_enabled"}
         group = pc.get_group("temporal_factcheck")
         assert group is not None and group.category == "temporal"
         assert pc.group_tab("temporal_factcheck") == "mod_factcheck"
@@ -693,19 +695,20 @@ class TestSanctions:
         assert mode.select_options == ("contextual", "current",
                                        "historical_truth", "knowable_at_time")
 
-    def test_smart_cache_slug_registered(self):
+    def test_smart_cache_slug_removed(self):
+        """FC-06C (§6.3): slug-регистрация `factcheck_temporal` снята вместе
+        с кешем вердиктов; SmartCache жив для остальных слагов."""
         from services.smart_cache import _NORMALIZERS, build_key
-        assert _NORMALIZERS.get("factcheck_temporal") == "text"
-        build_key("factcheck_temporal", "ok")
+        assert "factcheck_temporal" not in _NORMALIZERS
+        build_key("factcheck", "ok")          # legacy slug жив (OFF-путь)
+        build_key("search", "ok")             # кеш поиска не затронут
 
     def test_settings_temporal_fields(self):
         from config.settings import Settings
         fields = {f.name: getattr(Settings, f.name) for f in
                   dataclasses.fields(Settings) if f.name.startswith(
                       "TEMPORAL_")}
-        assert set(fields) == {
-            "TEMPORAL_DEFAULT_MODE", "TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS",
-            "TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS", "TEMPORAL_TOOL_ENABLED"}
-        assert fields["TEMPORAL_FRESHNESS_CURRENT_TTL_HOURS"] == 6
-        assert fields["TEMPORAL_FRESHNESS_HISTORICAL_TTL_HOURS"] == 720
+        # FC-06C (§6.3): мёртвые TTL-поля кеша удалены из Settings.
+        assert set(fields) == {"TEMPORAL_DEFAULT_MODE",
+                               "TEMPORAL_TOOL_ENABLED"}
         assert fields["TEMPORAL_TOOL_ENABLED"] is True

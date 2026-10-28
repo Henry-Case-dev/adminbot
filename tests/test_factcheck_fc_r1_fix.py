@@ -597,9 +597,7 @@ class TestVapingReplayOffline:
         monkeypatch.setattr(fsg, "evaluate_with_expansion", fake_evaluate)
         monkeypatch.setattr(
             "services.mca_gates.temporal_factcheck_enabled", lambda: True)
-        monkeypatch.setattr(
-            "services.mca_gates.temporal_factcheck_cache_enabled",
-            lambda: False)
+        # FC-06C (§6.3): патч cache_enabled снят — гейт удалён вместе с кешем.
         monkeypatch.setattr(orch, "get_smartmodule_concurrency_pool",
                             lambda: _FakePool())
         monkeypatch.setattr(orch, "typing_active", _FakeTyping)

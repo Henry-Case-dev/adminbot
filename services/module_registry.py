@@ -543,9 +543,10 @@ def validate_spec(spec: ModuleSpec) -> list[str]:
     return errors
 
 
-# ── M2: ownership env-kill-switches (aудит P7-C §1.1; KILL_SWITCHES = 85) ───
+# ── M2: ownership env-kill-switches (aудит P7-C §1.1; KILL_SWITCHES = 84,
+# FC-06C §6.3: 85→84, K3-гейт кеша вердиктов удалён) ────────────────────────
 # Каждый operator-facing gate маппится на registry-запись (MODULE_ENV_GATES /
-# группы ниже) ИЛИ на явную rationale-группу. 85 env-флагов НЕ становятся
+# группы ниже) ИЛИ на явную rationale-группу. 84 env-флага НЕ становятся
 # чекбоксами: rationale — легальный исход для maintenance/infra (§3.1).
 
 #: env-гейты, принадлежащие зарегистрированным продуктовым модулям.
@@ -600,7 +601,8 @@ MODULE_ENV_GATES: dict[str, tuple[str, ...]] = {
     "factcheck_temporal": (
         "MCA_TEMPORAL_FACTCHECK_ENABLED",        # мастер-ось контура
         "MCA_TEMPORAL_FACTCHECK_TOOL_ENABLED",   # tool-ось (ENV_GATES)
-        "MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED",  # кеш прогонов
+        # FC-06C (§6.3): ось MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED удалена
+        # вместе с гейтом (кеш готовых вердиктов снят W1).
     ),
     "embeddings": (
         "MCA_EMBEDDING_GENERATION_ACTIVATION_ENABLED",  # аварийная ось
