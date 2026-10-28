@@ -82,6 +82,11 @@ from services.dream_prompts import (
     parse_bridge_answer,
     parse_distill_answer,
 )
+# ── P0-HA RELEVANCE (source-2026-10-29.md §10): REUSE provenance-набора
+# read-path summary_memory — «порождено выходом бота» (по origin-колонке,
+# НЕ список тем/имён); собственные пересказы бота — НЕ независимое
+# доказательство значимости события.
+from services.summary_memory import _BOT_GENERATED_ORIGINS
 
 
 def _tick_jitter(base_minutes: int) -> int:
@@ -1437,8 +1442,16 @@ class DreamWorker:
         if not text:
             return None
         old_id = await self._find_supersede_old(chat_id, text)
-        importance = min(10, sum(int(r["importance"] or 0)
-                                 for r in sources))
+        # P0-HA RELEVANCE (§10): Σ-важность belief набирают ТОЛЬКО источники
+        # не от бота: provenance «порождено выходом бота»
+        # (_BOT_GENERATED_ORIGINS, origin-колонка) даёт в сумму 0 — семантика
+        # «вес-ноль», а не исключение из списка (source_ids/sources_count
+        # сохраняют весь evidence, поведение для входов без bot-источников —
+        # байт-паритет прежней формулы min(10, Σ)).
+        importance = min(10, sum(
+            0 if str(row_get(r, "origin") or "") in _BOT_GENERATED_ORIGINS
+            else int(r["importance"] or 0)
+            for r in sources))
         # F2/T-1425 (spec §2): base_weight — база для декай-формулы (не
         # инкремент), last_reinforced_fact_id — стартовая точка подкрепления
         # (факты-источники уже учтены), decay_months — счётчик просрочки.
