@@ -4073,10 +4073,12 @@ class MemoryManager:
         """P0-HA RELEVANCE (§11): bounded-штраф релевантности за недавние
         повторные подачи того же факта в ответы.
 
-        Молчание дольше окна → 0; внутри окна — min(cap, step × подачи).
-        Детерминированный; любые темы/имена при одинаковых условиях
-        штрафуются одинаково (без списков тем). Факт остаётся находимым:
-        потолок не обнуляет ранг (H24)."""
+        Применяется ТОЛЬКО на passive direct-доставке (include_self=True,
+        ambient-инжект <RAG_Memory>); явные запросы (tool/search-пути) не
+        штрафуются — H24. Молчание дольше окна → 0; внутри окна —
+        min(cap, step × подачи). Детерминированный; любые темы/имена при
+        одинаковых условиях штрафуются одинаково (без списков тем). Факт
+        остаётся находимым: потолок не обнуляет ранг (H24)."""
         try:
             per_chat = self._rag_usage.get(chat_id)
             if not per_chat:
@@ -4107,10 +4109,15 @@ class MemoryManager:
         путь) → origin='bot_self_reply' участвует; default False — self не
         виден чужим пайплайнам.
         P0-HA RELEVANCE (§10/§11): поданные факты (только direct-путь,
-        include_self=True) помечаются process-local учётом подач; повторные
-        подачи того же факта получают bounded-штраф релевантности (см.
-        _rag_usage_penalty) — собственные пересказы бота не поддерживают
-        заметность темы. Поиск при явном запросе остаётся находимым (H24)."""
+        include_self=True) помечаются process-local учётом подач внутри
+        _search_graph_facts/_knn_graph_facts, пока известен graph_facts.id
+        (в том числе факты с tg_message_id — их наружный item_id «tg:…» id
+        факта не несёт); повторные подачи получают bounded-штраф
+        релевантности (см. _rag_usage_penalty). Пометка и штраф действуют
+        ТОЛЬКО на этом passive-пути доставки контекста: явные запросы
+        (tool/search-пути, include_self=False) не помечаются и не
+        штрафуются — явный вопрос о старом событии находит его даже при
+        конкуренции с соседями по ключу (H24)."""
         if not hot.get("flags.graph_rag_enabled", settings.GRAPH_RAG_ENABLED):
             return []
         try:
@@ -4125,30 +4132,6 @@ class MemoryManager:
                 "graphrag RAG: facts search failed — empty list | chat_id=%s",
                 chat_id, exc_info=True)
             return []
-        # P0-HA RELEVANCE (§11): include_self=True — уникальный признак
-        # direct-пути (ambient-инжект <RAG_Memory>). Поданные факты помечаются
-        # для bounded-штрафа повторной подачи. Явные tool-пути (include_self
-        # по умолчанию False) НЕ помечаются: явный вопрос пользователя — не
-        # гиперфиксация. Fail-open: пометка не может уронить выдачу.
-        if include_self and facts:
-            marked: list[int] = []
-            for item in facts:
-                try:
-                    if isinstance(item, dict):
-                        item_id = str(item.get("item_id")
-                                      or (f"fact:{item['id']}"
-                                          if item.get("id") is not None
-                                          else ""))
-                    elif isinstance(item, (tuple, list)) and len(item) > 4:
-                        item_id = str(item[4] or "")
-                    else:
-                        continue
-                    if item_id.startswith("fact:"):
-                        marked.append(int(item_id[5:]))
-                except (TypeError, ValueError, IndexError, KeyError):
-                    continue
-            if marked:
-                self._mark_rag_usage(chat_id, marked, int(time.time()))
         return facts
 
     async def retrieve_fact_candidates(self, chat_id, query, *,
@@ -4468,10 +4451,14 @@ class MemoryManager:
             if r["id"] in expired_row_ids:
                 base -= expired_penalty
             # P0-HA RELEVANCE (§11): bounded-штраф за недавние повторные
-            # подачи того же факта в ответы — важность не подменяет
-            # релевантность, навязчивое всплытие затухает; явный запрос
-            # находит факт (штраф ограничен, не ноль).
-            return base - self._rag_usage_penalty(chat_id, r["id"], now)
+            # подачи того же факта — ТОЛЬКО passive direct-доставка
+            # (include_self=True). Явный запрос пользователя (tool/search-
+            # пути, include_self=False) не штрафуется: штраф 0.30 больше
+            # разрыва между соседями FTS-ранга и без гейта вытеснял бы из
+            # выдачи цель, которая без штрафа в неё входила (H24).
+            if include_self:
+                return base - self._rag_usage_penalty(chat_id, r["id"], now)
+            return base
 
         ranked = sorted(list(rows) + expired_rows, key=_rank_key,
                         reverse=True)
@@ -4500,6 +4487,15 @@ class MemoryManager:
                 # R17-safe: только счётчики, без содержимого фактов.
                 logger.info("graphrag RAG: touch bot-origin skipped=%d | "
                             "chat_id=%s", bot_skipped, chat_id)
+        # P0-HA RELEVANCE (§11): пометка поданных фактов — ЗДЕСЬ, пока
+        # известен graph_facts.id: факты с tg_message_id возвращаются с
+        # наружным item_id «tg:…», который id факта не несёт (учёт подач
+        # должен покрывать и обычную память переписки). Только passive
+        # direct-путь (include_self=True); явные запросы не помечаются.
+        # Fail-open: пометка не может уронить выдачу. Пометка ПОСЛЕ
+        # ранжирования: текущая подача сама себя не штрафует.
+        if include_self and kept:
+            self._mark_rag_usage(chat_id, [int(r["id"]) for r in kept], now)
         # Фаза 2 (T-759): рендер ts = COALESCE(message_timestamp, created_at);
         # F1/T-1418: + target_user (автор факта — 4-й элемент).
         # 10.20 (T-1924): + item_id (ID-политика `tg:`/`fact:`) и forward_from —
@@ -4614,10 +4610,11 @@ class MemoryManager:
             score = cosine * w_eff * _importance_factor(_row_importance(row))
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
-            # P0-HA RELEVANCE (§11): bounded-штраф за недавние повторные
-            # подачи (важность не подменяет релевантность; ограничен —
-            # явный запрос о старом событии находит факт, H24).
-            score -= self._rag_usage_penalty(chat_id, fid, now)
+            # P0-HA RELEVANCE (§11): bounded-штраф повторных подач — только
+            # passive direct-доставка (include_self=True); явный запрос не
+            # штрафуется (H24 при конкуренции).
+            if include_self:
+                score -= self._rag_usage_penalty(chat_id, fid, now)
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, vec))
         # B03.2: архивная (expired) часть — ниже свежей: пенальти к score
@@ -4632,8 +4629,10 @@ class MemoryManager:
             if str(row["status"] or "") == "archived_belief":
                 score -= penalty
             # P0-HA RELEVANCE (§11): тот же bounded-штраф повторных подач
-            # для архивного top-up (симметрично свежей части).
-            score -= self._rag_usage_penalty(chat_id, fid, now)
+            # для архивного top-up (симметрично свежей части), только на
+            # passive direct-доставке (include_self=True).
+            if include_self:
+                score -= self._rag_usage_penalty(chat_id, fid, now)
             by_id[fid] = row
             cosine_by_id[fid] = float(cosine)
             sims.append((fid, score, None))
@@ -4674,6 +4673,12 @@ class MemoryManager:
                 # R17-safe: только счётчики, без содержимого фактов.
                 logger.info("graphrag RAG: touch bot-origin skipped=%d | "
                             "chat_id=%s", bot_skipped, chat_id)
+        # P0-HA RELEVANCE (§11): пометка поданных фактов — здесь известен
+        # graph_facts.id (включая факты с tg_message_id); только passive
+        # direct-путь (include_self=True), после выбора — текущая подача
+        # себя не штрафует.
+        if include_self and chosen:
+            self._mark_rag_usage(chat_id, [int(f) for f in chosen], now)
         # Фаза 2 (T-759): KNN-путь — ts = message_timestamp or created_at
         # (импортированные факты: дата сообщения, не дата импорта).
         # F1/T-1418: + target_user (автор факта — 4-кортеж).

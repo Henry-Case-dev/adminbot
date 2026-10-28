@@ -11,7 +11,12 @@ REQ-HA-P07-NO-GLOBAL-OFF / REQ-HA-P08-NO-TOPIC-EXCEPTIONS):
   §10/§11: повторные подачи того же факта в ответы затухают — bounded-штраф
        релевантности (не удаление, не обнуление);
   H24: явный запрос о старом событии находит долговременную память несмотря
-       на штраф; GraphRAG/Lore не выключаются, память не удаляется;
+       на штраф; при конкуренции (≥limit фактов с общим токеном) явный
+       запрос не штрафуется вовсе (разделение ACTIVE-запрос / PASSIVE-
+       доставка); GraphRAG/Lore не выключаются, память не удаляется;
+  §11: учёт подач покрывает и факты с tg_message_id (пометка по
+       graph_facts.id внутри retrieval, не по наружному item_id);
+       повторная подача затухает симметрично соседям;
   §11: высокая историческая важность без смысловой связи с запросом не
        включает событие в ответ;
   H29/H30: поведение одинаково для любых синтетических тем при равных
@@ -85,10 +90,11 @@ def _base_flags() -> dict:
 
 
 async def _add_fact(db, text, *, origin="chat_history", importance=4,
-                    weight=0.5, kind="fact", status="confirmed") -> int:
+                    weight=0.5, kind="fact", status="confirmed",
+                    tg_message_id=None) -> int:
     fid = await db.insert_graph_fact(
         CHAT_ID, text, origin, None, weight=weight, importance=importance,
-        kind=kind, status=status)
+        kind=kind, status=status, tg_message_id=tg_message_id)
     return fid
 
 
@@ -188,7 +194,9 @@ class TestRepeatDampening:
     async def test_repeated_delivery_dampens_ranking_knn(
             self, db, monkeypatch):
         """Факт, многократно подававшийся в ответы, теряет верх релевантности
-        против равного по смысловому совпадению факта (штраф ограничен)."""
+        против равного по смысловому совпадению факта (штраф ограничен).
+        Затухание применяется на passive-доставке (include_self=True); явный
+        запрос (include_self=False) не штрафуется — см. TestExplicitAsk."""
         _hot_cache(monkeypatch, _base_flags())
         fid_a = await _add_fact(db, f"поездка в {_TOPIC_A} весной")
         fid_b = await _add_fact(db, f"поездка в {_TOPIC_A} осенью")
@@ -198,13 +206,15 @@ class TestRepeatDampening:
             return [(fid_a, 0.9, None), (fid_b, 0.88, None)]
 
         monkeypatch.setattr(memory, "_vec_candidates", _candidates)
-        rows = await memory._knn_graph_facts(CHAT_ID, [0.1], 5)
+        rows = await memory._knn_graph_facts(
+            CHAT_ID, [0.1], 5, include_self=True)
         assert _fact_ids(rows) == [fid_a, fid_b]  # сильнее совпадение — выше
 
         # Симуляция «бот пять раз пересказал»: факты подавались в ответы.
         now = int(time.time())
         memory._mark_rag_usage(CHAT_ID, [fid_a] * 5, now)
-        rows2 = await memory._knn_graph_facts(CHAT_ID, [0.1], 5)
+        rows2 = await memory._knn_graph_facts(
+            CHAT_ID, [0.1], 5, include_self=True)
         assert _fact_ids(rows2)[0] == fid_b             # затухание: b выше
         assert {r for r in _fact_ids(rows2)} == {fid_a, fid_b}  # удалений нет (P06)
 
@@ -298,6 +308,152 @@ class TestExplicitAskStillFinds:
         rows = await db.search_graph_facts_fts(
             CHAT_ID, _TOPIC_A, 10, int(time.time()))
         assert fid in [r["id"] for r in rows]
+
+
+# ── H24 при конкуренции: явный запрос не вытесняется штрафом подач ──────────
+
+class TestExplicitAskCompetitive:
+    """Блокер 1 ревью (REQ-HA-IMPORTANCE-VS-RELEVANCE / P07, H24): штраф
+    подач (до 0.30) больше разрыва между соседями FTS-ранга, поэтому на
+    явном запросе он вытеснял цель из top-10, когда с ней конкурирует хотя
+    бы десяток фактов с общим ключом. Разделение ACTIVE/PASSIVE: явный
+    запрос пользователя (include_self=False) не штрафуется; passive-
+    доставка контекста (include_self=True) продолжает затухать."""
+
+    _NEIGHBORS = 12  # больше дефолтного лимита 10
+    _QUERY_TOKENS = f"{_TOPIC_B} старое событие"
+
+    async def _seed(self, db):
+        target_fid = await _add_fact(
+            db, f"{_TOPIC_B} старое событие которое спрашивают",
+            importance=6)
+        for i in range(self._NEIGHBORS):
+            await _add_fact(db, f"{_TOPIC_B} запись номер {i + 1}",
+                            importance=5)
+        return target_fid
+
+    @pytest.mark.asyncio
+    async def test_explicit_query_returns_target_amid_shared_keyword(
+            self, db, monkeypatch):
+        """H24 (конкурентный): цель, помеченная до потолка подач, остаётся
+        в выдаче явного запроса при ≥limit соседях с общим токеном."""
+        _hot_cache(monkeypatch, {
+            **_base_flags(),
+            "limits.graph_rag_facts_limit": 10,
+        })
+        target_fid = await self._seed(db)
+        memory = MemoryManager(db, _FakeLLM())
+        memory._mark_rag_usage(
+            CHAT_ID, [target_fid] * 8, int(time.time()))     # кап 0.30
+        facts = await memory.get_rag_facts(CHAT_ID, self._QUERY_TOKENS)
+        ids = _fact_ids(facts)
+        assert len(facts) == 10                              # выдача полная
+        assert ids[0] == target_fid                          # цель — первая
+
+    @pytest.mark.asyncio
+    async def test_passive_delivery_still_dampens_amid_shared_keyword(
+            self, db, monkeypatch):
+        """Затухание не снято: на passive-доставке (ambient-инжект,
+        include_self=True) помеченная до потолка цель уступает слоты
+        непомеченным соседям с общим токеном."""
+        _hot_cache(monkeypatch, {
+            **_base_flags(),
+            "limits.graph_rag_facts_limit": 10,
+        })
+        target_fid = await self._seed(db)
+        memory = MemoryManager(db, _FakeLLM())
+        memory._mark_rag_usage(
+            CHAT_ID, [target_fid] * 8, int(time.time()))
+        facts = await memory.get_rag_facts(
+            CHAT_ID, self._QUERY_TOKENS,
+            include_direct_reply=True, include_self=True)
+        assert target_fid not in _fact_ids(facts)            # вытеснена
+
+    @pytest.mark.asyncio
+    async def test_explicit_knn_query_not_dampened(self, db, monkeypatch):
+        """Гейт штрафа действует и на KNN-пути: явный запрос к помеченной
+        памяти сохраняет порядок совпадения (штраф не переворачивает)."""
+        _hot_cache(monkeypatch, _base_flags())
+        fid_a = await _add_fact(db, f"{_TOPIC_C} первичное событие")
+        fid_b = await _add_fact(db, f"{_TOPIC_C} вторичное событие")
+        memory = MemoryManager(db, _FakeLLM())
+
+        async def _candidates(chat_id, vector, fetch_k, *a, **kw):
+            return [(fid_a, 0.9, None), (fid_b, 0.88, None)]
+
+        monkeypatch.setattr(memory, "_vec_candidates", _candidates)
+        memory._mark_rag_usage(CHAT_ID, [fid_a] * 8, int(time.time()))
+        rows = await memory._knn_graph_facts(CHAT_ID, [0.1], 5)
+        assert _fact_ids(rows) == [fid_a, fid_b]
+
+
+# ── §11: учёт подач покрывает факты, привязанные к tg-сообщению ────────────
+
+class TestTgAnchoredAccounting:
+    """Блокер 2 ревью (§11 «повторяемость уже использованного воспоминания»):
+    факт с tg_message_id возвращается с наружным item_id «tg:…», который id
+    факта не несёт — прежняя пометка по префиксу «fact:» его не учитывала,
+    и при повторной подаче он не затухал, поднимаясь выше затухнувших
+    соседей. Пометка теперь внутри retrieval по graph_facts.id, пока id
+    известен; восстановление id из item_id не производится."""
+
+    # Синтетические формулировки; разрыв базовых рангов (0.025) меньше
+    # шага штрафа (0.05): незатухнувший факт должен переворачивать порядок,
+    # симметричное затухание — нет.
+    _TXT_A = f"{_TOPIC_A} встреча у старой водокачки"      # tg-anchored
+    _TXT_B = f"{_TOPIC_A} встреча у новой Pilot-станции"   # fact-anchored
+
+    @pytest.mark.asyncio
+    async def test_tg_anchored_fact_marked_and_not_promoted_on_redelivery(
+            self, db, monkeypatch):
+        _hot_cache(monkeypatch, _base_flags())
+        fid_a = await _add_fact(db, self._TXT_A, importance=5,
+                                tg_message_id=424242)
+        fid_b = await _add_fact(db, self._TXT_B, importance=6)
+        memory = MemoryManager(db, _FakeLLM())
+        kwargs = dict(include_direct_reply=True, include_self=True)
+
+        first = await memory.get_rag_facts(CHAT_ID, _TOPIC_A, **kwargs)
+        first_texts = [f[1] for f in first]
+        assert first_texts == [self._TXT_B, self._TXT_A]  # базовый порядок
+        per_chat = memory._rag_usage.get(CHAT_ID) or {}
+        assert fid_a in per_chat and fid_b in per_chat    # оба учтены
+
+        second = await memory.get_rag_facts(CHAT_ID, _TOPIC_A, **kwargs)
+        # Симметричное затухание: tg-anchored факт не поднимается выше
+        # соседа, обе подачи учтены одинаково.
+        assert [f[1] for f in second] == first_texts
+
+    @pytest.mark.asyncio
+    async def test_tg_anchored_fact_not_marked_by_explicit_query(
+            self, db, monkeypatch):
+        """Явный запрос (tool-путь, include_self=False) не помечает и
+        tg-anchored факты: пометка = passive-доставка."""
+        _hot_cache(monkeypatch, _base_flags())
+        await _add_fact(db, self._TXT_A, importance=5, tg_message_id=424242)
+        memory = MemoryManager(db, _FakeLLM())
+        await memory.get_rag_facts(CHAT_ID, _TOPIC_A)
+        assert memory._rag_usage.get(CHAT_ID) in (None, {})
+
+    @pytest.mark.asyncio
+    async def test_knn_delivery_marks_tg_anchored_fact(self, db, monkeypatch):
+        """KNN-путь: пометка внутри retrieval по graph_facts.id —
+        tg-anchored факт учитывается так же, как fact-anchored."""
+        _hot_cache(monkeypatch, _base_flags())
+        fid_a = await _add_fact(db, self._TXT_A, importance=5,
+                                tg_message_id=424242)
+        fid_b = await _add_fact(db, self._TXT_B, importance=6)
+        memory = MemoryManager(db, _FakeLLM())
+
+        async def _candidates(chat_id, vector, fetch_k, *a, **kw):
+            return [(fid_b, 0.9, None), (fid_a, 0.88, None)]
+
+        monkeypatch.setattr(memory, "_vec_candidates", _candidates)
+        rows = await memory._knn_graph_facts(
+            CHAT_ID, [0.1], 5, include_self=True)
+        assert _fact_ids(rows)[0] == fid_b
+        per_chat = memory._rag_usage.get(CHAT_ID) or {}
+        assert fid_a in per_chat and fid_b in per_chat
 
 
 # ── §11: важность ≠ включение в любой ответ ────────────────────────────────
