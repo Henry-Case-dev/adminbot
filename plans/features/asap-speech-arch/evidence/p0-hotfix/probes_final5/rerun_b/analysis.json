@@ -1,0 +1,1069 @@
+[
+ {
+  "label": "newA",
+  "case": "A",
+  "forced": false,
+  "question_source": "db",
+  "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "llm",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "research",
+   "extent": "compact",
+   "structure": "answer",
+   "tone": "neutral",
+   "delivery_hint": "plain",
+   "confidence": 0.75,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": "research",
+  "l1_act_norm": "research",
+  "l1_act_rewritten": false,
+  "l1_attempts": 1,
+  "mode": "serious",
+  "core_chars": 3294,
+  "core_sha12": "ead77b2ab509",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 14409,
+  "system_sha12": "9889ce83d9f4",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": true,
+   "count": 1,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 1,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": true,
+   "invariant_0x0": false,
+   "invariant_no_meta_1x1": true,
+   "invariant_no_meta_0": false,
+   "invariant_closing_1x1": true
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 0,
+  "rag_block_sha12": "e3b0c44298fc",
+  "rag_empty": true,
+  "rag_after_self": 3,
+  "rag_after_dedup": 3,
+  "rag_empty_reason": "service_empty",
+  "rag_empty_correct": false,
+  "rag_rows_detail": [
+   {
+    "id": 20479,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 20476,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 21254,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19433,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19173,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 18105,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 17205,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16698,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16209,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19754,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   }
+  ],
+  "rag_ids": [
+   20479,
+   20476,
+   21254,
+   19433,
+   19173,
+   18105,
+   17205,
+   16698,
+   16209,
+   19754
+  ],
+  "rag_rows_sha12": "69c975230b9d",
+  "rag_query": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 0,
+  "meta_total": 2,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   449,
+   362
+  ],
+  "l2_heads": [
+   "",
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"ERR:Command '['git', '-C', '/tmp/p0c-int3', 'rev-parse', 'HEAD']' returned non-zero exit status 128.\", \"bran"
+ },
+ {
+  "label": "newB",
+  "case": "B",
+  "forced": false,
+  "question_source": "db",
+  "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользова",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "llm",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "disagreement",
+   "extent": "compact",
+   "structure": "chat",
+   "tone": "annoyed",
+   "delivery_hint": "plain",
+   "confidence": 0.95,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": "disagreement",
+  "l1_act_norm": "disagreement",
+  "l1_act_rewritten": false,
+  "l1_attempts": 1,
+  "mode": "casual",
+  "core_chars": 3294,
+  "core_sha12": "ead77b2ab509",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 14377,
+  "system_sha12": "c7d560df398c",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": true,
+   "count": 1,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 1,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": false,
+   "invariant_0x0": true,
+   "invariant_no_meta_1x1": true,
+   "invariant_no_meta_0": false,
+   "invariant_closing_1x1": true
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 0,
+  "rag_block_sha12": "e3b0c44298fc",
+  "rag_empty": true,
+  "rag_after_self": 7,
+  "rag_after_dedup": 7,
+  "rag_empty_reason": "service_empty",
+  "rag_empty_correct": false,
+  "rag_rows_detail": [
+   {
+    "id": 20482,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 20263,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19636,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16816,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 21254,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 18024,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 21291,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 15434,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 20622,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19977,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   }
+  ],
+  "rag_ids": [
+   20482,
+   20263,
+   19636,
+   16816,
+   21254,
+   18024,
+   21291,
+   15434,
+   20622,
+   19977
+  ],
+  "rag_rows_sha12": "3ab839c6f464",
+  "rag_query": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщени",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 0,
+  "meta_total": 2,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   155,
+   242
+  ],
+  "l2_heads": [
+   "",
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"ERR:Command '['git', '-C', '/tmp/p0c-int3', 'rev-parse', 'HEAD']' returned non-zero exit status 128.\", \"bran"
+ },
+ {
+  "label": "newC",
+  "case": "C",
+  "forced": false,
+  "question_source": "synthetic_case_c",
+  "question": "Слушай, а ты дождь любишь или тебя от него тоже ломает?",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "llm",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "answer",
+   "extent": "compact",
+   "structure": "chat",
+   "tone": "playful",
+   "delivery_hint": "plain",
+   "confidence": 0.95,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": "answer",
+  "l1_act_norm": "answer",
+  "l1_act_rewritten": false,
+  "l1_attempts": 1,
+  "mode": "casual",
+  "core_chars": 3294,
+  "core_sha12": "ead77b2ab509",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 14377,
+  "system_sha12": "c7d560df398c",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": true,
+   "count": 1,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 1,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": false,
+   "invariant_0x0": true,
+   "invariant_no_meta_1x1": true,
+   "invariant_no_meta_0": false,
+   "invariant_closing_1x1": true
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 0,
+  "rag_block_sha12": "e3b0c44298fc",
+  "rag_empty": true,
+  "rag_after_self": 8,
+  "rag_after_dedup": 8,
+  "rag_empty_reason": "service_empty",
+  "rag_empty_correct": false,
+  "rag_rows_detail": [
+   {
+    "id": 20957,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 18067,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16648,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16576,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16575,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 15561,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 14970,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19113,
+    "origin": "voice_transcript",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19987,
+    "origin": "bot_self_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19773,
+    "origin": "bot_self_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   }
+  ],
+  "rag_ids": [
+   20957,
+   18067,
+   16648,
+   16576,
+   16575,
+   15561,
+   14970,
+   19113,
+   19987,
+   19773
+  ],
+  "rag_rows_sha12": "f7ca6fdde775",
+  "rag_query": "Слушай, а ты дождь любишь или тебя от него тоже ломает?",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 0,
+  "meta_total": 1,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   184
+  ],
+  "l2_heads": [
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"ERR:Command '['git', '-C', '/tmp/p0c-int3', 'rev-parse', 'HEAD']' returned non-zero exit status 128.\", \"bran"
+ },
+ {
+  "label": "new_forced_A",
+  "case": "A",
+  "forced": true,
+  "question_source": "db",
+  "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "forced",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "research",
+   "extent": "normal",
+   "structure": "answer",
+   "tone": "inherit",
+   "delivery_hint": "plain",
+   "confidence": 1.0,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": null,
+  "l1_act_norm": null,
+  "l1_act_rewritten": null,
+  "l1_attempts": null,
+  "mode": "serious",
+  "core_chars": 3294,
+  "core_sha12": "ead77b2ab509",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 14406,
+  "system_sha12": "054b072cb874",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": true,
+   "count": 1,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 1,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": true,
+   "invariant_0x0": false,
+   "invariant_no_meta_1x1": true,
+   "invariant_no_meta_0": false,
+   "invariant_closing_1x1": true
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 0,
+  "rag_block_sha12": "e3b0c44298fc",
+  "rag_empty": true,
+  "rag_after_self": 3,
+  "rag_after_dedup": 3,
+  "rag_empty_reason": "service_empty",
+  "rag_empty_correct": false,
+  "rag_rows_detail": [
+   {
+    "id": 20479,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 20476,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 21254,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19433,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19173,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 18105,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 17205,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16698,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16209,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19754,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   }
+  ],
+  "rag_ids": [
+   20479,
+   20476,
+   21254,
+   19433,
+   19173,
+   18105,
+   17205,
+   16698,
+   16209,
+   19754
+  ],
+  "rag_rows_sha12": "69c975230b9d",
+  "rag_query": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 0,
+  "meta_total": 2,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   387,
+   328
+  ],
+  "l2_heads": [
+   "",
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"ERR:Command '['git', '-C', '/tmp/p0c-int3', 'rev-parse', 'HEAD']' returned non-zero exit status 128.\", \"bran"
+ },
+ {
+  "label": "new_forced_B",
+  "case": "B",
+  "forced": true,
+  "question_source": "db",
+  "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользова",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "forced",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "research",
+   "extent": "normal",
+   "structure": "answer",
+   "tone": "inherit",
+   "delivery_hint": "plain",
+   "confidence": 1.0,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": null,
+  "l1_act_norm": null,
+  "l1_act_rewritten": null,
+  "l1_attempts": null,
+  "mode": "serious",
+  "core_chars": 3294,
+  "core_sha12": "ead77b2ab509",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 14406,
+  "system_sha12": "054b072cb874",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": true,
+   "count": 1,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 1,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": true,
+   "invariant_0x0": false,
+   "invariant_no_meta_1x1": true,
+   "invariant_no_meta_0": false,
+   "invariant_closing_1x1": true
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 146,
+  "rag_block_sha12": "6cae50d9ffaf",
+  "rag_empty": false,
+  "rag_after_self": 7,
+  "rag_after_dedup": 7,
+  "rag_empty_reason": null,
+  "rag_empty_correct": null,
+  "rag_rows_detail": [
+   {
+    "id": 20482,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 20263,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19636,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 16816,
+    "origin": "derived_belief",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 21254,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 18024,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 21291,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 15434,
+    "origin": "bot_direct_reply",
+    "self_referential": true,
+    "kept_after_dedup": false,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 20622,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   },
+   {
+    "id": 19977,
+    "origin": "chat_history",
+    "self_referential": false,
+    "kept_after_dedup": true,
+    "rank": 0,
+    "expired": false
+   }
+  ],
+  "rag_ids": [
+   20482,
+   20263,
+   19636,
+   16816,
+   21254,
+   18024,
+   21291,
+   15434,
+   20622,
+   19977
+  ],
+  "rag_rows_sha12": "3ab839c6f464",
+  "rag_query": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщени",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 0,
+  "meta_total": 2,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   533,
+   481
+  ],
+  "l2_heads": [
+   "",
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"ERR:Command '['git', '-C', '/tmp/p0c-int3', 'rev-parse', 'HEAD']' returned non-zero exit status 128.\", \"bran"
+ },
+ {
+  "label": "oldA",
+  "case": "A",
+  "forced": false,
+  "question_source": "db",
+  "question": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "llm",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "answer",
+   "extent": "normal",
+   "structure": "chat",
+   "tone": "neutral",
+   "delivery_hint": "plain",
+   "confidence": 0.9,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": "answer",
+  "l1_act_norm": "answer",
+  "l1_act_rewritten": false,
+  "l1_attempts": 1,
+  "mode": "casual",
+  "core_chars": 2507,
+  "core_sha12": "e62de1fcd7a2",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 13863,
+  "system_sha12": "23b3b38f170c",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": false,
+   "count": 0,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0,
+   "no_meta_constant": false,
+   "closing": 0,
+   "closing_constant": false,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": false,
+   "invariant_0x0": true,
+   "invariant_no_meta_1x1": false,
+   "invariant_no_meta_0": true,
+   "invariant_closing_1x1": false
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 146,
+  "rag_block_sha12": "2bd623967c59",
+  "rag_empty": false,
+  "rag_after_self": 0,
+  "rag_after_dedup": 0,
+  "rag_empty_reason": null,
+  "rag_empty_correct": null,
+  "rag_rows_detail": [],
+  "rag_ids": [],
+  "rag_rows_sha12": "4f53cda18c2b",
+  "rag_query": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 0,
+  "meta_total": 2,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   475,
+   292
+  ],
+  "l2_heads": [
+   "",
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"534ac7dda6713fb407e0789fdddfa563251cdab4\", \"branch\": \"HEAD\", \"dirty\": true, \"dirty_files\": [\"?? info_text.md"
+ },
+ {
+  "label": "oldB",
+  "case": "B",
+  "forced": false,
+  "question_source": "db",
+  "question": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользова",
+  "invalid": "",
+  "fatal": "",
+  "stage_errors": [],
+  "plan_source": "llm",
+  "l1_plan": {
+   "action": "reply",
+   "response_act": "analysis",
+   "extent": "normal",
+   "structure": "answer",
+   "tone": "neutral",
+   "delivery_hint": "plain",
+   "confidence": 0.9,
+   "confidence_bucket": "high",
+   "source": "llm",
+   "needs_clarification": false
+  },
+  "l1_act_raw": "analysis",
+  "l1_act_norm": "analysis",
+  "l1_act_rewritten": false,
+  "l1_attempts": 1,
+  "mode": "casual",
+  "core_chars": 2507,
+  "core_sha12": "e62de1fcd7a2",
+  "core_in_system": true,
+  "core_invalid": "",
+  "system_chars": 13895,
+  "system_sha12": "8bff926859f1",
+  "freq": true,
+  "occ": false,
+  "no_meta": {
+   "applies": false,
+   "count": 0,
+   "required": 1,
+   "carrier": "plan_block"
+  },
+  "pc_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0,
+   "no_meta_constant": false,
+   "closing": 0,
+   "closing_constant": false,
+   "ascii_marker": 0
+  },
+  "pc_inv": {
+   "invariant_1x1": false,
+   "invariant_0x0": true,
+   "invariant_no_meta_1x1": false,
+   "invariant_no_meta_0": true,
+   "invariant_closing_1x1": false
+  },
+  "rag_source": "service",
+  "rag_rows": 10,
+  "rag_kept": null,
+  "rag_block_chars": 146,
+  "rag_block_sha12": "2bd623967c59",
+  "rag_empty": false,
+  "rag_after_self": 0,
+  "rag_after_dedup": 0,
+  "rag_empty_reason": null,
+  "rag_empty_correct": null,
+  "rag_rows_detail": [],
+  "rag_ids": [],
+  "rag_rows_sha12": "4f53cda18c2b",
+  "rag_query": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщени",
+  "rag_db_ro": true,
+  "rag_vec": true,
+  "meta_flagged": 2,
+  "meta_total": 2,
+  "meta_analyzer": "de9783ce2f68",
+  "l2_chars": [
+   754,
+   350
+  ],
+  "l2_heads": [
+   "",
+   ""
+  ],
+  "harness_sha12": "a750a98368a7",
+  "git_pin": "{\"commit\": \"534ac7dda6713fb407e0789fdddfa563251cdab4\", \"branch\": \"HEAD\", \"dirty\": true, \"dirty_files\": [\"?? info_text.md"
+ }
+]

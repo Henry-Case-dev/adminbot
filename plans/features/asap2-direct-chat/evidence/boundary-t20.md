@@ -100,3 +100,14 @@ T24 подтверждён **существующим** тестом `tests/test
   используется существующим `get_smart_raw`; ошибка БД → пометки нет (fail-open, поведение как до правки).
 - Пометка в L1 увеличивает пакет на ~1 строку (~95 симв.); `_cap_context` сначала сжимает окно, поэтому бюджетная
   деградация не ухудшилась (`tests/test_asap2_clar_contract.py:552-584` проходит).
+
+## 7. Совместимость с SOUL-1 parity-эталоном (24.10.2026)
+
+- `tests/test_soul1_composer_parity_off.py::test_p4_l1_planner_system_matches_recorded_dump` падал
+  `AttributeError: 'Stub' object has no attribute '_history_partial'` — стенд не знал о новом вызове в
+  `_plan_direct_l1` (ASAP2-BOUNDARY). Затем тем же способом всплыл `self.aliases` (ASAP3 §4.2).
+- Правка — только stub/fixture: `_history_partial → False` (в стенде окно = вся история, старых строк нет —
+  ровно условия, в которых снят дамп) и `aliases = None` (строки стенда без `user_id`, резолвер на байты
+  окна не влияет). **Эталонный дамп не переснимался, хэши/длины не менялись.**
+- Прогон: `test_soul1_composer_parity_off.py` 13 passed, `test_asap2_boundary_marker.py` 8 passed,
+  `test_asap3_identity_aliases.py` 22 passed (итого 43).

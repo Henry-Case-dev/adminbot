@@ -47,6 +47,17 @@
 - **WIN-GLASS-P0 (fullscreen) — выпущен 2.58.85** (`95526863`): Windows launch-fullscreen — клиентский баг tdesktop#30963 (веб-код не управляет окном; обход `owner-steps.md`); Android — слой `web/static/glass-refraction.js` (только контролируемый фон, реальные смещения у кромок, ≤3 поверхностей); регрессия dropdown («Аналитика») исправлена в 2.58.87 (unclip на open; ассерт U02.4). OpenViking `fullscreen_direction` (id win-glass-p0).
 - **CFG-блок (старт 18.10).** Строго последовательная очередь CFG-01→…→FINAL (CFG-01 в работе); CFG-05 = reuse существующего стекла, без нового.
 
+## 3a. P0 speech/alias corrective (25.10.2026, durable decisions)
+
+- **Analysis path.** В 2.58.130 констант `ANALYSIS_SYSTEM_PROMPT`/`ANALYSIS_USER_TEMPLATE` **нет**; анализ идёт через L1 `Response_Plan` + `render_extent_block`/writer. Точные owner-тексты analysis/Writer живут в `ANALYSIS_DIRECTIVE_TEXT`/`ANALYSIS_WRITER_TEXT` и попадают в payload 1×; не создавать фиктивные старые константы.
+- **Core.** Активный Core — `ead77b2ab509`, owner_edit rev8, `detail_level=full`, 3294 симв.; в payload фильтр снимает только P2/P5 (техника юмора/ритм), P1/P4/P6/биография остаются (1246). `a376`/1.4k analysis-блок в БД не воспроизведены; не выдавать их за активный Core.
+- **L1 routing (47fba465).** Материал/история/переписка/повторяющиеся черты → `response_act=research`, внутренний разбор может быть глубоким; quick opinion → `structure=answer` без эссе; глубина не задаёт длину; `compact|normal`, `detailed|report` только по явной просьбе; без хардкода фраз. `research` достаточно; не маппить в `deep_research` (старый PG-блок «выведи отчёт полностью»). Слепок/миграция ADR-1013-3.
+- **Harness.** Только committed harness из того же SHA/worktree; один реальный L1 plan на весь payload; forced research — отдельный `forced` сценарий; счётчики по `ANALYSIS_*_TEXT`; реальный RAG через `_rag_rows_with_ranks`/self-filter/`build_rag_context`; ошибка RAG = invalid, не fallback.
+- **Aliases.** Идентичность — Telegram user ID; порядок chat alias → global alias → nickname → username → verified memory → id. Per-turn resolver существует; дефекты: L1 reply block брал `first_name`, Observer нёс исторический `author_name`, фоновые воркеры жили на стартовом снапшоте, protected facts по имени. `author_name` — алиас, замороженный при записи; историю массово не переписывать. UID `42115912`: alias «Макс», display-name «Гипербореец»; display не авторитет.
+- **Old lore.** `lore_stories` не имел provenance; id=3/4 — ответы бота (LCP 1071/1658), graph self-echo `21255`. Точечная аддитивная migration/filters/targeted quarantine, без mass delete; PG `chat_lore` маркер «пересказ, не источник». Исправление генерации не обезвреживает старые записи.
+- **Prod/deploy.** На 25.10.2026 prod 2.58.130 `534ac7dd`; P0 corrective **не задеплоен**, Reviewer Needs Fixes. Prod worktree: 13 untracked leftovers, product diff пуст; deploy только explicit SHA. Foreign `stash@{0}` не применять.
+- **Evidence:** `plans/features/asap-speech-arch/evidence/p0-hotfix/{l1-harness-audit,alias-audit,old-lore-audit,prod-worktree-alias,probes_full}.md`; corrective map book `b11f2d9b`.
+
 ## 4. Релизные/операционные инварианты
 
 - Крон-прогон саммари: при деградации ожидаем `L1_FALLBACK_PACKAGE`/`LEGACY_FALLBACK`, но **никогда** пустой пакет в `L2_START` и **никогда** мета-текст в публикации; `SUMMARY_COVERAGE_DEGRADED reason=…` — диагностика.

@@ -1,7 +1,7 @@
 {
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
-  "source_sha256": "04afc181029ef7963ab92a10f2515fe81f2e18fcb3777842893b06b155a3878e",
+  "source_sha256": "2bd56c9f15e90aad62c81654ec0d9f4b325f0bcea58a8eedd71cf6513bfe6978",
   "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
   "deployed_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
   "strict_evidence": true,
@@ -1893,7 +1893,7 @@
       "acceptance": "Сравнена цепочка effective configuration -> LLM payload -> raw output -> postprocessed output -> outbound с артефактом по каждому звену.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -1902,6 +1902,13 @@
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md",
           "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A REQ-EX-DIAG-CHAIN",
+          "observation": "Live-матрица на деплое 2.58.134 (SHA 076f7391, read-only, реальный LLM deepseek-v4.1-flash): цепочка захвачена по каждому звену с артефактами — effective config (PG frequent, source=global; OFF — in-process override продакшн-билдером, effective_mode=off) → payload (frequent_text/off_text маркеры, <Expression_Settings>, final_header, examples_block=false) → raw output → postprocessed (3/4 байт-равны raw; в M4 numeric_claim_mismatch=2 → retry → numeric_claim_fallback=true — числовой гвард сработал по контракту CFG-07D.5/K2) → outbound-ready (FakeBot, 1 сообщение). FREQUENT×4 + OFF×4. Честная оговорка: исходящий hop в Telegram в read-only лейне не тестируем — зафиксирован outbound-ready текст, реальный send_message не выполнялся.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md"
         }
       ]
     },
@@ -2022,7 +2029,7 @@
       "acceptance": "Сравнено несколько разнообразных разговорных ситуаций и разные режимы Expression (матрица прогонов).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -2031,6 +2038,13 @@
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md",
           "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §B REQ-EX-PROBE-MATRIX",
+          "observation": "Матрица 8/8 на деплое 2.58.134 (076f7391, read-only, реальный LLM): 4 разнообразные ситуации (M1 бытовая / M2 вопрос о прошлом чата с реальным retrieval / M3 мягкая провокация / M4 нейтральный фактологический) × FREQUENT/OFF; payload-маркеры в каждом прогоне (freq_text/off_text/header/settings, examples_block=false во всех 8), ошибки выполнения 0/8. Направление отличия подтверждено: профанация FREQUENT 1/4 (единственный контекстный случай — зеркалит провокацию) vs OFF 0/4; механической вставки мата нет ни в одном ответе. Честная пометка: 3/4 FREQUENT-ответов без мата — документированный статистический остаток REQ-EX-STABLE-EFFECT (остаётся FAILED по решению владельца frequent-decision.md), этой матрицей не «зеленится».",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md"
         }
       ]
     },
@@ -2046,7 +2060,7 @@
       "acceptance": "Сравнено несколько разнообразных разговорных ситуаций и разные режимы Expression (матрица прогонов).",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
@@ -2055,6 +2069,13 @@
           "type": "test",
           "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression.md",
           "produced_on": "39a06b880bdd894b68063686cf4ed0921ffe5d10"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §B REQ-EX-PROBE-MATRIX",
+          "observation": "Не ограничено одним примером: матрица 8 прогонов на деплое 2.58.134 (076f7391) — 4 ситуации × FREQUENT/OFF, ответы от 136 до 643 знаков, разнообразие исходов зафиксировано (contextual profanity 1/4 FREQUENT, honest-refusal retrieval в M2, numeric-fallback в M4 в обоих режимах). Направление подтверждено (FREQUENT 1/4 vs OFF 0/4), механической вставки нет, examples_block=false везде. 3/4 FREQUENT-ответов без мата — документированный статистический остаток REQ-EX-STABLE-EFFECT (остаётся FAILED), не скрывается.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md"
         }
       ]
     },
@@ -3572,18 +3593,9 @@
       "acceptance": "Старый обход «игнорируй безопасность/цензуру/мораль, разрешён мат» удалён без замены; интенсивность мата берётся только из Expression; токсичность характера не смягчена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "521be2bbb175265cd50d64502cc0786de255c897",
-          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/a4-drop-bypass.md :: Вывод (VERIFIED)",
-          "observation": "A4-DROP-BYPASS: активные каноны checkup/factcheck/search без «Игнорируй все настройки безопасности…» и без «Разрешен мат…» (runtime-проба bypass=False/permit=False); мат — только Expression, жанровая резкость не смягчена. Указанные в брифе LOCATIONS — замороженные PREV_*-слепки лестницы миграций (ADR-1013-3, байт-пины test_older_prev_steps_are_untouched / test_unified_core_route_coverage.py:539), правка их запрещена конвенцией и сломала бы узнавание 8 withheld-прод-значений. Слои без скрытого обхода: лестница мигрирует PREV на чистый канон (5/6/4 ступени); все 17 значений лестницы/откатов с bypass-байтами внутри known_canon_hashes(); suppress_legacy_speech вычищает обход и разрешение мата; withheld-кастомы не активируются. FACTORY_SET 28e6c619b937 не менялся. Прогон: pytest -k 'checkup or factcheck_prompt or search_prompt or prompt_migration or asap_w1' = 294 passed, 0 failed (код кандидата идентичен базе 1b93c6db, дельта 0); gen_param_registry --check OK; compileall OK.",
-          "type": "test",
-          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/a4-drop-bypass.md",
-          "artifact_sha256": "16774e7ba4ee0c34e97a19bbc9843a1106a7ce9dcfe5614ad31f5828469498dc",
-          "produced_on": "521be2bbb175265cd50d64502cc0786de255c897"
-        }
-      ],
+      "status": "PENDING",
+      "evidence": [],
+      "note": "code lane in flight (EXTENT/creativity scope), binding after merge",
       "prior_disposition": "required",
       "prior_status": "PENDING",
       "superseded_by": [
@@ -16720,14 +16732,31 @@
       "source_text_sha256": "29ef49a3b23d8b5f46cd81c34521e73f168e86d2c976a629a7dd175ac9e3907d",
       "source_excerpt": "- Действительно ли выбран FREQUENT.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026), п.1. Подпункт строки: «Действительно ли выбран FREQUENT».",
       "req_id": "REQ-ADD3-EX-FREQ-CHECKS",
       "slice": "EXPRESSION",
       "acceptance": "Проверено: выбран ли FREQUENT, не конкурирует ли с Personality Core, не подавляют ли Functional Writer/другие инструкции, не урезается ли Expression квотами, не меняет ли результат постобработка, нет ли ограничений модели/провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A/§B (effective config измерен из PG)",
+          "observation": "Режим выбран из живого конфига, не форсирован тестом: PG bot_settings.character.expression = profanity:'frequent', source=global, chat-оверрайдов 0, rev fe5cfe76a034, overridden=false; маркеры frequent_text=true/off_text=false во всех 4 FREQUENT-прогонах, off_text=true во всех 4 OFF-прогонах.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "probes_release.md кр.5: FREQ из живого конфига",
+          "observation": "FREQ из живого конфига 5/5 (frequent_text=true 5/5, baseline 2/2) на staging из git archive кандидата с реальным LLM прод-конфига — селекция режима именно настройкой.",
+          "type": "live",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L01161",
@@ -16735,14 +16764,31 @@
       "source_text_sha256": "889b0721f1c399596ea755cd5a47b5bc4e8ea2fc4fbc7af9ea0a5b306e9446e8",
       "source_excerpt": "- Не конкурирует ли настройка с Personality Core.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026). Подпункт строки: «Не конкурирует ли настройка с Personality Core».",
       "req_id": "REQ-ADD3-EX-FREQ-CHECKS",
       "slice": "EXPRESSION",
       "acceptance": "Проверено: выбран ли FREQUENT, не конкурирует ли с Personality Core, не подавляют ли Functional Writer/другие инструкции, не урезается ли Expression квотами, не меняет ли результат постобработка, нет ли ограничений модели/провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "probes_release.md кр.3: Core в system",
+          "observation": "Personality Core полный (3294 зн., ead77b2ab509) присутствует в system 5/5 — Core не вытеснен Expression-слоем; оба блока сосуществуют в одном payload, конкуренции/взаимного вытеснения нет.",
+          "type": "live",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A/§B (payload system)",
+          "observation": "В живых прогонах system 14 147–14 292 зн. содержит и полный Core, и <Expression_Settings> (маркеры header+settings 8/8) — слой Expression добавляется к Core без урезания Core.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        }
+      ]
     },
     {
       "source_id": "L01162",
@@ -16750,14 +16796,31 @@
       "source_text_sha256": "28e28abefc65a4bb0f10953bae4e14935ce5dbaec1310cb2914eab1f72ea613e",
       "source_excerpt": "- Не подавляют ли её Functional Writer и другие инструкции.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026). Подпункт строки: «Не подавляют ли её Functional Writer и другие инструкции».",
       "req_id": "REQ-ADD3-EX-FREQ-CHECKS",
       "slice": "EXPRESSION",
       "acceptance": "Проверено: выбран ли FREQUENT, не конкурирует ли с Personality Core, не подавляют ли Functional Writer/другие инструкции, не урезается ли Expression квотами, не меняет ли результат постобработка, нет ли ограничений модели/провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A/§B (payload + raw)",
+          "observation": "FREQUENT-текст — единственный текст инструкции режима в payload (final_header «ПРАВИЛО РЕЧИ…» + PROFANITY_INSTRUCTIONS[mode]); Functional Writer и другие слои его не подавили: в M3 на FREQUENT модель дала профанацию в собственной речи (raw == postprocessed), в OFF-плече той же ситуации профанации нет.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/expression-r3.md :: §3/§4",
+          "observation": "На модели прода FREQUENT 3/6 мат в собственной разговорной речи (не цитаты) при маркере expression_marker=1 и финальном контракте в system; OFF-контроль 0/2 — другие инструкции слой не глушат; непроявления в части стимулов — ограничение модели/длины, не доставки инструкции.",
+          "type": "test",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression-r3.md",
+          "artifact_sha256": "386dc6e34105fb70bedd02c6f0a32ad4fe36cc9a0bd268c7012387a55063cbb7"
+        }
+      ]
     },
     {
       "source_id": "L01163",
@@ -16765,14 +16828,31 @@
       "source_text_sha256": "ebafbe6e80e72137c07c462e6b292640c92853f1d2439918dc2d21623aa62a17",
       "source_excerpt": "- Не урезается ли Expression искусственными квотами.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026), §Установленная причина п.1. Подпункт строки: «Не урезается ли Expression искусственными квотами».",
       "req_id": "REQ-ADD3-EX-FREQ-CHECKS",
       "slice": "EXPRESSION",
       "acceptance": "Проверено: выбран ли FREQUENT, не конкурирует ли с Personality Core, не подавляют ли Functional Writer/другие инструкции, не урезается ли Expression квотами, не меняет ли результат постобработка, нет ли ограничений модели/провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md :: §Установленная причина п.1",
+          "observation": "Историческое тихое выпадение Expression из payload по бюджету (budget_excluded) устранено: слой рендерится всегда, перерасход виден конфликтом expression_protected_from_budget, в проде policy_not_injected=0 — квоты/бюджет слой не урезают.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "probes_release.md кр.6: payload 1×1 / 0×0 + closing",
+          "observation": "Payload FREQUENT ровно 1× на research (1×1: 3/3) и 0× на answer (0×0: 2/2), closing ровно 1× после </Current_Question> 5/5 — вытеснения текста слоя бюджетом/квотами нет.",
+          "type": "live",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L01164",
@@ -16780,14 +16860,23 @@
       "source_text_sha256": "bcbfc6a48e9f4dba3e59289f71a5d691befe87dd95400ff27b05250311c01b38",
       "source_excerpt": "- Не изменяет ли результат постобработка.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026). Подпункт строки: «Не изменяет ли результат постобработка».",
       "req_id": "REQ-ADD3-EX-FREQ-CHECKS",
       "slice": "EXPRESSION",
       "acceptance": "Проверено: выбран ли FREQUENT, не конкурирует ли с Personality Core, не подавляют ли Functional Writer/другие инструкции, не урезается ли Expression квотами, не меняет ли результат постобработка, нет ли ограничений модели/провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A (postprocessed, вывод 2)",
+          "observation": "Постобработка не меняет FREQUENT-результат: 3 из 4 захваченных ходов postprocessed байт-равно raw (attempts=1, fallback=false); единственная правка — numeric-гард в M4 (numeric_claim_mismatch=2 → retry → numeric_claim_fallback=true, снятие числовых клеймов по контракту CFG-07D.5/K2), срабатывает одинаково в обоих режимах и не связан с профанацией.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        }
+      ]
     },
     {
       "source_id": "L01165",
@@ -16795,14 +16884,31 @@
       "source_text_sha256": "0447cc31ef37a383fc0ca7765090767d68ea648d5c4828ad9635fbda019517c4",
       "source_excerpt": "- Нет ли ограничений конкретной модели или провайдера.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026), §Причина 2. Подпункт строки: «Нет ли ограничений конкретной модели или провайдера».",
       "req_id": "REQ-ADD3-EX-FREQ-CHECKS",
       "slice": "EXPRESSION",
       "acceptance": "Проверено: выбран ли FREQUENT, не конкурирует ли с Personality Core, не подавляют ли Functional Writer/другие инструкции, не урезается ли Expression квотами, не меняет ли результат постобработка, нет ли ограничений модели/провайдера.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §Метод/§B",
+          "observation": "Реальный LLM deepseek/deepseek-v4.1-flash (hot-конфиг PG), ошибки выполнения 0/8; профанация на FREQUENT у этого провайдера реально достижима (M3 profanity=true при OFF 0/4 в тех же ситуациях) — блокировок модели/провайдера нет; остаточная вариативность частоты — статистика генерации, не ограничение маршрута.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "probes_release.md §2-§3: прогоны и критерии",
+          "observation": "7 прогонов: fatal/stage_errors пусто во всех, l1_attempts=1, L2 deepseek-v4-flash @ nano-gpt — ограничений маршрута/провайдера не зафиксировано.",
+          "type": "live",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L01166",
@@ -16810,14 +16916,23 @@
       "source_text_sha256": "507641a2b45844215f92d4f3237a2fef95b03a115883abe34839c297b2cdd6fc",
       "source_excerpt": "- Почему прежние реальные LLM-пробы не показали устойчивых различий между режимами.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов: объяснение зафиксировано решением владельца frequent-decision.md (26.10.2026), §Установленная причина и §Условия приёмки.",
       "req_id": "REQ-ADD3-EX-FREQ-WHY",
       "slice": "EXPRESSION",
       "acceptance": "Объяснено, почему прежние реальные LLM-пробы не показали устойчивых различий между режимами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md :: §Установленная причина пп.1-3 + §Условия приёмки",
+          "observation": "Почему прежние реальные LLM-пробы не показывали устойчивых различий: (1) исторический дефект — Expression мог тихо выпадать из payload по бюджету (budget_excluded), исправлен (policy_not_injected=0 в проде); (2) остаточная вариативность — FREQUENT стилевая преференция, модель в части ответов не проявляет мат даже при инструкции в payload (статистика генерации, а не дефект маршрута); (3) часть старых строк PROBES-* описывала прогон, перекрытый более поздними доказательствами (probes_final4/5 и далее). Критерий «устойчивое отличие на серии» заменён владельцем на условия приёмки: выбор из живого конфига + payload 1× + без механической вставки + направление отличия в сопоставимой A/B-серии; частота в отдельных ответах не нормируется.",
+          "type": "test",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/frequent-decision.md",
+          "artifact_sha256": "fa0ef4854275c19d80816008ad794e139d64a9303613e9cccc3eb947b989de39"
+        }
+      ]
     },
     {
       "source_id": "L01184",
@@ -18201,14 +18316,31 @@
       "source_text_sha256": "c1d9c9287d557d8b52184632007d8eb7dcc787b75cef285eb0b3cd64a40c8cd2",
       "source_excerpt": "- OFF, OCCASIONAL и FREQUENT различаются в фактических ответах.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026), п.4: направление отличия FREQUENT от OFF/OCCASIONAL в сопоставимой A/B-серии, частота не нормируется. OCCASIONAL-плечо (различие payload по трём режимам) зафиксировано VERIFIED-строками REQ-ADD3-EX-INSPECTOR-PRESENT (релиз 2.58.127: system_sha12 off/occasional/frequent различаются).",
       "req_id": "REQ-ADD3-EX-ACC-DIFF",
       "slice": "EXPRESSION",
       "acceptance": "Приёмка: OFF, OCCASIONAL и FREQUENT различаются в фактических ответах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §B (матрица 4×FREQUENT/OFF)",
+          "observation": "Матрица 8/8 на deployed 2.58.134 (реальный LLM, read-only): режимы дают разные фактические ответы в каждой паре ситуаций — M3: профанация на FREQUENT (1/4, контекстная, зеркалит провокацию) vs 0/4 OFF; M1: другой стиль/длина (142 vs 387 зн.); payload-маркеры и текст инструкции различаются по режимам во всех 8. Направление подтверждено; 3/4 FREQUENT-ответов без мата — документированный статистический остаток REQ-EX-STABLE-EFFECT (FAILED), этой привязкой не «зеленится».",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "plans/features/p0-corrective-factcheck-speech/evidence/expression-r3.md :: §3",
+          "observation": "Независимая проба на модели прода: FREQUENT 3/6 мат в собственной разговорной речи (не цитаты) vs OFF-контроль 0/2 — различие направлено ожидаемо.",
+          "type": "test",
+          "artifact_path": "plans/features/p0-corrective-factcheck-speech/evidence/expression-r3.md",
+          "artifact_sha256": "386dc6e34105fb70bedd02c6f0a32ad4fe36cc9a0bd268c7012387a55063cbb7"
+        }
+      ]
     },
     {
       "source_id": "L01246",
@@ -18216,7 +18348,7 @@
       "source_text_sha256": "752a266fa51bd1f2b925386036449742f4757e1a571d29db88a491f23874463c",
       "source_excerpt": "- FREQUENT заметно влияет на собственную разговорную речь.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Оставлено PENDING 27.10.2026 (PM-BIND-ADD3-EX): приёмка «FREQUENT заметно влияет на собственную разговорную речь» — об устойчивости эффекта, пересекается с намеренно сохранённым остатком REQ-EX-STABLE-EFFECT (FAILED по решению владельца frequent-decision.md, в VERIFIED не переводится). Существующие доказательства подтверждают направление (матрица 2.58.134: FREQUENT 1/4 vs OFF 0/4; expression-r3: 3/6 vs OFF 0/2; вторичная серия с примерами 4/4 — только гипотеза, n=4), но не устойчивую заметность в большинстве ответов (3/4 матричных FREQUENT-ответов без мата). Закрывается вместе с финальной судьбой REQ-EX-STABLE-EFFECT / REQ-DONE-MAIN-CRITERION; в VERIFIED не переводить без отдельного решения владельца.",
       "req_id": "REQ-ADD3-EX-ACC-EFFECT",
       "slice": "EXPRESSION",
       "acceptance": "Приёмка: FREQUENT заметно влияет на собственную разговорную речь.",
@@ -18231,14 +18363,23 @@
       "source_text_sha256": "01d80c5dec52ac61c36c5ae3e31c40d27944809e7455a003842d405fd4539209",
       "source_excerpt": "- Нет механической вставки ругательств.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026), п.3.",
       "req_id": "REQ-ADD3-EX-ACC-NO-INSERT",
       "slice": "EXPRESSION",
       "acceptance": "Приёмка: нет механической вставки ругательств.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A/§B (матрица 8/8)",
+          "observation": "Механической вставки мата нет ни в одном из 8 ответов: единственный случай профанации (M3 FREQUENT) — контекстное зеркалирование стиля пользователя, не вставка; в остальных 7 ответах мата нет. examples_block=false во всех 8 (обязательных few-shot примеров нет — owner-approved frequent-примеров в проде 0, not_owner_approved); в payload нет процентных квот, случайного выбора ругательств и хардкода слов — только текст режима PROFANITY_INSTRUCTIONS[mode].",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        }
+      ]
     },
     {
       "source_id": "L01248",
@@ -18246,14 +18387,23 @@
       "source_text_sha256": "5b6c9c0290d33dff8cea29c4dfa57e8431bfaf08077b8e1fabbe62be7a297d50",
       "source_excerpt": "- Постобработка не подавляет результат.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов; приёмка — по условиям решения владельца frequent-decision.md (26.10.2026): живая цепочка захвачена по каждому ходу (raw → postprocessed → outbound-ready).",
       "req_id": "REQ-ADD3-EX-ACC-POSTPROC",
       "slice": "EXPRESSION",
       "acceptance": "Приёмка: постобработка не подавляет результат FREQUENT.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §A (postprocessed/outbound-ready)",
+          "observation": "Постобработка не подавляет результат: 3 из 4 захваченных ходов postprocessed байт-равно raw (attempts=1, fallback=false); единственное вмешательство — numeric-гард в M4 в обоих режимах (229→136 зн.; numeric_claim_mismatch → retry → numeric_claim_fallback=true по контракту CFG-07D.5/K2) — снимает числовые клеймы, профанацию не трогает; outbound-ready == postprocessed (FakeBot, по 1 сообщению на ход).",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        }
+      ]
     },
     {
       "source_id": "L01249",
@@ -18261,14 +18411,31 @@
       "source_text_sha256": "44a84bd0f7504de5004f8068724746c0960c78188065fc76fc3fcfb63c1732df",
       "source_excerpt": "- Personality Core сохранён.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов: сохранность Core подтверждена на реальном модельном пути (кр.3 probes_release) и на проде (та же фиксация, что в VERIFIED-строке REQ-ADD3-EX-KEEP-CORE).",
       "req_id": "REQ-ADD3-EX-ACC-CORE",
       "slice": "EXPRESSION",
       "acceptance": "Приёмка: Personality Core сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "probes_release.md кр.3: Core 3294 в system 5/5",
+          "observation": "Core 3294 / ead77b2ab509 присутствует в system 5/5 на реальном модельном пути — Personality Core сохранён в сборке, не переписан в примитивные инструкции.",
+          "type": "live",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "plans/features/_audit-2026-10-23/release-258124/deploy.md :: REQ-ADD3-EX-KEEP-CORE",
+          "observation": "На проде Core полный (3294 симв., detail_level=full:owner_setting), авторские абзацы на месте — соответствует VERIFIED-строке REQ-ADD3-EX-KEEP-CORE этой же карты.",
+          "type": "live",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258124/deploy.md",
+          "artifact_sha256": "f41304fbcc5604c15e8c115c655e3714d6381b37796231df661f0fa610b14edd"
+        }
+      ]
     },
     {
       "source_id": "L01250",
@@ -18276,14 +18443,31 @@
       "source_text_sha256": "dc4a4da8159ba7b9b8b4abc628fcbe9975f40ba0bf861d6a6c64f237b405937b",
       "source_excerpt": "- Результат подтверждён офлайн-LLM-пробами.",
       "disposition": "required",
-      "reason": "",
+      "reason": "Закрыто 27.10.2026 (PM-BIND-ADD3-EX) по существующим доказательствам, без новых прогонов: результат подтверждён двумя независимыми офлайн-LLM-пробами на действующем провайдере, без живых Telegram-чатов (REQ-ADD3-EX-NO-LIVE-CHAT соблюдён).",
       "req_id": "REQ-ADD3-EX-ACC-PROBES",
       "slice": "EXPRESSION",
       "acceptance": "Приёмка: результат подтверждён офлайн-LLM-пробами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "ref": "plans/features/residuals-asap23/evidence/live-verify-258134.md :: §Метод/§B",
+          "observation": "Офлайн-LLM-проба на deployed 2.58.134: матрица 8/8 на реальном LLM (deepseek/deepseek-v4.1-flash) в read-only-контуре (FakeBot, PG ro, без Telegram), полный захват цепочки по каждому ходу; артефакты all_runs.json/pg_config.json/run_matrix.log с sha256.",
+          "type": "live",
+          "artifact_path": "plans/features/residuals-asap23/evidence/live-verify-258134.md",
+          "artifact_sha256": "0df49cf97fc82e310d928080c37c520521ff9f7a73e2cec87745cb3772718840"
+        },
+        {
+          "candidate_commit": "f0e6a0cd68b8a1f93fc8ad242834d44a383b7f9b",
+          "ref": "probes_release.md §2-§3/§6: 7 прогонов, 29 артефактов",
+          "observation": "7 прогонов на staging из git archive кандидата с реальным LLM прод-конфига: raw_*.json, meta_report, closing_check, summary_table; FREQ из живого конфига 5/5, payload 1×1/0×0, Core 5/5.",
+          "type": "live",
+          "artifact_path": "plans/features/asap-speech-arch/evidence/p0-hotfix/probes_release.md",
+          "artifact_sha256": "38e75c22753f707d069249b2dc67398cafd54d7e915e16a848adce81c4cc40dd"
+        }
+      ]
     },
     {
       "source_id": "L01252",
@@ -19757,10 +19941,11 @@
     "reason": "ADDENDUM #3 был интегрирован в карту из current_task.md L3673-EOF, но снимок источника не был расширен; release-gate не мог сверить 326 ручных строк (L807-1316).",
     "method": "Дословное добавление current_task.md L3668-4177 к существующим 807 строкам снимка; сверка всех 707 source_text_sha256/excerpt дала 0 расхождений.",
     "source_line_map": "строка снимка N (807..1316) = current_task.md строка N + 2861",
-    "added": "2026-10-24 PM-BIND-258125"
+    "added": "2026-10-24 PM-BIND-258125",
+    "source_sha256_rebind": "27.10.2026 PM-BIND-LIVE-258134: поле source_sha256 карты обновлено 04afc181… → 2bd56c9f… — фактический SHA расширенного снимка (расширение сделано дословно этим же проходом ADDENDUM #3, сверка строк 0 расхождений, но поле не было обновлено — gate FAIL «authoritative source changed»); requirements_gate check --stage plan после ребинда: errors=0."
   },
   "status": "BUILDING",
-  "status_note": "25.10.2026: релиз 2.58.127 (b2ac3fa5, speech-simplify e44a30b4) закрыл EX/DIAG-строки о наличии <Expression_Settings> и о реальных офлайн-пробах. Остаются открытыми: полный путь настройка→payload→постобработка, сравнение с постобработкой, семантика FREQUENT (B 1/2), устойчивость эффекта (REQ-EX-STABLE-EFFECT/EX-01/EX-02 FAILED) и REQ-DONE-MAIN-CRITERION. P0 не DONE.",
+  "status_note": "25.10.2026: релиз 2.58.127 (b2ac3fa5, speech-simplify e44a30b4) закрыл EX/DIAG-строки о наличии <Expression_Settings> и о реальных офлайн-пробах. 27.10.2026: live-матрица на деплое 2.58.134 (076f7391; plans/features/residuals-asap23/evidence/live-verify-258134.md) закрыла REQ-EX-DIAG-CHAIN и REQ-EX-PROBE-MATRIX ×2 (VERIFIED): цепочка по звеньям с артефактами (FREQUENT×4+OFF×4, numeric-guard по контракту в M4), матрица 8/8, направление подтверждено (FREQUENT 1/4 контекстный vs OFF 0/4, без механической вставки, examples_block=false); outbound-to-Telegram не тестируем read-only лейном — зафиксирован outbound-ready текст. 3/4 FREQUENT-ответов без мата — статистический остаток REQ-EX-STABLE-EFFECT (остаётся FAILED). Остаются открытыми: устойчивость эффекта (REQ-EX-STABLE-EFFECT/EX-01/EX-02 FAILED) и REQ-DONE-MAIN-CRITERION. 27.10.2026 PM-BIND-ADD3-EX: 12 строк REQ-ADD3-EX-* (FREQ-CHECKS ×6, FREQ-WHY, ACC-DIFF/NO-INSERT/POSTPROC/CORE/PROBES) переведены в VERIFIED по существующим доказательствам без новых прогонов (live-матрица 2.58.134, probes_release, frequent-decision, expression-r3, deploy-258124); REQ-ADD3-EX-ACC-EFFECT оставлен PENDING (устойчивая заметность — сохранённый FAILED-остаток REQ-EX-STABLE-EFFECT, не «зеленить»); REQ-A4-MAP-DROP-BYPASS оставлен PENDING (код-лейн EXTENT/creativity в работе, привязка после мержа). P0 не DONE.",
   "release_bindings": [
     {
       "release": "2.58.127",

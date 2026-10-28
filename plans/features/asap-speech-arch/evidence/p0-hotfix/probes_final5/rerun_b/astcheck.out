@@ -1,0 +1,2 @@
+ast_check /tmp/p0c-int3/probes_full/harness_probe_full.py findings=0
+astcheck_exit=0

@@ -27,6 +27,7 @@ Kill-switch: `MCA_CANONICAL_ATTRIBUTION_ENABLED` (+ уважение
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import logging
 import re
 
@@ -484,6 +485,360 @@ def build_speech_understanding(
         reply_parent=bool(has_reply_parent), short_dependency=short_dep,
         humor_risk=humor_risk, negation=negation, clarify=clarify,
         flags=tuple(flags))
+
+
+# ── P0-HA QUALITY (волна 4b, §12–§13 ТЗ source-2026-10-29.md) ───────────────
+# Детерминированные страховки качества анализа участников и событий. НЕ
+# второй смысловой классификатор и НЕ новый движок: закрытые маркер-наборы
+# (прецедент `classify_speech_act` §6) + структурные поля канонических строк
+# (`format_context_item`: «[ts | Имя | tg:N | Переслано: X]: текст»).
+# Инструкционная часть (различение типов/запрет обобщений/атрибуция
+# пересылок/запрет придуманной статистики) — константы
+# `HISTORY_EXTRACTION_QUALITY_BLOCK`/`HISTORY_COVERAGE_ASSEMBLY_BLOCK` в
+# services/prompt_style_blocks.py; R17: только коды/флаги, без сырого
+# пользовательского текста в логи/телеметрию.
+
+FINDING_KIND_REPEAT_THEME = "repeat_theme"        # повторяющиеся темы
+FINDING_KIND_DISPUTE = "dispute"                  # продолжительные споры
+FINDING_KIND_BRIEF_EVENT = "brief_event"          # краткие события
+FINDING_KIND_SINGLE_REMARK = "single_remark"      # единичные реплики
+FINDING_KIND_JOKE = "joke"                        # шутки
+FINDING_KIND_FORWARDED = "forwarded"              # пересланные публикации
+FINDING_KIND_EXTERNAL_NEWS = "external_news"      # внешние новости
+FINDING_KIND_PARTICIPANT_CLAIM = "participant_claim"  # прямые утверждения
+FINDING_KIND_BOT_STATEMENT = "bot_statement"      # собственные высказывания
+FINDING_KINDS = frozenset({
+    FINDING_KIND_REPEAT_THEME, FINDING_KIND_DISPUTE, FINDING_KIND_BRIEF_EVENT,
+    FINDING_KIND_SINGLE_REMARK, FINDING_KIND_JOKE, FINDING_KIND_FORWARDED,
+    FINDING_KIND_EXTERNAL_NEWS, FINDING_KIND_PARTICIPANT_CLAIM,
+    FINDING_KIND_BOT_STATEMENT,
+})
+
+# Устойчивая характеристика личности допустима только для типов, которые по
+# определению повторяются (§12 строка 469: единичная шутка/реплика — не
+# черта) и подтверждены минимум двумя разными сообщениями выборки.
+TRAIT_CAPABLE_KINDS = frozenset({FINDING_KIND_REPEAT_THEME,
+                                 FINDING_KIND_DISPUTE})
+MIN_TRAIT_REFS = 2
+
+# Закрытые маркер-наборы (casefold; ПО ЛЕВОЙ ГРАНИЦЕ СЛОВА — «сми» внутри
+# «космический» маркером не считается; префикс-глаголы покрытия —
+# «поспор»/«заспор»/«пошут»/«пообещ» — частью того же набора). Порядок
+# проверки в `classify_finding_kind` значим.
+_FORWARD_MARKERS = ("переслан", "переслал", "форвард", "forward")
+_NEWS_MARKERS = ("новост", "статья", "статьи", "сми", "пресс",
+                 "репортаж", "в сети", "в интернете")
+_JOKE_MARKERS = ("шутк", "шучу", "шутил", "пошут", "прикол", "сарказм",
+                 "ирони", "лол", "кек")
+_DISPUTE_MARKERS = ("спор", "поспор", "заспор", "разноглас", "конфликт",
+                    "поссор", "перебран", "стычка")
+_REPEAT_MARKERS = ("повторя", "снова", "опять", "регулярно", "постоянно",
+                   "не в первый раз", "возвращается к теме")
+_CLAIM_MARKERS = ("заявил", "заявила", "утвержда", "утвержд", "обещал",
+                  "обещала", "пообещ", "по его словам", "по её словам",
+                  "сказал, что")
+_SINGLE_MARKERS = ("единичн", "одна реплика", "одна фраза", "одноразов",
+                   "лишь одн")
+# Обобщающий язык «устойчивой характеристики» в note (строка 469; закрытый
+# набор для `note_claims_stable_trait` — страховка, не смысловой разбор).
+_TRAIT_NOTE_MARKERS = (
+    "любит", "обожает", "ненавидит", "терпеть не может",
+    "склонен", "склонна", "склонны",
+    "по характеру", "по натуре", "черта характера",
+    "в его характере", "в её характере",
+    "всегда", "постоянно", "регулярно", "каждый раз",
+    "известен тем", "известна тем", "славится",
+)
+
+
+def _marker_hit(text: str, marker: str) -> bool:
+    """Маркер по левой границе слова (блокер 1 review-w4: «сми» — подстрока
+    «космический» — маркером не считается). Никогда не бросает."""
+    try:
+        return re.search(r"(?<!\w)" + re.escape(marker), text) is not None
+    except re.error:                                      # pragma: no cover
+        return marker in text
+
+
+# Числовые утверждения в note: «N раз», «N сообщений», «N упоминаний» —
+# проверяемы по числу уникальных refs события (§13 строка 487).
+_COUNT_CLAIM_RE = re.compile(
+    r"(\d+)\s*(?:раз|сообщени|упоминан|материал|случа)")
+# Календарная дата в note: только полная «ДД.ММ.ГГГГ» (без ложных
+# срабатываний на «2.10»/время «12:30»); проверяемость — по датам refs.
+_DATE_CLAIM_RE = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b")
+
+
+@dataclasses.dataclass(frozen=True)
+class FindingIdentity:
+    """Идентичность строки канонической стенограммы (P0-HA QUALITY).
+
+    ``display_name`` — имя из заголовка строки (алиас-каскад R7 по user_id,
+    повторно НЕ резолвится); ``ref`` — id сообщения («tg:123»), основной
+    ключ трассировки утверждений; ``user_id`` — Telegram user_id автора из
+    суффикса «Имя [uid]» (волна 4, блокер 2 review-w4: строки выборки несут
+    uid тем же приёмом, что `_speaker_tag`; uid — первичная идентичность
+    участника, ref сообщения — ключ трассировки, а не личность);
+    ``forward_source`` — исходный автор из поля «Переслано: X» ("" — не
+    пересылка). Похожие имена разных id НИКОГДА не сливаются (строка 473;
+    проверка H25) — см. `identity_matches`."""
+
+    display_name: str = ""
+    ref: str = ""
+    forward_source: str = ""
+    is_forward: bool = False
+    user_id: int | None = None
+
+
+_HISTORY_LINE_HEAD_RE = re.compile(r"\]: ")
+_HISTORY_REF_FORMAT_RE = re.compile(r"^(?:tg|msg|fact):\d+$")
+_HISTORY_STAMP_RE = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}(?:\s+\d{1,2}:\d{2})?$"
+                               r"|^\d{2}\.\d{4}$")
+_FORWARD_FIELD_PREFIX = "Переслано:"
+_UID_SUFFIX_RE = re.compile(r"\[(\d{1,18})\]\s*$")
+
+
+def parse_finding_identity(line: str | None) -> FindingIdentity:
+    """Разобрать заголовок канонической строки выборки (§12 материал).
+
+    Формат `format_context_item`: «[ДД.ММ.ГГГГ ЧЧ:ММ | Имя | tg:123 |
+    Переслано: X]: текст» — поля-метаданные отсутствуют вместе с
+    разделителем. Разметки нет → пустая identity (строка без заголовка не
+    даёт ни ref, ни автора — refs на неё не дают трассировки). Никогда не
+    бросает."""
+    value = str(line or "")
+    if not value.startswith("["):
+        return FindingIdentity()
+    match = _HISTORY_LINE_HEAD_RE.search(value)
+    if match is None:
+        return FindingIdentity()
+    head = value[1:match.start()]
+    ref = ""
+    forward_source = ""
+    name = ""
+    for field in head.split("|"):
+        field = field.strip()
+        if not field:
+            continue
+        if not ref and _HISTORY_REF_FORMAT_RE.match(field):
+            ref = field
+            continue
+        if field.startswith(_FORWARD_FIELD_PREFIX):
+            forward_source = field[len(_FORWARD_FIELD_PREFIX):].strip()
+            continue
+        if not name and not _HISTORY_STAMP_RE.match(field):
+            name = field
+    user_id = None
+    uid_match = _UID_SUFFIX_RE.search(name)
+    if uid_match is not None:
+        try:
+            user_id = int(uid_match.group(1))
+            name = name[:uid_match.start()].rstrip()
+        except ValueError:                                # pragma: no cover
+            user_id = None
+    return FindingIdentity(display_name=name, ref=ref,
+                           forward_source=forward_source,
+                           is_forward=bool(forward_source),
+                           user_id=user_id)
+
+
+def finding_attribution_owner(identity: FindingIdentity | None) -> str:
+    """Автор содержимого строки (строка 471; проверка H26): для пересланной
+    строки — исходный автор из поля «Переслано», а НЕ тот, кто переслал;
+    для обычной — автор строки. Пустая identity → ""."""
+    if identity is None:
+        return ""
+    if identity.is_forward and identity.forward_source:
+        return identity.forward_source
+    return identity.display_name
+
+
+def attribution_conflict(note: str | None,
+                         identity: FindingIdentity | None) -> bool:
+    """Пересылка приписана переславшему (H26): note упоминает автора
+    пересылки, но не исходного автора. Только для is_forward; обычные
+    строки конфликта не дают. Пограничная эвристика по границам слова —
+    страховка, не смысловой разбор. Никогда не бросает."""
+    if identity is None or not identity.is_forward:
+        return False
+    owner = identity.forward_source
+    text = str(note or "")
+    if owner:
+        if re.search(r"(?<![\w])" + re.escape(owner) + r"(?![\w])",
+                     text, re.IGNORECASE):
+            return False
+    forwarder = identity.display_name
+    if not forwarder:
+        return False
+    return bool(re.search(r"(?<![\w])" + re.escape(forwarder) + r"(?![\w])",
+                          text, re.IGNORECASE))
+
+
+def _identity_key(value) -> tuple:
+    """Ключ идентичности (волна 4, блокер 2 review-w4): у FindingIdentity —
+    Telegram user_id («uid», …), без него — ref сообщения («ref», …);
+    строка трактуется как ref (совместимость прежних вызовов)."""
+    if isinstance(value, FindingIdentity):
+        if value.user_id not in (None, 0):
+            return ("uid", int(value.user_id))
+        return ("ref", str(value.ref or "").strip())
+    return ("ref", str(value or "").strip())
+
+
+def identity_matches(a, b) -> bool:
+    """Строгая идентичность участников (строка 475): Telegram user_id —
+    ПЕРВИЧНЫЙ ключ (блокер 2 review-w4: два uid с одним именем — разные
+    люди, два сообщения одного uid — один человек; ref/id сообщения —
+    не личность). Без uid у сравниваемых — совместимый падение на
+    совпадение ref/id сообщения. Пустой ключ идентичности не
+    устанавливает. Никогда не бросает."""
+    key_a, key_b = _identity_key(a), _identity_key(b)
+    return key_a == key_b and bool(key_a[1])
+
+
+def classify_finding_kind(note: str | None, *, distinct_refs: int = 0,
+                          is_forward: bool = False,
+                          is_bot_author: bool = False) -> str:
+    """Детерминированный тип находки (§12 перечень строк 459-467).
+
+    Приоритет: структурный флаг пересылки → автор-бот → маркеры note
+    (новости → шутка → спор → повтор → утверждение → единичное) → fallback
+    по числу refs: ≤1 — единичная реплика, иначе краткое событие. Это
+    страховка поверх инструкций извлечения, не второй NLP: маркеры
+    закрытые, неизвестный текст даёт консервативный fallback. Никогда не
+    бросает."""
+    text = " ".join(str(note or "").split()).casefold()
+    if is_forward or any(_marker_hit(text, m) for m in _FORWARD_MARKERS):
+        return FINDING_KIND_FORWARDED
+    if is_bot_author:
+        return FINDING_KIND_BOT_STATEMENT
+    if any(_marker_hit(text, m) for m in _NEWS_MARKERS):
+        return FINDING_KIND_EXTERNAL_NEWS
+    if any(_marker_hit(text, m) for m in _JOKE_MARKERS):
+        return FINDING_KIND_JOKE
+    if any(_marker_hit(text, m) for m in _DISPUTE_MARKERS):
+        return FINDING_KIND_DISPUTE
+    if any(_marker_hit(text, m) for m in _REPEAT_MARKERS):
+        return FINDING_KIND_REPEAT_THEME
+    if any(_marker_hit(text, m) for m in _CLAIM_MARKERS):
+        return FINDING_KIND_PARTICIPANT_CLAIM
+    if any(_marker_hit(text, m) for m in _SINGLE_MARKERS):
+        return FINDING_KIND_SINGLE_REMARK
+    try:
+        refs = max(0, int(distinct_refs))
+    except (TypeError, ValueError):
+        refs = 0
+    return (FINDING_KIND_SINGLE_REMARK if refs <= 1
+            else FINDING_KIND_BRIEF_EVENT)
+
+
+def stable_trait_claim_allowed(kind: str, distinct_ref_count: int) -> bool:
+    """Разрешена ли устойчивая характеристика личности (строка 469): тип
+    должен быть повторяемым по определению И подтверждён минимум
+    `MIN_TRAIT_REFS` разными сообщениями выборки. Неизвестный тип → False
+    (консервативно). Никогда не бросает."""
+    if kind not in TRAIT_CAPABLE_KINDS:
+        return False
+    try:
+        refs = max(0, int(distinct_ref_count))
+    except (TypeError, ValueError):
+        return False
+    return refs >= MIN_TRAIT_REFS
+
+
+def note_claims_stable_trait(note: str | None) -> bool:
+    """Note утверждает устойчивую характеристику/обобщение о человеке
+    (строка 469): закрытый маркер-набор обобщающего языка по границе
+    слова (страховка, не смысловой разбор). Неизвестный текст → False
+    (консервативно — черта не заявлена). Никогда не бросает."""
+    text = " ".join(str(note or "").split()).casefold()
+    if not text:
+        return False
+    return any(_marker_hit(text, m) for m in _TRAIT_NOTE_MARKERS)
+
+
+def validate_finding_refs(refs, known_refs) -> tuple[list, list]:
+    """Трассировка утверждений (§13 строка 483): из refs события остаются
+    только refs, реально входящие в выборку; остальные — dropped с
+    сохранением порядка. Никогда не бросает."""
+    known = {str(r).strip() for r in (known_refs or ()) if str(r).strip()}
+    kept, dropped = [], []
+    for raw in (refs or ()):
+        ref = str(raw).strip()
+        if not ref:
+            continue
+        (kept if ref in known else dropped).append(ref)
+    return kept, dropped
+
+
+def invented_count_violations(note: str | None,
+                              distinct_ref_count: int) -> list[int]:
+    """Придуманная статистика (строка 487): числовые утверждения «N раз /
+    N сообщений / N упоминаний» в note, которым не хватает подтверждения
+    refs выборки (N > число уникальных refs события). Никогда не бросает."""
+    text = " ".join(str(note or "").split()).casefold()
+    try:
+        refs = max(0, int(distinct_ref_count))
+    except (TypeError, ValueError):
+        refs = 0
+    out: list[int] = []
+    for match in _COUNT_CLAIM_RE.finditer(text):
+        try:
+            claimed = int(match.group(1))
+        except (TypeError, ValueError):          # pragma: no cover — \d+
+            continue
+        if claimed > refs:
+            out.append(claimed)
+    return out
+
+
+def invented_date_violations(note: str | None, ts_by_ref) -> list[str]:
+    """Придуманные даты (строка 487): полная дата «ДД.ММ.ГГГГ» в note без
+    ни одного ref-сообщения выборки с этой датой (UTC ±1 сутки — допуск
+    локального сдвига чата без чтения per-chat tz). Возвращает ТОЧНЫЕ
+    подстроки note в найденном написании — включая день/месяц без ведущего
+    нуля («5.10.2024», «15.3.2025»): строка флага совпадает с тем, что
+    срезается из note (блокер B review-w4-fix). Никогда не бросает."""
+    text = str(note or "")
+    if not text:
+        return []
+    matched: list[tuple[str, int, int, int]] = []
+    for match in _DATE_CLAIM_RE.finditer(text):
+        try:
+            day, month, year = (int(match.group(1)), int(match.group(2)),
+                                int(match.group(3)))
+            datetime.date(year, month, day)
+        except (TypeError, ValueError):          # не календарная дата
+            continue
+        matched.append((match.group(0), day, month, year))
+    if not matched:
+        return []
+    stamps: list[int] = []
+    for value in (ts_by_ref or {}).values():
+        try:
+            stamps.append(int(value))
+        except (TypeError, ValueError):
+            continue
+    out: list[str] = []
+    for value, day, month, year in matched:
+        supported = False
+        for seconds in stamps:
+            try:
+                moment = datetime.datetime.fromtimestamp(
+                    seconds, datetime.timezone.utc)
+            except (ValueError, OSError, OverflowError):
+                continue
+            for offset in (-1, 0, 1):
+                shifted = moment + datetime.timedelta(days=offset)
+                if (shifted.day, shifted.month, shifted.year) == \
+                        (day, month, year):
+                    supported = True
+                    break
+            if supported:
+                break
+        if not supported and value not in out:
+            out.append(value)
+    return out
 
 
 def render_speech_block(u: SpeechUnderstanding | None) -> str:

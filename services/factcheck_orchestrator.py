@@ -542,7 +542,8 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot, cache) -> None:
                           and retrieval_outcome.search_text else None)
         verdict = await _run_legacy_branch(req, service, feed,
                                            search_results=search_results,
-                                           target_text=external_claim)
+                                           target_text=external_claim,
+                                           cache_input_text=claim_text)
 
     # 6. Presentation (egress-whitelist) → 7. Delivery.
     # CFG-06 W4/W6: EvidenceMap из единого контура — только когда ветка не
@@ -641,7 +642,8 @@ async def _run_envelope_branch(req: FactcheckRequest, service, db, bot,
 
 async def _run_legacy_branch(req: FactcheckRequest, service,
                              feed, *, search_results: str | None = None,
-                             target_text: str | None = None
+                             target_text: str | None = None,
+                             cache_input_text: str | None = None
                              ) -> CheckedVerdict:
     """Legacy-ветка (fallback/откат): ТОТ ЖЕ вызов service.check_claim с теми
     же аргументами, что прод-путь 2.58.98 (байт-паритет ветки). Кеш готовых

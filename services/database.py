@@ -32,6 +32,13 @@ from services.user_relations import decay_weight, decide_stage, \
 
 logger = logging.getLogger(__name__)
 
+# P0-HA (снапшот 2026-10-29, §3.2): физический размер ОДНОГО чтения БД для
+# get_recent_messages (постраничная выборка). Это технический предел
+# отдельного запроса, НЕ общий потолок выборки: число страниц определяется
+# запрошенным объёмом (limit) и фактическим наличием строк — верхнего
+# предела выборки нет.
+_RECENT_MESSAGES_PAGE_SIZE = 500
+
 # ── Тумблер memory.infinite_retention (фаза 2, T-756): гейты TTL/retention ──
 # ON = «сырьё и факты памяти не удаляются и не сжимаются по TTL/ретенции»
 # (для исторического импорта). Список точек-гейтов (самодокументация):
@@ -7811,19 +7818,101 @@ class DatabaseService:
         cursor = await self.db.execute(sql, (chat_id, older_than_ts, limit))
         return await cursor.fetchall()
 
-    async def get_recent_messages(self, chat_id: int, limit: int) -> list:
+    async def get_recent_messages(self, chat_id: int, limit: int, *,
+                                  anchor: tuple | None = None,
+                                  after: tuple | None = None) -> list:
         """Epic 65: ПОСЛЕДНИЕ limit сообщений чата, хронологически (ASC).
-        Для chat_context фактчека/поиска (обогащение контекста вокруг цели)."""
-        cursor = await self.db.execute(
+        Для chat_context фактчека/поиска (обогащение контекста вокруг цели).
+
+        P0-HA (снапшот 2026-10-29, §3.2/§7): порядок детерминированный —
+        ORDER BY timestamp DESC, id DESC (PK как tie-break: равные timestamp
+        дают стабильные «последние N»). limit > _RECENT_MESSAGES_PAGE_SIZE
+        читается постранично keyset-курсором по (timestamp, id) — страницы
+        агрегируются ровно до min(доступно, limit); новый общий потолок
+        выборки НЕ вводится. Возвращаемый порядок — ASC (как раньше).
+
+        P0-HA TRUNC-PAGES (архконтракт §1, узкое расширение write scope —
+        только эти kwargs, второй reader запрещён): ``anchor`` задаёт
+        фиксированное окно выборки ``(anchor_ts, anchor_id, oldest_ts,
+        oldest_id)`` (оба края включительно) — чтение идёт ВПЕРЁД по ASC с
+        LIMIT = limit (одна страница инструмента, целые сообщения);
+        ``after=(after_ts, after_id)`` — точка продолжения (строго позже
+        неё). Дефолты None — прежнее поведение «последние N» байт-в-байт
+        (DESC-чтение + reverse), прочие вызывающие не затронуты."""
+        try:
+            total = int(limit)
+        except (TypeError, ValueError):
+            return []
+        if total <= 0:
+            return []
+        sql = (
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
             "is_forward, forward_source, tg_message_id "
             "FROM smart_messages WHERE chat_id = ? "
-            "ORDER BY timestamp DESC LIMIT ?",
-            (chat_id, limit),
         )
-        rows = await cursor.fetchall()
-        rows.reverse()                     # DESC-выборка → хронологический порядок
-        return rows
+        if anchor is not None:
+            # Окно выборки [oldest..anchor] включительно, ASC вперёд.
+            if (not isinstance(anchor, (tuple, list)) or len(anchor) != 4):
+                raise ValueError("anchor must be (ts, id, ts, id)")
+            try:
+                a_ts, a_id, o_ts, o_id = (int(v) for v in anchor)
+            except (TypeError, ValueError):
+                raise ValueError("anchor must contain 4 ints") from None
+            sql += ("AND (timestamp < ? OR (timestamp = ? AND id <= ?)) "
+                    "AND (timestamp > ? OR (timestamp = ? AND id >= ?)) ")
+            params: list = [chat_id, a_ts, a_ts, a_id, o_ts, o_ts, o_id]
+            if after is not None:
+                if not isinstance(after, (tuple, list)) or len(after) != 2:
+                    raise ValueError("after must be (ts, id)")
+                try:
+                    f_ts, f_id = (int(v) for v in after)
+                except (TypeError, ValueError):
+                    raise ValueError("after must contain 2 ints") from None
+                sql += ("AND (timestamp > ? OR (timestamp = ? AND id > ?)) ")
+                params.extend([f_ts, f_ts, f_id])
+            cursor = await self.db.execute(
+                sql + "ORDER BY timestamp ASC, id ASC LIMIT ?", params + [total])
+            return await cursor.fetchall()
+        if total <= _RECENT_MESSAGES_PAGE_SIZE:
+            cursor = await self.db.execute(
+                sql + "ORDER BY timestamp DESC, id DESC LIMIT ?",
+                (chat_id, total),
+            )
+            rows = await cursor.fetchall()
+            rows.reverse()                 # DESC-выборка → хронологический порядок
+            return rows
+        # Постраничное чтение (один запрос = одна страница, без huge LIMIT):
+        # keyset-курсор назад по (timestamp DESC, id DESC); новые вставки
+        # (большие ts/id) не смешиваются с уже прочитанными страницами.
+        selected: list = []
+        last_ts: int | None = None
+        last_id: int | None = None
+        remaining = total
+        while remaining > 0:
+            page = min(_RECENT_MESSAGES_PAGE_SIZE, remaining)
+            if last_ts is None:
+                cursor = await self.db.execute(
+                    sql + "ORDER BY timestamp DESC, id DESC LIMIT ?",
+                    (chat_id, page),
+                )
+            else:
+                cursor = await self.db.execute(
+                    sql + "AND (timestamp < ? OR (timestamp = ? AND id < ?)) "
+                          "ORDER BY timestamp DESC, id DESC LIMIT ?",
+                    (chat_id, last_ts, last_ts, last_id, page),
+                )
+            batch = await cursor.fetchall()
+            if not batch:
+                break
+            selected.extend(batch)
+            remaining -= len(batch)
+            tail = batch[-1]
+            last_ts = tail["timestamp"]
+            last_id = tail["id"]
+            if len(batch) < page:
+                break                      # выборка исчерпана раньше limit
+        selected.reverse()                 # DESC-страницы → хронологический порядок
+        return selected
 
 
     async def get_messages_around(self, chat_id: int, target_tg_message_id,

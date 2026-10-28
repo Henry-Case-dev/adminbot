@@ -2,7 +2,8 @@
 (кратковременная память): сырая хронологическая стенограмма последних
 сообщений чата («Имя: текст»), НЕ векторный RAG.
 
-Покрытие spec §8: путь `depth` (ASC, клампы 1..150), путь `query` (FTS +
+Покрытие spec §8: путь `depth` (ASC, без верхнего предела — P0-HA §3.1),
+путь `query` (FTS +
 фильтр окна + ASC), приоритет параметров, chat-скоуп, R16 (каскад имён),
 R17 (без текста/URL в логах), сбой БД (структурная ошибка, fail-safe),
 интеграция в F8 tool-сет. SQLite in-memory, без сети.
@@ -18,13 +19,12 @@ from services.database import DatabaseService
 from services.summary_aliases import AliasResolver
 from services.tool_router import (
     _HISTORY_DEFAULT_DEPTH,
-    _HISTORY_MAX_DEPTH,
-    _HISTORY_MAX_SYMBOLS,
     _HISTORY_QUERY_WINDOW_SECONDS,
     _HISTORY_SEARCH_LIMIT,
     ToolContext,
     ToolDeps,
     ToolRouter,
+    parse_history_sample,
 )
 from services.tool_schemas import TOOL_CALLING_TOOLS, TOOL_GET_RECENT_HISTORY
 
@@ -54,6 +54,16 @@ def _row(user_id=1, author_name="вася", text="сообщение", ts=None,
     return {"user_id": user_id, "author_name": author_name, "text": text,
             "timestamp": ts if ts is not None else int(time.time()),
             "media_type": media_type, "chat_id": chat_id}
+
+
+def _page_body(out: str) -> list[str]:
+    """Строки сообщений страницы @@HISTORY_SAMPLE: между @@END_HEADER и
+    хвостовым сентинелом (TRUNC-PAGES)."""
+    start = out.find("@@END_HEADER") + len("@@END_HEADER")
+    end = out.rfind("@@HISTORY_SAMPLE_END")
+    assert start >= len("@@END_HEADER") and end >= start
+    chunk = out[start:end].strip("\n")
+    return chunk.splitlines() if chunk else []
 
 
 async def _make_db(rows) -> DatabaseService:
@@ -95,21 +105,28 @@ class TestDepthPath:
                 "get_recent_history", {"depth": 10}, _ctx())
         finally:
             await db.db.close()
-        assert out.splitlines() == [
-            f"[{_stamp(100)} | вася | msg:2]: первое",
-            f"[{_stamp(200)} | петя | msg:3]: второе",
-            f"[{_stamp(300)} | вася | msg:4]: третье",
+        # P0-HA волна 4 (блокер 2): строки выборки несут Telegram user_id.
+        assert _page_body(out) == [
+            f"[{_stamp(100)} | вася [1] | msg:2]: первое",
+            f"[{_stamp(200)} | петя [2] | msg:3]: второе",
+            f"[{_stamp(300)} | вася [1] | msg:4]: третье",
         ]
         assert "чужой чат" not in out
 
     @pytest.mark.asyncio
-    async def test_depth_clamped_to_max(self):
+    async def test_depth_passthrough_no_cap(self):
+        """P0-HA (§3.1): depth без потолка — 9999 проходит в выборку как есть
+        (150 больше не общий предел, замены константы тоже нет)."""
         db = MagicMock()
-        db.get_recent_messages = AsyncMock(return_value=[])
-        await ToolRouter(_deps(db=db)).dispatch(
+        db.get_recent_messages = AsyncMock(return_value=[_row(text="одно", ts=5)])
+        out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 9999}, _ctx())
-        db.get_recent_messages.assert_awaited_once_with(
-            CHAT_ID, _HISTORY_MAX_DEPTH)
+        assert any(c.args == (CHAT_ID, 9999)
+                   for c in db.get_recent_messages.await_args_list)
+        fields = parse_history_sample(out)
+        assert fields["requested"] == 9999
+        assert fields["available"] == 1          # честно: доступна 1 строка
+        assert any("одно" in line for line in _page_body(out))
 
     @pytest.mark.asyncio
     async def test_depth_zero_or_negative_clamped_to_one(self):
@@ -125,22 +142,23 @@ class TestDepthPath:
     @pytest.mark.asyncio
     async def test_bad_depth_type_falls_back_to_default(self):
         db = MagicMock()
-        db.get_recent_messages = AsyncMock(return_value=[])
-        await ToolRouter(_deps(db=db)).dispatch(
+        db.get_recent_messages = AsyncMock(return_value=[_row(text="х", ts=1)])
+        out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": "много"}, _ctx())
-        db.get_recent_messages.assert_awaited_once_with(
-            CHAT_ID, _HISTORY_DEFAULT_DEPTH)
+        assert any(c.args == (CHAT_ID, _HISTORY_DEFAULT_DEPTH)
+                   for c in db.get_recent_messages.await_args_list)
+        assert parse_history_sample(out)["requested"] == _HISTORY_DEFAULT_DEPTH
 
     @pytest.mark.asyncio
     async def test_no_params_uses_default_depth(self):
         """Ни depth, ни query, ни свободного текста → _HISTORY_DEFAULT_DEPTH."""
         db = MagicMock()
-        db.get_recent_messages = AsyncMock(return_value=[])
+        db.get_recent_messages = AsyncMock(return_value=[_row(text="х", ts=1)])
         router = ToolRouter(_deps(db=db))
         out = await router.dispatch("get_recent_history", {}, _ctx(""))
-        db.get_recent_messages.assert_awaited_once_with(
-            CHAT_ID, _HISTORY_DEFAULT_DEPTH)
-        assert out == _EMPTY_PHRASE
+        assert any(c.args == (CHAT_ID, _HISTORY_DEFAULT_DEPTH)
+                   for c in db.get_recent_messages.await_args_list)
+        assert parse_history_sample(out)["requested"] == _HISTORY_DEFAULT_DEPTH
 
     @pytest.mark.asyncio
     async def test_no_params_falls_back_to_ctx_query(self):
@@ -206,7 +224,26 @@ class TestQueryPath:
         assert out == _EMPTY_PHRASE
 
     @pytest.mark.asyncio
-    async def test_query_priority_over_depth(self):
+    async def test_explicit_depth_priority_over_query(self):
+        """P0-HA TRUNC-PAGES (архконтракт §1): приоритет «query всегда
+        побеждает» заменён — явный depth открывает путь A; query без числа
+        остаётся путём B (см. соседний тест)."""
+        now = int(time.time())
+        memory = MagicMock()
+        memory.search_long_term = AsyncMock(return_value=[
+            _row(text="нашлось по query", ts=now - 30)])
+        db = MagicMock()
+        db.get_recent_messages = AsyncMock(return_value=[
+            _row(text="строка хронологии", ts=now - 10)])
+        out = await ToolRouter(_deps(memory=memory, db=db)).dispatch(
+            "get_recent_history", {"depth": 2, "query": "тема"}, _ctx())
+        memory.search_long_term.assert_not_awaited()
+        assert parse_history_sample(out)["requested"] == 2
+        assert any("строка хронологии" in line for line in _page_body(out))
+
+    @pytest.mark.asyncio
+    async def test_query_without_depth_still_fts(self):
+        """Паритет: query без количественной границы — прежний путь B."""
         now = int(time.time())
         memory = MagicMock()
         memory.search_long_term = AsyncMock(return_value=[
@@ -214,10 +251,10 @@ class TestQueryPath:
         db = MagicMock()
         db.get_recent_messages = AsyncMock(return_value=[])
         out = await ToolRouter(_deps(memory=memory, db=db)).dispatch(
-            "get_recent_history", {"depth": 2, "query": "тема"}, _ctx())
-        assert "нашлось по query" in out
+            "get_recent_history", {"query": "тема"}, _ctx())
         memory.search_long_term.assert_awaited_once()
-        db.get_recent_messages.assert_not_awaited()
+        assert "нашлось по query" in out
+        assert parse_history_sample(out) is None
 
 
 # ── 3. R16: каскад имён ──────────────────────────────────────────────────
@@ -235,10 +272,10 @@ class TestNameCascade:
         aliases = AliasResolver('{"555": "Леха"}')
         out = await ToolRouter(_deps(db=db, aliases=aliases)).dispatch(
             "get_recent_history", {"depth": 3}, _ctx())
-        assert out.splitlines() == [
-            f"[{_stamp(1)} | Леха]: без имени",
-            f"[{_stamp(2)} | Автор]: с автором",
-            f"[{_stamp(3)} | 42]: только id",
+        assert _page_body(out) == [
+            f"[{_stamp(1)} | Леха [555]]: без имени",
+            f"[{_stamp(2)} | Автор [777]]: с автором",
+            f"[{_stamp(3)} | 42 [42]]: только id",
         ]
 
     @pytest.mark.asyncio
@@ -251,9 +288,9 @@ class TestNameCascade:
         ])
         out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 3}, _ctx())
-        assert out.splitlines() == [
-            f"[{_stamp(1)} | вася]: [медиа: video]",
-            f"[{_stamp(3)} | вася]: обычное",
+        assert _page_body(out) == [
+            f"[{_stamp(1)} | вася [1]]: [медиа: video]",
+            f"[{_stamp(3)} | вася [1]]: обычное",
         ]
 
 
@@ -270,7 +307,8 @@ class TestR17:
         with caplog.at_level(logging.INFO):
             out = await ToolRouter(_deps(db=db)).dispatch(
                 "get_recent_history", {"depth": 5}, _ctx())
-        assert secret in out                       # модели — да (tool_result)
+        body = _page_body(out)
+        assert secret in body[0]                   # модели — да (tool_result)
         assert "СЕКРЕТНЫЙ-ТЕКСТ" not in caplog.text
         assert "secret.example.com" not in caplog.text
 
@@ -302,19 +340,24 @@ class TestR17:
         assert "неизвестный инструмент" not in out
 
 
-# ── 5. Обрезка результата ────────────────────────────────────────────────
+# ── 5. Обрезка результата УДАЛЕНА (P0-HA §4) ─────────────────────────────
 
 
 class TestTruncate:
     @pytest.mark.asyncio
-    async def test_long_history_truncated(self):
+    async def test_long_history_not_truncated(self):
+        """P0-HA §4 (H9): _truncate/_HISTORY_MAX_SYMBOLS на результате
+        истории удалены — длинное сообщение идёт целиком, без «…».
+        Полное постраничное покрытие: tests/test_history_pages.py."""
+        import services.tool_router as tr_module
         db = MagicMock()
         db.get_recent_messages = AsyncMock(return_value=[
             _row(text="x" * 9000, ts=1)])
         out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 1}, _ctx())
-        assert len(out) <= _HISTORY_MAX_SYMBOLS + 1
-        assert out.endswith("…")
+        assert "x" * 9000 in out
+        assert not out.rstrip().endswith("…")
+        assert not hasattr(tr_module, "_HISTORY_MAX_SYMBOLS")
 
 
 # ── 6. Интеграция в F8 tool-сет ──────────────────────────────────────────
@@ -337,9 +380,16 @@ class TestToolSetIntegration:
         params = TOOL_GET_RECENT_HISTORY["function"]["parameters"]
         assert params["additionalProperties"] is False
         assert "required" not in params
-        assert params["properties"]["depth"]["minimum"] == 1
-        assert params["properties"]["depth"]["maximum"] == 150
+        depth = params["properties"]["depth"]
+        assert depth["minimum"] == 1
+        # P0-HA (§3.1): maximum у depth больше нет (150 удалён из схемы).
+        assert "maximum" not in depth
         assert "query" in params["properties"]
+        # P0-HA TRUNC-PAGES (архконтракт §1): опциональный cursor для
+        # продолжения выборки (required нет — обычные вызовы без него).
+        cursor = params["properties"]["cursor"]
+        assert cursor["type"] == "string"
+        assert "cursor" not in (params.get("required") or [])
 
     @pytest.mark.asyncio
     async def test_dispatch_finds_branch(self):

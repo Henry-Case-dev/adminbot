@@ -544,13 +544,13 @@
       "source_text_sha256": "7e13ee094952058d515af2757d19ad549b98689ec61a75b03397626093d60fb1",
       "source_excerpt": "Добавить в L1-инструкцию прямой смысловой контракт: «Если предыдущая реплика бота была уточнением, трактуй короткий ответ пользователя как сведения для выполнения первоначального намерения; не дроби задачу на новую серию опциональных вопрос",
       "disposition": "required",
-      "reason": "Антицикл-контракт §3.4.",
+      "reason": "Закрыто 25.10.2026: §4.1 «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» присутствует в каноне байт-в-байт (`services/chat_prompts.py:807-827`) и действует по смыслу на реальных цепочках T19/T21/T23 без keyword-детектора.",
       "req_id": "CLAR-L1-CONTINUATION",
       "slice": "CLAR-L1",
       "acceptance": "[P0] В L1-инструкцию добавлен прямой смысловой контракт продолжения (§4.1: короткий ответ на уточнение = сведения для выполнения первоначального намерения, не дробить); действует по смыслу: матрица #19–#24 на реальной модели, без keyword-детектора в коде.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -2553,13 +2553,13 @@
       "source_text_sha256": "48a61d27d049a581aee6b6715cd129f877200c52479ac2c7cb51c73d5e39fa51",
       "source_excerpt": "**Отчёт:** текущее время с зоной, worktree/prod commit и версия; фактическая причина (код/active config/модель — только доказанная); какие 2–5 точек изменены; сколько новых классов/таблиц/модельных вызовов (ожидается **0**); исходы ключевых",
       "disposition": "required",
-      "reason": "Формат отчёта §7.",
+      "reason": "Закрыто 25.10.2026: итоговый отчёт полосы — `plans/features/asap2-direct-chat/final-report.md` (время+зона, коммиты/версия, доказанная причина, 3 изменённые точки, 0 новых классов/таблиц/LLM-вызовов, исходы сценариев, остаток).",
       "req_id": "DONE-REPORT",
       "slice": "DONE-CRITERIA",
       "acceptance": "[P0] Отчёт содержит: текущее время с зоной; worktree/prod commit и версию; фактическую доказанную причину (код/active config/модель); какие 2–5 точек изменены; число новых классов/таблиц/модельных вызовов (ожидается 0); исходы ключевых сценариев; перечень оставшихся live-проверок; продолжение текущей очереди без нового Human Gate при отсутствии реального выбора.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -2570,6 +2570,13 @@
           "artifact_sha256": "08ead52bccd1dcc9a5f5c7b7f35bc29bfd582eb866e931d5fc32cb4b46ce4e3c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "e4ee54f3"
+        },
+        {
+          "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+          "type": "report",
+          "ref": "final-report.md §1–§5 (PM-RESIDUAL-CLOSE)",
+          "artifact_path": "plans/features/asap2-direct-chat/final-report.md",
+          "observation": "Отчёт содержит требуемые §7 элементы: время с зоной, worktree/prod commit и версию, доказанную причину, 2–5 точек изменений, 0 новых классов/таблиц/LLM-вызовов, исходы сценариев, остаток и владельцев."
         }
       ],
       "next_check": "Не классифицировано в этом прогоне.",
@@ -2916,13 +2923,13 @@
       "source_text_sha256": "4e4573e8c6f1595d346ff855b333144b13383d7a1900b7f07d03b666e94e17bc",
       "source_excerpt": "4. **Ответ на прежнее уточнение.** Рассматривать сообщение вместе с предыдущим вопросом бота и исходной просьбой, продолжать исходную задачу. Не воспринимать короткое «сегодня», «об этом», ссылку или одно имя как изолированный новый запрос.",
       "disposition": "required",
-      "reason": "Различение 4 §1.",
+      "reason": "Закрыто 25.10.2026 (PM-RESIDUAL-CLOSE): матрица #19–#24 покрыта service-level B4/T19–T24 (test_24_*) и тремя реальными цепочками T19/T21/T23 на фактическом вопросе бота; повторных уточнений 0 из 38 платных вызовов.",
       "req_id": "CLAR-L1-DIST4",
       "slice": "CLAR-L1",
       "acceptance": "[P0] Ответ на прежнее уточнение рассматривается вместе с предыдущим вопросом бота и исходной просьбой; «сегодня»/«об этом»/ссылка/имя — не изолированный новый запрос (матрица #19–#24).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -3699,13 +3706,13 @@
       "source_text_sha256": "2f10be364f73a86e5d03f8b5d2cb19bb6b46ac262763ff583906379c942b90d7",
       "source_excerpt": "5. Показать эффективный итоговый model payload на допустимом тестовом маршруте (без секретов). Убедиться, что в нём нет второго model-facing `clarify=ask` и что актуальное правило L1/L2 действительно дошло до модели.",
       "disposition": "required",
-      "reason": "Проверка payload §5.5.",
+      "reason": "AGENT_CHECK_NOW: реального model payload (messages[]) в репозитории нет — только эффективные байты канонов и in-process ON/OFF (fake LLM). Нужен один допустимый тестовый turn на задеплоенном пути со снятым payload без секретов.",
       "req_id": "MIGR-PAYLOAD",
       "slice": "MIGR",
       "acceptance": "[P0] Показан эффективный итоговый model payload допустимого тестового маршрута без секретов; в нём нет второго model-facing clarify=ask; актуальные правила L1/L2 реально дошли до модели.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -3726,39 +3733,12 @@
           "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "e4ee54f3"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "audit",
-          "ref": "soul1-fixtures/after/direct-runtime-assembly-asap2.txt + report.md §2–4",
-          "observation": "Реальная runtime-сборка model payload через действующий композер зафиксирована CONTRACT-фикстурой: P4 (L1 planner SYSTEM) 6542 симв., sha256-префикс c987c03e3ee0; P1/P2/P5 — L2 writer; генерация офлайн-стендом (stub-LLM/память), секретов и приватных данных нет. Те же байты подтверждены как effective на проде (prod-snapshot report §2/§4: L1 effective = global PG = c987c03e…). Байт-паритет фикстуры с текущим кодом держит tests/test_soul1_composer_parity_off.py::test_p4_l1_planner_system_matches_recorded_dump (27.10.2026: 4 passed). | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "plans/features/_audit-2026-10-23/soul1-fixtures/after/direct-runtime-assembly-asap2.txt",
-          "artifact_sha256": "d23276a01466dd3f1ba70883e9ccf8fddb5fb0eb1e976de85b1e3906979685de",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "audit",
-          "ref": "residual-verify.md §4",
-          "observation": "Read-only реконструкция допустимого маршрута §6.3 #20 (build_l1_context + build_l2_plan_block(clarification=False), 0 БД/сети): L1-payload 8559 симв. (system 8261 + контекст), L2 3165; 0 вхождений clarify=ask / «Ничего кроме вопроса» / «смысловой акт: clarification» в system и план-блоке; секция канона «УТОЧНЕНИЯ И ПРОДОЛЖЕНИЕ ДИАЛОГА» ровно 1 раз; [СООБЩЕНИЕ]×1; секретов нет. Инвариант Composer ON/OFF без второго приказа — fix-r1/report.md §B2/T33. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "plans/features/asap2-direct-chat/evidence/residual-verify.md",
-          "artifact_sha256": "98aa015a6708ea37fb701fd67b3ecc730899aaa41dd43388c5becf77910860a7",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "semantic",
-          "ref": "probe/results.md §2–§4 + probe-r2/results.md + probe-r2/ledger.jsonl",
-          "observation": "Актуальные правила L1/L2 реально дошли до модели: платные вызовы той же модели, что на проде (deepseek-v4-flash), тем же кодом сборки — r1 45 кейсов (38/45, raw-JSON в probe/raw/), r2 19 вызовов, все HTTP 200 (ledger). Поведение подтверждает контракт нового канона: T13/T15/T16 — один адресный вопрос по обязательной цели; T19/T21/T23 — продолжение исходной просьбы; 0 ложных/повторных уточнений. Байт-паритет сборки + совпадение effective-байтов прода => в модель уходили актуальные правила. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "plans/features/asap2-direct-chat/evidence/probe-r2/ledger.jsonl",
-          "artifact_sha256": "2b0619782b5eb4b3306b62c8cd540a34b21ed8e6367e44a87becd2f371bd8e5d",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
         }
       ],
-      "next_check": "",
+      "next_check": "AGENT_CHECK: один допустимый тестовый маршрут -> снимок payload без секретов.",
       "owner_role": "DevOps",
-      "blocked_reason": "",
-      "classification": "VERIFIED",
+      "blocked_reason": "эффективные байты и выход build_l2_plan_block доказаны, но фактический model payload/вызов L1 на проде не снимался (report §4, ограничение зафиксировано честно)",
+      "classification": "AGENT_CHECK",
       "reconciliation_note": "REL-258118 (24.10.2026) · REL-258118: эффективный model payload на проде после деплоя не снимался (нет TMA/реального вызова); частичное доказательство — prod-snapshot §4."
     },
     {
@@ -3767,13 +3747,13 @@
       "source_text_sha256": "965c80891868dbae42aed1342ff495ae894cb16d63fc2040120bb685bdec2353",
       "source_excerpt": "6. Поддержать hot apply/cache инвалидирование штатным образом. Избегать миграций схемы базы, потому что новые структуры не нужны.",
       "disposition": "required",
-      "reason": "Hot apply §5.6.",
+      "reason": "AGENT_CHECK_NOW: требует записи промпта через Inspector в прод-БД и наблюдения effective/stored/factory до и после без рестарта. Static-часть закрыта (B3/T34, ΔDDL=0), live hot-apply не наблюдался.",
       "req_id": "MIGR-HOTAPPLY",
       "slice": "MIGR",
       "acceptance": "[P0] Hot apply/инвалидация кеша работают штатно; миграций схемы БД нет (новые структуры не нужны).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
+      "status": "PENDING",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -3804,39 +3784,12 @@
           "artifact_sha256": "278f281cf55e30d9dde699d9d23d29d7a7874f0880cb7c6744826c9a5c24dd8e",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "e4ee54f3"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "code",
-          "ref": "services/prompt_style_blocks.py:333-352 + services/hot_config.py:71-76 + services/config_cache.py:681-708 + services/chat_params.py:234-316,488-492 + bot.py:1265-1285",
-          "observation": "Цепочка hot apply/инвалидации в коде: resolve_prompt — hot-get на каждый вызов («Правка промпта в UI применяется без рестарта»); ConfigCache.set = PG-апсерт + немедленная замена памяти под lock (UI-save промптов через cache.set: web/api/speech.py:519,2876,3083; web/api/routes.py:891); chat_params: запись -> pg_notify('chat_params_updated') + локальная инвалидация, кросс-процессный LISTEN на отдельном соединении, TTL 120 с fail-open. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "services/chat_params.py",
-          "artifact_sha256": "f480530b6c126494ecf0992d0d643a7bbca6284313fed26b35b576a7eb293641",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "test",
-          "ref": "tests/test_unified_core_route_coverage.py::test_hot_apply_changes_payload_without_restart; tests/test_settings_worker_sync_round1018.py; tests/test_prompt_migrations.py (T34)",
-          "observation": "Прогон 27.10.2026 на этой базе: hot_apply 1 passed; settings_worker_sync 31 passed (notify-invalidate + fail-open ветки); prompt_migrations 43 passed (T34: миграция ровно 2 записи, повтор no-op, откат возвращает прежние байты, hot resolve_prompt отдаёт новые каноны). | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "plans/features/asap2-direct-chat/evidence/fix-r1/report.md",
-          "artifact_sha256": "a034a8b48637c5611d759fcee83235194e87ce61897295d662812155afb66063",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "production",
-          "ref": "cfg-final/bindings.md §ADD-2.1 + ssh/probe-f1-summary.json + release-103/deploy.md + release-258130.md §Deploy",
-          "observation": "Живое наблюдение hot apply на проде того же hot-слоя (ConfigCache -> hot.get): API-запись burst 10->2 -> bot_settings=2, PG fresh-read, немедленный отказ/возврат допуска, NRestarts=0, PID 29475 до/после (8ea6ed4e, 2.58.104); живые посты 28/28 «hot-reload 10->2->10 без рестарта» на 2.58.88 (review-release-cfg01.md). Миграция канонов L1/L2 применялась на проде без рестарта (release-103), откат канонов — PREV-лестницы без рестарта. Миграций схемы нет: ΔDDL=0 во всех релизах линии (user_version 37 до/после; release-258113/258118/258130). Граница: буквальный цикл «правка промпта в Inspector -> следующий turn» на проде не снимался; закрытие по альтернативе из собственного next_check строки (service-level write->resolve без рестарта) + живое наблюдение того же hot-слоя. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "plans/features/cfg/evidence/cfg-final/ssh/probe-f1-summary.json",
-          "artifact_sha256": "1feba46bd7d00b66880c8071bf19d9aec31adc718532263c0b6345ef3f232665",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
         }
       ],
       "owner_role": "DevOps",
-      "next_check": "",
-      "blocked_reason": "",
-      "classification": "VERIFIED",
+      "next_check": "AGENT_CHECK: save -> next turn на тестовом чате после появления реального вызова.",
+      "blocked_reason": "hot apply в работающем прод-процессе не наблюдался; in-process резолв после миграции доказан только тестом T34; миграций схемы нет (ΔDDL=0)",
+      "classification": "AGENT_CHECK",
       "reconciliation_note": "REL-258118 (24.10.2026) · REL-258118: hot apply/инвалидация кеша подтверждены тестами кандидата, живого цикла save->next turn на 2.58.118 не было."
     },
     {
@@ -3982,13 +3935,13 @@
       "source_text_sha256": "2d43de41d4c516e34d8ddf014715c757de46c30ab07d664d3d371446da1b5aed",
       "source_excerpt": "- Семантику тестировать **реальным L1 и L2** на обезличенных контекстных сценариях, включая парафразы и цепочки продолжений. Не строить тест, где fake L1 заранее возвращает правильный `false`, а потом объявлять, что проблему уточнений решил",
       "disposition": "required",
-      "reason": "Методика §6.5 (реальная модель).",
+      "reason": "Закрыто 25.10.2026: семантика проверена реальными L1/L2 deepseek-v4-flash (38/45 вызовов), включая парафразы T02/T18b и цепочки продолжений; fake-L1 тест за решение проблемы не выдавался.",
       "req_id": "TESTS-METHOD-REAL",
       "slice": "TESTS",
       "acceptance": "[P0] Семантика проверена реальными L1 и L2 на обезличенных контекстных сценариях, включая парафразы и цепочки продолжений; тест с fake L1, заранее возвращающим false, не выдан за решение проблемы уточнений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -4146,13 +4099,13 @@
       "source_text_sha256": "5ae4e60eaecb3d3a8560224e552e208416a718fd9c3c3d175e7f61536b201d5e",
       "source_excerpt": "1. L1 реально получает релевантную часть существующей истории, включая собственный предыдущий вопрос бота, и не теряет исходную просьбу при ответе на уточнение.",
       "disposition": "required",
-      "reason": "Условие 1 §8.",
+      "reason": "Закрыто 25.10.2026: L1 получает историю вместе с собственным вопросом бота (B4/T19–T24 service-level) и тремя реальными цепочками T19/T21/T23; исходная просьба не теряется.",
       "req_id": "DONE-D1",
       "slice": "DONE-CRITERIA",
       "acceptance": "[P0] L1 реально получает релевантную часть существующей истории, включая собственный предыдущий вопрос; исходная просьба не теряется при ответе на уточнение (тест сборки контекста; матрица #19–#24).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -4315,19 +4268,19 @@
       "source_text_sha256": "3262d34ed922e558e66f87bc753b7eff97e3d51afb834ca8f3bc55fd1c66b23f",
       "source_excerpt": "5. Стандартный Direct → tool → L2 путь не получает лишнюю команду переспросить; для действительно отсутствующей обязательной цели уточнение остаётся доступным.",
       "disposition": "required",
-      "reason": "Условие 5 §8.",
+      "reason": "Закрыто 25.10.2026: tool-гейт `direct_chat_service.py:4470-4473` возвращает None только при отсутствии схем/роутера или `needs_clarification`; 15+34+24 теста и реальные пробы §6 (0 лишних переспросов) подтверждают.",
       "req_id": "DONE-D5",
       "slice": "DONE-CRITERIA",
       "acceptance": "[P0] Стандартный Direct → tool → L2 путь не получает лишнюю команду переспросить; для действительно отсутствующей обязательной цели уточнение остаётся доступным (матрица #11, #13–#17, #32).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "type": "code",
-          "ref": "services/direct_chat_service.py:4424-4427",
-          "observation": "Tool-гейт: run_tools/chain возвращает None только при getattr(plan,'needs_clarification') — пропуск инструментов следует исключительно из корректно разобранного флага; других условий нет. | прежнее доказательство остается в силе. | artifact_sha256 пересчитан на 724b77ac | carry-over REL-258118: прод 2.58.118 (9ed68ee8) развёрнут 23.10.2026 17:51 UTC; каноны L1 6c2ddc17c998 / L2 83ff62bbee40, fingerprint 0163a686c401, user_version 37 не изменились, ΔDDL=0 (deploy.md §2-3), гарды поезда перепрогнаны — прежнее доказательство остаётся в силе.",
+          "ref": "services/direct_chat_service.py:4470-4473",
+          "observation": "Tool-гейт: run_tools/chain возвращает None только при отсутствии схем/роутера или getattr(plan,'needs_clarification') — три условия в текущем дереве; пропуск инструментов следует из корректно разобранного плана",
           "artifact_path": "services/direct_chat_service.py",
           "artifact_sha256": "a08d4f7a4a3877cfca0012f074107ea5457f7e4b9c32fd77dbb21ddd834b942a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -4356,13 +4309,13 @@
       "source_text_sha256": "59be3ab186b04d400a2a313dc72db5a0e89bb6e76924f0206f0eddb720d60097",
       "source_excerpt": "6. Сценарии из §6 пройдены как семантические прогоны действующей модели и интеграционные проверки, без runtime словарей фраз/регулярок для обхода тестов.",
       "disposition": "required",
-      "reason": "Условие 6 §8.",
+      "reason": "AGENT_CHECK_NOW: семантический прогон §6 на задеплоенном пути не выполнялся после 2.58.118; пробы r1/r2 сняты до деплоя, `needs_clarification` в прод-статистике not_instrumented. Нужен контролируемый postdeploy-прогон 9 классов §6. ЗАКРЫТО 27.10.2026 (postdeploy-verify.md §Сводка): прод-чтение plan_meta снято — 11 записей с точным \"needs_clar\": true в PG с 2.58.118; семантика §6 — 25/26 классов живыми прогонами (res23.md §3).",
       "req_id": "DONE-D6",
       "slice": "DONE-CRITERIA",
       "acceptance": "[P0] Сценарии §6 пройдены как семантические прогоны действующей модели и интеграционные проверки; runtime словарей фраз/регулярок для обхода тестов нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -4375,29 +4328,20 @@
           "produced_on_original": "e4ee54f3"
         },
         {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "semantic",
-          "ref": "probe-r2/raw/t20_boundary/summary.json + residual-verify.md §1,§3",
-          "observation": "T20-boundary: 4 платных вызова действующей модели (step1 clarification с адресной целью; step2 задокументирован как граничный случай confidence 0.55). T24: service-level байт-паритет payload при «рестарте» (новый экземпляр сервиса + повторная загрузка истории, text2==text) — tests/test_asap2_clar_contract.py:545-578, прогон 27.10.2026: 24 passed. Итог охвата §6: 25/26 классов с живыми прогонами; часть «без словарей/регулярок» — VERIFIED (DONE-D7). | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "plans/features/asap2-direct-chat/evidence/residual-verify.md",
-          "artifact_sha256": "98aa015a6708ea37fb701fd67b3ecc730899aaa41dd43388c5becf77910860a7",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "code",
-          "ref": "services/direct_chat_service.py:343-349 + services/usage_events.py:58",
-          "observation": "Инструментация needs_clarification для прод-телеметрии присутствует с 2.58.118: plan_meta несёт ровно два R17-safe bool (needs_clar — строгий boolean плана, clar_target_present), ключи в whitelist usage_events. Прод-чтение этой телеметрии в evidence отсутствует — строка остаётся PENDING по честной причине. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132): прогоны этого лейна — 127 passed, 0 failed; compileall services rc=0.",
-          "artifact_path": "services/direct_chat_service.py",
-          "artifact_sha256": "a1a47cd06f081881ee5f9b0e1702982a93cc0c067e229134a03dd930013cc06c",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §Сводка (DONE-D6) + res23.md §3 — read-only прод-верификация 27.10.2026",
+          "observation": "Прод-чтение plan_meta (read-only PG SELECT, 26.10 14:44Z): llm_usage_events, module=direct_chat, step=l1_planner, ts ≥ 23.10 17:51Z — 139 строк, 98 с plan_meta, 11 с точным \"needs_clar\": true; инструментация 2.58.118 живая, журнал коррелирует (L1_PLAN=98 == PG with_meta=98; plan_meta в журнал не пишется — durable-хранилище PG). Это ровно тот read-only запрос, которым res23.md §3 предписывала закрыть остаток строки. Семантика §6: 25/26 поведенческих классов живыми прогонами действующей модели (probe r1+r2 + T20-boundary 4 вызова), T24 — service-level байт-паритет payload (tests/test_asap2_clar_contract.py, 24 passed 27.10.2026, worktree res23, база d3a9a2cc). services/usage_events.py в дельте b5716022→076f7391 (прод 2.58.134) не изменялся.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "next_check": "Read-only выборка plan_meta (llm_usage_events, module=direct_chat, step=l1_planner) на прод-окне либо один живой T24-прогон после рестарта; инструментация needs_clar/clar_target_present действует с 2.58.118 (services/direct_chat_service.py:343-349, services/usage_events.py:58).",
+      "next_check": "Закрыто: instrumented live sample снят с прода (11 needs_clar=true, PG llm_usage_events). Живой T24-вариант (рестарт реального процесса) отдельно не прогонялся — приёмка по res23.md §3: service-level байт-паритет + живая прод-телеметрия.",
       "owner_role": "Builder",
-      "blocked_reason": "Семантика §6: 25/26 поведенческих классов — живые прогоны действующей модели (probe r1+r2 + T20-boundary 4 вызова); T24 — service-level байт-паритет payload (tests/test_asap2_clar_contract.py:545-578, 24 passed 27.10.2026). Не закрыт только живой T24-вариант и прод-чтение plan_meta needs_clar.",
-      "classification": "WAITING_EXTERNAL",
-      "reconciliation_note": "RESIDUALS-ASAP23 (27.10.2026): прежняя причина «9 классов §6 без живого прогона» устарела после probe-r2 — фактический остаток: живой T24-вариант + plan_meta с прода. Runtime словарей/регулярок нет (DONE-D7 VERIFIED, аудит диффа)."
+      "blocked_reason": "Семантика §6: 25/26 поведенческих классов — живые прогоны действующей модели (probe r1+r2 + T20-boundary; res23.md §3); T24 — service-level байт-паритет payload (24 passed 27.10.2026). Остаток закрыт прод-чтением plan_meta: PG llm_usage_events (module=direct_chat, step=l1_planner, ts ≥ 23.10 17:51Z) — 139 строк, 98 с plan_meta, 11 с точным \"needs_clar\": true; инструментация 2.58.118 живая (L1_PLAN=98 == PG with_meta=98).",
+      "classification": "VERIFIED",
+      "reconciliation_note": "REL-258118 (24.10.2026) · REL-258118: прод 2.58.118 (9ed68ee8) поднят (healthz 200, PID 858447), но L1-вызовов на новом коде не зафиксировано: live-пробы в реальные чаты не отправлялись (deploy.md §«наблюдения»). plan_meta needs_clar/clar_target_present ждёт первого реального сообщения. | ПОСТДЕПЛОЙ 27.10.2026: план needs_clarification подтверждён instrumented live sample — 11 записей в PG с 2.58.118 (postdeploy-verify.md §Сводка)."
     },
     {
       "source_id": "L00307",
@@ -4431,13 +4375,13 @@
       "source_text_sha256": "62c81d4a61ef3d128edf5df6cc66baaa0fce7a3687696aec7f63ae0aff521f04",
       "source_excerpt": "8. Не повторяются длинные цепочки несущественных вопросов. Если остался единичный ложный выбор L1, зафиксировать конкретный пример и причину; **не утверждать гарантированную стопроцентную семантическую корректность через один булевый флаг**",
       "disposition": "required",
-      "reason": "Условие 8 §8.",
+      "reason": "Закрыто 25.10.2026: длинные цепочки несущественных вопросов не повторяются (матрица #19–#24, 0 ложных/повторных уточнений); 100% семантическая корректность через один булев флаг не заявляется (protocol.md §5).",
       "req_id": "DONE-D8",
       "slice": "DONE-CRITERIA",
       "acceptance": "[P0] Длинные цепочки несущественных вопросов не повторяются (матрица #19–#24); единичный оставшийся ложный выбор L1 зафиксирован конкретным примером и причиной; гарантированная 100% семантическая корректность через один булевый флаг не заявлена.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",

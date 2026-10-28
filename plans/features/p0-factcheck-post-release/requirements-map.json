@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/p0-factcheck-post-release/source-2026-10-28.md",
   "source_sha256": "3c0f035bdf4266de37b41c3df63faf57d4e8e116c67b47d00f22f5c985989da6",
-  "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
-  "deployed_commit": "",
+  "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+  "deployed_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
   "strict_evidence": true,
   "slice_graph_path": "",
   "additional_requirements": [
@@ -19,8 +19,25 @@
       "acceptance": "Регрессия F1 (Поиск): все поисковые провайдеры недоступны — аналитический этап продолжает работать. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1/#4)",
+          "observation": "F1: TestEmptyEvidenceAnalysisContinues::test_all_providers_down_analyst_still_runs — все провайдеры вниз, analyst продолжается, claim+analysis_context+статус поиска в payload",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run1_analyst_ran=true + run1_analysis_context=true — analyst выполнился на реальном LLM (200), <analysis_context> в payload, <evidence> нет (пустой поиск) — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F02",
@@ -34,8 +51,17 @@
       "acceptance": "Регрессия F2 (Поиск): первый провайдер недоступен, второй предоставляет данные — проверка использует полученные доказательства. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #4)",
+          "observation": "F2: TestPlannerPartialAndCauses::test_first_down_second_works_evidence_used — первый провайдер вниз, второй дал данные, evidence используется; каскад не менялся",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F03",
@@ -49,8 +75,25 @@
       "acceptance": "Регрессия F3 (Поиск): поиск возвращает пустую выдачу — система не утверждает автоматически, что интернет недоступен. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #6)",
+          "observation": "F3: TestClassifyRetrieval + TestAggregatorFailureTaxonomy + test_empty_results_state_in_payload — пустая выдача ≠ «интернет недоступен» (машинные причины empty/irrelevant)",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "реальный planner классифицировал empty_results по таксономии §5.1 (5 query-попыток, 0 внешних вызовов), retrieval_state «ответил, но подходящих материалов не дал» — не «поисковики недоступны» — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F04",
@@ -64,8 +107,17 @@
       "acceptance": "Регрессия F4 (Поиск): поиск возвращает нерелевантную выдачу — Fact-check не объявляет это отсутствием самих фактов. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #6)",
+          "observation": "F4: test_irrelevant_results_not_reported_as_down, test_no_results_state_not_called_down — нерелевантная выдача ≠ «фактов нет» и ≠ «недоступны»; реальная частота ложных отрицаний фильтра — живое наблюдение (карта FC-05B, вне этой строки)",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F05",
@@ -79,8 +131,17 @@
       "acceptance": "Регрессия F5 (Поиск): найдена часть доказательств, затем возникает ошибка — уже полученные материалы сохраняются. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #4)",
+          "observation": "F5: test_partial_evidence_kept_on_next_failure — частичные доказательства сохраняются при ошибке следующего запроса",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F06",
@@ -94,8 +155,17 @@
       "acceptance": "Регрессия F6 (Поиск): поиск доступен, но утверждение не подтверждается — система не выдаёт это за технический отказ. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #3/#7)",
+          "observation": "F6: test_no_confirmation_is_not_technical_failure — нет подтверждений ≠ техсбой (reason None, без тех-заголовка); with-evidence flow байт-идентичен базе",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F07",
@@ -109,8 +179,25 @@
       "acceptance": "Регрессия F7 (Содержательный анализ без интернета): арифметическое утверждение с достаточными входными параметрами — модель выполняет расчёт. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F7: test_math_verdict_with_basis_stands — арифметика по заданным числам с basis стоит; живое подтверждение на реальном LLM — см. live-запись",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run1: реальный LLM выполнил calendar-math (2026 mod 4 = 2 → 365 дней), verdict стоит с basis «внутренняя проверка: арифметика григорианского календаря» — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F08",
@@ -124,8 +211,17 @@
       "acceptance": "Регрессия F8 (Содержательный анализ без интернета): техническое утверждение содержит логическое противоречие — модель объясняет противоречие. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F8: test_contradiction_explained_not_uncertain — противоречие объяснено, не объявлено неопределённым",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F09",
@@ -139,8 +235,17 @@
       "acceptance": "Регрессия F9 (Содержательный анализ без интернета): утверждение частично опирается на неизвестные характеристики устройства — модель отделяет известный принцип от неподтверждённой спецификации. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F9: test_principle_vs_unverified_spec_separated — известный принцип vs неподтверждённая спецификация разделены",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F10",
@@ -154,8 +259,25 @@
       "acceptance": "Регрессия F10 (Содержательный анализ без интернета): историческое утверждение не может быть независимо подтверждено — модель не выдумывает источник, но анализирует имеющийся контекст. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F10: test_invented_evidence_refs_filtered — выдуманные ev-N отфильтрованы (top+parts, allowlist текущего прогона)",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run1_no_invented_sources=true — 0 URL, 0 ev-N (EvidenceMap пуст → allowlist пуст) — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F11",
@@ -169,8 +291,17 @@
       "acceptance": "Регрессия F11 (Содержательный анализ без интернета): пользователь предоставляет документ или данные, достаточные для проверки без поиска — они используются. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F11: test_chat_context_reaches_analyst — пользовательские данные/контекст используются без поиска",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F12",
@@ -184,8 +315,25 @@
       "acceptance": "Регрессия F12 (Содержательный анализ без интернета): утверждение противоречит проверяемому математическому соотношению — модель не объявляет его неопределённым только потому, что нет веб-источников. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F12: F7/F8 + guard-тесты (unbacked downgrade не трогает basis-расчёты) — математическое противоречие не понижается сервером; живое подтверждение — см. live-запись",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run1: утверждение противоречит календарной арифметике — модель объяснила (2026 mod 4 = 2), verdict refuted с basis, сервером не понижен — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F13",
@@ -199,8 +347,17 @@
       "acceptance": "Регрессия F13 (Содержательный анализ без интернета): доступных сведений недостаточно даже для предметной оценки — модель честно указывает это, не создавая фиктивный вердикт. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1)",
+          "observation": "F13: test_unbacked_positive_downgraded + test_technical_failure_keeps_honest_headline — ничего пригодного → честный вердикт/заголовок без фиктивного; независимый probe ревьюера: supported без basis → insufficient+маркер",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F14",
@@ -214,8 +371,25 @@
       "acceptance": "Регрессия F14 (Кеш): повторный Fact-check идентичного тезиса — запускает новую проверку. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #5)",
+          "observation": "F14: TestF3RepeatFreshRun (p0_fc), test_repeat_claim_runs_fresh, test_smart_cache.py::test_factcheck_second_call_runs_fresh_check — повтор тезиса = новая проверка (service+handler)",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run2_analyst_ran_fresh=true — повтор того же claim: новый analyst LLM-вызов, отдельный run_id, перефразированный ответ — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F15",
@@ -229,8 +403,25 @@
       "acceptance": "Регрессия F15 (Кеш): между двумя запросами появляются новые доказательства — второй запрос может изменить результат. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #5)",
+          "observation": "F15: отдельного теста нет — структурная гарантия: каждый запрос = полный свежий прогон (test_repeat_claim_runs_fresh, TestF3RepeatFreshRun, smart_cache fresh-check), кеш-механика удалена полностью (grep-аудит 0 read/write-путей) → новые доказательства между запросами входят во второй прогон; живое подтверждение полного свежего прогона — live-258139 run2",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run2 — полный свежий прогон (temporal_verdict → temporal_verbalize, новый retrieval), следовательно новые доказательства между запросами входят во второй прогон — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F16",
@@ -244,8 +435,17 @@
       "acceptance": "Регрессия F16 (Кеш): первый запрос завершился технической ошибкой — после восстановления поиска следующий запрос не получает старую ошибку из кеша. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #5)",
+          "observation": "F16: test_old_error_not_served_after_recovery — старая техническая ошибка не отдаётся после восстановления",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F17",
@@ -259,8 +459,25 @@
       "acceptance": "Регрессия F17 (Кеш): temporal и legacy-пути не читают готовые вердикты из SmartCache. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #5)",
+          "observation": "F17: test_cache_machinery_gone, test_legacy_branch_does_not_read_verdict_cache, test_envelope_branch_does_not_write_cache — temporal+legacy не читают SmartCache-вердикты, механизм удалён",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "no_cache_hit_anywhere=true — 2 run-записи, cache_hit=0 в обеих; инертных чтений кеша нет — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F18",
@@ -274,8 +491,17 @@
       "acceptance": "Регрессия F18 (Кеш): исторические журналы и записи прошлых проверок остаются доступны. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #5)",
+          "observation": "F18: границы сохранены — record_temporal_run, миграция v33, web/api/routes runs, журналы диагностики не тронуты (w1 §1-аудит; регрессия web/runs-сьютов зелёная, прод-БД не тронута)",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F19",
@@ -289,8 +515,25 @@
       "acceptance": "Регрессия F19 (Кеш): повторный Telegram update не приводит к двойной отправке одного и того же результата. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #4)",
+          "observation": "F19: test_single_delivery_per_run + orchestrator fresh-run тесты — 1 прогон = 1 отправка; механизм already_delivered+кулдаун+однократная диспетчеризация aiogram не менялся; live-проба: FakeBot, 1 прогон = 1 отправка в память стенда",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "FakeBot-стенд: 1 прогон = 1 отправка в память стенда (двойной доставки нет) — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F20",
@@ -304,8 +547,17 @@
       "acceptance": "Регрессия F20 (Неблокирующие проверки): сбой одного вспомогательного этапа не уничтожает корректный результат другого. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #4/#7)",
+          "observation": "F20: TestNonBlockingDegradation::test_validator_failure_keeps_run (+rework1 suite) — сбой вспомогательного этапа не уничтожает корректный результат",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F21",
@@ -319,8 +571,17 @@
       "acceptance": "Регрессия F21 (Неблокирующие проверки): ошибка необязательного валидатора не приводит к потере имеющихся доказательств. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #4)",
+          "observation": "F21: тот же suite — ошибка необязательного валидатора не теряет имеющиеся доказательства",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F22",
@@ -334,8 +595,17 @@
       "acceptance": "Регрессия F22 (Неблокирующие проверки): недоступность внешнего инструмента не подавляет допустимый самостоятельный анализ. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1/#4)",
+          "observation": "F22: F1-тесты — недоступный инструмент не подавляет самостоятельный анализ",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F23",
@@ -349,8 +619,17 @@
       "acceptance": "Регрессия F23 (Неблокирующие проверки): отказ одного источника не запрещает использовать другие доступные источники. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #4)",
+          "observation": "F23: F2/F5-тесты — отказ одного источника не запрещает другие доступные",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F24",
@@ -364,8 +643,17 @@
       "acceptance": "Регрессия F24 (Неблокирующие проверки): критически невалидный или небезопасный вход не обходит обязательные защитные проверки. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #1/#2)",
+          "observation": "F24: test_invalid_input_still_rejected + F10 + guard-тесты — обязательные защиты (allowlist refs, downgrade guard, enum-валидация) не обходятся",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F25",
@@ -379,8 +667,25 @@
       "acceptance": "Регрессия F25 (Речь): при наличии содержательного анализа ответ не сводится к сообщению о сбое. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #7)",
+          "observation": "F25: test_substantive_verdict_no_technical_headline — содержательный ответ не сводится к сообщению о сбое",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (авто-вердикты 8/8)",
+          "observation": "run1_substantive_answer=true — содержательный разбор, не error-фраза и не тех-заголовок — задеплоенный 2.58.139, реальный LLM, прод-чаты/БД не тронуты",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "M-F26",
@@ -394,8 +699,17 @@
       "acceptance": "Регрессия F26 (Речь): при отсутствии содержательного вывода не генерируется бессмысленная простыня. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #7)",
+          "observation": "F26: test_no_analysis_short_limit_note — без содержания короткая честная граница, без универсального правила длины",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F27",
@@ -409,8 +723,17 @@
       "acceptance": "Регрессия F27 (Речь): renderer не дублирует одну и ту же оговорку. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #7)",
+          "observation": "F27: test_renderer_no_duplicate_technical_notice (+p0_fc budget-тесты) — renderer не дублирует ту же оговорку",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F28",
@@ -424,8 +747,17 @@
       "acceptance": "Регрессия F28 (Речь): FREQUENT и Personality Core продолжают применяться. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #7)",
+          "observation": "F28/F30 (structural): шов speech_owner_block (FREQUENT/Core) не тронут, verbalize-шов тесты p0_fc/w7 зелёные — FREQUENT и Personality Core применяются",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F29",
@@ -439,8 +771,17 @@
       "acceptance": "Регрессия F29 (Речь): ответ с полноценными доказательствами сохраняет содержательность и свободную разговорную форму. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #7)",
+          "observation": "F29 (structural): renderer passthrough + verbalize payload тесты — полноценный ответ сохраняет содержание и форму",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-F30",
@@ -454,8 +795,17 @@
       "acceptance": "Регрессия F30 (Речь): наличие шутки или мата не считается дефектом само по себе. Reviewer подтверждает фактическое поведение; разнообразные фактические сценарии (не один диалог про 96), без хардкода под проверочные утверждения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§3 F-матрица) + review-w1.md Approved (review #7)",
+          "observation": "F28/F30 (structural): наличие шутки/мата не дефект само по себе; принудительных правил нет, шов speech_owner_block не тронут",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "M-REPORT",
@@ -469,8 +819,23 @@
       "acceptance": "После деплоя владельцу коротко сообщено 10 пунктов: 1) почему Fact-check раньше прекращал анализ при отсутствии evidence; 2) как теперь работает без внешнего поиска; 3) как различаются подтверждённые факты и самостоятельные выводы; 4) какие ошибочные блокирующие зависимости удалены; 5) какие fallback сохранены; 6) удалён ли кеш готовых вердиктов во всех маршрутах; 7) почему ранее возникало сообщение «поиск недоступен»; 8) как теперь используется частичная поисковая выдача; 9) какие реальные и офлайн-проверки выполнены; 10) какая версия работает на production. Прохождение тестов с моками не выдаётся за доказательство доступности реальных поисковиков; отсутствие ошибок в тестах не выдаётся за подтверждение качества всех возможных LLM-ответов.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "report",
+          "ref": "plans/reports/final-report-p0-cycle-2026-10-27.md (§12 FACTCHECK POST-RELEASE, пункты 1–9)",
+          "observation": "Отчёт владельцу: первопричина (серверная ветка пустого evidence без analyst-вызова), работа без поиска (<analysis_context>, basis), различение evidence/reasoning/assumption + unbacked-downgrade, удалённые блокирующие зависимости, сохранённые fallback, полное удаление кеша по маршрутам + grep-аудит + живой cache_hit=0, таксономия причин («поиск недоступен» больше не генерируется ложно), частичная выдача, офлайн-проверки (37+12 новых, 630 factcheck-целевых) — по reviewed кандидату 98a4254f",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/reports/final-report-p0-cycle-2026-10-27.md (§12, пункты 9–10) + live-258139.md",
+          "observation": "Живая часть отчёта: deployed 2.58.139 (95e6c7c9), healthz 200, живая проба 8/8 PASS; честные границы зафиксированы в отчёте: моки ≠ доказательство доступности реальных поисковиков, отсутствие ошибок тестов ≠ качество всех LLM-ответов",
+          "artifact_path": "plans/reports/final-report-p0-cycle-2026-10-27.md"
+        }
+      ]
     },
     {
       "source_id": "M-ORDER",
@@ -516,8 +881,33 @@
       "acceptance": "Fact-check продолжает содержательную проверку при недоступности поиска или другого необязательного инструмента: использует само утверждение, контекст беседы, доступную историю сообщений, уже полученные проверяемые материалы, память и provenance, общие знания модели с учётом устарелости, логическое рассуждение, математические и технические вычисления, анализ внутренней согласованности; неудача поиска не приводит к пустому ответу и не превращает Fact-check в сообщение об ошибке; цель — максимально содержательный достоверный ответ в пределах реально доступных сведений. Запрещены: выдуманные источники, симуляция успешного поиска, выдача предположений за документально подтверждённые факты, собственный прежний ответ модели как независимое доказательство, подмена отсутствия проверяемой информации уверенностью, повторный поиск только ради формального требования, новые блокирующие этапы проверки, подавление содержательного ответа из-за недоступности одного вспомогательного инструмента. Работоспособность всего Fact-check не зависит от успешности отдельных этапов; реальная обработка ошибок, техническая безопасность, защита приватных данных и проверка допустимости операций сохраняются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2+§3 F-матрица",
+          "observation": "Зонтичный принцип §0 проверен офлайн: analyst выполняется всегда при недоступности поиска (F1), самостоятельные виды анализа с basis (F7/F8/F9/F11), честный insufficient при нехватке (F13); запреты: выдуманные ev-N отфильтрованы (F10), защитные проверки не обходятся (F24), шов FREQUENT/Core не тронут (F28/F30).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #1/#4/#7)",
+          "observation": "Независимое подтверждение зонтичного принципа: analyst всегда, unbacked-downgrade, allowlist refs, analysis_context-рамка; обязательные контракты и fallback сохранены; вербализация passthrough.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (авто-вердикты 8/8)",
+          "observation": "Живое поведение на deployed 2.58.139: analyst выполнился на пустом поиске, содержательный ответ с честным basis, 0 выдуманных источников, честная таксономия; прод-чаты/БД не тронуты.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00017",
@@ -786,8 +1176,33 @@
       "acceptance": "В services/factcheck_service.py::check_claim_envelope устранён путь «пустой evidence → insufficient_evidence → пропуск полноценного аналитического verdict-вызова → разговорный текст о неудавшемся поиске, оформленный Renderer как ответ Fact-check»: при отсутствии evidence выполняется полноценный аналитический verdict-вызов по доступным входным данным (утверждение, контекст, история, расчёты); исправляется сам путь принятия решения о возможности продолжать проверку. Косметические «решения» не засчитываются: убрать шутки вербализатора, сократить/заменить текст insufficient_evidence, добавить ещё один fallback-ответ, подменить поиск ответом «проверить невозможно», изменить только Renderer.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §1 (путь дефекта base:1215–1335, тесты базы) + §2 (правка)",
+          "observation": "Точный путь дефекта воспроизведён на базе c987a825 (ветка «не evidence → серверный insufficient без analyst-вызова», тесты базы фиксировали дефектную логику); ветка удалена — СУЩЕСТВУЮЩИЙ analyst-вызов (_temporal_verdict_json) выполняется всегда; путь принятия решения изменён, не косметика (не текст/Renderer/доп. fallback).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #1/#3)",
+          "observation": "Ревьюер подтвердил удаление серверной ветки и вызов analyst всегда; with-evidence flow байт-идентичен базе — подмена не Renderer'ом.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md run1",
+          "observation": "Полноценный analyst LLM-вызов выполнен (temporal_verdict, LLM 200, <analysis_context>), вердикт содержательный (refuted с basis), не insufficient-заглушка — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00054",
@@ -1011,8 +1426,33 @@
       "acceptance": "Единая архитектура без двух независимых фактчекеров: существующий pipeline Target Resolution → Context → Retrieval → Analysis → Verdict → Verbalization → Delivery сохранён; все исходы Retrieval (достаточные внешние доказательства, частичные, выдача без пригодных доказательств, нерелевантная выдача, техническая ошибка, недоступность всех провайдеров, отсутствие необходимости внешнего поиска) обрабатываются в существующем аналитическом маршруте; ошибка или пустой результат одного этапа не останавливает pipeline, если остальных входных данных достаточно для продолжения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 + §3 F-матрица",
+          "observation": "Единый pipeline сохранён (правки только внутри существующего маршрута service/orchestrator/planner/renderer/aggregator); все исходы Retrieval обрабатываются в существующем аналитическом маршруте: все провайдеры вниз (F1), частичные (F2/F5), пустая выдача (F3), нерелевантная (F4); ошибка/пустой результат этапа не останавливает pipeline.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #2/#4/#6)",
+          "observation": "Новых параллельных вердиктов/блокирующих стадий нет; новые reason-коды реестра не вводились; исходы Retrieval различаются машинно.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (stage-события прогона)",
+          "observation": "Живой прогон: origin_date_resolve → claim_decompose → temporal_search outcome=skipped → evidence_validate skipped → verdict — pipeline продолжен после пустого поиска на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00099",
@@ -1131,8 +1571,25 @@
       "acceptance": "Режим с внешними доказательствами сохраняется и не переписывается без подтверждённых дефектов: анализ найденных доказательств, проверка соответствия источников утверждению, различение подтверждения/опровержения/недостаточности данных, URL не считается доказательством сам по себе, ссылки и provenance сохраняются, учитывается актуальность источников, формируется обычный полноценный фактчек.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #3)",
+          "observation": "§2.2 не тронут: при наличии evidence flow байт-идентичен базе (те же аргументы analyst-вызова, тот же allowed_refs, payload байт-идентичен, validator не менялся); изменения renderer/verbalizer для with-evidence прямо предписаны §7.3/§7.4.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §3 (F2/F5/F6) + §7",
+          "observation": "F2 — найденные доказательства используются; F6 — отсутствие подтверждений ≠ технический сбой; F5 — частичные сохраняются; URL/provenance-границы не менялись (attribution/egress-сьюты зелёные).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1251,8 +1708,25 @@
       "acceptance": "При частичных доказательствах проверка продолжается по имеющимся материалам: уже найденные доказательства не выбрасываются из-за ошибки следующего провайдера, результат всей проверки не понижается автоматически до технической ошибки; разграничиваются утверждения, которые удалось проверить, оценить только косвенно и которые остались неподтверждёнными; при достаточности материалов вывод делается, при недостаточности — объясняется содержательная граница вывода, а не сообщение о сломанном инструменте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §3 F-матрица (F5, F2)",
+          "observation": "F5: test_partial_evidence_kept_on_next_failure — уже найденные доказательства не выбрасываются при ошибке следующего запроса (planner continue + blocks); F2 — результат проверки не понижается автоматически до технической ошибки.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4)",
+          "observation": "Частичные доказательства сохраняются при сбое следующего запроса — подтверждено независимо (F5 PASS).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        }
+      ]
     },
     {
       "source_id": "L00139",
@@ -1311,8 +1785,33 @@
       "acceptance": "Главное новое требование — режим без внешнего поиска: существующий аналитический компонент получает проверяемое утверждение, релевантный контекст, доступную историю обсуждения, уже установленные факты, сведения о неудавшемся поиске, разрешение самостоятельного логического и технического анализа и явное разграничение проверенных данных/знаний модели/предположений; безусловная зависимость полноценного анализа от evidence в check_claim_envelope (ветка «if not evidence → factual_verdict: insufficient_evidence») устранена; модель не получает системной команды считать содержательный анализ невозможным из-за пустого evidence; сохраняется честная неопределённость относительно сведений, которые нельзя проверить самостоятельно; используются существующие схемы verdict, uncertainty и provenance без нового параллельного набора вердиктов, если достаточна корректировка действующего контракта; противоположная ошибка (LLM без доказательств объявляет произвольный факт подтверждённым) не допускается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §1/§2.4",
+          "observation": "Безусловная зависимость от evidence устранена (ветка удалена); analyst получает <analysis_context>: статус поиска по таксономии §5, разрешение логической/математической/технической проверки и внутренней согласованности, запрет выдуманных источников/характеристик, рамка происхождения вывода (uncertainty.basis, существующая схема); правило (1) TEMPORAL_ANALYST_SYSTEM переформулировано — системная команда «нет результатов → insufficient» снята; allowed_refs=set() и guard unbacked_positive закрывают противоположную ошибку; существующие схемы verdict/uncertainty/provenance, новые enum не вводились.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #1/#2)",
+          "observation": "Ревьюер: analyst вызывается всегда; invented ev-N отбрасываются (probe: ev-99/ev-77 отфильтрованы); supported без basis → insufficient+маркер; FACTUAL_VERDICTS/TEMPORAL_STATUSES/REASON_CODES без диффа.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run1 payload/вердикт)",
+          "observation": "<analysis_context> в payload живого прогона; honest basis (reasoning: арифметика календаря); сервер не понизил содержательный verdict — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00155",
@@ -1431,8 +1930,33 @@
       "acceptance": "Без поиска допускаются: логическая проверка (следует ли вывод из предпосылок), математическая проверка (числа, формулы, соотношения, арифметика, размерности), техническое рассуждение по известным принципам, проверка внутренней согласованности, условный вывод (при каких условиях утверждение истинно), оценка правдоподобия с явным отделением от подтверждения, проверка по доступным локальным материалам (история, файлы, проверенные документы), выявление конкретной нехватки сведений. Не допускаются: придуманные измерения, выдуманные технические характеристики неизвестных устройств, придуманные публикации производителей, заявления «только что проверено» без поиска, уверенность LLM как достаточное доказательство, выдача устаревших знаний за актуальные спецификации, превращение правдоподобия в документально подтверждённый факт.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (analysis_context) + §3 (F7/F8/F9/F11/F13/F22)",
+          "observation": "Допускаемые без поиска виды проверены офлайн: логическая (F8), математическая (F7/F12), техническое рассуждение по принципам (F9), локальные материалы пользователя (F11), конкретная нехватка сведений (F13); analysis_context запрещает придуманные измерения/характеристики/публикации, «только что проверено», уверенность LLM как доказательство (guard unbacked_positive).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #1)",
+          "observation": "Frame analysis_context с запретом выдуманных источников/характеристик; probe ревьюера: supported без basis → insufficient_evidence+unbacked_positive.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run1)",
+          "observation": "Живой пример математической проверки без поиска (2026 mod 4 → 365 дней), 0 выдуманных источников/URL — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00209",
@@ -1551,8 +2075,33 @@
       "acceptance": "Различаются как минимум три степени достоверности через существующую структуру данных с дополнением о происхождении вывода (новые enum-значения не обязательны): «Проверено» (доказательства или непосредственно воспроизводимый расчёт дают определённый вывод в рамках установленных условий), «Аргументированно оценено» (объяснение вероятной ситуации или технического принципа без подтверждения конкретного внешнего факта), «Не установлено» (сведений недостаточно даже для полезного предметного вывода); внешняя характеристика продукта не помечается подтверждённой только потому, что модель вспомнила похожую цифру; правильно выполненный математический расчёт на явно заданных входных данных не понижается искусственно до неопределённости из-за отсутствия интернета.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (basis/guard) + §3 (F7/F12/F13)",
+          "observation": "Три степени достоверности через существующие структуры + origin: «Проверено» — расчёт/доказательства (F7 стоит), «Аргументированно оценено» — reasoning/принцип с basis, «Не установлено» — честный insufficient (F13); guard: положительный вердикт без evidence и без basis → insufficient (test_unbacked_positive_downgraded); расчёт по заданным числам с basis не понижается (F7/F12 guard-тесты).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #2)",
+          "observation": "basis/unbacked_positive — ключи свободного dict uncertainty, новые enum-значения не вводились; probe понижения/непонижения подтверждён.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run1 вердикт/retrieval_state)",
+          "observation": "Живое: «Проверено»-расчёт с basis стоит (refuted, calendar-math), граница выдачи — честный retrieval_state; вердикт не объявлен неопределённым из-за отсутствия интернета — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00239",
@@ -1581,8 +2130,33 @@
       "acceptance": "Production-сценарий «там 96 линий» обрабатывается общей логикой без специального сценария под число 96: определить, к какому сообщению относится команда Fact-check, о каких линиях/устройстве/архитектуре речь и достаточно ли окружающего контекста, не относится ли число к другому техническому параметру; при установленном предмете (например PCIe) — содержательный разбор: что такое количество линий, разграничение линий CPU/чипсета/устройств, конфигурация интерфейсов, арифметические несоответствия, каких характеристик не хватает для подтверждения числа; не утверждать PCIe, пока предмет не установлен по фактическому контексту; уточняющий вопрос допустим только если после исследования истории объект не определён, и не задаётся при достаточном контексте; при неподтверждаемом числе назвать именно это ограничение; та же логика работает в математике, истории, программировании, экономике, науке и других областях.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #6)",
+          "observation": "Дифф-инспекция: словарей синонимов по предметным областям и доменных хардкодов (PCIe/LPDDR/«96»/конкретные устройства) НЕ введено — сценарий «там 96 линий» обрабатывается общей логикой.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §7 + §3 (F10/F11)",
+          "observation": "Хардкодов под «96 линий»/PCIe/LPDDR/домены нет; контекст беседы/история доходят до analyst (F11) — определение предмета и достаточности контекста решается содержательно; запрет утверждать недоказанное — allowlist refs (F10).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run1/run2)",
+          "observation": "Общая логика на реальном LLM: содержательный разбор утверждения по формулировке и контексту без спец-сценария; уточняющий вопрос не потребовался — контекст достаточен — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00257",
@@ -1761,8 +2335,25 @@
       "acceptance": "Неблокирующие проверки по роли: этапы повышения качества, поиска дополнительных данных, ранжирования источников, обогащения контекста, проверки релевантности, дополнительной валидации вывода, получения даты публикации, уточнения атрибуции при неудаче не останавливают весь Fact-check, если оставшихся данных достаточно для полезного и допустимого ответа; неуспех вспомогательного этапа фиксируется в диагностике и учитывается в содержательном выводе.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §3 (F20/F21/F22/F23) + §2 (§5.3)",
+          "observation": "TestNonBlockingDegradation + rework1 suite: сбой вспомогательного этапа не останавливает Fact-check и не уничтожает результат/доказательства; неуспех фиксируется в диагностике (cause= в query-failed логах, mca-события с empty/irrelevant счётчиками).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4)",
+          "observation": "Обязательные контракты зелёные, новых блокирующих стадий нет — удалена одна (серверный отказ при пустом evidence).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        }
+      ]
     },
     {
       "source_id": "L00309",
@@ -1896,8 +2487,25 @@
       "acceptance": "Обязательные технические контракты сохранены и не отключаются: корректность целевого сообщения, авторизация и права доступа, изоляция данных разных чатов, безопасность запросов и инструментов, защита приватных данных, проверка достоверности ссылок, выдаваемых как источники, разграничение доказательств и неподтверждённых утверждений, валидность данных на границе инструментов, защита от повторной отправки, корректная обработка необратимых ошибок; небезопасные данные не используются ради красивого ответа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4)",
+          "observation": "Обязательные технические контракты §4.2 не менялись — auth/изоляция/egress/attribution-сьюты зелёные; разграничение доказательств и неподтверждённых утверждений сохранено (allowlist + downgrade guard).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §7 + §3 (F24)",
+          "observation": "Авторизация/изоляция чатов/безопасность запросов/приватность/проверка ссылок/защита от повторной отправки не изменялись (gate/suitability/attribution/egress зелёные); F24 — обязательные защитные проверки не обходятся.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "L00326",
@@ -2061,8 +2669,33 @@
       "acceptance": "Существующие fallback-механизмы сохраняются: при недоступности одного источника используются другие, при отсутствии всех внешних источников выполняется доступный содержательный анализ, при неудаче второстепенного валидатора корректно построенный результат не уничтожается; удаляется/исправляется только участок, превращающий неудачу необязательного инструмента в обязательный отказ всего pipeline; отказ поиска не заменяется ещё одной обязательной проверкой, которая сможет остановить выполнение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4)",
+          "observation": "Fallback'и сохранены (каскад Tavily→Exa→DDG, fallback-промпт LLM, детерминированный текст вербализатора, plain-renderer, доставка); удалён только участок «неудача необязательного инструмента = обязательный отказ» (ветка пустого evidence); новой обязательной останавливающей проверки не добавлено.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §7 + §3 (F5/F20/F21)",
+          "observation": "Перечень сохранённых fallback; отказ источника/валидатора не уничтожает построенный результат (F5/F20/F21).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (инциденты стенда, прогон A)",
+          "observation": "Живое подтверждение fallback-контура: прогон A с недоступным LLM-ключом — честный fallback (temporal_fallback_mode, insufficient), доставка жива, прод 2.58.139 не затронут.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00355",
@@ -2076,8 +2709,33 @@
       "acceptance": "Никакой новой цепочки обязательных проверяющих LLM: не создаётся агент проверки доступности поиска, обязательный повторный анализ после каждого отказа, новый независимый Fact-check, отдельный универсальный контрольный LLM-вызов; используются действующие Analyst, Validator, Verbalizer и их fallback; если существующий вызов аналитика может работать с пустым внешним evidence — он используется, а не запускается второй анализатор.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §1/§2.4 + §7",
+          "observation": "Используется СУЩЕСТВУЮЩИЙ analyst-вызов (_temporal_verdict_json, step temporal_verdict) — второго аналитика нет (§4.4); агент доступности поиска, обязательный повторный анализ, второй Fact-check, отдельный контрольный LLM-вызов не создавались.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "065fa22f1ec39da50488a578e4d10b33656a6a64",
+          "type": "test",
+          "ref": "w2.md §1 (test_no_extra_llm_call_added)",
+          "observation": "Профиль шагов [temporal_verdict, temporal_validator, temporal_verbalize] не изменился; директива §8 добавлена в существующий system-промпт, новый слой/вызов не создан.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w2.md",
+          "artifact_sha256": "88c5ddb77d8a4f65dadf00a12343c1dc718b67544b712c20b9db74d5cf431f90"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (LLM-шаги прогона)",
+          "observation": "Живые LLM-шаги прогона [temporal_verdict, temporal_verbalize], validator fail-open на пустом evidence — новых обязательных проверяющих вызовов нет — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00375",
@@ -2151,8 +2809,33 @@
       "acceptance": "В services/search_aggregator.py, services/factcheck_planner.py, services/factcheck_service.py::classify_retrieval и services/factcheck_orchestrator.py корректно различаются технические причины: недоступность провайдера, timeout, ошибка API, пустая выдача, нерелевантная выдача, ошибка обработки источника, отсутствие подтверждений в доступных материалах, частичная успешная выдача; «поисковики недоступны» не объявляется, если провайдеры отвечали, но результаты не прошли relevance-фильтр; «данных нет» не объявляется, если поиск вообще не состоялся; существующий каскад Tavily → Exa → DuckDuckGo сохранён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§5) + §3 (TestAggregatorFailureTaxonomy)",
+          "observation": "Машинные причины: AllSearchEnginesFailedException.reason (provider_error|timeout|empty_results|irrelevant_results|budget), level_failure_reason, _most_informative_reason (irrelevant>empty>timeout>provider_error); planner: пустая выдача → empty_results (не provider_failures), причина в логе; classify_retrieval: RETRIEVAL_NO_RESULTS («no_usable_results») vs search_failed (только чистая недоступность); каскад Tavily→Exa→DDG сохранён.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #6)",
+          "observation": "Таксономия подтверждена независимо: отвечившие уровни с пустой/нерелевантной выдачей не затираются недоступным уровнем; тексты исключений не менялись.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (retrieval_state)",
+          "observation": "Живой прогон: retrieval_state «поиск ответил, но подходящих для проверки материалов не дал» (no_usable_results), НЕ «поисковики недоступны» — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00386",
@@ -2286,8 +2969,33 @@
       "acceptance": "Relevance-фильтр проверен на реальную частоту ложных отрицаний из-за лексического совпадения терминов (содержательно подходящие документы с другой терминологией); пригодные результаты доходят до аналитического этапа; запрещены расширение словарей синонимов по отдельным предметным областям и специализированные хардкоды (PCIe, LPDDR, конкретные устройства); отсутствие результатов поиска не прекращает работу аналитического этапа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§5.2) + §6 incidental #4",
+          "observation": "Генератор ложных отрицаний найден и устранён (требование обоих стемов для 2-терминного запроса отбрасывало документ целиком → floor=1 при len(seen)==2; ≥3 терминов — прежний floor=2; ≥20% порог сохранён); отсутствие результатов не прекращает аналитический этап (F1/F3); офлайн-замер реальной частоты ложных отрицаний на живой выдаче невозможен — честно помечено LIVE_UNVERIFIED.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #6)",
+          "observation": "Floor=1 только для 2 терминов; мусор фильтр по-прежнему не пускает (грубый лексический, окончательная оценка за аналитиком); доменных хардкодов/словарей синонимов нет; LIVE_UNVERIFIED-маркер сохранён честным.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (метод пробы) + отчёт §12 п.9",
+          "observation": "Живая проба 2.58.139 использовала staged empty search (0 внешних поисковых вызовов) — реальную частоту ложных отрицаний на живой выдаче не измеряет; остаётся наблюдение органичных прод-прогонов с реальным поиском (не блокер релиза: отчёт §12 п.9, стоящее правило пет-проекта).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00415",
@@ -2301,8 +3009,33 @@
       "acceptance": "Диагностика: реальные причины неудачных запросов сохраняются в технических логах; человекочитаемый ответ содержит только те технические подробности, которые помогают понять ограничения вывода; сообщение Fact-check не превращается в отчёт о работе инфраструктуры.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§5.3, situation-словари)",
+          "observation": "Реальные причины сохраняются в техлогах (cause= в query-failed); logger-дайджест и mca-событие дополнены empty/irrelevant счётчиками; человекочитаемый ответ — situation как состояние ПОИСКА (не «проверка не завершена»), одна честная оговорка в uncertainty.retrieval_state.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #6/#7)",
+          "observation": "Словари situation/caveat дополнены без новых reason-кодов реестра; ответ не превращается в отчёт об инфраструктуре (dedup §7.3).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (наблюдаемое поведение)",
+          "observation": "Живой ответ содержит одну честную оговорку retrieval_state, не инфраструктурный отчёт — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00435",
@@ -2421,8 +3154,41 @@
       "acceptance": "Кеширование конечных результатов Fact-check полностью удалено во всех действующих маршрутах (решение владельца: кеш готовых вердиктов больше не требуется, каждое обращение выполняет актуальную проверку; старый ответ не возвращается потому, что такое же утверждение проверялось ранее): handlers/factcheck.py — legacy cache.get(cache_key)/cache.set(cache_key, verdict), temporal cache read/write, раннее завершение Fact-check при cache hit; services/factcheck_orchestrator.py — _run_envelope_branch() с temporal cache, _run_legacy_branch() с кешем обычного вердикта, запись через cache.set(...) для legacy, логика возврата ранее готового CheckedVerdict; services/temporal_factcheck.py — build_temporal_cache_key, temporal_cache_key_with_bucket, read_temporal_cache, write_temporal_cache и связанные TTL/bucket, если используются только для кеширования конечных вердиктов; services/mca_gates.py — temporal_factcheck_cache_enabled, соответствующий feature gate и устаревшие настройки; остальные фактические вызовы проверены — не осталось второго скрытого read/write-пути готовых вердиктов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §1 (таблица кеш-мест) + §6 + §3 (F17)",
+          "observation": "Все места кеширования удалены: handlers (temporal read/write + ранний return + cache-hit run record; legacy cache.get/cache.set + ранний return), orchestrator (envelope read/write + cached CheckedVerdict; legacy cache.get; write_legacy_cache/_v2_cache_input), temporal_factcheck (cache_components/build_key/freshness_*/read/write); финальный grep — 0 read/write-путей в services/handlers/web/bot.py; тесты test_cache_machinery_gone, legacy/envelope.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #5)",
+          "observation": "Кеш удалён полностью: grep-аудит кандидата — build_key(\"factcheck\" = 0, cached в фактчек-файлах = 0, cache_hit=True в проде только postgen_vision (идемпотентность другой подсистемы).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "065fa22f1ec39da50488a578e4d10b33656a6a64",
+          "type": "test",
+          "ref": "w2.md §2 (§6.3 deferred cleanup)",
+          "observation": "Хвост после ревью W1: инертный гейт temporal_factcheck_cache_enabled удалён (KILL_SWITCHES 85→84), env ClassVar удалён, мёртвые TTL-настройки (Settings+ParamSpec) удалены, slug factcheck_temporal снят; нового механизма кеша под другим именем НЕ создано.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w2.md",
+          "artifact_sha256": "88c5ddb77d8a4f65dadf00a12343c1dc718b67544b712c20b9db74d5cf431f90"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (no_cache_hit_anywhere)",
+          "observation": "Живой повтор идентичного тезиса: новый полный прогон, cache_hit=0 в обеих run-записях, инертных чтений кеша нет — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00449",
@@ -2661,8 +3427,25 @@
       "acceptance": "Границы удаления: удаляется только кеш конечных результатов проверки и механизм выдачи старого ответа вместо новой проверки; автоматически не удаляются общий SmartCache других модулей, исторические записи о выполненных проверках, журналы диагностики, доказательства прежних проверок как архивные данные, механизм идемпотентности одного запуска, защита от одновременной повторной отправки, кеши других подсистем, безопасные временные данные одного текущего выполнения; временное повторное использование результата внутри одного запуска допустимо, если не приводит к выдаче устаревшего вердикта при следующем пользовательском запросе; исторические записи production-базы не удаляются без отдельной необходимости.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #5)",
+          "observation": "Границы сохранены: SmartCache suitability/context других подсистем (handlers:272,482), исторические record_temporal_run + миграция v33 + web/api/routes runs, журналы диагностики, already_delivered + кулдаун + однократная диспетчеризация aiogram, кеши других подсистем; production-БД не тронута.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §1 (границы §6.2) + §3 (F18)",
+          "observation": "F18 — исторические журналы/записи прошлых проверок доступны (record_temporal_run, миграция v33, web/runs-сьюты зелёные); временное переиспользование внутри одного запуска не выдаёт устаревший вердикт на следующем запросе (F14/F16).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "L00482",
@@ -2799,10 +3582,12 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "candidate_commit": "065fa22f1ec39da50488a578e4d10b33656a6a64",
           "type": "test+review",
           "ref": "plans/features/p0-factcheck-post-release/evidence/w2.md (§FC-08/§6.3; full suite skipped per owner 28.10, targeted sets green)",
-          "observation": "FC-08 verbatim directive (byte-identity to source anchor, exactly-once both paths); §6.3 cleanup: gate/env/TTL/slug removed, registry --check OK, safe stored-value handling"
+          "observation": "FC-08 verbatim directive (byte-identity to source anchor, exactly-once both paths); §6.3 cleanup: gate/env/TTL/slug removed, registry --check OK, safe stored-value handling",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w2.md",
+          "artifact_sha256": "88c5ddb77d8a4f65dadf00a12343c1dc718b67544b712c20b9db74d5cf431f90"
         }
       ]
     },
@@ -2818,8 +3603,33 @@
       "acceptance": "Приёмка кеша: повторный Fact-check одного утверждения запускает новый анализ (актуальный retrieval при доступных внешних источниках, доступный содержательный анализ при недоступных); при появлении новых доказательств последующий запрос может изменить прежний вывод; никакие старые технические ошибки и verdict-cache-hit не подменяют новую проверку; дублирование сообщений из-за повторной обработки одного и того же Telegram update не допускается.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §3 F-матрица (F14/F16/F17/F19)",
+          "observation": "F14: повтор идентичного тезиса запускает новую проверку (TestF3RepeatFreshRun, test_repeat_claim_runs_fresh, smart_cache fresh-check — service+handler); F16: старая техническая ошибка не отдаётся после восстановления; F17: verdict-cache-hit не подменяет новую проверку; F19: повтор Telegram update не дублирует отправку (test_single_delivery_per_run; already_delivered/кулдаун/однократная диспетчеризация aiogram не менялись).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4/#5)",
+          "observation": "Fresh-run механика и границы доставки подтверждены независимо.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run2 + FakeBot)",
+          "observation": "Живой повтор: новый полный прогон (новый run_id, перефразированный ответ, cache_hit=0); FakeBot 1 прогон = 1 отправка — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00527",
@@ -2893,8 +3703,33 @@
       "acceptance": "В factcheck_service._temporal_verbalize, factcheck_prompts.py, factcheck_orchestrator.build_presentation и factcheck_renderer._serialize: вербализатор передаёт содержательный результат анализа (проверенный расчёт, объяснение технической ошибки, аргументированную оценку) и не создаёт новые фактические доказательства; сохранены Personality Core, Expression, FREQUENT, разговорный характер, сарказм и юмор, свобода длины и композиции в рамках выбранных настроек; сухой бюрократический отчёт не требуется.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§7) + §3 (F28/F29 structural)",
+          "observation": "Содержательный результат проходит целиком (принудительная композиция renderer удалена, body passthrough); новые фактические доказательства вербализатором не создаются («Источники:» только EvidenceMap текущего прогона); Personality Core/Expression/FREQUENT-шов speech_owner_block не тронут (verbalize-шов тесты p0_fc/w7 зелёные).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #7)",
+          "observation": "Вербализация подтверждена: passthrough, шов FREQUENT/Core не тронут, обязательной композиции нет.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run1/run2 ответы)",
+          "observation": "Живой содержательный разговорный ответ (заголовок «Не подтверждается», разбор, разговорная метафора в run2); новые факты не сочинены (0 URL/ev-N) — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00542",
@@ -2998,8 +3833,25 @@
       "acceptance": "Когда данных действительно недостаточно: вербализатор не компенсирует отсутствие содержания длинными шутками о неработающих инструментах и не генерирует абзацы ради абзацев; обозначается фактическое ограничение и, при необходимости, какой информации не хватает; запрещено вводить универсальное правило, ограничивающее длину всех ответов без поиска; отсутствие поиска и отсутствие содержательного анализа различаются как разные ситуации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (limit_note) + §3 (F26)",
+          "observation": "При отсутствии содержательного анализа — короткий limit_note (честная граница) вместо абзацев-компенсаций; универсального правила длины НЕТ (условие not _verdict_is_substantive; содержательный ответ передаётся целиком); отсутствие поиска и отсутствие содержательного анализа различаются (retrieval_state vs отсутствие content); F26 test_no_analysis_short_limit_note.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #7)",
+          "observation": "Пустой анализ → короткий limit_note без универсального правила длины — подтверждено.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        }
+      ]
     },
     {
       "source_id": "L00563",
@@ -3013,8 +3865,25 @@
       "acceptance": "Renderer не дублирует технические сведения: не сообщает второй раз то же ограничение, которое уже корректно выражено в основном ответе; нет заголовка, абзаца и отдельной концовки с тремя одинаковыми сообщениями о сбое; форма сообщения определяется структурированными полями результата.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§7.3) + §3 (F27)",
+          "observation": "Renderer не добавляет _TECHNICAL_NOTICE при техническом заголовке (заголовок+абзац+концовка = 3 одинаковых сообщения — снято); F27 test_renderer_no_duplicate_technical_notice + p0_fc budget-тесты.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #7)",
+          "observation": "Dedup подтверждён независимо.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        }
+      ]
     },
     {
       "source_id": "L00571",
@@ -3028,8 +3897,25 @@
       "acceptance": "Обязательная композиция не задаётся: нет требований всегда начинать с вердикта, всегда отвечать списком, всегда писать 2–4 пункта, всегда шутить, всегда заканчивать оговоркой, всегда извиняться за недоступность поиска; структура определяется фактической задачей и объёмом содержательного анализа; безопасная разметка Telegram и привязка реальных источников к проверяемым утверждениям сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§7.4) + §3 (F29)",
+          "observation": "Принудительная композиция удалена (детерминированный список 2–4 пунктов, _points/_sentences) — тело вербализатора проходит как есть; безопасная разметка Telegram и экранирование без изменений; привязка реальных источников сохранена («Источники:» только EvidenceMap текущего прогона).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #7)",
+          "observation": "Обязательной композиции нет (всегда-правила сняты), разметка/источники сохранены.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        }
+      ]
     },
     {
       "source_id": "L00575",
@@ -3136,10 +4022,20 @@
       "status": "VERIFIED",
       "evidence": [
         {
-          "candidate_commit": "6ddc5351bc7457013c6943b876eda5bd4c850e3c",
+          "candidate_commit": "065fa22f1ec39da50488a578e4d10b33656a6a64",
           "type": "test+review",
           "ref": "plans/features/p0-factcheck-post-release/evidence/w2.md (§FC-08/§6.3; full suite skipped per owner 28.10, targeted sets green)",
-          "observation": "FC-08 verbatim directive (byte-identity to source anchor, exactly-once both paths); §6.3 cleanup: gate/env/TTL/slug removed, registry --check OK, safe stored-value handling"
+          "observation": "FC-08 verbatim directive (byte-identity to source anchor, exactly-once both paths); §6.3 cleanup: gate/env/TTL/slug removed, registry --check OK, safe stored-value handling",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w2.md",
+          "artifact_sha256": "88c5ddb77d8a4f65dadf00a12343c1dc718b67544b712c20b9db74d5cf431f90"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/live-258139.md (run1_directive_once)",
+          "observation": "На deployed 2.58.139: директива ровно 1× в analyst system (байт-сравнение с deployed tf.ANALYST_DIRECTIVE), 0 в verbalizer; реальный LLM 200",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
         }
       ]
     },
@@ -3230,8 +4126,25 @@
       "acceptance": "Используется существующая архитектура: FactCheckService, FactcheckOrchestrator, существующие Analyst, Verbalizer, SearchAggregator, FactcheckPlanner, Temporal Fact-check, Provenance, существующие Error Handling, Renderer, ToolRouter; новые независимые системы не создаются.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md §0 (скоуп диффа) + guard #2/#3",
+          "observation": "Изменения только внутри существующих модулей factcheck-контура (service/orchestrator/planner/renderer/aggregator/temporal/handlers); enum-наборы и схемы без диффа; новых независимых систем не создано.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §7 (контракты/границы)",
+          "observation": "Новых enum/схем нет; Personality Core не тронут; используются существующие FactCheckService/Orchestrator/Analyst/Verbalizer/SearchAggregator/Planner/Temporal/Provenance/Renderer; run_factcheck(..., cache=) сохранён (suitability/context).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "L00694",
@@ -3410,8 +4323,25 @@
       "acceptance": "Не повторяется проблема с Summary: не внедряются многочисленные обязательные проверки, каждая из которых может остановить весь процесс; для каждого этапа определено, необходим ли он для безопасности и корректности контракта или лишь повышает достоверность и качество (второй тип получает неблокирующую деградацию); реальные ошибки не скрываются — регистрируются в диагностике и отражаются в результате, когда это существенно; pipeline не прерывается только потому, что качество одного источника или инструмента оказалось ниже ожидаемого.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4)",
+          "observation": "Новых блокирующих стадий нет — удалена одна; реальные ошибки не скрываются (fallback-режим виден через fallback_used/trace).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (§5.3) + §3 (F20/F21/F2/F4/F5)",
+          "observation": "Этапы различены: обязательные (безопасность/корректность) сохранены, повышающие качество — неблокирующая деградация (F20/F21, validator fail-open); реальные причины фиксируются в диагностике и отражаются в содержательном выводе (retrieval_state); pipeline не прерывается из-за качества одного источника (F2/F4/F5).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        }
+      ]
     },
     {
       "source_id": "L00714",
@@ -3455,8 +4385,33 @@
       "acceptance": "Отсутствие поиска не превращается в универсальное доказательство: доработка сохраняет способность рассуждать, но не позволяет LLM подтверждать любую непроверённую новость на основании собственных предположений; существующий запрет выдуманных ссылок и доказательств сохранён; обеспечивается различие между самостоятельно проверяемой логикой, установленными доказательствами, вероятностной оценкой и неизвестными фактами.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §2 (guard/allowlist) + §3 (F10/F24)",
+          "observation": "Guard _downgrade_unbacked_positive: положительный вердикт (top+parts) без внешнего evidence и без basis → честный insufficient + unbacked_positive («вспомнил цифру → подтверждено» не проходит); запрет выдуманных ссылок усилен (allowed_refs=set() при пустом evidence; allowlist EvidenceMap текущего прогона); различение logic/evidence/probability/unknown через uncertainty.basis.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #1)",
+          "observation": "Независимый probe: invented ev-99/ev-77 отфильтрованы; supported без basis → insufficient+маркер; supported с basis «расчёт» стоит.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (run1_no_invented_sources)",
+          "observation": "Живой прогон: 0 URL, 0 ev-N, честный basis расчёта — отсутствие поиска не стало универсальным доказательством — на deployed 2.58.139.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00733",
@@ -3530,8 +4485,33 @@
       "acceptance": "Полезные fallback не удаляются: удаление verdict cache и исправление блокирующих проверок не означает удаления механизмов восстановления после ошибок; сохранены штатные fallback провайдеров, LLM, транспорта, форматирования и доставки; они не заменяются жёстким отказом от выполнения.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "review",
+          "ref": "review-w1.md Approved (guard #4)",
+          "observation": "Полезные fallback не удалены: каскад провайдеров, LLM fallback-промпт, детерминированный текст вербализатора, plain-деградация renderer, доставка send_chunked_reply сохранены; удаление кеша их не затронуло.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/review-w1.md",
+          "artifact_sha256": "7ca02b839e6c144aebbe5cf45b2b2ae0d764e3140f25dd91ed52e3ba292326f2"
+        },
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "w1.md §7 + §3 (F20/F21)",
+          "observation": "Перечень сохранённых fallback; восстановление после ошибок вспомогательных этапов живо (F20/F21).",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "live-258139.md (инциденты стенда, прогон A)",
+          "observation": "Живое fallback-поведение: прогон A при LLM-down — честный insufficient_evidence, доставка жива, прод не затронут.",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/live-258139.md",
+          "artifact_sha256": "75dd260bd5702fd6b785f0185829b6c396fc5236eeec6cb436ed0284ad348717"
+        }
+      ]
     },
     {
       "source_id": "L00746",
@@ -3545,8 +4525,24 @@
       "acceptance": "Порядок выполнения (10 шагов) соблюдён: 1) сверка актуальной очереди и существующих требований; 2) регистрация только отсутствующих пунктов; 3) без прерывания текущих заданий; 4) после наступления очереди — подтверждение технических причин; 5) исправление существующих маршрутов; 6) удаление кеша конечных вердиктов; 7) регрессионные проверки; 8) независимое ревью; 9) штатный production deployment; 10) проверка фактической версии и работоспособности. Без тестовых сообщений в рабочих Telegram-чатах; без дополнительных owner approval, если штатные полномочия уже позволяют выполнить работу; без задержки выполнения ради повторных проверок уже подтверждённых контрактов.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "98a4254f0eca9bbd19c95a43bc2b3cd69c082878",
+          "type": "test",
+          "ref": "plans/features/p0-factcheck-post-release/evidence/w1.md (§1 причины до правок, §2 правки, §4 регрессия) + review-w1.md Approved",
+          "observation": "Шаги 1–8 порядка: сверка очереди/регистрация (intake 71026ef1, без прерывания POST-ASAP5), подтверждение технических причин (w1 §1), исправление маршрутов + удаление кеша (w1 §2/§6), регрессия (w1 §4: diff сбоев с базой пуст), независимое ревью (review-w1 Approved 98a4254f)",
+          "artifact_path": "plans/features/p0-factcheck-post-release/evidence/w1.md",
+          "artifact_sha256": "2c57f7811489825dcd8e2b00eb725a168db850eecbc055bb25c64a27335b9aac"
+        },
+        {
+          "candidate_commit": "95e6c7c9f4b6bdf18c27af51079c2878f801f2ac",
+          "type": "live",
+          "ref": "plans/features/asap-speech-arch/release-258139/deploy.md + live-258139.md",
+          "observation": "Шаги 9–10: штатный production deployment 2.58.139 (deployed 95e6c7c9, deltaDDL=0, NRestarts 0) и проверка фактической версии/работоспособности (healthz 200/2.58.139, живая проба 8/8). Тестовых сообщений в рабочих Telegram-чатах не было (FakeBot-стенд); дополнительных owner-approval не запрашивалось (стоящее правило пет-проекта)",
+          "artifact_path": "plans/features/asap-speech-arch/release-258139/deploy.md"
+        }
+      ]
     },
     {
       "source_id": "L00748",
@@ -3849,5 +4845,5 @@
       "evidence": []
     }
   ],
-  "plan_note": "Pre-start inventory. Детальная декомпозиция при старте. Base: release/p0-2026-10-26 (2.58.136+); пересечение с POST-ASAP5 W2 (поиск-семантика в L1/tool-phase) и factcheck-media (2.58.131) — при старте сверить и не дублировать."
+  "plan_note": "Pre-start inventory. Детальная декомпозиция при старте. Base: release/p0-2026-10-26 (2.58.136+); пересечение с POST-ASAP5 W2 (поиск-семантика в L1/tool-phase) и factcheck-media (2.58.131) — при старте сверить и не дублировать. || BIND 28.10.2026 (lane PM-BIND-FCPOST-POSTDEPLOY): candidate_commit=98a4254f (W1, review Approved), deployed_commit=95e6c7c9 (2.58.139). Структурный класс deployed≠candidate: задеплоен релиз-бамп 95e6c7c9 (97800ad1 merge fcpost-w12 [W1 98a4254f + W2 065fa22f] + NOST-REWORK + релиз-упаковка), factcheck-изменения кандидатов включены в деплой (deploy.md, pins boot.json). F-матрица FC-F01..F30 VERIFIED (офлайн w1.md + review-w1.md Approved + живая проба live-258139.md 8/8 на deployed); FC-11 VERIFIED (отчёт final-report-p0-cycle §12, 10 пунктов); FC-105 VERIFIED (10 шагов порядка, deploy+probe). Исправлена канцелярская ошибка биндинга FC-08/FC-06C: candidate 6ddc5351 (чужой NOST-коммит) → истинный W2-кандидат 065fa22f. Секционные строки FC-00..FC-10D остаются PENDING — построчный биндинг отдельным проходом закрытия родителя."
 }

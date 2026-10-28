@@ -2,7 +2,12 @@
 
 **Лейн:** `EMBED-IDENTITY-GAPS` (writer).
 **Дата:** 2026-10-23.
-**Код-кандидат (релизная линия 2.58.113):** тесты/гейты — d62e9720, мета-проводка — ddf139a1; SHA изменились после черри-пика в поезд.
+**Код-кандидат:** `60789cffabf6ff741613a43dd2d81b5daf5b8351` (короткий `60789cff`),
+коммит этим лейном; evidence-коммит — отдельным `docs(embed)` поверх.
+`sha256(tests/test_embed_identity_compat.py)` =
+`839671ee2402c006f071db8fa606736bd58c9dffd21f927be7a7cad299503075`;
+`sha256(services/embedding_control_plane.py)` =
+`5660b3db325caabc8879786c8ebaef41739b1a575cb67df9b5e3b0bf34bacde3`.
 **Карта требований:** не менялась (владелец карты — PM); статусы `PENDING` снял бы PM после ревью.
 **ΔDDL = 0:** `services/database.py` не изменялся; новых таблиц/колонок/миграций нет.
 

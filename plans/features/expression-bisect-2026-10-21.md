@@ -5,7 +5,7 @@
 Код: HEAD `dad9afce` = прод 2.58.106 (healthz подтверждён `{"version":"2.58.106"}`).
 Модель/клиент: `deepseek-v4-flash` (та же строка, что в прод `.env`), base `apinet.cloud/v1`, temperature 0.7 (`CHAT_TEMPERATURE_BALANCED`, прод-дефолт balanced).
 Диагностируемый чат: `-1002661910336`, per-chat `character.expression = {profanity: frequent, wit: high, sharpness: sharp}` (rev.2 из диагностики 21.10).
-Сырые данные: `expression-bisect-2026-10-21-results/` (36 LLM-вызовов, бюджеты не превышены).
+Сырые данные: `plans/archive/features/expression-bisect-2026-10-21-results/` (36 LLM-вызовов, бюджеты не превышены).
 
 ## 1. Восстановление полного effective prompt (шаг 1–2)
 
@@ -66,7 +66,7 @@
 - n=4 на плечо; ключевые разрывы (24×0 против 4/4 и 2/4) велики, нюанс C-vs-H (теги/форматирование слоя) — индикативный, не доказательный.
 - Оба SSH-коннекта: recon+батч read-only (healthz, env-тумблеры без секретов; PG-часть вернула PGERR — в отчёте не использована).
 
-Тест-артефакты: PROVISIONAL (evidence-проба; дескриптор в шапке харнеса). Система-промпты плеч — `results/systems/system_*.txt`, сырые ответы — `results/bisect-results.json`.
+Тест-артефакты: PROVISIONAL (evidence-проба; дескриптор в шапке харнеса). Система-промпты плеч — `plans/archive/features/expression-bisect-2026-10-21-results/systems/system_*.txt`, сырые ответы — `plans/archive/features/expression-bisect-2026-10-21-results/bisect-results.json`.
 
 
 ---

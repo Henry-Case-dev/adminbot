@@ -1366,6 +1366,14 @@ class EmbeddingExecutor:
                 adapter = self.adapter_for(credential.base_url)
                 vectors = await self._call_with_segmentation(
                     adapter, credential, texts, stats)
+                # CANARY-03: фактическая модель генерации — тот credential,
+                # который реально обслужил батч (fallback-слот может быть
+                # настроен на другую модель, чем primary). Читает проба
+                # совместимости; R17: только модель/provider/alias, без ключа.
+                _LAST_EMBED_META.set({"model": credential.model,
+                                      "provider": credential.provider,
+                                      "alias": credential.alias,
+                                      "source": MODEL_SOURCE_REQUEST})
                 self._on_success(credential, len(texts))
                 return vectors
             except EmbeddingControlPlaneError:

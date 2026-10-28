@@ -1,0 +1,112 @@
+{
+ "factcheck.base.single|prompts.factcheck_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:3f2a1eadf772(factcheck-r1022)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "summary.base.single|prompts.summary_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:5f096fc613a3(summary-cfg07a)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "summary.cover.style|prompts.summary_cover_style": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:19d2dd88086e(cover-style-default)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "checkup.base.system|prompts.checkup_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:38d63d86b54d(checkup-cfg07a)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "direct.base.tool_phase|prompts.direct_chat_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:f30c6d73da82(direct-toolphase-w1)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "factcheck.base.verbalizer|prompts.factcheck_verbalizer_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:c090b6956c70(factcheck-verbalizer-w1)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "summary.base.narrator|prompts.summary_narrator_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:5086ba935081(summary-narrator-legfix)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "summary.base.l2_writer|prompts.summary_l2_writer_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:ba61f4325bfa(summary-l2-writer-asap41)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "direct.base.l2_writer|prompts.direct_chat_verbalizer_system_prompt": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:83ff62bbee40(l2-writer-clar-boundary)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "core.personality|character.core": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:2ab417d11404(asap-core-full-v3)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ },
+ "core.personality.compact|character.core": {
+  "source": null,
+  "revision": null,
+  "factory_revision": "fac:9e6a4ec8b1ea(asap-core-compact-v3)",
+  "chars": null,
+  "withheld": false,
+  "provenance_reason": null,
+  "diagnostics": null,
+  "lowercase_hits": 0
+ }
+}

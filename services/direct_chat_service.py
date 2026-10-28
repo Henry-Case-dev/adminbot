@@ -208,6 +208,8 @@ from services.negative_constraints import (
 )
 from services.prompt_style_blocks import (
     NO_META_CLOSING_TEXT,
+    HISTORY_COVERAGE_ASSEMBLY_BLOCK,
+    HISTORY_EXTRACTION_QUALITY_BLOCK,
     compose_verbalizer_system,
     resolve_prompt,
 )
@@ -217,8 +219,23 @@ from services.system2_handoff import (
     redact_secrets,
     stage2_payload,
 )
-from services.tool_loop import chat_with_tools, ToolLoopResult
-from services.tool_router import ToolContext
+from services.tool_loop import (
+    ToolLoopResult,
+    _chain_timeout_seconds,
+    chat_with_tools,
+)
+# ── P0-HA SEGMENTS (архконтракт §0/§2): захват/парсинг выборки — reuse ──────
+# существующих механизмов волны 2 (второй reader и новый движок запрещены).
+from services.tool_router import (
+    _HISTORY_HEADER_END,
+    _HISTORY_PAGE_ROWS,
+    _HISTORY_SAMPLE_END,
+    _HISTORY_TOOL_TIMEOUT,
+    ToolContext,
+    capture_history_sample,
+    extract_history_depth,
+    parse_history_sample,
+)
 from services.tool_schemas import active_tools
 from services.typing_manager import typing_active
 from services.user_relations import STAGE_RU
@@ -256,6 +273,332 @@ _turn_text_replied: contextvars.ContextVar[frozenset | set | None] = \
 
 # Раунд 9 (B4/T-819): маркер обрезания <user_relations> по кап-символам.
 _RELATIONS_CUT_MARKER = "…[обрезано]"
+
+# ── P0-HA SEGMENTS (архконтракт §2): накопление находок сегментов ───────────
+# Выборка > одного слота → детерминированная нарезка на сегменты целых
+# сообщений + один существующий вызов self.llm.generate на сегмент. НЕ новый
+# Summary Engine, НЕ отдельный агент, НЕ per-message LLM (§5/§6 директивы).
+_HISTORY_COVERAGE_HEADER = "@@HISTORY_COVERAGE v1"
+_HISTORY_COVERAGE_END = "@@END_COVERAGE"
+_HISTORY_SEG_BOUNDARY_LINES = 2       # перекрытие границы (контекст соседа)
+_HISTORY_SEGMENT_NOTE_MAX = 200       # техпредел производного поля note
+# Промпт машинного извлечения фактов из сегмента стенограммы — НЕ канон,
+# вне PG (прецедент _CHAT_RAG_RERANK_SYSTEM_PROMPT из summary_memory).
+# Без тем, без имён, без инструкций личности; вернуть JSON и ничего больше.
+# P0-HA QUALITY (волна 4b, wiring §12 ТЗ): в хвост аппенден ПОЛНЫЙ текст
+# HISTORY_EXTRACTION_QUALITY_BLOCK (типы материала выборки, атрибуция
+# пересылок, запрет придуманных количеств/дат/порядка). Расширение
+# инструкции: существующий текст не тронут байт-в-байт, блок не режется
+# (ADDENDUM #3 §2.10).
+_HISTORY_SEGMENT_SYSTEM_PROMPT = (
+    "Ты — извлекатель фактов из куска стенограммы чата. Дан сегмент строк "
+    "вида «[дата | имя | id]: текст» и строки контекста соседних сегментов "
+    "(теги <prev_context>/<next_context> — контекст НЕ анализируется, он "
+    "только показывает продолжение событий через границу). Верни СТРОГО "
+    "один JSON-объект и ничего кроме него: {\"events\":[{\"refs\":[\"tg:123"
+    "\"], \"continues\":0, \"note\":\"кратко\"}], \"status\":\"ok\"}. "
+    "refs — id сообщений сегмента, к которым относится описываемое событие; "
+    "строки одного события объединяй в один объект; note — одно короткое "
+    "предложение по-русски; continues=1 — только если событие начинается в "
+    "контексте предыдущего сегмента и продолжается в данном. Значимых "
+    "событий нет — верни {\"events\":[],\"status\":\"ok\"}. Никаких "
+    "пояснений."
+    "\n\n" + HISTORY_EXTRACTION_QUALITY_BLOCK
+)
+_HISTORY_SEGMENT_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+_HISTORY_REF_RE = re.compile(r"^(?:tg|msg|fact):\d+$")
+_HISTORY_LINE_ID_RE = re.compile(r"\]: ")
+
+
+def _ha_int(value, default: int = 0) -> int:
+    """Толерантный int для полей головы выборки (кривое поле → default)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _history_point(value: str) -> tuple[int, int] | None:
+    """«timestamp:id» → (ts, id); кривая точка → None."""
+    ts, _, mid = str(value or "").partition(":")
+    if not ts.isdigit() or not mid.isdigit():
+        return None
+    return int(ts), int(mid)
+
+
+def _history_body_lines(content: str) -> list[str]:
+    """Канонические строки тела страницы @@HISTORY_SAMPLE (между
+    @@END_HEADER и хвостовым сентинелом). Блока нет → [] (путь B/ошибка/
+    старый формат — сегментирование не активируется)."""
+    value = str(content or "")
+    start = value.find(_HISTORY_HEADER_END)
+    if start < 0:
+        return []
+    start += len(_HISTORY_HEADER_END)
+    end = value.rfind(_HISTORY_SAMPLE_END)
+    if end < start:
+        end = len(value)
+    chunk = value[start:end].strip("\n")
+    return chunk.splitlines() if chunk else []
+
+
+# ── P0-HA ISOLATION (архконтракт §3): изоляция количественного диапазона ────
+# Память вне выборки (RAG/GraphRAG/Golden Facts/Lore/Old_Episode/self-echo)
+# остаётся включённой, но НЕ подтверждает события внутри диапазона: она
+# подаётся только явно помеченным дополнением (баннер + piece P2). Без тем,
+# без имён, без чёрных списков; без выборки — байт-паритет прежнего хода.
+_HA_SUPPLEMENT_MAX_LINES = 6       # техпредел ЧИСЛА строк дополнения
+_HA_SUPPLEMENT_SNIPPET_MAX = 60    # техпредел сниппета «темы» одной строки
+_HA_SUPPLEMENT_BANNER = ("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ {sample_id}: не подтверждает "
+                         "события внутри запрошенного диапазона.")
+_HA_SUPPLEMENT_BANNER_PLAIN = ("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ: не подтверждает "
+                               "события внутри запрошенного диапазона.")
+# Явная граничная строка (блокер A review-w4-fix): закрывает регион
+# дополнения внутри <Global_Context> (композер OFF) и объявляет дословные
+# строки окна (внутри диапазона) — фраза «не подтверждает события» их не
+# накрывает. Префикс «фон: » — из allowlist служебных меток
+# canonical_context (не «голый текст»).
+_HA_INRANGE_TAIL_LABEL = ("фон: ниже — дословные сообщения "
+                          "запрошенного диапазона")
+
+
+def _ha_sample_id(history_sample) -> str:
+    """sample_id активной выборки ("", если выборки нет/кривая)."""
+    if not isinstance(history_sample, dict):
+        return ""
+    return str(history_sample.get("sample_id") or "")
+
+
+def _ha_supplement_banner(sample_id: str) -> str:
+    """Баннер дополнения (§3): постоянный текст без тем/имён."""
+    if sample_id:
+        return _HA_SUPPLEMENT_BANNER.format(sample_id=sample_id)
+    return _HA_SUPPLEMENT_BANNER_PLAIN
+
+
+def _ha_snippet(text, limit: int = _HA_SUPPLEMENT_SNIPPET_MAX) -> str:
+    """Однострочный сниппет «темы» для строки дополнения (без дословной
+    пачки сообщений). Переносы/лишние пробелы схлопываются."""
+    value = " ".join(str(text or "").split())
+    if len(value) <= limit:
+        return value
+    return value[:limit].rstrip() + "…"
+
+
+def _ha_fmt_ts(ts) -> str:
+    """«ДД.ММ.ГГГГ ЧЧ:ММ» для метки времени дополнения (кривое → "")."""
+    try:
+        return datetime.datetime.fromtimestamp(
+            int(ts or 0)).strftime("%d.%m.%Y %H:%M")
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ""
+
+
+def _ha_row_in_window(row, win: tuple) -> bool:
+    """Предикат членства строки в выборке (§0, timestamp + id): границы
+    [oldest..anchor] с точным tie-break по id — строки с ts == oldest_ts и
+    id < oldest_id сортируются ПОСЛЕ N-й строки (в выборку не входят),
+    ts == anchor_ts и id > anchor_id — новее якоря (не входят). Кривая
+    строка (не int) → False (fail closed)."""
+    a_ts, a_id, o_ts, o_id = win
+    try:
+        ts = int(row_get(row, "timestamp") or 0)
+        rid = int(row_get(row, "id") or 0)
+    except (TypeError, ValueError):
+        return False
+    if ts > a_ts or (ts == a_ts and rid > a_id):
+        return False
+    if ts < o_ts or (ts == o_ts and rid < o_id):
+        return False
+    return True
+
+
+def _ha_supplement_hit_line(cand, sample_id: str) -> str:
+    """Одна строка дополнения по вне-диапазонному хиту: время + тема,
+    пометка «вне выборки». Без дословных 180 сообщений (§3)."""
+    tg = _tg_id_of_ref(getattr(cand, "id", ""))
+    ref = f"tg:{tg}" if tg is not None else str(getattr(cand, "id", "?"))
+    when = _ha_fmt_ts(getattr(cand, "sent_at", 0))
+    when_part = f" ({when})" if when else ""
+    return (f"вне выборки {ref}{when_part}: {_ha_snippet(cand.preview)} — "
+            f"не подтверждает события внутри диапазона ({sample_id})")
+
+
+def _ha_supplement_hit_lines(result, *, sample_id: str,
+                             exclude_tg: set) -> list[str]:
+    """Строки дополнения из вне-диапазонного остатка retrieval (ТОЛЬКО
+    scope=time_range): кандидаты-сообщения, по одной строке на хит, кап
+    _HA_SUPPLEMENT_MAX_LINES. Это НЕ второй поиск по корпусу — остаток
+    того же единственного запроса хода."""
+    lines: list[str] = []
+    for cand in (getattr(result, "supplementary", None) or ()):
+        if len(lines) >= _HA_SUPPLEMENT_MAX_LINES:
+            break
+        if getattr(cand, "entity_type", "") != "message":
+            continue
+        tg = _tg_id_of_ref(getattr(cand, "id", ""))
+        if tg is not None and tg in exclude_tg:
+            continue
+        lines.append(_ha_supplement_hit_line(cand, sample_id))
+    return lines
+
+
+def _ha_outside_span_line(outside_rows: list, hit_tg) -> str:
+    """Одна строка о продолжении эпизода ЗА краем выборки (§3: тема и
+    время, пометка «вне выборки», без дословных сообщений)."""
+    count = len(outside_rows)
+    oldest = min(
+        outside_rows,
+        key=lambda r: (row_get(r, "timestamp") or 0, row_get(r, "id") or 0))
+    when = _ha_fmt_ts(row_get(oldest, "timestamp"))
+    when_part = f" (раньше {when})" if when else ""
+    return (f"вне выборки tg:{hit_tg}: эпизод продолжается раньше края "
+            f"выборки — ещё {count} сообщ.{when_part}")
+
+
+def _ha_supplement_piece(lines: list, sample_id: str) -> str:
+    """Кусок композера kind="history_supplement": баннер + строки
+    дополнения. Пусто → piece не создаётся (слот не занимает)."""
+    clean = [str(ln).strip() for ln in (lines or []) if str(ln).strip()]
+    if not clean:
+        return ""
+    body = "\n".join(escape_xml_text(ln) for ln in clean)
+    banner = _ha_supplement_banner(sample_id)
+    return f"<History_Supplement>\n{banner}\n{body}\n</History_Supplement>"
+
+
+def _ha_banner_in_block(block: str, sample_id: str) -> str:
+    """Баннер внутрь XML-блока памяти (первой строкой после открывающего
+    тега) — существующее содержимое не меняется, метки остаются."""
+    banner = _ha_supplement_banner(sample_id)
+    parts = str(block or "").split("\n", 1)
+    if len(parts) == 2 and parts[0].rstrip().endswith(">"):
+        return f"{parts[0]}\n{banner}\n{parts[1]}"
+    return f"{banner}\n{block}"
+
+
+def _ha_head_text(global_parts, history_sample) -> str:
+    """Текст piece'а global_head (head-конспект running/L2 — §8.2: конспект
+    НЕ эквивалент выборки). При активной выборке — баннер первой строкой
+    (§3: конспект — дополнение вне диапазона). Без выборки — байт-паритет."""
+    text = "\n".join(global_parts["head_lines"]) if global_parts else ""
+    if text and history_sample is not None:
+        text = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
+                f"\n{text}")
+    return text
+
+
+def _history_line_item_id(line: str) -> str:
+    """Детерминированный разбор id канонической строки «[ts | Имя | tg:123]:
+    текст» → 'tg:123' (последнее поле головы вида tg|msg|fact:<число>).
+    Разметки нет → '' (строка без id: учтётся размером, refs не даст)."""
+    value = str(line or "")
+    if not value.startswith("["):
+        return ""
+    match = _HISTORY_LINE_ID_RE.search(value)
+    if match is None:
+        return ""
+    head = value[1:match.start()]
+    for field in reversed(head.split("|")):
+        field = field.strip()
+        if _HISTORY_REF_RE.match(field):
+            return field
+    return ""
+
+
+# ── P0-HA QUALITY на ходе (блокер 1 review-w4): страховки §12–§13 ────────────
+# Детерминированные функции уже написаны в claim_envelope (волна 4b) — здесь
+# ТОЛЬКО их применение к находке сегмента до записи в покрытие. Сбой любой
+# страховки — честный флаг guard_error, не краш сегмента (H19-семантика).
+_HA_LINE_STAMP_RE = re.compile(
+    r"^\[(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?")
+# Срез придуманного числа: тот же класс фраз, что _COUNT_CLAIM_RE
+# (раз/сообщени/упоминан/материал/случа) — только у конкретного
+# нарушающего числа (детектор и срез согласованы).
+_HA_COUNT_STRIP_RE = (r"(?<!\w){n}\s*(?:раз[а-яё]*|сообщени[а-яё]*|"
+                      r"упоминан[а-яё]*|материал[а-яё]*|случа[а-яё]*)")
+
+
+def _ha_line_stamp_ts(line: str) -> int | None:
+    """Epoch (UTC) из метки головы канонической строки выборки
+    «[ДД.ММ.ГГГГ ЧЧ:ММ | …]» (штамп рендерится в UTC — см. _fmt_ts).
+    Разметки/кривой штамп нет → None. Никогда не бросает."""
+    match = _HA_LINE_STAMP_RE.match(str(line or "").lstrip())
+    if match is None:
+        return None
+    day, month, year = int(match.group(1)), int(match.group(2)), \
+        int(match.group(3))
+    hour = int(match.group(4) or 0)
+    minute = int(match.group(5) or 0)
+    try:
+        moment = datetime.datetime(year, month, day, hour, minute,
+                                   tzinfo=datetime.timezone.utc)
+    except ValueError:
+        return None
+    return int(moment.timestamp())
+
+
+def _ha_strip_invented_claims(note: str, counts: list,
+                              dates: list) -> str:
+    """Срезать из note придуманные количества/даты (блокер 1: выдуманное
+    число или дату не класть в note как факт). Детерминированно: только
+    нарушающие значения, формулировка вокруг сохраняется. Даты — целыми
+    ТОКЕНАМИ (блокер B review-w4-fix2): «5.10.2024» — подстрока
+    «15.10.2024» и «05.10.2024», сырой replace уничтожал подтверждённую
+    дату и оставлял обрывок «1»; границы `(?<!\\w)…(?!\\w)` зеркалят
+    `\\b…\\b` детектора `_DATE_CLAIM_RE`. Никогда не бросает."""
+    cleaned = str(note or "")
+    for value in dates:
+        token = str(value).strip()
+        if not token:
+            continue
+        cleaned = re.sub(r"(?<!\w)" + re.escape(token) + r"(?!\w)",
+                         " ", cleaned)
+    for count in counts:
+        try:
+            pattern = _HA_COUNT_STRIP_RE.format(n=int(count))
+        except (TypeError, ValueError):                   # pragma: no cover
+            continue
+        cleaned = re.sub(pattern, " ", cleaned, flags=re.IGNORECASE)
+    return " ".join(cleaned.split())
+
+
+def _segment_json(text: str) -> list | None:
+    """Robust-парсер ответа сегмента (детерминированный repair: fences/
+    окружающий текст допустим; второй LLM-вызов НЕ делается — прецедент
+    summary_memory §11). Битый JSON/нет events → None (сегмент failed,
+    не тихий успех). Рефы нормализуются; невалидные отбрасываются."""
+    value = str(text or "").strip()
+    probes = [value]
+    probes.extend(m.strip() for m in _HISTORY_SEGMENT_FENCE_RE.findall(value))
+    events: object = None
+    for probe in probes:
+        try:
+            data = json.loads(probe)
+        except (ValueError, TypeError):
+            continue
+        if isinstance(data, dict) and "events" in data:
+            events = data.get("events")
+            break
+    if not isinstance(events, list):
+        return None
+    out: list = []
+    for item in events:
+        if not isinstance(item, dict):
+            continue
+        refs: list = []
+        for ref in (item.get("refs") if isinstance(item.get("refs"),
+                                                  (list, tuple)) else ()):
+            ref = str(ref).strip()
+            if _HISTORY_REF_RE.match(ref) and ref not in refs:
+                refs.append(ref)
+        note = str(item.get("note") or "").strip()
+        if len(note) > _HISTORY_SEGMENT_NOTE_MAX:
+            note = note[:_HISTORY_SEGMENT_NOTE_MAX]
+        out.append({"refs": refs,
+                    "continues": 1 if item.get("continues") else 0,
+                    "note": note})
+    return out
 # Раунд 9 (T-821/C2(6), фикс-раунд major-1, spec §3.2.3): маркеры ностальгии
 # для пре-гейта dig (флаг flags.dig_pre_gate_enabled, default false). Regex
 # по тексту сообщения (без границ слов — «как мы тогда гуляли» и т.п.);
@@ -2558,12 +2901,20 @@ class DirectChatService:
             # ход — общий для context-сборки и L1-контекста.
             _extra_media_markers = await self._resolve_earlier_image_markers(
                 chat_id, message)
+            # P0-HA SEGMENTS (архконтракт §0): граница количественной выборки
+            # фиксируется ДО сборки контекста хода; сразу после создания
+            # tool_ctx она станет его атрибутом (setattr ниже). Без числа+
+            # недавности в запросе или при сбое — None (паритет: дальше
+            # работает существующий on-demand захват инструмента).
+            history_sample = await self._capture_turn_history_sample(
+                chat_id, query)
             user_blocks = await self._build_user_content(
                 chat_id, message, target_name,
                 target_user_id=(user_id or None),
                 out_excluded=_excluded_blocks, out_fallback=_fallback_meta,
                 style_directives=style_directives,
-                extra_media_markers=_extra_media_markers)
+                extra_media_markers=_extra_media_markers,
+                history_sample=history_sample)
             # MCA-15 (T-4920, ADR-1028-12 D6; K3): intent-различение
             # `social_banter`/`historical_evidence`/`chat_statistics`/`mixed`
             # по контексту и reply (не только по словам «никогда»/«бот»).
@@ -2601,6 +2952,12 @@ class DirectChatService:
                 dig_block = await self._dig_pre_gate_block(chat_id, query)
                 if dig_block:
                     dig_fired = True
+                    # P0-HA ISOLATION (§3): <dig_result> (Lore) — память вне
+                    # диапазона; при активной выборке помечается баннером
+                    # (источник не выключается). Без выборки — паритет.
+                    if history_sample is not None:
+                        dig_block = _ha_banner_in_block(
+                            dig_block, _ha_sample_id(history_sample))
                     user_blocks = self._insert_dig_result(user_blocks,
                                                           dig_block)
             # ── SOUL-1 W10 (§5.1/5.3/5.9/5.14): смысловое поручение действия →
@@ -3357,6 +3714,11 @@ class DirectChatService:
             # сигнал (глобальной блокировки инструментов НЕТ).
             tool_ctx.stats_intent = str(
                 getattr(_stats_intent, "intent", "") or "")
+            if history_sample is not None:
+                # P0-HA SEGMENTS (архконтракт §0): выборка хода на tool_ctx
+                # (setattr, не новый обязательный аргумент __init__) —
+                # маршрут 2 _get_recent_history и сегментное накопление §2.
+                tool_ctx.history_sample = history_sample
             # ── ASAP-3.1 (ADR-1028-3 D7, §30): LLM REACT — тот же Stage-1 ──
             # Один вызов (тот же контекст, что генерировал бы ответ);
             # instruction-block — аддитивный user-блок (прецедент
@@ -3796,7 +4158,13 @@ class DirectChatService:
                     character_block=character_block,
                     style_directives=style_directives,
                     numeric_contract=numeric_contract,
-                    plan=response_plan)
+                    plan=response_plan,
+                    # P0-HA QUALITY (блокер 4 review-w4): выборка хода есть
+                    # и при выключенном L1 — system Stage-2 получает ту же
+                    # инструкцию сборки; без выборки "" → байт-паритет.
+                    history_assembly_block=(
+                        HISTORY_COVERAGE_ASSEMBLY_BLOCK
+                        if history_sample is not None else ""))
                 if synthesized:
                     # F3 (ADR-1023-3): режим несёт и стиль, и канал доставки.
                     raw, response_mode = synthesized
@@ -3820,6 +4188,15 @@ class DirectChatService:
                         + len(str(character_block or "")))
                     _ev_cap = (_ev_budget if _ev_budget is not None
                                else _l1.evidence_max_chars())
+                    # P0-HA SEGMENTS (архконтракт §2): накопление находок
+                    # сегментов ДО упаковки — блок @@HISTORY_COVERAGE встаёт
+                    # головой в существующий EvidenceSource истории (сырой
+                    # текст страниц, не влезающий в слот, иначе пакер
+                    # piece[:floor] молча теряет хвост). Короткий путь
+                    # (выборка влезла в один слот) не меняет ничего.
+                    await self.collect_history_segments(
+                        tool_ctx, raw, slot_chars=_ev_cap, chat_id=chat_id,
+                        correlation_id=correlation_id)
                     _evidence = _dx.build_evidence_pack(
                         raw, response_plan, capacity_chars=_ev_cap).text
                 else:
@@ -3869,7 +4246,14 @@ class DirectChatService:
                         max_tokens=(longform_max_tokens
                                     if response_plan is not None
                                     and response_plan.is_longform()
-                                    else None))
+                                    else None),
+                        # P0-HA QUALITY (wiring §13): инструкция финальной
+                        # сборки — ТОЛЬКО ходу с выборкой истории; без
+                        # выборки параметр пуст → байт-паритет прежнего
+                        # хода (Writer/system не меняются).
+                        history_assembly_block=(
+                            HISTORY_COVERAGE_ASSEMBLY_BLOCK
+                            if history_sample is not None else ""))
                     if _l2 is not None:
                         # F3-семантика: режим несёт стиль и канал доставки.
                         raw, response_mode = _l2
@@ -4696,6 +5080,571 @@ class DirectChatService:
                                                   or "adaptive_fallback")
         return result
 
+    # ── P0-HA SEGMENTS (архконтракт §2): сегментное накопление выборки ──────
+
+    async def _capture_turn_history_sample(self, chat_id: int,
+                                           query: str) -> dict | None:
+        """Захват границы количественной выборки хода (архконтракт §0):
+        ровно последние N доступных сообщений, границы/порядок/полнота —
+        до содержательной обработки (этап A). Тела сообщений не выбирает
+        (вторая копия истории в памяти запрещена). Нет числа+недавности в
+        запросе, нет роутера или БД, сбой/таймаут → None (паритет: дальше
+        работает существующий on-demand захват инструмента). CancelledError
+        — проброс. Логи — только chat_id (R17)."""
+        if self.tool_router is None:
+            return None
+        requested = extract_history_depth(str(query or ""))
+        if not requested:
+            return None
+        try:
+            return await asyncio.wait_for(
+                capture_history_sample(self.db, chat_id, requested),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.debug("[direct] history sample capture failed | chat=%s",
+                         chat_id, exc_info=True)
+            return None
+
+    async def _iter_history_sample_entries(self, hist, bound):
+        """Поток канонических строк выборки РОВНО ОДИН раз (H20):
+        доставленные страницы (уже в EvidenceSource) → без чтения БД;
+        недочитанный хвост → существующий keyset-читатель волны 2
+        (ToolRouter._history_read_page), страницами целых сообщений от края
+        последней доставленной страницы, до исчерпания окна выборки.
+        Вторую полную копию истории не создаёт: вызывающий сбрасывает тела
+        между сегментами. CancelledError — проброс."""
+        last_header = hist[-1][1]
+        for src, _ in hist:
+            for line in _history_body_lines(src.content):
+                yield {"line": line, "item_id": _history_line_item_id(line),
+                       "row": None}
+        if _ha_int(last_header.get("has_next"), 0) != 1:
+            return
+        delivered = _ha_int(last_header.get("processed"), 0)
+        available = _ha_int(bound.get("available"), 0)
+        after = _history_point(str(last_header.get("page_to") or ""))
+        router = self.tool_router
+        deps = getattr(router, "deps", None)
+        db = getattr(deps, "db", None) if deps is not None else None
+        if db is None and deps is not None:
+            db = getattr(getattr(deps, "memory", None), "db", None)
+        if router is None or db is None \
+                or not hasattr(db, "get_recent_messages"):
+            raise RuntimeError("history tail reader unavailable")
+        while after is not None:
+            page = await asyncio.wait_for(
+                router._history_read_page(db, bound, after=after),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+            rows = list(page.get("rows") or [])
+            if not rows:
+                return
+            lines = router._history_lines(rows, with_user_id=True)
+            for row, line in zip(rows, lines):
+                d = dict(row)
+                yield {"line": line,
+                       "item_id": resolve_item_id(
+                           tg_message_id=d.get("tg_message_id"),
+                           message_id=d.get("id")),
+                       "row": d}
+            delivered += len(rows)
+            if len(rows) < _HISTORY_PAGE_ROWS or delivered >= available:
+                return                      # окно исчерпано (без лишнего чтения)
+            after = _history_point(str(page.get("page_to") or ""))
+
+    async def collect_history_segments(self, tool_ctx, raw, *, slot_chars,
+                                       chat_id: int,
+                                       correlation_id=None) -> str | None:
+        """Накопление находок сегментов количественной выборки (архконтракт
+        §2) — вызывается на L1-пути перед build_evidence_pack.
+
+        Короткий путь (паритет, 0 LLM): выборка доставлена страницами с
+        has_next=0 и суммарно влезает в слот-бюджет этого хода → None,
+        sources не тронуты (H1/H2).
+
+        Иначе: детерминированная нарезка упорядоченной выборки на сегменты
+        целых сообщений (бюджет одного существующего вызова self.llm.
+        generate — тот же слот-бюджет, не новая константа; верх —
+        _HISTORY_PAGE_ROWS строк), один вызов на сегмент
+        (module="direct_chat", step="history_segment"; не Вербализатор, не
+        новый агент, не каскад), накопление находок со ссылками на исходные
+        сообщения. Перекрытие границы — 2 сообщения как boundary-контекст
+        соседа; повторно увиденные item_id учитываются mentions, а не
+        новыми событиями (H17); связь через границу ставит КОД по
+        reply_to_id (continues_from) — и на стыке страниц, и при разрезе
+        внутри доставленной страницы (точечные метаданные reply_to_id по
+        уже известному item_id), модель связь не изобретает. Провал
+        сегмента — честная failed-строка, остальные сохраняются (H19/§6.2);
+        дедлайн цикла — тот же резолв таймаута цепочки, что у курсора
+        волны 2 (настройка MCA_TOOL_CHAIN_TIMEOUT_SECONDS, иначе
+        TOOL_CHAIN_TIMEOUT_SECONDS), отмена пробрасывается. Результат —
+        блок @@HISTORY_COVERAGE головой в
+        существующий EvidenceSource инструмента get_recent_history (сырой
+        текст страниц из source убирается — иначе пакер piece[:floor]
+        молча теряет хвост). Полный сбой или дедлайн до первого сегмента →
+        None, sources не тронуты (страницы/курсор волны 2 как
+        страховка). Логи — только счётчики и sample_id (R17). Никогда не
+        бросает, кроме CancelledError."""
+        bound = getattr(tool_ctx, "history_sample", None) \
+            if tool_ctx is not None else None
+        if not isinstance(bound, dict) or raw is None:
+            return None
+        sources = list(getattr(raw, "evidence_sources", None) or [])
+        hist = []
+        for src in sources:
+            if getattr(src, "tool", "") != "get_recent_history" \
+                    or not getattr(src, "content", ""):
+                continue
+            header = parse_history_sample(src.content)
+            if header is None:
+                return None          # путь B / ошибка / старый формат — паритет
+            hist.append((src, header))
+        if not hist:
+            return None
+        slot = (max(500, int(slot_chars)) if slot_chars
+                else _dx.DEFAULT_EVIDENCE_CAP_CHARS)
+        last_header = hist[-1][1]
+        has_next = _ha_int(last_header.get("has_next"), 0) == 1
+        delivered_chars = sum(len(getattr(s, "content", "") or "")
+                              for s, _ in hist)
+        available = _ha_int(bound.get("available"), 0)
+        if not has_next and delivered_chars <= slot:
+            return None              # короткий путь: ровно текущее поведение
+        if has_next and not self._history_tail_reader_ready():
+            return None              # хвост недочитываем → паритет волны 2
+
+        deadline = time.monotonic() + _chain_timeout_seconds()
+        segments: list = []          # готовые состояния сегментов
+        owner_of: dict = {}          # item_id -> (seg_no, event_index)
+        llm_calls = 0
+        reason = ""
+        complete = True
+
+        class _Deadline(Exception):
+            pass
+
+        async def _flush(ents, chars, next_head):
+            """Один содержательный проход на сегмент (повтор сегмента
+            другим вызовом запрещён — H20/§6.1). Тела сбрасываются после
+            разбора: остаются статус, диапазон, refs, короткие note."""
+            nonlocal llm_calls, reason, complete
+            ids = {e["item_id"] for e in ents if e["item_id"]}
+            line_by_id = {e["item_id"]: e["line"] for e in ents
+                          if e["item_id"]}
+            prev = segments[-1] if segments else None
+            state = {
+                "no": len(segments) + 1,
+                "rows": len(ents),
+                "first_id": next((e["item_id"] for e in ents
+                                  if e["item_id"]), ""),
+                "last_id": next((e["item_id"] for e in reversed(ents)
+                                 if e["item_id"]), ""),
+                "ids": ids,
+                "events": [], "mentions": 0,
+                "status": "ok", "reason": "", "continues_from": 0,
+                "oversize": 1 if (len(ents) == 1 and chars > slot) else 0,
+            }
+            if prev is not None and ents:
+                row = ents[0]["row"]
+                reply_to = (row.get("reply_to_id")
+                            if row is not None else None)
+                if reply_to is None and row is None:
+                    # Разрез слотом ВНУТРИ доставленной страницы: строки
+                    # идут без row — reply_to_id берётся точечными
+                    # метаданными по уже известному item_id (один скалярный
+                    # SELECT; не вторая копия истории и не вызов модели).
+                    reply_to = await self._history_reply_target(
+                        ents[0]["item_id"], chat_id=chat_id)
+                if reply_to and (f"tg:{reply_to}" in prev["ids"]
+                                 or f"msg:{reply_to}" in prev["ids"]):
+                    state["continues_from"] = prev["no"]
+            body = "\n".join(e["line"] for e in ents)
+            parts = []
+            if prev_tail:
+                parts.append("<prev_context>\n" + "\n".join(prev_tail)
+                             + "\n</prev_context>")
+            parts.append("<segment>\n" + body + "\n</segment>")
+            if next_head:
+                parts.append("<next_context>\n" + "\n".join(next_head)
+                             + "\n</next_context>")
+            prompt = (_HISTORY_SEGMENT_SYSTEM_PROMPT + "\n\n"
+                      + "\n".join(parts))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise _Deadline()
+            llm_calls += 1
+            try:
+                out = await asyncio.wait_for(
+                    self.llm.generate(
+                        [{"role": "user", "content": prompt}],
+                        temperature=0.0, chat_id=chat_id,
+                        module="direct_chat", step="history_segment",
+                        correlation_id=correlation_id),
+                    timeout=remaining)
+            except asyncio.TimeoutError:
+                raise _Deadline() from None
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # H19/§6.2: провал одного сегмента — честная failed-строка,
+                # остальные сегменты сохраняются; цикл не обрывается.
+                state["status"] = "failed"
+                state["reason"] = "llm_error"
+                segments.append(state)
+                return tuple(e["line"] for e
+                             in ents[-_HISTORY_SEG_BOUNDARY_LINES:])
+            events = _segment_json(out)
+            if events is None:
+                state["status"] = "failed"
+                state["reason"] = "llm_error"
+            else:
+                for ev in events:
+                    # Трассировка §13 (шов own через ЕДИНЫЙ валидатор
+                    # claim_envelope — без второй копии логики): вне
+                    # выборки/сегментов — отброшено, не свидетельство.
+                    kept, _dropped = _ce.validate_finding_refs(
+                        ev["refs"], ids | set(owner_of))
+                    own = [r for r in kept if r in ids]
+                    older = [r for r in kept if r not in ids]
+                    if own:
+                        guarded = self._ha_guard_event(
+                            ev["note"], own, line_by_id)
+                        state["events"].append(
+                            {"refs": own, "note": guarded["note"],
+                             "continues": ev["continues"], "mentions": 0,
+                             "kind": guarded["kind"],
+                             "flags": guarded["flags"],
+                             "owner": guarded["owner"]})
+                        idx = len(state["events"]) - 1
+                        for r in own:
+                            owner_of.setdefault(r, (state["no"], idx))
+                        if older:
+                            self._bump_history_mention(
+                                segments, owner_of[older[0]])
+                    elif older:
+                        # H17: тема уже установлена другим сегментом —
+                        # упоминание, не придуманное новое событие.
+                        self._bump_history_mention(
+                            segments, owner_of[older[0]])
+                    # иначе refs вне выборки — не свидетельство, отброшено
+            segments.append(state)
+            return tuple(e["line"] for e
+                         in ents[-_HISTORY_SEG_BOUNDARY_LINES:])
+
+        prev_tail: tuple = ()
+        cur: list = []
+        cur_chars = 0
+        waiting = None               # (ents, chars) — закрыт, ждёт голову соседа
+
+        async def _flush_waiting(next_head):
+            nonlocal waiting, prev_tail
+            ents, chars = waiting
+            waiting = None
+            prev_tail = await _flush(ents, chars, next_head)
+
+        try:
+            async for ent in self._iter_history_sample_entries(hist, bound):
+                line_len = len(ent["line"]) + 1
+                if cur and (cur_chars + line_len > slot
+                            or len(cur) >= _HISTORY_PAGE_ROWS):
+                    closed = (cur, cur_chars)
+                    cur, cur_chars = [ent], line_len
+                    if waiting is not None:
+                        await _flush_waiting(
+                            tuple(e["line"] for e in
+                                  cur[:_HISTORY_SEG_BOUNDARY_LINES]))
+                    waiting = closed
+                    continue
+                cur.append(ent)
+                cur_chars += line_len
+                if waiting is not None \
+                        and len(cur) >= _HISTORY_SEG_BOUNDARY_LINES:
+                    await _flush_waiting(
+                        tuple(e["line"] for e in
+                              cur[:_HISTORY_SEG_BOUNDARY_LINES]))
+            if waiting is not None:
+                head = (tuple(e["line"] for e in
+                              cur[:_HISTORY_SEG_BOUNDARY_LINES])
+                        if cur else ())
+                await _flush_waiting(head)
+            if cur:
+                await _flush(cur, cur_chars, ())
+        except _Deadline:
+            if not segments:
+                # §6.2: дедлайн до первого сегмента — паритет: страница
+                # волны 2 (raw @@HISTORY_SAMPLE + курсор) остаётся
+                # страховкой, sources не тронуты; пустое покрытие вместо
+                # уже полученного контента не подставляется.
+                logger.warning("[direct] history segments deadline before "
+                               "first segment | chat=%s", chat_id)
+                return None
+            complete = False
+            reason = reason or "timeout"
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            if not segments:
+                # §6.2: обогащение не началось → паритет, sources не тронуты
+                logger.warning("[direct] history segments unavailable | "
+                               "chat=%s | error=%s", chat_id,
+                               type(exc).__name__)
+                return None
+            complete = False
+            reason = reason or ("timeout"
+                                if isinstance(exc, asyncio.TimeoutError)
+                                else "error")
+
+        total_rows = sum(s["rows"] for s in segments)
+        if complete and available > 0 and total_rows < available:
+            complete = False         # хвост выборки недоступен (retention)
+            reason = reason or "tail_missing"
+        processed = sum(s["rows"] for s in segments if s["status"] == "ok")
+        failed = sum(1 for s in segments if s["status"] == "failed")
+        mentions = sum(e["mentions"] for s in segments for e in s["events"])
+        if failed:
+            # H19: пропущенный сегмент — неполнота, не маскируется.
+            complete = False
+
+        block = self._render_history_coverage(
+            bound, segments, available=available, processed=processed,
+            failed=failed, mentions=mentions, complete=complete,
+            reason=reason, slot=slot)
+        hist[0][0].content = block
+        hist[0][0].total_chars = len(block)
+        for src, _ in hist[1:]:
+            try:
+                raw.evidence_sources.remove(src)
+            except (ValueError, AttributeError):
+                src.content = ""
+        logger.info(
+            "[direct] history segments | chat=%s | sample=%s | segments=%d "
+            "| failed=%d | llm_calls=%d | rows=%d | processed=%d | "
+            "available=%d | complete=%d | reason=%s | out_chars=%d",
+            chat_id, bound.get("sample_id"), len(segments), failed,
+            llm_calls, total_rows, processed, available,
+            1 if complete else 0, reason, len(block))
+        return block
+
+    async def _history_reply_target(self, item_id, *,
+                                    chat_id: int) -> int | None:
+        """Точечные метаданные связи (H16): reply_to_id сообщения по уже
+        известному item_id строки доставленной страницы (страницы в source
+        идут без row). Один скалярный SELECT — не вторая копия истории и
+        не вызов модели. Нет id/БД/строки или сбой → None (связи нет —
+        прежнее правило; никогда не бросает, кроме CancelledError)."""
+        match = re.fullmatch(r"(tg|msg):(\d+)", str(item_id or ""))
+        if match is None:
+            return None
+        db = self.db
+        if db is None or not hasattr(db, "db"):
+            return None
+        column = "tg_message_id" if match.group(1) == "tg" else "id"
+        try:
+            cursor = await asyncio.wait_for(
+                db.db.execute(
+                    f"SELECT reply_to_id FROM smart_messages "
+                    f"WHERE chat_id = ? AND {column} = ? LIMIT 1",
+                    (int(chat_id), int(match.group(2)))),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+            row = await cursor.fetchone()
+        except Exception:
+            logger.debug("[direct] history reply metadata failed | chat=%s",
+                         chat_id, exc_info=True)
+            return None
+        value = row["reply_to_id"] if row is not None else None
+        try:
+            return int(value) if value else None
+        except (TypeError, ValueError):
+            return None
+
+    def _history_tail_reader_ready(self) -> bool:
+        """Доступен ли существующий keyset-читатель волны 2 для недочитан-
+        ного хвоста выборки (тот же deps-резолв, что у инструмента)."""
+        router = self.tool_router
+        if router is None or not hasattr(router, "_history_read_page"):
+            return False
+        deps = getattr(router, "deps", None)
+        db = getattr(deps, "db", None) if deps is not None else None
+        if db is None and deps is not None:
+            db = getattr(getattr(deps, "memory", None), "db", None)
+        return bool(db is not None and hasattr(db, "get_recent_messages"))
+
+    @staticmethod
+    def _bump_history_mention(segments, target) -> None:
+        """Увеличить счётчик mentions события-владельца (дубликат id — одно
+        упоминание, не два события). Кривой owner игнорируется."""
+        seg_no, ev_idx = target
+        for seg in segments:
+            if seg["no"] == seg_no and 0 <= ev_idx < len(seg["events"]):
+                seg["events"][ev_idx]["mentions"] += 1
+                return
+
+    def _ha_guard_event(self, note: str, own_refs: list,
+                        line_by_id: dict) -> dict:
+        """Применить детерминированные страховки качества (claim_envelope)
+        к находке сегмента ДО записи в покрытие (блокер 1 review-w4).
+
+        Возвращает {"note", "kind", "flags", "owner"}: note — со срезанными
+        придуманными количествами/датами; kind — класс находки
+        (classify_finding_kind по строкам сегмента, включая uid автора);
+        flags — machine-коды (trait_unverified / attribution_conflict /
+        invented_count:N / invented_date:ДД.ММ.ГГГГ / guard_error); owner —
+        исходный автор пересланного содержимого (только для однозначных
+        пересылок). Ход использует ЭТИ функции впервые: без применения
+        шутка становилась чертой, пересылка — действием переславшего,
+        «5 раз» при двух refs — свидетельством (REQ-HA-QUALITY-*). Сбой
+        любой страховки — flag guard_error и нетронутая находка (сегмент не
+        падает). Никогда не бросает."""
+        result = {"note": str(note or ""), "kind": "", "flags": [],
+                  "owner": ""}
+        try:
+            lines = [line_by_id.get(r, "") for r in own_refs]
+            identities = [_ce.parse_finding_identity(ln) for ln in lines]
+            distinct = max(1, len({str(r) for r in own_refs}))
+            is_forward = any(i.is_forward for i in identities)
+            bot_uid = None
+            bot_id = getattr(self, "bot_id", None)
+            if bot_id is not None:
+                try:
+                    bot_uid = int(bot_id)
+                except (TypeError, ValueError):
+                    bot_uid = None
+            is_bot = any(i.user_id is not None and i.user_id == bot_uid
+                         for i in identities)
+            result["kind"] = _ce.classify_finding_kind(
+                result["note"], distinct_refs=distinct,
+                is_forward=is_forward, is_bot_author=is_bot)
+            # единичная шутка/реплика/высказывание бота — не черта (строка 469)
+            if _ce.note_claims_stable_trait(result["note"]) and \
+                    not _ce.stable_trait_claim_allowed(result["kind"],
+                                                       distinct):
+                result["flags"].append("trait_unverified")
+            # пересылка приписана переславшему → конфликт (H26)
+            if any(_ce.attribution_conflict(result["note"], i)
+                   for i in identities):
+                result["flags"].append("attribution_conflict")
+            if is_forward:
+                owners: list = []
+                for i in identities:
+                    owner = _ce.finding_attribution_owner(i)
+                    if owner and owner not in owners:
+                        owners.append(owner)
+                if len(owners) == 1:
+                    result["owner"] = owners[0]
+            # придуманные количества/даты — срезаются из note как факт
+            counts = _ce.invented_count_violations(result["note"], distinct)
+            ts_by_ref = {}
+            for ref in own_refs:
+                stamp = _ha_line_stamp_ts(line_by_id.get(ref, ""))
+                if stamp is not None:
+                    ts_by_ref[ref] = stamp
+            dates = _ce.invented_date_violations(result["note"], ts_by_ref)
+            if counts:
+                result["flags"].append(
+                    "invented_count:" + ",".join(str(int(c)) for c in counts))
+            if dates:
+                result["flags"].append(
+                    "invented_date:" + ",".join(str(d) for d in dates))
+            if counts or dates:
+                result["note"] = _ha_strip_invented_claims(
+                    result["note"], counts, dates)
+        except Exception:
+            result = {"note": str(note or ""), "kind": "", "flags":
+                      ["guard_error"], "owner": ""}
+        return result
+
+    @staticmethod
+    def _render_history_coverage(bound, segments, *, available, processed,
+                                 failed, mentions, complete, reason,
+                                 slot) -> str:
+        """Блок @@HISTORY_COVERAGE (архконтракт §2): голова + строки статусов
+        сегментов + строки событий. Префикс покрытия всегда первый (пакер
+        сохраняет голову даже при piece[:floor]). Не влезает в слот —
+        лишнее не выкидывается молча: events_dropped / omitted-индексы в
+        голове, complete=0, reason=findings_budget. Никогда не бросает."""
+        def _render_head(events_dropped, omitted):
+            lines = [
+                _HISTORY_COVERAGE_HEADER,
+                f"sample_id={bound.get('sample_id') or ''}",
+                f"requested={_ha_int(bound.get('requested'), 0)}",
+                f"available={max(0, available)}",
+                f"processed={max(0, processed)}",
+                f"remaining={max(0, available - processed)}",
+                f"complete={1 if complete else 0}",
+                f"segments={len(segments)}",
+                f"failed={failed}",
+                f"mentions={mentions}",
+                f"reason={reason}",
+            ]
+            if events_dropped:
+                lines.append(f"events_dropped={events_dropped}")
+            if omitted:
+                lines.append("omitted=" + ",".join(str(n) for n in omitted))
+            return "\n".join(lines)
+
+        seg_lines = []
+        for s in segments:
+            parts = [f"seg {s['no']}"]
+            if s["first_id"] and s["last_id"]:
+                parts.append(f"{s['first_id']}..{s['last_id']}")
+            parts.append(f"rows={s['rows']}")
+            parts.append(f"status={s['status']}")
+            parts.append(f"refs={sum(len(e['refs']) for e in s['events'])}")
+            if s["continues_from"]:
+                parts.append(f"continues_from={s['continues_from']}")
+            if s["oversize"]:
+                parts.append("oversize=1")
+            if s["reason"]:
+                parts.append(f"reason={s['reason']}")
+            seg_lines.append(" ".join(parts))
+        event_lines = []
+        for s in segments:
+            for e in s["events"]:
+                line = "event refs=" + ",".join(e["refs"])
+                if e["continues"]:
+                    line += " continues=1"
+                if e.get("kind"):
+                    line += f" kind={e['kind']}"
+                if e.get("flags"):
+                    line += " flags=" + ",".join(e["flags"])
+                if e["mentions"]:
+                    line += f" mentions={e['mentions']}"
+                if e.get("owner"):
+                    line += f" owner={e['owner']}"
+                if e["note"]:
+                    line += f" note={e['note']}"
+                event_lines.append(line)
+
+        events_dropped = 0
+        omitted: list = []
+        shown_events = list(event_lines)
+        shown_segs = list(seg_lines)
+
+        def _assemble() -> str:
+            return "\n".join(
+                [_render_head(events_dropped, omitted)] + shown_segs
+                + [_HISTORY_COVERAGE_END] + shown_events)
+
+        while True:
+            block = _assemble()
+            if len(block) <= slot or not shown_segs:
+                break
+            if shown_events:
+                # производные строки событий жертвуются первыми; статусы
+                # сегментов — основа честного охвата.
+                events_dropped = len(shown_events)
+                shown_events = []
+                continue
+            popped = shown_segs.pop()
+            omitted.insert(0, int(popped.split()[1]))
+        if events_dropped or omitted:
+            # Честный маркер усечки производных строк (не молчаливая потеря).
+            complete = False
+            reason = "findings_budget"
+            block = _assemble()
+        return block
+
     async def _compose_speech_system(self, *, chat_id: int, writer: str,
                                      run_id: str | None,
                                      base_prompt: str, base_key: str,
@@ -4841,7 +5790,8 @@ class DirectChatService:
                                speech_block: str = "",
                                writer: str = "l2_writer",
                                fallback_budget_tokens: int | None = None,
-                               max_tokens=None, diag_out: dict | None = None
+                               max_tokens=None, diag_out: dict | None = None,
+                               history_assembly_block: str = ""
                                ) -> tuple[str, str] | None:
         """ASAP 7 (F1, §1.2) + v6 D04 (§18C.4): L2 WRITER —
         Вербализатор-канал на ВСЕХ Direct-путях. Тот же prompt-канал/
@@ -4862,6 +5812,12 @@ class DirectChatService:
         факты слоя «Выражение» этого вызова (маркер/режим/провайдер) для
         «Проверить вживую»; точки диагностики §6 (``policy_not_injected``,
         ``provider_limitation``, ``postprocess_changed``) эмитятся здесь же.
+
+        P0-HA QUALITY (wiring): ``history_assembly_block`` — опциональный
+        блок инструкции финальной сборки по накопленным находкам истории
+        (default "" → байт-паритет всех прежних потребителей). Передаётся
+        швом хода ТОЛЬКО при активной выборке; аппендится в ФИНАЛЬНЫЙ
+        system после scrub целиком.
         """
         modes_on = getattr(settings, "SMART_VERBALIZER_MODES_ENABLED", True)
         response_mode = _l1.plan_response_mode(response_plan)
@@ -4963,6 +5919,16 @@ class DirectChatService:
             logger.warning(
                 "[direct] extent-conflict scrub | chat=%s | "
                 "stage=l2_writer | removed=%d", chat_id, _scrubbed)
+        # ── P0-HA QUALITY (волна 4b, wiring §13 ТЗ): ход с выборкой
+        # истории получает инструкцию финальной сборки по накопленным
+        # находкам (@@HISTORY_COVERAGE едет в Tool_Evidence того же хода).
+        # Блок приходит из шва хода ТОЛЬКО при активной выборке; пустая
+        # строка (без выборки) — байт-паритет прежней сборки. Аппенд ПОСЛЕ
+        # scrub, ЦЕЛИКОМ, без усечения и переформулировки (ADDENDUM #3
+        # §2.10: инструкции не сокращаются).
+        if history_assembly_block:
+            verbalizer_system = (verbalizer_system + "\n\n"
+                                 + history_assembly_block)
         base_messages = [
             {"role": "system", "content": verbalizer_system},
             {"role": "user", "content": user_content},
@@ -5075,7 +6041,8 @@ class DirectChatService:
                                         character_block: str = "",
                                         style_directives: str = "",
                                         numeric_contract=None,
-                                        plan=None
+                                        plan=None,
+                                        history_assembly_block: str = ""
                                         ) -> tuple[str, str] | None:
         """Синтезатор тулов → Вербализатор. ``None`` → финал tool-loop.
 
@@ -5117,6 +6084,15 @@ class DirectChatService:
         старый cap-текст (PG-кастом не правится, WARN в лог) и на Stage-2
         передаётся max_output_tokens. plan=None (тесты/legacy) → байт-
         паритет прежней сборки.
+
+        P0-HA QUALITY (волна 4, блокер 4 review-w4): `history_assembly_block`
+        — опциональный блок инструкции финальной сборки по находкам истории
+        (default "" → байт-паритет). Шов хода передаёт ПОЛНЫЙ
+        HISTORY_COVERAGE_ASSEMBLY_BLOCK ТОЛЬКО при активной выборке
+        (System2 может нести выборку при выключенном L1 —@@HISTORY_COVERAGE
+        на этом пути не возникает, но правило качества сборки должны
+        получать оба Writer-канала); аппенд в system Stage-2 ПОСЛЕ scrub,
+        целиком, как в `_l2_write_answer`.
         """
         draft_text = strip_reasoning_tags(str(raw).strip())
         form_contract = (_nc.FormContract(source_text=draft_text)
@@ -5223,6 +6199,14 @@ class DirectChatService:
                 logger.warning(
                     "[direct] extent-conflict scrub | chat=%s | "
                     "stage=verbalizer | removed=%d", chat_id, _scrubbed)
+            # ── P0-HA QUALITY (волна 4, блокер 4 review-w4): ход с выборкой
+            # истории получает ту же инструкцию финальной сборки, что L2
+            # Writer. Аппенд ПОСЛЕ scrub, ЦЕЛИКОМ, ровно один раз; пустая
+            # строка (без выборки) — байт-паритет прежней сборки
+            # (ADDENDUM #3 §2.10: инструкции не сокращаются).
+            if history_assembly_block:
+                verbalizer_system = (verbalizer_system + "\n\n"
+                                     + history_assembly_block)
             # MCA-23 (W3, §Model slots): longform-план получает явный
             # max_tokens; compact/micro/None → None (ключ не едет, паритет).
             _longform_tokens = (_extent.longform_max_output_tokens()
@@ -5532,7 +6516,8 @@ class DirectChatService:
                                   out_excluded: list | None = None,
                                   out_fallback: dict | None = None,
                                   style_directives: str = "",
-                                  extra_media_markers: tuple = ()
+                                  extra_media_markers: tuple = (),
+                                  history_sample: dict | None = None
                                   ) -> list[str]:
         """Порядок сборки user-контента (Раунд 8, B2/T-791, spec §3.B2) —
         «важное к концу» (FR-22/п.24): map → branch → rag → global → thread →
@@ -5590,11 +6575,15 @@ class DirectChatService:
         else:
             global_ctx = await self._build_global_context(
                 chat_id, window, roster, suffix_map,
-                trigger_message_id=trigger_message_id)
+                trigger_message_id=trigger_message_id,
+                history_sample=history_sample)
         # Раунд 9 (E1/T-826): второй элемент кортежа — маркер «золотых»
         # (блок kind "nostalgia" ставится ПОЗЖЕ: после relations, до mood).
+        # P0-HA ISOLATION (§3): при активной выборке RAG-память (включая
+        # граф-активацию/golden/self-echo) — дополнение вне диапазона,
+        # помечается баннером (источник не выключается, метки остаются).
         rag_block, nostalgia_hint = await self._build_rag_block(
-            chat_id, message, global_ctx)
+            chat_id, message, global_ctx, history_sample=history_sample)
         if rag_block:
             blocks.append(("rag", rag_block))
         if composer_mode:
@@ -5602,6 +6591,11 @@ class DirectChatService:
             # (head=P2 / middle=P3 / tail=P1) на слоте global.
             pass
         elif global_ctx:
+            # P0-HA ISOLATION (блокер 3 review-w4): legacy-путь (композер
+            # OFF) — баннер дополнения ставит сам `_build_global_context`
+            # ТОЛЬКО над head-конспектом; дословный хвост окна (внутри
+            # диапазона) не метится. Дедуп RAG уже прошёл, баннер в него
+            # не попадает.
             blocks.append(("global", global_ctx))
         if composer_mode:
             thread = self._render_thread(chain, suffix_map, None,
@@ -5641,7 +6635,12 @@ class DirectChatService:
         # Раунд 9 (E1/T-826, spec §3.5.1): ностальгия-маркер — в user-контент
         # ПОСЛЕ relations, до mood (compact: фикс-кап до инжекта, в общем
         # порядке урезания участвует последним — _apply_context_budget).
+        # P0-HA ISOLATION (§3): «золотой» факт — память вне диапазона; при
+        # активной выборке помечается баннером (источник не выключается).
         if nostalgia_hint:
+            if history_sample is not None:
+                nostalgia_hint = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
+                                  f"\n{nostalgia_hint}")
             blocks.append(("nostalgia", nostalgia_hint))
         # Epic 60 (65.9, T-477): настроение — user-блок, промпт R50-4 не тронут.
         # T-619: флаг и слова настроения — горячие точки (фолбек settings).
@@ -5684,7 +6683,8 @@ class DirectChatService:
                 target_user_id=target_user_id,
                 trigger_message_id=trigger_message_id,
                 out_excluded=out_excluded, out_fallback=out_fallback,
-                style_directives=style_directives)
+                style_directives=style_directives,
+                history_sample=history_sample)
         # Раунд 10.4 (B-2): гейт бюджетов — per-chat резолв (override →
         # hot.get → default; без override — байт-в-байт старое поведение).
         from services.chat_params import get_chat_param as _budget_gate
@@ -5881,7 +6881,8 @@ class DirectChatService:
 
     async def _build_old_episodes(
             self, chat_id: int, query: str, tail_rows: list,
-            suffix_map: dict[int, str]) -> tuple[str, dict]:
+            suffix_map: dict[int, str],
+            history_sample: dict | None = None) -> tuple[str, dict]:
         """ASAP-3 (ADR-1028-2 D4, §9–§11): old verbatim episode retrieval.
 
         Вход — хиты ЕДИНОГО retrieval-контракта mca-07 (`mode="history"`,
@@ -5891,17 +6892,48 @@ class DirectChatService:
         reply-graph closure + склейка + капы), 0 LLM-вызовов, идемпотентно.
         Дедуп против fresh tail (пересечение → клип). Рендер — канонические
         строки яруса A в `<Old_Episode>` (P0). Explainability: лог
-        hit → span → причина; счётчик direct_old_episode_retrieval_total."""
+        hit → span → причина; счётчик direct_old_episode_retrieval_total.
+
+        P0-HA ISOLATION (архконтракт §3): при активной количественной
+        выборке (`history_sample`) запрос связывается с её РЕАЛЬНЫМИ краями
+        через `bind_quantitative_range` (scope="time_range", mode остаётся
+        "auto" — НЕ "history" по маркерам); `get_messages_around` после
+        чтения клиппится предикатом §0 — ряды вне окна в P0-блок не
+        попадают, дословная пачка 120/60 вне окна запрещена. Хиты за краями
+        выборки и продолжения эпизодов за краем возвращаются в
+        stats["supplement_lines"] (потребитель рендерит их ТОЛЬКО как
+        помеченное дополнение, piece P2) — второй поиск по корпусу не
+        выполняется. `history_sample is None` → прежний `mode="history"`
+        без границ, байт-паритет (H24)."""
         stats = {"count": 0, "messages": 0, "tokens": 0, "hits": 0}
         if not mca_gates.retrieval_context_enabled():
             return "", stats
         text = str(query or "").strip()
         if not text:
             return "", stats
+        # P0-HA ISOLATION (§3): связка реальных краёв выборки; некорректные
+        # поля → запрос без связки (прежний путь, capture даёт валидные).
+        request = _mca_rc.RetrievalRequest(
+            chat_id=chat_id, query=text, mode="history", top_k=8,
+            reply_depth=0)
+        win: tuple | None = None
+        sample_id = ""
+        if isinstance(history_sample, dict):
+            request = _mca_rc.bind_quantitative_range(
+                request, time_from=history_sample.get("oldest_ts"),
+                time_to=history_sample.get("anchor_ts"))
+            try:
+                win = (int(history_sample["anchor_ts"]),
+                       int(history_sample.get("anchor_id") or 0),
+                       int(history_sample["oldest_ts"]),
+                       int(history_sample.get("oldest_id") or 0))
+            except (KeyError, TypeError, ValueError):
+                win = None
+            if win is not None and (win[0] <= 0 or win[2] <= 0):
+                win = None
+            sample_id = _ha_sample_id(history_sample)
+        range_active = (request.scope == "time_range" and win is not None)
         try:
-            request = _mca_rc.RetrievalRequest(
-                chat_id=chat_id, query=text, mode="history", top_k=8,
-                reply_depth=0)
             result = await _mca_rc.retrieve(self.db, self.memory, request)
         except Exception:
             logger.warning("direct: episode retrieval failed — skip | chat=%s",
@@ -5914,6 +6946,12 @@ class DirectChatService:
         max_msgs = _composer.episode_max_messages()
         gap_s = _composer.episode_gap_seconds()
         episode_lines: list[str] = []
+        supplement_lines: list[str] = []
+        if range_active:
+            # Вне-диапазонный остаток ЕДИНСТВЕННОГО запроса хода — только
+            # как помеченное дополнение (§3; не второй поиск по корпусу).
+            supplement_lines = _ha_supplement_hit_lines(
+                result, sample_id=sample_id, exclude_tg=used_tg)
         for cand in result.candidates:
             if stats["count"] >= max_count:
                 break
@@ -5935,9 +6973,23 @@ class DirectChatService:
             if span is None:
                 continue
             start, end, reason = span
-            span_rows = [row for row in rows[start:end + 1]
-                         if (row["text"] or "")
-                         and _tg_id_of_row(row) not in used_tg]
+            if range_active:
+                # §0-клип: в P0-блок попадают только строки окна выборки;
+                # продолжение эпизода за краем — одна помеченная строка.
+                span_rows_all = [row for row in rows[start:end + 1]
+                                 if (row["text"] or "")]
+                outside = [row for row in span_rows_all
+                           if not _ha_row_in_window(row, win)]
+                if outside:
+                    supplement_lines.append(
+                        _ha_outside_span_line(outside, hit_tg))
+                span_rows = [row for row in span_rows_all
+                             if _ha_row_in_window(row, win)
+                             and _tg_id_of_row(row) not in used_tg]
+            else:
+                span_rows = [row for row in rows[start:end + 1]
+                             if (row["text"] or "")
+                             and _tg_id_of_row(row) not in used_tg]
             if not span_rows:
                 continue
             lines = [self._context_row_line(row, suffix_map,
@@ -5955,6 +7007,11 @@ class DirectChatService:
                 "rows=%d reason=%s", chat_id, hit_tg,
                 _tg_id_of_row(rows[start]), _tg_id_of_row(rows[end]),
                 len(lines), reason)
+        if range_active and supplement_lines:
+            # Потребитель (_compose_user_content) рендерит их piece'ом
+            # history_supplement (P2) и снимает ключ — в diagnostics/логи
+            # тексты не попадают (R17: только счётчики).
+            stats["supplement_lines"] = supplement_lines
         if not episode_lines:
             return "", stats
         stats["tokens"] = count_tokens("\n".join(episode_lines))
@@ -5969,7 +7026,8 @@ class DirectChatService:
             target_user_id: int | None, trigger_message_id,
             out_excluded: list | None,
             out_fallback: dict | None = None,
-            style_directives: str = "") -> list[str]:
+            style_directives: str = "",
+            history_sample: dict | None = None) -> list[str]:
         """ASAP-3 (ADR-1028-2 D3): единый композер Dynamic/Unlimited.
 
         Конвейер §6 ТЗ: candidates (существующие билдеры, global/thread без
@@ -5984,7 +7042,8 @@ class DirectChatService:
         query = _message_user_text(message)
         try:
             episode_block, episode_stats = await self._build_old_episodes(
-                chat_id, query, global_parts["tail_rows"], suffix_map)
+                chat_id, query, global_parts["tail_rows"], suffix_map,
+                history_sample=history_sample)
         except Exception:
             logger.warning("direct: episode build failed — skip | chat=%s",
                            chat_id, exc_info=True)
@@ -5992,9 +7051,9 @@ class DirectChatService:
                                                 "tokens": 0, "hits": 0}
 
         # ── Кандидаты → pieces (позиции = канонический порядок блоков) ──
-        # map → branch → episode → rag → global(head/middle/tail) → thread →
-        # target → relations → protected → lore → nostalgia → mood → current
-        # → anchors → sandwich (совместимость «важное к концу», D3).
+        # map → branch → episode → history_supplement → rag → global
+        # (head/middle/tail) → thread → target → relations → protected →
+        # lore → nostalgia → mood → current → anchors → sandwich.
         canonical_order = _composer.CANONICAL_ORDER
         candidates: list[tuple[str, str]] = [
             (kind, text) for kind, text in blocks
@@ -6002,8 +7061,20 @@ class DirectChatService:
         middle_lines = self._compose_middle_lines(
             global_parts, query, chain, roster)
         candidates.append(("episode", episode_block))
+        # P0-HA ISOLATION (§3): вне-диапазонная память (хиты за краями
+        # выборки + продолжения эпизодов за краем) — ТОЛЬКО явно помеченным
+        # дополнением: piece P2, вытесняется раньше периода, никогда не
+        # часть фактического аккаунта диапазона. Без выборки — piece нет.
+        _sample_id = _ha_sample_id(history_sample)
+        _supplement_lines = []
+        if isinstance(episode_stats, dict):
+            _supplement_lines = episode_stats.pop("supplement_lines", [])
+        _supplement_block = _ha_supplement_piece(_supplement_lines,
+                                                 _sample_id)
+        if _supplement_block:
+            candidates.append(("history_supplement", _supplement_block))
         candidates.extend([
-            ("global_head", "\n".join(global_parts["head_lines"])),
+            ("global_head", _ha_head_text(global_parts, history_sample)),
             ("global_middle", "\n".join(middle_lines)),
             ("global_tail", "\n".join(global_parts["tail_lines"])),
         ])
@@ -8635,7 +9706,9 @@ class DirectChatService:
     #    опциональный LLM-реранк) ─────────────────────────────────
 
     async def _build_rag_block(self, chat_id: int, message,
-                               global_ctx: str) -> tuple[str, str]:
+                               global_ctx: str,
+                               history_sample: dict | None = None
+                               ) -> tuple[str, str]:
         """Блок `<RAG_Memory>` direct-пути (F1-F4):
         F1 — факты из memory.get_rag_facts: порядок РЕЛЕВАНТНОСТИ (KNN
             rel = cosine × w_eff + MMR / FTS w_eff DESC), БЕЗ хроно-
@@ -8754,6 +9827,13 @@ class DirectChatService:
         # <RAG_Memory> превышал limits.graph_rag_context_max_chars.
         if any(str(item[0]) == "bot_self_reply" for item in kept):
             content = f"{_SELF_ECHO_INSTRUCTION}\n{content}"
+        # P0-HA ISOLATION (§3): RAG-память (факты + граф-активация + golden +
+        # self-echo) вне диапазона количественной выборки — дополнение:
+        # баннер первой строкой ДО капа; origin-метки и _SELF_ECHO_INSTRUCTION
+        # остаются; флаги не выключаются, «в ноль» не фильтруется.
+        if history_sample is not None:
+            content = (f"{_ha_supplement_banner(_ha_sample_id(history_sample))}"
+                       f"\n{content}")
         # R10.4-7 (F5 round1014, T-1518): cap — per-chat override (get_chat_param
         # → hot.get → default), иначе сохранённое для чата значение в direct-пути
         # игнорировалось. Зеркалит summary_memory.get_rag_context (_chat_limit).
@@ -8837,7 +9917,9 @@ class DirectChatService:
                                     roster: list | None = None,
                                     suffix_map: dict[int, str] | None = None,
                                     trigger_message_id=None,
-                                    truncate: bool = True) -> str:
+                                    truncate: bool = True,
+                                    history_sample: dict | None = None
+                                    ) -> str:
         """Последние CHAT_GLOBAL_CONTEXT_LIMIT сообщений (окно уже ASC),
         «{имя} [{uid}]: текст» (C1). Epic 60 (64.6): валидный бегущий конспект
         → конспект + дословный хвост (ts > window_end_ts). Раунд 8 (D2/Q8):
@@ -8856,7 +9938,22 @@ class DirectChatService:
         по expires_at — тихий чат держит конспект до пересборки по
         заполнению).
         roster/suffix_map — участники карты текущего рендера (C2/C3):
-        суффиксы-дискриминаторы строк и имена для importance-маркеров E1."""
+        суффиксы-дискриминаторы строк и имена для importance-маркеров E1.
+        P0-HA (блокер 3 review-w4, блокер A review-w4-fix, блокер A
+        review-w4-fix2): ``history_sample`` — активная выборка хода;
+        баннер дополнения возглавляет ТОЛЬКО head-конспект (running/L2 —
+        память вне диапазона, зеркально `_ha_head_text` композерного
+        пути); дословный хвост окна идёт после явной граничной строки
+        `_HA_INRANGE_TAIL_LABEL` (in-range регион — «не подтверждает
+        события» его не накрывает). Граница ставится ТОЛЬКО перед
+        выжившими строками окна: если усечение оставило в фоне один
+        конспект (keep-head срез), остаток конспекта остаётся под
+        баннером без границы (после границы не бывает не-оконного
+        контента). Штатный потолочный трим (trim_verbatim_lines)
+        пересчитывает счёт выживших строк окна: граница встаёт перед
+        ПЕРВОЙ выжившей строкой (не внутри выживших), а при полностью
+        срезанном хвосте границы нет вовсе. Verbatim-only режим
+        (конспекта нет) — баннера и границы нет вовсе."""
         roster = roster or []
         suffix_map = suffix_map or {}
         # SPEECH-P0-A2 (§current-turn boundary): текущая реплика исключена из
@@ -8901,6 +9998,12 @@ class DirectChatService:
                                chat_id, exc_info=True)
         head: list[str] = []
         tail: list[str] = []
+        # блокер A review-w4-fix2: сколько ХВОСТОВЫХ строк tail — дословные
+        # строки окна (в summary-ветке весь tail; после штатного
+        # потолочного трима — выживший остаток строк окна; после keep-head
+        # среза — выживший суффикс строк окна или 0: остаток конспекта
+        # границу не открывает).
+        window_tail_lines = 0
         if summary_text is not None:
             # E2/D5: «широкий фон:» + L2 первой строкой body (метка-префикс),
             # затем метка summary-режима (возраст НЕ вводим — конспект живёт
@@ -8919,6 +10022,7 @@ class DirectChatService:
                     continue
                 tail.append(self._context_row_line(
                     row, suffix_map, trigger_message_id=trigger_message_id))
+            window_tail_lines = len(tail)
         else:
             _g_limit = int(await _cp_g(
                 chat_id, "limits.chat_global_context_limit",
@@ -8966,11 +10070,22 @@ class DirectChatService:
             tail = trim_verbatim_lines(
                 tail, max(0, budget - measure("\n".join(head))),
                 names=names, keep_important=keep_important, measure=measure)
+            if summary_text is not None:
+                # P0-HA (блокер review-w4-fix4): штатный потолочный трим уже
+                # срезает часть строк окна — до-тримовый счёт устаревал:
+                # граница вставала ВНУТРИ выживших строк окна (часть
+                # in-range дословных сообщений оставалась под баннером,
+                # выжившая строка дублировалась) или оставалась ПУСТОЙ при
+                # полностью срезанном хвосте. В summary-ветке tail — только
+                # строки окна: len(tail) — точный счёт выживших (keep-head
+                # резерв ниже пересчитывает счёт сам, по win_start).
+                window_tail_lines = len(tail)
             if measure("\n".join(head + tail)) > budget:
                 # резерв: keep-head по всему body (конец режется — конспект
                 # держится); метка-строка («широкий фон: …»/«фон: …»)
                 # сохраняется первой.
                 body = "\n".join(head + tail)
+                win_start = len("\n".join(head)) + 1
                 if kind == "tokens":
                     body = truncate_to_tokens_keep_head(body, max(1, budget))
                 else:
@@ -8981,7 +10096,37 @@ class DirectChatService:
                     tail = [ln for ln in lines[1:] if ln.strip()]
                 else:
                     head, tail = [], [ln for ln in lines if ln.strip()]
+                # блокер A review-w4-fix2: после среза tail — остаток
+                # конспекта (строки окна шли в body после конспекта и
+                # срезаны концом). Строки окна в tail — только выживший
+                # суффикс за границей конспекта (win_start) в усечённом
+                # body; если контента за ней нет — весь tail конспект и
+                # граница не ставится вовсе.
+                window_tail_lines = 0
+                if tail and len(body) > win_start:
+                    window_tail_lines = sum(
+                        1 for ln in body[win_start:].split("\n")
+                        if ln.strip())
         body = "\n".join(head + tail)
+        # P0-HA ISOLATION (блокер A review-w4-fix, fix2): на legacy-пути
+        # (композер OFF) баннер дополнения возглавляет ТОЛЬКО head-конспект
+        # (память вне диапазона); дословные строки окна (внутри диапазона)
+        # идут ПОСЛЕ явной граничной строки — «не подтверждает события» их
+        # не накрывает. Граница — только перед выжившими строками окна
+        # (инвариант: после границы не бывает не-оконного контента);
+        # остаток конспекта, переживший keep-head срез, остаётся под
+        # баннером. Verbatim-only сборка (конспекта нет) и ход без выборки
+        # — прежний вывод без баннера и границы (байт-паритет).
+        if history_sample is not None and summary_text is not None and head:
+            lines_out = [_ha_supplement_banner(_ha_sample_id(history_sample))]
+            lines_out.extend(head)
+            if window_tail_lines:
+                lines_out.extend(tail[:len(tail) - window_tail_lines])
+                lines_out.append(_HA_INRANGE_TAIL_LABEL)
+                lines_out.extend(tail[len(tail) - window_tail_lines:])
+            else:
+                lines_out.extend(tail)
+            body = "\n".join(lines_out)
         return f"<Global_Context>\n{escape_xml_text(body)}\n</Global_Context>"
 
     def _row_speaker(self, row) -> tuple[str, int | None]:

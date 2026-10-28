@@ -1,0 +1,12 @@
+utc 2026-10-25T10:55:13Z
+db /var/www/admin_bot/local_database.db 2026-10-25 10:50:27.998182843 +0000 1625604096
+dbwal /var/www/admin_bot/local_database.db-wal 2026-10-25 10:55:12.466067186 +0000 4194192
+dbshm /var/www/admin_bot/local_database.db-shm 2026-10-25 10:55:06.870245002 +0000 32768
+head 534ac7dda6713fb407e0789fdddfa563251cdab4
+branch HEAD
+dirty 13
+unit active
+nrestarts 0
+active_enter Sat 2026-10-24 21:03:19 UTC
+health_https 000
+health_http 308

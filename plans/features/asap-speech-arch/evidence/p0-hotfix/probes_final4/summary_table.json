@@ -1,0 +1,604 @@
+[
+ {
+  "run": "newA",
+  "case": "A",
+  "question_source": "db",
+  "plan_source": "llm",
+  "act": "answer",
+  "extent": "compact",
+  "structure": "answer",
+  "mode": "casual",
+  "analys": false,
+  "canon": "code/23aae0c9499d (9288 chars)",
+  "l1_attempts": 1,
+  "pg_matches_code": false,
+  "payload_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1
+  },
+  "inv_1x1": false,
+  "inv_0x0": true,
+  "core": {
+   "chars": 3294,
+   "sha12": "ead77b2ab509",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 0,
+  "block_sha12": "e3b0c44298fc",
+  "rows": 10,
+  "ids": [
+   20479,
+   20476,
+   21254,
+   19433,
+   19173,
+   18105,
+   17205,
+   16698,
+   16209,
+   19754
+  ],
+  "rows_sha12": "69c975230b9d",
+  "query": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "empty": true,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   323,
+   802
+  ],
+  "l2_elapsed": [
+   2.8,
+   4.2
+  ],
+  "meta": {
+   "flagged": 1,
+   "total": 2,
+   "cats": [
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    },
+    {
+     "announce": [
+      "Давай посмотрим на твои сообщения в этом чате."
+     ],
+     "leadin": [
+      "Давай посмотрим на твои сообщения в этом чате."
+     ],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 14409,
+   "sha12": "9889ce83d9f4",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 3379,
+   "sha12": "23431bf60302"
+  },
+  "pg_read_only": "on",
+  "window_messages": 64
+ },
+ {
+  "run": "newB",
+  "case": "B",
+  "question_source": "db",
+  "plan_source": "llm",
+  "act": "hostile_rebuff",
+  "extent": "compact",
+  "structure": "chat",
+  "mode": "casual",
+  "analys": false,
+  "canon": "code/23aae0c9499d (9288 chars)",
+  "l1_attempts": 1,
+  "pg_matches_code": false,
+  "payload_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1
+  },
+  "inv_1x1": false,
+  "inv_0x0": true,
+  "core": {
+   "chars": 3294,
+   "sha12": "ead77b2ab509",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 0,
+  "block_sha12": "e3b0c44298fc",
+  "rows": 10,
+  "ids": [
+   20482,
+   20263,
+   19636,
+   16816,
+   21254,
+   18024,
+   21291,
+   15434,
+   20622,
+   19977
+  ],
+  "rows_sha12": "3ab839c6f464",
+  "query": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+  "empty": true,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   449,
+   321
+  ],
+  "l2_elapsed": [
+   2.7,
+   2.6
+  ],
+  "meta": {
+   "flagged": 0,
+   "total": 2,
+   "cats": [
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    },
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 14377,
+   "sha12": "c7d560df398c",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 3482,
+   "sha12": "119a9bbf57ce"
+  },
+  "pg_read_only": "on",
+  "window_messages": 66
+ },
+ {
+  "run": "newC",
+  "case": "C",
+  "question_source": "synthetic_case_c",
+  "plan_source": "llm",
+  "act": "answer",
+  "extent": "compact",
+  "structure": "chat",
+  "mode": "casual",
+  "analys": false,
+  "canon": "code/23aae0c9499d (9288 chars)",
+  "l1_attempts": 1,
+  "pg_matches_code": false,
+  "payload_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1
+  },
+  "inv_1x1": false,
+  "inv_0x0": true,
+  "core": {
+   "chars": 3294,
+   "sha12": "ead77b2ab509",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 0,
+  "block_sha12": "e3b0c44298fc",
+  "rows": 10,
+  "ids": [
+   20957,
+   18067,
+   16648,
+   16576,
+   16575,
+   15561,
+   14970,
+   19113,
+   19987,
+   19773
+  ],
+  "rows_sha12": "f7ca6fdde775",
+  "query": "Слушай, а ты дождь любишь или тебя от него тоже ломает?",
+  "empty": true,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   219
+  ],
+  "l2_elapsed": [
+   2.9
+  ],
+  "meta": {
+   "flagged": 0,
+   "total": 1,
+   "cats": [
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 14377,
+   "sha12": "c7d560df398c",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 3416,
+   "sha12": "a7b5f61f27bd"
+  },
+  "pg_read_only": "on",
+  "window_messages": 64
+ },
+ {
+  "run": "new_forced_A",
+  "case": "A",
+  "question_source": "db",
+  "plan_source": "forced",
+  "act": "research",
+  "extent": "normal",
+  "structure": "answer",
+  "mode": "serious",
+  "analys": true,
+  "canon": "code/23aae0c9499d (9288 chars)",
+  "l1_attempts": null,
+  "pg_matches_code": false,
+  "payload_total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1
+  },
+  "inv_1x1": true,
+  "inv_0x0": false,
+  "core": {
+   "chars": 3294,
+   "sha12": "ead77b2ab509",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 0,
+  "block_sha12": "e3b0c44298fc",
+  "rows": 10,
+  "ids": [
+   20479,
+   20476,
+   21254,
+   19433,
+   19173,
+   18105,
+   17205,
+   16698,
+   16209,
+   19754
+  ],
+  "rows_sha12": "69c975230b9d",
+  "query": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "empty": true,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   598,
+   602
+  ],
+  "l2_elapsed": [
+   4.6,
+   4.5
+  ],
+  "meta": {
+   "flagged": 0,
+   "total": 2,
+   "cats": [
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    },
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 14406,
+   "sha12": "054b072cb874",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 4004,
+   "sha12": "bd9d194391f2"
+  },
+  "pg_read_only": "on",
+  "window_messages": 64
+ },
+ {
+  "run": "new_forced_B",
+  "case": "B",
+  "question_source": "db",
+  "plan_source": "forced",
+  "act": "research",
+  "extent": "normal",
+  "structure": "answer",
+  "mode": "serious",
+  "analys": true,
+  "canon": "code/23aae0c9499d (9288 chars)",
+  "l1_attempts": null,
+  "pg_matches_code": false,
+  "payload_total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1
+  },
+  "inv_1x1": true,
+  "inv_0x0": false,
+  "core": {
+   "chars": 3294,
+   "sha12": "ead77b2ab509",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 0,
+  "block_sha12": "e3b0c44298fc",
+  "rows": 10,
+  "ids": [
+   20482,
+   20263,
+   19636,
+   16816,
+   21254,
+   18024,
+   21291,
+   15434,
+   20622,
+   19977
+  ],
+  "rows_sha12": "3ab839c6f464",
+  "query": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+  "empty": true,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   943,
+   707
+  ],
+  "l2_elapsed": [
+   4.9,
+   3.6
+  ],
+  "meta": {
+   "flagged": 1,
+   "total": 2,
+   "cats": [
+    {
+     "announce": [
+      "Давай, разложу."
+     ],
+     "leadin": [
+      "Давай, разложу."
+     ],
+     "label": []
+    },
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 14406,
+   "sha12": "054b072cb874",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 4099,
+   "sha12": "c26f4511f1af"
+  },
+  "pg_read_only": "on",
+  "window_messages": 66
+ },
+ {
+  "run": "oldA",
+  "case": "A",
+  "question_source": "db",
+  "plan_source": "llm",
+  "act": "answer",
+  "extent": "compact",
+  "structure": "chat",
+  "mode": "casual",
+  "analys": false,
+  "canon": "code/6c2ddc17c998 (8261 chars)",
+  "l1_attempts": 1,
+  "pg_matches_code": true,
+  "payload_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0
+  },
+  "inv_1x1": false,
+  "inv_0x0": true,
+  "core": {
+   "chars": 2507,
+   "sha12": "e62de1fcd7a2",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 146,
+  "block_sha12": "2bd623967c59",
+  "rows": 10,
+  "ids": [],
+  "rows_sha12": "4f53cda18c2b",
+  "query": "Бот проанализируй мои сообщения в чате и скажи, я злобный?",
+  "empty": false,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   498,
+   395
+  ],
+  "l2_elapsed": [
+   3.9,
+   3.3
+  ],
+  "meta": {
+   "flagged": 0,
+   "total": 2,
+   "cats": [
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    },
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 13866,
+   "sha12": "7771dd89a8c7",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 3125,
+   "sha12": "4270ced6c2e2"
+  },
+  "pg_read_only": "on",
+  "window_messages": 64
+ },
+ {
+  "run": "oldB",
+  "case": "B",
+  "question_source": "db",
+  "plan_source": "llm",
+  "act": "answer",
+  "extent": "compact",
+  "structure": "answer",
+  "mode": "casual",
+  "analys": false,
+  "canon": "code/6c2ddc17c998 (8261 chars)",
+  "l1_attempts": 1,
+  "pg_matches_code": true,
+  "payload_total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0
+  },
+  "inv_1x1": false,
+  "inv_0x0": true,
+  "core": {
+   "chars": 2507,
+   "sha12": "e62de1fcd7a2",
+   "in_system": true,
+   "rendered": true
+  },
+  "rag_source": "service",
+  "block_chars": 146,
+  "block_sha12": "2bd623967c59",
+  "rows": 10,
+  "ids": [],
+  "rows_sha12": "4f53cda18c2b",
+  "query": "Ты какауюто хуйню пизданул брат, давай по другому вопрос, проанализируй сообщения пользователя Ринтаро в чате, и заключение злобоный Ринтаро или не злобоный",
+  "empty": false,
+  "vec": {
+   "reflected": true,
+   "dim": 3072
+  },
+  "frequent": true,
+  "l2_chars": [
+   348,
+   505
+  ],
+  "l2_elapsed": [
+   3.4,
+   3.6
+  ],
+  "meta": {
+   "flagged": 0,
+   "total": 2,
+   "cats": [
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    },
+    {
+     "announce": [],
+     "leadin": [],
+     "label": []
+    }
+   ]
+  },
+  "invalid": "",
+  "fatal": null,
+  "stage_errors": {},
+  "system": {
+   "chars": 13898,
+   "sha12": "37e43bdd7d25",
+   "expression_marker": true
+  },
+  "user": {
+   "chars": 3179,
+   "sha12": "33c2d9d65009"
+  },
+  "pg_read_only": "on",
+  "window_messages": 66
+ }
+]

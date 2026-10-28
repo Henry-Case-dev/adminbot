@@ -26,9 +26,10 @@ get_bot_health (CheckupLogsFetcher+CheckupService) и get_recent_history
 
 Раунд 10.15 (F9, spec §2-§6, T-1620…T-1623): `_get_recent_history` реализован
 полностью — сырая хронологическая стенограмма недавних сообщений чата
-(«Имя: текст»): путь `depth` (≤150) через `database.get_recent_messages` либо
-путь `query` (FTS + окно последних часов + ASC). Лимиты — код-константы
-(каталог-Δ=0); R17: логи только chat_id/count/out_chars.
+(«Имя: текст»): путь `depth` (без верхнего предела — P0-HA §3.1) через
+`database.get_recent_messages` либо путь `query` (FTS + окно последних часов +
+ASC). Лимиты — код-константы (каталог-Δ=0); R17: логи только chat_id/fetched/
+count/out_chars.
 
 Раунд 10.17 (F2, ADR-1017-2 — SUPERSEDE ADR-1016-1 §2 п.3/§3): tool
 `download_media` для платформенного URL делает `probe()` → инлайн-меню
@@ -51,12 +52,15 @@ bounded попытка `download(url, None)`. Кулдаун (D279) — толь
 `_MEMORY_MAX_SYMBOLS`), никогда не бросает. Egress не расширяется.
 """
 import asyncio
+import base64
 import datetime
 import dataclasses
 import hashlib
+import hmac
 import json
 import logging
 import re
+import secrets
 import time
 
 from config.settings import settings
@@ -183,14 +187,47 @@ _TOOL_QUALITY_PREFIX = "tdq:"             # callback меню качества t
 
 # Раунд 10.15 (F9, spec §6): лимиты get_recent_history — код-константы
 # (каталог-Δ=0; прецедент _DIG_GRAPH_MAX_HOP_DEPTH/_MEMORY_FTS_LIMIT).
-_HISTORY_MAX_DEPTH = 150                 # верхняя граница depth (UPD §5)
+# P0-HA (снапшот 2026-10-29, §3.1): _HISTORY_MAX_DEPTH=150 удалён как общий
+# потолок — depth передаётся в БД-выборку без уменьшения; дефолт 50 — НЕ
+# максимум. Физический размер одного чтения БД ограничивает только
+# database._RECENT_MESSAGES_PAGE_SIZE (страница); число страниц определяется
+# фактическим размером выборки, нового общего потолка нет.
+# P0-HA TRUNC-PAGES (§4 директивы + архконтракт §1): символьная обрезка
+# результата истории (константа 3500 + вызов усечки) УДАЛЕНА полностью —
+# символьное ограничение как способ определения доступной истории исчезло
+# (не заменено ни 5000, ни 100000). Если выборка помещается в страницу
+# целиком — возвращается целиком; иначе — структурированные страницы целых
+# сообщений с честными счётителями и подписанным cursor (§4.2).
 _HISTORY_DEFAULT_DEPTH = 50              # default при отсутствии параметров
 _HISTORY_SEARCH_LIMIT = 80               # FTS-строк на этапе query (до фильтра)
 _HISTORY_QUERY_WINDOW_SECONDS = 12 * 3600  # «последние часы» для query
-_HISTORY_MAX_SYMBOLS = 3500              # обрезка результата (как _MEMORY_MAX_SYMBOLS)
 _HISTORY_TOOL_TIMEOUT = 10.0             # страховочный wait_for (локальная SQLite)
+# Технический предел ОДНОГО возврата инструмента — в целых сообщениях
+# (архконтракт §1 «Размер страницы»). НЕ потолок выборки: совпадает с уже
+# существующим техническим батчем эпизода (episode_max_messages, дефолт 40).
+_HISTORY_PAGE_ROWS = 40
 # Честная фраза при пустом результате: модель не выдумывает (spec §3).
 _HISTORY_EMPTY = "За последние сообщения ничего не нашлось"
+
+# ── TRUNC-PAGES: структурированное продолжение выборки (архконтракт §1) ──
+# Стабильная машина-читаемая голова результата + хвостовой сентинел (не
+# заканчивается на «…», чтобы tool_result не помечал конверт truncated).
+_HISTORY_SAMPLE_HEADER = "@@HISTORY_SAMPLE v1"
+_HISTORY_HEADER_END = "@@END_HEADER"
+_HISTORY_SAMPLE_END = "@@HISTORY_SAMPLE_END"
+# Ключ подписи cursor: secrets на импорте модуля (архконтракт §1 Cursor —
+# рестарт процесса инвалидирует подпись → честная ошибка, не новая выборка).
+_HISTORY_CURSOR_KEY = secrets.token_bytes(32)
+# Коды отказа cursor (fail closed: путь B и дефолт 50 запрещены).
+_HISTORY_CURSOR_ERRORS = ("unknown_cursor", "stale_cursor", "anchor_missing")
+
+
+class _HistoryCursorError(Exception):
+    """Структурированный отказ cursor (не подменяется новой выборкой)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = str(reason)
 
 # Окна query_chat_memory (3.3): time_range → секунды (0 = всё время).
 _TIME_RANGE_SECONDS = {
@@ -332,17 +369,347 @@ def _time_range_since(time_range: str) -> int:
 
 
 def _history_depth(raw) -> int:
-    """depth get_recent_history → int в [1, _HISTORY_MAX_DEPTH].
+    """depth get_recent_history → int ≥ 1.
 
-    Отсутствие/кривой тип → _HISTORY_DEFAULT_DEPTH; 0/отрицательное → 1
-    (spec §2: «клампится в 1.._HISTORY_MAX_DEPTH»)."""
+    Отсутствие/кривой тип → _HISTORY_DEFAULT_DEPTH; 0/отрицательное → 1.
+    P0-HA (снапшот 2026-10-29, §3.1): верхнего предела больше нет —
+    запрошенное число (200/400/2000/…) идёт в выборку как есть, без
+    уменьшения до фиксированного числа; дефолт 50 — НЕ максимум."""
     if raw is None or raw == "":
         return _HISTORY_DEFAULT_DEPTH
     try:
         value = int(raw)
     except (TypeError, ValueError):
         return _HISTORY_DEFAULT_DEPTH
-    return max(1, min(value, _HISTORY_MAX_DEPTH))
+    return max(1, value)
+
+
+# ── TRUNC-PAGES: фиксация границы выборки, cursor, экстрактор N ──────────
+
+
+def _history_sample_id(chat_id: int, anchor_ts: int, anchor_id: int,
+                       requested: int) -> str:
+    """Стабильный id выборки (архконтракт §0): ``hs_`` + 12 hex от sha256
+    (chat_id|anchor_ts|anchor_id|requested). Не UUID: та же граница — тот же
+    id."""
+    digest = hashlib.sha256(
+        f"{int(chat_id)}|{int(anchor_ts)}|{int(anchor_id)}|{int(requested)}"
+        .encode("utf-8")).hexdigest()
+    return f"hs_{digest[:12]}"
+
+
+def _history_cursor_ttl() -> float:
+    """Срок жизни cursor — существующий wall-clock цепочки инструментов
+    (TOOL_CHAIN_TIMEOUT_SECONDS = 360, tool_loop.py). Новый TTL НЕ вводится
+    (архконтракт §1 Cursor)."""
+    from services.tool_loop import TOOL_CHAIN_TIMEOUT_SECONDS
+    try:
+        return float(getattr(settings, "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
+                             TOOL_CHAIN_TIMEOUT_SECONDS))
+    except (TypeError, ValueError):
+        return TOOL_CHAIN_TIMEOUT_SECONDS
+
+
+def _history_cursor_encode(bound: dict, after_ts: int, after_id: int,
+                           processed: int = 0) -> str:
+    """Подписанный самодостаточный cursor (архконтракт §1, формат v2).
+
+    Payload (ASCII, без текста сообщений), base64url без padding:
+    ``v2|chat_id|anchor_ts|anchor_id|oldest_ts|oldest_id|requested|
+    available|processed|after_ts|after_id|exp|sample_id``; подпись — первые
+    16 hex hmac.sha256(process_key, payload). ``available``/``processed`` —
+    захваченные счётчики выборки (ревью H14, 2026-10-29): продолжение
+    сверяет обещанный остаток (available - processed) с живой БД и честно
+    рапортует удалённые строки, а не молча ужмёт available до выжившего
+    COUNT. Формат v2 принят fail-closed: payload прежней сборки без этих
+    полей не разбирается вовсе (unknown_cursor); TTL 360 с делает
+    совместимость с v1 бессмысленной. Тела страниц в состоянии НЕ хранятся:
+    следующая страница перечитывается из БД тем же предикатом."""
+    payload = "|".join(str(v) for v in (
+        "v2", int(bound["chat_id"]), int(bound["anchor_ts"]),
+        int(bound["anchor_id"]), int(bound["oldest_ts"]),
+        int(bound["oldest_id"]), int(bound["requested"]),
+        int(bound["available"]), max(0, int(processed)),
+        int(after_ts), int(after_id),
+        int(bound.get("exp") or (time.time() + _history_cursor_ttl())),
+        str(bound.get("sample_id") or ""),
+    ))
+    token = base64.urlsafe_b64encode(payload.encode("ascii")).decode("ascii").rstrip("=")
+    sig = hmac.new(_HISTORY_CURSOR_KEY, payload.encode("ascii"),
+                   hashlib.sha256).hexdigest()[:16]
+    return f"v2.{token}.{sig}"
+
+
+def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]:
+    """Разбор + проверка cursor. (None, reason) при отказе — fail closed:
+    путь B и дефолт 50 запрещены (архконтракт §1). Чужой chat_id и битая
+    подпись неотличимы для caller'а — оба ``unknown_cursor``. Только формат
+    v2 (с захваченными available/processed): payload старой сборки (v1,
+    без счётчиков выборки) → ``unknown_cursor`` — молчаливое чтение по
+    уменьшенному окну запрещено (ревью H14)."""
+    parts = str(cursor or "").strip().split(".")
+    if len(parts) != 3 or parts[0] != "v2" or not parts[1] or not parts[2]:
+        return None, "unknown_cursor"
+    try:
+        pad = "=" * (-len(parts[1]) % 4)
+        payload = base64.urlsafe_b64decode(parts[1] + pad).decode("ascii")
+    except Exception:
+        return None, "unknown_cursor"
+    expected = hmac.new(_HISTORY_CURSOR_KEY, payload.encode("ascii"),
+                        hashlib.sha256).hexdigest()[:16]
+    if not hmac.compare_digest(expected, parts[2]):
+        return None, "unknown_cursor"
+    fields = payload.split("|")
+    if len(fields) != 13 or fields[0] != "v2":
+        return None, "unknown_cursor"
+    try:
+        cur_chat = int(fields[1])
+        anchor_ts, anchor_id = int(fields[2]), int(fields[3])
+        oldest_ts, oldest_id = int(fields[4]), int(fields[5])
+        requested = int(fields[6])
+        available, processed = int(fields[7]), int(fields[8])
+        after_ts, after_id = int(fields[9]), int(fields[10])
+        exp = int(fields[11])
+    except (TypeError, ValueError):
+        return None, "unknown_cursor"
+    sample_id = fields[12]
+    if not sample_id.startswith("hs_") or len(sample_id) != 15:
+        return None, "unknown_cursor"
+    # Счётчики выборки обязательны и согласованы; кривые значения — отказ,
+    # не «лучшая догадка» (fail closed).
+    if available < 1 or processed < 0 or processed > available:
+        return None, "unknown_cursor"
+    if cur_chat != int(chat_id):
+        return None, "unknown_cursor"
+    if exp < int(time.time()):
+        return None, "stale_cursor"
+    return {
+        "chat_id": cur_chat, "anchor_ts": anchor_ts, "anchor_id": anchor_id,
+        "oldest_ts": oldest_ts, "oldest_id": oldest_id,
+        "requested": requested, "available": available,
+        "processed": processed, "after_ts": after_ts, "after_id": after_id,
+        "exp": exp, "sample_id": sample_id,
+    }, ""
+
+
+def _history_window(bound: dict) -> tuple[int, int, int, int]:
+    """Окно выборки (anchor_ts, anchor_id, oldest_ts, oldest_id) из bound."""
+    return (int(bound["anchor_ts"]), int(bound["anchor_id"]),
+            int(bound["oldest_ts"]), int(bound["oldest_id"]))
+
+
+# Предикат окна выборки (chat_id + верхняя граница «до якоря включительно»,
+# нижняя — «не старее oldest включительно»); параметризуется как SQL.
+_HISTORY_WINDOW_SQL = (
+    "chat_id = ? AND (timestamp < ? OR (timestamp = ? AND id <= ?)) "
+    "AND (timestamp > ? OR (timestamp = ? AND id >= ?))"
+)
+
+
+async def _history_probe_row(db, sql: str, params: tuple):
+    """Точечное чтение метаданных (id/timestamp, БЕЗ тел сообщений) —
+    архконтракт §0: захват границы выбирает только метаданные. Доступ через
+    существующий aiosqlite-коннект DatabaseService (прецедент:
+    canonical_messages.py / chat_lore.py). Duck-typing фейков (нет коннекта)
+    → None — caller обязан иметь честный fallback."""
+    conn = getattr(db, "db", None)
+    if conn is None or not hasattr(conn, "execute"):
+        return None
+    cursor = await conn.execute(sql, params)
+    row = await cursor.fetchone()
+    return row
+
+
+def _bound_int(value, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _row_field(row, key: str, default: int = 0) -> int:
+    """Толерантное чтение числового поля строки (dict ИЛИ aiosqlite.Row —
+    у Row нет .get, отсутствующий ключ → default)."""
+    try:
+        value = row[key]
+    except (KeyError, IndexError, TypeError):
+        return default
+    return _bound_int(value, default)
+
+
+async def capture_history_sample(db, chat_id: int, requested: int) -> dict | None:
+    """Захват границы выборки (архконтракт §0): два точечных чтения
+    метаданных (якорь + граница N-й строки) и COUNT в окне. Тела сообщений
+    НЕ выбирает — вторая полная копия истории в памяти процесса запрещена.
+
+    Возвращает маленький объект границы (dict) или None (пустой чат).
+    Куда попадает: локальная переменная хода; волна SEGMENTS дополнительно
+    ставит его на ``tool_ctx.history_sample`` (setattr) ДО сборки контекста."""
+    if db is None or not hasattr(db, "get_recent_messages"):
+        raise RuntimeError("db недоступен")
+    wanted = max(1, int(requested))
+    anchor_row = await db.get_recent_messages(chat_id, 1)
+    if not anchor_row:
+        return None
+    newest = anchor_row[-1]
+    a_ts, a_id = _row_field(newest, "timestamp"), _row_field(newest, "id")
+    window = (a_ts, a_id, 0, 0)          # нижняя граница пока «весь чат»
+    available = wanted
+    o_ts, o_id = 0, 0
+    try:
+        # COUNT в окне «до якоря включительно» (метаданные, не тела).
+        row = await _history_probe_row(
+            db, f"SELECT COUNT(*) AS n FROM smart_messages WHERE {_HISTORY_WINDOW_SQL}",
+            (chat_id, a_ts, a_ts, a_id, 0, 0, 0))
+        in_window = _bound_int(row["n"] if row is not None else row, 0)
+        if in_window <= 0:
+            return None
+        if in_window <= wanted:
+            # Окно короче запроса: доступно ровно in_window (H7), нижний край
+            # — фактическое самое старое сообщение окна.
+            available = in_window
+            row = await _history_probe_row(
+                db,
+                "SELECT id, timestamp FROM smart_messages WHERE "
+                + _HISTORY_WINDOW_SQL + " ORDER BY timestamp ASC, id ASC LIMIT 1",
+                (chat_id, a_ts, a_ts, a_id, 0, 0, 0))
+            if row is None:
+                return None
+            o_ts, o_id = _bound_int(row["timestamp"]), _bound_int(row["id"])
+        else:
+            # N-я строка назад от якоря включительно (OFFSET wanted-1) —
+            # второй точечный метаданный захват.
+            row = await _history_probe_row(
+                db,
+                "SELECT id, timestamp FROM smart_messages WHERE "
+                + _HISTORY_WINDOW_SQL + " ORDER BY timestamp DESC, id DESC "
+                "LIMIT 1 OFFSET ?",
+                (chat_id, a_ts, a_ts, a_id, 0, 0, 0, wanted - 1))
+            if row is None:
+                return None
+            o_ts, o_id = _bound_int(row["timestamp"]), _bound_int(row["id"])
+    except (TypeError, AttributeError):
+        # Коннект недоступен (duck-typed фейк без aiosqlite): честный
+        # fallback на существующий reader — окна ≤ wanted; прод-путь всегда
+        # идёт через метаданные выше. Тела не сохраняются между вызовами.
+        rows = await db.get_recent_messages(chat_id, wanted)
+        if not rows:
+            return None
+        ordered = sorted(
+            rows, key=lambda r: (_row_field(r, "timestamp"),
+                                 _row_field(r, "id")))
+        newest = ordered[-1]
+        a_ts, a_id = _row_field(newest, "timestamp"), _row_field(newest, "id")
+        oldest = ordered[0]
+        o_ts, o_id = _row_field(oldest, "timestamp"), _row_field(oldest, "id")
+        available = min(wanted, len(ordered))
+    return {
+        "sample_id": _history_sample_id(chat_id, a_ts, a_id, wanted),
+        "chat_id": int(chat_id),
+        "anchor_ts": a_ts, "anchor_id": a_id,
+        "oldest_ts": o_ts, "oldest_id": o_id,
+        "requested": wanted,
+        "available": max(1, min(available, wanted)),
+        "captured_wall": time.time(),
+    }
+
+
+async def _history_count_in_window(db, bound: dict, up_to: tuple | None,
+                                   after: tuple | None = None):
+    """COUNT строк окна выборки (метаданные). ``up_to=(ts, id)`` — только
+    строки не позже точки; ``after=(ts, id)`` — только строки строго после
+    точки (выжившие остатки для H14). Коннект недоступен → None."""
+    params: list = [int(bound["chat_id"]), _bound_int(bound["anchor_ts"]),
+                    _bound_int(bound["anchor_ts"]), _bound_int(bound["anchor_id"]),
+                    _bound_int(bound["oldest_ts"]), _bound_int(bound["oldest_ts"]),
+                    _bound_int(bound["oldest_id"])]
+    sql = f"SELECT COUNT(*) AS n FROM smart_messages WHERE {_HISTORY_WINDOW_SQL}"
+    if up_to is not None:
+        sql += " AND (timestamp < ? OR (timestamp = ? AND id <= ?))"
+        params.extend([up_to[0], up_to[0], up_to[1]])
+    if after is not None:
+        sql += " AND (timestamp > ? OR (timestamp = ? AND id > ?))"
+        params.extend([after[0], after[0], after[1]])
+    try:
+        row = await _history_probe_row(db, sql, tuple(params))
+    except (TypeError, AttributeError):
+        return None
+    if row is None:
+        return None
+    return _bound_int(row["n"] if row is not None else row, 0)
+
+
+async def _history_anchor_exists(db, fields: dict) -> bool:
+    """Проверка «якорь выборки ещё в БД» (устойчивая идентичность строки —
+    пара timestamp+id, не только timestamp). Коннект недоступен → None
+    (проверка невозможна — не блокируем; прод-путь проверяет всегда)."""
+    try:
+        row = await _history_probe_row(
+            db,
+            "SELECT id FROM smart_messages WHERE chat_id = ? AND id = ? "
+            "AND timestamp = ? LIMIT 1",
+            (int(fields["chat_id"]), int(fields["anchor_id"]),
+             int(fields["anchor_ts"])))
+    except (TypeError, AttributeError):
+        return True
+    return row is not None
+
+
+_HISTORY_NUM_RE = re.compile(r"\d[\d \u00A0,]*\d|\d")
+_HISTORY_UNIT_RE = re.compile(r"(сообщени|messages|реплик)", re.IGNORECASE)
+_HISTORY_RECENT_RE = re.compile(r"(последн|last|недавн)", re.IGNORECASE)
+
+
+def extract_history_depth(text: str) -> int | None:
+    """Чистая функция (архконтракт §1): целое N ≥ 1 (допускается разделитель
+    тысяч «2 000» / «2,000») в окне ~40 символов от единицы счёта
+    («сообщени»/«messages»/«реплик») И от маркера недавности
+    («последн»/«last»/«недавн»). Нет числа/единицы/недавности → None (путь B
+    / дефолт, как сейчас). Числа 400 и 2000 не особые; список тем пуст."""
+    value = str(text or "")
+    if not value:
+        return None
+    lowered = value.lower()
+    for match in _HISTORY_NUM_RE.finditer(lowered):
+        digits = re.sub(r"[ \u00A0,]", "", match.group())
+        if not digits.isdigit():
+            continue
+        start, end = match.span()
+        window = lowered[max(0, start - 40):end + 40]
+        if _HISTORY_UNIT_RE.search(window) and _HISTORY_RECENT_RE.search(window):
+            number = int(digits)
+            if number >= 1:
+                return number
+    return None
+
+
+def parse_history_sample(text: str) -> dict | None:
+    """Парсер головы ``@@HISTORY_SAMPLE v1 … @@END_HEADER`` (архконтракт §1).
+    Блока нет (старый результат / путь B / ошибка) → None. Числовые поля —
+    int, остальные — строки. Текст сообщений в блок не входит."""
+    value = str(text or "")
+    start = value.find(_HISTORY_SAMPLE_HEADER)
+    if start < 0:
+        return None
+    end = value.find(_HISTORY_HEADER_END, start)
+    if end < 0:
+        return None
+    fields: dict = {"raw_header": value[start:end + len(_HISTORY_HEADER_END)]}
+    for line in value[start + len(_HISTORY_SAMPLE_HEADER):end].splitlines():
+        line = line.strip()
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key, val = key.strip(), val.strip()
+        if key in ("requested", "available", "processed", "remaining",
+                   "has_next", "incomplete"):
+            try:
+                fields[key] = int(val)
+            except (TypeError, ValueError):
+                fields[key] = val
+        else:
+            fields[key] = val
+    return fields
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -3164,33 +3531,113 @@ class ToolRouter:
         """F9 (spec §2-§5): сырая хронологическая стенограмма недавних
         сообщений чата («Имя: текст») — кратковременная память, НЕ RAG.
 
-        Путь A (`depth`): `database.get_recent_messages(chat_id, depth)` —
-        последние N сообщений в хронологическом порядке (ASC).
-        Путь B (`query`): FTS по L1 + пост-фильтр окна _HISTORY_QUERY_WINDOW_
-        SECONDS + сортировка ASC. Приоритет — `query`; если параметров нет —
-        `depth = _HISTORY_DEFAULT_DEPTH`.
+        P0-HA TRUNC-PAGES (§4.2 директивы + архконтракт §1): символьной
+        обрезки НЕТ. Если выборка помещается в одну страницу — возвращается
+        целиком; иначе — структурированная страница целых сообщений с
+        машиной-читаемой головой @@HISTORY_SAMPLE (id выборки, границы,
+        requested/available/processed/remaining, has_next, подписанный
+        cursor). Маршрутизация (жёсткий порядок):
+        1) непустой ``cursor`` → только продолжение этой выборки (путь B и
+           дефолт запрещены; неверный cursor НЕ подменяется depth=50);
+        2) ``ctx.history_sample`` задан → страница этой выборки;
+        3) явный ``depth`` → путь A (якорь фиксируется этим вызовом);
+        4) ``extract_history_depth`` нашёл N в тексте → путь A с этим N
+           (защита simple-пути, который шлёт только query);
+        5) иначе ``query`` → путь B (FTS) без изменений;
+        6) иначе depth = 50 (дефолт не максимум).
 
         НЕ бросает: ошибка/пусто/сбой → структурная строка (R17: в логах
-        только chat_id/count/out_chars, без текстов/URL/имён)."""
+        только chat_id/sample_id/счётчики/has_next/reason, без текстов/URL/
+        имён)."""
         args = arguments if isinstance(arguments, dict) else {}
-        query = str(args.get("query") or "").strip()
-        depth = _history_depth(args.get("depth"))
-        # Follow-up R10.15-6 (spec F9 §5): модель не передала ни query, ни
-        # depth, но есть свободный текст сообщения → используем его как query.
-        # Явный depth НЕ перекрывается (depth-путь сохранён).
-        if not query and args.get("depth") in (None, ""):
-            query = str(getattr(ctx, "query", "") or "").strip()
         db = self.deps.db if self.deps.db is not None \
             else getattr(self.deps.memory, "db", None)
+        # 1. Cursor → продолжение выборки, только он (fail closed).
+        cursor_raw = str(args.get("cursor") or "").strip()
+        if cursor_raw:
+            try:
+                return await asyncio.wait_for(
+                    self._history_continue(ctx, db, cursor_raw),
+                    timeout=_HISTORY_TOOL_TIMEOUT)
+            except asyncio.TimeoutError:
+                logger.warning("[tools] get_recent_history timeout | chat=%s",
+                               ctx.chat_id)
+                return "ОШИБКА get_recent_history: timeout"
+            except asyncio.CancelledError:
+                raise
+            except _HistoryCursorError as exc:
+                logger.warning(
+                    "[tools] get_recent_history cursor rejected | chat=%s | "
+                    "reason=%s", ctx.chat_id, exc.reason)
+                return f"ОШИБКА get_recent_history: {exc.reason}"
+            except Exception as exc:
+                logger.warning(
+                    "[tools] get_recent_history failed | chat=%s | error=%s",
+                    ctx.chat_id, type(exc).__name__)
+                return f"ОШИБКА get_recent_history: {type(exc).__name__}"
+
+        # 2-6. Маршрутизация без cursor.
+        depth_raw = args.get("depth")
+        explicit_depth = (None if depth_raw in (None, "")
+                          else _history_depth(depth_raw))
+        query_arg = str(args.get("query") or "").strip()
+        query_text = query_arg or str(getattr(ctx, "query", "") or "").strip()
+        extracted_depth = extract_history_depth(query_text)
+        bound = self._history_bound_from_ctx(ctx)
+        if bound is not None:                       # 2. выборка хода
+            requested = _bound_int(bound.get("requested"), 0)
+            if requested < 1:
+                bound, requested = None, 0
+        elif explicit_depth is not None:            # 3. явный depth
+            requested = explicit_depth
+        elif extracted_depth is not None:           # 4. N в тексте хода
+            requested = extracted_depth
+        else:
+            requested = 0
+        if requested < 1 and query_text:            # 5. путь B (FTS)
+            try:
+                fetched, lines = await asyncio.wait_for(
+                    self._recent_history_by_query(ctx, query_text),
+                    timeout=_HISTORY_TOOL_TIMEOUT)
+            except asyncio.TimeoutError:
+                logger.warning("[tools] get_recent_history timeout | chat=%s",
+                               ctx.chat_id)
+                return "ОШИБКА get_recent_history: timeout"
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.warning(
+                    "[tools] get_recent_history failed | chat=%s | error=%s",
+                    ctx.chat_id, type(exc).__name__)
+                return f"ОШИБКА get_recent_history: {type(exc).__name__}"
+            # P0-HA §4.1: путь B больше НЕ проходит через символьную обрезку —
+            # выборка ограничена собственным FTS-лимитом (_HISTORY_SEARCH_LIMIT).
+            text = "\n".join(lines)
+            if not lines:
+                logger.info("[tools] get_recent_history | chat=%s | mode=query "
+                            "| fetched=%d | count=0 | out_chars=0",
+                            ctx.chat_id, fetched)
+                return _HISTORY_EMPTY
+            logger.info("[tools] get_recent_history | chat=%s | mode=query | "
+                        "fetched=%d | count=%d | out_chars=%d",
+                        ctx.chat_id, fetched, len(lines), len(text))
+            return text
+        if requested < 1:                           # 6. дефолт (не максимум)
+            requested = _HISTORY_DEFAULT_DEPTH
+        # Путь A: страница выборки (якорь фиксируется при необходимости).
         try:
-            if query:
-                lines = await asyncio.wait_for(
-                    self._recent_history_by_query(ctx, query),
+            if bound is None:
+                bound = await asyncio.wait_for(
+                    capture_history_sample(db, ctx.chat_id, requested),
                     timeout=_HISTORY_TOOL_TIMEOUT)
-            else:
-                lines = await asyncio.wait_for(
-                    self._recent_history_by_depth(ctx, db, depth),
-                    timeout=_HISTORY_TOOL_TIMEOUT)
+                if bound is None:
+                    logger.info("[tools] get_recent_history | chat=%s | "
+                                "fetched=0 | count=0 | out_chars=0",
+                                ctx.chat_id)
+                    return _HISTORY_EMPTY
+            page = await asyncio.wait_for(
+                self._history_read_page(db, bound, after=None),
+                timeout=_HISTORY_TOOL_TIMEOUT)
         except asyncio.TimeoutError:
             logger.warning("[tools] get_recent_history timeout | chat=%s",
                            ctx.chat_id)
@@ -3202,27 +3649,182 @@ class ToolRouter:
                 "[tools] get_recent_history failed | chat=%s | error=%s",
                 ctx.chat_id, type(exc).__name__)
             return f"ОШИБКА get_recent_history: {type(exc).__name__}"
-        if not lines:
-            logger.info("[tools] get_recent_history | chat=%s | count=0 | "
-                        "out_chars=0", ctx.chat_id)
-            return _HISTORY_EMPTY
-        text = _truncate("\n".join(lines), _HISTORY_MAX_SYMBOLS)
-        logger.info("[tools] get_recent_history | chat=%s | count=%d | "
-                    "out_chars=%d", ctx.chat_id, len(lines), len(text))
-        return text
+        return self._format_history_page(bound, page, processed_before=0)
 
-    async def _recent_history_by_depth(self, ctx: ToolContext, db, depth: int
-                                       ) -> list[str]:
-        """Путь A: последние `depth` сообщений чата (ASC). DDL не нужен —
-        переиспользуем read-API `database.get_recent_messages`."""
+    def _history_bound_from_ctx(self, ctx: ToolContext) -> dict | None:
+        """Граница выборки хода (архконтракт §0: setattr ``tool_ctx.history_
+        sample``; волна SEGMENTS ставит её до сборки контекста). Кривой/чужой
+        объект игнорируется → свежий захват (это новый ход, не подмена
+        продолжения)."""
+        bound = getattr(ctx, "history_sample", None)
+        if not isinstance(bound, dict):
+            return None
+        required = ("sample_id", "anchor_ts", "anchor_id", "oldest_ts",
+                    "oldest_id", "requested", "available")
+        if any(key not in bound for key in required):
+            return None
+        if _bound_int(bound.get("available"), 0) < 1 \
+                or _bound_int(bound.get("requested"), 0) < 1:
+            return None
+        normalized = dict(bound)
+        normalized.setdefault("chat_id", int(ctx.chat_id))
+        return normalized
+
+    async def _history_read_page(self, db, bound: dict, *,
+                                 after: tuple | None) -> dict:
+        """Одна страница выборки: ASC-чтение вперёд от точки after по окну
+        (keyset по timestamp+id через существующий reader wave 1), LIMIT
+        _HISTORY_PAGE_ROWS целых сообщений. Тел больше страницы не читается и
+        в памяти не копится."""
         if db is None or not hasattr(db, "get_recent_messages"):
             raise RuntimeError("db недоступен")
-        rows = await db.get_recent_messages(ctx.chat_id, depth)
-        return self._history_lines(rows)
+        rows = await db.get_recent_messages(
+            int(bound["chat_id"]), _HISTORY_PAGE_ROWS,
+            anchor=_history_window(bound), after=after)
+        rows = list(rows or [])
+        page_from = ""
+        page_to = ""
+        if rows:
+            first, last = rows[0], rows[-1]
+            page_from = (f"{_row_field(first, 'timestamp')}:"
+                         f"{_row_field(first, 'id')}")
+            page_to = (f"{_row_field(last, 'timestamp')}:"
+                       f"{_row_field(last, 'id')}")
+        # P0-HA волна 4 (блокер 2 review-w4): строки страницы выборки несут
+        # Telegram user_id (сравнение людей по uid, не по id сообщения).
+        lines = self._history_lines(rows, with_user_id=True)
+        return {"rows": rows, "lines": lines, "page_from": page_from,
+                "page_to": page_to,
+                "fetched": len(rows)}
+
+    async def _history_continue(self, ctx: ToolContext, db,
+                                cursor_raw: str) -> str:
+        """Продолжение по cursor: проверка подписи/чата/срока/якоря — fail
+        closed (архконтракт §1). Следующая страница перечитывается из БД тем
+        же предикатом; тел между вызовами не хранится. Счётчики выборки
+        (available/processed) берутся из подписанного cursor, а не живым
+        COUNT: иначе удалённые между страницами строки молча ужали бы
+        выборку до «полной» (ревью H14). Обещанный остаток сверяется с
+        живыми строками после точки курсора; выживших меньше обещанного →
+        incomplete=1/reason=tail_missing, строки всё равно отдаются."""
+        fields, reason = _history_cursor_decode(cursor_raw, ctx.chat_id)
+        if fields is None:
+            raise _HistoryCursorError(reason or "unknown_cursor")
+        if not await _history_anchor_exists(db, fields):
+            raise _HistoryCursorError("anchor_missing")
+        after = (fields["after_ts"], fields["after_id"])
+        processed_before = int(fields["processed"])
+        expected_remaining = max(0, int(fields["available"]) - processed_before)
+        survivors_after = await _history_count_in_window(db, fields,
+                                                         up_to=None, after=after)
+        if survivors_after is None:
+            # Счётчики без БД не выдумываются: честный структурированный отказ.
+            raise _HistoryCursorError("db_error")
+        bound = {
+            "sample_id": fields["sample_id"], "chat_id": fields["chat_id"],
+            "anchor_ts": fields["anchor_ts"], "anchor_id": fields["anchor_id"],
+            "oldest_ts": fields["oldest_ts"], "oldest_id": fields["oldest_id"],
+            "requested": fields["requested"],
+            "available": int(fields["available"]),  # захваченный available
+            "exp": fields["exp"],
+        }
+        page = await self._history_read_page(db, bound, after=after)
+        return self._format_history_page(bound, page,
+                                         processed_before=processed_before,
+                                         expected_remaining=expected_remaining,
+                                         survivors_after=survivors_after)
+
+    def _format_history_page(self, bound: dict, page: dict,
+                             *, processed_before: int,
+                             expected_remaining: int | None = None,
+                             survivors_after: int | None = None) -> str:
+        """Голова @@HISTORY_SAMPLE (компактная, стабильная, разбирается кодом,
+        без текста сообщений) + канонические строки целых сообщений +
+        хвостовой сентинел (не «…», чтобы tool_result не помечал truncated).
+        Отдельная страница никогда не подаётся как полная выборка: при
+        has_next=1 / incomplete=1 это видно в голове (REQ-HA-PAGES-NOT-FULL).
+
+        ``expected_remaining``/``survivors_after`` — только на продолжении по
+        cursor: обещанный остаток выборки (из подписанного cursor) против
+        живого числа строк после точки курсора. Живых строк меньше
+        обещанных → incomplete=1/reason=tail_missing; выжившие строки всё
+        равно отдаются, счётчик processed не пересчитывается живым COUNT —
+        потеря названа, не скрыта (ревью H14). Первая страница поведение не
+        меняет (H7: короткий архив честно полон)."""
+        fetched = int(page.get("fetched") or 0)
+        processed = processed_before + fetched
+        available = _bound_int(bound.get("available"), 0)
+        remaining = max(0, available - processed)
+        has_next = remaining > 0 and fetched > 0
+        incomplete = 0
+        reason = ""
+        if expected_remaining is not None and survivors_after is not None:
+            if survivors_after < expected_remaining:
+                # H14: часть недочитанного хвоста удалена из БД (retention)
+                # — promised остаток выборки недостижим, неполнота объявлена
+                # явно; выжившие строки ниже всё равно отдаются.
+                incomplete = 1
+                reason = "tail_missing"
+            # has_next — по живым строкам: цепочка дочитывает выживших,
+            # потеря уже названа в этой голове.
+            has_next = fetched > 0 and survivors_after > fetched
+            if fetched == 0 and remaining > 0 and incomplete == 0:
+                # Гонка: окно опустело между COUNT и чтением страницы.
+                has_next = False
+                incomplete = 1
+                reason = "anchor_missing"
+        elif fetched == 0 and remaining > 0:
+            # Остаток выборки исчез из БД (retention) — честная неполнота,
+            # молчаливого обрыва нет (REQ-HA-INCOMPLETENESS-REPORTING).
+            has_next = False
+            incomplete = 1
+            reason = "anchor_missing"
+        cursor_field = ""
+        if has_next and page.get("page_to"):
+            to_ts, _, to_id = str(page["page_to"]).partition(":")
+            # Свежий захват: exp = сейчас + TOOL_CHAIN_TIMEOUT_SECONDS;
+            # продолжение наследует срок исходной выборки (не новый TTL).
+            cursor_field = _history_cursor_encode(bound, int(to_ts), int(to_id),
+                                                  processed)
+        header = "\n".join((
+            _HISTORY_SAMPLE_HEADER,
+            f"sample_id={bound.get('sample_id') or ''}",
+            f"requested={_bound_int(bound.get('requested'), 0)}",
+            f"available={available}",
+            f"processed={processed}",
+            f"remaining={remaining}",
+            f"has_next={1 if has_next else 0}",
+            f"boundary_to={_bound_int(bound.get('anchor_ts'))}:"
+            f"{_bound_int(bound.get('anchor_id'))}",
+            f"boundary_from={_bound_int(bound.get('oldest_ts'))}:"
+            f"{_bound_int(bound.get('oldest_id'))}",
+            f"page_from={page.get('page_from') or ''}",
+            f"page_to={page.get('page_to') or ''}",
+            f"incomplete={incomplete}",
+            f"reason={reason}",
+            f"cursor={cursor_field}",
+            _HISTORY_HEADER_END,
+        ))
+        lines = list(page.get("lines") or [])
+        text = header
+        if lines:
+            text += "\n" + "\n".join(lines)
+        text += "\n" + _HISTORY_SAMPLE_END
+        # P0-HA (§3.3): честный охват в логах — fetched (страница из БД) vs
+        # count (строк в стенограмме страницы); без текстов/URL/имён (R17).
+        logger.info("[tools] get_recent_history | chat=%s | sample=%s | "
+                    "page_from=%s | page_to=%s | fetched=%d | count=%d | "
+                    "processed=%d | remaining=%d | has_next=%d | out_chars=%d",
+                    bound.get("chat_id"), bound.get("sample_id"),
+                    page.get("page_from") or "-", page.get("page_to") or "-",
+                    fetched, len(lines), processed, remaining,
+                    1 if has_next else 0, len(text))
+        return text
 
     async def _recent_history_by_query(self, ctx: ToolContext, query: str
-                                       ) -> list[str]:
-        """Путь B: FTS по L1 + фильтр окна последних часов → ASC-стенограмма."""
+                                       ) -> tuple[int, list[str]]:
+        """Путь B: FTS по L1 + фильтр окна последних часов →
+        (fetched, ASC-стенограмма)."""
         since = int(time.time()) - _HISTORY_QUERY_WINDOW_SECONDS
         rows = await self.deps.memory.search_long_term(
             ctx.chat_id, keywords(query), limit=_HISTORY_SEARCH_LIMIT)
@@ -3230,13 +3832,20 @@ class ToolRouter:
         rows = [dict(row) for row in rows]
         rows = [r for r in rows if int(r.get("timestamp") or 0) >= since]
         rows.sort(key=lambda r: int(r.get("timestamp") or 0))
-        return self._history_lines(rows)
+        return len(rows), self._history_lines(rows)
 
-    def _history_lines(self, rows) -> list[str]:
+    def _history_lines(self, rows, *, with_user_id: bool = False) -> list[str]:
         """Строки smart_messages → канонические строки контекста (10.20,
         БЛОК 0, ADR-1020-1 ред. 3, точка 8): «[ts | Имя | ID | Переслано]:
         текст» (R16-каскад имён; пустой текст без медиа пропускается;
-        медиа-событие — маркером)."""
+        медиа-событие — маркером).
+
+        P0-HA волна 4 (блокер 2 review-w4): ``with_user_id=True`` — только
+        строки КОЛИЧЕСТВЕННОЙ ВЫБОРКИ (путь A `get_recent_history`) несут
+        Telegram user_id тем же приёмом, что `_speaker_tag` («Имя [uid]»):
+        анализ последних N различает одинаковые имена разных участников и
+        сравнивает людей по uid, а не по id сообщения. Путь B (FTS-query) и
+        прочие вызовы — прежний формат (байт-паритет)."""
         lines: list[str] = []
         for row in rows or []:
             try:
@@ -3251,8 +3860,13 @@ class ToolRouter:
                 text = f"[медиа: {media}]"
             forward_source = (item.get("forward_source")
                               if item.get("is_forward") else None)
+            author = self._resolve_name(item)
+            if with_user_id:
+                uid = item.get("user_id")
+                if uid not in (None, "", 0):
+                    author = f"{author} [{uid}]"
             lines.append(format_context_item(
-                ts=item.get("timestamp"), author=self._resolve_name(item),
+                ts=item.get("timestamp"), author=author,
                 item_id=resolve_item_id(
                     tg_message_id=item.get("tg_message_id"),
                     message_id=item.get("id")),

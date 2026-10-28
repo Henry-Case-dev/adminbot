@@ -1,0 +1,378 @@
+{
+ "root": "/tmp/p0-final11/new",
+ "guard": "strip_l2_meta_lead",
+ "cases": [
+  {
+   "name": "live_final10_E1_pair",
+   "raw_sha12": "e4e9b1229a5c",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 118,
+   "final_chars": 46,
+   "raw_first": "Ну давай, раз уж просят.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 2
+   },
+   "removed_count": 2,
+   "expected_removed_count": 2,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "live_final10_E1_pair_no_second",
+   "raw_sha12": "469d40b1c114",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 72,
+   "final_chars": 46,
+   "raw_first": "Ну давай, раз уж просят.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "live_final10_E1_second_only",
+   "raw_sha12": "eeee02d00934",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 93,
+   "final_chars": 46,
+   "raw_first": "Накидаю по свежим следам, без лишних сополей.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "keep_prosyat_tail_content",
+   "raw_sha12": "5c3ec54c1293",
+   "final_sha12": "5c3ec54c1293",
+   "raw_chars": 84,
+   "final_chars": 84,
+   "raw_first": "Ну давай, раз уж просили, по фактам.",
+   "final_first": "Ну давай, раз уж просили, по фактам.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "live_prosit_tail",
+   "raw_sha12": "eb72d5e323e6",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 72,
+   "final_chars": 46,
+   "raw_first": "Ну давай, раз уж просит.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "positive_smotri_ka",
+   "raw_sha12": "9ee0ddf703fa",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 65,
+   "final_chars": 46,
+   "raw_first": "Ладно, смотри-ка.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "positive_glyan_ka",
+   "raw_sha12": "7ddba2c67f3f",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 57,
+   "final_chars": 46,
+   "raw_first": "Глянь-ка.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "positive_okey",
+   "raw_sha12": "a9b0e47fefaa",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 61,
+   "final_chars": 46,
+   "raw_first": "Окей, смотри.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "positive_nu_ok",
+   "raw_sha12": "70a6761d8ebb",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 62,
+   "final_chars": 46,
+   "raw_first": "Ну ок, смотри.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  },
+  {
+   "name": "keep_addressee",
+   "raw_sha12": "92a7eb505551",
+   "final_sha12": "92a7eb505551",
+   "raw_chars": 75,
+   "final_chars": 75,
+   "raw_first": "Ну Макс, ты сам напросился.",
+   "final_first": "Ну Макс, ты сам напросился.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_promise",
+   "raw_sha12": "caad9d13dfcd",
+   "final_sha12": "caad9d13dfcd",
+   "raw_chars": 78,
+   "final_chars": 78,
+   "raw_first": "Накидаю тебе ссылку в субботу.",
+   "final_first": "Накидаю тебе ссылку в субботу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_soberu",
+   "raw_sha12": "b8f38f4539c2",
+   "final_sha12": "b8f38f4539c2",
+   "raw_chars": 68,
+   "final_chars": 68,
+   "raw_first": "Соберу вещи и поеду.",
+   "final_first": "Соберу вещи и поеду.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_smotri_how",
+   "raw_sha12": "b2f4e9281a02",
+   "final_sha12": "b2f4e9281a02",
+   "raw_chars": 74,
+   "final_chars": 74,
+   "raw_first": "Смотри, как он это сделал.",
+   "final_first": "Смотри, как он это сделал.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_glyan_what",
+   "raw_sha12": "a337e7b0266a",
+   "final_sha12": "a337e7b0266a",
+   "raw_chars": 65,
+   "final_chars": 65,
+   "raw_first": "Глянь, что вышло.",
+   "final_first": "Глянь, что вышло.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_glyan_ka_what",
+   "raw_sha12": "d6e8a248f1fe",
+   "final_sha12": "d6e8a248f1fe",
+   "raw_chars": 68,
+   "final_chars": 68,
+   "raw_first": "Глянь-ка, что вышло.",
+   "final_first": "Глянь-ка, что вышло.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_bare_with_content",
+   "raw_sha12": "8f32cd858cfd",
+   "final_sha12": "8f32cd858cfd",
+   "raw_chars": 81,
+   "final_chars": 81,
+   "raw_first": "Ну ок, смотри, конфликта не было.",
+   "final_first": "Ну ок, смотри, конфликта не было.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_sub",
+   "raw_sha12": "e644ce7ddef5",
+   "final_sha12": "e644ce7ddef5",
+   "raw_chars": 70,
+   "final_chars": 70,
+   "raw_first": "Ну расскажи в субботу.",
+   "final_first": "Ну расскажи в субботу.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_colon",
+   "raw_sha12": "b39ae16e2537",
+   "final_sha12": "b39ae16e2537",
+   "raw_chars": 69,
+   "final_chars": 69,
+   "raw_first": "Ладно, смотри: факты.",
+   "final_first": "Ладно, смотри: факты.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "keep_fakty_colon",
+   "raw_sha12": "c8b11f2eb805",
+   "final_sha12": "c8b11f2eb805",
+   "raw_chars": 73,
+   "final_chars": 73,
+   "raw_first": "Факты разложу так: пункт.",
+   "final_first": "Факты разложу так: пункт.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": false,
+    "announce_removed_count": 0
+   },
+   "removed_count": 0,
+   "expected_removed_count": 0,
+   "expected_removed": false,
+   "pass": true
+  },
+  {
+   "name": "strip_nakidayu_po_faktam",
+   "raw_sha12": "b762680ead98",
+   "final_sha12": "bc4bcc37fd82",
+   "raw_chars": 83,
+   "final_chars": 46,
+   "raw_first": "Накидаю по фактам позже, если надо.",
+   "final_first": "**Кто что пишет:** Ринтаро спамит, Костя ноет.",
+   "stats": {
+    "filler_removed": false,
+    "announce_removed": true,
+    "announce_removed_count": 1
+   },
+   "removed_count": 1,
+   "expected_removed_count": 1,
+   "expected_removed": true,
+   "pass": true,
+   "body_intact": true
+  }
+ ],
+ "pass": true,
+ "passed": 20,
+ "total": 20
+}

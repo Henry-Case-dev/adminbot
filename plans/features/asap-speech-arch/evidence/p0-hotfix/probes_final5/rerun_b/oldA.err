@@ -1,0 +1,113 @@
+SmartModule: embedding cache lookup failed — API path
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/summary_memory.py", line 2235, in _embed_cache_lookup
+    await self.db.db.execute(
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+    result = function()
+             ^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+SmartModule: embedding cache store failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/summary_memory.py", line 2386, in _embed_cache_store
+    await tx(_body, op_name="embed_cache_store")
+  File "/var/www/admin_bot/services/database.py", line 2492, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_memory.py", line 2335, in _body
+    await conn.execute(
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+    result = function()
+             ^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+graphrag RAG: KNN failed — FTS fallback | chat_id=-1002661910336
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/summary_memory.py", line 4293, in _search_graph_facts
+    rows = await self._knn_graph_facts(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_memory.py", line 4423, in _knn_graph_facts
+    ranked = await self._vec_candidates(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_memory.py", line 4750, in _vec_candidates
+    rows, tele = await self._staged_knn_scope(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_memory.py", line 3047, in _staged_knn_scope
+    rows = list(await run_knn(k) or [])
+                ^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/summary_memory.py", line 4744, in _run_float
+    cursor = await self.db.db.execute(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+    result = function()
+             ^^^^^^^^^^
+sqlite3.OperationalError: no such module: vec0
+graphrag RAG: touch failed | chat_id=-1002661910336
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/summary_memory.py", line 4370, in _search_graph_facts
+    await self.db.touch_graph_facts(
+  File "/var/www/admin_bot/services/database.py", line 10834, in touch_graph_facts
+    return await self.write_transaction(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/database.py", line 2492, in write_transaction
+    return await self._write_transaction_owned(op, op_name,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/database.py", line 2577, in _write_transaction_owned
+    result = await op(self.db)
+             ^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/database.py", line 10822, in _body
+    cursor = await conn.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 223, in execute
+    cursor = await self._execute(self._conn.execute, sql, parameters)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 160, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "/var/www/admin_bot/venv/lib/python3.12/site-packages/aiosqlite/core.py", line 63, in _connection_worker_thread
+    result = function()
+             ^^^^^^^^^^
+sqlite3.OperationalError: attempt to write a readonly database
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'
+[humor-feedback] lessons read failed
+Traceback (most recent call last):
+  File "/var/www/admin_bot/services/mca_humor_feedback.py", line 799, in _humor_lessons
+    rows = await service.list_lessons(chat_id=int(chat_id),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 1869, in list_lessons
+    return await self.store.list_lessons(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/www/admin_bot/services/mca_experience.py", line 631, in list_lessons
+    cursor = await self._db.db.execute(
+                   ^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'db'

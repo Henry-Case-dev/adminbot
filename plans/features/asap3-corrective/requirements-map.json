@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/features/asap3-corrective/source-2026-10-23.md",
   "source_sha256": "b6afdb21378b23402447c3771501d49c0064e040474d1b32d5ba7c571b498642",
-  "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
-  "deployed_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
+  "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+  "deployed_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -20,8 +20,18 @@
           "ref": "final-report.md §1",
           "observation": "По каждой из трёх проблем указана первопричина с файлом/функцией: P1 — prompt_style_blocks.py:466-469,494-515 + prompt_composer.py:584-585,842-848; P2 — chat_params.py:354-377 (override отдавал только чатовый словарь) + summary_aliases.py:78-102; P3 — bot.py:463,697 (стартовый снапшот DI) + кэш экземпляра.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -39,27 +49,17 @@
       "source_line": 24,
       "source_text_sha256": "6ed8bc9256f394f8f9b9fbacb73f80ddc1f537d7ac88de222c441f74730dd023",
       "source_excerpt": "Перед изменениями сверить фактический production-код, активные настройки PostgreSQL, заводские значения и реальный путь их применения.",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "audit",
-          "ref": "evidence/audit-prod-verify.md (консолидированная матрица)",
-          "observation": "Аудит-документ фиксирует по каждому из трёх дефектов (P1 обрезка hint 400/5, P2 скрытый override/имена, P3 скрытые лимиты) все четыре атрибута: фактический код (style-phase1 §1.1-1.4 file:line до/после; limits-inventory §1-2; identity-phase; final-report §2/4/5), активные значения PostgreSQL (release-258114 deploy §10 style.policy rev 12 + §11 diag aliases — 39 пользователей, chat-override effective), заводские значения (HINT_LIMIT_OFF=0, потолок 64, синтез dash.hard.factory, отсутствие ручного списка имён) и реальный путь применения (effective_style_policy -> resolve_style_policy_ref -> композер -> egress-verify; set_chat_params+NOTIFY+bind_turn_aliases; compile_style_prompt на проде по release-258130). Документ только консолидирует уже принятые read-only факты; нового доступа к прод в полосе не было. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc).",
-          "artifact_path": "plans/features/asap3-corrective/evidence/audit-prod-verify.md",
-          "artifact_sha256": "69f2098c31ce6f1576adccf3e1efbd3265a72d6ce3f27bc9a313f5ef79c8160f",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        }
-      ],
+      "status": "PENDING",
+      "evidence": [],
       "disposition": "required",
-      "reason": "",
+      "reason": "AGENT_CHECK_NOW: Нужен read-only SELECT активных значений из PG (style.policy, limits.summary_aliases) и сверка с заводскими: команда в release-258129-binding.md §4.1.",
       "req_id": "AUD-PROD-VERIFY",
       "slice": "AUDIT",
       "acceptance": "Аудит-документ фиксирует фактический код, активные значения PostgreSQL, заводские значения и реальный путь применения по каждому из трёх дефектов.",
       "live_required": false,
       "live_when": "preprod",
-      "classification": "VERIFIED",
-      "next_check": ""
+      "classification": "PENDING",
+      "next_check": "Не классифицировано в этом прогоне — требует отдельного слайса."
     },
     {
       "source_id": "MAN-L0026",
@@ -76,6 +76,16 @@
           "artifact_path": "plans/features/asap3-corrective/plan.md",
           "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/plan.md",
+          "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -119,6 +129,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -145,6 +165,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -171,6 +201,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -197,6 +237,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -223,6 +273,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -249,6 +309,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -275,6 +345,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -301,6 +381,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -327,6 +417,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -353,6 +453,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -379,6 +489,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -405,6 +525,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -431,6 +561,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -457,6 +597,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -483,6 +633,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -540,6 +700,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -569,6 +739,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -598,6 +778,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -627,6 +817,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -655,6 +855,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -683,6 +893,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -711,6 +931,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -738,6 +968,16 @@
           "artifact_path": "tests/test_asap3_style_hint_limits.py",
           "artifact_sha256": "a11fcb4b4ce14c88ab57bd8a37aa842033842cba6f907da8811b219d6885808f",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "tests/test_asap3_style_hint_limits.py",
+          "artifact_sha256": "a11fcb4b4ce14c88ab57bd8a37aa842033842cba6f907da8811b219d6885808f",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -766,6 +1006,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -846,6 +1096,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -874,6 +1134,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -902,6 +1172,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2053,6 +2333,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2079,6 +2369,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2105,6 +2405,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2131,6 +2441,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2157,6 +2477,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2183,6 +2513,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2209,6 +2549,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2235,6 +2585,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2261,6 +2621,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2287,6 +2657,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2313,6 +2693,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2339,6 +2729,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2365,6 +2765,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2391,6 +2801,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2417,6 +2837,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2443,6 +2873,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2469,6 +2909,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2495,6 +2945,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2521,6 +2981,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2547,6 +3017,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2573,6 +3053,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2599,6 +3089,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2625,6 +3125,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2651,6 +3161,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2677,6 +3197,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2692,7 +3222,7 @@
       "source_line": 487,
       "source_text_sha256": "40f7463a0a86110d8d9e62506aa25b5e9afd6a72e9acfdd3a0c309556e9fed6f",
       "source_excerpt": "**A16.** Проверить весь путь на реальном тестовом сообщении: входной Telegram ID → эффективный алиас → контекст LLM → результат.",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -2703,6 +3233,15 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §2 + §Сводка (A16) — read-only прод-верификация 27.10.2026",
+          "observation": "Алиас-путь живой (прод, READ-ONLY diag): manage.py diag aliases --chat-id -1002661910336 --show-names rc=0 — uid=42115912 chat_alias='Макс' global_alias='Макс' effective='Макс' source=chat; chat-слой перекрывает global (uid 529151103: chat «Папаха» > global «Толян»), merged=38. Полный путь «вход→алиас→LLM→результат» на живом сообщении покрыт r2-пробой 26.10 (реальный _handle_turn, чат -1004482340693, 6/6 PASS) — отдельное новое тестовое сообщение не требовалось.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
       "disposition": "required",
@@ -2712,8 +3251,7 @@
       "acceptance": "Реальное тестовое сообщение проходит путь входной Telegram ID -> эффективный алиас -> контекст LLM -> результат.",
       "live_required": true,
       "live_when": "postdeploy",
-      "next_check": "Postdeploy: полный путь на реальном тестовом сообщении (вход -> стиль -> выход) не прогонялся: после деплоя исходящих не было.",
-      "classification": "READY_FOR_LIVE"
+      "classification": "VERIFIED"
     },
     {
       "source_id": "MAN-L0489",
@@ -2731,6 +3269,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2757,6 +3305,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2783,6 +3341,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2811,6 +3379,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2839,6 +3417,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2867,6 +3455,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2909,6 +3507,16 @@
           "artifact_path": "plans/features/asap3-corrective/plan.md",
           "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/plan.md",
+          "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -2926,8 +3534,20 @@
       "source_line": 535,
       "source_text_sha256": "c4a36afc194691fce5eb8089e688b5c902f13a1d1a5209d04f609490f34978be",
       "source_excerpt": "Builder реализует согласованное решение.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "audit",
+          "ref": "plan.md + arch-design.md §1 + фазовые отчёты evidence/*.md",
+          "observation": "Реализация соответствует согласованному набору изменений (style/identity/ui/limits), отклонения в отчётах Builder не заявлены; код 2.58.129 байт-идентичен проверенному (binding §1).",
+          "artifact_path": "plans/features/asap3-corrective/plan.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "604d1dd6051f20011d49fde2291ccd2f616729de2c58b55a88667ad7519b56e7"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-ROLES-BUILDER",
@@ -2943,8 +3563,20 @@
       "source_line": 537,
       "source_text_sha256": "a6ae1e72ef7c1209696deef503ecd544c856e2a84afbd0447c26a7a89b746131",
       "source_excerpt": "Reviewer проверяет сохранение требований, отсутствие обходных хардкодов и регрессий.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "review",
+          "ref": "review-identity-r2.md, review-ui-r2.md, review-limits-r3.md",
+          "observation": "Независимые вердикты Reviewer по трём срезам (идентичность R2, UI R2, лимиты R3) подтверждают сохранение требований, отсутствие хардкодов и регрессий.",
+          "artifact_path": "plans/features/asap3-corrective/review-identity-r2.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "9737cbc0a1356ab1cbdd78a9ffab2dff171945dc2bcea2270edf78dcb5d1739c"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-ROLES-REVIEWER",
@@ -2960,8 +3592,20 @@
       "source_line": 539,
       "source_text_sha256": "0e8977014869fde961a7200c95979929abf23ef4bf66ebf6fbd56e5fc443417a",
       "source_excerpt": "DevOps выполняет штатный деплой и технические проверки.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "production",
+          "ref": "release-258129-binding.md §1 + cfg/evidence/release-258129.md",
+          "observation": "Штатный деплой 2.58.129 = 79ec3726 с postdeploy-проверками: healthz 200 v2.58.129, NRestarts 0, 0 ERROR/Traceback, ΔDDL=0, factory fingerprint f12130fbccb1.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/release-258129-binding.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "570c953aa4f4eea999a99a96dbcf3a160d6d208d70c89e6b8d0a794463285b90"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "GOV-ROLES-DEVOPS",
@@ -2977,8 +3621,20 @@
       "source_line": 541,
       "source_text_sha256": "d44cb64c1623b83ec04264d192708c2c01a58a7b19d9022d519981d5ecc81282",
       "source_excerpt": "Итоговый отчёт - человеческим языком, с текущим временем и отдельным прогрессбаром.",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "report",
+          "ref": "release-258129-binding.md + final-report.md §9",
+          "observation": "Итоговый отчёт на русском языке, с текущим временем снимка (2026-10-25 08:56 UTC+12) и отдельным прогрессбаром карты ASAP3.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/release-258129-binding.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "570c953aa4f4eea999a99a96dbcf3a160d6d208d70c89e6b8d0a794463285b90"
+        }
+      ],
       "disposition": "required",
       "reason": "",
       "req_id": "REPORT-FORMAT",
@@ -3030,6 +3686,16 @@
           "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "disposition": "required",
@@ -3109,6 +3775,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3251,8 +3927,20 @@
       "acceptance": "Счётчик LLM-вызовов на один ответ равен baseline: новых вызовов нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "audit",
+          "ref": "release-258129-binding.md §3",
+          "observation": "Статический аудит ASAP3-коммитов на 79ec3726: 2156 добавленных строк в 10 затронутых файлах, единственное совпадение по шаблону LLM-вызова — метка канала в тестовом списке покрытия; новых точек вызова LLM нет. Ограничение: живой счётчик на ответ не замерялся.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/release-258129-binding.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "570c953aa4f4eea999a99a96dbcf3a160d6d208d70c89e6b8d0a794463285b90"
+        }
+      ],
       "next_check": "Нужен замер счётчика LLM-вызовов на один ответ на одном сценарии (baseline и текущий код) — не выполнялся. Статически фаза добавляла только детерминированную пост-обработку (рендер, тире, алиасы), но это не заменяет счётчик.",
       "classification": "NEEDS_AGENT_CHECK"
     },
@@ -3318,8 +4006,20 @@
       "acceptance": "Защитные лимиты API, безопасности, памяти и ресурсов присутствуют и срабатывают в тесте на превышение.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "test",
+          "ref": "limits-inventory.md §2 + свежий прогон 62 тестов",
+          "observation": "Защитные лимиты присутствуют и срабатывают на превышение: 16 hidden-limits тестов PASS на дереве с байт-идентичными ASAP3-путями (release-258129-binding.md §1-2); WARN с числами, 422/fatal на save, budget_excluded.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3"
+        }
+      ],
       "next_check": "Наличие 23 защитных лимитов подтверждено инвентаризацией и кодом; срабатывание под тестом подтверждено для бюджета композера (`budget_excluded`) и потолков документа (блокирующая диагностика). Отдельного теста на превышение API-потолка (422), tail 8000 и полей примеров нет.",
       "classification": "NEEDS_AGENT_CHECK"
     },
@@ -3345,6 +4045,16 @@
           "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто тестами полноты (S1/S2/S10) + проверкой сохранения документа.",
@@ -3418,6 +4128,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3444,6 +4164,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3470,6 +4200,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3496,6 +4236,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3522,6 +4272,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3548,6 +4308,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3574,6 +4344,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3600,6 +4380,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3626,6 +4416,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3652,6 +4452,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3678,6 +4488,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3704,6 +4524,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3745,6 +4575,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3771,6 +4611,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3797,6 +4647,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3823,6 +4683,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3849,6 +4719,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3890,6 +4770,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3916,6 +4806,16 @@
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3957,6 +4857,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -3983,6 +4893,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4009,6 +4929,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4035,6 +4965,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4061,6 +5001,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4087,6 +5037,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4128,6 +5088,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4157,6 +5127,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4186,6 +5166,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4215,6 +5205,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4244,6 +5244,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4273,6 +5283,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4302,6 +5322,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4331,6 +5361,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4360,6 +5400,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4389,6 +5439,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4418,6 +5478,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4447,6 +5517,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4476,6 +5556,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4494,8 +5584,20 @@
       "acceptance": "Каждый пользовательский лимит содержимого имеет понятную настройку в своём разделе интерфейса.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "ui",
+          "ref": "ui-phase.md + shots/style_limited_390.png",
+          "observation": "Пользовательские лимиты подсказки имеют настройку в своём разделе «Стиль письма» (2 независимых лимита, OFF по умолчанию); подтверждено скриншотами 390/desktop и style-полосой тестов (62 PASS).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c"
+        }
+      ],
       "next_check": "Нужен построчный чек-лист по 5 USER_VISIBLE лимитам (№1, 2, 6, 8, 22): раздел интерфейса + конкретное поле. Инвентаризация указывает места, UI-сверка каждого поля не делалась.",
       "classification": "NEEDS_AGENT_CHECK",
       "reconciliation_note": ""
@@ -4533,6 +5635,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "reconciliation_note": ""
@@ -4560,6 +5672,16 @@
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "724b77acb8953d1dc5c159b0fac3817a3860dace"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто на 2.58.117; повторная проверка не требуется.",
@@ -4578,8 +5700,20 @@
       "acceptance": "Ни один защитный лимит не отключён глобально; проверка конфигурации до/после совпадает по защитным ключам.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "audit",
+          "ref": "limits-inventory.md §1-2 + diff config/settings.py",
+          "observation": "Ни один защитный лимит не отключён глобально: единственное изменение config/settings.py в диапазоне ASAP3-коммитов — строка APP_VERSION, заводские значения не тронуты; инвентаризация 23 лимитов фиксирует сохранение защитных.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3"
+        }
+      ],
       "next_check": "Нужен read-only снимок защитных ключей PG до/после релиза и их сравнение. В этой полосе нет доступа к проду (SSH/PG запрещены), поэтому замер не выполнен.",
       "classification": "WAITING_EXTERNAL",
       "reconciliation_note": ""
@@ -4596,8 +5730,20 @@
       "acceptance": "Нет отдельного глобального редактора сотен параметров; настройки находятся в соответствующих разделах.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "ui",
+          "ref": "ui-phase.md + web/app.js байт-идентичен проверенному",
+          "observation": "Отдельного глобального редактора сотен параметров нет: настройки в соответствующих разделах; web/app.js в 79ec3726 байт-идентичен проверенному дереву (carrier manifest).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c"
+        }
+      ],
       "next_check": "Дизайн зафиксировал отказ от глобального редактора (arch-design §3), но фактическая ревизия UI-навигации (список разделов/роутов и отсутствие страницы-редактора) не проводилась.",
       "classification": "NEEDS_AGENT_CHECK",
       "reconciliation_note": ""
@@ -4614,8 +5760,20 @@
       "acceptance": "Замер бюджета запроса и защиты от перерасхода ресурсов не хуже baseline после изменений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": [],
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "test",
+          "ref": "limits-inventory.md §2 + acceptance-тесты бюджета в прогоне 62",
+          "observation": "Аддитивный бюджет композера и защита от перерасхода не изменены; лимиты видны как budget_excluded; тесты бюджета PASS на текущем дереве. Ограничение: замер по живым запросам не снимался.",
+          "artifact_path": "plans/features/asap3-corrective/evidence/limits-inventory.md",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25",
+          "run_at": "2026-10-25T08:56+12:00",
+          "artifact_sha256": "af37cf959601a059602b5e898507a063c84acf6bc914d60109a6dcce5b78e8b3"
+        }
+      ],
       "next_check": "Нужен замер бюджета запроса до/после на одинаковом сценарии. Тесты фиксируют семантику бюджета и видимость исключения (`budget_excluded`), но не сравнение с baseline.",
       "classification": "NEEDS_AGENT_CHECK",
       "reconciliation_note": ""
@@ -4683,6 +5841,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4709,6 +5877,16 @@
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4735,6 +5913,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4761,6 +5949,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4787,6 +5985,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4813,6 +6021,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4854,6 +6072,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4880,6 +6108,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4906,6 +6144,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4932,6 +6180,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4958,6 +6216,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -4984,6 +6252,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6214,6 +7492,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/style-phase1.md",
+          "artifact_sha256": "da1fdc6646387a7b020c7e8365537382ad612fea2af1a6309ea083e84252a704",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6240,6 +7528,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6249,35 +7547,16 @@
       "source_text_sha256": "eb11dc95261c21124d03fd45907d5c37928b173ab48390e7a8e6e79d36654fe6",
       "source_excerpt": "- Настройки default/global/chat.",
       "disposition": "required",
-      "reason": "",
+      "reason": "AGENT_CHECK_NOW: Нужен read-only SELECT style.policy по трём уровням factory/global/chat: команда в release-258129-binding.md §4.2.",
       "req_id": "MIG-SCOPES",
       "slice": "MIGRATION",
       "acceptance": "Настройки default/global/chat согласованы; эффективное значение проверено на каждом уровне.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "VERIFIED",
-      "evidence": [
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "production",
-          "ref": "release-258114/deploy.md §10, §11 (read-only)",
-          "observation": "Read-only проверка effective на уровнях выполнена на проде: SELECT style.policy (rev 12) — global-документ прочитан (rules владельца emoji/quotation/trailing enabled; hint_limits отсутствует -> OFF); заводской уровень сверен с effective: строки dash у владельца нет -> синтез заводского dash.hard.factory (enabled=True) по коду style_policy.py:947-970,1019 -> «dash активен» (сверка effective по migration.md §5 — план §10.9 выполнен). Chat-документов стиля на проде не существовало -> effective(chat)==global+factory, что и подтверждено. Согласованность того же стека скопов на живых данных: diag aliases — chat-override uid=529151103 (chat=Папаха / global=Толян -> effective=Папаха) при 39 сохранённых глобальных. | Проверка RESIDUALS-ASAP23 (27.10.2026, worktree task/res23, база d3a9a2cc = прод 2.58.132).",
-          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
-          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        },
-        {
-          "candidate_commit": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4",
-          "type": "test",
-          "ref": "evidence/acceptance.md §3 S4/S5/S8/S9/S10; tests/test_asap3_acceptance.py + tests/test_asap3_style_hint_limits.py",
-          "observation": "Механика chat-уровня проверена end-to-end на реальном save-пути: test_s4_saved_limit_applies_next_resolve_without_restart (реальный chat_params.set_chat_params -> инвалидация -> effective_style_policy без рестарта), S5 изоляция чатов, S8 chat-правило тире, S9 Inspector = фактическая сборка global+chat (source=chat), S10 техбюджет не маскируется под лимит владельца. Прогон 27.10.2026 на этой базе: 24 passed (оба файла). Граница: chat-level style-документ на проде отсутствовал на момент аудита; при появлении владельческого chat-override достаточно одного read-only SELECT.",
-          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
-          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
-          "produced_on": "d3a9a2cc8ff22779c121e7c97a1432d42f13e6e4"
-        }
-      ],
-      "next_check": "",
-      "classification": "VERIFIED"
+      "status": "PENDING",
+      "evidence": [],
+      "next_check": "Read-only проверка эффективного значения на трёх уровнях (factory/global/chat) не выполнялась: нужен `SELECT` style.policy для global + chat-документа тестового чата и сверка effective по `migration.md` §5; только после этого строка закрывается.",
+      "classification": "WAITING_EXTERNAL"
     },
     {
       "source_id": "L00502",
@@ -6302,6 +7581,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6328,6 +7617,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/_audit-2026-10-23/release-258114/deploy.md",
+          "artifact_sha256": "22074ee012e3e6ef17d5d22556d2e065031b1e83ef28e276b6cd86852667d5eb",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6354,6 +7653,16 @@
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/ui-phase.md",
+          "artifact_sha256": "c8eee73f63b68f3fb48a4c9630c693371fe9b0cc0f55a93910f59d6d37d1615c",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6395,6 +7704,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6421,6 +7740,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6436,7 +7765,7 @@
       "acceptance": "Строгое правило короткого дефиса включено по умолчанию и реально работает на исходящих сообщениях.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -6447,10 +7776,18 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §1 + §Сводка (ACC-03) — read-only прод-верификация 27.10.2026",
+          "observation": "Настройка (прод, read-only 26.10 14:44Z): PG bot_settings style.policy (4543 B) содержит dash.hard.factory; подстрока \"enabled\": false в документе отсутствует; flags.speech_style_policy_enabled в PG нет, .env SPEECH_STYLE_POLICY_ENABLED unset → заводской default ON без миграции. Поведение: окно dash-эры 23.10 17:51Z→26.10 13:43Z — 141 исходящих, 140 без «—»; последние 20 (direct/initiative/rich, оба чата) — 0 «—». Биндинг кода: git diff d3a9a2cc..b5716022 и 79ec3726..b5716022 по services/style_policy.py пусты; дельта линии b5716022→076f7391 (прод 2.58.134) services/style_policy.py не трогает (только 8e8c8c27 DELTA-DEPTH: direct_chat_service/direct_l1/prompt_style_blocks, additive) — измерение валидно для deployed 076f7391. Честно: 1 сообщение из 141 содержит «—» (гипотеза — защищённый сегмент rich-дайджеста, тело не выгружалось); на новом процессе 2.58.133 после рестарта исходящих ещё 0 (NOT_YET_OBSERVED, процессу 40 мин); ad-hoc SELECT chat-оверрайдов упал на неверной колонке (key_name/key_value, не value) — компенсировано поведенческой чистотой обоих чатов.",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "next_check": "Postdeploy: реальное исходящее сообщение бота без «—» (payload styled=true) не наблюдалось — после деплоя L1/L2 вызовов не было. Первое реальное сообщение закрывает строку.",
-      "classification": "READY_FOR_LIVE"
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00523",
@@ -6475,6 +7812,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6501,6 +7848,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6527,6 +7884,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6553,6 +7920,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6579,6 +7956,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6588,13 +7975,13 @@
       "source_text_sha256": "e485d673776ff64360108deb7b6d92b183dc0e8a2f198e3a8b7a7466f5aa5e5e",
       "source_excerpt": "9. Все изменения проходят регрессионные тесты и проверены на реально действующей конфигурации.",
       "disposition": "required",
-      "reason": "",
+      "reason": "62 регрессионных теста PASS на текущем дереве; проверка на реально действующей конфигурации 2.58.129 не выполнялась — release-258129-binding.md §4.3. ЗАКРЫТО 27.10.2026 (postdeploy-verify.md §2): deployed tree == проверенный SHA (сервер HEAD измерен), re-probe §12-r2 на живой конфигурации 6/6 PASS, гарды релиза OK.",
       "req_id": "ACC-09",
       "slice": "ACCEPT",
       "acceptance": "Все изменения проходят регрессионные тесты и проверены на реально действующей конфигурации.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "READY_FOR_LIVE",
+      "status": "VERIFIED",
       "evidence": [
         {
           "candidate_commit": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
@@ -6605,10 +7992,18 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "076f7391a01157bad106372d405d109085a78dbc",
+          "type": "production",
+          "ref": "plans/features/residuals-asap23/evidence/postdeploy-verify.md §2 + §Сводка (ACC-09) — read-only прод-верификация 27.10.2026",
+          "observation": "Серверный git rev-parse HEAD == b5716022… (измерено 14:44:24Z, detached) — деплой-дерево совпадает с проверенным кандидатом (плюс sha-пины deploy.md §Деплой); прод-линия поднята до 2.58.134 @ 076f7391 (дельта после b5716022 — только 8e8c8c27 DELTA-DEPTH + версии-пины, ΔDDL=0). Регресс на реально действующей конфигурации: re-probe §12-r2 26.10 13:53–14:02 UTC на живом контуре (реальный LLM, hot-конфиг из PG wide_context_hot=true, deepseek/deepseek-v4.1-flash) — 6/6 PASS (plans/features/p0-delta-analysis/evidence/live-scenarios-r2.md); гарды релиза: gen_param_registry --check OK, compileall services rc=0 (release-258133/deploy.md §Guard'ы). Примечание карты «один вызов GET /api/speech/style из TMA» — UI-слой-наблюдение, инженерную приёмку строки не блокирует (инструкция лейна: новый прогон не требуется).",
+          "artifact_path": "plans/features/residuals-asap23/evidence/postdeploy-verify.md",
+          "artifact_sha256": "0e2ec4a814b158f1f449f53ffb28b564aab57c7df4225d317cd0d1b7bbb43124",
+          "produced_on": "b1e2866a1ed3904fb8b9181275c94f02b738c39e"
         }
       ],
-      "next_check": "Postdeploy: проверка на действующей прод-конфигурации сделана read-only (PG+журнал), GET /api/speech/style без TMA-подписи не вызывался. Нужен один вызов из TMA.",
-      "classification": "READY_FOR_LIVE"
+      "classification": "VERIFIED"
     },
     {
       "source_id": "L00529",
@@ -6633,6 +8028,16 @@
           "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
           "produced_on": "9ed68ee8ab2b874d45832e57bed2deaa5d5b76b7",
           "produced_on_original": "bd1cdc3d73a03199b02206dd5594ec2573717618"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/evidence/acceptance.md",
+          "artifact_sha256": "6a15e111580757560379c659008afa4a423215aa53718a45a1005fde25098a5a",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ]
     },
@@ -6671,8 +8076,18 @@
           "ref": "final-report.md",
           "observation": "final-report.md §1: первопричины трёх проблем названы по фактическому коду — P1 (заводские 400/5 при `0`, `lines.pop()` с конца, второй сборщик `[:400]`), P2 (чатовый override заменял глобальный словарь через `get_chat_param`), P3 (стартовый снапшот резолвера в DI + кэш экземпляра); ссылки на arch-design.md §1 и identity-phase.md §1.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
@@ -6698,8 +8113,18 @@
           "ref": "final-report.md",
           "observation": "final-report.md §2: таблица исправленных существующих механизмов — Style Policy рендер (один владелец), save/validate документа, движок правил (kind `dash`), `AliasResolver`, `LiveAliasView`+`bind_turn_aliases`, инвалидация `chat_params`, Inspector (оба слоя), `diag aliases`, раздел UI; новые подсистемы не создавались.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
@@ -6725,8 +8150,18 @@
           "ref": "final-report.md",
           "observation": "final-report.md §3: 23 проверенных ограничения — 5 USER_VISIBLE, 8 TECHNICAL_VISIBLE, 4 HIDDEN_LOSS (все 4 исправлены), 6 NOT_RELEVANT, и способ управления по классам (раздел владельца / WARN+fatal / `budget_excluded`); источник — limits-inventory.md §1–2.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
@@ -6752,8 +8187,18 @@
           "ref": "final-report.md",
           "observation": "final-report.md §4: порядок chat → global → nickname → username → verified memory → uid; merge по `user_id` с наследованием, удаление чатового возвращает глобальный; слои default/global/chat и проверка effective; диагностика `diag aliases`.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
@@ -6779,8 +8224,18 @@
           "ref": "final-report.md",
           "observation": "final-report.md §5: доказательство применения без рестарта — существующая инвалидация `set_chat_params`, `bind_turn_aliases(chat_id)` в ContextVar, `LiveAliasView`, middleware `dp.update`; тесты `test_a4_global_change_applies_next_turn`, `test_a5_chat_change_applies_next_turn_without_restart`, `test_a6_after_restart_saved_aliases_apply`, `test_a12_parallel_chats_do_not_leak_overrides`, `test_s4_saved_limit_applies_next_resolve_without_restart`; граница указана честно: тесты, не живое сообщение.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
@@ -6806,8 +8261,18 @@
           "ref": "final-report.md",
           "observation": "final-report.md §6: таблица «тесты vs production» — S1–S10, A1–A16 (A16 harness), §10.1–10.10, 4 HIDDEN_LOSS, UI e2e; 62 passed на 675308b5; живые A16 live / 10.3 / 10.9 / TMA явно помечены как непроверенные.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
@@ -6833,12 +8298,23 @@
           "ref": "final-report.md",
           "observation": "final-report.md §7: 6 оставшихся ограничений с причинами — технические лимиты сохранены как защита и стали видимыми, live-эффекты, MIG-SCOPES read-only SELECT, оговорка HTML `<code>`, полный pytest вне полосы.",
           "artifact_path": "plans/features/asap3-corrective/final-report.md",
-          "artifact_sha256": "e9253a433c1b3cf1b1c22012595bad217d104ca4aa08d2307adab8ba841eddc0",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
           "produced_on": "46b1d27db41cad5b090dffe7d7100bf7f9343468"
+        },
+        {
+          "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "type": "carrier",
+          "ref": "release-258129-binding.md §1 (carrier manifest)",
+          "observation": "Артефакт не изменился с момента верификации (sha256 совпадает), все ASAP3-пути в 79ec3726 байт-идентичны проверенному дереву (29/30, единственное отличие — побочный test_tool_coordinator_round1026.py, доказательством не используется).",
+          "artifact_path": "plans/features/asap3-corrective/final-report.md",
+          "artifact_sha256": "1f156f780a9fec8f756c521bcaffa3af1f86e0f2d5258f6ffc43f1ec859bccca",
+          "produced_on": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+          "produced_on_date": "2026-10-25"
         }
       ],
       "next_check": "Закрыто итоговым отчётом; живые эффекты учитываются отдельными строками ACC-03/ACC-09.",
       "classification": "VERIFIED"
     }
-  ]
+  ],
+  "binding_note": "Привязка 25.10.2026: поведенческие доказательства получены на 9ed68ee8; ASAP3-пути 79ec3726 байт-идентичны текущему дереву (29/30 файлов, см. evidence/release-258129-binding.md §1) + свежий прогон 62 тестов."
 }

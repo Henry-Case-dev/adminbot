@@ -7,15 +7,31 @@
 > исследования и операционные watch-пункты, сгруппированные по раундам-источникам.
 > Хвосты приведены по состоянию на дату своего раунда — при касании сверять детали с архивом
 > соответствующего раунда в plans/archive/.
-> Активная работа сейчас ведётся вне этого файла: plans/workflow_state.md +
-> plans/features/asap8-v6-3-live-correction/ (v6.3 live correction).
+> Активная работа ведётся вне этого файла — см. `plans/workflow_state.md` и
+> `plans/progress_scope.json` (единственный актуальный реестр задач и прогресса).
+> Этот файл — реестр **незакрытых исторических хвостов**; он не дублирует активную очередь.
+
+## Актуальная очередь 25.10.2026 (указатель, не дублировать)
+
+| Задача | Состояние | Где ведётся |
+|---|---|---|
+| P0 speech corrective (L1, алиасы, Core, FREQUENT, lore) | в работе, ревью среза алиасов | `features/asap-speech-arch/` |
+| P0 fact-check: фото, альбомы, пересылка | в работе; причина доказана production-данными | `features/p0-factcheck-media/` |
+| ASAP-3 corrective | ре-верификация 48 id после привязки к 2.58.129 | `features/asap3-corrective/` |
+| CFG-01…07 | открытые required-строки | `features/cfg/` |
+| SOUL-1 | открытые required-строки | `features/soul-1/` |
+| ASAP2 direct chat | открытые required-строки | `features/asap2-direct-chat/` |
+| ASAP8 v6.3 live correction | открытые required-строки | `features/asap8-v6-3-live-correction/` |
+| P0 follow-up nostalgia | WAITING_EXTERNAL: сценарий B ждёт естественного затишья | `features/p0-save-init-ux/` |
+
+Правило: новые находки добавляются сюда как ссылки на feature-карту, а не как текст в этом файле.
 
 ## Статус программ (сводка)
 
 - **MCA программа (раунды 10.27–10.48, MCA-01…22)** — ЗАКРЫТА: RELEASED + VERIFIED **2.58.67** (07.10.2026, mca-release; 2.58.31→2.58.67, SQLite v12→v33, каталог 473→523). Историческая шапка 10.27 «IN PROGRESS» в слепке устарела — программа закрыта раундом 10.48.
 - **ASAP 5** (asap5-final-fixes) — ЗАКРЫТ: RELEASED + VERIFIED **2.58.69** (07.10.2026).
 - **ASAP 8 v6** (asap8-v6-remediation, D01–D14) — ЗАКРЫТА: deployed **2.58.78** (14.10.2026); осознанные остатки и OWNER_VISUAL_PENDING — в разделе «ASAP 8 v6» ниже; доказательства — plans/features/asap8-v6-remediation/.
-- **Активно:** v6.3 live correction (B01–B12/U01–U08/V01–V07) — plans/features/asap8-v6-3-live-correction/.
+- **Активно (25.10):** P0 speech corrective + P0 fact-check медиа — см. таблицу «Актуальная очередь» выше и `plans/progress_scope.json`.
 
 ## Раунд 10.27 MCA memory-context-autonomy (историческая шапка, сжато)
 
@@ -402,3 +418,4 @@ lacks evidence for stage release» — провайдерские/UI-доказ�
 - ✅ **narrator-канон identity-фраза** (bindings.cfg-final §6) — оценён как ДЕФЕКТ (класс SF-07 «identity legacy-личности»; Рассказчик = публичная речь, голос задаёт Core по UNIFIED-CORE P0; блок и так `legacy_persona=True` в реестре) и исправлен по прецеденту CFG-07A-2: identity-предложение снято из `SUMMARY_NARRATOR_SYSTEM_PROMPT`, ступень LEGFIX + откат (prompt_migrations), метка `summary-narrator-legfix`, FACTORY_SET `3507bd6f92eb→553a281fe2fd` (changed=1). Evidence: plans/features/soul-1/evidence/narrator-legfix/README.md; REGRESSION `test_narrator_canon_has_no_identity_legacy`.
 - ✅ **app.css content-length** (попутная находка release-25898: HEAD 234981 vs GET 234959) — реальный дефект воспроизведён: HEAD /static/app.css без явного HEAD-роута падал в /static-mount и отдавал content-length СЫРОГО файла. Фикс: явный `@app.head("/static/app.css")` (прецедент HEAD-роутов 10.17) в web/app.py + REGRESSION `test_app_css_head_content_length_matches_get` (HEAD cl == GET body; 5 passed в test_webapp_api).
 - Общее: ноль Telegram-сообщений, 0 платных вызовов; focused-семья на venv — 823 passed; aiogram-3.29.1-падения outgoing_guard на системном python — pre-existing (backlog W1), на проектном venv зелёные.
+- ENV-TEST-tiktoken (29.10.2026, DEPTH-лейн p0-history-analysis): первый импорт services.summary_l1_clusterizer (по цепочке conftest) тянет tiktoken BPE из сети (~89 c) - при pytest.ini timeout=60 свежий одиночный прогон гибнет на setup; прогоны в лайне выполнялись с -o timeout=600. Рекомендация: lazy-init/предпрогрев кэша tiktoken в окружении тестов. Средовая проблема, не код; не блокирует волну.

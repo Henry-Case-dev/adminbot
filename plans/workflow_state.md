@@ -1,33 +1,17 @@
-# Workflow State
+﻿# Workflow State
 
-Task: Полная очередь `plans/current_task.md` + новая P0 `embed-identity-compat` (реестр `plans/progress_scope.json`: 13 задач)
-Task source: current_task.md + `plans/features/embed-identity-compat/source-2026-10-23.md` (дословный снимок ТЗ владельца 23.10)
-Status: in_progress — ДЕПЛОЙ 2.58.112 ПРИДЕРЖАН: рестарт запустил бы полную перевекторизацию, что запрещено новым ТЗ
-Primary phase: build → review → delivery
-
-Active lanes:
-- W4-UI | Builder | writer web/ | asap-speech-arch W4 | bg:ses_e9bb38830ffeB8BTAG4JgtGXYA | U-01…U-09
-- PM-EMBED-IDENTITY | PM | writer plans/ | embed-identity-compat | bg:ses_e9ac3f982ffeJoPCeR5Yx5c7YF | карта + реестр
-- ARCH-EMBED-IDENTITY | Architect | read-only + design | embed-identity-compat | bg:ses_e9ac3f982ffdL6qbsCUyNrIC1i | разделение identity + canary
-
-Поезд 2.58.112 (СОБРАН, НЕ ЗАДЕПЛОЕН):
-- bump `678c0616` в origin/master (база `924b3b51`), версия 2.58.112, 57 файлов, ΔDDL=0, `FACTORY_SET=24ae494ac422`.
-- Guard'ы: offline 18/18, pins24 868/0, F8 582==REGISTRY, help-sync 24, JS-unit 39, ASAP-2 155, summary 179, embed 74, B11 24; суммарно 1507 passed / 0 failed.
-- Состав: asap2 Direct Chat, factview+B-1, embed-fallback slots, summary multi-paragraph revision + фикстура, B11 честная диагностика, embed-rebuild identity.
-- Точка отката: `fbf9013d` (прод 2.58.111).
-
-ПОЧЕМУ ПРИДЕРЖАН: текущий код (`5877810d`) при рестарте регистрирует поколение под новый fp и запускает полную перестройку ~15 819 фактов (~316 вызовов). Kill-switch OFF не спасает: OFF-путь «backfill-fill-missing» может писать новые векторы в старый индекс. Новое ТЗ запрещает перевекторизацию при смене только шлюза.
-
-Прод-факты: 2.58.111 @ fbf9013d, healthz 200. Эмбеддинги apinet работают (200, dim 3072), квоты разведены (`apinet_paid`/`google_free_1`/`google_free_2`). Векторная память FTS-only: поколения `building` с 29.09 без активации; 4 048 фактов без векторов; 16 003 старых Google-векторов.
-
-Одобрено и готово к поезду: asap2 (74 VERIFIED), factview B-1, embed-fallback, summary-revision, B11, SOUL-1 фикстуры, embed-rebuild B1/B2.
-Итоги 23.10: прогресс 1113/1198 (92%); исправлены ложный «ok» диагностики, ревизия сводок по всем абзацам, per-slot адреса embedding, A→B→A и честный build_failed.
-
-Next unlocks:
-1. ARCH-EMBED-IDENTITY дизайн → Builder реализует canary/identity-split → Reviewer.
-2. Затем объединённый поезд 2.58.113 (2.58.112 + compat) и ОДИН деплой с рестартом: canary решает «старый индекс / insufficient / миграция».
-3. W4-UI → в тот же или следующий поезд после ревью.
-
+Task: p0-history-analysis (active) + release-then-migrate (queued, governs deploy order)
+Task source: root prompt 2026-10-29 x2 (sha A2B977B9; sha CCC20476)
+Status: in_progress
+Primary phase: build (RELEVANCE) + binding (wave 4)
+Active feature: p0-history-analysis
+Active lanes: PM binding wave-4 rows on 3bc1204c (running); Builder RELEVANCE (running)
+Join barriers: RELEVANCE verdict -> binding -> ACCEPT H1-H32 -> RELEASE GATE A-C on OLD VPS -> migration D-E
+Last verified: wave 4 Approved on 3bc1204c — all 11 rows (6 ISOLATION + 5 QUALITY) approvable (review-w4-fix4.md; fix lineage 65478d5e->e7caf77e->6d800b07->e660e8c3->3bc1204c, each cycle RED->GREEN; final: boundary only before surviving window lines incl. standard-ceiling recount, date-token strip, guards live on turn, uid identity, system2 wiring); regression 637 green on reviewer sets
+Next unlocks: RELEVANCE verdict -> binding -> ACCEPT (H1-H32 behavior) -> deploy old VPS -> release gate -> migration D-E
+Next execution: awaiting_children
+Review: approved (DEPTH, TRUNC-PAGES, SEGMENTS, ISOLATION, QUALITY); pending (RELEVANCE)
+Deployment: pending (old VPS first; migration gated)
 Human gate: none
-Progress scope: plans/progress_scope.json | fresh (13 задач после регистрации)
-Updated: 2026-10-23 06:40 local (UTC+12)
+Progress scope: plans/progress_scope.json | stale (34/125 bound; wave-4 binding in progress)
+Updated: 2026-10-29T08:05+12:00

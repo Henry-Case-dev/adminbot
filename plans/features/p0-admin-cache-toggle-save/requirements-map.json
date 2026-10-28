@@ -1,0 +1,229 @@
+{
+  "schema": "openworkflow-coverage-v1",
+  "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
+  "source_sha256": "b8ec2e211686bcc1bc436c9a969ea7562cc1400ef8a6d84851af260ea8cf5254",
+  "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+  "deployed_commit": "5c8bf35db07e49d1dae4ca5a543911bf6b56ed54",
+  "strict_evidence": true,
+  "slice_graph_path": "",
+  "items": [
+    {
+      "source_id": "L00008",
+      "source_line": 8,
+      "source_text_sha256": "498dbde7bbd7064718484ed170e8b68f4ca5a530d34914261079db9b6dd341b7",
+      "source_excerpt": "1. Исправить сохранение рубильника Exact Match Cache.",
+      "disposition": "required",
+      "reason": "Нумерованный пункт 1 ТЗ владельца (автоинвентарь): исправить сохранение тумблера Exact Match Cache — корневое требование задачи (P0).",
+      "req_id": "TOG-1",
+      "slice": "S1-ADMIN-TOGGLE-SAVE",
+      "acceptance": "Chat-scope сохранение тумблера Exact Match Cache через POST /api/config возвращает 200 (не 409 «Сохранено 0 из 1») как при устаревшем optimistic-токене (один ограниченный ретрай: перечит свежего root из PG, merge патча, запись expected=None, чужие ключи не теряются), так и при отсутствующем профиле группового чата (ensure_scope_profile(dm=False)); значение применено (readback value/chat_source); set_gates_opt_in шлёт NOTIFY chat_params_updated (инвалидация ChatParamsCache). Проверено на задеплоенном проде 2.58.140.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md (§1 root cause с файлом:строкой и локальным воспроизведением на реальном UI, §2 фикс write-path) + review.md §1-2 (независимое ревью — Approved)",
+          "observation": "RED на чистой базе 9261565d: 3/3 root-cause тестов FAILED (stale-token, missing group profile, get↔hot) — ровно прод-симптом (POST /api/config → 409 {\"code\":\"conflict\"}, dirty:[flags.smart_cache_enabled]); на кандидате те же 9 тестов 9/9 GREEN. _write_chat_overrides_with_retry: ровно один ретрай на ChatParamsConflict; права/типизация проверены до записи; структурный 409 и D-409-1 idempotent short-circuit сохранены; set_gates_opt_in → NOTIFY тем же каналом, слушатель chat_params_updated подключён (bot.py:1276-1285,1356)",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md",
+          "artifact_sha256": "b6775f0059b24ae8ab19f35a05226c0c752f6ef018fa0ef184a5cb66a20f7e07"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "live",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md PART 3 — постдеплой-зонд на deployed 2.58.140 @ 5c8bf35d (= кандидат a602aa61 + bump 31-файл/33-строка proc/meta, blob-пины 4/4 fix-файлов routes/chat_params/smart_cache/settings идентичны кандидату)",
+          "observation": "Chat-scope toggle ON → 200 (не 409!), updated=[flags.smart_cache_enabled], новый optimistic-токен выдан; readback ON → 200, value=true, chat_source=\"chat\" (override применён); toggle OFF → 200, readback value=false; journal 2 события \"[api] config chat updated | chat=5885953495 | keys=1\" 08:54:24 UTC — сохранения прошли через реальный deployed write-path; баг владельца «Сохранено 0 из 1» исправлен на проде",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md",
+          "artifact_sha256": "022da02bc9f6ccd4fc0a46e4eea80ce6d174a66cbfcdd2242908fa46f25597ca"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/review.md §5 леджер: root cause воспроизведён на базе VERIFIED, фикс write-path VERIFIED (метод ревьюера: воспроизведение, не доверие; прод/SSH/Telegram не использовались)",
+          "observation": "Независимое ревью подтвердило root cause (RED-прогон на 9261565d: test_stale_token_toggle_still_applies_and_preserves_concurrent_write, test_missing_group_profile_first_write_ensures_and_saves, test_smart_cache_get_follows_hot_flag — FAILED) и корректность фикса чтением кода (один ретрай без цикла; повторная запись expected=None не может снова поймать stale-конфликт; перечит напрямую из PG минует _chat_params_cache)",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/review.md",
+          "artifact_sha256": "a556a38359ff56ae0ed912afa78156ffb96d25c9914c72724ce0371301afd95a"
+        }
+      ]
+    },
+    {
+      "source_id": "L00009",
+      "source_line": 9,
+      "source_text_sha256": "5de29878aa60e05b670f57196fec3eb8dc3d86a048ba715c7afa04a875b4a275",
+      "source_excerpt": "2. Проверить остальные параметры и рубильники админки: правильно ли они работают, реально ли изменяют состояние, или это декорация.",
+      "disposition": "required",
+      "reason": "Нумерованный пункт 2 ТЗ владельца (автоинвентарь): аудит остальных параметров/рубильников админки на «декоративность» — отдельная обязанность, не покрывается фиксом одного тумблера.",
+      "req_id": "TOG-3",
+      "slice": "S1-ADMIN-TOGGLE-SAVE",
+      "acceptance": "Аудит-матрица выполнена для всех bool-тумблеров flags_* на save→runtime (POST global → 200 + hot отражает; POST chat-scope → 200 через реальный retry-путь + override применён в chat_profiles; у каждого флага реальный рантайм-потребитель): артефакт Builder — 106/106 строк без нарушений (flags_audit.json), независимое воспроизведение ревьюера на популяции 107 bool-спеков — 107/107 PASS, 0 отказов. Единственный найденный полудекоративный механизм (SmartCache.get не следовал рубильнику) починен этой же полосой (TOG-2); не-булевы параметры админки идут тем же write-path (post_config → retry), защита от stale-token у них общая.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md §3 (аудит-матрица; артефакт Builder OPENCODE_WORKFLOW_SCRATCH/tgl-ui-probe/flags_audit.json — 106 строк, у каждой save_global=200, hot_after_global_save=true, save_chat=200, chat_override_applied=true; проверено PM: 0 нарушений)",
+          "observation": "Реальный сервер-харнесс → на КАЖДЫЙ флаг POST /api/config глобально и chat-scope; потребители — grep pg_key/settings_field по services/+handlers/+filters/+bot.py/SmartModule; включая flags.smart_cache_enabled после фикса (строка в артефакте: save 200/200, hot=true, override=true); итог Builder: WORKS 106/106, BROKEN-followup 0",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md",
+          "artifact_sha256": "b6775f0059b24ae8ab19f35a05226c0c752f6ef018fa0ef184a5cb66a20f7e07"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/review.md §3 (аудит-матрица воспроизведена НЕЗАВИСИМО: артефакты Builder утеряны при переносе scratch, поэтому заявление не принималось на веру) + §5 леджер",
+          "observation": "Ревьюер воспроизвёл аудит сам на кандидате (реальный ConfigCache + реальный chat_params поверх sqlite-шима, реальный TMA-флоу): популяция 107 bool-спеков категории flags (106 WORKS + 1 BROKEN-fixed flags.smart_cache_enabled) — на КАЖДЫЙ global POST → 200 + hot + readback, chat POST → 200 через retry + override; результат 107/107 PASS, 0 отказов; спот-чек 5 случайных потребителей подтвердил реальных рантайм-потребителей (dream_worker.py:1322, filters/olya_video.py:92, summary_memory.py:3504, mca_vision.py:195→202, mca_process_registry.py:753)",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/review.md",
+          "artifact_sha256": "a556a38359ff56ae0ed912afa78156ffb96d25c9914c72724ce0371301afd95a"
+        }
+      ]
+    }
+  ],
+  "additional_requirements": [
+    {
+      "source_id": "M-TOG-BASIS",
+      "source_line": 3,
+      "source_text_sha256": "268977941b71dcf091586e3c5002eba7916dd559f4c8234e83e80425423ccdda",
+      "source_excerpt": "**Основание:** сообщение владельца 28.10.2026 со скриншотом production (2.58.139).",
+      "disposition": "context",
+      "reason": "Метаданные происхождения: дата сообщения владельца и версия прода на момент баг-репорта (2.58.139); отдельной обязанности не создаёт, зафиксировано как base в deploy-258140.md PART 0 (pre-state 95e6c7c9)."
+    },
+    {
+      "source_id": "M-TOG-FACT",
+      "source_line": 5,
+      "source_text_sha256": "526d1f0ac548da3ecdba3b84cb3e727366c993bcd65c9564c2e3a5fae22aa289",
+      "source_excerpt": "**Факт владельца:** в админке (Модули → Умный кэш) изменение рубильника «Exact Match Cache» и нажатие «Сохранить изменения» даёт ошибку «Сохранено 0 из 1; не сохранено: Exact Match Cache».",
+      "disposition": "context",
+      "reason": "Факт владельца — воспроизводимое описание симптома P0 («Сохранено 0 из 1», тумблер не сохраняется); приёмка этого факта целиком поглощена обязательной строкой TOG-1 (исправление сохранения, live 200/200 на deployed 2.58.140) и не дублируется отдельной обязанностью."
+    },
+    {
+      "source_id": "M-TOG-HEAD",
+      "source_line": 7,
+      "source_text_sha256": "16c0d05de639c97eff160865c46219f5617851a17950e386580f8df87c001524",
+      "source_excerpt": "**Требование владельца:**",
+      "disposition": "duplicate",
+      "reason": "Заголовок секции «Требование владельца:» — указатель на нумерованные пункты строки 8 (TOG-1) и строки 9 (TOG-3); самостоятельного требования не содержит."
+    },
+    {
+      "source_id": "M-TOG-CTX",
+      "source_line": 11,
+      "source_text_sha256": "1b9921c056894fa2a96c9392f3c38f847caf0a6c38ec8da4d8b131dd661591e8",
+      "source_excerpt": "**Контекст скриншота:** на экране также поле «Срок жизни умного кэша, сек» (`limits.smart_cache_ttl_sec...`, значение 1800) и группа «Умный кэш: рубильник»",
+      "disposition": "context",
+      "reason": "Описание скриншота (поле TTL 1800, группа рубильника, тост «Изменено: 1»/«Не сохранено», кнопка) — контекст симптома; сам тумблер покрывают TOG-1/TOG-2, прочие параметры/поля (включая TTL) — аудит TOG-3 (тот же write-path post_config; TTL-значение владельцем не оспаривалось)."
+    },
+    {
+      "source_id": "M-TOG-CODEBASE",
+      "source_line": 13,
+      "source_text_sha256": "44c1a9d8d737092680fd5479df3c1403b9a369fa76859b6313b3439b3a13779f",
+      "source_excerpt": "**Код:** прод 2.58.139 (release/p0-2026-10-26, бамп 1e438e3a + COR-фиксы b5e25966-линии).",
+      "disposition": "context",
+      "reason": "Указатель кодовой базы (deployed линия 2.58.139 = 95e6c7c9) — базовая точка фикса; подтверждён deploy-258140.md PART 0 (fast-forward 9261565d..a602aa61, линия стояла ровно на базе). Обязанности не создаёт."
+    },
+    {
+      "source_id": "M-TOG2",
+      "source_line": 8,
+      "source_text_sha256": "498dbde7bbd7064718484ed170e8b68f4ca5a530d34914261079db9b6dd341b7",
+      "source_excerpt": "1. Исправить сохранение рубильника Exact Match Cache.",
+      "disposition": "required",
+      "reason": "Вторая атомарная обязанность того же пункта 1 ТЗ (указатель источника идентичен TOG-1 по правилу «несколько атомарных требований с одной строки»): «исправить» означает не только HTTP-сохранение, но и реальное управление SmartCache — read-side get() гейтился только на settings.SMART_CACHE_ENABLED, а не на hot-рубильник (env-дефолт False в проде → тумблер ON включал запись кэша, но get() никогда не отдавал — полудекоративность).",
+      "req_id": "TOG-2",
+      "slice": "S1-ADMIN-TOGGLE-SAVE",
+      "acceptance": "SmartCache управляется рубильником в обе стороны: ON — set() пишет и get() отдаёт кэш (get_hit); OFF — get() не отдаёт (get_miss, _read не вызывается); get() читает hot flags.smart_cache_enabled + hot limits.smart_cache_ttl_seconds (settings — дефолт-фолбэк; аварийный env-рубильник R51-3 сохранён); семантика dedup (chat_dedup_enabled) не тронута. Live на deployed 2.58.140: ON → set_ok + get_hit=true; OFF → get_miss=true.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md §1 (read-side аудит) + §2 (smart_cache.py:316 get() → hot-рубильник + hot-TTL, паттерн как set/_sweep_ttl/get_dedup) + review.md §2 (тест двунаправленный: settings OFF + hot ON → отдаёт; settings ON + hot OFF → None, _read не вызывается; R51-3 сохранён; dedup-семантика не тронута)",
+          "observation": "test_smart_cache_get_follows_hot_flag — RED на чистой базе 9261565d, GREEN на кандидате (root-cause блок 3/3 FAILED на базе); get() переведён на hot-рубильник и hot-TTL, потребители flags.smart_cache_enabled (handlers/search.py:140-168, handlers/youtube.py:1226-1293, handlers/web.py:171-197, services/smart_cache.py) получают согласованную цепочку get/set",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md",
+          "artifact_sha256": "b6775f0059b24ae8ab19f35a05226c0c752f6ef018fa0ef184a5cb66a20f7e07"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "live",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md PART 3 — live-зонд SmartCache на deployed 2.58.140 @ 5c8bf35d",
+          "observation": "Global toggle ON → 200; SmartCache set + get: set_ok, get_hit=true (ON: запись+чтение работают); global toggle OFF → 200; SmartCache get: get_miss=true (OFF: get не отдаёт — направление починено в обе стороны); cleanup — синтетическая строка удалена, нетто-изменение прод-данных 0",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md",
+          "artifact_sha256": "022da02bc9f6ccd4fc0a46e4eea80ce6d174a66cbfcdd2242908fa46f25597ca"
+        }
+      ]
+    },
+    {
+      "source_id": "M-TOG-REG",
+      "source_line": 8,
+      "source_text_sha256": "498dbde7bbd7064718484ed170e8b68f4ca5a530d34914261079db9b6dd341b7",
+      "source_excerpt": "1. Исправить сохранение рубильника Exact Match Cache.",
+      "disposition": "required",
+      "reason": "Третья атомарная обязанность пункта 1 ТЗ (указатель источника идентичен TOG-1): исправление должно держаться — обязательная регрессионная защита root-cause (RED→GREEN на чистой базе) и зелёные затронутые швы; без этого «исправлено» не доказуемо.",
+      "req_id": "TOG-4",
+      "slice": "S1-ADMIN-TOGGLE-SAVE",
+      "acceptance": "Root-cause регрессии держатся: 9 новых тестов (TMA-флоу global/chat roundtrip, OFF→ON→OFF с токенами из ответов, эффективный рантайм hot/_active/UI-read, stale-token→200+merge, missing group profile→ensure+200, SmartCache.get↔hot оба направления) — 3/3 root-cause теста FAILED на чистой базе 9261565d (RED, stash-прогон) и 9/9 GREEN на кандидате; затронутые швы зелёные (Builder 358 passed; ревьюер 571 passed / 4 failed — все 4 идентичны чистой базе, предсуществующие); пины ROUTES_SHA256_F11 переутверждены синхронно (Δroutes=0), registry --check OK 586==REGISTRY, compileall rc=0; pin-тесты на байтах deployed 5c8bf35d — 103 passed.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md §4 (тесты: 9 новых + регрессии затронутых швов 358 passed; пин-гигиена ROUTES_SHA256_F11 b63dab2a…; test_budget_overrides_merge_round1024 (e) strict-409-контракт обновлён как пин корневой причины; задокументированные предсуществующие падения soul1 ×2 / mca10a ×2 воспроизведены stash-прогоном на чистой 9261565d)",
+          "observation": "Новый tests/test_p0_admin_cache_toggle_save.py: кандидат 9 passed; база 3 failed/6 passed — ровно root-cause блок; регресс-сьют затронутых швов 358 passed без новых падений; гварды: gen_param_registry_round1025.py --check OK (586==REGISTRY), compileall services+web changed rc=0, каталог не менялся",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/fix.md",
+          "artifact_sha256": "b6775f0059b24ae8ab19f35a05226c0c752f6ef018fa0ef184a5cb66a20f7e07"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/review.md §4 (независимые прогоны ревьюера на локальном харнессе) + §5 леджер",
+          "observation": "Фокус-регрессии шире списка fix.md (25 файлов): 571 passed / 4 failed — все 4 воспроизведены 1-в-1 на чистой базе 9261565d (mca10a ×2 Settings 465 vs 466 — след fcpost; soul1_registry ×2 пины персоны) — не регрессии кандидата; fcpost/speech-смежные (10 файлов): 204 passed / 2 failed (DDG средозависимые, search_aggregator.py кандидатом не тронут); --check OK, Δroutes=0 подтверждён дифом",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/review.md",
+          "artifact_sha256": "a556a38359ff56ae0ed912afa78156ffb96d25c9914c72724ce0371301afd95a"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md PART 1 (guards на deployed SHA; blob-пины 4/4 deployed == candidate по fix-файлам)",
+          "observation": "Пин-тесты на deployed SHA 5c8bf35d (локально, байты == deployed): 103 passed (toggle_save+budget+smart_cache 50; f8_registry+mca23 53); registry --check OK; compileall OK; deltaDDL=0 vs 95e6c7c9 — регрессионный контур пережил bump без изменений",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md",
+          "artifact_sha256": "022da02bc9f6ccd4fc0a46e4eea80ce6d174a66cbfcdd2242908fa46f25597ca"
+        }
+      ]
+    },
+    {
+      "source_id": "M-TOG-RULES",
+      "source_line": 15,
+      "source_text_sha256": "102826b5611995e8508e0e6e3e83528a8cd928412bc45b2636a1b34d24dccab4",
+      "source_excerpt": "**Правила:** без тестовых сообщений в рабочих чатах; без owner approval — штатные полномочия позволя",
+      "disposition": "required",
+      "reason": "Прозрачный запрет владельца в правилах задачи (строка без буллет-паттерна, добавлена вручную): без тестовых сообщений в рабочих чатах — обязательная методологическая граница всех проверок/зонда/деплоя. Вторая половина строки («без owner approval — штатные полномочия позволяют») — подтверждение стоячего правила PET_PROJECT от 18.10.2026, самостоятельной обязанности не создаёт и Human Gate не требует.",
+      "req_id": "TOG-5",
+      "slice": "S1-ADMIN-TOGGLE-SAVE",
+      "acceptance": "Ни одна проверка/зонд/деплой полосы не отправляет сообщений в рабочие чаты владельца: постдеплой-зонд — server-side bounded (TMA initData, HMAC по spec; токен только в памяти процесса, не печатается), Telegram-чаты не используются; изменения прод-данных нетто-ноль (флаги возвращены в исходные OFF/OFF, синтетическая строка SmartCache удалена); независимый ревьюер прод/SSH/Telegram не использовал.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "live",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md PART 2-3 (bounded-зонд, is_dm/is_global_admin подтверждены ответом API) + секция Cleanup + Journal (2 события config chat updated — только собственные API-сохранения зонда)",
+          "observation": "Зонд выполнялся server-side с TMA initData/HMAC, токен не покидал память процесса; ни одного тестового сообщения в рабочие чаты владельца не отправлено; cleanup: синтетическая строка SmartCache удалена, chat/global флаги already-original — нетто-изменение прод-данных 0",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/deploy-258140.md",
+          "artifact_sha256": "022da02bc9f6ccd4fc0a46e4eea80ce6d174a66cbfcdd2242908fa46f25597ca"
+        },
+        {
+          "candidate_commit": "a602aa61874b4ae7a9b7cfe7da565fb769e1ae09",
+          "type": "test",
+          "ref": "plans/features/p0-admin-cache-toggle-save/evidence/review.md §1 (метод ревьюера)",
+          "observation": "Ревьюер: метод «воспроизведение, не доверие» — прод-сервер/SSH/Telegram не использовались; UI-проверки на реальном коде через локальный Playwright-харнесс с TMA initData-инъекцией",
+          "artifact_path": "plans/features/p0-admin-cache-toggle-save/evidence/review.md",
+          "artifact_sha256": "a556a38359ff56ae0ed912afa78156ffb96d25c9914c72724ce0371301afd95a"
+        }
+      ]
+    }
+  ]
+}

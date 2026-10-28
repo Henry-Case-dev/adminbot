@@ -1,0 +1,13 @@
+candidate=fe1e514ae37dd2c07c1b833a4c3b8489c20a1215
+docs_commit=4bf1b36a3306b60123e524d92311ecadf3877e4f
+staged_at_utc=2026-10-25T11:57:34Z
+stage_tgz_sha256=ac1991d88413a5aedb1835c4ddc34058648bc55fcad3f66c14f632e91d5e585e
+python=Python 3.12.3
+-- sha256 (server) --
+a750a98368a7cbad9f0052b55ba2b9a39717edd1cdda8694a85f4ce2b008585e  /tmp/p0c-int3/probes_full/harness_probe_full.py
+de9783ce2f685d23787d44a14b045f7d5d98c3d74677b854ff15503a957d43f8  /tmp/p0c-int3/probes_full/analyze_l2_meta.py
+bc9e0b16f9cd98e0b4eee7719bc6bb8dcc33f9489a22b01d298218c6edbd3818  /tmp/p0c-int3/services/direct_chat_service.py
+1d4abb7b73809adee2bed0f99c9e3d265aff16a2f57086ed4926f76bedeb056f  /tmp/p0c-int3/services/direct_l1.py
+a444c89a7452571a1af41647be9a9b047bf34148ee4d9a27fe71cbc8a2c53d7f  /tmp/p0c-int3/services/chat_prompts.py
+982352b2dd58e3a8b49d80d58af76e0f56b8c23fe99b4e96c6701f12713b1838  /tmp/p0c-int3/services/prompt_style_blocks.py
+c8866df2d935d2e5acceff853febafa79ed2a14a6e7640b7059189f3d8f4c47d  /tmp/p0c-int3/info_text.md

@@ -2,10 +2,11 @@
  "schema": "openworkflow-coverage-v1",
  "source_path": "C:\\Code\\Python\\adminbot\\plans\\features\\cfg\\source-cfg-addendum.md",
  "source_sha256": "2ed43009e1533eca218be419409870ebbe85f82d85262ff2335dfa2ce36e6b10",
- "candidate_commit": "d860a529593079f20fd26fb830536b77c8ba1630",
- "deployed_commit": "8ea6ed4e016cf8fbb23e1447cb02503c54131650",
+ "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+ "deployed_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
  "strict_evidence": true,
  "slice_graph_path": "slice-graph.json",
+ "binding_note": "Сверка 2026-10-25 (PM-CFG-RECONCILE): candidate_commit/deployed_commit = релиз-кандидат и факт прода 2.58.129 (release-258129.md §Deploy: server HEAD 79ec3726, APP_VERSION 2.58.129, healthz 200). К 79ec3726 привязаны только CFG-02C.3 и CFG-02C.6 (cover-style styled/retry/fallback). Остальные required-строки несут исторические записи со своими sha и требуют пере-проверки по срезам; массовая перепривязка не выполнялась. Разбор и остаток: plans/features/cfg/evidence/reconcile-79ec3726.md",
  "additional_requirements": [
   {
    "source_id": "M00001",
@@ -3331,6 +3332,14 @@
      "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
      "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
      "type": "test"
+    },
+    {
+     "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+     "ref": "release-258129.md §Что меняется/§Deploy + cover-style-json-fix.md §Исправление (фикс 16a0dbbf, выкачен 79ec3726)",
+     "observation": "Summary-обложка, styled-путь: в проде 2.58.128 повторная попытка получала 2xx, но _extract ждал только data[0].b64_json/url и падал в bad_json; стадия завершилась fail-soft публикацией Base (COVER_STYLE_FAILED reason=bad_json fallback=style_failed → PUBLISH_RICH_COMPLETE degraded). После 16a0dbbf _extract принимает бинарный 2xx (content-type image/* и magic bytes), b64/url и конверты data/output/images/result; повтор не уходит сверх одной ретрай-попытки, fallback на Base сохранён. Прогоны на 62969444 (79ec3726 отличается только bump-пинами версии): test_cover_style_edit_extract + test_asap44_cover_final_closure 31 passed, профильный набор cover_style/cover_prompt/extra_cover/asap4 1154 passed. Границы: квоты, резервирование и лимиты Summary этой записью не пере-проверялись.",
+     "artifact_path": "plans/features/cfg/evidence/release-258129.md",
+     "artifact_sha256": "8a60865ce7b0e40bee537a48800e595f03c2bfa498e4d0d1c70484e50289c049",
+     "type": "production"
     }
    ]
   },
@@ -3437,6 +3446,14 @@
      "observation": "Атомарность/идемпотентность и развязка списаний между контурами.",
      "artifact_path": "plans/features/cfg/evidence/cfg-02c/red-green.txt",
      "artifact_sha256": "0eb60085f0c9a8041bb66a46dd6f691e9d65a31d543f500a9df1a2f1865ef435",
+     "type": "test"
+    },
+    {
+     "candidate_commit": "79ec3726c0919e6ffeaeb235be4f8d6326c4e12a",
+     "ref": "cover-style-json-fix.md §Факт из прод-лога/§Исправление/§Тесты + release-258129.md §Тесты",
+     "observation": "Ретрай Summary-обложки не размножает платные вызовы: в прод-логе 2.58.128 ровно два обращения (первое 400 prompt_limit, повтор 2xx), третьего нет, стадия честно завершилась fail-soft Base-обложкой вместо повторной дорогой генерации. После 16a0dbbf повторный 2xx разбирается (_extract: бинарный/b64/url/output-конверты), provider_meta финальной попытки сохраняется в job meta, ретрай остаётся ограниченным одной попыткой. Тесты: 9 новых в test_cover_style_edit_extract.py, 31 passed на 62969444; 79ec3726 отличается от него только bump-пинами версии. Границы: атомарность reservation/commit/release в БД и поведение при рестартах этой записью не пере-проверялись.",
+     "artifact_path": "plans/features/cfg/evidence/cover-style-json-fix.md",
+     "artifact_sha256": "c79221cbbae508ed78d78ef9297609c9bb0a26a80d7c9eba9b1d43d036444335",
      "type": "test"
     }
    ]

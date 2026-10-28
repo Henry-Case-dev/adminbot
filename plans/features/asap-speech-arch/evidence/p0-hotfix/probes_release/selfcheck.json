@@ -1,0 +1,231 @@
+{
+ "self_check": "PASS",
+ "results": {
+  "counts_1x1": true,
+  "ascii_marker_zero": true,
+  "payload_1x1": true,
+  "predicate_research": true,
+  "predicate_answer": true,
+  "mode_research_serious": true,
+  "modules_under_root": true,
+  "code_l1_canon_material_routing": true,
+  "code_l1_canon_not_pg_stage": true,
+  "core_full_not_truncated": true,
+  "no_meta_research_plan_once": true,
+  "no_meta_casual_plan_once": true,
+  "no_meta_deep_auto_mode_once": true,
+  "meta_phrases_absent_from_prompts": true,
+  "closing_once_per_payload": true,
+  "closing_last_after_current_question": true,
+  "closing_only_in_user_part": true,
+  "no_meta_directive_1x1_research": true,
+  "no_meta_directive_1x1_answer": true,
+  "core_report_chars": true,
+  "core_report_revision": true,
+  "core_report_in_system": true,
+  "core_report_sha12": true,
+  "case_a_unchanged": true,
+  "case_c_synthetic": true,
+  "case_c_same_window_as_a": true,
+  "case_c_short_single_line": true,
+  "meta_detector_catches_second_sentence": true,
+  "meta_detector_clean_answer": true,
+  "rag_service_function_real": true,
+  "rag_service_retrieval_kwargs": true,
+  "rag_service_query_passed": true,
+  "rag_service_block_rendered": true,
+  "rag_dump_marked": true,
+  "no_use_before_assignment": true,
+  "unbound_guard_catches_pattern": true,
+  "unbound_guard_clean_pattern": true,
+  "summary_rag_source_service": true,
+  "summary_rag_source_dump": true,
+  "summary_rag_source_never_null": true
+ },
+ "counts": {
+  "directive": 1,
+  "writer": 1,
+  "no_meta": 0,
+  "no_meta_constant": true,
+  "closing": 0,
+  "closing_constant": true,
+  "ascii_marker": 0
+ },
+ "synthetic_payload": {
+  "system": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0,
+   "no_meta_constant": true,
+   "closing": 0,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "user": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 0,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "total": {
+   "directive": 1,
+   "writer": 1,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 0,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "invariant_1x1": true,
+  "invariant_0x0": false,
+  "invariant_no_meta_1x1": true,
+  "invariant_no_meta_0": false,
+  "invariant_closing_1x1": false
+ },
+ "unbound_guard": {
+  "file_findings": [],
+  "bad_sample": [
+   {
+    "function": "run",
+    "name": "llm",
+    "line": 2,
+    "first_assign": 3
+   }
+  ],
+  "harness": "/tmp/p0rel/probes_full/harness_probe_full.py"
+ },
+ "meta_detector": {
+  "bad": [
+   "announce: Ладно, глянул твои сообщения.",
+   "leadin: Ладно, глянул твои сообщения."
+  ],
+  "ok": []
+ },
+ "meta_check": {
+  "free": {
+   "research": true,
+   "casual": true,
+   "deep_auto": true
+  },
+  "payload_counts": {
+   "research": 1,
+   "casual": 1,
+   "deep_auto": 1
+  }
+ },
+ "answer_payload": {
+  "system": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 0,
+   "no_meta_constant": true,
+   "closing": 0,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "user": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 0,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "total": {
+   "directive": 0,
+   "writer": 0,
+   "no_meta": 1,
+   "no_meta_constant": true,
+   "closing": 0,
+   "closing_constant": true,
+   "ascii_marker": 0
+  },
+  "invariant_1x1": false,
+  "invariant_0x0": true,
+  "invariant_no_meta_1x1": true,
+  "invariant_no_meta_0": false,
+  "invariant_closing_1x1": false
+ },
+ "core_report": {
+  "revision": "abc123def456",
+  "detail": "full:owner_setting",
+  "chars": 53,
+  "rendered": true,
+  "skip_reason": "",
+  "sha12": "cbc484f32fe8",
+  "text_chars": 53,
+  "in_system": true
+ },
+ "case_inputs": {
+  "A": {
+   "window_key": "A",
+   "target_ts": 1792873281,
+   "tg_id": 1175252,
+   "question": "запрос A",
+   "question_source": "db",
+   "question_note": ""
+  },
+  "C": {
+   "window_key": "A",
+   "target_ts": 1792873281,
+   "tg_id": 1175252,
+   "question": "Слушай, а ты дождь любишь или тебя от него тоже ломает?",
+   "question_source": "synthetic_case_c",
+   "question_note": "synthetic: короткая бытовая реплика в том же окне, что у A; режим не навязан — решение L1 записано как есть"
+  }
+ },
+ "code_l1_canon": {
+  "chars": 9750,
+  "sha12": "422e9d73d316",
+  "prev_p0cs2_sha12": "f6f5d3b1fc1d"
+ },
+ "pins": {
+  "root": "/tmp/p0rel",
+  "git": {
+   "commit": "ERR:Command '['git', '-C', '/tmp/p0rel', 'rev-parse', 'HEAD']' returned non-zero exit status 128.",
+   "branch": "ERR:Command '['git', '-C', '/tmp/p0rel', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.",
+   "dirty": true,
+   "dirty_files": [
+    "ERR:Command '['git', '-C', '/tmp/p0rel', 'status', '--porcelain']' returned non-zero exit status 128."
+   ]
+  },
+  "modules": {
+   "services/chat_prompts.py": {
+    "sha256": "0412d716ecac7b933010fc298754becd99448baa68842265a7f60e625a23ed65",
+    "chars": 170519
+   },
+   "services/direct_l1.py": {
+    "sha256": "567e8638dc65518b464fe20b640a927b89fa4ac01f85b4dfddf28dbe7ef58c7c",
+    "chars": 76954
+   },
+   "services/prompt_style_blocks.py": {
+    "sha256": "9e2c822430afdf76cd420b76031774675f36cd36a568abd43160ab6eb8ee70d3",
+    "chars": 52298
+   },
+   "services/response_extent.py": {
+    "sha256": "c97c7b33c130596b83b96946336b4a2b59694ff603a33659d9798a0c24cc9a1e",
+    "chars": 45011
+   },
+   "services/direct_chat_service.py": {
+    "sha256": "bc9e0b16f9cd98e0b4eee7719bc6bb8dcc33f9489a22b01d298218c6edbd3818",
+    "chars": 626023
+   },
+   "services/summary_memory.py": {
+    "sha256": "768d43c2da62b8188df41d3d8b4dd8d55118d9a9d025727ffd871067379a4fbe",
+    "chars": 314519
+   },
+   "services/prompt_composer.py": {
+    "sha256": "60fada1200d2ba8099a6d2f170fdc02154a964bfa3d6dbe9450c2c4515d3661f",
+    "chars": 120446
+   },
+   "services/prompt_registry.py": {
+    "sha256": "8f8693108ab962fff92807a246088b6333ae20d6f3d140b0160a25284e9a2b75",
+    "chars": 179123
+   }
+  }
+ }
+}

@@ -1,0 +1,8 @@
+closing_const_chars=118
+raw_new_code_A.json count_user=1 count_sys=0 after_cq=True ends_with=True
+raw_new_code_B.json count_user=1 count_sys=0 after_cq=True ends_with=True
+raw_new_code_C.json count_user=1 count_sys=0 after_cq=True ends_with=True
+raw_new_forced_A.json count_user=1 count_sys=0 after_cq=True ends_with=True
+raw_new_forced_B.json count_user=1 count_sys=0 after_cq=True ends_with=True
+raw_old_A.json count_user=0 count_sys=0 after_cq=False ends_with=False
+raw_old_B.json count_user=0 count_sys=0 after_cq=False ends_with=False

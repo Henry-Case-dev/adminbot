@@ -1,0 +1,7 @@
+newA exit=0 2026-10-25T11:58:15Z
+newB exit=0 2026-10-25T11:58:43Z
+newC exit=0 2026-10-25T11:59:14Z
+new_forced_A exit=0 2026-10-25T11:59:38Z
+new_forced_B exit=0 2026-10-25T12:00:02Z
+oldA exit=0 2026-10-25T12:00:37Z
+oldB exit=0 2026-10-25T12:01:11Z

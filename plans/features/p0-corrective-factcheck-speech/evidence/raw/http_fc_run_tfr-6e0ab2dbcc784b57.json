@@ -1,0 +1,135 @@
+{
+ "status": 200,
+ "json": {
+  "run": {
+   "run_id": "tfr-6e0ab2dbcc784b57",
+   "created_at": 1792775964,
+   "chat_id": -1004482340693,
+   "trigger_tg_message_id": 4591,
+   "target_tg_message_id": 4589,
+   "target_revision": 1,
+   "source_type": "text",
+   "origin_type": "channel",
+   "repost_received_at": 1792775693,
+   "original_published_at": 1792754097,
+   "original_published_precision": "day",
+   "claim_period_from": null,
+   "claim_period_to": null,
+   "date_source": "telegram_origin",
+   "requested_mode": "contextual",
+   "assessment_mode": "contextual",
+   "analysis_as_of": 1792775944,
+   "factual_verdict": "insufficient_evidence",
+   "temporal_status": "unknown",
+   "fallback_used": false,
+   "cache_hit": false,
+   "pipeline_version": "tf2",
+   "tz_resolution_version": "tzr1",
+   "reason": null,
+   "claim_text": "⚡️ В Telegram добавят ИИ-агентов — Claude, ChatGPT и другие нейронки можно будет подключить прямо в мессенджере официально.\n\nЮзеры смогут добавить свои API-ключи и выбрать любую модель: от Google, OpenAI, Anthropic и других топов.\n\n• Между нейронками можно переключаться в любой момент.\n• Задачи можно будет раскидать по разным агентам: один пишет код, второй — текст и так далее.\n• Больше не нужно будет скачивать разные клиенты или заходить на сайты.\n\nДуров убил Claude Code.\n\n👍 Бэкдор",
+   "claim_span": null,
+   "attribution": {
+    "author": "Бэкдор"
+   },
+   "date_timezone": null,
+   "date_uncertainty": {},
+   "related_asset_id": null,
+   "related_analysis_revision": null,
+   "evaluated_period": {
+    "from": null,
+    "precision": "unknown",
+    "to": null
+   },
+   "verdict_text": "Вот это размах: анонс, от которого у меня остались только рожки да ножки. Проверка вышла как поход в магазин за хлебом, а на полке лежит утечка исходников Claude Code и записка \"извините\". Ни одного источника про ИИ-агентов в Telegram. Ни про ключи, ни про переключение моделей, ни про распределение задач по агентам. Про \"Дуров убил Claude Code\" вообще молчу - смелая формулировка, подкреплённая ровно ничем, кроме вайба.\n\nХорошая новость: ни одна часть не опровергнута. Функция может существовать, может не существовать, может сидеть в подвале и ждать своего часа. Мы просто не знаем. Дата оригинала согласуется с пересылкой, и на этом праздник заканчивается, потому что период утверждения не определён. По сути у нас не разбор анонса, а разбор того, как поиск сходил за грибами и принёс мухомор.\n\n\"Бэкдор\" в качестве подписи - отдельный шедевр. Название канала как бы намекает, что дальше можно не проверять, но нет, проверили. И вышло ровно то, что написано на этикетке: нихрена не подтверждено. Так что верить в этот анонс пока можно исключительно на честном слове. Как обычно, собственно.",
+   "verdict_uncertainty": {
+    "summary": "Поиск не дал ни одного релевантного источники о функции ИИ-агентов в Telegram; найденные evidence описывают утечку исходного кода Claude Code и не касаются заявленного анонса. Ни одна часть не верифицирована и не опровергнута. Дата оригинала (1792754097 ≈ 2026) согласуется с пересылкой в чате 23.10.2026 17:14, но период утверждения не определён (unknown)."
+   },
+   "stage_trace": [
+    {
+     "outcome": "success",
+     "stage": "target_resolve"
+    },
+    {
+     "outcome": "success",
+     "stage": "origin_date_resolve"
+    },
+    {
+     "outcome": "success",
+     "stage": "claim_decompose"
+    },
+    {
+     "outcome": "success",
+     "reason": "unified_retrieval",
+     "stage": "temporal_search"
+    },
+    {
+     "outcome": "success",
+     "stage": "evidence_validate"
+    },
+    {
+     "outcome": "success",
+     "stage": "verdict"
+    },
+    {
+     "outcome": "corrected",
+     "stage": "verdict"
+    },
+    {
+     "outcome": "success",
+     "stage": "verbalize"
+    }
+   ],
+   "revision": 1
+  },
+  "evidence": [
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Boris Cherny, creator of Anthropic’s Claude Code tool, has revealed the cause of a leak that saw 500,000+ lines of source code exposed online",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792775945,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "‘There was a manual deploy step that should have been better automated’: Claude Code creator confirms cause of massive source code leak | IT Pro. Follow us",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792775945,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Add us as a preferred source on Google",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792775945,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   },
+   {
+    "claim_part": null,
+    "url": null,
+    "support": "Subscribe to our newsletter",
+    "source_ref": null,
+    "published_at": null,
+    "published_at_source": null,
+    "retrieved_at": 1792775945,
+    "temporal_relevance": null,
+    "relation": null,
+    "source_kind": "secondary"
+   }
+  ]
+ }
+}

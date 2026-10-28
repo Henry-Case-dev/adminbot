@@ -405,12 +405,73 @@ class RetrievalResult:
     channels_used: tuple[str, ...] = ()
     generation_fingerprint: str | None = None
     reason_code: str | None = None
+    # P0-HA ISOLATION (архконтракт §3): вне-диапазонный остаток ТОЛЬКО для
+    # scope="time_range" — кандидат за краями количественной выборки. В набор
+    # диапазона не входит никогда; потребитель обязан подавать его только
+    # как явно помеченное дополнение (не как факты диапазона). Для прочих
+    # запросов всегда пусто.
+    supplementary: tuple[RetrievalCandidate, ...] = ()
 
 
 def is_history_query(query: str) -> bool:
     """Эвристика «запрос об истории» (D2): сначала эпизоды."""
     text = str(query or "").casefold()
     return any(marker in text for marker in _HISTORY_MARKERS)
+
+
+def bind_quantitative_range(request: RetrievalRequest, *, time_from,
+                            time_to) -> RetrievalRequest:
+    """P0-HA ISOLATION (архконтракт §3): связать RetrievalRequest с РЕАЛЬНЫМИ
+    краями количественной выборки «последние N» — ``time_from`` = timestamp
+    N-й (старейшей in-sample) строки, ``time_to`` = захваченный якорь (старт
+    хода), НЕ ``time.time()`` повторного чтения. ``scope="time_range"``,
+    ``mode="auto"`` — НЕ ``"history"`` (маркеры истории не разворачивают
+    корпус на этом ходе). Секундная точность существующего контракта полей.
+    Возвращает НОВЫЙ frozen-запрос; исходный не меняется. Некорректные
+    границы (не int / ≤0) → запрос без связки (старые вызывающие без этой
+    функции не меняются вовсе)."""
+    try:
+        t_from, t_to = int(time_from), int(time_to)
+    except (TypeError, ValueError):
+        return request
+    if t_from <= 0 or t_to <= 0:
+        return request
+    return dataclasses.replace(request, scope="time_range", mode="auto",
+                               time_from=t_from, time_to=t_to)
+
+
+def _range_bound(request: RetrievalRequest) -> bool:
+    """Активная количественная связка: scope=time_range и оба края заданы."""
+    return (request.scope == "time_range"
+            and request.time_from is not None
+            and request.time_to is not None)
+
+
+def _split_range(candidates: list, request: RetrievalRequest) -> tuple:
+    """P0-HA ISOLATION (§3): ТОЛЬКО для scope=time_range — делит raw-кандидаты
+    на (диапазонный набор, вне-диапазонный остаток). Диапазонный набор:
+    та же семантика, что у ``_apply_filters`` (время + участники), плюс
+    fail-closed — кандидат с ``sent_at == 0`` (неизвестное время) в набор
+    диапазона НЕ входит. Остаток: только кандидаты за краями [time_from,
+    time_to] — для явно помеченного supplementary-канала (никогда не факты
+    диапазона). Для прочих запросов не вызывается: их поведение остаётся
+    байт-в-байт в ``_apply_filters``."""
+    t_from, t_to = int(request.time_from), int(request.time_to)
+    participants = (set(int(p) for p in request.participants)
+                    if request.participants else None)
+    in_range: list = []
+    outside: list = []
+    for cand in candidates:
+        if not cand.sent_at:
+            continue                       # fail closed: время неизвестно
+        if participants and cand.author_id is not None and \
+                int(cand.author_id) not in participants:
+            continue
+        if cand.sent_at < t_from or cand.sent_at > t_to:
+            outside.append(cand)
+            continue
+        in_range.append(cand)
+    return in_range, outside
 
 
 def _tokenize(query: str) -> list[str]:
@@ -494,8 +555,13 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     keywords = _tokenize(request.query)
     match = build_fts_query(keywords) if keywords else ""
     now = int(time.time())
+    # P0-HA ISOLATION (§3): при активной количественной связке mode НЕ
+    # повышается до "history" по _HISTORY_MARKERS (список маркеров не меняет)
+    # — корпусный FTS/эпизоды не разворачиваются поверх диапазона. Запрос без
+    # количественной границы эти ветки не касается (H24).
+    range_active = _range_bound(request)
     mode = request.mode
-    if mode == "auto":
+    if mode == "auto" and not range_active:
         mode = "history" if is_history_query(request.query) else "auto"
     channels: list[str] = []
     raw: list[RetrievalCandidate] = []
@@ -576,10 +642,21 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
         except Exception:
             logger.warning("[mca07] reply-graph channel failed", exc_info=True)
 
-    raw = _apply_filters(raw, request)
+    # P0-HA ISOLATION (§3): только для scope=time_range — деление на
+    # диапазонный набор (fail-closed для sent_at==0) и вне-диапазонный
+    # остаток (явно помеченное дополнение). Прочие запросы — прежний
+    # _apply_filters байт-в-байт.
+    supplementary: list = []
+    if range_active:
+        raw, supplementary = _split_range(raw, request)
+    else:
+        raw = _apply_filters(raw, request)
     # Порядок: история — эпизоды первыми, далее по весу канала/позиции.
+    # P0-HA ISOLATION: при активной связке history_bias не применяется
+    # (эпизоды не ставятся первыми поверх корпуса).
     def _sort_key(cand: RetrievalCandidate):
-        history_bias = (1 if (mode == "history" and cand.channel == "episode")
+        history_bias = (1 if (mode == "history" and cand.channel == "episode"
+                              and not range_active)
                         else 0)
         return (history_bias, cand.score)
     ordered = sorted(_dedup(raw), key=_sort_key, reverse=True)
@@ -632,7 +709,8 @@ async def retrieve(db, memory, request: RetrievalRequest) -> RetrievalResult:
     return RetrievalResult(
         status=status, candidates=tuple(ordered),
         channels_used=tuple(sorted(set(channels), key=_CHANNEL_ORDER.index)),
-        generation_fingerprint=generation_fingerprint, reason_code=reason)
+        generation_fingerprint=generation_fingerprint, reason_code=reason,
+        supplementary=tuple(_dedup(supplementary)))
 
 
 def _message_candidate(row, channel: str, position: int, resolve_item_id):
@@ -821,6 +899,7 @@ __all__ = [
     "RETRIEVAL_OK", "RETRIEVAL_EMPTY", "RETRIEVAL_ERROR",
     "RetrievalRequest", "RetrievalCandidate", "RetrievalResult",
     "is_history_query", "retrieve", "apply_retrieval_rerank",
+    "bind_quantitative_range",
     "tokenize_query",
 ]
 

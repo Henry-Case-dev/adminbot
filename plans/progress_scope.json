@@ -1,188 +1,546 @@
 {
- "schema": "openworkflow-progress-scope-v1",
- "updated": "2026-10-25T10:20:00+12:00",
- "tasks": [
-  {
-   "id": "soul-1",
-   "status": "BUILDING",
-   "source_path": "plans/current_task.md",
-   "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
-   "maps": [
-    "plans/features/soul-1/requirements-map.json",
-    "plans/features/soul-1/requirements-map-amendment.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались. | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
-  },
-  {
-   "id": "asap8-v6.3",
-   "status": "BUILDING",
-   "source_path": "plans/current_task.md",
-   "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
-   "maps": [
-    "plans/features/asap8-v6-3-live-correction/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner). | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
-  },
-  {
-   "id": "cfg-01-07",
-   "status": "BUILDING",
-   "source_path": "plans/features/cfg/source-cfg-addendum.md",
-   "source_sha256": "2ED43009E1533ECA218BE419409870EBBE85F82D85262FF2335DFA2CE36E6B10",
-   "maps": [
-    "plans/features/cfg/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "current_task.md L1232–1629 (снапшот addendum); 12 строго последовательных слайсов; старт после текущей очереди"
-  },
-  {
-   "id": "win-glass-hotfix",
-   "status": "VERIFIED",
-   "source_path": "plans/features/win-glass-hotfix/source-hotfix-2026-10-18.md",
-   "source_sha256": "69B16CE8FC0287D1FF6BD83B0C23CD035207F167B8CC6969AC8EA42DB7843593",
-   "maps": [
-    "plans/features/win-glass-hotfix/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "чат-директива 18.10 (P0); карта 24 обязательных (WG-WIN 5, WG-ANDROID 6, WG-VERIFY 13), plan-гейт errors=0; live-строки 6 → owner-E2E | 22.10: инженерия закрыта полностью — tails binding (+7, release-гейт rc1 структурный пер-волновой, построчные проверки чисты; review 3 слайса EXIT 0); дубль-якорь WG-P0-03/MAN-WG-16 приведён к VERIFIED; device-наблюдения — owner_optional (WG-OBS-*), вне знаменателя"
-  },
-  {
-   "id": "p0-save-init-ux",
-   "status": "VERIFIED",
-   "source_path": "plans/features/p0-save-init-ux/source-p0-hotfix-2026-10-18.md",
-   "source_sha256": "76BD681EA1F78FC0DE888B37928FF2CFBA8E3CE026BDFAF980FEB1001AC58825",
-   "maps": [
-    "plans/features/p0-save-init-ux/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "ЗАКРЫТО 19.10: карта A **29/29 обязательных VERIFIED**; release-гейт `29/0` EXIT 0 (`fac69543`); отчёт `final-report-25890.md`@`c8b97c1a` доставлен; прод **2.58.90**"
-  },
-  {
-   "id": "p0-followup-nostalgia",
-   "status": "WAITING_EXTERNAL",
-   "source_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
-   "source_sha256": "1E00B4AFADB0D2861A8FB72B8439E921D540D0225A6C6EA2DF1B292A8B8628D4",
-   "maps": [
-    "plans/features/p0-save-init-ux/requirements-map-followup.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "чат-директива 18.10 (P0 FOLLOW-UP); карта B: 35 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); SCEN-A/LIVE-FUNNEL закрыты live; SCEN-B ждёт естественного затишья (WAITING_EXTERNAL); closure-bookkeeping строки — LEDGER-P0B-CLOSE идёт"
-  },
-  {
-   "id": "p0-vision-universal",
-   "status": "VERIFIED",
-   "source_path": "plans/features/p0-vision-universal/source-p0-vision-2026-10-19.md",
-   "source_sha256": "8A841F54200B479873F7C38D89C5462C2764953A51A930D9DBA24505E2230C90",
-   "maps": [
-    "plans/features/p0-vision-universal/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "чат-директива 19.10 (P0 VISION): универсальная совместимость Vision с любыми провайдерами; карта 32 required + 5 context (PM-VISION-MAP `67e68313`; plan errors=0); слайсы P0V-ARCH/PROBE/PIPE/UI/ACCEPT; 11 live postdeploy | 22.10: закрыта — tails binding (+4) + P0V-PIPE-CONTEXT VERIFIED (fence-fix: heavy GT 3/3, deploy 2.58.108 postdeploy); map 32 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя"
-  },
-  {
-   "id": "add-tr-2026-10-19",
-   "status": "VERIFIED",
-   "source_path": "plans/current_task.md",
-   "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
-   "maps": [
-    "plans/features/add-tr/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
-  },
-  {
-   "id": "add-exp-2026-10-19",
-   "status": "READY_FOR_LIVE",
-   "source_path": "plans/current_task.md",
-   "source_sha256": "187E998BBAACC39A5DDBDB18E1B30B0126F54415CD0A90D19B5C60735157C9D9",
-   "maps": [
-    "plans/features/add-exp/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён."
-  },
-  {
-   "id": "samples-ux",
-   "status": "VERIFIED",
-   "source_path": "plans/features/samples-ux/source-add-samples-ux-2026-10-20.md",
-   "source_sha256": "E6153CF15854FA47C2FC0BA99A296F4A0BB37F435A7A5706809AD2CA6CA8AD69",
-   "maps": [
-    "plans/features/samples-ux/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "current_task.md L1794-1914 (verbatim-снапшот): библиотека примеров — 3 категории (Общие/Юмор/Мат с явным expression_mode), редактируемые заводские наборы (persist override/tombstone против seed/деплоя), строгий UI-контракт MiniApp, few-shot семантика по категориям; дельта к SOUL-07/SOUL-10/ADD-EXP/CFG; живые тесты в чаты ЗАПРЕЩЕНЫ (offline/моки/браузер), недоступное — в owner_live_checks; инвентаризация PM DONE 20.10: 76 строк (64 required), plan-гейт EXIT 0, strict_evidence=true, slice-graph; REUSED большой (CRUD/seed-ручной/отбор 0-LLM/API why), NEW: категории+явный режим, tombstone против re-seed, редактор по §4.2, «Почему не используется?» | 22.10: инженерия закрыта — 64 VERIFIED / 0 инженерных открытых (context 12, owner_optional 1 вне знаменателя); деплой 2.58.100+ без регресса; §7 живые просмотры — добровольные"
-  },
-  {
-   "id": "asap-speech-arch",
-   "status": "BUILDING",
-   "source_path": "plans\\features\\asap-speech-arch\\source-owner-p0-hotfix-addendum-2026-10-25.md",
-   "source_sha256": "F9823F9A5D05143641922C36BB92A17AB8FB24D0B91AE58477C434EA68807FB5",
-   "maps": [
-    "plans/features/asap-speech-arch/requirements-map.json",
-    "plans/features/asap-speech-arch/requirements-map-speech-simplify.json",
-    "plans/features/asap-speech-arch/requirements-map-p0-hotfix.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "Постановка владельца 22.10 (verbatim-снапшот, 378 строк): P0 речевая архитектура - фабричные тексты (L2 verbalizer/Core full+compact/Expression header/Direct tool phase/L1 участие), активная конфигурация PG + миграции + Inspector, инициатива I-01..I-09, UI U-01..U-09; приоритеты P0/P1/P2; W0-W5. Дедупликация против corrective 2.58.107/110 при инициализации карты | 23.10.2026 PM-RECONCILE: аудит 82 открытых required-строк (74 items + 41 manual - 33 VERIFIED): 38 BIND (artifact+commit), 25 NEEDS_AGENT_CHECK, 2 NEEDS_LIVE_OBSERVATION, 17 NEEDS_IMPLEMENTATION; 44 осталось. REQ-PROOF-EFFECT — owner_optional (инженерно EVAL-MODES/EVAL-EGRESS). Строки-заголовки без req_id: 46 шт., все context/duplicate, в знаменатель не входят — прежний баг «PENDING-заголовки раздувают знаменатель» в текущих картах отсутствует; не повторять. | 23.10.2026 PM-BIND-258113: карта привязана к e4ee54f3 (2.58.113); W4/§8 U-01..U-09+P2 -> VERIFIED (ui-report 9 viewports failures=0, review-r2 Approved, evidence/w4/binding-258113.md), gate по всем W4-слайсам EXIT 0. Реальный WebView/Android — необязательное наблюдение владельца, не гейт. Открытых W4-строк нет; остальные 35 PENDING — другие слайсы. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3; W4/§8 9/9 VERIFIED (review-гейт W4 EXIT 0). Postdeploy W4 (реальный Telegram WebView/Android) — необязательное наблюдение владельца, не гейт; INIT-48H остаётся PENDING. Release-gate по всей карте EXIT 1: 35 PENDING в других слайсах. Статус BUILDING. | 25.10.2026 OWNER SPEECH-SIMPLIFY (дословный снимок полного ТЗ, plans/features/asap-speech-arch/source-owner-speech-simplify-2026-10-25.md): готовые тексты BASE_SPEECH/HUMOR/RESPONSE_LENGTH/PROFANITY_OFF|OCCASIONAL|FREQUENT/FACTUAL_SPEECH, новый заводской стиль «Завсегдатай Двача» (STYLE_DVACH), аудит и удаление дублирующих/конфликтующих речевых директив, три офлайн-пробы A/B/C, сохранение Core/биографии, без few-shot-обязательности, без механического мата и новых runtime-LLM-вызовов. 25.10 PM-MAP-SPEECH-CLEAN (lane task/speech-map): карта дополнения создана - requirements-map-speech-simplify.json (source sha 4f1fc083...); 167 строк инвентаря: 37 required / 103 duplicate / 27 context / 0 unassigned, плюс 66 manual-требований (точные тексты BASE_SPEECH/HUMOR/RESPONSE_LENGTH/PROFANITY_OFF|OCCASIONAL|FREQUENT/STYLE_DVACH/FACTUAL_SPEECH, три пробы A/B/C, 11 сценариев, 10 критериев, 20 условий §8, deploy §9, отчёт §10); всего 103 required по 8 слайсам (SPEECH-TEXTS/SPEECH-AUDIT/STYLE-DVACH/PROFANITY/PROBES/ACCEPT/DEPLOY/REPORT), plan-gate EXIT 0; покрытие источника полное. | 25.10.2026 PM-BIND-SPEECH-258127: speech-simplify доставлен на прод 2.58.127 (b2ac3fa5, фича e44a30b4, merge be0cc712). Карта requirements-map-speech-simplify.json: 97/103 required VERIFIED (тексты, Core-фильтр, DVACH, PROFANITY, пробы B/C, ACCEPT, DEPLOY-STANDARD, REPORT); 6 открыты: MAN-FREQ-STABILITY / MAN-FREQ-WITHOUT-FEWSHOT / MAN-FREQ-ROOTCAUSE (FREQUENT B 1/2 — устойчиво только с dvach), MAN-DVACH-FEEL (аутентичность манеры не оценена рубрикой), REQ-CHAT-STYLES-UNCHANGED и MAN-DEPLOY-9 (prod §9: снимок стилей чатов и проверка переопределений не сняты). Release-gate: EXIT 1, errors=6 (ровно эти строки); остальные проверки гейта чистые. Задача остаётся BUILDING, не DONE. | 25.10.2026 P0 HOTFIX (дословный снимок): реальные прод-ответы на «Я злобный?»/«Ринтаро злобный?» — многословие, принудительный юмор, выдуманные даты/цитаты, поздний прямой ответ; новые короткие тексты BASE/HUMOR/LENGTH/FREQUENT/FACTUAL; анализ пользователя по существу; provenance памяти; Core сохранить; офлайн A/B пробы; Reviewer сырых ответов; deploy. Карта дополнения создана: plans/features/asap-speech-arch/requirements-map-p0-hotfix.json — 110 строк (77 required / 28 context / 5 duplicate), 0 unassigned; 9 слайсов TRACE/TEXTS/ANALYSIS/MEMORY/CORE/PROBES/REVIEW/DEPLOY/REPORT; strict_evidence=true; plan-гейт EXIT 0 (inventory=61, manual=49, errors=0). Реализация не начиналась. | 25.10.2026 PM-MAP-P0-ADDENDUM (lane PM-MAP-P0-ADDENDUM, ветка task/speech-hotfix-map): дословный снимок дополнения владельца 25.10 (source-owner-p0-hotfix-addendum-2026-10-25.md, 94 строки, sha f9823f9a) и цепочный снапшот source-owner-p0-hotfix-chained-2026-10-25.md (287 строк = 193 строки P0-хотфикса + 94 строки дополнения, байт-в-байт). Карта requirements-map-p0-hotfix.json расширена без переписывания прежних решений: было 110 строк (77 required / 28 context / 5 duplicate), стало 160 строк (100 required / 37 context / 23 duplicate), 0 unassigned; inventory=79, manual=81. Добавлено 18 новых инвентарных строк аддендума (L00224-L00273) и 32 manual-строки прозы. Новые обязательства: ANALYSIS-EXACT-TARGET, ANALYSIS-WRITER-EXACT, ANALYSIS-DEPTH-NOT-LENGTH, ANALYSIS-ROUTING-PRESERVED, CORE-ACTIVE-VERIFIED, CORE-P2-P5-PAYLOAD, MEMORY-CURRENT-TURN-BOUNDARY, MEMORY-NO-UNSUPPORTED-CAUSAL-STORY, MEMORY-NO-HEAD-TRUNCATION, MEMORY-SELF-ECHO-REPEAT, MEMORY-PROVENANCE-ACTUAL-PATH, PROBES-TWO-RUNS, REVIEW-PAYLOAD-PROVENANCE (13 новых req_id; строк required +23). Пункт дополнения про историю по явному запросу закрыт как duplicate к существующей ANALYSIS-FULL-HISTORY-ON-REQUEST (её приёмка уже требует обращения к истории/памяти без пересказа всего) - второй счётчик не создавался. plan-gate EXIT 0 (errors=0). Реализация не начиналась; новые строки PENDING, live_required=true/preprod у PROBES-TWO-RUNS, ANALYSIS-DEPTH-NOT-LENGTH, MEMORY-SELF-ECHO-REPEAT.",
-   "updated": "2026-10-25"
-  },
-  {
-   "id": "asap2-direct-chat",
-   "status": "BUILDING",
-   "source_path": "plans/features/asap2-direct-chat/source-2026-10-22.md",
-   "source_sha256": "8F600767E06877AC45ED9BD9768922459A052DFC7B344F8B793C1E41F8531DE7",
-   "maps": [
-    "plans/features/asap2-direct-chat/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "Постановка владельца 22.10 (verbatim 324 строки): P0 Direct Chat - навязчивые уточнения/бесконечные цепочки; L1 = единственный интерпретатор намерения; строгий boolean needs_clarification; убрать Speech-understanding императив clarify=ask; каноны L1/L2 точечно (4.1/4.2/4.3); миграция factory+active PG; тест-матрица 6.1-6.4; запрещены новые подсистемы/хардкоды/словесные детекторы | BIND 23.10 (PM-BIND-ASAP2): candidate_commit=34af90ff, 74/109 required VERIFIED (163 evidence, sha256), 34 PENDING — агентские (9 непокрытых сценариев+парафразы, 5 MIGR/DevOps-снимков, review T20/T24), 1 READY_FOR_LIVE (DONE-D9, postdeploy); review-гейт: GOV/CLAR-BOOL/CLAR-SPEECH EXIT 0, остальные слайсы красные только по PENDING, candidate mismatch нет. Деплой не выполнен, статус BUILDING. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3 (код asap2 байт-идентичен 34af90ff, git diff пуст), evidence перепривязано к e4ee54f3. Деплой 2.58.113 подтверждён (healthz 200, active, NRestarts=0), но deploy.md не содержит снимков Factory/active PG/effective, payload и статистики уточнений (pg_available=false): DONE-D9 остаётся READY_FOR_LIVE, MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 — PENDING. Release-gate EXIT 1 (34 PENDING + DONE-D9). Статус BUILDING. | 23.10.2026 PM-BIND-PROD-SNAPSHOT: привязан read-only снимок прода 2.58.113 @ e4ee54f3 (evidence/prod-snapshot/report.md sha 278f281c…): MIGR-INSPECT/EFFECTIVE/BOTHSIDES/DEVOPS, DONE-D4 и DONE-D9 -> VERIFIED с производственными основаниями; MIGR-REVISION/OWNER/NORESET остались VERIFIED + добавлены факты §2/§3 (остаточная граница: prompt_migrations на проде не перезапрашивался). MIGR-PAYLOAD -> PENDING (полный model payload/вызов L1 не снимались), MIGR-HOTAPPLY VERIFIED -> PENDING (hot apply в живом процессе не наблюдался). Статистика needs_clarification на проде not_instrumented (прокси response_act=clarification 46/324) — DONE-D6/TESTS-METHOD-* по телеметрии не закрываются. Требования: 109 required -> 79 VERIFIED / 30 PENDING / 0 READY_FOR_LIVE. Release-гейт EXIT 1: 30 строк PENDING, структурных ошибок нет. Binding: plans/features/asap2-direct-chat/binding-prod-snapshot.md. Статус BUILDING. | 23.10.2026 PM-BIND-ASAP2-PROBE2: evidence probe-r2 (results.md c370da71…, protocol.md f7755916…, ledger.jsonl 2b061978…) перенесён в основную линию, produced_on=e4ee54f3. Закрыты T10 (часть «ответ из видимой части»), T11, T14, T17, T18, T22, T26 и TESTS-METHOD-PARAPHRASE → VERIFIED; пункт «явная граница истории» выделен в T10-BOUNDARY (PENDING, решение Reviewer/Architect). Итог: 110 required → 87 VERIFIED / 23 PENDING / 0 READY_FOR_LIVE. Остаток: T10-BOUNDARY, T20, T24, 5 CLAR-L1, CLAR-CTX-HONEST, CLAR-PLAN-ONETARGET, CLAR-L2-NOMENU/ROLE, TESTS-METHOD-REAL/SCREENSHOT, DONE-D1/D5/D6/D8/REPORT, MIGR-PAYLOAD/HOTAPPLY (точные next_check — binding-probe-r2.md §4). Release-гейт EXIT 1: 23 PENDING + 1 структурная ошибка CLAR-PLAN-CANON (artifact_sha256 к services/direct_l1.py снят на e4ee54f3, worktree advanced to 9dc4c99a после asap3; блоб e4ee54f3 = b4d0865f…, §4.3-фразы на HEAD присутствуют). Статус BUILDING: остались агентские проверки и решения Reviewer, не только postdeploy. Binding: plans/features/asap2-direct-chat/binding-probe-r2.md."
-  },
-  {
-   "id": "embed-identity-compat",
-   "status": "VERIFIED",
-   "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
-   "source_sha256": "429A986838D5F7539F89517BB2C33E77B9E2007C4BCFEEA30264A86B49FF66FB",
-   "maps": [
-    "plans/features/embed-identity-compat/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "P0 23.10 (дословный снимок, 109 строк): разделить Embedding Model Identity и Provider Connection Identity; смена API-шлюза при той же модели не повод для полной перевекторизации; canary по СТАРЫМ сохранённым векторам (запрет new-vs-new); три исхода compatible/divergent/insufficient_data; rebuild только по доказанной несовместимости; согласование summary_memory/control plane/graphrag/generations/MiniApp; 10 сценариев приёмки отдельными req_id; без новых сервисов/таблиц/реестров/хардкода. 59 required / 13 context / 0 unclassified, plan-гейт EXIT 0; ARCHITECT_REQUIRED (контракт identity/fingerprint и legacy-отпечатков). | BIND 23.10 (PM-BIND-EMBED-IDENTITY): candidate_commit=570e1eee; 59 required → 54 VERIFIED, 2 READY_FOR_LIVE (ACC-10/11, postdeploy), 3 PENDING (IDENT-02 MSI-поля, CANARY-03 revision, DEC-09 откат допуска) с next_check; evidence с artifact_sha256; A0-probe compatible (mean/min/hit5=1.0, KNN top-1 42/42) на 30a2f868, проба байт-идентична 570e1eee; resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK; деплой не выполнен. docs-коммиты 21114cf8/8d716351. | 23.10.2026 PM-BIND-258113: карта привязана к релизному коммиту e4ee54f3 (2.58.113): IDENT-02/CANARY-03/DEC-09 -> VERIFIED (gaps-closure d62e9720/128abcab + meta-wire ddf139a1), ACC-10/ACC-11 READY_FOR_LIVE (postdeploy). Required: 57 VERIFIED / 2 READY_FOR_LIVE / 0 PENDING. Gate review: IDENT-SPLIT/CANARY/DECISION/ACCEPT EXIT 0. Статус остаётся BUILDING до деплоя и postdeploy-проверки. Binding: plans/features/embed-identity-compat/binding-258113.md | 23.10.2026 PM-BIND-DEPLOYED-258113: деплой 2.58.113 @ e4ee54f3 подтверждён (healthz 200, PID 715288, NRestarts=0, adopt gen1 fp=96f80838f683, canary 12/1.0/1.0/1.0, BUILD_START=0, backlog 4234→3619, KNN cosine 0.832); ACC-10/ACC-11 → VERIFIED по замороженному deploy-снимку коммита b92226cf; release-gate EXIT 0; required 59/59 VERIFIED. Задача VERIFIED."
-  },
-  {
-   "id": "asap3-corrective",
-   "status": "READY_FOR_LIVE",
-   "source_path": "plans/features/asap3-corrective/source-2026-10-23.md",
-   "source_sha256": "B6AFDB21378B23402447C3771501D49C0064E040474D1B32D5BA7C571B498642",
-   "maps": [
-    "plans/features/asap3-corrective/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "P0 23.10 (дословный снимок, 557 строк): Style Policy без скрытой потери инструкций (лимиты OFF по умолчанию + UI + Inspector), инвентаризация скрытых лимитов, строгое правило «—»→«-», единая идентификация по user_id с merge global/chat по каждому ID и live-apply без рестарта, память/GraphRAG без новой личности, factory/active/global/chat миграция. Инвентаризация PM-ASAP3: 162 строки → 119 required + 43 context; manual 115 required + 4 context; 171 уникальный req_id, 0 неклассифицированных; S1-S10, A1-A16, ACC-01..ACC-10 отдельными req_id; strict_evidence + slice-graph, plan-гейт EXIT 0. ARCHITECT_REQUIRED по контракту имён (IDENTITY), остальное ARCH_REUSE_CONFIRMED. Реализация не начиналась. | 25.10.2026: 212/238 required VERIFIED; остались 3 живые (ACC-03, ACC-09, A16) и 23 процессных/замерных (GOV/HID/MIG/AUD/REPORT-FORMAT/ROLES), см. plans/features/asap3-corrective/final-report.md"
-  },
-  {
-   "id": "p0-factcheck-speech",
-   "status": "BUILDING",
-   "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
-   "source_sha256": "04AFC181029EF7963AB92A10F2515FE81F2E18FCB3777842893B06B155A3878E",
-   "maps": [
-    "plans/features/p0-corrective-factcheck-speech/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "P0 24.10 (корректировка ASAP Speech/Factcheck, 639 строк): фактчек по существу, восстановление промптов, Checkup в модульной речи, дополнение Core, фактическая работа FREQUENT, Vision sweep/Betterstack. 24.10 CANARY-BIND: канарейка на проде 2.58.122 (c128675a) привязана — FACTCHECK FC-01..04 live PASS (FC-01: verdict.parts структурно пуст, план v2 не строился), Checkup SP-03/SP-05 live PASS, REQ-CORE-FREESPEECH live PASS (rev8 ead77b2ab509), PR-03 live PASS; EXPRESSION: EX-01/EX-02/REQ-EX-STABLE-EFFECT/REQ-EX-PROVE-REAL-PATH FAILED (1/8 живых, кандидатский v2 3/6+1/4 PARTIAL, не задеплоен); REQ-DONE-MAIN-CRITERION PENDING. Сборка 2.58.123 отсутствует (нет коммита), прод = 2.58.122. | 24.10 #3 (дословно current_task.md L3673-EOF): кавычки, сквозное удаление искусственных квот инструкций, FREQUENT. | 24.10 ADDENDUM #3 RECONCILED (PM-P0-ADDENDUM3): source L810-1316 (current_task.md L3673-EOF, sha FAA174DE) — 289 новых required (156 новых REQ-ADD3-*), 37 context; новые слайсы QUOTES/COMPOSER-QUOTA/QUOTA-AUDIT, EXPRESSION и ACCEPT дополнены; plan-gate EXIT 0 (inventory=401 manual=306 errors=0); существующие req_id/статусы не менялись. Открыто: 290 PENDING (включая всю дельту #3), 4 FAILED (EX-02 и др.), 5 READY_FOR_LIVE. | 24.10.2026 PM-BIND-258124: карта привязана к задеплоенному 39a06b88 (2.58.124); QUOTES/COMPOSER-QUOTA/QUOTA-AUDIT закрыты, URL-кавычки PENDING, FREQUENT PARTIAL (EX-01/EX-02/STABLE-EFFECT/PROVE-REAL-PATH FAILED), REQ-DONE-MAIN-CRITERION PENDING. Статус задачи не VERIFIED. | 24.10.2026 PM-BIND-258125: карта перепривязана к задеплоенному f0e6a0cd (2.58.125); REQ-ADD3-Q-PROTECTED (ёлочки внутри URL) VERIFIED по live 2.58.125 (байт-в-байт); FACTORY_SET 47f0d1eb8de4, Core rev 8, adopt не повторён, квоты не вернулись; EX-01/EX-02/REQ-EX-STABLE-EFFECT/REQ-EX-PROVE-REAL-PATH — FAILED, REQ-DONE-MAIN-CRITERION — PENDING, 5 READY_FOR_LIVE сохранены (required: 519 VERIFIED / 56 PENDING / 5 RFL / 4 FAILED). Ограничение: снимок source-2026-10-24.md не содержит ADDENDUM #3 (current_task.md L3673-EOF), поэтому release-gate выдаёт структурные ошибки инвентаря источника (1450); статусы требований от этого не зависят. | 25.10.2026 PM-FINAL-ACCEPTANCE: создан final-acceptance.md (матрица по всем 584 required-строкам: 554 VERIFIED / 21 PENDING / 5 READY_FOR_LIVE / 4 FAILED); закрыто 35 REPORT/ACCEPT-строк (10 req_id) на существующих артефактах (arch-quota-audit, canary/report, binding-258125, quota-removal, review-quota-quotes), release-gate EXIT 1 errors=30 (только статусные), plan-gate EXIT 0. Статус оставлен BUILDING: 4 FAILED (EX-01/EX-02/STABLE-EFFECT/PROVE-REAL-PATH) и MAIN-CRITERION PENDING не позволяют VERIFIED. | 25.10 PM-BIND-FC-W4: FC-05/FC-08 переведены в VERIFIED по candidate-bound evidence fc05-fc08.md (кандидат dd439c14, реальный сервисный путь + мутации; live-остаток — добор: естественное истечение бюджета у провайдера, платный Vision по реальному изображению); W4-E2E-DIAG (69517068/aaccc2ae) приложен к P0 как evidence, но отдельной строки в карте не закрывает. Release-гейт f0e6a0cd: EXIT 1, 28 ошибок = 21 PENDING + 4 FAILED + 3 READY_FOR_LIVE (EXPRESSION), MAIN-CRITERION PENDING. Статус задачи остаётся BUILDING. | 25.10.2026 PM-BIND-SPEECH-258127: релиз 2.58.127 закрыл только доказанное в EXPRESSION-слайсе — REQ-ADD3-EX-INSPECTOR-PRESENT (<Expression_Settings> в сборке) и REQ-ADD3-EX-REAL-PROBES (22 реальных офлайн-вызова для OFF/OCCASIONAL/FREQUENT). Остаются: REQ-ADD3-EX-FULL-PATH (нет чтения настроек из БД/постобработки), REQ-ADD3-EX-COMPARE-ARTIFACTS (постобработка не задействована), REQ-ADD3-EX-FREQ-SEMANTICS и EX-01/EX-02/REQ-EX-STABLE-EFFECT (FREQUENT B 1/2, устойчиво только C с dvach), REQ-DONE-MAIN-CRITERION (живой чат не проверялся — запрещено заданием). P0 остаётся BUILDING, не DONE.",
-   "updated": "2026-10-25"
-  },
-  {
-   "id": "pemsoc-one-reaction",
-   "status": "VERIFIED",
-   "source_path": "plans/features/pemsoc-one-reaction/source-owner-prompt-2026-10-25.md",
-   "source_sha256": "74D10902051A260B7A38C36C3D974E993104681BF72495DAECD99B1A1BFE88A7",
-   "maps": [
-    "plans/features/pemsoc-one-reaction/requirements-map.json"
-   ],
-   "coverage_complete": true,
-   "source_note": "Поручение владельца 25.10.2026 (root chat, дословный снимок): одна реакция PEMsoc на сообщение/альбом/оригинал поста; приоритеты GIF/«потрясись» над «пошёл нахуй»; проверить повторные репосты/удаления. Тривиальный фикс, карта требований не создаётся по политике. | 2.58.128 VERIFIED: claim msg/album/origin, send_common bool, common claim, default «пошёл нахуй»; 289 passed.",
-   "updated": "2026-10-25"
-  }
- ]
+  "schema": "openworkflow-progress-scope-v1",
+  "updated": "2026-10-29T00:18:18+12:00",
+  "tasks": [
+    {
+      "id": "soul-1",
+      "status": "BUILDING",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "43CD288AFA76E95F23B791EA17C1D5A55632015475A07A0B7D75695B70544A54",
+      "maps": [
+        "plans/features/soul-1/requirements-map.json",
+        "plans/features/soul-1/requirements-map-amendment.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md: блок SOUL-1 + уточнение релиза 18.10 (снапшот plans/features/soul-1/source-release-correction-2026-10-18.md); ре-анкор точечных строк до release-гейта; хэш обновлён 20.10 вечер (хвост ADD-SAMPLES-UX добавлен владельцем — собственные строки SOUL-1 не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: 4 READY_FOR_LIVE разобраны; SOUL-05.6/SOUL-08.12 — owner_optional (инженерные SOUL-05.2/05.5, SOUL-08.10/08.11 VERIFIED), SOUL-14.2 — агентская read-only телеметрия, SOUL-AMD.8.11 — WAITING_EXTERNAL (видео-провайдер). VERIFIED не выдумывались. | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней)."
+    },
+    {
+      "id": "asap8-v6.3",
+      "status": "BUILDING",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "43CD288AFA76E95F23B791EA17C1D5A55632015475A07A0B7D75695B70544A54",
+      "maps": [
+        "plans/features/asap8-v6-3-live-correction/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md: v6.3 live-correction + инцидент Summary + FULLSCREEN HOTFIX/FOLLOW-UP (FE-FULLSCREEN: задеплоено 2.58.84; 8 строк owner-live); хэш обновлён 19.10 (хвосты ADD-TR→`add-tr-2026-10-19`, ADD-EXP→`add-exp-2026-10-19`) | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10.2026 PM-RECONCILE: U07-SYM-DESKTOP/REQ-U07-3/U07.3c (+ уже optional U07.3b) — owner_optional, инженерные REQ-U07-HARD/U07.3a/U07-PLATFORMS/U07.2e VERIFIED; REQ-B09-BODY/B10-R06/B10-R10/B10-R11/REQ-B11-E2E — агентские read-only проверки (не owner). | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней)."
+    },
+    {
+      "id": "cfg-01-07",
+      "status": "BUILDING",
+      "source_path": "plans/features/cfg/source-cfg-addendum.md",
+      "source_sha256": "2ED43009E1533ECA218BE419409870EBBE85F82D85262FF2335DFA2CE36E6B10",
+      "maps": [
+        "plans/features/cfg/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md L1232–1629 (снапшот addendum); 12 строго последовательных слайсов; старт после текущей очереди"
+    },
+    {
+      "id": "win-glass-hotfix",
+      "status": "VERIFIED",
+      "source_path": "plans/features/win-glass-hotfix/source-hotfix-2026-10-18.md",
+      "source_sha256": "69B16CE8FC0287D1FF6BD83B0C23CD035207F167B8CC6969AC8EA42DB7843593",
+      "maps": [
+        "plans/features/win-glass-hotfix/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "чат-директива 18.10 (P0); карта 24 обязательных (WG-WIN 5, WG-ANDROID 6, WG-VERIFY 13), plan-гейт errors=0; live-строки 6 → owner-E2E | 22.10: инженерия закрыта полностью — tails binding (+7, release-гейт rc1 структурный пер-волновой, построчные проверки чисты; review 3 слайса EXIT 0); дубль-якорь WG-P0-03/MAN-WG-16 приведён к VERIFIED; device-наблюдения — owner_optional (WG-OBS-*), вне знаменателя"
+    },
+    {
+      "id": "p0-save-init-ux",
+      "status": "VERIFIED",
+      "source_path": "plans/features/p0-save-init-ux/source-p0-hotfix-2026-10-18.md",
+      "source_sha256": "76BD681EA1F78FC0DE888B37928FF2CFBA8E3CE026BDFAF980FEB1001AC58825",
+      "maps": [
+        "plans/features/p0-save-init-ux/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "ЗАКРЫТО 19.10: карта A **29/29 обязательных VERIFIED**; release-гейт `29/0` EXIT 0 (`fac69543`); отчёт `final-report-25890.md`@`c8b97c1a` доставлен; прод **2.58.90**"
+    },
+    {
+      "id": "p0-followup-nostalgia",
+      "status": "WAITING_EXTERNAL",
+      "source_path": "plans/features/p0-save-init-ux/source-p0-followup-2026-10-18.md",
+      "source_sha256": "1E00B4AFADB0D2861A8FB72B8439E921D540D0225A6C6EA2DF1B292A8B8628D4",
+      "maps": [
+        "plans/features/p0-save-init-ux/requirements-map-followup.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "чат-директива 18.10 (P0 FOLLOW-UP); карта B: 35 required + 6 context (PM-P0-MAPS `2c916f35`; plan errors=0); SCEN-A/LIVE-FUNNEL закрыты live; SCEN-B ждёт естественного затишья (WAITING_EXTERNAL); closure-bookkeeping строки — LEDGER-P0B-CLOSE идёт"
+    },
+    {
+      "id": "p0-vision-universal",
+      "status": "VERIFIED",
+      "source_path": "plans/features/p0-vision-universal/source-p0-vision-2026-10-19.md",
+      "source_sha256": "8A841F54200B479873F7C38D89C5462C2764953A51A930D9DBA24505E2230C90",
+      "maps": [
+        "plans/features/p0-vision-universal/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "чат-директива 19.10 (P0 VISION): универсальная совместимость Vision с любыми провайдерами; карта 32 required + 5 context (PM-VISION-MAP `67e68313`; plan errors=0); слайсы P0V-ARCH/PROBE/PIPE/UI/ACCEPT; 11 live postdeploy | 22.10: закрыта — tails binding (+4) + P0V-PIPE-CONTEXT VERIFIED (fence-fix: heavy GT 3/3, deploy 2.58.108 postdeploy); map 32 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя"
+    },
+    {
+      "id": "add-tr-2026-10-19",
+      "status": "VERIFIED",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "43CD288AFA76E95F23B791EA17C1D5A55632015475A07A0B7D75695B70544A54",
+      "maps": [
+        "plans/features/add-tr/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md хвост (ADD-TR.0–ADD-TR.5, 19.10): сквозная проверка Tool Routing/Vision/Factcheck/GenImage/Checkup + Android-регрессия «Речи»; карта 58 required + 10 context (PM-TR-MAP `0ef8201b`; гейт 32/36/0); хэш обновлён 19.10 (хвост ADD-EXP → `add-exp-2026-10-19`); TR-RECON DONE | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 22.10: инженерия закрыта полностью — tails binding (+13) + harness R1 (постген ready, сценарии, EDGE) + FIX-VISION-FENCE (strip-fence) + deploy 2.58.108 (12/12 postdeploy-позитивов); map 58 VERIFIED / 0 инженерных открытых; owner_optional 1 вне знаменателя; M-ADTR-VERIFY-REPORT доставлен | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней)."
+    },
+    {
+      "id": "add-exp-2026-10-19",
+      "status": "READY_FOR_LIVE",
+      "source_path": "plans/current_task.md",
+      "source_sha256": "43CD288AFA76E95F23B791EA17C1D5A55632015475A07A0B7D75695B70544A54",
+      "maps": [
+        "plans/features/add-exp/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md хвост (ADD-EXP, 19.10): реальная управляемость мата — off/occasional/frequent, runtime-подключение Expression (Direct/Initiative), диагностика классов, payload-доказательство; карта 29 required + 8 context (PM-PREP-ADD-EXP `46566294`; гейт 20/17/0; слайсы EXP-UI/INSTR/RUNTIME/ACCEPT); **§3.2 BROKEN: Expression никогда не подключён в живые сборки (preview-only) — отсюда «мата нет»**; очередь: Ф0 после ACCEPTANCE-94, исполнение в слоте CFG-07B | хэш обновлён 20.10 вечер: в хвост current_task добавлен блок ADD-SAMPLES-UX (собственные строки задачи не менялись; дельта зарегистрирована отдельной задачей samples-ux) | 21–22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) — исполнены волнами 2.58.107–110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 21-22.10: в current_task добавлены коррективы владельца (DIRECT/EXPRESSION/NOSTALGIA, follow-up Core/Expression/Factcheck, INITIATIVE L1D) - исполнены волнами 2.58.107-110; хэш источника обновлён | 23.10: в конец current_task.md добавлен раздел ASAP 3 Corrective (зарегистрирован отдельной задачей asap3-corrective); собственные строки задачи не менялись, хэш источника обновлён. | 26.10 rehash: владелец добавил раздел ASAP 5 (в конец очереди); собственные строки задачи не менялись. | 27.10 rehash: владелец добавил POST-ASAP5 CORRECTIVE (в конец очереди, отдельная задача). | 27.10 rehash: владелец добавил P0 CORRECTIVE nostalgia rework (зарегистрирована последней)."
+    },
+    {
+      "id": "samples-ux",
+      "status": "VERIFIED",
+      "source_path": "plans/features/samples-ux/source-add-samples-ux-2026-10-20.md",
+      "source_sha256": "E6153CF15854FA47C2FC0BA99A296F4A0BB37F435A7A5706809AD2CA6CA8AD69",
+      "maps": [
+        "plans/features/samples-ux/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "current_task.md L1794-1914 (verbatim-снапшот): библиотека примеров — 3 категории (Общие/Юмор/Мат с явным expression_mode), редактируемые заводские наборы (persist override/tombstone против seed/деплоя), строгий UI-контракт MiniApp, few-shot семантика по категориям; дельта к SOUL-07/SOUL-10/ADD-EXP/CFG; живые тесты в чаты ЗАПРЕЩЕНЫ (offline/моки/браузер), недоступное — в owner_live_checks; инвентаризация PM DONE 20.10: 76 строк (64 required), plan-гейт EXIT 0, strict_evidence=true, slice-graph; REUSED большой (CRUD/seed-ручной/отбор 0-LLM/API why), NEW: категории+явный режим, tombstone против re-seed, редактор по §4.2, «Почему не используется?» | 22.10: инженерия закрыта — 64 VERIFIED / 0 инженерных открытых (context 12, owner_optional 1 вне знаменателя); деплой 2.58.100+ без регресса; §7 живые просмотры — добровольные"
+    },
+    {
+      "id": "asap-speech-arch",
+      "status": "BUILDING",
+      "source_path": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
+      "source_sha256": "2F7EF4D743F5F7616D075435116DFF3E0AEE7B59446EC599BAF013C4915B1C9B",
+      "maps": [
+        "plans/features/asap-speech-arch/requirements-map.json",
+        "plans/features/asap-speech-arch/requirements-map-speech-simplify.json",
+        "plans/features/asap-speech-arch/requirements-map-p0-hotfix.json",
+        "plans/features/asap-speech-arch/requirements-map-p0-corrective.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Постановка владельца 22.10 (verbatim-снапшот, 378 строк): P0 речевая архитектура - фабричные тексты (L2 verbalizer/Core full+compact/Expression header/Direct tool phase/L1 участие), активная конфигурация PG + миграции + Inspector, инициатива I-01..I-09, UI U-01..U-09; приоритеты P0/P1/P2; W0-W5. Дедупликация против corrective 2.58.107/110 при инициализации карты | 23.10.2026 PM-RECONCILE: аудит 82 открытых required-строк (74 items + 41 manual - 33 VERIFIED): 38 BIND (artifact+commit), 25 NEEDS_AGENT_CHECK, 2 NEEDS_LIVE_OBSERVATION, 17 NEEDS_IMPLEMENTATION; 44 осталось. REQ-PROOF-EFFECT — owner_optional (инженерно EVAL-MODES/EVAL-EGRESS). Строки-заголовки без req_id: 46 шт., все context/duplicate, в знаменатель не входят — прежний баг «PENDING-заголовки раздувают знаменатель» в текущих картах отсутствует; не повторять. | 23.10.2026 PM-BIND-258113: карта привязана к e4ee54f3 (2.58.113); W4/§8 U-01..U-09+P2 -> VERIFIED (ui-report 9 viewports failures=0, review-r2 Approved, evidence/w4/binding-258113.md), gate по всем W4-слайсам EXIT 0. Реальный WebView/Android — необязательное наблюдение владельца, не гейт. Открытых W4-строк нет; остальные 35 PENDING — другие слайсы. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3; W4/§8 9/9 VERIFIED (review-гейт W4 EXIT 0). Postdeploy W4 (реальный Telegram WebView/Android) — необязательное наблюдение владельца, не гейт; INIT-48H остаётся PENDING. Release-gate по всей карте EXIT 1: 35 PENDING в других слайсах. Статус BUILDING. | 25.10.2026 OWNER SPEECH-SIMPLIFY (дословный снимок полного ТЗ, plans/features/asap-speech-arch/source-owner-speech-simplify-2026-10-25.md): готовые тексты BASE_SPEECH/HUMOR/RESPONSE_LENGTH/PROFANITY_OFF|OCCASIONAL|FREQUENT/FACTUAL_SPEECH, новый заводской стиль «Завсегдатай Двача» (STYLE_DVACH), аудит и удаление дублирующих/конфликтующих речевых директив, три офлайн-пробы A/B/C, сохранение Core/биографии, без few-shot-обязательности, без механического мата и новых runtime-LLM-вызовов. 25.10 PM-MAP-SPEECH-CLEAN (lane task/speech-map): карта дополнения создана - requirements-map-speech-simplify.json (source sha 4f1fc083...); 167 строк инвентаря: 37 required / 103 duplicate / 27 context / 0 unassigned, плюс 66 manual-требований (точные тексты BASE_SPEECH/HUMOR/RESPONSE_LENGTH/PROFANITY_OFF|OCCASIONAL|FREQUENT/STYLE_DVACH/FACTUAL_SPEECH, три пробы A/B/C, 11 сценариев, 10 критериев, 20 условий §8, deploy §9, отчёт §10); всего 103 required по 8 слайсам (SPEECH-TEXTS/SPEECH-AUDIT/STYLE-DVACH/PROFANITY/PROBES/ACCEPT/DEPLOY/REPORT), plan-gate EXIT 0; покрытие источника полное. | 25.10.2026 PM-BIND-SPEECH-258127: speech-simplify доставлен на прод 2.58.127 (b2ac3fa5, фича e44a30b4, merge be0cc712). Карта requirements-map-speech-simplify.json: 97/103 required VERIFIED (тексты, Core-фильтр, DVACH, PROFANITY, пробы B/C, ACCEPT, DEPLOY-STANDARD, REPORT); 6 открыты: MAN-FREQ-STABILITY / MAN-FREQ-WITHOUT-FEWSHOT / MAN-FREQ-ROOTCAUSE (FREQUENT B 1/2 — устойчиво только с dvach), MAN-DVACH-FEEL (аутентичность манеры не оценена рубрикой), REQ-CHAT-STYLES-UNCHANGED и MAN-DEPLOY-9 (prod §9: снимок стилей чатов и проверка переопределений не сняты). Release-gate: EXIT 1, errors=6 (ровно эти строки); остальные проверки гейта чистые. Задача остаётся BUILDING, не DONE. | 25.10.2026 P0 HOTFIX (дословный снимок): реальные прод-ответы на «Я злобный?»/«Ринтаро злобный?» — многословие, принудительный юмор, выдуманные даты/цитаты, поздний прямой ответ; новые короткие тексты BASE/HUMOR/LENGTH/FREQUENT/FACTUAL; анализ пользователя по существу; provenance памяти; Core сохранить; офлайн A/B пробы; Reviewer сырых ответов; deploy. Карта дополнения создана: plans/features/asap-speech-arch/requirements-map-p0-hotfix.json — 110 строк (77 required / 28 context / 5 duplicate), 0 unassigned; 9 слайсов TRACE/TEXTS/ANALYSIS/MEMORY/CORE/PROBES/REVIEW/DEPLOY/REPORT; strict_evidence=true; plan-гейт EXIT 0 (inventory=61, manual=49, errors=0). Реализация не начиналась. | 25.10.2026 PM-MAP-P0-ADDENDUM (lane PM-MAP-P0-ADDENDUM, ветка task/speech-hotfix-map): дословный снимок дополнения владельца 25.10 (source-owner-p0-hotfix-addendum-2026-10-25.md, 94 строки, sha f9823f9a) и цепочный снапшот source-owner-p0-hotfix-chained-2026-10-25.md (287 строк = 193 строки P0-хотфикса + 94 строки дополнения, байт-в-байт). Карта requirements-map-p0-hotfix.json расширена без переписывания прежних решений: было 110 строк (77 required / 28 context / 5 duplicate), стало 160 строк (100 required / 37 context / 23 duplicate), 0 unassigned; inventory=79, manual=81. Добавлено 18 новых инвентарных строк аддендума (L00224-L00273) и 32 manual-строки прозы. Новые обязательства: ANALYSIS-EXACT-TARGET, ANALYSIS-WRITER-EXACT, ANALYSIS-DEPTH-NOT-LENGTH, ANALYSIS-ROUTING-PRESERVED, CORE-ACTIVE-VERIFIED, CORE-P2-P5-PAYLOAD, MEMORY-CURRENT-TURN-BOUNDARY, MEMORY-NO-UNSUPPORTED-CAUSAL-STORY, MEMORY-NO-HEAD-TRUNCATION, MEMORY-SELF-ECHO-REPEAT, MEMORY-PROVENANCE-ACTUAL-PATH, PROBES-TWO-RUNS, REVIEW-PAYLOAD-PROVENANCE (13 новых req_id; строк required +23). Пункт дополнения про историю по явному запросу закрыт как duplicate к существующей ANALYSIS-FULL-HISTORY-ON-REQUEST (её приёмка уже требует обращения к истории/памяти без пересказа всего) - второй счётчик не создавался. plan-gate EXIT 0 (errors=0). Реализация не начиналась; новые строки PENDING, live_required=true/preprod у PROBES-TWO-RUNS, ANALYSIS-DEPTH-NOT-LENGTH, MEMORY-SELF-ECHO-REPEAT. | 25.10 PM-P0-GATE-REPAIR: карта p0-hotfix приведена к review-состоянию — 100 required / 100 уникальных req_id, slice-graph-p0-hotfix.json (9 слайсов), candidate_commit=7eca3cbc, 41 VERIFIED / 13 FAILED / 46 PENDING по ledger Reviewer d4b3c979; остаток определяется R1/R2 и деплоем, не дефектом карты. | 25.10.2026 PM-P0-R1R2-BIND: P0-hotfix карта привязана к candidate 9650e099 (R1: точные analysis-тексты в фактическом deep/report payload — 4 требования VERIFIED по исполняемому тесту на candidate (13 passed) + production-context payload 1/1, old 0/0). R2 остаётся частичным: real PG/SQLite входы, 4 сырых ответа, но system 6.2–8.2k против ~19–20k, кейс A несопоставим по объёму -> PROBES-*/PROBE-REAL-PHRASINGS/TRACE-PAYLOAD-CORRELATION FAILED, ANALYSIS-ROUTING-PRESERVED FAILED (L1 old/new не доказан). Self-echo подтверждён живыми строками graph_facts.id=21255 / lore_stories.id=4. REVIEW-* ждут повторного ревью; DEPLOY/REPORT PENDING. Production-эффект A/B (эссе -> прямой ответ) НЕ объявлен доказанным. | 25.10.2026 PM-P0-CORRECTIVE-MAP (lane task/speech-hotfix-map, HEAD 1f345f1b + source-коммит 67a9c823): зарегистрирован корректирующий источник владельца plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md (214 строк, sha 2f7ef4d7…, дословная копия из task/speech-p0). Задача asap-speech-arch продолжается: source_path переведён на корректирующий снимок (последнее слово владельца), прежние карты (requirements-map.json, speech-simplify, p0-hotfix) сохранены в списке. Новая карта plans/features/asap-speech-arch/requirements-map-p0-corrective.json: 128 строк (95 required / 28 context / 5 duplicate), 0 unassigned, 87 уникальных req_id, 10 слайсов L1/HARNESS/PROD/PROBES/ALIASES/MEMORY/CORE/REVIEW/DEPLOY/REPORT; strict_evidence=true, slice-graph-p0-corrective.json (10 узлов, без циклов и пересекающихся писателей). plan-гейт EXIT 0 (inventory=69, manual=59, errors=0). Реализация корректива не начиналась: все строки PENDING, VERIFIED не выдумывались; coverage_complete=true означает полноту разбора источника этой картой, а не готовность функции. Прежние VERIFIED-строки старых карт не тронуты.",
+      "updated": "2026-10-25"
+    },
+    {
+      "id": "asap2-direct-chat",
+      "status": "BUILDING",
+      "source_path": "plans/features/asap2-direct-chat/source-2026-10-22.md",
+      "source_sha256": "8F600767E06877AC45ED9BD9768922459A052DFC7B344F8B793C1E41F8531DE7",
+      "maps": [
+        "plans/features/asap2-direct-chat/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Постановка владельца 22.10 (verbatim 324 строки): P0 Direct Chat - навязчивые уточнения/бесконечные цепочки; L1 = единственный интерпретатор намерения; строгий boolean needs_clarification; убрать Speech-understanding императив clarify=ask; каноны L1/L2 точечно (4.1/4.2/4.3); миграция factory+active PG; тест-матрица 6.1-6.4; запрещены новые подсистемы/хардкоды/словесные детекторы | BIND 23.10 (PM-BIND-ASAP2): candidate_commit=34af90ff, 74/109 required VERIFIED (163 evidence, sha256), 34 PENDING — агентские (9 непокрытых сценариев+парафразы, 5 MIGR/DevOps-снимков, review T20/T24), 1 READY_FOR_LIVE (DONE-D9, postdeploy); review-гейт: GOV/CLAR-BOOL/CLAR-SPEECH EXIT 0, остальные слайсы красные только по PENDING, candidate mismatch нет. Деплой не выполнен, статус BUILDING. | 23.10.2026 PM-BIND-DEPLOYED-258113: deployed_commit=e4ee54f3 (код asap2 байт-идентичен 34af90ff, git diff пуст), evidence перепривязано к e4ee54f3. Деплой 2.58.113 подтверждён (healthz 200, active, NRestarts=0), но deploy.md не содержит снимков Factory/active PG/effective, payload и статистики уточнений (pg_available=false): DONE-D9 остаётся READY_FOR_LIVE, MIGR-INSPECT/EFFECTIVE/PAYLOAD/BOTHSIDES/DEVOPS и DONE-D4 — PENDING. Release-gate EXIT 1 (34 PENDING + DONE-D9). Статус BUILDING. | 23.10.2026 PM-BIND-PROD-SNAPSHOT: привязан read-only снимок прода 2.58.113 @ e4ee54f3 (evidence/prod-snapshot/report.md sha 278f281c…): MIGR-INSPECT/EFFECTIVE/BOTHSIDES/DEVOPS, DONE-D4 и DONE-D9 -> VERIFIED с производственными основаниями; MIGR-REVISION/OWNER/NORESET остались VERIFIED + добавлены факты §2/§3 (остаточная граница: prompt_migrations на проде не перезапрашивался). MIGR-PAYLOAD -> PENDING (полный model payload/вызов L1 не снимались), MIGR-HOTAPPLY VERIFIED -> PENDING (hot apply в живом процессе не наблюдался). Статистика needs_clarification на проде not_instrumented (прокси response_act=clarification 46/324) — DONE-D6/TESTS-METHOD-* по телеметрии не закрываются. Требования: 109 required -> 79 VERIFIED / 30 PENDING / 0 READY_FOR_LIVE. Release-гейт EXIT 1: 30 строк PENDING, структурных ошибок нет. Binding: plans/features/asap2-direct-chat/binding-prod-snapshot.md. Статус BUILDING. | 23.10.2026 PM-BIND-ASAP2-PROBE2: evidence probe-r2 (results.md c370da71…, protocol.md f7755916…, ledger.jsonl 2b061978…) перенесён в основную линию, produced_on=e4ee54f3. Закрыты T10 (часть «ответ из видимой части»), T11, T14, T17, T18, T22, T26 и TESTS-METHOD-PARAPHRASE → VERIFIED; пункт «явная граница истории» выделен в T10-BOUNDARY (PENDING, решение Reviewer/Architect). Итог: 110 required → 87 VERIFIED / 23 PENDING / 0 READY_FOR_LIVE. Остаток: T10-BOUNDARY, T20, T24, 5 CLAR-L1, CLAR-CTX-HONEST, CLAR-PLAN-ONETARGET, CLAR-L2-NOMENU/ROLE, TESTS-METHOD-REAL/SCREENSHOT, DONE-D1/D5/D6/D8/REPORT, MIGR-PAYLOAD/HOTAPPLY (точные next_check — binding-probe-r2.md §4). Release-гейт EXIT 1: 23 PENDING + 1 структурная ошибка CLAR-PLAN-CANON (artifact_sha256 к services/direct_l1.py снят на e4ee54f3, worktree advanced to 9dc4c99a после asap3; блоб e4ee54f3 = b4d0865f…, §4.3-фразы на HEAD присутствуют). Статус BUILDING: остались агентские проверки и решения Reviewer, не только postdeploy. Binding: plans/features/asap2-direct-chat/binding-probe-r2.md."
+    },
+    {
+      "id": "embed-identity-compat",
+      "status": "VERIFIED",
+      "source_path": "plans/features/embed-identity-compat/source-2026-10-23.md",
+      "source_sha256": "429A986838D5F7539F89517BB2C33E77B9E2007C4BCFEEA30264A86B49FF66FB",
+      "maps": [
+        "plans/features/embed-identity-compat/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 23.10 (дословный снимок, 109 строк): разделить Embedding Model Identity и Provider Connection Identity; смена API-шлюза при той же модели не повод для полной перевекторизации; canary по СТАРЫМ сохранённым векторам (запрет new-vs-new); три исхода compatible/divergent/insufficient_data; rebuild только по доказанной несовместимости; согласование summary_memory/control plane/graphrag/generations/MiniApp; 10 сценариев приёмки отдельными req_id; без новых сервисов/таблиц/реестров/хардкода. 59 required / 13 context / 0 unclassified, plan-гейт EXIT 0; ARCHITECT_REQUIRED (контракт identity/fingerprint и legacy-отпечатков). | BIND 23.10 (PM-BIND-EMBED-IDENTITY): candidate_commit=570e1eee; 59 required → 54 VERIFIED, 2 READY_FOR_LIVE (ACC-10/11, postdeploy), 3 PENDING (IDENT-02 MSI-поля, CANARY-03 revision, DEC-09 откат допуска) с next_check; evidence с artifact_sha256; A0-probe compatible (mean/min/hit5=1.0, KNN top-1 42/42) на 30a2f868, проба байт-идентична 570e1eee; resolve_index_compat на прод-строках не измерялся — B3 NEEDS_AGENT_CHECK; деплой не выполнен. docs-коммиты 21114cf8/8d716351. | 23.10.2026 PM-BIND-258113: карта привязана к релизному коммиту e4ee54f3 (2.58.113): IDENT-02/CANARY-03/DEC-09 -> VERIFIED (gaps-closure d62e9720/128abcab + meta-wire ddf139a1), ACC-10/ACC-11 READY_FOR_LIVE (postdeploy). Required: 57 VERIFIED / 2 READY_FOR_LIVE / 0 PENDING. Gate review: IDENT-SPLIT/CANARY/DECISION/ACCEPT EXIT 0. Статус остаётся BUILDING до деплоя и postdeploy-проверки. Binding: plans/features/embed-identity-compat/binding-258113.md | 23.10.2026 PM-BIND-DEPLOYED-258113: деплой 2.58.113 @ e4ee54f3 подтверждён (healthz 200, PID 715288, NRestarts=0, adopt gen1 fp=96f80838f683, canary 12/1.0/1.0/1.0, BUILD_START=0, backlog 4234→3619, KNN cosine 0.832); ACC-10/ACC-11 → VERIFIED по замороженному deploy-снимку коммита b92226cf; release-gate EXIT 0; required 59/59 VERIFIED. Задача VERIFIED."
+    },
+    {
+      "id": "asap3-corrective",
+      "status": "BUILDING",
+      "source_path": "plans/features/asap3-corrective/source-2026-10-23.md",
+      "source_sha256": "B6AFDB21378B23402447C3771501D49C0064E040474D1B32D5BA7C571B498642",
+      "maps": [
+        "plans/features/asap3-corrective/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 23.10 (дословный снимок, 557 строк): Style Policy без скрытой потери инструкций (лимиты OFF по умолчанию + UI + Inspector), инвентаризация скрытых лимитов, строгое правило «—»→«-», единая идентификация по user_id с merge global/chat по каждому ID и live-apply без рестарта, память/GraphRAG без новой личности, factory/active/global/chat миграция. Инвентаризация PM-ASAP3: 162 строки → 119 required + 43 context; manual 115 required + 4 context; 171 уникальный req_id, 0 неклассифицированных; S1-S10, A1-A16, ACC-01..ACC-10 отдельными req_id; strict_evidence + slice-graph, plan-гейт EXIT 0. ARCHITECT_REQUIRED по контракту имён (IDENTITY), остальное ARCH_REUSE_CONFIRMED. Реализация не начиналась. | 25.10.2026: 212/238 required VERIFIED; остались 3 живые (ACC-03, ACC-09, A16) и 23 процессных/замерных (GOV/HID/MIG/AUD/REPORT-FORMAT/ROLES), см. plans/features/asap3-corrective/final-report.md | 25.10 RECONCILE: карта привязана к 2.58.129 @79ec3726 (5dd6ccbb), 49 required PENDING (48 ids на ре-верификацию), 3 READY_FOR_LIVE — статус READY_FOR_LIVE был неверным."
+    },
+    {
+      "id": "p0-factcheck-speech",
+      "status": "BUILDING",
+      "source_path": "plans/features/p0-corrective-factcheck-speech/source-2026-10-24.md",
+      "source_sha256": "2BD56C9F15E90AAD62C81654EC0D9F4B325F0BCEA58A8EEDD71CF6513BFE6978",
+      "maps": [
+        "plans/features/p0-corrective-factcheck-speech/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 24.10 (корректировка ASAP Speech/Factcheck, 639 строк): фактчек по существу, восстановление промптов, Checkup в модульной речи, дополнение Core, фактическая работа FREQUENT, Vision sweep/Betterstack. 24.10 CANARY-BIND: канарейка на проде 2.58.122 (c128675a) привязана — FACTCHECK FC-01..04 live PASS (FC-01: verdict.parts структурно пуст, план v2 не строился), Checkup SP-03/SP-05 live PASS, REQ-CORE-FREESPEECH live PASS (rev8 ead77b2ab509), PR-03 live PASS; EXPRESSION: EX-01/EX-02/REQ-EX-STABLE-EFFECT/REQ-EX-PROVE-REAL-PATH FAILED (1/8 живых, кандидатский v2 3/6+1/4 PARTIAL, не задеплоен); REQ-DONE-MAIN-CRITERION PENDING. Сборка 2.58.123 отсутствует (нет коммита), прод = 2.58.122. | 24.10 #3 (дословно current_task.md L3673-EOF): кавычки, сквозное удаление искусственных квот инструкций, FREQUENT. | 24.10 ADDENDUM #3 RECONCILED (PM-P0-ADDENDUM3): source L810-1316 (current_task.md L3673-EOF, sha FAA174DE) — 289 новых required (156 новых REQ-ADD3-*), 37 context; новые слайсы QUOTES/COMPOSER-QUOTA/QUOTA-AUDIT, EXPRESSION и ACCEPT дополнены; plan-gate EXIT 0 (inventory=401 manual=306 errors=0); существующие req_id/статусы не менялись. Открыто: 290 PENDING (включая всю дельту #3), 4 FAILED (EX-02 и др.), 5 READY_FOR_LIVE. | 24.10.2026 PM-BIND-258124: карта привязана к задеплоенному 39a06b88 (2.58.124); QUOTES/COMPOSER-QUOTA/QUOTA-AUDIT закрыты, URL-кавычки PENDING, FREQUENT PARTIAL (EX-01/EX-02/STABLE-EFFECT/PROVE-REAL-PATH FAILED), REQ-DONE-MAIN-CRITERION PENDING. Статус задачи не VERIFIED. | 24.10.2026 PM-BIND-258125: карта перепривязана к задеплоенному f0e6a0cd (2.58.125); REQ-ADD3-Q-PROTECTED (ёлочки внутри URL) VERIFIED по live 2.58.125 (байт-в-байт); FACTORY_SET 47f0d1eb8de4, Core rev 8, adopt не повторён, квоты не вернулись; EX-01/EX-02/REQ-EX-STABLE-EFFECT/REQ-EX-PROVE-REAL-PATH — FAILED, REQ-DONE-MAIN-CRITERION — PENDING, 5 READY_FOR_LIVE сохранены (required: 519 VERIFIED / 56 PENDING / 5 RFL / 4 FAILED). Ограничение: снимок source-2026-10-24.md не содержит ADDENDUM #3 (current_task.md L3673-EOF), поэтому release-gate выдаёт структурные ошибки инвентаря источника (1450); статусы требований от этого не зависят. | 25.10.2026 PM-FINAL-ACCEPTANCE: создан final-acceptance.md (матрица по всем 584 required-строкам: 554 VERIFIED / 21 PENDING / 5 READY_FOR_LIVE / 4 FAILED); закрыто 35 REPORT/ACCEPT-строк (10 req_id) на существующих артефактах (arch-quota-audit, canary/report, binding-258125, quota-removal, review-quota-quotes), release-gate EXIT 1 errors=30 (только статусные), plan-gate EXIT 0. Статус оставлен BUILDING: 4 FAILED (EX-01/EX-02/STABLE-EFFECT/PROVE-REAL-PATH) и MAIN-CRITERION PENDING не позволяют VERIFIED. | 25.10 PM-BIND-FC-W4: FC-05/FC-08 переведены в VERIFIED по candidate-bound evidence fc05-fc08.md (кандидат dd439c14, реальный сервисный путь + мутации; live-остаток — добор: естественное истечение бюджета у провайдера, платный Vision по реальному изображению); W4-E2E-DIAG (69517068/aaccc2ae) приложен к P0 как evidence, но отдельной строки в карте не закрывает. Release-гейт f0e6a0cd: EXIT 1, 28 ошибок = 21 PENDING + 4 FAILED + 3 READY_FOR_LIVE (EXPRESSION), MAIN-CRITERION PENDING. Статус задачи остаётся BUILDING. | 25.10.2026 PM-BIND-SPEECH-258127: релиз 2.58.127 закрыл только доказанное в EXPRESSION-слайсе — REQ-ADD3-EX-INSPECTOR-PRESENT (<Expression_Settings> в сборке) и REQ-ADD3-EX-REAL-PROBES (22 реальных офлайн-вызова для OFF/OCCASIONAL/FREQUENT). Остаются: REQ-ADD3-EX-FULL-PATH (нет чтения настроек из БД/постобработки), REQ-ADD3-EX-COMPARE-ARTIFACTS (постобработка не задействована), REQ-ADD3-EX-FREQ-SEMANTICS и EX-01/EX-02/REQ-EX-STABLE-EFFECT (FREQUENT B 1/2, устойчиво только C с dvach), REQ-DONE-MAIN-CRITERION (живой чат не проверялся — запрещено заданием). P0 остаётся BUILDING, не DONE. | 25.10 rehash: источник дополнен владельцем (Fact-check медиа вынесен в отдельную задачу p0-factcheck-media)",
+      "updated": "2026-10-25"
+    },
+    {
+      "id": "pemsoc-one-reaction",
+      "status": "VERIFIED",
+      "source_path": "plans/features/pemsoc-one-reaction/source-owner-prompt-2026-10-25.md",
+      "source_sha256": "74D10902051A260B7A38C36C3D974E993104681BF72495DAECD99B1A1BFE88A7",
+      "maps": [
+        "plans/features/pemsoc-one-reaction/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "Поручение владельца 25.10.2026 (root chat, дословный снимок): одна реакция PEMsoc на сообщение/альбом/оригинал поста; приоритеты GIF/«потрясись» над «пошёл нахуй»; проверить повторные репосты/удаления. Тривиальный фикс, карта требований не создаётся по политике. | 2.58.128 VERIFIED: claim msg/album/origin, send_common bool, common claim, default «пошёл нахуй»; 289 passed.",
+      "updated": "2026-10-25"
+    },
+    {
+      "id": "p0-factcheck-media",
+      "status": "BUILDING",
+      "source_path": "plans/features/p0-factcheck-media/source-2026-10-25.md",
+      "source_sha256": "F0F71AC03247F727F7EC5ACB771A6B95AA7332F43A79EEA64B4F70946741485A",
+      "maps": [
+        "plans/features/p0-factcheck-media/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 FACTCHECK 25.10.2026 (root chat): изображения, альбомы, пересланные публикации, пустой ввод; добавлено в очередь без замены current_task.md. Требует карту требований и привязку к кандидату до review-гейта. | 25.10 PM: карта 137 required, plan-gate EXIT 0 (book a0cafb38). | 25.10 уточнение владельца: reply на фото альбома = точка входа в публикацию; проверять весь пост (текст + все фото), см. source-owner-clarification-2026-10-25.md; карту дополнить строками FC-ALBUM-* до review-гейта. | 25.10 уточнение №2: цель вне контекста — проверять окружение (reply-цепочка + окно до 200–300 сообщений, существующий factcheck_context/300); «нечего проверять» только после этого. См. source-owner-clarification-2-2026-10-25.md. | 25.10 решение владельца: flags.factcheck_wide_context включён по умолчанию, тумблер в Модули→Фактчек уже есть; миграция false→true + default True. См. owner-decision-wide-context-2026-10-25.md."
+    },
+    {
+      "id": "p0-delta-analysis",
+      "status": "VERIFIED",
+      "source_path": "plans/owner_inputs/2026-10-26-p0-delta-analysis.md",
+      "source_sha256": "790C2923BF8F8746A4800948D43D41441218AAE0782E19DBB17A726AE8B526DE",
+      "maps": [
+        "plans/features/p0-delta-analysis/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 DELTA 26.10: маршрутизация анализа (разговорный vs исторический), релевантность памяти, субъект анализа, lore-обход Writer, запрет шаблонизации. Добавлено в очередь без замены current_task.md; требует карту и привязку до review-гейта. | Конфликт с текущей правкой: NO_META_CLOSING_TEXT требует «первое предложение — сразу вывод», что новый §1 запрещает («всегда начинать с вывода»). Снять универсальную формулу, оставить только запрет служебного анонса. Правку делать после коммита активного speech-лейна. | Карта: 133 required, план-гейт EXIT 0, 36c8f1ab. | 27.10 ЗАКРЫТО: 133/133 VERIFIED, release-gate EXIT 0, deployed 2.58.134 (076f7391)."
+    },
+    {
+      "id": "asap5-multimodal",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-10-26-asap5-current_task-excerpt.md",
+      "source_sha256": "E8CB2B1ED3B96721B6D19D47E970410B3C9A0E5C121FC21F423C0FCF887604A8",
+      "maps": [
+        "plans/features/asap5-multimodal/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "ASAP 5 (current_task.md L4180-5023): Ностальгия, универсальное распознавание медиа, Vision, генерация/редактирование изображений, админка, интеграционные проверки. Выполняется ПОСЛЕДНИМ среди задач очереди на момент регистрации; перед стартом — сверка дублирования с Vision/Fact-check/Memory/Speech/Image. Владелец: сейчас к реализации не приступать. | Статус PENDING = в очереди, не начата. | Pre-start инвентаризация: 9 секций, гейт EXIT 0, 288a682c. Декомпозиция при старте."
+    },
+    {
+      "id": "post-asap5-corrective",
+      "status": "VERIFIED",
+      "source_path": "plans/owner_inputs/2026-10-27-post-asap5-current_task-excerpt.md",
+      "source_sha256": "09267F5DA173DE5D441AFFCE04F9BFD02452BB77B86DC2D440AA2236D4773F31",
+      "maps": [
+        "plans/features/post-asap5-corrective/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "POST-ASAP5 CORRECTIVE (current_task.md L5026-5768): понимание меняющегося намерения, техническое мышление/размерности, поиск только по необходимости, технические галлюцинации, самокоррекция, возражения, речь не подменяет мышление; согласование с L1/Fact-check/Speech/ASAP5/Memory. В очереди СТРОГО после asap5-multimodal; реализация не начинается. Детальная карта — при старте задачи. | Pre-start карта 27 секций, гейт EXIT 0 (6f81adf9). | 27.10 ЗАКРЫТО: 27/27 required VERIFIED, release-gate (1 структурная заметка deployed=bump≠candidate — задокументированный класс), deployed 2.58.136 (6d08c511)."
+    },
+    {
+      "id": "p0-nostalgia-rework",
+      "status": "READY_FOR_LIVE",
+      "source_path": "plans/owner_inputs/2026-10-27-nostalgia-rework-current_task-excerpt.md",
+      "source_sha256": "74CF86E69168889B07B83F6BAF41F8260D0F957F4B7081BF486413D5CE9F3681",
+      "maps": [
+        "plans/features/p0-nostalgia-rework/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 CORRECTIVE (current_task.md L5771-EOF): полная переработка ностальгии (NOST-01..12: без хардкодов, мультигод, адаптивные окна, эпизоды, критерии интересности, provenance, Decision Making, большой архив, админка) + приёмочные критерии NOST-13..18 + POST-ASAP5 дефекты COR-01..06 + дисциплина DEV-01..05. В очереди ПОСЛЕ post-asap5-corrective (последняя). Детальная карта при старте. | 28.10 ЗАКРЫТО: 27/29 required VERIFIED (deployed 2.58.138 @ 1e438e3a, live probe PASS); NOST-15/16 — честный PENDING (SAY-семантика наблюдается естественными прод-тиками; офлайн T17-T23 зелёные). | Статус уточнён: инженерная часть закрыта (27/29), NOST-15/16 — наблюдение SAY-семантики естественными прод-тиками после деплоя (READY_FOR_LIVE)."
+    },
+    {
+      "id": "p0-factcheck-post-release",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-10-28-factcheck-post-release-corrective.md",
+      "source_sha256": "3C0F035BDF4266DE37B41C3DF63FAF57D4E8E116C67B47D00F22F5C985989DA6",
+      "maps": [
+        "plans/features/p0-factcheck-post-release/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "FACTCHECK POST-RELEASE CORRECTIVE (28.10, заменяет предыдущую версию): evidence-пусто ≠ анализ невозможен (§1-2); устойчивость pipeline без каскадов блокировок (§4); taxonomy причин поиска (§5); ПОЛНОЕ УДАЛЕНИЕ кеша готовых вердиктов во всех маршрутах (§6, решение владельца); вербализация передаёт содержание (§7); директива аналитика (§8); регрессии F1-F30 (§9); существующая архитектура (§10); отчёт (§11). Порядок §10.5. Base: release/p0-2026-10-26 (2.58.136+; factcheck-media 2.58.131 уже в линии). | 28.10 ЗАКРЫТО: 60/61 required VERIFIED (release-gate: только FC-05B live-наблюдение + структурный класс deployed=bump), deployed 2.58.139 @ 95e6c7c9, live probe 8/8. | Статус уточнён: инженерная часть закрыта (60/61 VERIFIED), FC-05B — наблюдение частоты ложных отрицаний на живой поисковой выдаче (READY_FOR_LIVE, пост-деплой). | Статус BUILDING = живое наблюдение FC-05B (частота ложных отрицаний фильтра на живой выдаче) продолжается; инженерная часть 60/61 VERIFIED, деплой 2.58.139 live 8/8."
+    },
+    {
+      "id": "p0-admin-cache-toggle-save",
+      "status": "READY_FOR_LIVE",
+      "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
+      "source_sha256": "B8EC2E211686BCC1BC436C9A969EA7562CC1400EF8A6D84851AF260EA8CF5254",
+      "maps": [
+        "plans/features/p0-admin-cache-toggle-save/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "source_note": "P0 (28.10, скриншот владельца): рубильник Exact Match Cache в админке (Модули → Умный кэш) не сохраняется — «Сохранено 0 из 1». Требование: починить сохранение + аудит остальных параметров/рубильников админки (реально меняют состояние vs декорация). Base: release/p0-2026-10-26 2.58.139 @ 95e6c7c9. Производственный скриншот владельца 28.10. Инженерная приёмка ЗАКРЫТА: deployed 2.58.140 @ 5c8bf35d (кандидат a602aa61, review Approved), TOG-1..TOG-5 VERIFIED (гейт plan+review EXIT 0). READY_FOR_LIVE = добровольное переприменение тумблера владельцем в TMA (standing rule PET_PROJECT 18.10.2026: добровольное наблюдение, релиз уже выполнен штатно, owner_optional не блокирует)."
+    },
+    {
+      "id": "p0-history-analysis",
+      "status": "BUILDING",
+      "source_path": "plans/owner_inputs/2026-10-29-history-analysis-p0-corrective.md",
+      "source_sha256": "A2B977B9EEBD2F55F0FDFC6F79E517AAA3644B30A2DE470EC21D34A0FB2BB4E0",
+      "maps": [
+        "plans/features/p0-history-analysis/requirements-map.json"
+      ],
+      "coverage_complete": true,
+      "updated": "2026-10-29",
+      "source_note": "P0 CORRECTIVE 29.10 (root chat, дословный снимок): полноценный анализ истории чата — убрать потолок 150 сообщений и обрезку 3500 символов в get_recent_history; динамическая глубина с постраничным извлечением без нового общего потолка; сегментный анализ больших выборок с фиксацией границы выборки; изоляция запрошенного диапазона от старой памяти (RAG/GraphRAG/Golden Facts/Lore/self-echo); устранение гиперфикса на старых темах (Внуково) без хардкодов и чёрных списков; качество анализа участников; регрессии H1-H32; инцидент-аудит 400 сообщений (read-only, без живых тестов в чатах). Очередь: после ранее зарегистрированных обязательных задач; затем инженерная приёмка + штатный deployment. | Intake согласован 29.10: карта plans/features/p0-history-analysis/requirements-map.json (required=125: инвентарь 38 + PM 87; context/duplicate 251; unclassified 0; H1-H32 отдельными строками; 9 слайсов AUDIT/DEPTH/TRUNC-PAGES/SEGMENTS/ISOLATION/RELEVANCE/QUALITY/ACCEPT/DEPLOY; строгий slice-граф); план-гейт EXIT 0 (инвентарь 184, manual 192, errors 0) перепроверен оркестратором; инцидент-аудит завершён (evidence/incident-audit.md: двойная потеря подтверждена репро — из 400 сообщений до LLM доходит 35; простой путь 9% охвата; тай-стемпы 120 групп; канал Внуково статически доказан). Волна 1: DEPTH (не блокируется Architect) параллельно с контрактной валидацией Architect (TRUNC-PAGES/SEGMENTS/ISOLATION)."
+    },
+    {
+      "id": "release-then-migrate",
+      "status": "PENDING",
+      "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
+      "source_sha256": "CCC204766633F595B486794E1B7FD2E831520BE1AE00931CD63182A69D4EB301",
+      "maps": [],
+      "coverage_complete": false,
+      "updated": "2026-10-29",
+      "source_note": "P0 RELEASE-THEN-MIGRATE 29.10 (root chat, дословный снимок): строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS nik@198.46.175.136 -> (C) приёмка релиза на старом production -> (D) только после release gate подготовка/перенос на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка §7.1. MIGRATION_SOURCE_SHA = SHA принятого старого production; перенос именно этой версии. Запреты: без удаления данных, без двух живых ботов, без одновременного обновления приложения и сервера, без переимпорта истории/перестройки эмбеддингов, без тестов в рабочих чатах, без чистых установок поверх. Секреты нового VPS — только из локального deploy_commands.txt, не в код/логи/git. Старый VPS сохраняется как fallback. Детальная карта/чек-лист — при старте фазы D (после релизного гейта задачи p0-history-analysis). Фазы A-C исполняются в рамках DEPLOY-слайса p0-history-analysis."
+    }
+  ],
+  "owner_inputs": [
+    {
+      "id": "OI-2026-10-25-P0-CORRECTIVE",
+      "source_path": "plans/features/asap-speech-arch/source-owner-p0-corrective-2026-10-25.md",
+      "source_sha256": "2F7EF4D743F5F7616D075435116DFF3E0AEE7B59446EC599BAF013C4915B1C9B",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap-speech-arch"
+      ],
+      "reconciled": true,
+      "note": "Исходная P0-корректива 25.10 (L1/harness, алиасы, Core, lore). Карта 130 строк, plan-gate EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-REPORT-FORMAT",
+      "source_path": "plans/owner_inputs/2026-10-25-report-format.md",
+      "source_sha256": "83CAA6FE0FFC26FD4354607F052F3A457D18903FF666DBC5CEF4DBA93250EBCA",
+      "kind": "decision",
+      "target_task_ids": [
+        "asap-speech-arch",
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Требование к финальному отчёту: подробно, простым языком, без терминов, по алиасам и остальным задачам. Сдаётся в финальном отчёте. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-P0-FACTCHECK",
+      "source_path": "plans/features/p0-factcheck-media/source-2026-10-25.md",
+      "source_sha256": "F0F71AC03247F727F7EC5ACB771A6B95AA7332F43A79EEA64B4F70946741485A",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Корректива Fact-check (фото/альбомы/пересылка). Карта 137 required, plan-gate EXIT 0, a0cafb38.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-FC-WHOLE-POST",
+      "source_path": "plans/features/p0-factcheck-media/source-owner-clarification-2026-10-25.md",
+      "source_sha256": "5A6DEA8E25C3BC7C9AA176F106720D744EBBB2CE336F9AFFF918CACBBE6EB6E5",
+      "kind": "amendment",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Reply на фото альбома = точка входа в публикацию; проверять весь пост (текст + все фото). В реализации у Builder. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-FC-CONTEXT-WINDOW",
+      "source_path": "plans/features/p0-factcheck-media/source-owner-clarification-2-2026-10-25.md",
+      "source_sha256": "26BDB48ECBEB6FE2CAAB1330FFEA46E6C149C2D78ED606A14BE2B4FBED6E0378",
+      "kind": "amendment",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Цель вне контекста: проверять окружение и reply-цепочку, окно до 200–300 сообщений, до этого не говорить «нечего проверять». | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-FC-WIDE-DEFAULT",
+      "source_path": "plans/features/p0-factcheck-media/owner-decision-wide-context-2026-10-25.md",
+      "source_sha256": "4A6DD40987F8ECF4355B29829B928C29B668D32CC51B2D0C19AD9CA758F19173",
+      "kind": "decision",
+      "target_task_ids": [
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Широкий контекст фактчека включён по умолчанию; тумблер в Модули→Фактчек; миграция false→true. | mapped: PM 68a70d9d; план-гейты EXIT 0.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-PLANS-RECONCILE",
+      "source_path": "plans/owner_inputs/2026-10-25-plans-reconciliation.md",
+      "source_sha256": "64B1667C21CD89EE7F7C58932699B17D048127F5EFB9F92A19DEEB4AE94457E1",
+      "kind": "decision",
+      "target_task_ids": [],
+      "reconciled": true,
+      "note": "Сверка plans/ и восстановление достоверного прогресса. Результат: plans/reports/plans-reconciliation-2026-10-25.md, 3d77b9be.",
+      "recorded_in": "plans/reports/plans-reconciliation-2026-10-25.md",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-25-UNIFIED-INTAKE",
+      "source_path": "plans/owner_inputs/2026-10-25-unified-intake.md",
+      "source_sha256": "FE2C17C31FDBCBA1BFB08AEAB439B1F4DFDB449B51DA4C0598E0877458DF2A3F",
+      "kind": "decision",
+      "target_task_ids": [
+        "asap-speech-arch",
+        "p0-factcheck-media"
+      ],
+      "reconciled": true,
+      "note": "Однократная сверка intake: регистрация ранее не учтённых поручений без пересоздания карт.",
+      "recorded_in": "",
+      "origin": "root chat 25.10.2026",
+      "received": "2026-10-25"
+    },
+    {
+      "id": "OI-2026-10-26-P0-DELTA",
+      "source_path": "plans/owner_inputs/2026-10-26-p0-delta-analysis.md",
+      "source_sha256": "790C2923BF8F8746A4800948D43D41441218AAE0782E19DBB17A726AE8B526DE",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-delta-analysis",
+        "asap-speech-arch"
+      ],
+      "reconciled": true,
+      "note": "Корректива P0 DELTA: не шаблонизировать речь; различать разговорный и исторический анализ; проверить L1/инструменты памяти/субъект/lore; без нового инструмента без доказанной необходимости. | mapped: 36c8f1ab (133 required).",
+      "origin": "root chat 26.10.2026",
+      "received": "2026-10-26"
+    },
+    {
+      "id": "OI-2026-10-26-NO-META-SCOPE",
+      "source_path": "plans/owner_inputs/2026-10-26-no-meta-scope.md",
+      "source_sha256": "69FF824AF8E0B8FB516941E32BD851A651A70087B8258B6C5499ECDE9C702BBA",
+      "kind": "decision",
+      "target_task_ids": [
+        "p0-delta-analysis",
+        "asap-speech-arch"
+      ],
+      "reconciled": true,
+      "note": "NO_META запрещает только служебные вступления/анонсы/метакомментарии; убрать «сразу вывод»; проверить остальные инструкции на скрытые шаблоны. Выполнить после активного Builder, без нового эпика. | mapped: 36c8f1ab (133 required).",
+      "origin": "root chat 26.10.2026",
+      "received": "2026-10-26"
+    },
+    {
+      "id": "OI-2026-10-26-ASAP5-QUEUED",
+      "source_path": "plans/owner_inputs/2026-10-26-asap5-current_task-excerpt.md",
+      "source_sha256": "E8CB2B1ED3B96721B6D19D47E970410B3C9A0E5C121FC21F423C0FCF887604A8",
+      "kind": "new_task",
+      "target_task_ids": [
+        "asap5-multimodal"
+      ],
+      "reconciled": true,
+      "note": "ASAP 5 поставлен в конец очереди (после всех задач, зарегистрированных ранее). Реализация не начинается до завершения текущего релиза и оставшихся задач; перед стартом — сверка против готовых исправлений. | Intake согласован: зарегистрировано в конец очереди (asap5-multimodal, PENDING), карта будет создана при старте задачи.",
+      "origin": "root chat 26.10.2026 (регистрация задания из plans/current_task.md)",
+      "received": "2026-10-26"
+    },
+    {
+      "id": "OI-2026-10-27-POST-ASAP5",
+      "source_path": "plans/owner_inputs/2026-10-27-post-asap5-current_task-excerpt.md",
+      "source_sha256": "09267F5DA173DE5D441AFFCE04F9BFD02452BB77B86DC2D440AA2236D4773F31",
+      "kind": "new_task",
+      "target_task_ids": [
+        "post-asap5-corrective"
+      ],
+      "reconciled": true,
+      "note": "Задача зарегистрирована в САМЫЙ КОНЕЦ очереди (после asap5-multimodal). Порядок: текущий релиз-цикл → P0 DELTA → остатки → asap5-multimodal → post-asap5-corrective. Реализация не начинается; карта при старте. | Intake согласован: pre-start карта 27 секций, гейт EXIT 0 (6f81adf9).",
+      "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5026)",
+      "received": "2026-10-27"
+    },
+    {
+      "id": "OI-2026-10-27-NOSTALGIA-REWORK",
+      "source_path": "plans/owner_inputs/2026-10-27-nostalgia-rework-current_task-excerpt.md",
+      "source_sha256": "74CF86E69168889B07B83F6BAF41F8260D0F957F4B7081BF486413D5CE9F3681",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-nostalgia-rework"
+      ],
+      "reconciled": true,
+      "note": "Задача зарегистрирована ПОСЛЕ post-asap5-corrective (последняя в очереди): полная переработка ностальгии (NOST-01..12, приёмка NOST-13..18) + дефекты POST-ASAP5 (COR-01..06) + дисциплина (DEV-01..05). Реализация не начинается; детальная карта при старте. Внимание: пересечение с ASAP5-NOSTALGIA (wave W1) — при старте сверить и не дублировать. | Intake согласован: pre-start карта 29 секций, гейт EXIT 0 (0d8b6a5f).",
+      "origin": "root chat 27.10.2026 (задание добавлено владельцем в plans/current_task.md L5771)",
+      "received": "2026-10-27"
+    },
+    {
+      "id": "OI-2026-10-28-FACTCHECK-POST-RELEASE",
+      "source_path": "plans/owner_inputs/2026-10-28-factcheck-post-release-corrective.md",
+      "source_sha256": "3C0F035BDF4266DE37B41C3DF63FAF57D4E8E116C67B47D00F22F5C985989DA6",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-factcheck-post-release"
+      ],
+      "reconciled": true,
+      "note": "Обязательная корректива Fact-check: поиск — необязательный инструмент, не условие работы; empty evidence ≠ insufficient; continue analysis без выдумок (честная неопределённость); ПОЛНОЕ удаление verdict-cache (handlers legacy, orchestrator envelope/legacy, temporal cache, mca_gates gate, скрытые пути); taxonomy причин поиска; частичные доказательства сохраняются; вербализация без сочинительства; директива аналитика §8; F1-F30 регрессии. Заменяет предыдущую версию коррективы.",
+      "origin": "root chat 28.10.2026",
+      "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-28-ADMIN-CACHE-TOGGLE-SAVE",
+      "source_path": "plans/owner_inputs/2026-10-28-exact-match-cache-save-broken.md",
+      "source_sha256": "B8EC2E211686BCC1BC436C9A969EA7562CC1400EF8A6D84851AF260EA8CF5254",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-admin-cache-toggle-save"
+      ],
+      "reconciled": true,
+      "note": "Баг: сохранение рубильника Exact Match Cache падает («Сохранено 0 из 1»). Требование: исправить + аудит остальных параметров/рубильников админки. ЗАКРЫТО 28.10.2026: фикс a602aa61 (review Approved) задеплоен как 2.58.140 @ 5c8bf35d; live-зонд: chat-scope toggle ON/OFF → 200, readback оба направления, SmartCache get_hit/get_miss; аудит: Builder 106/106, независимое воспроизведение ревьюера 107/107 PASS; карта strict plan/review EXIT 0; карта p0-admin-cache-toggle-save/requirements-map.json.",
+      "origin": "root chat 28.10.2026 + скриншот владельца",
+      "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-28-LOCAL-WORKSPACE-CLEANUP",
+      "source_path": "plans/owner_inputs/2026-10-28-local-workspace-cleanup.md",
+      "source_sha256": "88830CB596DD10602515CC9CDA423A9F66454ADF93EF61B03BE2BC7B6E173172",
+      "kind": "decision",
+      "target_task_ids": [],
+      "reconciled": true,
+      "note": "Local maintenance done 28.10: 71 clean worktrees removed without --force, branches kept, main repo intact. 55 dirty/unique worktrees and scratch DBs retained. WorkspaceData + epic-close installed. Plans: 19 archived, 0 deleted. No SSH.",
+      "recorded_in": "plans/reports/local-workspace-cleanup-2026-10-28.md",
+      "origin": "root chat 28.10.2026",
+      "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-28-WORKTREE-FINAL-CLEANUP",
+      "source_path": "plans/owner_inputs/2026-10-28-worktree-final-cleanup.md",
+      "source_sha256": "F74CFFE1080EE1FF2B5387B710E7F1CF72C3123F19AF29B5B50FC1864805EFC4",
+      "kind": "decision",
+      "target_task_ids": [],
+      "reconciled": true,
+      "note": "DONE 29.10: 126/126 extra worktrees removed across both passes (71 clean + 55 dispositioned), 40 preserve/* refs kept unique review evidence, unique untracked data quarantined with sha256 manifests, scratch 43.4->1.5GB, temp 6.4->0.65GB, cache deleted. Main repo intact (HEAD a556797a, zero tracked deletions). Reports: worktree-final-cleanup-2026-10-28.md, scratch-final-cleanup-2026-10-28.md.",
+      "recorded_in": "plans/reports/worktree-final-cleanup-2026-10-28.md",
+      "origin": "root chat 28.10.2026 (evening)",
+      "received": "2026-10-28"
+    },
+    {
+      "id": "OI-2026-10-29-HISTORY-ANALYSIS",
+      "source_path": "plans/owner_inputs/2026-10-29-history-analysis-p0-corrective.md",
+      "source_sha256": "A2B977B9EEBD2F55F0FDFC6F79E517AAA3644B30A2DE470EC21D34A0FB2BB4E0",
+      "kind": "new_task",
+      "target_task_ids": [
+        "p0-history-analysis"
+      ],
+      "reconciled": true,
+      "note": "P0 CORRECTIVE 29.10: динамический get_recent_history (без потолка 150 и обрезки 3500), постраничное/сегментное исследование больших выборок, фиксация границы выборки, изоляция диапазона от старой памяти, анти-гиперфикс на старых темах без хардкодов, регрессии H1-H32, инцидент-аудит, деплой. Зарегистрировано в очередь после ранее принятых обязательных задач. | Сверено 29.10: карта 125 required покрывает все части директивы (Части I-VIII, H1-H32, запреты §20, DONE §21, отчёт §22), план-гейт EXIT 0; дельта против P0 DELTA/Direct Chat/NOST сверена PM, конфликтов нет.",
+      "origin": "root chat 29.10.2026",
+      "received": "2026-10-29"
+    },
+    {
+      "id": "OI-2026-10-29-RELEASE-THEN-MIGRATE",
+      "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
+      "source_sha256": "CCC204766633F595B486794E1B7FD2E831520BE1AE00931CD63182A69D4EB301",
+      "kind": "new_task",
+      "target_task_ids": [
+        "release-then-migrate",
+        "p0-history-analysis"
+      ],
+      "reconciled": false,
+      "note": "P0 RELEASE-THEN-MIGRATE 29.10: строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS -> (C) приёмка на старом production -> (D) подготовка/миграция на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка (§7.1). Перестановка этапов запрещена; миграция не начинается до релизного гейта. MIGRATION_SOURCE_SHA = принятый SHA старого production. Секреты/пароль нового VPS не в код/логи/git. Read-only инвентаризация старого, подготовка нового без запуска бота, предварительная синхронизация, короткий cutover, проверки без потерь, rollback-план, перенос deploy target. Регистрация сейчас; детальная карта при старте миграционной фазы.",
+      "origin": "root chat 29.10.2026",
+      "received": "2026-10-29"
+    }
+  ]
 }

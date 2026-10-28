@@ -1,0 +1,154 @@
+{
+ "kind": "p0_canary_identity",
+ "utc": "2026-10-24T03:42:39Z",
+ "chat_id": -1004482340693,
+ "identity": {
+  "chars": 4792,
+  "persona_chars": 4550,
+  "rules_chars": 240
+ },
+ "system": {
+  "chars": 12359,
+  "sha12": "4c19b209b054",
+  "free_speech": 1,
+  "real_events": 1,
+  "identity_chars": 4792,
+  "expression_chars": 998,
+  "frequent_marker": 1,
+  "layers": [
+   {
+    "layer": "channel_contract",
+    "block_id": "channel_canon",
+    "chars": 3081,
+    "skip": ""
+   },
+   {
+    "layer": "channel_contract",
+    "block_id": "mode_block",
+    "chars": 186,
+    "skip": ""
+   },
+   {
+    "layer": "core",
+    "block_id": "core",
+    "chars": 3294,
+    "skip": ""
+   },
+   {
+    "layer": "identity",
+    "block_id": "identity",
+    "chars": 4792,
+    "skip": ""
+   },
+   {
+    "layer": "self_model_traits",
+    "block_id": "self_model_traits",
+    "chars": 0,
+    "skip": "self_model_folded_into_identity"
+   },
+   {
+    "layer": "context_lessons",
+    "block_id": "context_lessons",
+    "chars": 0,
+    "skip": "lessons_absent"
+   },
+   {
+    "layer": "response_plan",
+    "block_id": "response_plan",
+    "chars": 0,
+    "skip": "response_plan_absent"
+   },
+   {
+    "layer": "expression",
+    "block_id": "expression",
+    "chars": 998,
+    "skip": ""
+   },
+   {
+    "layer": "humor_craft",
+    "block_id": "humor_craft",
+    "chars": 0,
+    "skip": "humor_no_strategy"
+   },
+   {
+    "layer": "few_shot",
+    "block_id": "expression_examples",
+    "chars": 0,
+    "skip": "expression_examples_absent"
+   },
+   {
+    "layer": "few_shot",
+    "block_id": "few_shot",
+    "chars": 0,
+    "skip": "samples_absent"
+   },
+   {
+    "layer": "style_policy_hint",
+    "block_id": "style_policy_hint",
+    "chars": 0,
+    "skip": "budget_excluded"
+   },
+   {
+    "layer": "channel_output",
+    "block_id": "channel_output",
+    "chars": 0,
+    "skip": "channel_output_not_required"
+   }
+  ]
+ },
+ "frequent": {
+  "n": 4,
+  "mat": 0,
+  "runs": [
+   {
+    "i": 0,
+    "stimulus": "бот, ну что думаешь про понедельник?",
+    "reply": "Понедельник как понедельник, Марина уже его похоронила, Игорь спрашивает моё мнение. Моё мнение: три часа ночи, оба сидите и страдаете хернёй. Идите спать, понедельник сам о себе позаботится.",
+    "chars": 191,
+    "mat_roots": 0,
+    "mat": false,
+    "dash": {
+     "em": 0,
+     "en": 0
+    }
+   },
+   {
+    "i": 1,
+    "stimulus": "как тебе эта погода, задолбала уже?",
+    "reply": "Марин, а день-то ещё толком не начался — три сорок ночи, ты его заранее похоронила. Игорь, а погода тут вообще ни при чём: ты в такую рань в чат пишешь, тебя не небо задолбало, а собственная бессонница. Оба идите спать, утро вечера мудренее, а этот ваш вечер уже давно перешёл в какое-то неприличное утро.",
+    "chars": 305,
+    "mat_roots": 0,
+    "mat": false,
+    "dash": {
+     "em": 1,
+     "en": 0
+    }
+   },
+   {
+    "i": 2,
+    "stimulus": "слушай, а правда что ты всё время в сети?",
+    "reply": "Игорь, я в сети как таракан в щели — всегда на месте, и попробуй выкури. А у Марины день не задался в 3:42 ночи — это уже не день, это агония. Иди спать, оба, завтра будет новый повод поныть.",
+    "chars": 191,
+    "mat_roots": 0,
+    "mat": false,
+    "dash": {
+     "em": 2,
+     "en": 0
+    }
+   },
+   {
+    "i": 3,
+    "stimulus": "и что мне теперь делать с этим отчётом?",
+    "reply": "Игорь, отчёт либо сдай, либо сожги — но не сиди над ним в три часа ночи с таким лицом, будто он тебе изменяет. Марина, а у тебя день не задался ещё до того, как начался, судя по времени. Идите спать, оба, утро вечера мудренее, а отчёт от этого не поумнеет.",
+    "chars": 256,
+    "mat_roots": 0,
+    "mat": false,
+    "dash": {
+     "em": 1,
+     "en": 0
+    }
+   }
+  ],
+  "temperature": 0.7
+ }
+}
