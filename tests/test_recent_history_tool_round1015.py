@@ -2,7 +2,8 @@
 (кратковременная память): сырая хронологическая стенограмма последних
 сообщений чата («Имя: текст»), НЕ векторный RAG.
 
-Покрытие spec §8: путь `depth` (ASC, клампы 1..150), путь `query` (FTS +
+Покрытие spec §8: путь `depth` (ASC, без верхнего предела — P0-HA §3.1),
+путь `query` (FTS +
 фильтр окна + ASC), приоритет параметров, chat-скоуп, R16 (каскад имён),
 R17 (без текста/URL в логах), сбой БД (структурная ошибка, fail-safe),
 интеграция в F8 tool-сет. SQLite in-memory, без сети.
@@ -18,7 +19,6 @@ from services.database import DatabaseService
 from services.summary_aliases import AliasResolver
 from services.tool_router import (
     _HISTORY_DEFAULT_DEPTH,
-    _HISTORY_MAX_DEPTH,
     _HISTORY_MAX_SYMBOLS,
     _HISTORY_QUERY_WINDOW_SECONDS,
     _HISTORY_SEARCH_LIMIT,
@@ -103,13 +103,14 @@ class TestDepthPath:
         assert "чужой чат" not in out
 
     @pytest.mark.asyncio
-    async def test_depth_clamped_to_max(self):
+    async def test_depth_passthrough_no_cap(self):
+        """P0-HA (§3.1): depth без потолка — 9999 проходит в БД как есть
+        (150 больше не общий предел, замены константы тоже нет)."""
         db = MagicMock()
         db.get_recent_messages = AsyncMock(return_value=[])
         await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 9999}, _ctx())
-        db.get_recent_messages.assert_awaited_once_with(
-            CHAT_ID, _HISTORY_MAX_DEPTH)
+        db.get_recent_messages.assert_awaited_once_with(CHAT_ID, 9999)
 
     @pytest.mark.asyncio
     async def test_depth_zero_or_negative_clamped_to_one(self):
@@ -337,8 +338,10 @@ class TestToolSetIntegration:
         params = TOOL_GET_RECENT_HISTORY["function"]["parameters"]
         assert params["additionalProperties"] is False
         assert "required" not in params
-        assert params["properties"]["depth"]["minimum"] == 1
-        assert params["properties"]["depth"]["maximum"] == 150
+        depth = params["properties"]["depth"]
+        assert depth["minimum"] == 1
+        # P0-HA (§3.1): maximum у depth больше нет (150 удалён из схемы).
+        assert "maximum" not in depth
         assert "query" in params["properties"]
 
     @pytest.mark.asyncio

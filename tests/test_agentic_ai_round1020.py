@@ -559,7 +559,8 @@ class TestToolSchemasEnCanon:
         assert props("dig_into_lore")["mode"]["enum"] == [
             "messages", "facts", "both"]
         depth = props("get_recent_history")["depth"]
-        assert depth["minimum"] == 1 and depth["maximum"] == 150
+        # P0-HA (§3.1): верхнего предела depth больше нет (maximum 150 удалён).
+        assert depth["minimum"] == 1 and "maximum" not in depth
         # F14 (ADR-1024-15 §2.3-bis, UPD5): у summarize_video `mode` удалён
         # (только выжимка); источник — опциональный `url` + `source`.
         assert "mode" not in props("summarize_video")

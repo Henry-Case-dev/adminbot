@@ -337,15 +337,20 @@ TOOL_GET_RECENT_HISTORY = {
                         "in order (Name: text). Call on 'what were we "
                         "discussing 10 minutes ago', 'who dropped that link', "
                         "'who is right in the argument', 're-read the last "
-                        "messages'. depth - how many messages back (up to "
-                        "150); OR query - search among the last hours' "
-                        "messages. This is exact chronology, NOT semantic RAG."),
+                        "messages'. depth - how many messages back: always "
+                        "pass the exact requested count ('last 400 messages' "
+                        "→ depth=400, 'last 2000' → depth=2000); any "
+                        "positive size is honored, there is no cap; OR query "
+                        "- search among the last hours' messages. This is "
+                        "exact chronology, NOT semantic RAG."),
         "parameters": {
             "type": "object",
             "properties": {
-                "depth": {"type": "integer", "minimum": 1, "maximum": 150,
-                          "description": ("How many recent messages to return "
-                                          "(default 50).")},
+                "depth": {"type": "integer", "minimum": 1,
+                          "description": ("How many recent messages to "
+                                          "return (default 50). Pass the "
+                                          "exact requested count - it is "
+                                          "used as-is, no cap.")},
                 "query": {"type": "string",
                           "description": ("Fragment/topic to search among "
                                           "recent messages (last hours).")},

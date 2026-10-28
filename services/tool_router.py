@@ -26,9 +26,10 @@ get_bot_health (CheckupLogsFetcher+CheckupService) и get_recent_history
 
 Раунд 10.15 (F9, spec §2-§6, T-1620…T-1623): `_get_recent_history` реализован
 полностью — сырая хронологическая стенограмма недавних сообщений чата
-(«Имя: текст»): путь `depth` (≤150) через `database.get_recent_messages` либо
-путь `query` (FTS + окно последних часов + ASC). Лимиты — код-константы
-(каталог-Δ=0); R17: логи только chat_id/count/out_chars.
+(«Имя: текст»): путь `depth` (без верхнего предела — P0-HA §3.1) через
+`database.get_recent_messages` либо путь `query` (FTS + окно последних часов +
+ASC). Лимиты — код-константы (каталог-Δ=0); R17: логи только chat_id/fetched/
+count/out_chars.
 
 Раунд 10.17 (F2, ADR-1017-2 — SUPERSEDE ADR-1016-1 §2 п.3/§3): tool
 `download_media` для платформенного URL делает `probe()` → инлайн-меню
@@ -172,7 +173,11 @@ _TOOL_QUALITY_PREFIX = "tdq:"             # callback меню качества t
 
 # Раунд 10.15 (F9, spec §6): лимиты get_recent_history — код-константы
 # (каталог-Δ=0; прецедент _DIG_GRAPH_MAX_HOP_DEPTH/_MEMORY_FTS_LIMIT).
-_HISTORY_MAX_DEPTH = 150                 # верхняя граница depth (UPD §5)
+# P0-HA (снапшот 2026-10-29, §3.1): _HISTORY_MAX_DEPTH=150 удалён как общий
+# потолок — depth передаётся в БД-выборку без уменьшения; дефолт 50 — НЕ
+# максимум. Физический размер одного чтения БД ограничивает только
+# database._RECENT_MESSAGES_PAGE_SIZE (страница); число страниц определяется
+# фактическим размером выборки, нового общего потолка нет.
 _HISTORY_DEFAULT_DEPTH = 50              # default при отсутствии параметров
 _HISTORY_SEARCH_LIMIT = 80               # FTS-строк на этапе query (до фильтра)
 _HISTORY_QUERY_WINDOW_SECONDS = 12 * 3600  # «последние часы» для query
@@ -298,17 +303,19 @@ def _time_range_since(time_range: str) -> int:
 
 
 def _history_depth(raw) -> int:
-    """depth get_recent_history → int в [1, _HISTORY_MAX_DEPTH].
+    """depth get_recent_history → int ≥ 1.
 
-    Отсутствие/кривой тип → _HISTORY_DEFAULT_DEPTH; 0/отрицательное → 1
-    (spec §2: «клампится в 1.._HISTORY_MAX_DEPTH»)."""
+    Отсутствие/кривой тип → _HISTORY_DEFAULT_DEPTH; 0/отрицательное → 1.
+    P0-HA (снапшот 2026-10-29, §3.1): верхнего предела больше нет —
+    запрошенное число (200/400/2000/…) идёт в выборку как есть, без
+    уменьшения до фиксированного числа; дефолт 50 — НЕ максимум."""
     if raw is None or raw == "":
         return _HISTORY_DEFAULT_DEPTH
     try:
         value = int(raw)
     except (TypeError, ValueError):
         return _HISTORY_DEFAULT_DEPTH
-    return max(1, min(value, _HISTORY_MAX_DEPTH))
+    return max(1, value)
 
 
 def _truncate(text: str, limit: int) -> str:
@@ -2857,11 +2864,11 @@ class ToolRouter:
             else getattr(self.deps.memory, "db", None)
         try:
             if query:
-                lines = await asyncio.wait_for(
+                fetched, lines = await asyncio.wait_for(
                     self._recent_history_by_query(ctx, query),
                     timeout=_HISTORY_TOOL_TIMEOUT)
             else:
-                lines = await asyncio.wait_for(
+                fetched, lines = await asyncio.wait_for(
                     self._recent_history_by_depth(ctx, db, depth),
                     timeout=_HISTORY_TOOL_TIMEOUT)
         except asyncio.TimeoutError:
@@ -2876,26 +2883,33 @@ class ToolRouter:
                 ctx.chat_id, type(exc).__name__)
             return f"ОШИБКА get_recent_history: {type(exc).__name__}"
         if not lines:
-            logger.info("[tools] get_recent_history | chat=%s | count=0 | "
-                        "out_chars=0", ctx.chat_id)
+            logger.info("[tools] get_recent_history | chat=%s | fetched=%d | "
+                        "count=0 | out_chars=0", ctx.chat_id, fetched)
             return _HISTORY_EMPTY
         text = _truncate("\n".join(lines), _HISTORY_MAX_SYMBOLS)
-        logger.info("[tools] get_recent_history | chat=%s | count=%d | "
-                    "out_chars=%d", ctx.chat_id, len(lines), len(text))
+        # P0-HA (§3.3): честный охват в логах — fetched (строк прочитано из
+        # БД) vs count (вошло в стенограмму); без текстов/URL/имён (R17).
+        logger.info("[tools] get_recent_history | chat=%s | fetched=%d | "
+                    "count=%d | out_chars=%d",
+                    ctx.chat_id, fetched, len(lines), len(text))
         return text
 
     async def _recent_history_by_depth(self, ctx: ToolContext, db, depth: int
-                                       ) -> list[str]:
+                                       ) -> tuple[int, list[str]]:
         """Путь A: последние `depth` сообщений чата (ASC). DDL не нужен —
-        переиспользуем read-API `database.get_recent_messages`."""
+        переиспользуем read-API `database.get_recent_messages` (P0-HA §3.2:
+        глубина без верхнего предела; постраничное чтение — внутри db-слоя).
+
+        Возвращает (fetched, lines) — честный охват для логов."""
         if db is None or not hasattr(db, "get_recent_messages"):
             raise RuntimeError("db недоступен")
         rows = await db.get_recent_messages(ctx.chat_id, depth)
-        return self._history_lines(rows)
+        return len(rows), self._history_lines(rows)
 
     async def _recent_history_by_query(self, ctx: ToolContext, query: str
-                                       ) -> list[str]:
-        """Путь B: FTS по L1 + фильтр окна последних часов → ASC-стенограмма."""
+                                       ) -> tuple[int, list[str]]:
+        """Путь B: FTS по L1 + фильтр окна последних часов →
+        (fetched, ASC-стенограмма)."""
         since = int(time.time()) - _HISTORY_QUERY_WINDOW_SECONDS
         rows = await self.deps.memory.search_long_term(
             ctx.chat_id, keywords(query), limit=_HISTORY_SEARCH_LIMIT)
@@ -2903,7 +2917,7 @@ class ToolRouter:
         rows = [dict(row) for row in rows]
         rows = [r for r in rows if int(r.get("timestamp") or 0) >= since]
         rows.sort(key=lambda r: int(r.get("timestamp") or 0))
-        return self._history_lines(rows)
+        return len(rows), self._history_lines(rows)
 
     def _history_lines(self, rows) -> list[str]:
         """Строки smart_messages → канонические строки контекста (10.20,
