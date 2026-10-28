@@ -11,6 +11,9 @@ H14-adjacent (битый/чужой/протухший cursor → структу
 счётчики, границы страниц по целым сообщениям. SQLite in-memory, без сети.
 """
 import asyncio
+import base64
+import hashlib
+import hmac
 import inspect
 import time
 from unittest.mock import AsyncMock, MagicMock
@@ -19,6 +22,7 @@ import pytest
 
 from services.database import DatabaseService
 from services.tool_router import (
+    _HISTORY_CURSOR_KEY,
     _HISTORY_PAGE_ROWS,
     _HISTORY_SAMPLE_END,
     _HISTORY_SAMPLE_HEADER,
@@ -315,12 +319,13 @@ class TestCounters:
 
     @pytest.mark.asyncio
     async def test_vanished_tail_reports_incompleteness(self):
-        """H14-adjacent: хвост выборки удалён из БД между страницами.
-        Cursor-путь (пересчёт счётчиков от БД): выжившие строки доходят,
-        счётчики честны, has_next=0. Устаревший captured available
-        (ctx.history_sample): доступное окно опустело → явная неполнота
-        incomplete=1 + reason, а не тихий «успех»
-        (REQ-HA-INCOMPLETENESS-REPORTING)."""
+        """H14: хвост выборки удалён из БД между страницами. Cursor хранит
+        захваченные available/processed → обещанный остаток известен; живых
+        строк меньше обещанных → incomplete=1 + reason=tail_missing, а
+        выжившие строки всё равно доходят (потеря названа, не скрыта).
+        Отдельно: устаревший captured available (ctx.history_sample), окно
+        опустело целиком → явная неполнота incomplete=1 + reason, а не тихий
+        «успех» (REQ-HA-INCOMPLETENESS-REPORTING)."""
         db = await _make_db(count=85)
         try:
             router = ToolRouter(_deps(db=db))
@@ -337,9 +342,11 @@ class TestCounters:
                 "get_recent_history", {"cursor": header["cursor"]}, ctx)
             h2 = _header(out2)
             assert h2["has_next"] == 0
-            assert h2["incomplete"] == 0            # охват = всё, что осталось
-            assert h2["processed"] == 41 and h2["available"] == 41
-            assert h2["remaining"] == 0
+            assert h2["incomplete"] == 1               # потеря объявлена
+            assert h2["reason"] == "tail_missing"
+            assert h2["available"] == 85               # захваченный, не живой
+            assert h2["processed"] == 41               # 40 + выживший m85
+            assert h2["remaining"] == 44               # 44 удаления названы
             body = _body_lines(out2)
             assert len(body) == 1 and "м85" in body[0]  # выживший хвост дошёл
 
@@ -357,6 +364,86 @@ class TestCounters:
             assert h3["incomplete"] == 1
             assert h3["reason"] == "anchor_missing"
             assert _body_lines(out3) == []
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_deletion_inside_sample_gap_accounted(self):
+        """H14 (зонд ревью, сценарий b): удаление ВНУТРИ недочитанного
+        участка выборки. Финальная страница сводит счёт без дыр: ни одно
+        сообщение выборки не исчезает молча — каждое либо доставлено
+        (processed), либо названо потерянным (remaining + tail_missing)."""
+        db = await _make_db(count=100)
+        try:
+            router = ToolRouter(_deps(db=db))
+            ctx = _ctx()
+            out = await router.dispatch("get_recent_history",
+                                        {"depth": 100}, ctx)
+            pages = [( _header(out), _body_lines(out))]
+            header = pages[0][0]
+            assert header["has_next"] == 1
+            await db.db.execute(
+                "DELETE FROM smart_messages WHERE id >= 50 AND id <= 90")
+            await db.db.commit()
+            out2 = await router.dispatch(
+                "get_recent_history", {"cursor": header["cursor"]}, ctx)
+            h2 = _header(out2)
+            pages.append((h2, _body_lines(out2)))
+            # Финал обхода: счёт самосогласован, дыра названа.
+            assert h2["has_next"] == 0
+            assert h2["incomplete"] == 1 and h2["reason"] == "tail_missing"
+            assert h2["available"] == 100              # захваченный
+            assert h2["processed"] == 59               # 100 - 41 удалённых
+            assert h2["remaining"] == 41               # 41 удалений названо
+            assert h2["processed"] + h2["remaining"] == h2["available"]
+            # Все выжившие дошли (ASC, без перекрытий и молчаливых дыр).
+            seen = [line for _, body in pages for line in body]
+            expected_survivors = await _all_expected_lines(db)
+            assert seen == expected_survivors
+            assert len(seen) == 59
+        finally:
+            await db.db.close()
+
+    @pytest.mark.asyncio
+    async def test_loss_detected_midwalk_survivors_still_delivered(self):
+        """H14: потеря обнаружена в середине обхода (выживших больше
+        страницы) — страница честно помечена incomplete=1/tail_missing,
+        has_next=1 продолжает дочитывать выживших, финал сходится без
+        молчаливых дыр и без отката на depth=50."""
+        db = await _make_db(count=200)
+        try:
+            router = ToolRouter(_deps(db=db))
+            ctx = _ctx()
+            out = await router.dispatch("get_recent_history",
+                                        {"depth": 200}, ctx)
+            h1 = _header(out)
+            assert (h1["processed"], h1["remaining"], h1["has_next"]) == \
+                (40, 160, 1)
+            await db.db.execute(
+                "DELETE FROM smart_messages WHERE id >= 50 AND id <= 150")
+            await db.db.commit()
+            cursor = h1["cursor"]
+            out2 = await router.dispatch(
+                "get_recent_history", {"cursor": cursor}, ctx)
+            h2 = _header(out2)
+            # Выживших после точки курсора 59 > страницы 40 → неполнота
+            # названа сразу, дочитывание продолжается.
+            assert h2["incomplete"] == 1 and h2["reason"] == "tail_missing"
+            assert h2["has_next"] == 1
+            assert h2["processed"] == 80 and h2["remaining"] == 120
+            out3 = await router.dispatch(
+                "get_recent_history", {"cursor": h2["cursor"]}, ctx)
+            h3 = _header(out3)
+            assert h3["has_next"] == 0
+            assert h3["incomplete"] == 1 and h3["reason"] == "tail_missing"
+            assert h3["processed"] == 99               # 200 - 101 удалённых
+            assert h3["remaining"] == 101
+            assert h3["processed"] + h3["remaining"] == h3["available"] == 200
+            seen = [line for _, body in
+                    ((h1, _body_lines(out)), (h2, _body_lines(out2)),
+                     (h3, _body_lines(out3))) for line in body]
+            expected_survivors = await _all_expected_lines(db)
+            assert seen == expected_survivors
         finally:
             await db.db.close()
 
@@ -547,13 +634,14 @@ class TestCursorFailClosed:
         bound = {"sample_id": _history_sample_id(CHAT_ID, 100, 5, 50),
                  "chat_id": CHAT_ID, "anchor_ts": 100, "anchor_id": 5,
                  "oldest_ts": 1, "oldest_id": 1, "requested": 50,
-                 "exp": int(time.time()) + 300}
-        cursor = _history_cursor_encode(bound, 3, 4)
-        assert cursor.startswith("v1.")
+                 "available": 50, "exp": int(time.time()) + 300}
+        cursor = _history_cursor_encode(bound, 3, 4, processed=7)
+        assert cursor.startswith("v2.")
         fields, reason = _history_cursor_decode(cursor, CHAT_ID)
         assert reason == "" and fields is not None
         assert fields["after_ts"] == 3 and fields["after_id"] == 4
         assert fields["sample_id"] == bound["sample_id"]
+        assert fields["available"] == 50 and fields["processed"] == 7
         # чужой чат / битая подпись / мусор → unknown_cursor
         assert _history_cursor_decode(cursor, OTHER_CHAT)[1] == "unknown_cursor"
         assert _history_cursor_decode(cursor[:-2] + "xx", CHAT_ID)[1] == \
@@ -565,6 +653,61 @@ class TestCursorFailClosed:
         # подпись привязана к payload: подмена after-точки ловится
         other_after = _history_cursor_encode(bound, 9, 9)
         assert other_after != cursor
+
+    def _signed_cursor(self, payload: str) -> str:
+        """Правильно подписанный (текущим ключом процесса) payload любой
+        версии — для fail-closed проверок НЕизвестных форматов."""
+        token = base64.urlsafe_b64encode(
+            payload.encode("ascii")).decode("ascii").rstrip("=")
+        sig = hmac.new(_HISTORY_CURSOR_KEY, payload.encode("ascii"),
+                       hashlib.sha256).hexdigest()[:16]
+        return f"v1.{token}.{sig}"
+
+    @pytest.mark.asyncio
+    async def test_old_format_cursor_fail_closed(self):
+        """H14 (ревью): cursor прежней сборки (v1, 11 полей, без захваченных
+        available/processed) — структурированный отказ unknown_cursor, НИКАКОГО
+        молчаливого чтения по ужатому живому COUNT. TTL 360 с делает
+        совместимость с pre-fix payload'ами бессмысленной."""
+        v1_payload = "|".join(str(v) for v in (
+            "v1", CHAT_ID, 100, 5, 1, 1, 50, 3, 4,
+            int(time.time()) + 300, _history_sample_id(CHAT_ID, 100, 5, 50)))
+        cursor = self._signed_cursor(v1_payload)
+        assert _history_cursor_decode(cursor, CHAT_ID)[1] == "unknown_cursor"
+        # И через dispatch: та же структурная ошибка, без тел и без выборки.
+        db = await _make_db(count=80)
+        try:
+            out = await ToolRouter(_deps(db=db)).dispatch(
+                "get_recent_history", {"cursor": cursor}, _ctx())
+        finally:
+            await db.db.close()
+        assert out == "ОШИБКА get_recent_history: unknown_cursor"
+        assert parse_history_sample(out) is None
+
+    def test_inconsistent_counter_cursor_fail_closed(self):
+        """Правильно подписанный v2 с несогласованными счётчиками выборки
+        (processed > available / available < 1) → unknown_cursor, не
+        «лучшая догадка»."""
+        base = {"chat_id": CHAT_ID, "anchor_ts": 100, "anchor_id": 5,
+                "oldest_ts": 1, "oldest_id": 1, "requested": 50,
+                "available": 50, "after_ts": 3, "after_id": 4,
+                "exp": int(time.time()) + 300,
+                "sample_id": _history_sample_id(CHAT_ID, 100, 5, 50)}
+        for processed in (51, -1):
+            payload = "|".join(str(v) for v in (
+                "v2", base["chat_id"], base["anchor_ts"], base["anchor_id"],
+                base["oldest_ts"], base["oldest_id"], base["requested"],
+                base["available"], processed, base["after_ts"],
+                base["after_id"], base["exp"], base["sample_id"]))
+            assert _history_cursor_decode(
+                self._signed_cursor(payload), CHAT_ID)[1] == "unknown_cursor"
+        payload = "|".join(str(v) for v in (
+            "v2", base["chat_id"], base["anchor_ts"], base["anchor_id"],
+            base["oldest_ts"], base["oldest_id"], base["requested"],
+            0, 0, base["after_ts"], base["after_id"], base["exp"],
+            base["sample_id"]))
+        assert _history_cursor_decode(
+            self._signed_cursor(payload), CHAT_ID)[1] == "unknown_cursor"
 
 
 # ── 5. Маршрутизация §1 ───────────────────────────────────────────────────

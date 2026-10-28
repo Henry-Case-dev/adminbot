@@ -376,18 +376,26 @@ def _history_cursor_ttl() -> float:
         return TOOL_CHAIN_TIMEOUT_SECONDS
 
 
-def _history_cursor_encode(bound: dict, after_ts: int, after_id: int) -> str:
-    """Подписанный самодостаточный cursor (архконтракт §1).
+def _history_cursor_encode(bound: dict, after_ts: int, after_id: int,
+                           processed: int = 0) -> str:
+    """Подписанный самодостаточный cursor (архконтракт §1, формат v2).
 
     Payload (ASCII, без текста сообщений), base64url без padding:
-    ``v1|chat_id|anchor_ts|anchor_id|oldest_ts|oldest_id|requested|
-    after_ts|after_id|exp|sample_id``; подпись — первые 16 hex
-    hmac.sha256(process_key, payload). Тела страниц в состоянии НЕ хранятся:
+    ``v2|chat_id|anchor_ts|anchor_id|oldest_ts|oldest_id|requested|
+    available|processed|after_ts|after_id|exp|sample_id``; подпись — первые
+    16 hex hmac.sha256(process_key, payload). ``available``/``processed`` —
+    захваченные счётчики выборки (ревью H14, 2026-10-29): продолжение
+    сверяет обещанный остаток (available - processed) с живой БД и честно
+    рапортует удалённые строки, а не молча ужмёт available до выжившего
+    COUNT. Формат v2 принят fail-closed: payload прежней сборки без этих
+    полей не разбирается вовсе (unknown_cursor); TTL 360 с делает
+    совместимость с v1 бессмысленной. Тела страниц в состоянии НЕ хранятся:
     следующая страница перечитывается из БД тем же предикатом."""
     payload = "|".join(str(v) for v in (
-        "v1", int(bound["chat_id"]), int(bound["anchor_ts"]),
+        "v2", int(bound["chat_id"]), int(bound["anchor_ts"]),
         int(bound["anchor_id"]), int(bound["oldest_ts"]),
         int(bound["oldest_id"]), int(bound["requested"]),
+        int(bound["available"]), max(0, int(processed)),
         int(after_ts), int(after_id),
         int(bound.get("exp") or (time.time() + _history_cursor_ttl())),
         str(bound.get("sample_id") or ""),
@@ -395,15 +403,18 @@ def _history_cursor_encode(bound: dict, after_ts: int, after_id: int) -> str:
     token = base64.urlsafe_b64encode(payload.encode("ascii")).decode("ascii").rstrip("=")
     sig = hmac.new(_HISTORY_CURSOR_KEY, payload.encode("ascii"),
                    hashlib.sha256).hexdigest()[:16]
-    return f"v1.{token}.{sig}"
+    return f"v2.{token}.{sig}"
 
 
 def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]:
     """Разбор + проверка cursor. (None, reason) при отказе — fail closed:
     путь B и дефолт 50 запрещены (архконтракт §1). Чужой chat_id и битая
-    подпись неотличимы для caller'а — оба ``unknown_cursor``."""
+    подпись неотличимы для caller'а — оба ``unknown_cursor``. Только формат
+    v2 (с захваченными available/processed): payload старой сборки (v1,
+    без счётчиков выборки) → ``unknown_cursor`` — молчаливое чтение по
+    уменьшенному окну запрещено (ревью H14)."""
     parts = str(cursor or "").strip().split(".")
-    if len(parts) != 3 or parts[0] != "v1" or not parts[1] or not parts[2]:
+    if len(parts) != 3 or parts[0] != "v2" or not parts[1] or not parts[2]:
         return None, "unknown_cursor"
     try:
         pad = "=" * (-len(parts[1]) % 4)
@@ -415,19 +426,24 @@ def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]
     if not hmac.compare_digest(expected, parts[2]):
         return None, "unknown_cursor"
     fields = payload.split("|")
-    if len(fields) != 11 or fields[0] != "v1":
+    if len(fields) != 13 or fields[0] != "v2":
         return None, "unknown_cursor"
     try:
         cur_chat = int(fields[1])
         anchor_ts, anchor_id = int(fields[2]), int(fields[3])
         oldest_ts, oldest_id = int(fields[4]), int(fields[5])
         requested = int(fields[6])
-        after_ts, after_id = int(fields[7]), int(fields[8])
-        exp = int(fields[9])
+        available, processed = int(fields[7]), int(fields[8])
+        after_ts, after_id = int(fields[9]), int(fields[10])
+        exp = int(fields[11])
     except (TypeError, ValueError):
         return None, "unknown_cursor"
-    sample_id = fields[10]
+    sample_id = fields[12]
     if not sample_id.startswith("hs_") or len(sample_id) != 15:
+        return None, "unknown_cursor"
+    # Счётчики выборки обязательны и согласованы; кривые значения — отказ,
+    # не «лучшая догадка» (fail closed).
+    if available < 1 or processed < 0 or processed > available:
         return None, "unknown_cursor"
     if cur_chat != int(chat_id):
         return None, "unknown_cursor"
@@ -436,7 +452,8 @@ def _history_cursor_decode(cursor: str, chat_id: int) -> tuple[dict | None, str]
     return {
         "chat_id": cur_chat, "anchor_ts": anchor_ts, "anchor_id": anchor_id,
         "oldest_ts": oldest_ts, "oldest_id": oldest_id,
-        "requested": requested, "after_ts": after_ts, "after_id": after_id,
+        "requested": requested, "available": available,
+        "processed": processed, "after_ts": after_ts, "after_id": after_id,
         "exp": exp, "sample_id": sample_id,
     }, ""
 
@@ -563,9 +580,11 @@ async def capture_history_sample(db, chat_id: int, requested: int) -> dict | Non
     }
 
 
-async def _history_count_in_window(db, bound: dict, up_to: tuple | None):
+async def _history_count_in_window(db, bound: dict, up_to: tuple | None,
+                                   after: tuple | None = None):
     """COUNT строк окна выборки (метаданные). ``up_to=(ts, id)`` — только
-    строки не позже точки (для processed). Коннект недоступен → None."""
+    строки не позже точки; ``after=(ts, id)`` — только строки строго после
+    точки (выжившие остатки для H14). Коннект недоступен → None."""
     params: list = [int(bound["chat_id"]), _bound_int(bound["anchor_ts"]),
                     _bound_int(bound["anchor_ts"]), _bound_int(bound["anchor_id"]),
                     _bound_int(bound["oldest_ts"]), _bound_int(bound["oldest_ts"]),
@@ -574,6 +593,9 @@ async def _history_count_in_window(db, bound: dict, up_to: tuple | None):
     if up_to is not None:
         sql += " AND (timestamp < ? OR (timestamp = ? AND id <= ?))"
         params.extend([up_to[0], up_to[0], up_to[1]])
+    if after is not None:
+        sql += " AND (timestamp > ? OR (timestamp = ? AND id > ?))"
+        params.extend([after[0], after[0], after[1]])
     try:
         row = await _history_probe_row(db, sql, tuple(params))
     except (TypeError, AttributeError):
@@ -3350,39 +3372,56 @@ class ToolRouter:
                                 cursor_raw: str) -> str:
         """Продолжение по cursor: проверка подписи/чата/срока/якоря — fail
         closed (архконтракт §1). Следующая страница перечитывается из БД тем
-        же предикатом; тел между вызовами не хранится."""
+        же предикатом; тел между вызовами не хранится. Счётчики выборки
+        (available/processed) берутся из подписанного cursor, а не живым
+        COUNT: иначе удалённые между страницами строки молча ужали бы
+        выборку до «полной» (ревью H14). Обещанный остаток сверяется с
+        живыми строками после точки курсора; выживших меньше обещанного →
+        incomplete=1/reason=tail_missing, строки всё равно отдаются."""
         fields, reason = _history_cursor_decode(cursor_raw, ctx.chat_id)
         if fields is None:
             raise _HistoryCursorError(reason or "unknown_cursor")
         if not await _history_anchor_exists(db, fields):
             raise _HistoryCursorError("anchor_missing")
         after = (fields["after_ts"], fields["after_id"])
-        processed_before = await _history_count_in_window(db, fields, up_to=after)
-        if processed_before is None:
+        processed_before = int(fields["processed"])
+        expected_remaining = max(0, int(fields["available"]) - processed_before)
+        survivors_after = await _history_count_in_window(db, fields,
+                                                         up_to=None, after=after)
+        if survivors_after is None:
             # Счётчики без БД не выдумываются: честный структурированный отказ.
-            raise _HistoryCursorError("db_error")
-        available_now = await _history_count_in_window(db, fields, up_to=None)
-        if available_now is None:
             raise _HistoryCursorError("db_error")
         bound = {
             "sample_id": fields["sample_id"], "chat_id": fields["chat_id"],
             "anchor_ts": fields["anchor_ts"], "anchor_id": fields["anchor_id"],
             "oldest_ts": fields["oldest_ts"], "oldest_id": fields["oldest_id"],
             "requested": fields["requested"],
-            "available": max(0, min(fields["requested"], available_now)),
+            "available": int(fields["available"]),  # захваченный available
             "exp": fields["exp"],
         }
         page = await self._history_read_page(db, bound, after=after)
         return self._format_history_page(bound, page,
-                                         processed_before=processed_before)
+                                         processed_before=processed_before,
+                                         expected_remaining=expected_remaining,
+                                         survivors_after=survivors_after)
 
     def _format_history_page(self, bound: dict, page: dict,
-                             *, processed_before: int) -> str:
+                             *, processed_before: int,
+                             expected_remaining: int | None = None,
+                             survivors_after: int | None = None) -> str:
         """Голова @@HISTORY_SAMPLE (компактная, стабильная, разбирается кодом,
         без текста сообщений) + канонические строки целых сообщений +
         хвостовой сентинел (не «…», чтобы tool_result не помечал truncated).
         Отдельная страница никогда не подаётся как полная выборка: при
-        has_next=1 / incomplete=1 это видно в голове (REQ-HA-PAGES-NOT-FULL)."""
+        has_next=1 / incomplete=1 это видно в голове (REQ-HA-PAGES-NOT-FULL).
+
+        ``expected_remaining``/``survivors_after`` — только на продолжении по
+        cursor: обещанный остаток выборки (из подписанного cursor) против
+        живого числа строк после точки курсора. Живых строк меньше
+        обещанных → incomplete=1/reason=tail_missing; выжившие строки всё
+        равно отдаются, счётчик processed не пересчитывается живым COUNT —
+        потеря названа, не скрыта (ревью H14). Первая страница поведение не
+        меняет (H7: короткий архив честно полон)."""
         fetched = int(page.get("fetched") or 0)
         processed = processed_before + fetched
         available = _bound_int(bound.get("available"), 0)
@@ -3390,7 +3429,22 @@ class ToolRouter:
         has_next = remaining > 0 and fetched > 0
         incomplete = 0
         reason = ""
-        if fetched == 0 and remaining > 0:
+        if expected_remaining is not None and survivors_after is not None:
+            if survivors_after < expected_remaining:
+                # H14: часть недочитанного хвоста удалена из БД (retention)
+                # — promised остаток выборки недостижим, неполнота объявлена
+                # явно; выжившие строки ниже всё равно отдаются.
+                incomplete = 1
+                reason = "tail_missing"
+            # has_next — по живым строкам: цепочка дочитывает выживших,
+            # потеря уже названа в этой голове.
+            has_next = fetched > 0 and survivors_after > fetched
+            if fetched == 0 and remaining > 0 and incomplete == 0:
+                # Гонка: окно опустело между COUNT и чтением страницы.
+                has_next = False
+                incomplete = 1
+                reason = "anchor_missing"
+        elif fetched == 0 and remaining > 0:
             # Остаток выборки исчез из БД (retention) — честная неполнота,
             # молчаливого обрыва нет (REQ-HA-INCOMPLETENESS-REPORTING).
             has_next = False
@@ -3401,7 +3455,8 @@ class ToolRouter:
             to_ts, _, to_id = str(page["page_to"]).partition(":")
             # Свежий захват: exp = сейчас + TOOL_CHAIN_TIMEOUT_SECONDS;
             # продолжение наследует срок исходной выборки (не новый TTL).
-            cursor_field = _history_cursor_encode(bound, int(to_ts), int(to_id))
+            cursor_field = _history_cursor_encode(bound, int(to_ts), int(to_id),
+                                                  processed)
         header = "\n".join((
             _HISTORY_SAMPLE_HEADER,
             f"sample_id={bound.get('sample_id') or ''}",
