@@ -23,6 +23,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from config.settings import settings
 from services import chat_params
 from services import claim_envelope as _ce
 from services import hot_config as hot
@@ -46,6 +47,7 @@ from services.prompt_style_blocks import (
     compose_verbalizer_system,
 )
 from services.summary_aliases import AliasResolver
+from services.token_counter import count_tokens, safe_budget
 from services.tool_router import (
     ToolContext,
     ToolDeps,
@@ -874,6 +876,129 @@ class TestComposerOffBannerPlacement:
         assert "конспект прошлого фона" in global_block
         assert HA_INRANGE_TAIL_LABEL not in lines
         assert global_block.count("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ") == 1
+
+
+# ── блокер review-w4-fix4: штатный потолок — пересчёт выживших строк окна ───
+
+def _max_tokens_for_budget(budget: int) -> int:
+    """max_tokens, дающий safe_budget ровно ``budget`` (множитель запаса —
+    из дефолтов стенда; hot-кэш сброшен фикстурой)."""
+    mult = float(hot.get("models.token_safety_multiplier",
+                         settings.TOKEN_SAFETY_MULTIPLIER))
+    start = max(1, int(budget * mult) - 3)
+    for mt in range(start, start + 8):
+        if safe_budget(mt) == budget:
+            return mt
+    raise AssertionError(f"safe_budget не достигает {budget}")
+
+
+class TestStandardCeilingBoundaryRecount:
+    """Блокер review-w4-fix4: ШТАТНАЯ ветка усечения (шаг 1 —
+    trim_verbatim_lines под потолком; keep-head резерв не запускается).
+    Существующие тесты переполнения берут крошечный потолок и попадают в
+    другую ветку, поэтому дефект не ловили. До фикса счёт выживших строк
+    окна не пересчитывался после штатного трима: граница in-range региона
+    вставала ВНУТРИ выживших дословных строк окна (часть in-range
+    сообщений под баннером, дубль строки) или оставалась пустой при
+    полностью срезанном хвосте. Родитель 6d800b07 в обоих стендах вёл
+    себя верно (граница перед всеми выжившими / границы нет вовсе)."""
+
+    async def _block(self, window, summary, budget):
+        helper = TestComposerOffBannerPlacement()
+        return await helper._global_block(
+            window, summary, with_sample=True,
+            max_tokens=_max_tokens_for_budget(budget))
+
+    @staticmethod
+    def _rendered(window):
+        """Точные канонические строки окна тем же рендером, что в
+        _build_global_context (для экзакт-замеров счётчиком токенов)."""
+        probe, _dcs = _off_service(window, None)
+        return [probe._context_row_line(row, {}) for row in window]
+
+    @staticmethod
+    def _head_units(summary: str) -> int:
+        """Мера head-региона («фон: конспект из 7 сообщений…» + конспект)
+        тем же счётчиком, что в _build_global_context."""
+        return count_tokens("фон: конспект из 7 сообщений, "
+                            "ниже дословно свежий хвост\n" + summary)
+
+    @pytest.mark.asyncio
+    async def test_partial_trim_boundary_before_first_survivor(self):
+        """5699→4347-стиль: потолок срезает ЧАСТЬ строк окна штатным
+        тримом. Граница — перед ПЕРВОЙ выжившей строкой окна; до границы
+        дословных строк нет; выжившие строки не дублируются."""
+        words = ("ОДИН", "ДВА", "ТРИ", "ЧЕТЫРЕ", "ПЯТЬ")
+        window = [_window_row(10, "вася",
+                              f"дословное сообщение окна {w} " + "х" * 120,
+                              500 + i, 7 + i)
+                  for i, w in enumerate(words)]
+        summary = "фон-конспект прошлого " * 4
+        rendered = self._rendered(window)
+        head_units = self._head_units(summary)
+        join_m = {m: count_tokens("\n".join(rendered[-m:]))
+                  for m in (2, 3, 4, 5)}
+        # выживают ровно 3 строки  ⇔  mu = budget − head ∈ [join_3, join_4)
+        low = head_units + join_m[3]
+        high = head_units + join_m[4]
+        assert high - low >= 8, "строки окна слишком коротки для стенда"
+        budget = (low + high) // 2
+        assert head_units + join_m[5] > budget, \
+            "штатное усечение не запускается — стенд неверен"
+        blocks = await self._block(
+            window, {"summary": summary, "raw_count": 7, "window_end_ts": 0},
+            budget)
+        global_block = next(t for k, t in blocks if k == "global")
+        lines = global_block.splitlines()
+        assert lines[1].startswith("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ hs_ab12cd34ef56")
+        assert HA_INRANGE_TAIL_LABEL in lines, "граница потеряна"
+        idx_boundary = lines.index(HA_INRANGE_TAIL_LABEL)
+        for marker in ("ОДИН", "ДВА"):
+            assert not any(marker in ln for ln in lines), \
+                "строка окна пережила штатный трим — стенд не в той ветке"
+        for marker in ("ТРИ", "ЧЕТЫРЕ", "ПЯТЬ"):
+            hits = [i for i, ln in enumerate(lines) if marker in ln]
+            assert len(hits) == 1, \
+                f"выжившая строка окна задублирована/потеряна: {marker}"
+            assert hits[0] > idx_boundary, \
+                f"строка окна до граничной строки (под баннером): {marker}"
+        supplement = "\n".join(lines[:idx_boundary])
+        for marker in ("ТРИ", "ЧЕТЫРЕ", "ПЯТЬ"):
+            assert marker not in supplement, \
+                "дословная строка окна в регионе дополнения"
+
+    @pytest.mark.asyncio
+    async def test_fully_trimmed_tail_emits_no_boundary(self):
+        """4532→4347-стиль: потолок срезает хвост окна ЦЕЛИКОМ (конспект
+        сам помещается в бюджет). Граничной строки нет вовсе — пустой
+        in-range регион («дословные сообщения диапазона» без единой
+        строки) запрещён; родитель 6d800b07 границы не ставил."""
+        window = [_window_row(10, "вася",
+                              "МАРКЕРПОЛНЫЙПЕРВЫЙ " + "х" * 300, 500, 7),
+                  _window_row(11, "петя",
+                              "МАРКЕРПОЛНЫЙВТОРОЙ " + "х" * 300, 510, 8)]
+        summary = "фон-конспект прошлого " * 4
+        rendered = self._rendered(window)
+        head_units = self._head_units(summary)
+        line_units = count_tokens(rendered[0])
+        tail_join = count_tokens("\n".join(rendered))
+        # mu = budget − head < line_units ⇒ обе строки уходят целиком;
+        # budget ≥ head ⇒ keep-head резерв не запускается
+        budget = head_units + max(1, line_units // 2)
+        assert head_units + tail_join > budget, \
+            "штатное усечение не запускается — стенд неверен"
+        blocks = await self._block(
+            window, {"summary": summary, "raw_count": 7, "window_end_ts": 0},
+            budget)
+        global_block = next(t for k, t in blocks if k == "global")
+        lines = global_block.splitlines()
+        assert HA_INRANGE_TAIL_LABEL not in lines, \
+            "пустая граничная строка: хвост окна срезан целиком"
+        assert global_block.count("ДОПОЛНЕНИЕ ВНЕ ВЫБОРКИ") == 1
+        assert "фон-конспект прошлого" in global_block, "конспект потерян"
+        for marker in ("МАРКЕРПОЛНЫЙПЕРВЫЙ", "МАРКЕРПОЛНЫЙВТОРОЙ"):
+            assert marker not in global_block, \
+                "строка окна пережила штатный трим — стенд не в той ветке"
 
 
 # ── блокер 4: system2 Stage-2 получает assembly-блок при выборке ────────────
