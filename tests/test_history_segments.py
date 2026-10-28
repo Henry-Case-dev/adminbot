@@ -20,10 +20,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from config.settings import settings
 from services.database import DatabaseService
 from services.direct_chat_service import (
     _HISTORY_COVERAGE_END,
     _HISTORY_COVERAGE_HEADER,
+    _history_body_lines,
     _history_line_item_id,
     DirectChatService,
 )
@@ -249,6 +251,53 @@ class TestBoundaryContinuity:
         assert "continues_from=1" in target[0]
 
     @pytest.mark.asyncio
+    async def test_intra_page_cut_reply_keeps_connection(self):
+        """Разрез слотом ВНУТРИ уже доставленной страницы (страница одна,
+        has_next=0): сообщение 111 отвечает на 110, разрез падает между
+        ними — continues_from ставится и здесь, а не только на стыке
+        страниц (REQ-HA-SEG-COVERAGE / H16; complete=1 без связи
+        невозможен)."""
+        db = DatabaseService(":memory:")
+        await db.initialize()
+        pad = "х" * 180
+        # tg-ids 100..139 — одна страница 40 строк, все строки одной длины;
+        # ответы ровно на первых сообщениях сегментов 2 и 3 (111, 122)
+        for i in range(100, 140):
+            reply = 110 if i == 111 else (121 if i == 122 else None)
+            await db.db.execute(
+                "INSERT INTO smart_messages "
+                "(user_id, chat_id, text, timestamp, media_type, "
+                "author_name, reply_to_id, tg_message_id) "
+                "VALUES (1, ?, ?, ?, 'text', 'автор', ?, ?)",
+                (CHAT_ID, f"{pad} сообщение {i}", i, reply, i))
+        await db.db.commit()
+        llm = SegmentLLM()
+        service = _service(db, llm)
+        ctx, raw = await _make_turn(db, 40)
+        page = raw.evidence_sources[0].content
+        assert parse_head(page)["has_next"] == "0"    # разрез внутри страницы
+        lines = _history_body_lines(page)
+        assert len(lines) == 40
+        # слот ровно по 11 строк страницы → разрез между tg:110 и tg:111
+        slot = sum(len(ln) + 1 for ln in lines[:11])
+        block = await service.collect_history_segments(
+            ctx, raw, slot_chars=slot, chat_id=CHAT_ID)
+        assert block is not None
+        fields, seg_lines, _ = _coverage(block)
+        assert fields["complete"] == "1"
+        match1 = re.match(r"seg 1 tg:(\d+)\.\.tg:(\d+) ", seg_lines[0])
+        match2 = re.match(r"seg 2 tg:(\d+)\.\.tg:(\d+) ", seg_lines[1])
+        match3 = re.match(r"seg 3 tg:(\d+)\.\.tg:(\d+) ", seg_lines[2])
+        assert match1 and match2 and match3, seg_lines[:3]
+        # guard: разрезы действительно на 110|111 и 121|122 (внутри страницы)
+        assert (int(match1.group(2)), int(match2.group(1))) == (110, 111)
+        assert int(match3.group(1)) == 122
+        # 111 отвечает на 110 → связь через границу поставлена кодом
+        assert "continues_from=1" in seg_lines[1]
+        # 122 отвечает на 121 → вторая внутристраничная связь
+        assert "continues_from=2" in seg_lines[2]
+
+    @pytest.mark.asyncio
     async def test_boundary_context_lines_present_in_prompt(self):
         """Промпт второго сегмента несёт хвост предыдущего как контекст
         границы (детерминированная сшивка)."""
@@ -419,9 +468,11 @@ class TestSegmentFailure:
     async def test_wallclock_deadline_keeps_collected_marks_timeout(
             self, monkeypatch):
         """Истечение wall-clock цикла: собранное сохраняется, complete=0,
-        reason=timeout; отмена не глотается (нет CancelledError-перехвата)."""
-        monkeypatch.setattr(
-            "services.direct_chat_service.TOOL_CHAIN_TIMEOUT_SECONDS", 0.3)
+        reason=timeout; отмена не глотается (нет CancelledError-перехвата).
+        Дедлайн читает НАСТРОЕННЫЙ таймаут цепочки (тот же резолв, что у
+        cursor волны 2), а не константу в обход настройки."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
+                            0.3)
         db = await _make_db(120)
         llm = SegmentLLM(delay=0.2)
         service = _service(db, llm)
@@ -434,6 +485,66 @@ class TestSegmentFailure:
         assert fields["reason"] == "timeout"
         assert len(seg_lines) >= 1             # собранное сохранено
         assert fields["processed"] != "0"
+
+    @pytest.mark.asyncio
+    async def test_deadline_before_first_segment_keeps_page_parity(
+            self, monkeypatch):
+        """Дедлайн до первого сегмента: уже полученная страница волны 2
+        (raw @@HISTORY_SAMPLE + курсор) сохраняется, метод вернул None,
+        sources не тронуты — пустое @@HISTORY_COVERAGE не подставляется
+        (REQ-HA-SEG-DEGRADE / §6.2 паритет)."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
+                            0.05)
+        pad = "х" * 200
+        db = await _make_db(20, texts=[f"{pad} м{i}" for i in range(1, 21)])
+        llm = SegmentLLM(delay=2.0)
+        service = _service(db, llm)
+        ctx, raw = await _make_turn(db, 20)
+        before = raw.evidence_sources[0].content
+        result = await service.collect_history_segments(
+            ctx, raw, slot_chars=500, chat_id=CHAT_ID)
+        assert result is None                  # паритет: не пустое покрытие
+        assert raw.evidence_sources[0].content == before
+        # честная голова волны 2 на месте (страховка курсора не стёрта)
+        assert raw.evidence_sources[0].content.startswith("@@HISTORY_SAMPLE")
+        assert len(llm.calls) == 1             # попытка была — результатов нет
+
+    @pytest.mark.asyncio
+    async def test_segment_deadline_reads_configured_chain_timeout(
+            self, monkeypatch):
+        """Сегментный дедлайн следует настроенному таймауту цепочки (тот же
+        резолв, что у cursor): настройка 0.05 останавливает цикл после
+        первого успешного сегмента (reason=timeout); при обходе настройки
+        (константа 360) цикл дошёл бы до конца со complete=1."""
+        monkeypatch.setattr(type(settings), "MCA_TOOL_CHAIN_TIMEOUT_SECONDS",
+                            0.05)
+        pad = "х" * 200
+        db = await _make_db(40, texts=[f"{pad} м{i}" for i in range(1, 41)])
+
+        class SlowAfterFirstLLM:
+            """Первый сегмент успевает, последующие вызовы дольше дедлайна."""
+
+            def __init__(self):
+                self.calls = []
+
+            async def generate(self, messages, **kw):
+                idx = len(self.calls)
+                self.calls.append(messages[0]["content"])
+                if idx >= 1:
+                    await asyncio.sleep(2.0)
+                return '{"events":[],"status":"ok"}'
+
+        llm = SlowAfterFirstLLM()
+        service = _service(db, llm)
+        ctx, raw = await _make_turn(db, 40)
+        block = await service.collect_history_segments(
+            ctx, raw, slot_chars=2500, chat_id=CHAT_ID)
+        assert block is not None
+        fields, seg_lines, _ = _coverage(block)
+        assert fields["complete"] == "0"
+        assert fields["reason"] == "timeout"
+        assert len(seg_lines) >= 1             # первый сегмент собран
+        assert len(llm.calls) == 2             # второй прерван по настройке
 
     @pytest.mark.asyncio
     async def test_cancelled_error_propagates(self):

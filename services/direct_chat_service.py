@@ -213,8 +213,8 @@ from services.system2_handoff import (
     stage2_payload,
 )
 from services.tool_loop import (
-    TOOL_CHAIN_TIMEOUT_SECONDS,
     ToolLoopResult,
+    _chain_timeout_seconds,
     chat_with_tools,
 )
 # ── P0-HA SEGMENTS (архконтракт §0/§2): захват/парсинг выборки — reuse ──────
@@ -4737,14 +4737,18 @@ class DirectChatService:
         сообщения. Перекрытие границы — 2 сообщения как boundary-контекст
         соседа; повторно увиденные item_id учитываются mentions, а не
         новыми событиями (H17); связь через границу ставит КОД по
-        reply_to_id (continues_from), модель связь не изобретает. Провал
+        reply_to_id (continues_from) — и на стыке страниц, и при разрезе
+        внутри доставленной страницы (точечные метаданные reply_to_id по
+        уже известному item_id), модель связь не изобретает. Провал
         сегмента — честная failed-строка, остальные сохраняются (H19/§6.2);
-        дедлайн цикла — существующий TOOL_CHAIN_TIMEOUT_SECONDS, отмена
-        пробрасывается. Результат — блок @@HISTORY_COVERAGE головой в
+        дедлайн цикла — тот же резолв таймаута цепочки, что у курсора
+        волны 2 (настройка MCA_TOOL_CHAIN_TIMEOUT_SECONDS, иначе
+        TOOL_CHAIN_TIMEOUT_SECONDS), отмена пробрасывается. Результат —
+        блок @@HISTORY_COVERAGE головой в
         существующий EvidenceSource инструмента get_recent_history (сырой
         текст страниц из source убирается — иначе пакер piece[:floor]
-        молча теряет хвост). Полный сбой сегментного пути → None, sources
-        не тронуты (текущее поведение — страницы/курсор волны 2 как
+        молча теряет хвост). Полный сбой или дедлайн до первого сегмента →
+        None, sources не тронуты (страницы/курсор волны 2 как
         страховка). Логи — только счётчики и sample_id (R17). Никогда не
         бросает, кроме CancelledError."""
         bound = getattr(tool_ctx, "history_sample", None) \
@@ -4775,7 +4779,7 @@ class DirectChatService:
         if has_next and not self._history_tail_reader_ready():
             return None              # хвост недочитываем → паритет волны 2
 
-        deadline = time.monotonic() + TOOL_CHAIN_TIMEOUT_SECONDS
+        deadline = time.monotonic() + _chain_timeout_seconds()
         segments: list = []          # готовые состояния сегментов
         owner_of: dict = {}          # item_id -> (seg_no, event_index)
         llm_calls = 0
@@ -4804,8 +4808,17 @@ class DirectChatService:
                 "status": "ok", "reason": "", "continues_from": 0,
                 "oversize": 1 if (len(ents) == 1 and chars > slot) else 0,
             }
-            if prev is not None and ents and ents[0]["row"] is not None:
-                reply_to = ents[0]["row"].get("reply_to_id")
+            if prev is not None and ents:
+                row = ents[0]["row"]
+                reply_to = (row.get("reply_to_id")
+                            if row is not None else None)
+                if reply_to is None and row is None:
+                    # Разрез слотом ВНУТРИ доставленной страницы: строки
+                    # идут без row — reply_to_id берётся точечными
+                    # метаданными по уже известному item_id (один скалярный
+                    # SELECT; не вторая копия истории и не вызов модели).
+                    reply_to = await self._history_reply_target(
+                        ents[0]["item_id"], chat_id=chat_id)
                 if reply_to and (f"tg:{reply_to}" in prev["ids"]
                                  or f"msg:{reply_to}" in prev["ids"]):
                     state["continues_from"] = prev["no"]
@@ -4912,6 +4925,14 @@ class DirectChatService:
             if cur:
                 await _flush(cur, cur_chars, ())
         except _Deadline:
+            if not segments:
+                # §6.2: дедлайн до первого сегмента — паритет: страница
+                # волны 2 (raw @@HISTORY_SAMPLE + курсор) остаётся
+                # страховкой, sources не тронуты; пустое покрытие вместо
+                # уже полученного контента не подставляется.
+                logger.warning("[direct] history segments deadline before "
+                               "first segment | chat=%s", chat_id)
+                return None
             complete = False
             reason = reason or "timeout"
         except asyncio.CancelledError:
@@ -4958,6 +4979,38 @@ class DirectChatService:
             llm_calls, total_rows, processed, available,
             1 if complete else 0, reason, len(block))
         return block
+
+    async def _history_reply_target(self, item_id, *,
+                                    chat_id: int) -> int | None:
+        """Точечные метаданные связи (H16): reply_to_id сообщения по уже
+        известному item_id строки доставленной страницы (страницы в source
+        идут без row). Один скалярный SELECT — не вторая копия истории и
+        не вызов модели. Нет id/БД/строки или сбой → None (связи нет —
+        прежнее правило; никогда не бросает, кроме CancelledError)."""
+        match = re.fullmatch(r"(tg|msg):(\d+)", str(item_id or ""))
+        if match is None:
+            return None
+        db = self.db
+        if db is None or not hasattr(db, "db"):
+            return None
+        column = "tg_message_id" if match.group(1) == "tg" else "id"
+        try:
+            cursor = await asyncio.wait_for(
+                db.db.execute(
+                    f"SELECT reply_to_id FROM smart_messages "
+                    f"WHERE chat_id = ? AND {column} = ? LIMIT 1",
+                    (int(chat_id), int(match.group(2)))),
+                timeout=_HISTORY_TOOL_TIMEOUT)
+            row = await cursor.fetchone()
+        except Exception:
+            logger.debug("[direct] history reply metadata failed | chat=%s",
+                         chat_id, exc_info=True)
+            return None
+        value = row["reply_to_id"] if row is not None else None
+        try:
+            return int(value) if value else None
+        except (TypeError, ValueError):
+            return None
 
     def _history_tail_reader_ready(self) -> bool:
         """Доступен ли существующий keyset-читатель волны 2 для недочитан-
