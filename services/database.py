@@ -7574,7 +7574,9 @@ class DatabaseService:
         cursor = await self.db.execute(sql, (chat_id, older_than_ts, limit))
         return await cursor.fetchall()
 
-    async def get_recent_messages(self, chat_id: int, limit: int) -> list:
+    async def get_recent_messages(self, chat_id: int, limit: int, *,
+                                  anchor: tuple | None = None,
+                                  after: tuple | None = None) -> list:
         """Epic 65: ПОСЛЕДНИЕ limit сообщений чата, хронологически (ASC).
         Для chat_context фактчека/поиска (обогащение контекста вокруг цели).
 
@@ -7583,7 +7585,16 @@ class DatabaseService:
         дают стабильные «последние N»). limit > _RECENT_MESSAGES_PAGE_SIZE
         читается постранично keyset-курсором по (timestamp, id) — страницы
         агрегируются ровно до min(доступно, limit); новый общий потолок
-        выборки НЕ вводится. Возвращаемый порядок — ASC (как раньше)."""
+        выборки НЕ вводится. Возвращаемый порядок — ASC (как раньше).
+
+        P0-HA TRUNC-PAGES (архконтракт §1, узкое расширение write scope —
+        только эти kwargs, второй reader запрещён): ``anchor`` задаёт
+        фиксированное окно выборки ``(anchor_ts, anchor_id, oldest_ts,
+        oldest_id)`` (оба края включительно) — чтение идёт ВПЕРЁД по ASC с
+        LIMIT = limit (одна страница инструмента, целые сообщения);
+        ``after=(after_ts, after_id)`` — точка продолжения (строго позже
+        неё). Дефолты None — прежнее поведение «последние N» байт-в-байт
+        (DESC-чтение + reverse), прочие вызывающие не затронуты."""
         try:
             total = int(limit)
         except (TypeError, ValueError):
@@ -7595,6 +7606,29 @@ class DatabaseService:
             "is_forward, forward_source, tg_message_id "
             "FROM smart_messages WHERE chat_id = ? "
         )
+        if anchor is not None:
+            # Окно выборки [oldest..anchor] включительно, ASC вперёд.
+            if (not isinstance(anchor, (tuple, list)) or len(anchor) != 4):
+                raise ValueError("anchor must be (ts, id, ts, id)")
+            try:
+                a_ts, a_id, o_ts, o_id = (int(v) for v in anchor)
+            except (TypeError, ValueError):
+                raise ValueError("anchor must contain 4 ints") from None
+            sql += ("AND (timestamp < ? OR (timestamp = ? AND id <= ?)) "
+                    "AND (timestamp > ? OR (timestamp = ? AND id >= ?)) ")
+            params: list = [chat_id, a_ts, a_ts, a_id, o_ts, o_ts, o_id]
+            if after is not None:
+                if not isinstance(after, (tuple, list)) or len(after) != 2:
+                    raise ValueError("after must be (ts, id)")
+                try:
+                    f_ts, f_id = (int(v) for v in after)
+                except (TypeError, ValueError):
+                    raise ValueError("after must contain 2 ints") from None
+                sql += ("AND (timestamp > ? OR (timestamp = ? AND id > ?)) ")
+                params.extend([f_ts, f_ts, f_id])
+            cursor = await self.db.execute(
+                sql + "ORDER BY timestamp ASC, id ASC LIMIT ?", params + [total])
+            return await cursor.fetchall()
         if total <= _RECENT_MESSAGES_PAGE_SIZE:
             cursor = await self.db.execute(
                 sql + "ORDER BY timestamp DESC, id DESC LIMIT ?",

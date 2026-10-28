@@ -8,9 +8,9 @@ REQ-HA-DEPTH-DEFAULT, REQ-HA-DEPTH-PASSTHROUGH, REQ-HA-DEPTH-PAGES,
 REQ-HA-DEPTH-NO-GLOBAL-MAX, REQ-HA-DEPTH-OVERSIZE-GRACE,
 REQ-HA-P01-NO-CONSTANT-SWAP. SQLite in-memory / mocks, без сети.
 
-Не входит в срез (владельцы TRUNC-PAGES/SEGMENTS): символьная усечка
-результата (осталась как есть), continuation-поля tool-result, сегменты,
-изоляция диапазона."""
+Не входит в срез (владельцы SEGMENTS/ISOLATION): continuation-поля
+заголовка проверяются в tests/test_history_pages.py (волна TRUNC-PAGES),
+сегменты, изоляция диапазона."""
 import asyncio
 import logging
 import time
@@ -24,6 +24,7 @@ from services.tool_router import (
     _HISTORY_DEFAULT_DEPTH,
     _HISTORY_TOOL_TIMEOUT,
     _history_depth,
+    parse_history_sample,
     ToolContext,
     ToolDeps,
     ToolRouter,
@@ -86,11 +87,20 @@ class TestDepthPassthrough:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("depth", [200, 400, 2000, 5000])
     async def test_dispatch_passes_depth_unchanged(self, depth):
+        """Passthrough: запрошенный depth доходит до reader БД неизменным
+        (TRUNC-PAGES: захват границы — anchor-проба (chat, 1), затем чтение
+        объёма depth через fallback-путь duck-typed фейка без коннекта)."""
         db = MagicMock()
-        db.get_recent_messages = AsyncMock(return_value=[])
-        await ToolRouter(_deps(db=db)).dispatch(
+        db.get_recent_messages = AsyncMock(return_value=[
+            {"user_id": 1, "author_name": "вася", "text": "т",
+             "timestamp": 1, "media_type": "text", "chat_id": CHAT_ID,
+             "id": 1}])
+        out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": depth}, _ctx())
-        db.get_recent_messages.assert_awaited_once_with(CHAT_ID, depth)
+        assert any(c.args == (CHAT_ID, depth)
+                   for c in db.get_recent_messages.await_args_list)
+        fields = parse_history_sample(out)
+        assert fields["requested"] == depth      # без уменьшения до константы
 
     def test_default_50_when_absent_or_bad(self):
         """Дефолт 50 — только при отсутствии/кривом типе; он НЕ максимум."""
@@ -276,9 +286,13 @@ class TestTimeoutKept:
     async def test_depth_5000_still_under_timeout(self, monkeypatch):
         db = MagicMock()
 
-        async def slow(chat_id, limit):
-            assert limit == 5000                       # passthrough до отмены
-            await asyncio.sleep(1.0)
+        async def slow(chat_id, limit, **kwargs):
+            if limit == 5000:                       # passthrough до отмены
+                await asyncio.sleep(1.0)
+            if limit <= 1:
+                return [{"user_id": 1, "author_name": "в", "text": "т",
+                         "timestamp": 1, "media_type": "text",
+                         "chat_id": chat_id, "id": 1}]
             return []
 
         db.get_recent_messages = AsyncMock(side_effect=slow)
@@ -287,7 +301,8 @@ class TestTimeoutKept:
         out = await ToolRouter(_deps(db=db)).dispatch(
             "get_recent_history", {"depth": 5000}, _ctx())
         assert out == "ОШИБКА get_recent_history: timeout"
-        db.get_recent_messages.assert_awaited_once_with(CHAT_ID, 5000)
+        assert any(c.args == (CHAT_ID, 5000)
+                   for c in db.get_recent_messages.await_args_list)
 
     def test_timeout_constant_untouched(self):
         assert _HISTORY_TOOL_TIMEOUT == 10.0
@@ -299,6 +314,8 @@ class TestTimeoutKept:
 class TestLogCoverage:
     @pytest.mark.asyncio
     async def test_fetched_vs_returned_logged(self, caplog):
+        """TRUNC-PAGES: стр.1 из 60 доступных — fetched=40 (страница из БД),
+        честные processed/remaining/has_next в логе."""
         db = await _make_db([(i, f"т{i}") for i in range(60)])
         try:
             with caplog.at_level(logging.INFO):
@@ -306,10 +323,15 @@ class TestLogCoverage:
                     "get_recent_history", {"depth": 60}, _ctx())
         finally:
             await db.db.close()
+        fields = parse_history_sample(out)
+        assert fields["available"] == 60
+        assert fields["processed"] == 40 and fields["remaining"] == 20
         record = next(r for r in caplog.records
                       if "get_recent_history |" in r.message)
-        assert "fetched=60" in record.message
-        assert "count=60" in record.message
+        assert "fetched=40" in record.message
+        assert "count=40" in record.message
+        assert "remaining=20" in record.message
+        assert "has_next=1" in record.message
         assert "out_chars=" in record.message
 
     @pytest.mark.asyncio

@@ -341,8 +341,14 @@ TOOL_GET_RECENT_HISTORY = {
                         "pass the exact requested count ('last 400 messages' "
                         "→ depth=400, 'last 2000' → depth=2000); any "
                         "positive size is honored, there is no cap; OR query "
-                        "- search among the last hours' messages. This is "
-                        "exact chronology, NOT semantic RAG."),
+                        "- search among the last hours' messages. If the "
+                        "result header @@HISTORY_SAMPLE contains "
+                        "has_next=1, there are more messages of the SAME "
+                        "sample: call this tool again passing the cursor "
+                        "value from that header to get the next page; "
+                        "repeat until has_next=0. Do not pass cursor for a "
+                        "fresh request. This is exact chronology, NOT "
+                        "semantic RAG."),
         "parameters": {
             "type": "object",
             "properties": {
@@ -354,6 +360,14 @@ TOOL_GET_RECENT_HISTORY = {
                 "query": {"type": "string",
                           "description": ("Fragment/topic to search among "
                                           "recent messages (last hours).")},
+                "cursor": {"type": "string",
+                           "description": ("Opaque continuation token from "
+                                           "a previous result header "
+                                           "(@@HISTORY_SAMPLE). Pass it ONLY "
+                                           "when that header had has_next=1, "
+                                           "to fetch the next page of the "
+                                           "same sample; never combine with "
+                                           "a new request.")},
             },
             "additionalProperties": False,
         },
