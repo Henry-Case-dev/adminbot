@@ -509,6 +509,54 @@ DDL_STATEMENTS: tuple[str, ...] = (
     ALTER TABLE cover_style_profiles
         ADD COLUMN IF NOT EXISTS preview_job_id TEXT;
     """,
+    # ── EVOL-016 (30.10.2026): журнал версий/активаций промптов ────────────
+    # Дословный перенос `prompt_release_policy.JOURNAL_DDL` (4 выражения,
+    # интеграционная заметка plans/features/evol/audit/w2a-evol016.md §4 п.4):
+    # DDL выполняется и на инициализации пула (PgDatabase.init), ленивый
+    # ensure_journal остаётся совместимым путём (те же выражения,
+    # IF NOT EXISTS — повтор no-op). SQLite-шаг v39 — только книга схемы
+    # (services/database.py, _SCHEMA_VERSION_PROMPT_JOURNAL). R17: тела
+    # промптов — данные журнала, в DDL/логах их нет.
+    """
+    CREATE TABLE IF NOT EXISTS prompt_revisions (
+        revision_id        TEXT PRIMARY KEY,
+        block_id           TEXT NOT NULL,
+        pg_key             TEXT NOT NULL DEFAULT '',
+        scope              TEXT NOT NULL,
+        chat_id            BIGINT,
+        origin             TEXT NOT NULL,
+        content_sha12      TEXT NOT NULL,
+        body               TEXT NOT NULL,
+        factory_revision   TEXT NOT NULL DEFAULT '',
+        schema_compat      TEXT NOT NULL DEFAULT '',
+        release_id         TEXT NOT NULL DEFAULT '',
+        actor              TEXT NOT NULL DEFAULT '',
+        reason             TEXT NOT NULL DEFAULT '',
+        source_updated_at  TEXT NOT NULL DEFAULT '',
+        retired            BOOLEAN NOT NULL DEFAULT false,
+        created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_prompt_revisions_block "
+    "ON prompt_revisions (block_id, scope, created_at)",
+    """
+    CREATE TABLE IF NOT EXISTS prompt_activations (
+        activation_id              BIGSERIAL PRIMARY KEY,
+        block_id                   TEXT NOT NULL,
+        scope                      TEXT NOT NULL,
+        chat_id                    BIGINT,
+        revision_id                TEXT NOT NULL DEFAULT '',
+        factory_revision_applied   TEXT NOT NULL DEFAULT '',
+        kind                       TEXT NOT NULL,
+        outcome                    TEXT NOT NULL,
+        release_id                 TEXT NOT NULL DEFAULT '',
+        actor                      TEXT NOT NULL DEFAULT '',
+        detail_code                TEXT NOT NULL DEFAULT '',
+        created_at                 TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_prompt_activations_latest "
+    "ON prompt_activations (block_id, scope, activation_id DESC)",
 )
 
 # ── Сиды ────────────────────────────────────────────────────────────────────

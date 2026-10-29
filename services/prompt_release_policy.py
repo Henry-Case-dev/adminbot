@@ -23,10 +23,12 @@
   * ``activate_revision`` / ``list_versions`` / ``get_revision_source`` /
     ``diff_revisions`` — сервисный API для EVOL-017 (админка), без HTTP.
 
-Схема: DDL журнала самодостаточен и идемпотентен (``ensure_journal``) —
-до интеграции шага книги схемы (SQLite user_version 39, ``DDL_STATEMENTS``)
-модуль ничего не «полурегистрирует»: журнал либо создаётся этим идемпотентным
-DDL, либо честный no-op. Журнал НЕ дублирует активный текст как второй
+Схема: DDL журнала самодостаточен и идемпотентен (``ensure_journal``);
+интеграция книги схемы выполнена (заметка w2a-evol016.md §4): SQLite
+user_version 39 (``prompt_revision_journal_v39``), тот же DDL дословно
+перенесён в ``pg_db.DDL_STATEMENTS`` — таблицы создаются при инициализации
+пула, ленивый ``ensure_journal`` остаётся совместимым путём (те же
+выражения, повтор — no-op). Журнал НЕ дублирует активный текст как второй
 источник правды: пайплайны читают активные байты по-прежнему из
 ``bot_settings`` / chat-override; последняя строка ``prompt_activations``
 (``outcome ∈ {applied, skipped_same}``) — указатель «какая ревизия включена»
@@ -152,6 +154,7 @@ INSERT INTO prompt_activations (block_id, scope, chat_id, revision_id,
                                 factory_revision_applied, kind, outcome,
                                 release_id, actor, detail_code)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING activation_id
 """
 _LAST_APPLIED_SQL = """
 SELECT activation_id, revision_id, factory_revision_applied, kind

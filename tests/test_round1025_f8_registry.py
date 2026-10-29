@@ -144,8 +144,14 @@ ROUTES_SHA256_F11 = (
 #     Settings-backed temporal.* не сидился);
 #   * модульная `_seed_settings_into()` (тело сида — тестируемо без пула);
 #   * Δ DDL = 0 (DDL_STATEMENTS не менялись; инвариант D11-тестов).
+# EVOL-016 (30.10.2026): pg_db.py re-pin осознанно (L-F11S-1). Аддитивная
+# дельта: +4 выражения в конец DDL_STATEMENTS — журнал промптов
+# prompt_revisions/prompt_activations + 2 индекса (дословный
+# `prompt_release_policy.JOURNAL_DDL`; санкция интеграционной заметки
+# plans/features/evol/audit/w2a-evol016.md §4 п.4 — SERIALIZED-зона схемы).
+# Таблицы/сиды/роли не тронуты; SQLite v39 — только книга схемы.
 PG_DB_SHA256_B07 = (
-    "44f58924f4732d5b2c7f81245127d20c91448462cfb5042d4f86269c9fc8e35e")
+    "96ab81492b7359d3ff5bd3286b3bdb8400538adee0a11ed40d98a8d296914e31")
 
 # P0-followup / NOSTALGIA-FIX (18.10.2026, L-F11S-1): re-pin каталога —
 # изменён ТОЛЬКО description ключа `memory.nostalgia_enabled` (hot-включение

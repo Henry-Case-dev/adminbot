@@ -141,8 +141,10 @@ class TestDdl:
         # = 19; + 5 cover_style_* таблиц (round1028 EXTRA, ADR-1028-4 D1/D6/D7
         # — санкция Δ PG ≠ 0, Δ SQLite = 0) = 24;
         # + cover_style_connections (ASAP-3.2, ADR-1028-5 D14/§104 —
-        # connection model redesign, идемпотентно) = 25 × 2 запуска
-        assert len(create_tables) == 25 * 2
+        # connection model redesign, идемпотентно) = 25 × 2 запуска;
+        # + prompt_revisions/prompt_activations (EVOL-016, 30.10.2026 —
+        # дословный JOURNAL_DDL, санкция w2a-evol016.md §4 п.4) = 27 × 2.
+        assert len(create_tables) == 27 * 2
 
     @pytest.mark.asyncio
     async def test_init_without_seed_settings_no_settings_insert(self, fake_pool):

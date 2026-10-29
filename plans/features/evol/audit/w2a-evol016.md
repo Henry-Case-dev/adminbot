@@ -640,3 +640,97 @@ actor без checker'а → отказ; непустой actor без checker'а
   `entry_lives_inside_ai...` — все доказаны на базе 28d55bd1, §Приложение A/§6).
 * `compileall services` — exit 0.
 
+---
+
+# Приложение C (30.10.2026): §4 выполнена — интеграция v39 в books схемы
+
+Статус: **DONE** (лейн W2a-интеграция, ветка `evol/impl` @ `7492d325`, без
+коммитов). Все 4 пункта §4 реализованы дословно + попутный блокер.
+
+## C.1 Что сделано
+
+1. **Константа** `services/database.py`: `_SCHEMA_VERSION_PROMPT_JOURNAL = 39`
+   рядом с v38 (комментарий: PG-only данные, DDL — `pg_db.DDL_STATEMENTS`,
+   SQLite-шаг — только книга схемы, прецедент v35).
+2. **Шаг** `MigrationStep(_SCHEMA_VERSION_PROMPT_JOURNAL,
+   "prompt_revision_journal_v39", …)` в `_build_steps()` сразу после
+   `quote_metadata_v38`.
+3. **Метод** `DatabaseService._migrate_prompt_journal_v39` — SQLite no-op
+   (INFO-лог) + `PRAGMA user_version = 39` самим шагом (уточнение к черновику
+   §4: черновик `return None` не фиксирует user_version — раннер не ставит её
+   сам, шаг обязан, как v35/v38; иначе шаг переисполнялся бы на каждом
+   рестарте).
+4. **`pg_db.DDL_STATEMENTS`**: `prompt_release_policy.JOURNAL_DDL` перенесён
+   дословно (4 выражения, порядок тот же) в конец кортежа с комментарием
+   санкции; ленивый `ensure_journal` остаётся совместимым путём (те же
+   выражения, IF NOT EXISTS).
+5. **Docstring модуля** `prompt_release_policy` («Схема: …») переписан с
+   «до интеграции… честный no-op» на выполненное состояние: таблицы создаются
+   при инициализации пула (`ConfigCache.init` → `PgDatabase.init` →
+   `_pg_available=True` → `default_journal` находит журнал), ленивый путь
+   совместим.
+
+## C.2 Попутный блокер — найден и исправлен (одна строка)
+
+`_INSERT_ACTIVATION_SQL` не имел `RETURNING activation_id`, а
+`PgPromptJournal.insert_activation` делает `conn.fetchval(...)` +
+`int(...)`: на реальном PG `fetchval` вернул бы `None` → `TypeError`
+внутри транзакции → каждый `apply_release` (и старт с PG) падал бы с
+откатом пакета. Дефект класса «live-PG smoke не выполнялся» (§6, честный
+открытый пункт). Фикс: `RETURNING activation_id`; регресс-пин в новом
+тесте (c). MemoryPromptJournal не затронут (своя реализация).
+
+## C.3 Новые тесты
+
+`tests/test_evol016_prompt_journal_v39.py` (6):
+
+* (a) свежая БД 0→39: `user_version=39`, строка книги
+  `(39, 'prompt_revision_journal_v39')` с checksum, таблиц журнала в SQLite
+  НЕТ (книга схемы, как v35);
+* (b) v38-БД (раннер-подкласс без шага 39 + строка `smart_messages` с
+  quote-метаданными) доезжает до 39 аддитивно, данные байт-в-байт;
+* (c) `apply_release` через РЕАЛЬНЫЙ `PgPromptJournal` на asyncpg-двойнике
+  пула (диспетчеризация по идентичности SQL-констант; оба протокола
+  `acquire`): feature-detect `default_journal` находит журнал, cutover =
+  снимок legacy + заводская активация + upsert `bot_settings` + обновление
+  RAM-кэша, рестарт — истинный no-op (`no_op`/`skipped_same`, 0 записей);
+* (d) рестарт: ровно одна строка v39 в книге, «migration v39 applied» нет;
+* (e) DDL-журнал в `DDL_STATEMENTS` дословно равен `JOURNAL_DDL` (4 шт.),
+  все с IF NOT EXISTS, дублей CREATE TABLE нет; пин шага в реестре.
+
+## C.4 Обновлённые пины (следствие санкционированного Δ DDL = +4)
+
+* `tests/test_budget_guardrails_round1024.py`, `tests/test_budget_data_repair_round1024.py`:
+  `len(DDL_STATEMENTS)` 54 → 58 (NOTE с санкцией §4);
+* `tests/test_pg_db.py::test_init_twice_no_errors`: CREATE TABLE 25 → 27
+  (×2 запуска);
+* `tests/test_round1025_f8_registry.py`: `PG_DB_SHA256_B07` re-pin
+  осознанно (L-F11S-1) — хэш `96ab8149…6914e31`, дельта описана.
+
+## C.5 Прогоны
+
+* Mandated: `test_evol016_prompt_activation` + `test_evol012_barrier_retired`
+  + `test_evol018_prompt_audit` + `test_evol015_quote_pipeline` +
+  `test_evol016_prompt_journal_v39` + `test_prompt_migrations` =
+  **104 passed**; тот же набор + budget×2 + f8_registry = **149 passed**.
+* DDL-соседи (iterируют DDL_STATEMENTS): `test_pg_db`, `test_extra_cover_style_registry`,
+  `test_relations_pg`, `test_chat_lore_store`, `test_token_analytics_round1023`,
+  `test_anticliche_round1023`, `test_seed_chat_lore` — passed;
+  `compileall services` — exit 0.
+* Live-PG smoke — НЕ выполнялся (по брифу: отдельная staging-задача);
+  контур (c) закрыт asyncpg-двойником с реальными SQL-константами.
+
+## C.6 Пре-существующие (НЕ мои, доказано прогоном до/на чистом HEAD)
+
+* `tests/test_asap7_direct_settings.py::test_migration_v35_idempotent_twice`,
+  `::test_backup_guard_fires_before_pending_step` — пины `user_version == 35`
+  эры v35; падали на дереве и до интеграции (свежая БД давала 38; теперь 39 —
+  тот же класс). Лейн EVOL-015/ASAP7: обновить хвост пинов.
+* `tests/test_t5150_startup_migrations_round1046.py` — 5 сбоев, пины
+  застряли на v35 (ломались уже v36–v38; проверено прогоном ДО моих правок).
+  Тот же владелец.
+
+Зоны не тронуты: `web/`, `handlers/`, промпт-контент. Параллельные правки
+рабочего дерева чужого лейна (`AGENTS.md`, `docs/prompt-versioning-contract.md`,
+`plans/features/evol/audit/w2c-evol018.md`) сохранены без изменений.
+

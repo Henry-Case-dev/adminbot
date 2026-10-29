@@ -439,7 +439,10 @@ class TestDeltaZeroGuard:
         # NOTE (ASAP 7 F2, §1.10): +1 (идемпотентный `ALTER TABLE
         # llm_usage_events ADD COLUMN IF NOT EXISTS plan_meta JSONB` —
         # durable-оси плана L1; PG-only, SQLite DDL = 0); 53 → 54.
-        assert len(pg_db.DDL_STATEMENTS) == 54
+        # NOTE (EVOL-016, 30.10.2026): +4 (журнал промптов prompt_revisions/
+        # prompt_activations + 2 индекса — дословный JOURNAL_DDL, санкция
+        # w2a-evol016.md §4 п.4); 54 → 58. SQLite v39 — книга схемы (no-op).
+        assert len(pg_db.DDL_STATEMENTS) == 58
 
     def test_catalog_counts_unchanged_by_guardrails(self):
         # F23 — только тесты. EVOL-031 (30.10.2026): −5 REGISTRY, −2 GROUPS/

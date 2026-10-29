@@ -601,7 +601,10 @@ class TestFlagBoundary:
         # NOTE (ASAP 4.3, 2.58.51 `1c47b5e`/`acbbe1f`): PG additive nullable
         # `preview_job_id` (durable preview jobs) — 52 → 53; SQLite DDL = 0.
         # ASAP 7 F2 (§1.10): +1 (ALTER plan_meta JSONB, PG-only) → 54.
-        assert len(pg_db.DDL_STATEMENTS) == 54
+        # NOTE (EVOL-016, 30.10.2026): +4 (журнал промптов prompt_revisions/
+        # prompt_activations + 2 индекса — дословный JOURNAL_DDL, санкция
+        # w2a-evol016.md §4 п.4); 54 → 58. SQLite v39 — книга схемы (no-op).
+        assert len(pg_db.DDL_STATEMENTS) == 58
 
     def test_delta_catalog_zero(self):
         from services import param_catalog as pc

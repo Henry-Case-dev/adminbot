@@ -1726,6 +1726,18 @@ _QUOTE_METADATA_COLUMNS: tuple[tuple[str, str], ...] = (
     ("quote_entities", "TEXT"),
 )
 
+# ── EVOL-016 (30.10.2026): v39 — журнал версий/активаций промптов ───────────
+# Таблицы `prompt_revisions`/`prompt_activations` живут в PostgreSQL (тот же
+# контур долговечности, что bot_settings). DDL — дословно в pg_db
+# `.DDL_STATEMENTS` (идемпотентный CREATE TABLE/INDEX IF NOT EXISTS; до
+# интеграции применялся лениво `prompt_release_policy.ensure_journal` —
+# те же выражения, путь остаётся совместимым). SQLite-шаг — только книга
+# схемы (прецедент v35: SQLite no-op + `PRAGMA user_version`), данных в
+# SQLite нет: журнал НЕ второй источник правды, активные байты читаются из
+# `bot_settings`/chat-override как раньше. Откат: cold git revert (таблицы
+# инертны, старый код их не читает).
+_SCHEMA_VERSION_PROMPT_JOURNAL = 39
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2940,6 +2952,14 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_QUOTE_METADATA,
                           "quote_metadata_v38",
                           lambda svc: svc._migrate_quote_metadata_v38()),
+            # EVOL-016 (30.10.2026): v39 — книга схемы журнала версий/
+            # активаций промптов (prompt_revisions/prompt_activations —
+            # PG-only; фактический DDL — pg_db.DDL_STATEMENTS + ленивый
+            # prompt_release_policy.ensure_journal, идемпотентно). SQLite
+            # no-op, как v35; повтор — no-op, PG-down не блокирует версию.
+            MigrationStep(_SCHEMA_VERSION_PROMPT_JOURNAL,
+                          "prompt_revision_journal_v39",
+                          lambda svc: svc._migrate_prompt_journal_v39()),
         ]
 
     @staticmethod
@@ -3275,6 +3295,25 @@ class DatabaseService:
         await self.db.commit()
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_QUOTE_METADATA}")
+        await self.db.commit()
+
+    async def _migrate_prompt_journal_v39(self) -> None:
+        """v39 (EVOL-016): книга схемы журнала версий/активаций промптов.
+
+        Данных в SQLite нет: prompt_revisions/prompt_activations живут в
+        PostgreSQL (тот же контур долговечности, что bot_settings). DDL —
+        дословно в pg_db.DDL_STATEMENTS: выполняет PgDatabase.init() при
+        старте (CREATE TABLE/INDEX IF NOT EXISTS, повтор — no-op); ленивый
+        prompt_release_policy.ensure_journal остаётся совместимым путём
+        (те же выражения). Защитная ветка не нужна: SQLite-таблиц с этими
+        именами не существует по построению (PG-only, ничего их не создаёт).
+        PG-down не блокирует фиксацию версии (как v35). Откат: cold git
+        revert (таблицы инертны, старый код их не читает)."""
+        logger.info(
+            "[database] migration v39: prompt journal PG-only — SQLite "
+            "no-op (DDL применяет PgDatabase.init/ensure_journal)")
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_PROMPT_JOURNAL}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
