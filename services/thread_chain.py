@@ -27,12 +27,33 @@ from services.target_marking import is_target_item_id
 logger = logging.getLogger(__name__)
 
 
+def _emit_quote_context_event(code: str, *, chat_id, message_id=None):
+    """EVOL-015: fail-open эмиссия контекстной половины quote-таксономии
+    (`delivered_to_context`/`unavailable`); источник — component="context".
+    R17: только id/коды — никаких текстов цитат в телеметрии."""
+    try:
+        from services.mca_events import emit_mca_event
+        outcome = "skipped" if code == "unavailable" else "success"
+        emit_mca_event("quote", outcome=outcome, component="context",
+                       stage=f"quote_{code}", chat_id=chat_id,
+                       message_id=message_id)
+    except Exception:
+        pass
+
+
 class ChainItem(NamedTuple):
     """Ход reply-цепочки + метаданные канона.
 
     user-ход — ts/tg/id/forward из smart_messages; бот-ход — ts ОПУЩЕН
     (bot_replies не хранит время сообщения; ``last_used_at`` = время доступа,
-    R16), item_id = ``tg:<current_id>``."""
+    R16), item_id = ``tg:<current_id>``.
+
+    EVOL-015 (v38): полные метаданные цитаты хода-user (verbatim из
+    Telegram: text/author/position UTF-16/is_manual; position НЕ
+    пересчитывается). ``quote_original_available`` — честный статус доставки
+    оригинала в ЭТУ цепочку: True = найден (следующий ход), False = не
+    найден (контекст ограничен — пометка в рендере), None = неизвестно
+    (автономный рендер вне walk)."""
     uid: int | None
     name: str
     text: str
@@ -40,6 +61,11 @@ class ChainItem(NamedTuple):
     ts: int | None = None
     item_id: str = ""
     forward_source: str | None = None
+    quote_text: str | None = None
+    quote_author_id: int | None = None
+    quote_position: int | None = None
+    quote_is_manual: int | None = None
+    quote_original_available: bool | None = None
 
 
 def speaker_tag(name: str, uid, *, is_bot: bool = False,
@@ -125,6 +151,29 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
     chain: list[ChainItem] = []
     current_id = _message_id_of(message)
     seen: set = set()
+    # EVOL-015: индекс хода с цитатой, чей оригинал (следующий hop) ещё не
+    # разрешён. Разрешён (row/bot-ход) → True; walk оборвался/исчерпал
+    # глубину → False (честное «оригинал недоступен», событие
+    # quote_unavailable). Оригинал, найденный БЕЗ текста (медиа без маркера),
+    # тоже не доставлен → False (текстовая цитата из безтекстового хода
+    # не верифицируема).
+    pending_quote_idx: int | None = None
+
+    def _resolve_pending_quote(available: bool) -> None:
+        nonlocal pending_quote_idx
+        if pending_quote_idx is None:
+            return
+        idx, pending_quote_idx = pending_quote_idx, None
+        item = chain[idx]
+        if item.quote_original_available is None:
+            chain[idx] = item._replace(quote_original_available=available)
+            if not available:
+                _tg_ref = item.item_id.split(":", 1)[-1] \
+                    if item.item_id.startswith("tg:") else None
+                _emit_quote_context_event(
+                    "unavailable", chat_id=chat_id,
+                    message_id=int(_tg_ref)
+                    if _tg_ref and _tg_ref.isdigit() else None)
     # Раунд 10.24 (F13, ADR-1024-14 D2): медиа-строки (пустой текст + медиа)
     # не отбрасываются — вместо текста рендерится медиа-маркер. Флаг OFF или
     # отсутствие медиа → прежний скип (байт-в-байт).
@@ -145,11 +194,21 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                 name, uid = speaker(row)
                 forward_source = (row_get(row, "forward_source")
                                   if row_get(row, "is_forward") else None)
+                # EVOL-015: quote-метаданные хода (verbatim; NULL → None).
                 chain.append(ChainItem(
                     uid=uid, name=name, text=text, is_bot=False,
                     ts=row_get(row, "timestamp"),
                     item_id=item_id,
-                    forward_source=forward_source))
+                    forward_source=forward_source,
+                    quote_text=(row_get(row, "quote_text") or None),
+                    quote_author_id=row_get(row, "quote_author_id"),
+                    quote_position=row_get(row, "quote_position"),
+                    quote_is_manual=row_get(row, "quote_is_manual")))
+                _resolve_pending_quote(True)   # предыдущий quote → найден
+                if chain[-1].quote_text:
+                    pending_quote_idx = len(chain) - 1
+            else:
+                _resolve_pending_quote(False)  # ход без текста — не доставлен
             current_id = row["reply_to_id"]
             continue
         bot_text = await get_report(chat_id, current_id)
@@ -172,6 +231,7 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                 bot_sent_at = _rec.get("sent_at")
                 _parent_ref = _rec.get("parent_message_ref") or ""
                 if bot_text is not None:
+                    _resolve_pending_quote(True)   # цитировали ход бота
                     chain.append(ChainItem(
                         uid=None, name=bot_name, text=bot_text, is_bot=True,
                         ts=bot_sent_at, item_id=f"tg:{current_id}",
@@ -185,6 +245,7 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
                         current_id = None
                     continue
         if bot_text is not None:
+            _resolve_pending_quote(True)   # цитировали ход бота
             chain.append(ChainItem(
                 uid=None, name=bot_name, text=bot_text, is_bot=True,
                 ts=None, item_id=f"tg:{current_id}", forward_source=None))
@@ -194,14 +255,40 @@ async def collect_thread_chain(db, chat_id: int, message, depth: int, *,
             current_id = parent
             continue
         break                          # обрыв: нет reply_to_id/не найдено
+    _resolve_pending_quote(False)      # walk кончился: оригинал не доставлен
     return chain
+
+
+# ── EVOL-015: рендер выделенной цитаты хода ─────────────────────────────────
+# Цитата — НЕ слова отвечающего: маркируется отдельно, с автором (роль
+# различима — анти-инвариант MCA-22), inline в канонической строке (после
+# squash — строка остаётся соответствовать per-point pattern «нет голого
+# текста»). Приоритет: у хода-триггера цитата = ПРЕДМЕТ ответа, полный
+# оригинал — контекст. Недоступный оригинал — честная пометка ограничения.
+def _quote_annotation(item: ChainItem, *, is_target: bool) -> str:
+    """Аннотация цитаты хода или '' (без цитаты — байт-паритет)."""
+    quote_text = (item.quote_text or "").strip()
+    if not quote_text:
+        return ""
+    author = (str(item.quote_author_id)
+              if item.quote_author_id is not None else "автор unknown")
+    base = f"цитата (автор: {author}): «{quote_text}»"
+    if item.quote_original_available is False:
+        return (f"{base} — выделенный фрагмент, оригинал недоступен "
+                f"(контекст ограничен)")
+    if is_target:
+        return (f"{base} — выделенный фрагмент оригинала, ПРИОРИТЕТНЫЙ "
+                f"ПРЕДМЕТ ответа; полное исходное сообщение — контекст")
+    return f"{base} (выделенный фрагмент оригинала выше по цепочке)"
 
 
 def format_chain_line(item, suffix_map: dict | None = None,
                       trigger_message_id=None) -> str:
     """Каноническая строка хода цепочки (ярус A). user — «[ts | имя [uid] |
     ID]: текст», бот — ts опущен, ID ``tg:``. Ход-триггер (F1) получает
-    маркер (единый матчер/guard ``is_target_item_id``)."""
+    маркер (единый матчер/guard ``is_target_item_id``).
+    EVOL-015: ход с цитатой получает inline-аннотацию выделенного фрагмента
+    (без цитаты — байт-в-байт прежняя строка)."""
     if not isinstance(item, ChainItem):
         item = ChainItem(*item)
     if item.is_bot:
@@ -210,9 +297,20 @@ def format_chain_line(item, suffix_map: dict | None = None,
         author = speaker_tag(
             item.name, item.uid, suffix=(suffix_map or {}).get(item.uid, ""))
     is_target = is_target_item_id(item.item_id, trigger_message_id)
+    text = item.text
+    annotation = _quote_annotation(item, is_target=is_target)
+    if annotation:
+        text = f"{text}\n{annotation}"
+        # EVOL-015: цитата реально ушла в LLM-контекст (render = delivery).
+        _tg_ref = (item.item_id.split(":", 1)[-1]
+                   if item.item_id.startswith("tg:") else None)
+        _emit_quote_context_event(
+            "delivered_to_context", chat_id=None,
+            message_id=int(_tg_ref)
+            if _tg_ref and _tg_ref.isdigit() else None)
     return format_context_item(
         ts=item.ts, author=author, item_id=item.item_id,
-        forward_source=item.forward_source, text=item.text, kind="msg",
+        forward_source=item.forward_source, text=text, kind="msg",
         is_target=is_target)
 
 

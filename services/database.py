@@ -1707,6 +1707,25 @@ _SCHEMA_VERSION_LLM_USAGE_PLAN_META = 35
 _SCHEMA_VERSION_HUMOR_SAMPLES = 37
 _SCHEMA_VERSION_HUMOR_SAMPLES_V36 = 36
 
+# ── EVOL-015 (Telegram quote propagation, 30.10.2026): v38 ──────────────────
+# Полные метаданные цитаты в `smart_messages`: text/author уже были (v16),
+# v38 добавляет `position`/`is_manual`/`entities` из Bot API `TextQuote`.
+# Аддитивные nullable-колонки = честный unknown; строки без quote-данных
+# ведут себя ровно как раньше (OFF-паритет). `quote_position` хранится
+# ВЕРБАТИМ (UTF-16 code units, Bot API TextQuote.position) — НЕ пересчитывается
+# поиском по тексту (повторяющиеся подстроки/эмодзи/переносы безопасны по
+# построению). `quote_entities` — safe JSON только со скалярными полями
+# (type/offset/length/url/user_id/language/custom_emoji_id), bounded.
+# PG — no-op (memory-контур SQLite-only, как v16/v28/v30/v36; `smart_messages`
+# в pg_db не создаётся). Откат: cold git revert (колонки инертны, старый код
+# v37 их не читает).
+_SCHEMA_VERSION_QUOTE_METADATA = 38
+_QUOTE_METADATA_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("quote_position", "INTEGER"),
+    ("quote_is_manual", "INTEGER"),
+    ("quote_entities", "TEXT"),
+)
+
 _MCA_FACTCHECK_RUNS_DDL = (
     "CREATE TABLE IF NOT EXISTS mca_factcheck_runs ("
     "run_id              TEXT PRIMARY KEY, "
@@ -2912,6 +2931,15 @@ class DatabaseService:
             MigrationStep(_SCHEMA_VERSION_HUMOR_SAMPLES,
                           "humor_samples_v37",
                           lambda svc: svc._migrate_humor_samples_v37()),
+            # EVOL-015 (30.10.2026): v38 — 3 аддитивные nullable-колонки
+            # цитаты `smart_messages` (quote_position/quote_is_manual/
+            # quote_entities; quote_text/quote_author_id существуют с v16).
+            # Идемпотентно (guard PRAGMA table_info), повтор — no-op,
+            # PG — no-op, backfill не требуется (старые строки = честный
+            # unknown, цитаты задним числом не дорисовываются).
+            MigrationStep(_SCHEMA_VERSION_QUOTE_METADATA,
+                          "quote_metadata_v38",
+                          lambda svc: svc._migrate_quote_metadata_v38()),
         ]
 
     @staticmethod
@@ -3229,6 +3257,24 @@ class DatabaseService:
         await self._migrate_message_identity_v16_backfill(has_import_key)
         await self.db.execute(
             f"PRAGMA user_version = {_SCHEMA_VERSION_MESSAGE_IDENTITY}")
+        await self.db.commit()
+
+    async def _migrate_quote_metadata_v38(self) -> None:
+        """v38 (EVOL-015): полные метаданные цитаты `smart_messages`.
+
+        Аддитивно (`ALTER ADD COLUMN` под guard `PRAGMA table_info`);
+        self-guard; повторный прогон — no-op. PG — no-op (memory-контур
+        SQLite-only). Backfill НЕ требуется: старые строки без quote-
+        метаданных = честный unknown (задним числом цитаты не дорисовываются,
+        история не «подтверждается» ретроспективно)."""
+        cols = await self._smart_messages_columns()
+        for name, decl in _QUOTE_METADATA_COLUMNS:
+            if name not in cols:
+                await self.db.execute(
+                    f"ALTER TABLE smart_messages ADD COLUMN {name} {decl}")
+        await self.db.commit()
+        await self.db.execute(
+            f"PRAGMA user_version = {_SCHEMA_VERSION_QUOTE_METADATA}")
         await self.db.commit()
 
     async def _graph_facts_columns(self) -> set:
@@ -7710,26 +7756,37 @@ class DatabaseService:
         origin_author_signature: str | None = None,
         thread_id: int | None = None,
         media_group_id: str | None = None,
+        quote_text: str | None = None,
+        quote_author_id: int | None = None,
+        quote_position: int | None = None,
+        quote_is_manual: int | None = None,
+        quote_entities: str | None = None,
     ) -> int:
         """Insert a chat message into smart_messages + FTS index. Returns the new row id.
         Epic 50 (58.7, D201): message_id = TG message_id (для reply-цепочек
         <Conversation_Thread>); None → NULL (легаси-вызовы без изменений).
         MCA-19 (ADR-1028-19 D2): keyword-only Origin-блок (v32) — все значения
         optional с default None; legacy-вызовы не меняются (NULL = честный
-        unknown, OFF-паритет)."""
+        unknown, OFF-паритет).
+        EVOL-015 (v38): keyword-only quote-блок — полные метаданные цитаты;
+        default None → NULL (legacy-вызовы байт-в-байт)."""
         cursor = await self.db.execute(
             "INSERT INTO smart_messages "
             "(user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
             "is_forward, forward_source, tg_message_id, sender_chat_id, "
             "origin_type, origin_sent_at, origin_sender_user_id, origin_chat_id, "
             "origin_message_id, origin_display_name, origin_author_signature, "
-            "thread_id, media_group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
-            "?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "thread_id, media_group_id, "
+            "quote_text, quote_author_id, quote_position, quote_is_manual, "
+            "quote_entities) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+            "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name,
              int(is_forward), forward_source, message_id, sender_chat_id,
              origin_type, origin_sent_at, origin_sender_user_id,
              origin_chat_id, origin_message_id, origin_display_name,
-             origin_author_signature, thread_id, media_group_id),
+             origin_author_signature, thread_id, media_group_id,
+             quote_text, quote_author_id, quote_position, quote_is_manual,
+             quote_entities),
         )
         row_id = cursor.lastrowid
         if text:
@@ -7783,10 +7840,14 @@ class DatabaseService:
         return 1
 
     async def get_smart_window(self, chat_id: int, since_ts: int, limit: int) -> list:
-        """L1: messages within the generation window (timestamp >= since_ts), ASC order."""
+        """L1: messages within the generation window (timestamp >= since_ts), ASC order.
+        EVOL-015: +5 quote-колонок (текст/автор/позиция/is_manual/entities) —
+        контекст-сборка видит выделенный фрагмент; потребители без quote —
+        без изменений (именованный доступ)."""
         cursor = await self.db.execute(
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source, tg_message_id "
+            "is_forward, forward_source, tg_message_id, "
+            "quote_text, quote_author_id, quote_position, quote_is_manual, quote_entities "
             "FROM smart_messages WHERE chat_id = ? AND timestamp >= ? "
             "ORDER BY timestamp DESC LIMIT ?",
             (chat_id, since_ts, limit),
@@ -7807,7 +7868,8 @@ class DatabaseService:
         mark_smart_messages_processed — повторный крон их не пере-экстрактит)."""
         sql = (
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, "
-            "author_name, is_forward, forward_source, tg_message_id "
+            "author_name, is_forward, forward_source, tg_message_id, "
+            "quote_text, quote_author_id, quote_position, quote_is_manual, quote_entities "
             "FROM smart_messages WHERE chat_id = ? AND timestamp < ? "
         )
         if exclude_imported:
@@ -7847,7 +7909,8 @@ class DatabaseService:
             return []
         sql = (
             "SELECT id, user_id, chat_id, text, reply_to_id, timestamp, media_type, author_name, "
-            "is_forward, forward_source, tg_message_id "
+            "is_forward, forward_source, tg_message_id, "
+            "quote_text, quote_author_id, quote_position, quote_is_manual, quote_entities "
             "FROM smart_messages WHERE chat_id = ? "
         )
         if anchor is not None:
@@ -7997,6 +8060,7 @@ class DatabaseService:
             "caption, sent_at, ingested_at, edited_at, sent_at_source, "
             "source_kind, namespace, source_record_id, content_hash, media_ref, "
             "reply_to_kind, reply_to_author_id, quote_text, quote_author_id, "
+            "quote_position, quote_is_manual, quote_entities, "
             "forward_author_id, message_state, state_evidence, current_revision, "
             "media_group_id "
             "FROM smart_messages WHERE chat_id = ? AND tg_message_id = ?",
@@ -8164,13 +8228,14 @@ class DatabaseService:
                 "edited_at, sent_at_source, source_kind, namespace, "
                 "source_record_id, content_hash, media_ref, reply_to_kind, "
                 "reply_to_author_id, quote_text, quote_author_id, "
+                "quote_position, quote_is_manual, quote_entities, "
                 "forward_author_id, message_state, state_evidence, "
                 "current_revision, "
                 + ", ".join(name for name, _ in
                             _SMART_MESSAGES_ORIGIN_COLUMNS)
                 + ") "
                 "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,"
-                "?,"
+                "?,?,?,?,"
                 + ",".join("?" * len(_SMART_MESSAGES_ORIGIN_COLUMNS)) + ")",
                 (rec.get("user_id"), chat_id, text, rec.get("reply_to_id"),
                  int(rec.get("timestamp", now)), rec.get("media_type", "text"),
@@ -8181,7 +8246,9 @@ class DatabaseService:
                  rec.get("namespace"), rec.get("source_record_id"),
                  content_hash, rec.get("media_ref"), rec.get("reply_to_kind"),
                  rec.get("reply_to_author_id"), rec.get("quote_text"),
-                 rec.get("quote_author_id"), rec.get("forward_author_id"),
+                 rec.get("quote_author_id"), rec.get("quote_position"),
+                 rec.get("quote_is_manual"), rec.get("quote_entities"),
+                 rec.get("forward_author_id"),
                  rec.get("message_state"), rec.get("state_evidence"),
                  rec.get("current_revision", 1),
                  *[rec.get(name)

@@ -388,6 +388,10 @@ class SpeechUnderstanding:
     negation: bool = False
     clarify: str = CLARIFY_NONE
     flags: tuple[str, ...] = ()
+    # EVOL-015: дословный выделенный фрагмент (Telegram quote text), когда
+    # он реально доставлен метаданными; "" = цитаты нет/текст неизвестен
+    # (никогда не выдумывается — рендер предмета только при непустом).
+    quote_text: str = ""
 
     @property
     def active(self) -> bool:
@@ -439,13 +443,16 @@ def build_speech_understanding(
         reply_parent_from_bot: bool = False,
         reply_parent_ends_with_question: bool = False,
         quote_attribution_known: bool = False,
-        quote_text_present: bool = False) -> SpeechUnderstanding:
+        quote_text_present: bool = False,
+        quote_text: str | None = None) -> SpeechUnderstanding:
     """D6/D7: собрать сигнал ответа (REUSE `classify_speech_act`).
 
     `quote_text_present` — структурный tg/quote-маркер сообщения;
     `quote_attribution_known` — фактический автор из уже построенного
     mca-22-контура (`bundle.quoted_speaker`); повторный вызов резолвера
     цитат здесь запрещён — автор сюда только передаётся.
+    EVOL-015: `quote_text` — дословный выделенный фрагмент из Telegram
+    quote-метаданных; None/"" → прежнее поведение (байт-паритет).
     """
     value = str(text or "")
     act = classify_speech_act(value)
@@ -484,7 +491,8 @@ def build_speech_understanding(
         speech_act=act, quote=quote, quote_attribution=attribution,
         reply_parent=bool(has_reply_parent), short_dependency=short_dep,
         humor_risk=humor_risk, negation=negation, clarify=clarify,
-        flags=tuple(flags))
+        flags=tuple(flags),
+        quote_text=str(quote_text or "").strip())
 
 
 # ── P0-HA QUALITY (волна 4b, §12–§13 ТЗ source-2026-10-29.md) ───────────────
@@ -847,6 +855,14 @@ def render_speech_block(u: SpeechUnderstanding | None) -> str:
     if u is None or not u.active:
         return ""
     lines: list[str] = []
+    # EVOL-015: доставленный дословный фрагмент — ПРЕДМЕТ текущего вопроса;
+    # строка ПЕРВАЯ (приоритет), только при реально полученном тексте
+    # (никогда не выдумывается). Схлопывание переносов — как в каноне.
+    u_quote_text = " ".join(str(u.quote_text or "").split())
+    if u_quote_text:
+        lines.append("Предмет вопроса — выделенная цитата (её автор — не "
+                     f"ты): «{u_quote_text}». Полное исходное сообщение — "
+                     "контекст, отвечай по выделенному фрагменту.")
     if u.quote:
         lines.append("Цитата принадлежит её автору: не приписывай чужие слова "
                      "себе; если автор не установлен — не додумывай его.")

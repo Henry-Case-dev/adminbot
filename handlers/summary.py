@@ -117,6 +117,112 @@ def _emit_ingest(event_name: str, outcome: str, *, level: str = "INFO",
         pass
 
 
+# ── EVOL-015 (30.10.2026): Telegram quote (TextQuote) полный ингест ─────────
+# Таксономия диагностики (агрегированная, R17: БЕЗ текстов цитат/сообщений):
+#   quote_present            — Telegram прислал quote с непустым text;
+#   quote_missing_in_transport — reply есть, quote не доставлен (обычный
+#                              reply — нормальный случай; счётчик позволяет
+#                              заметить РЕГРЕСС доставки на стороне SDK).
+# Источник событий здесь — component="ingestion" (контекстная половина
+# таксономии — delivered_to_context/unavailable — живёт в thread_chain).
+def _emit_quote_event(code: str, *, level: str = "INFO", **fields):
+    """Fail-open эмиссия quote-таксономии (паттерн `_emit_ingest`).
+
+    Код таксономии — в `stage` (`quote_present`/`quote_missing_in_transport`
+    /...); `outcome` — только из закрытого словаря mca_events (present →
+    success; missing_in_transport → skipped как нормальный случай)."""
+    outcome = "skipped" if code == "missing_in_transport" else "success"
+    try:
+        from services.mca_events import emit_mca_event
+        emit_mca_event("quote", outcome=outcome, level=level,
+                       component="ingestion", stage=f"quote_{code}",
+                       **fields)
+    except Exception:      # диагностика не рвёт ingestion
+        pass
+
+
+# Safe-сериализация entities: только скалярные поля MessageEntity; bounded
+# (верхняя граница символов; превышение → None = честный unknown).
+_QUOTE_ENTITIES_MAX_CHARS = 2000
+_QUOTE_ENTITY_FIELDS = ("type", "offset", "length", "url", "language",
+                        "custom_emoji_id")
+
+
+def _serialize_quote_entities(entities) -> str | None:
+    """aiogram `MessageEntity`-список → safe JSON (строка) или None.
+
+    Честный unknown по построению: не-список/пусто → None; каждое entity —
+    dict только со скалярными полями (`user` схлопывается в user_id);
+    ошибка сериализации/переполнение лимита → None (fail-open, без текстов).
+    Offset/length НЕ пересчитываются — вербатим из Telegram (UTF-16)."""
+    if not isinstance(entities, (list, tuple)) or not entities:
+        return None
+    out: list[dict] = []
+    for ent in entities[:32]:                    # bounded: не более 32 entities
+        if ent is None:
+            continue
+        item: dict = {}
+        for field in _QUOTE_ENTITY_FIELDS:
+            value = getattr(ent, field, None)
+            if value is not None:
+                item[field] = value
+        user = getattr(ent, "user", None)
+        user_id = getattr(user, "id", None) if user is not None else None
+        if isinstance(user_id, int) and not isinstance(user_id, bool):
+            item["user_id"] = user_id
+        if item:
+            out.append(item)
+    if not out:
+        return None
+    try:
+        import json as _json
+        rendered = _json.dumps(out, ensure_ascii=False)
+    except Exception:
+        return None
+    if len(rendered) > _QUOTE_ENTITIES_MAX_CHARS:
+        return None
+    return rendered
+
+
+def _extract_quote_fields(message) -> dict:
+    """EVOL-015: полный quote-блок из aiogram Message (TextQuote).
+
+    Возвращает kwargs для `message_identity.save_live_message`:
+    quote_text/quote_author_id (существовавшее поведение) + quote_position
+    (verbatim UTF-16 offset, НЕ пересчитывается поиском — повторяющиеся
+    подстроки/эмодзи/переносы безопасны по построению), quote_is_manual
+    (0/1; None = неизвестно), quote_entities (safe JSON или None).
+    Отсутствие quote у reply — норма (обычный ответ на всё сообщение)."""
+    fields: dict = {"quote_text": None, "quote_author_id": None,
+                    "quote_position": None, "quote_is_manual": None,
+                    "quote_entities": None}
+    quote = getattr(message, "quote", None)
+    if quote is not None:
+        # MCA-22 (C1/Q3a, T-4279; ADR-1028-6 D1): автор цитаты — честное
+        # значение из Telegram metadata. `TextQuote` автора НЕ содержит:
+        # цитата — подсвеченный фрагмент сообщения-ответа, автор цитаты =
+        # автор `reply_to_message` (Telegram отдаёт его вместе с quote).
+        # Нет reply_to_message → None (честный unknown, не выдумка).
+        # Колонки text/author существуют с v16 — это заполнение данных, не
+        # schema change и не изменение identity model MCA-03 (spec §10.3).
+        reply = getattr(message, "reply_to_message", None)
+        if reply is not None:
+            quote_user = getattr(reply, "from_user", None)
+            fields["quote_author_id"] = getattr(quote_user, "id", None)
+        quote_text = getattr(quote, "text", None)
+        if isinstance(quote_text, str) and quote_text.strip():
+            fields["quote_text"] = quote_text
+            position = getattr(quote, "position", None)
+            if isinstance(position, int) and not isinstance(position, bool):
+                fields["quote_position"] = position
+            is_manual = getattr(quote, "is_manual", None)
+            if isinstance(is_manual, bool):
+                fields["quote_is_manual"] = int(is_manual)
+            fields["quote_entities"] = _serialize_quote_entities(
+                getattr(quote, "entities", None))
+    return fields
+
+
 def _extract_forward_source(origin) -> str | None:
     """Epic 28 (R28-1): label of the forward origin; None = save as ordinary."""
     if origin is None:
@@ -385,22 +491,20 @@ async def summary_observer(message: types.Message):
         if message.reply_to_message is not None:
             reply_user = getattr(message.reply_to_message, "from_user", None)
             reply_author_id = getattr(reply_user, "id", None)
-        quote_text = None
-        quote_author_id = None
-        quote = getattr(message, "quote", None)
-        if quote is not None:
-            quote_text = getattr(quote, "text", None)
-            # MCA-22 (C1/Q3a, T-4279; ADR-1028-6 D1): автор цитаты — честное
-            # значение из Telegram metadata. `TextQuote` автора НЕ содержит:
-            # цитата — подсвеченный фрагмент сообщения-ответа, автор цитаты =
-            # автор `reply_to_message` (Telegram отдаёт его вместе с quote).
-            # Нет reply_to_message → None (честный unknown, не выдумка).
-            # Колонка существует с v16 — это заполнение данных, не schema
-            # change и не изменение identity model MCA-03 (spec §10.3).
-            if message.reply_to_message is not None:
-                quote_user = getattr(message.reply_to_message, "from_user",
-                                     None)
-                quote_author_id = getattr(quote_user, "id", None)
+        # EVOL-015 (30.10.2026): полный quote-блок (text/author — прежнее
+        # поведение MCA-22; + position/is_manual/entities verbatim из
+        # Telegram). Диагностика: quote_present / quote_missing_in_transport
+        # (агрегированная, без текстов — R17).
+        quote_fields = _extract_quote_fields(message)
+        if quote_fields["quote_text"]:
+            _emit_quote_event("present", chat_id=message.chat.id,
+                              message_id=message.message_id)
+        elif message.reply_to_message is not None:
+            # Обычный reply без выделения — норма; счётчик делает доставку
+            # quote наблюдаемой (регресс SDK виден как рост доли missing).
+            _emit_quote_event("missing_in_transport",
+                              chat_id=message.chat.id,
+                              message_id=message.message_id)
         forward_author_id = None
         if origin is not None:
             fwd_user = getattr(origin, "sender_user", None)
@@ -457,8 +561,11 @@ async def summary_observer(message: types.Message):
                 media_ref=_media_ref(message, media_type),
                 reply_to_id=reply_to_id,
                 reply_to_author_id=reply_author_id,
-                quote_text=quote_text,
-                quote_author_id=quote_author_id,
+                quote_text=quote_fields["quote_text"],
+                quote_author_id=quote_fields["quote_author_id"],
+                quote_position=quote_fields["quote_position"],
+                quote_is_manual=quote_fields["quote_is_manual"],
+                quote_entities=quote_fields["quote_entities"],
                 forward_author_id=forward_author_id,
                 sender_chat_id=sender_chat_id,
                 thread_id=thread_id,

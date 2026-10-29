@@ -164,13 +164,17 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
                             origin_chat_id=None, origin_message_id=None,
                             origin_display_name=None,
                             origin_author_signature=None, thread_id=None,
-                            media_group_id=None) -> int:
+                            media_group_id=None, quote_position=None,
+                            quote_is_manual=None, quote_entities=None) -> int:
     """Живой ingestion → канонический get-or-create (ON) либо legacy (OFF).
 
     OFF (`MCA_MESSAGE_IDENTITY_ENABLED=false`) → ровно `save_smart_message`
     (паритет baseline: те же аргументы, new-columns остаются NULL).
     MCA-19 (ADR-1028-19 D2): Origin-блок — опциональные kwargs; None =
-    честный unknown (никаких выдуманных значений)."""
+    честный unknown (никаких выдуманных значений).
+    EVOL-015 (v38): quote_position (verbatim UTF-16 offset из Telegram,
+    НЕ пересчитывается), quote_is_manual (0/1), quote_entities (safe JSON
+    строка; сериализация — на стороне ingest, здесь только нормализация)."""
     now = int(timestamp if timestamp is not None else time.time())
     text = _as_str(text)
     caption = _as_str(caption)
@@ -180,6 +184,9 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
     reply_to_author_id = _as_int(reply_to_author_id)
     quote_text = _as_str(quote_text)
     quote_author_id = _as_int(quote_author_id)
+    quote_position = _as_int(quote_position)
+    quote_is_manual = _as_int(quote_is_manual)
+    quote_entities = _as_str(quote_entities)
     forward_author_id = _as_int(forward_author_id)
     media_ref = _as_str(media_ref)
     sender_chat_id = _as_int(sender_chat_id)
@@ -205,7 +212,10 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
             origin_message_id=origin_message_id,
             origin_display_name=origin_display_name,
             origin_author_signature=origin_author_signature,
-            thread_id=thread_id, media_group_id=media_group_id)
+            thread_id=thread_id, media_group_id=media_group_id,
+            quote_text=quote_text, quote_author_id=quote_author_id,
+            quote_position=quote_position,
+            quote_is_manual=quote_is_manual, quote_entities=quote_entities)
     if sent_at is None:
         sent_at_source = SENT_AT_SOURCE_UNKNOWN
     else:
@@ -234,6 +244,10 @@ async def save_live_message(db, *, chat_id: int, user_id=None, text=None,
         "reply_to_author_id": reply_to_author_id,
         "quote_text": quote_text,
         "quote_author_id": quote_author_id,
+        # EVOL-015 (v38): полные метаданные цитаты; None = честный unknown.
+        "quote_position": quote_position,
+        "quote_is_manual": quote_is_manual,
+        "quote_entities": quote_entities,
         "tg_message_id": tg_message_id,
         "message_state": MESSAGE_STATE_ACTIVE,
         "current_revision": 1,

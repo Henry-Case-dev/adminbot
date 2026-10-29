@@ -23,12 +23,15 @@ import time
 
 from services import mca_gates
 from services import message_identity
+from services.database import row_get
 
 logger = logging.getLogger(__name__)
 
 # Revision-ref контракта (контекст-версия/lineage). Рост версии — только
 # при изменении набора полей DTO.
-CANONICAL_ENVELOPE_VERSION = "mca22/canonical/v1"
+# v2 (EVOL-015, 30.10.2026): + quote_position/quote_is_manual/quote_entities
+# (полные метаданные цитаты smart_messages v38).
+CANONICAL_ENVELOPE_VERSION = "mca22/canonical/v2"
 
 _FULL_COLUMNS = (
     "id, user_id, chat_id, text, reply_to_id, timestamp, media_type, "
@@ -36,6 +39,7 @@ _FULL_COLUMNS = (
     "caption, sent_at, ingested_at, edited_at, sent_at_source, "
     "source_kind, namespace, source_record_id, content_hash, media_ref, "
     "reply_to_kind, reply_to_author_id, quote_text, quote_author_id, "
+    "quote_position, quote_is_manual, quote_entities, "
     "forward_author_id, message_state, state_evidence, current_revision"
 )
 
@@ -75,6 +79,14 @@ class CanonicalMessage:
     message_state: str | None
     raw_text: str | None               # текст сообщения
     caption: str | None
+    # EVOL-015 (v2): полные метаданные цитаты; None = честный unknown
+    # (строки без v38-данных). position — verbatim UTF-16 offset Telegram,
+    # НЕ пересчитывается; entities — safe JSON строка или None.
+    # Поля с default — В КОНЦЕ (non-default раньше default невалиден;
+    # прежняя позиционная совместимость construction сохранена).
+    quote_position: int | None = None
+    quote_is_manual: int | None = None
+    quote_entities: str | None = None
 
     def roles(self) -> dict:
         """Раздельные роли (REUSE `message_identity.roles`, MCA-03 D4)."""
@@ -139,6 +151,11 @@ def message_from_row(row, *, quote_source_ref: str | None = None
         message_state=row["message_state"],
         raw_text=row["text"],
         caption=row["caption"],
+        # EVOL-015: row_get — строки старых SELECT без v38-колонок дают
+        # честный None (не KeyError).
+        quote_position=row_get(row, "quote_position"),
+        quote_is_manual=row_get(row, "quote_is_manual"),
+        quote_entities=row_get(row, "quote_entities"),
     )
 
 
@@ -259,7 +276,14 @@ def format_canonical_envelope(msg: CanonicalMessage, *,
     if show_quote_text and msg.quote_text:
         q_author = (str(msg.quote_speaker_entity_id)
                     if msg.quote_speaker_entity_id is not None else "автор unknown")
-        body_parts.append(f"> {msg.quote_text} (автор цитаты: {q_author})")
+        # EVOL-015: цитата маркируется как выделенный фрагмент-предмет;
+        # верbatim UTF-16 offset добавляется только когда известен (не
+        # пересчитывается). Рендер без v38-полей — байт-паритет прежнему.
+        suffix = ""
+        if msg.quote_position is not None:
+            suffix = f"; фрагмент UTF-16 offset {msg.quote_position}"
+        body_parts.append(f"> {msg.quote_text} (автор цитаты: {q_author}"
+                          f"{suffix}) — выделенный фрагмент оригинала")
     text = msg.raw_text or msg.caption or ""
     if text:
         body_parts.append(text)
