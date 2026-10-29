@@ -1,0 +1,103 @@
+{
+  "schema": "openworkflow-slices-v1",
+  "slices": [
+    {
+      "id": "DONE-ABC",
+      "depends_on": [],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/done-abc.md"
+      ],
+      "acceptance": "Фазы A-C распоряжения закрыты и привязаны к существующим доказательствам: текущая задача завершена/принята/задеплоена на старый VPS (2.58.141 @ 5346ee76), release gate пройден, MIGRATION_SOURCE_SHA зафиксирован."
+    },
+    {
+      "id": "INV",
+      "depends_on": [
+        "DONE-ABC"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/inventory.md"
+      ],
+      "acceptance": "Read-only инвентаризация старого production зафиксирована (ОС/python/venv/resources, systemd unit, git-состояние и сверка с MIGRATION_SOURCE_SHA, SQLite включая WAL/SHM и все memory-БД, PostgreSQL/docker/volumes/bind mounts, .env/hot-config/media/user files, домен/TLS/proxy/polling, очереди/offsets) без изменения данных, в fail2ban-безопасном паттерне и без значений секретов в отчётах."
+    },
+    {
+      "id": "PREP",
+      "depends_on": [
+        "INV"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/prep.md"
+      ],
+      "acceptance": "Новый VPS подготовлен без запуска рабочего бота: fingerprint/ОС/ресурсы сверены без переустановки и перегенерации ключа, сервис-пользователь и зависимости установлены, конфигурации восстановлены, docker-сервисы на корректных loopback-портах, admin_bot создан остановленным и выключенным, двух ботов нет."
+    },
+    {
+      "id": "GIT",
+      "depends_on": [
+        "PREP"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/git.md"
+      ],
+      "acceptance": "Рабочая копия /var/www/admin_bot на новом VPS создана строго от MIGRATION_SOURCE_SHA 5346ee765e83ee859596b60437811b21db1e4564; HEAD старого сервера совпадает с SHA; git fetch/pull --ff-only работают без интерактива; origin Henry-Case-dev/adminbot с read-доступом без секретов; host selector обновлён в приватных деплой-командах; старая git-копия сохранена."
+    },
+    {
+      "id": "SYNC",
+      "depends_on": [
+        "GIT"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/sync.md"
+      ],
+      "acceptance": "Предсинхронизация выполнена без простоя: rsync без --delete для больших неизменяемых данных с проверкой размеров/хэшей/прав, SQLite через backup API (не сырая копия WAL), PG через pg_dump -Fc/pg_restore, .env перенесён без публикации значений, TLS/домен проверены локальным Host-резолвом, префлайт импортов включая sqlite-vec без polling и без migrate_env_to_pg/импорта истории/пересборки эмбеддингов; объём/скорость переноса измерены."
+    },
+    {
+      "id": "ROLLBACK",
+      "depends_on": [
+        "SYNC"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/rollback-plan.md"
+      ],
+      "acceptance": "План отката задокументирован ДО cutover: точка возврата для фазы до первых обновлений, правила обратного согласованного переноса после старта новых писателей (остановка писателей → перенос → восстановление очередей/offset → запуск старого), запрет одновременных двух экземпляров."
+    },
+    {
+      "id": "CUT",
+      "depends_on": [
+        "ROLLBACK"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/cutover.md"
+      ],
+      "acceptance": "Cutover выполнен по шагам 1-8 §6: блокировка параллельных релизов и фиксация начала окна, остановка старых писателей, консистентные финальные снапшоты SQLite/PG/.env/runtime + дельта-синхронизация, проверка целостности до загрузки, восстановление с точными владельцами/env/DSN без initdb/reset/down -v, единственный запуск бота с правилами TELEGRAM_LOCAL, переключение DNS/прокси без открытия служебных портов, зафиксированы время старта и фактический гэп."
+    },
+    {
+      "id": "VERIFY",
+      "depends_on": [
+        "CUT"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/verify-lossless.md"
+      ],
+      "acceptance": "Критерии без-потерь §7 сверены с фактическим финальным снапшотом: SQLite integrity_check и счётчики/границы, PG-таблицы из финального дампа, .env/media на месте, git HEAD совпадает и секреты не в Git, нет двойных pollers/scheduler, админ-доступы и GraphRAG на существующих embeddings сохранены, старый VPS сохранён как fallback; расхождения устранены откатом до новых писателей или без потери событий."
+    },
+    {
+      "id": "POST",
+      "depends_on": [
+        "VERIFY"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/post-migration.md"
+      ],
+      "acceptance": "Шесть точек §7.1 проверены на реальном новом production: версия=SHA/единственный экземпляр, процессы/зависимости, данные/память против снапшотов, прикладное поведение включая acceptance текущего релиза в безопасной среде, штатное наблюдение с честным not_observed, сеть/клиент/TLS/порты; итоговая таблица приёмки (компонент|старый|новый|evidence|status) с NOT_OBSERVED ≠ PASS."
+    },
+    {
+      "id": "SWITCH",
+      "depends_on": [
+        "POST"
+      ],
+      "write_scope": [
+        "plans/features/release-then-migrate/evidence/switch.md"
+      ],
+      "acceptance": "Deploy target переведён на новый IP во внутренних конфигурациях DevOps при сохранении старого сервера для rollback, fail2ban/SSH-безопасность скриптов проверена, очередь разработки продолжена на новом VPS, итоговый двухфазный отчёт владельцу доставлен без секретов."
+    }
+  ]
+}
