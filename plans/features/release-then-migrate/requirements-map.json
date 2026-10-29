@@ -1,0 +1,1768 @@
+{
+  "schema": "openworkflow-coverage-v1",
+  "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
+  "source_sha256": "ccc204766633f595b486794e1b7fd2e831520be1ae00931cd63182a69d4eb301",
+  "candidate_commit": "",
+  "deployed_commit": "",
+  "strict_evidence": true,
+  "slice_graph_path": "slice-graph.json",
+  "additional_requirements": [
+    {
+      "source_id": "M00016-REQ-RM-ORDER-A2E",
+      "source_line": 16,
+      "source_text_sha256": "0cf4718a7cacc54ebe459367827d12f8af10bc5b09bbae4a00dcee0c385edc76",
+      "source_excerpt": "**ОБЯЗАТЕЛЬНЫЙ ПОРЯДОК РАБОТ: (A) завершить текущую задачу → (B) проверить и задеплоить её на СТАРЫЙ production → (C) проверить этот релиз на старом production → (D) только после успешной проверки готовить и переносить бота на новый VPS → (",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-ORDER-A2E",
+      "slice": "DONE-ABC",
+      "acceptance": "Порядок A→B→C→D→E соблюдён и закреплён серийной цепочкой slice-graph (DONE-ABC→INV→PREP→GIT→SYNC→ROLLBACK→CUT→VERIFY→POST→SWITCH); миграция не начинается до завершения/деплоя/приёмки текущей задачи на старом production; перестановка этапов исключена зависимостями графа.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00018-REQ-RM-MIGRATE-NOW",
+      "source_line": 18,
+      "source_text_sha256": "9c7d914768d2d5116877df9bf9432be7134c69bbbdcf8707cffe2cb47066f0bf",
+      "source_excerpt": "Не откладывать миграцию как новый функциональный эпик. Выполнить её после текущего релиза, с минимальным временем недоступности и без потери данных, памяти, пользовательских настроек и возможностей. Предварительная подготовка нового сервера",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-MIGRATE-NOW",
+      "slice": "DONE-ABC",
+      "acceptance": "Миграция выполнена как продолжение текущего релиза, а не новый функциональный эпик: подготовка нового сервера начата только после проверки релиза на старом, при работающем старом production; единственное краткое окно остановки — окончательная фиксация и перенос изменяемого состояния; независимые деплои backlog приостановлены только на окно миграции, очередь/журнал/current_task.md сохранены.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00028-REQ-RM-ROLES",
+      "source_line": 28,
+      "source_text_sha256": "d13ad4a470ce5b977f94b2ad8bfbeba2f0716dec32351cca163ff73becdae3e5",
+      "source_excerpt": "Orchestrator: сначала довести **уже активную текущую задачу** из `plans/current_task.md` до инженерного завершения, Review и полноценного деплоя на **старый** VPS; получить подтверждение реально работающей версии. После этого на время мигра",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-ROLES",
+      "slice": "DONE-ABC",
+      "acceptance": "Модель исполнения соблюдена: Orchestrator довёл текущую задачу до завершения/Review/деплоя на старый VPS и подтверждения реально работающей версии; DevOps — ведущий исполнитель подготовки и миграции; Architect — ограниченный проход по критичным контрактам; Builder во время миграции исправляет только подтверждённые несовместимости нового окружения; Reviewer сначала принял релиз на старом production, затем проверяет целостность переноса и фактическое поведение нового production; без выдуманных многократных гейтов.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00034-REQ-RM-CURRENT-TASK-ONLY",
+      "source_line": 34,
+      "source_text_sha256": "959f021c58e4b7b379275713d0da3cb4ede83d36aefe4eaf34f3fb5debbcad19",
+      "source_excerpt": "**Текущая задача** — та, которая реально активна в Orchestrator / `plans/current_task.md` на момент выполнения распоряжения, включая её поздние уточнения. Нельзя выбирать вместо неё одну из удобных закрытых задач, считать её выполненной по ",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CURRENT-TASK-ONLY",
+      "slice": "DONE-ABC",
+      "acceptance": "Завершена именно реально активная задача p0-history-analysis со всеми поздними уточнениями; удобная закрытая задача не подставлена, выполненность не посчитана по галочкам, scope не урезан; реализовано, протестировано, независимо отревьюено и задеплоено.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/p0-history-analysis/evidence/review-relevance-fix2.md — итоговое независимое ревью кандидата 0b8dfe6a: Approved, регрессия 758 passed / 0 failed, включая наборы всех срезов p0-HA",
+          "observation": "Фаза A: активная задача p0-history-analysis доведена до инженерного завершения — кандидат 0b8dfe6a Approved независимым ревью, регрессия 758 passed / 0 failed; подмены задачи и урезания scope нет.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/review-relevance-fix2.md",
+          "artifact_sha256": "fd47b8425f3a4901d2d3b58d42069ff332fc33c8326724838067217e7bcf24e8"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Документальное подтверждение: отчёт владельцу фиксирует завершение/приёмку текущей задачи (10 пунктов §22) и версию 2.58.141 @ 5346ee76.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00036-REQ-RM-PHASE-A",
+      "source_line": 36,
+      "source_text_sha256": "70f7bf3ca48b36046ced41105340af31aa93d8b8b5a553c924455a83cdead4cd",
+      "source_excerpt": "**A. Завершить текущую задачу:** сверить актуальные требования, незавершённые acceptance criteria, активные Builder/Reviewer и состояние рабочего дерева; реализовать оставшееся, выполнить соответствующие тесты и исправить обнаруженные регре",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PHASE-A",
+      "slice": "DONE-ABC",
+      "acceptance": "Фаза A выполнена: актуальные требования сверены, оставшееся реализовано, соответствующие тесты выполнены, обнаруженные регрессии исправлены; новая задача из очереди не начиналась, принятые требования не отменялись, задач ради миграции не создавалось.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/p0-history-analysis/evidence/review-relevance-fix2.md — итоговое независимое ревью кандидата 0b8dfe6a: Approved, регрессия 758 passed / 0 failed, включая наборы всех срезов p0-HA",
+          "observation": "Фаза A: реализация завершена волнами 1-4 + fix2; итоговая независимая приёмка Approved на кандидате 0b8dfe6a, регрессия 758 passed / 0 failed.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/review-relevance-fix2.md",
+          "artifact_sha256": "fd47b8425f3a4901d2d3b58d42069ff332fc33c8326724838067217e7bcf24e8"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Отчёт владельцу отражает завершение и проверку текущей задачи до деплоя (разделы о дефектах, тестах и границах).",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00038-REQ-RM-PHASE-B",
+      "source_line": 38,
+      "source_text_sha256": "1be07985d3838422f2103b44bdd1bd599a9ad2cc4d4b275353a88e70364110e4",
+      "source_excerpt": "**B. Выпустить релиз на СТАРОМ production:** проверить Git-состояние и переносимость release commit из локальной рабочей копии в remote, выполнить текущий штатный релизный workflow (сборка, независимый Reviewer, git commit/push/merge по уст",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PHASE-B",
+      "slice": "DONE-ABC",
+      "acceptance": "Фаза B выполнена: штатный релизный workflow проведён (сборка, независимый Reviewer, commit/push/merge, git pull --ff-only на старом VPS, зависимости/перезапуск затронутых сервисов); установлено, что на старом VPS работает именно новый код; зафиксированы полный Git SHA, APP_VERSION/build, ветка, deployed timestamp и артефакты Reviewer; секреты не выведены.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md — деплой 2.58.141 [DEPLOY-258141]: deployed SHA 5346ee76 = merge 0ef8477b кандидата 0b8dfe6a + bump, код байт-идентичен ревью-кандидату (blob-пины 10/10), healthz 200 локально и внешне, push fast-forward 986779cb..5346ee76",
+          "observation": "Фаза B: деплой 2.58.141 [DEPLOY-258141] выполнен штатно; deployed SHA 5346ee765e83ee859596b60437811b21db1e4564 = merge 0ef8477b кандидата 0b8dfe6a + bump, blob-пины 10/10 байт-идентичны, healthz 200 локально и внешне, push fast-forward 986779cb..5346ee76 на origin.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md",
+          "artifact_sha256": "19ef03389997e5720edd7fa96383b0ca251e5330fb03aea465194f94f3edeb4a"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Полный SHA/версия/время и приёмка зафиксированы в отчёте владельцу без вывода секретов.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00040-REQ-RM-PHASE-C",
+      "source_line": 40,
+      "source_text_sha256": "f562f8385570112c50a4e5e810160cb61d60fd3ede7203783f325252de02a07b",
+      "source_excerpt": "**C. Проверить этот релиз именно на старом production:** проверить systemd, health, Docker/PG/SQLite соединения, фактические логи после перезапуска, отсутствие runtime exceptions, работу затронутых текущей задачей функций и связанных основн",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PHASE-C",
+      "slice": "DONE-ABC",
+      "acceptance": "Фаза C выполнена: релиз проверен именно на старом production — systemd/health, Docker/PG/SQLite соединения, фактические логи после перезапуска без runtime exceptions, работа затронутых функций и связанных основных маршрутов без тестовых отправок в рабочие чаты; один HTTP 200 не принят за доказательство работы фичи; недоступные живые события честно отмечены, а не сымитированы.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md — деплой 2.58.141 [DEPLOY-258141]: deployed SHA 5346ee76 = merge 0ef8477b кандидата 0b8dfe6a + bump, код байт-идентичен ревью-кандидату (blob-пины 10/10), healthz 200 локально и внешне, push fast-forward 986779cb..5346ee76",
+          "observation": "Фаза C: postdeploy-проверки 2.58.141 на старом VPS — healthz 200 локальный и внешний, системные проверки деплой-артефакта; production-строка REQ-HA-DEPLOY-POSTCHECK VERIFIED в карте p0-history-analysis.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md",
+          "artifact_sha256": "19ef03389997e5720edd7fa96383b0ca251e5330fb03aea465194f94f3edeb4a"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Отчёт владельцу фиксирует фактическое поведение на старом production (включая естественный трафик fetched=) и честно отделённые owner-наблюдения.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00042-REQ-RM-RELEASE-GATE",
+      "source_line": 42,
+      "source_text_sha256": "5b1e8c3ffadbd4fdd231ec95e73db521613d3d3e52cfd8e6affd362735eb92b3",
+      "source_excerpt": "**ОБЯЗАТЕЛЬНЫЙ RELEASE GATE:** к миграции можно перейти только когда текущая задача инженерно завершена, Reviewer принял исправления, актуальный релиз задеплоен на старом VPS и доступные production-проверки пройдены без критических дефектов",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-RELEASE-GATE",
+      "slice": "DONE-ABC",
+      "acceptance": "RELEASE GATE пройден до миграции: текущая задача инженерно завершена, Reviewer принял исправления, актуальный релиз задеплоен на старый VPS, доступные production-проверки пройдены без критических дефектов; новый VPS не использовался для скрытия/обхода проблем; миграция не объявлена выполненной раньше времени.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md — деплой 2.58.141 [DEPLOY-258141]: deployed SHA 5346ee76 = merge 0ef8477b кандидата 0b8dfe6a + bump, код байт-идентичен ревью-кандидату (blob-пины 10/10), healthz 200 локально и внешне, push fast-forward 986779cb..5346ee76",
+          "observation": "Gate: деплой и production-проверки без критических дефектов зафиксированы в деплой-артефакте (healthz, fast-forward push, байт-идентичность кода).",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md",
+          "artifact_sha256": "19ef03389997e5720edd7fa96383b0ca251e5330fb03aea465194f94f3edeb4a"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Release gate карты p0-history-analysis на кандидате 0b8dfe6a / deployed 5346ee76: errors=1 — только документированный структурный класс «deployed commit differs from reviewed candidate» (конвенция bump-деплоя), критических дефектов нет.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00046-POSTGATE-TRANSITION",
+      "source_line": 46,
+      "source_text_sha256": "95ae5eae903acbfd0aaee05de3a2398a7bb736293fe8f19ed271ca51dae9b754",
+      "source_excerpt": "После прохождения gate немедленно переходить к инвентаризации, подготовке, синхронизации и cutover по разделам ниже; не останавливаться на отчёте о текущем релизе.",
+      "disposition": "duplicate",
+      "reason": "Переход к инвентаризации/подготовке/синхронизации/cutover сразу после gate закодирован серийной цепочкой slice-graph (INV depends_on DONE-ABC и далее) и покрыт REQ-RM-ORDER-A2E; отдельной строки не требует."
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-DATA",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-DATA",
+      "slice": "CUT",
+      "acceptance": "Ни один переносимый или старый массив данных не удалён; чистая установка поверх старой системы не выполнялась; исключение только доказанно восстанавливаемых временных кэшей задокументировано в инвентаризации.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-DUAL",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-DUAL",
+      "slice": "CUT",
+      "acceptance": "В каждый момент времени работает максимум один экземпляр Telegram-бота: старый остановлен и проверен до включения нового; одновременный запуск двух активных экземпляров не допущен.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-DUALUPGRADE",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-DUALUPGRADE",
+      "slice": "DONE-ABC",
+      "acceptance": "Релиз текущей задачи выполнен отдельно на старом VPS ДО начала переноса; одновременного обновления версии приложения и сервера не допущено.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md — деплой 2.58.141 [DEPLOY-258141]: deployed SHA 5346ee76 = merge 0ef8477b кандидата 0b8dfe6a + bump, код байт-идентичен ревью-кандидату (blob-пины 10/10), healthz 200 локально и внешне, push fast-forward 986779cb..5346ee76",
+          "observation": "Релиз 2.58.141 выполнен на старом VPS (фазы A-C) до старта миграционных работ; серверное окружение при релизе не менялось — перенос начат только после подтверждённой приёмки.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md",
+          "artifact_sha256": "19ef03389997e5720edd7fa96383b0ca251e5330fb03aea465194f94f3edeb4a"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Отчёт владельцу фиксирует: релиз задеплоен и принят на старом production до миграции.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-REIMPORT",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-REIMPORT",
+      "slice": "SYNC",
+      "acceptance": "Повторный импорт истории и перестройка эмбеддингов не запускались; существующие БД перенесены как есть, без автоматического пересоздания.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §3+§5+§11 — REQ-RM-PROHIB-REIMPORT (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "Повторный импорт истории и перестройка эмбеддингов НЕ запускались: migrate_env_to_pg / history import / embedding rebuild не выполнялись (§5, §11-PREFLIGHT). Существующие БД перенесены как есть, без автоматического пересоздания: SQLite — backup API-снапшот с фактами байт/число-в-число (121 таблица, user_version 37, PAGE_COUNT/FREELIST/OBJECTS MATCH, integrity ok дважды), PG — pg_restore exit 0 со всеми 9/9 exact-каунтами MATCH (bot_settings 544, personas 2 и т.д.).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-MEMORY",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-MEMORY",
+      "slice": "SYNC",
+      "acceptance": "Политика хранения памяти не изменялась в ходе подготовки и переноса.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §1+§3 — REQ-RM-PROHIB-MEMORY (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "Политика хранения памяти не менялась в ходе подготовки и переноса: долговременная память перенесена внутри local_database.db без изменений — backup API-снапшот, integrity_check ok на OLD (115.9 c) и NEW (9.1 c), факты MATCH по всем пунктам: 121 таблица, user_version 37, PAGE_COUNT 407676, FREELIST 91, объектов 298; никаких импортов/пересборок/миграций схемы не запускалось (см. также REQ-RM-PROHIB-REIMPORT).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-TESTMSG",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-TESTMSG",
+      "slice": "POST",
+      "acceptance": "Тестовые сообщения в рабочие Telegram-чаты не отправлялись; проверки выполнены штатными диагностическими средствами, изолированными non-delivery вызовами и анализом реальных штатных событий.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-ADMINRESET",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-ADMINRESET",
+      "slice": "SYNC",
+      "acceptance": "Конфигурация админки не сбрасывалась: настройки, роли и промпты перенесены из реального PG/конфигов без обнуления.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §1+§3 — REQ-RM-PROHIB-ADMINRESET (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "Конфигурация админки не сбрасывалась: настройки, роли и промпты восстановлены из реального pg_dump -Fc дампа старого PG — exact-каунты MATCH: bot_settings 544, chat_profiles 3, personas 2; pg_restore --clean --if-exists применён поверх разрешённого пустого placeholder-префлайта PREP, затем загружены реальные данные — ничего не обнулялось. .env перенесён байт-в-байт (sha old==new, OLD_IP_VALUE_HITS=0) без сброса значений.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-CLONE",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-CLONE",
+      "slice": "GIT",
+      "acceptance": "git clone не выдан за полноценный перенос: код на новом VPS развёрнут строго от MIGRATION_SOURCE_SHA, данные/конфиги перенесены механизмами §5-6, а не клонированием.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §7+§9–§10 — REQ-RM-PROHIB-CLONE (инфраструктурный срез GIT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Клон не выдан за полноценный перенос: /var/www/admin_bot развёрнут строго от MIGRATION_SOURCE_SHA — checkout --detach 5346ee765e83ee859596b60437811b21db1e4564, git rev-parse HEAD == SHA (SHA_MATCH_OK), рабочая копия чистая, detached-шейп зеркалит старый сервер (§7). Из клона пришёл только tracked-контент кода (plans/, media/ — 58 tracked, extra_images/, info_text.md — код по SHA, ~502 MiB pack); SQLite/PG/.env/backups/chrome-profile и прочие переносимые данные в клон не попали и явно отнесены к механизмам §5–6 — срез SYNC (handoff-список §10: .env 156 ключей, SQLite/PG, media, bot-api каталог 66.3 MB с ACL, backups-решение, xray-конфиг и др.). Порядок §5–6 не подменён: на этапе GIT клон покрывает только код, перенос данных не выполнялся и не имитировался.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00022-REQ-RM-PROHIB-HTTP200",
+      "source_line": 22,
+      "source_text_sha256": "a612b4ee24a80d2ba5aa8d01e381a594e6593eaf6b7f46b8d83407fb7bb1a6aa",
+      "source_excerpt": "**Запреты:** не удалять данные, не выполнять чистую установку поверх старой системы; не запускать два активных экземпляра одного Telegram-бота; не обновлять одновременно версию приложения и сервер (релиз выполняется отдельно на старом VPS Д",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PROHIB-HTTP200",
+      "slice": "POST",
+      "acceptance": "Приёмка production не подменена unit-тестами или одним HTTP 200: выполнены сравнения данных и подтверждение единственности экземпляра по §7-7.1.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00020-REQ-RM-SECRETS-DEPLOY",
+      "source_line": 20,
+      "source_text_sha256": "a9717ecab0bcf06b250dcce8508197926717cf753b41d3e38ed70e6e34b77d4b",
+      "source_excerpt": "**Источники доступа:** локальный приватный `deploy_commands.txt` (игнорируется `.gitignore`). Старый VPS: `nik@198.46.175.136`; новый VPS: `root@192.255.209.205`. Пользователь передал логин и пароль нового VPS в приватных данных; не перепис",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SECRETS-DEPLOY",
+      "slice": "INV",
+      "acceptance": "Креденшелы используются только из локального deploy_commands.txt: не переписаны в код, AGENTS.md, plans/current_task.md, отчёты, команды с логируемыми аргументами, логи, issue или git; значения секретов не печатаются; путь из приватных заметок не попал в систему контроля версий.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §0 SSH-журнал + §14 — REQ-RM-SECRETS-DEPLOY (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Креденшелы использованы только из локального deploy_commands.txt, значения — в памяти процесса (в журнале сеансов отмечено без значений); в код, AGENTS.md, plans/current_task.md, артефакт/отчёты, команды с логируемыми аргументами и git не записаны; git remote -v на старом VPS без встроенных кредов; репозиторий инвентаризация не изменяла; секрет-скан raw-логов: token-pattern 0, plain-DSN 0.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00024-REQ-RM-SOURCE-PRIORITY",
+      "source_line": 24,
+      "source_text_sha256": "e75abc65ab02a86aa80eb2527cb1d1033f84b7d9f02130e00d105733e371ba49",
+      "source_excerpt": "Сначала прочитать актуальные правила `AGENTS.md`, реальные серверные настройки и текущий runtime. Приоритет: наблюдаемый старый production > его фактические файлы и конфигурация > Git > README > предположения.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SOURCE-PRIORITY",
+      "slice": "INV",
+      "acceptance": "Перед работой прочитаны актуальные AGENTS.md, реальные серверные настройки и текущий runtime; решения принимаются по приоритету: наблюдаемый старый production > его фактические файлы и конфигурация > Git > README > предположения.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, шапка «Приоритет источников» + §13 — REQ-RM-SOURCE-PRIORITY (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Перед работой прочитаны AGENTS.md (fail2ban/PET_PROJECT-правила), owner-input §0–§2, карта требований; выводы сделаны по факту наблюдаемого сервера против «дефолтов» документов: unit без EnvironmentFile (env из .env силами приложения), volume с compose-префиксом admin_bot_adminbot_pgdata вместо «adminbot_pgdata» из owner-дока, .env.example признан ненадёжным источником (35 фактических ключей отсутствуют) — переносить реальный .env; приоритет «наблюдаемый production > фактические файлы > Git > README > предположения» соблюдён.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00050-REQ-RM-INV-READONLY",
+      "source_line": 50,
+      "source_text_sha256": "11bcdeabdfeae627420d19cd98500b4d07479247e1c06433a29efeba64f88864",
+      "source_excerpt": "После подтверждённого релиза текущей задачи выполнить read-only инвентаризацию **уже обновлённого** старого production. По возможности объединить её с допустимыми проверками релиза, чтобы не плодить SSH-сеансы. На `nik@198.46.175.136` зафик",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-READONLY",
+      "slice": "INV",
+      "acceptance": "Инвентаризация выполнена строго read-only на уже обновлённом старом production без изменения работающих данных; SSH-паттерн fail2ban-безопасен: без перебора кредов/частых переподключений, один recon-коннект коротким таймаутом, статус сервиса при закрытом SSH — по HTTP /healthz; SSH-сеансы по возможности объединены с проверками релиза.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §0 + весь документ — REQ-RM-INV-READONLY (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Инвентаризация строго read-only на уже обновлённом старом production (2.58.141): SSH-журнал — 4 сеанса, один recon с таймаутом 15 с, паузы между коннектами ≥60 с (76 с / 3 м 24 с / 2 м 50 с), single auth без ретраев, без параллельных коннектов и перебора кредов; статус прода дополнительно по HTTP /healthz → 200 2.58.141 (внешне) без SSH; изменений данных/конфигурации не выполнено (зафиксировано в шапке артефакта); сборка выполнена одним основным bash -s прогоном + одна докаптура.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00062-REQ-RM-INV-SECRETS",
+      "source_line": 62,
+      "source_text_sha256": "b885ed94f017bc8254d85096aba1cc16e366829866e172b1ca05f3518f151a11",
+      "source_excerpt": "Никаких изменений на старом сервере в этой фазе. В отчётах показывать имена параметров, размеры и состояния, а не значения секретов.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-SECRETS",
+      "slice": "INV",
+      "acceptance": "Отчёты инвентаризации показывают имена параметров, размеры и состояния, но не значения секретов; никаких изменений на старом сервере в фазе инвентаризации не выполнено.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §7 имена секретов + §13 п.10 + §14 — REQ-RM-INV-SECRETS (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "В артефакте только имена параметров, размеры и состояния: API_TOKEN, LLM_API_KEY, POSTGRES_DSN/POSTGRES_PASSWORD, TELEGRAM_API_ID/HASH, xray-конфиг и др. — значения нигде не раскрыты; на старом сервере никаких изменений в фазе INV не выполнено; инцидент обработан на месте: имя каталога bot-api с токеном замаскировано в raw-логе (***REDACTED_BOT_TOKEN***), повторный секрет-скан обоих raw-файлов: token-pattern 0, plain-DSN 0; TELEGRAM_API_FILES_DIR/COBALT_HTTP_PROXY/YOUTUBE_TRANSCRIPT_PROXY_URL — только имена, значения снимаются при SYNC/PREP из .env.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00011-REQ-RM-PREP-NO-REKEY",
+      "source_line": 11,
+      "source_text_sha256": "faf574ecf69a01ccfbab0db1670361a7df00dcb51f270c76e787a5240325f20b",
+      "source_excerpt": "> Текущее состояние нового VPS по скриншоту Virtualizor от 29.10.2026: Rebuilding VPS, Adding SSH Keys и VPS Start помечены Completed. Перед миграцией проверить по SSH фактическую ОС (`cat /etc/os-release`) и доступность ключа. Не переустан",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PREP-NO-REKEY",
+      "slice": "PREP",
+      "acceptance": "Новый VPS не переустанавливается повторно; уже добавленный SSH-ключ не перегенерируется; при неудачном подключении сначала проверяются пара ключей и права доступа, а не разрушается новое окружение; фактическая ОС проверена по /etc/os-release по SSH, состояние Rebuilding/SSH Keys/VPS Start = Completed сверено с панелью.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §0–§1 — REQ-RM-PREP-NO-REKEY (инфраструктурный срез PREP без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Переустановки нового VPS нет, SSH-ключ не перегенерировался: подключение существующим ключом adminbot_vps (BatchMode, single login) принято с первой попытки — TOFU-эхо CONNECT_OK, hostname, время (§0); разрушение окружения не потребовалось. Фактическая ОС проверена по SSH /etc/os-release: Ubuntu 24.04 LTS (noble), 6.8.0-31-generic, x86_64 (§1). Состояние панели Virtualizor (Rebuilding/SSH Keys/VPS Start = Completed) взято из owner-скриншота в источнике; прямая агентская сверка с панелью недоступна (нет доступа к панели) — раскрыто здесь; компенсирующая агентская проверка: тот же ключ принят с первой попытки, TOFU-отпечаток хоста совпал с INV-эталоном (INV §10).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00066-REQ-RM-PREP-FINGERPRINT",
+      "source_line": 66,
+      "source_text_sha256": "586e3b10b383e3fffef70d433d90a72c991dd0bcec1ffd983ae4706c229fdd2e",
+      "source_excerpt": "Подключиться к `root@192.255.209.205`; проверить fingerprint хоста через панель VPS и фактическую ОС. Ubuntu 24.04 LTS предпочтительна, но не переустанавливать существующую систему без подтверждённой необходимости. Проверить 4 ГБ RAM, 100 Г",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PREP-FINGERPRINT",
+      "slice": "PREP",
+      "acceptance": "Fingerprint хоста нового VPS сверен через панель VPS, фактическая ОС проверена; Ubuntu 24.04 LTS предпочтительна, но без переустановки без подтверждённой необходимости; проверены 4 ГБ RAM, 100 ГБ диск, свободное место относительно объёма переносимых данных и резервных копий, доступные CPU/архитектура и зависимости с нативными бинарными модулями.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §0+§1+§8 — REQ-RM-PREP-FINGERPRINT (инфраструктурный срез PREP без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Fingerprint: TOFU host key RSA SHA256:KMOAKfeddYbWXoqx7W4mVgu+DaU2Qg+V0wF5CRmHYAg — совпал с INV-эталоном (INV §10); строка привязана на сверку с INV-записью. Сверка отпечатка с панелью Virtualizor — owner-side sanity-пункт, агентом не выполнялась (нет доступа к панели) — раскрытие зафиксировано здесь. ОС по SSH: Ubuntu 24.04 LTS (noble) x86_64 — предпочтительная версия уже на месте, переустановка не выполнялась (§0–§1). Ресурсы §1: 2 CPU / 3916 MiB RAM / диск 99G; после работ used 11G, free 84G — запас многократно больше переносимых ≈1.75–2.2 GB и копий. Нативный бинарный модуль подтверждён под сервис-юзером: import-preflight sqlite-vec v0.1.9 (vec_version) ✓ (§8).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00068-REQ-RM-PREP-USER",
+      "source_line": 68,
+      "source_text_sha256": "8d373a37c7b7adfe76610196684ffaf3e82d68114a6e5170b3102ea9c40ab740",
+      "source_excerpt": "Создать штатного deploy/service пользователя с нужными UID/GID и правами по результату инвентаризации (не запускать приложение от root), установить Git, согласованный Python+venv, Docker Engine/Compose, Nginx/Caddy и другие фактически испол",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PREP-USER",
+      "slice": "PREP",
+      "acceptance": "Создан штатный deploy/service пользователь с нужными UID/GID и правами по инвентаризации (приложение не от root); установлены Git, согласованный Python+venv, Docker Engine/Compose, Nginx/Caddy и фактически используемые зависимости; конфигурации восстановлены с верными путями/правами/таймзоной/bind mounts/каталогами/правами на сокеты и файлами окружения; сервис admin_bot создан, но оставлен остановленным и не включён в автозапуск до cutover; до финального переключения на целевом сервере отключены все производственные писатели, Telegram polling/webhook и фоновые задания.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §1–§6+§8 — REQ-RM-PREP-USER (инфраструктурный срез PREP без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Создан сервис-пользователь adminbot uid=999/gid=987 (system, nologin, home /var/www/admin_bot); приложение не от root — осознанная инфра-дельта root→adminbot с компенсациями задокументированы: ACL на docker/telegram-bot-api (u:adminbot:r-x + default ACL, setgid 2775, владелец 101:101 как на старом), строгий EnvironmentFile в unit (fail-loud без .env до SYNC), дерево каталогов adminbot:adminbot (§2, §6.4). Установлены фактически используемые зависимости: git 2.43.0, python 3.12.3 + venv /var/www/admin_bot/venv (pip 24.0 — зеркало старого), Docker Engine 29.9.2 + Compose v5.6.1, caddy 2.11.7 (Caddyfile validate OK, inactive+disabled до cutover), xray 26.10.21 (unit inactive+disabled, конфиг — на SYNC) (§3–§5, §8). Таймзона Etc/UTC — как на старом (§1). Unit admin_bot создан по шейпу старого (User=adminbot, EnvironmentFile=/var/www/admin_bot/.env, override TimeoutStopSec=60), inactive + disabled, ни разу не стартовал; производственных писателей, Telegram polling/webhook и фоновых заданий/cron бота на новом VPS нет (§6).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00070-REQ-RM-PREP-DOCKER",
+      "source_line": 70,
+      "source_text_sha256": "f918f562e334dd911444b239491152782afd6fef01ea2094e9e74e94e10518b2",
+      "source_excerpt": "Создать или восстановить Docker-конфигурацию точно под старый runtime. PostgreSQL слушает только 127.0.0.1:5432, локальный Telegram Bot API — 127.0.0.1:8081, Cobalt — loopback:9000 согласно `docker-compose.yml`. Уточнить фактические зависим",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-PREP-DOCKER",
+      "slice": "PREP",
+      "acceptance": "Docker-конфигурация восстановлена точно под старый runtime: PostgreSQL слушает только 127.0.0.1:5432, локальный Telegram Bot API — 127.0.0.1:8081, Cobalt — loopback:9000 согласно docker-compose.yml; фактические зависимости host-network и прокси 127.0.0.1:10808 уточнены; заранее запущены только не конфликтующие вспомогательные сервисы; двух Telegram polling/бот-процессов одновременно нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §3–§4 — REQ-RM-PREP-DOCKER (инфраструктурный срез PREP без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Compose восстановлен точно под старый runtime: штатный docker-compose.yml из клона на замороженном SHA (байт-соответствие старому), project admin_bot, volume admin_bot_adminbot_pgdata — имя байт-в-байт со старым (INV §6); решение зафиксировано: явное имя не назначалось — дефолт проекта воспроизводит точное имя (§3). Состояния (кросс-сессионно): adminbot-postgres 16-alpine Up (healthy) — единственный слушающий порт хоста 127.0.0.1:5432 (docker-proxy), пустой preflight-инстанс с одноразовым паролем — разрешённый не-конфликтующий aux; adminbot-telegram-bot-api (конфиг 127.0.0.1:8081, не слушает), adminbot-cobalt (host-net, API_LISTEN_ADDRESS=127.0.0.1:9000), adminbot-bgutil-pot (host-net :4416, прикрывается ufw) — Created, не запущены (§3). Host-network зависимости уточнены: cobalt/bgutil network_mode: host — xray 127.0.0.1:10808 достижим только из host-стека; прокси-переменные приходят с реальным .env на SYNC (§3). Решение: caddy 2.11.7 установлен, но stopped+disabled до cutover — исключён ACME-гон с живым старым сервером на том же домене (§4). Двух polling/бот-процессов нет — бот не запускался; .env.prep root:root 0600 содержит только интерполяционные переменные с плейсхолдером POSTGRES_PASSWORD (не печатался) — заменяется реальным .env/финальным дампом на SYNC/CUT (§3).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00044-REQ-RM-GIT-SHA-FREEZE",
+      "source_line": 44,
+      "source_text_sha256": "d249954f6f742906724854f2fa4b81da5d3b19b1f6ee9197c579499fde417ff5",
+      "source_excerpt": "**Заморозка версии для миграции:** после успешной приёмки зафиксировать immutable `MIGRATION_SOURCE_SHA` = SHA реально работающего старого production, состояние рабочих файлов и конфигурации. На новый VPS перенести **именно эту версию**, а ",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-GIT-SHA-FREEZE",
+      "slice": "GIT",
+      "acceptance": "MIGRATION_SOURCE_SHA = 5346ee765e83ee859596b60437811b21db1e4564 зафиксирован как SHA реально работающего старого production вместе с состоянием рабочих файлов и конфигурации; на новый VPS переносится именно эта версия, а не более новый master, незадеплоенный локальный код или устаревший снимок; любые изменения кода до cutover требуют повторной сверки release gate; независимые кодовые деплои на время переноса не проводятся; инфраструктурные различия нового хоста допускаются только после проверки с фиксацией неизменности прикладной логики и версии.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md — деплой 2.58.141 [DEPLOY-258141]: deployed SHA 5346ee76 = merge 0ef8477b кандидата 0b8dfe6a + bump, код байт-идентичен ревью-кандидату (blob-пины 10/10), healthz 200 локально и внешне, push fast-forward 986779cb..5346ee76",
+          "observation": "SHA зафиксирован: задеплоенный 5346ee765e83ee859596b60437811b21db1e4564 (merge кандидата 0b8dfe6a + bump, версия 2.58.141) — единственный кандидат на MIGRATION_SOURCE_SHA, код байт-идентичен принятому.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/deploy-old-vps.md",
+          "artifact_sha256": "19ef03389997e5720edd7fa96383b0ca251e5330fb03aea465194f94f3edeb4a"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — финальный отчёт владельцу: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76",
+          "observation": "Версия 2.58.141 @ 5346ee76 зафиксирована в отчёте владельцу как проверенное состояние старого production.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        }
+      ]
+    },
+    {
+      "source_id": "M00074-REQ-RM-GIT-OLD-HEAD",
+      "source_line": 74,
+      "source_text_sha256": "51b86c8cb73c92e98cab6798eb9100e488919aef2f317a3135245c6feba2e41d",
+      "source_excerpt": "На старом VPS определить текущий `HEAD` и branch/upstream; сравнить их с зафиксированным после релиза `MIGRATION_SOURCE_SHA`, совпадение обязательно. Не считать `master` автоматически равным production. Если есть локальные tracked-изменения",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-GIT-OLD-HEAD",
+      "slice": "GIT",
+      "acceptance": "HEAD/branch/upstream старого VPS совпадают с MIGRATION_SOURCE_SHA (master не считается автоматически равным production); локальные tracked-изменения сохранены патчем с отдельным подтверждением нужности для runtime; без git reset --hard и слепого git pull; принятый релизный commit доступен через remote либо перенесён без потери исходного состояния.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §0+§7+§9 — REQ-RM-GIT-OLD-HEAD (инфраструктурный срез GIT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Новых SSH-подключений к старому VPS не требовалось — все 5 сеансов среза к новому VPS, факты старого HEAD переиспользованы из VERIFIED INV-артефакта (второе evidence ниже; §0, §9). Release commit доступен через remote: git fetch --prune origin с нового VPS показал ветку release/p0-2026-10-26 ровно на один docs-коммит вперёд (fast-forward 5346ee76..1f4fe81a), сам 5346ee76 присутствует в origin; восстановление заморозки выполнено осознанным checkout --detach <SHA> (SHA_RESTORED_OK) — без git reset --hard и слепого pull (§7).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §3 — REQ-RM-GIT-OLD-HEAD: факты HEAD старого VPS из инвентаризации (HEAD == MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141; detached; tracked-dirty нет; 13 untracked классифицированы; master не считался равным production; remote без секретов)",
+          "observation": "INV §3: HEAD старого VPS = 5346ee765e83ee859596b60437811b21db1e4564 = MIGRATION_SOURCE_SHA, ветка release/p0-2026-10-26, detached HEAD (no branch); tracked-изменений нет — патчевать не требовалось; 13 untracked runtime-файлов классифицированы; совпадение с заморозкой обязательно и выполнено.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "M00076-REQ-RM-GIT-NEW-CLONE",
+      "source_line": 76,
+      "source_text_sha256": "36585ba4e4c2a6597f407d4b6e43ed57878da32bdc424d819e181acd79eee078",
+      "source_excerpt": "На новом VPS создать рабочую копию Git в `/var/www/admin_bot` строго от `MIGRATION_SOURCE_SHA` и соответствующей рабочей ветки. `origin` должен ссылаться на `Henry-Case-dev/adminbot`; обеспечить рабочий read-доступ для deploy-пользователя: ",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-GIT-NEW-CLONE",
+      "slice": "GIT",
+      "acceptance": "Рабочая копия Git в /var/www/admin_bot на новом VPS создана строго от MIGRATION_SOURCE_SHA и соответствующей рабочей ветки; origin ссылается на Henry-Case-dev/adminbot; deploy-пользователь имеет рабочий read-доступ (HTTPS для публичного репозитория либо SSH deploy key с read-only правами — добавляется только публичный ключ); пароль Git не в URL, токен не в tracked файлах, remote со встроенным токеном не печатается.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §7 — REQ-RM-GIT-NEW-CLONE (инфраструктурный срез GIT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Рабочая копия /var/www/admin_bot создана клоном (7020 файлов) и приведена строго к MIGRATION_SOURCE_SHA: checkout --detach 5346ee765e83ee859596b60437811b21db1e4564, git rev-parse HEAD == SHA (SHA_MATCH_OK), git status -sb чистый, detached-шейп зеркалит старый сервер (INV §3) (§7). origin = https://github.com/Henry-Case-dev/adminbot по HTTPS: ls-remote работает без кредов — репозиторий публичен для чтения, deploy key не потребовался (добавлять нечего — только публичный ключ был бы допустим), токенов/паролей в URL нет, remote без встроенных секретов (секрет-скан raw-логов 0 совпадений, §0/§11). Read-доступ deploy-пользователя проверен фактически: префлайт-git выполнялся от adminbot; для root-операций добавлен safe.directory /var/www/admin_bot (§7).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00078-REQ-RM-GIT-CYCLE",
+      "source_line": 78,
+      "source_text_sha256": "dcb547c07a5d0b017cf6936dde955577cf66b70333a60c868d119b272e0cb779",
+      "source_excerpt": "Проверить `git fetch`, `git status -sb`, `git rev-parse HEAD`, `git pull --ff-only` в чистой рабочей копии и доступ к нужной ветке без интерактивного запроса чужих данных. Сохранить тот же рабочий цикл DevOps после переключения, в том числе",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-GIT-CYCLE",
+      "slice": "GIT",
+      "acceptance": "git fetch, git status -sb, git rev-parse HEAD и git pull --ff-only работают в чистой рабочей копии без интерактивных запросов; рабочий цикл DevOps сохранён после переключения, host selector актуализирован в непубличных деплой-командах/скриптах и правилах мониторинга; старый VPS оставлен доступным для rollback, его git-копия не уничтожена.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md, §7+§9–§10 — REQ-RM-GIT-CYCLE (инфраструктурный срез GIT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; новое окружение собрано строго из замороженного MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "Цикл доказан неинтерактивно (GIT_TERMINAL_PROMPT=0) в чистой рабочей копии на замороженном SHA: git fetch --prune origin ✓, git status -sb ✓, git rev-parse HEAD ✓, git pull --ff-only origin release/p0-2026-10-26 — исполнен fast-forward 5346ee76..1f4fe81a (удалённая ветка ушла на один docs-коммит deploy-записи), затем checkout --detach <SHA> — SHA_RESTORED_OK, копия снова чистая на 5346ee76 (§7). Зафиксировано: голый pull --ff-only на detached HEAD отказывает (нет upstream) — штатная семантика git; рабочий цикл DevOps = fetch + pull с явным refspec. Host selector в непубличных деплой-командах/мониторинге сознательно не менялся — актуализация принадлежит срезу SWITCH по заданию (обязательство остаётся в PENDING-строках SWITCH, §7/§10); старый VPS не тронут, git-копия сохранена — rollback готов (§7).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/prep-git-new-vps.md",
+          "artifact_sha256": "5bb42826c8650c3060515178deba8a0fcbcca81a0f36c3869fb298de317c704c"
+        }
+      ]
+    },
+    {
+      "source_id": "M00082-REQ-RM-SYNC-IMMUTABLE",
+      "source_line": 82,
+      "source_text_sha256": "1a471ca7ecd0c12c6814fdbf1fae1925d78aeebb458ee80789fb25a8146d1d75",
+      "source_excerpt": "Выполнить первую передачу больших неизменяемых данных (`media`, архивы, вложения, необходимые assets, некоторые user files) через защищённый канал, с сохранением относительных путей, прав и владельцев. Для больших каталогов применять `rsync",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SYNC-IMMUTABLE",
+      "slice": "SYNC",
+      "acceptance": "Первая передача больших неизменяемых данных (media, архивы, вложения, необходимые assets, часть user files) выполнена через защищённый канал с сохранением относительных путей, прав и владельцев; rsync с возможностью докачки и без --delete до независимой проверки; проверены размеры, количество, выборочные хэши и права; мусор не перенесён; каждый отсутствующий файл классифицирован как доказанно безопасный, а не по расширению.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §2+§7+§12 — REQ-RM-SYNC-IMMUTABLE (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "Первая передача больших неизменяемых данных выполнена online (старый бот работал всё время, healthz 200 2.58.141 на каждом OLD-сеансе): rsync -a --partial БЕЗ --delete по защищённому каналу — временный ed25519-ключ создан на OLD, отозван по завершении, fingerprint NEW SHA256:KMOAKf… сверен с INV/PREP-эталоном после TOFU. media 100,237,770 B/59 файлов, extra_images 2,982,616 B/3, chrome-profile 5,462,394 B/132, dossier_jobs 34,926 B/6, info_text.md + cookies (путь из YOUTUBE_COOKIES_FILE по исходному абсолютному пути) — итоговые байты NEW == OLD байт-в-байт, du-суммы всех наборов old==new, выборочные хэши MATCH (включая 3 media-сэмпла и крупнейший 13.4 MB). Пути/права/владение сохранены (rsync числовые uid/gid) + осознанная дельта новой инфраструктуры: chown adminbot:adminbot на media/extra/chrome/dossier, .env 600, bot-api 101:101 + default ACL u:adminbot:r-x — доступ adminbot проверен фактическими чтениями/записями. Мусор не перенесён: каждое отсутствие классифицировано доказательством (§7: backups-история 1.5 GB — rollback-материал на OLD по owner §8, venv пересоздан, .bak-копии/осиротевший db-journal/test_subs/tools/_s41_precheck — не runtime на SHA).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00084-REQ-RM-SYNC-SQLITE",
+      "source_line": 84,
+      "source_text_sha256": "14cc54e8265018dabe714766affeb3dd14d2befc0029d72b031d7af2c4b549e5",
+      "source_excerpt": "Для SQLite использовать штатный SQLite backup API/онлайн-резервирование; не считать простую копию `.db` с активным WAL консистентной. Для PG использовать `pg_dump -Fc` / `pg_restore` с подходящей версией инструментов, не заменять дамп сырым",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SYNC-SQLITE",
+      "slice": "SYNC",
+      "acceptance": "SQLite перенесена штатным SQLite backup API/онлайн-резервированием; простая копия .db с активным WAL не считается консистентной и не используется как источник.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §1+§3+§12 — REQ-RM-SYNC-SQLITE (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "SQLite перенесена штатным backup API, не сырой копией: venv python, источник mode=ro при активном WAL 4.1 MB → /tmp/mig_sync/local_database_presync.db 1,669,840,896 B (1.55 GiB), exit 0 за 11.6 c; простое копирование .db с WAL НЕ использовалось, raw-копия активного WAL не создавалась (требование §5 соблюдено). integrity_check — ok дважды: на копии на OLD (115.9 c, 1 ядро) и повторно на принятом файле на NEW (9.1 c, 2 ядра); факты MATCH по всем пунктам: PAGE_COUNT 407676, FREELIST 91, объектов 298, таблиц 121, user_version 37. Файл лежит в staging /var/lib/adminbot_migration/ (root 700) до CUT — приложение его сейчас не использует, замена финальным снапшотом на CUT по §5/§6 owner-input (§8.1).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00084-REQ-RM-SYNC-PG",
+      "source_line": 84,
+      "source_text_sha256": "14cc54e8265018dabe714766affeb3dd14d2befc0029d72b031d7af2c4b549e5",
+      "source_excerpt": "Для SQLite использовать штатный SQLite backup API/онлайн-резервирование; не считать простую копию `.db` с активным WAL консистентной. Для PG использовать `pg_dump -Fc` / `pg_restore` с подходящей версией инструментов, не заменять дамп сырым",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SYNC-PG",
+      "slice": "SYNC",
+      "acceptance": "PostgreSQL перенесён pg_dump -Fc / pg_restore с подходящей версией инструментов; сырая замена docker volume на работающей БД не применялась; предварительное восстановление (для измерения времени/проверки зависимостей) заменено финальным согласованным снапшотом перед запуском.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §1+§3+§8.2 — REQ-RM-SYNC-PG (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "PostgreSQL перенесён pg_dump -Fc / pg_restore подходящих версий: pg_dump -Fc -U adminbot adminbot (docker exec, PG 16.15) → adminbot_presync.dump 603,589 B, stderr 0 B, exit 0; сырая замена docker volume на работающей БД НЕ применялась. Роль adminbot приведена к реальному паролю из .env (POSTGRES_DSN и POSTGRES_PASSWORD согласованы — PW_SOURCES_MATCH 1, значение в печать не попало); pg_restore -Fc --clean --if-exists — exit 0, 0 ошибок, <1 c, 26 public-таблиц; все 9 exact-каунтов MATCH со старым: bot_settings 544, chat_profiles 3, personas 2, llm_usage_events 9377, chat_lore_history 250, uptime_events 4345, image_reservation 14, worker_budget 311, anticliche_cache 1; соединение по реальному DSN — OK, server_version_num 160015 (PG 16.15, как на старом). Предварительное восстановление зафиксировано в staging и по плану заменяется финальным согласованным дамповым снапшотом на CUT (§8.2 — отложено осознанно до остановки старого бота).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00086-REQ-RM-SYNC-ENV-TLS",
+      "source_line": 86,
+      "source_text_sha256": "1c00452abcce727b347a42e19777a9d8fee21c5d0c35b7ce7ee0f9191fd0bf6d",
+      "source_excerpt": "Подготовить перенос `.env` с фактическими ключами и настройками без публикации значений. Старые пути, IP, абсолютные URLs и DSN пересмотреть и исправить только при необходимости для нового сервера; не сбрасывать значения. Настроить TLS и до",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SYNC-ENV-TLS",
+      "slice": "SYNC",
+      "acceptance": ".env подготовлен и перенесён с фактическими ключами и настройками без публикации значений; старые пути/IP/абсолютные URLs/DSN пересмотрены и исправлены только при необходимости для нового сервера, без сброса значений; TLS и домен настроены заранее и проверены локальным разрешением имени/Host до изменения публичного DNS; пользователи не переадресованы на неготовый сервер.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §2+§4+§6 — REQ-RM-SYNC-ENV-TLS (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": ".env перенесён rsync --chmod=600 + chown adminbot:adminbot байт-в-байт: sha256 67bb8b1e… old==new MATCH, значения нигде не опубликованы (санитизация raw-логов, контрольный скан 12 файлов — 0 остатков). Пересмотр IP/путей/URL/DSN: OLD_IP_VALUE_HITS = 0 — значения со старым IP отсутствуют, правки не потребовались, НИЧЕГО не сбрасывалось; TELEGRAM_API_FILES_DIR = дефолтный относительный docker/telegram-bot-api, валиден на NEW (подтверждено import-логом); дубли 10 ключей — оба парсера берут последнее вхождение (согласовано с PREP §6.2); строка 80 .env — одиночный «S» без = — косметический артефакт, сохранён байт-в-байт, поведенческой разницы на CUT нет (§4). TLS/домен: caddy validate — Valid configuration (Caddyfile из PREP), сервис НЕ запущен (inactive+disabled) — ACME-гон с живым доменом исключён, Host-заголовочный тест отложен на CUT по заданию; DNS не тронут, пользователи не переадресованы. xray: конфиг перенесён root:root 0600, sha old==new 88e11e2e… MATCH, xray run -test — Configuration OK (deprecated gRPC-варнинг нефатальный), сервис не запущен. Cron disk_retention перенесён как tracked-скрипт на SHA (sha old==new через git); пере-установка под нового пользователя — решение на CUT/SWITCH (handoff PREP §10.4).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00088-REQ-RM-SYNC-PREFLIGHT",
+      "source_line": 88,
+      "source_text_sha256": "dce232d46f2a87d6ab4e0e5ad9100d2f8484ef8e876265c97d1bc7299ded10f2",
+      "source_excerpt": "Предварительно проверить импорт Python зависимостей (включая `sqlite-vec`), systemd unit, docker health, PostgreSQL соединение, SQL схемы, права на каталог media. Для приложения — только preflight без Telegram polling, фоновых отправок и мо",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SYNC-PREFLIGHT",
+      "slice": "SYNC",
+      "acceptance": "Preflight выполнен: импорт Python зависимостей (включая sqlite-vec), systemd unit, docker health, соединение PostgreSQL, SQL схемы, права на каталог media; приложение проверено только префлайтом — без Telegram polling, фоновых отправок и модифицирующих periodic jobs; scripts/migrate_env_to_pg.py, импорт истории и пересборка эмбеддингов не выполнялись — существующие БД перенесены, а не созданы пустыми.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §3+§4+§5+§11 — REQ-RM-SYNC-PREFLIGHT (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "Preflight выполнен полностью, приложение — только префлайт без Telegram polling/фоновых отправок/модифицирующих periodic jobs. Импорт зависимостей: venv закреплён к 48 точным старым prod-версиям (устранён дрейф fastapi 0.141.1→0.162.0 и др.; итог 0 changed, 84 пакета идентичны, pip check — No broken requirements), sqlite-vec v0.1.9 OK и import bot с реальным .env OK — повторно после пиннинга (§5). systemd unit: admin_bot/caddy/xray inactive+disabled, dotenv-probe юнит удалён; проба EnvironmentFile vs python-dotenv: VALUE_MISMATCH = 0 по всем 146 общим ключам (§4). Docker health: из контейнеров работает только разрешённый пустой postgres (Up healthy), PG-соединение по реальному DSN OK, схема восстановлена — 26 public-таблиц (§3). SQL-схемы/счётчики: 9/9 exact-каунтов MATCH. Права media: adminbot запись media/extra/chrome/dossier OK, чтение bot-api (ACL) и .env OK (§2). scripts/migrate_env_to_pg.py, импорт истории и пересборка эмбеддингов НЕ выполнялись — существующие БД перенесены как есть, не созданы пустыми.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00030-REQ-RM-DOWNTIME-MEASURE",
+      "source_line": 30,
+      "source_text_sha256": "dcb0c51ca64ae5c3449171a31c3f2198c6c09288cc966cbab52d1a88214e7273",
+      "source_excerpt": "Не обещать минимальное время без предварительных измерений — вычислить объём и скорость переноса, заранее подготовить переносимый набор и зафиксировать фактическое время простоя. Не закрывать задачу по HTTP 200 при непроверенных БД.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-DOWNTIME-MEASURE",
+      "slice": "SYNC",
+      "acceptance": "Минимальное время простоя не обещано без предварительных измерений: объём и скорость переноса вычислены, переносимый набор подготовлен заранее, фактическое время простоя зафиксировано; задача не закрыта по HTTP 200 при непроверенных БД.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/sync-preflight.md, §9+§1+§2+§8 — REQ-RM-DOWNTIME-MEASURE (инфраструктурный срез SYNC без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на живом старом сервере в начале и в конце среза)",
+          "observation": "Минимальное время простоя не обещано без измерений — все константы зафиксированы в raw-логах: SQLite backup API 1.55 GiB — 11.6 c (OLD 1 ядро), integrity_check — 115.9 c OLD / 9.1 c NEW, pg_dump 590 KB — 1 c, pg_restore <1 c, провод VPS↔VPS ≈54 MB/s (1.67 GB за 29 c), bot-api 66 MB — 2 c. Переносимый набор подготовлен заранее (staging /var/lib/adminbot_migration: pre-sync SQLite/дамп/freeze/facts). Расчёт: data-plane CUT ≈50–90 c чистой передачи/проверки; полный окно простоя дополнительно включает остановку старого бота, финальные проверки count'ов и старт нового — честный ориентир ≈5–10 минут с явной оговоркой «не обещание»; отложенные на CUT дельты перечислены (§8). Задача по HTTP 200 при непроверенных БД не закрывалась — верификация проведена integrity/count/hash/digest/import-пробами.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/sync-preflight.md",
+          "artifact_sha256": "c06350b65c72e4921165b77c04bc732e278cf91def709c67c4eac78af73ac660"
+        }
+      ]
+    },
+    {
+      "source_id": "M00092-REQ-RM-CUT-PRECHECK",
+      "source_line": 92,
+      "source_text_sha256": "b0ce27efb28d03bd0d1861e278aba4db7a4a59de9abb3d2b814636bd7d7398b9",
+      "source_excerpt": "Перед переключением убедиться, что на старом production продолжает работать **принятая текущая задача** и SHA совпадает с `MIGRATION_SOURCE_SHA`; сверить долговременную память и состояние заданий. Заблокировать параллельные CI/DevOps релизы",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-PRECHECK",
+      "slice": "CUT",
+      "acceptance": "Перед переключением подтверждено: на старом production продолжает работать принятая текущая задача и SHA совпадает с MIGRATION_SOURCE_SHA; долговременная память и состояние заданий сверены; параллельные CI/DevOps релизы на оба VPS заблокированы на момент cutover; новые изменения после него направляются только на выбранный production; зафиксировано точное начало окна.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00103-REQ-RM-CUT-NOT-DONE-200",
+      "source_line": 103,
+      "source_text_sha256": "7462d1f22b182c4e0e1d665ef243f0854f6db99feb5ef3b7eae231e01968d996",
+      "source_excerpt": "Не приписывать `DONE` только по HTTP 200: нужны сравнения данных и подтверждение единственности экземпляра.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-NOT-DONE-200",
+      "slice": "CUT",
+      "acceptance": "DONE не объявлен по HTTP 200: требуются сравнения данных и подтверждение единственности экземпляра (совместно с VERIFY и POST-строками).",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00118-REQ-RM-VERIFY-SNAPSHOT-BASIS",
+      "source_line": 118,
+      "source_text_sha256": "fad214998f2673f4e4ee6674af9962897f91fb82a2cd25ebdd4a955202cee328",
+      "source_excerpt": "Точечные сравнения и тесты привязать к фактическому старому snapshot, а не к установленному по умолчанию чистому серверу. При неожиданном расхождении данных откатить cutover до запуска новых писателей либо исправить на новой копии без потер",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-SNAPSHOT-BASIS",
+      "slice": "VERIFY",
+      "acceptance": "Точечные сравнения и тесты привязаны к фактическому старому финальному снапшоту, а не к дефолтному чистому серверу; при неожиданном расхождении данных выполнен откат cutover до запуска новых писателей либо исправление на новой копии без потери пользовательских событий.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00122-REQ-RM-POST-SCOPE",
+      "source_line": 122,
+      "source_text_sha256": "a32d3ca665b89ae25ce20267bd153c1b7ab3720107ea744850f269d4471eadef",
+      "source_excerpt": "Проверить не только то, что бот запустился, но и что **актуальная задача, задеплоенная сначала на старый сервер, осталась рабочей после переноса**, а остальные существующие функции не пострадали. Использовать фактические параметры и включён",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-SCOPE",
+      "slice": "POST",
+      "acceptance": "Проверка ведёт сравнение до (старый принятый релиз) / после (новый production); используются фактические параметры и включённые модули чатов; выключенные функции не включаются специально ради формальных проверок; подтверждено, что актуальная релизная задача осталась рабочей после переноса, а остальные существующие функции не пострадали.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00124-REQ-RM-POST-P1",
+      "source_line": 124,
+      "source_text_sha256": "82e09233b17faee45bc6fb8ab9db6b013a126a173667b03b49a97ead666c5726",
+      "source_excerpt": "**Точка 1 — версия и единственный production:** полный Git SHA и build на новом VPS совпадают с `MIGRATION_SOURCE_SHA`; старый `admin_bot` и production-writers остановлены, нет двойных Telegram pollers, scheduler/worker, повторной инициатив",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-P1",
+      "slice": "POST",
+      "acceptance": "Точка 1: полный Git SHA и build на новом VPS совпадают с MIGRATION_SOURCE_SHA; старый admin_bot и production-writers остановлены; нет двойных Telegram pollers, scheduler/worker, повторной инициативы и дублирующихся отправок; Git/DevOps будущего деплоя указывает на новый IP, а не на старый сервер.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00126-REQ-RM-POST-P2",
+      "source_line": 126,
+      "source_text_sha256": "d2fe2ee868198a41e069dddb7926ac587c4d9f08ae47982b936c8257929ce442",
+      "source_excerpt": "**Точка 2 — процессы и зависимости:** systemd service устойчиво работает после старта, корректно поднимается после управляемого рестарта без потери данных; Docker Compose сервисы и необходимые healthcheck доступны; PostgreSQL, SQLite, локал",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-P2",
+      "slice": "POST",
+      "acceptance": "Точка 2: systemd service устойчиво работает и корректно поднимается после управляемого рестарта без потери данных; Docker Compose сервисы и необходимые healthcheck доступны; PostgreSQL, SQLite, локальный Telegram Bot API, Cobalt, прокси, веб-сервер, TLS и публичные media URLs проверены по фактическим активным настройкам; нет повторяющихся exceptions, error loops, stuck jobs и неожиданных рестартов.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00128-REQ-RM-POST-P3",
+      "source_line": 128,
+      "source_text_sha256": "677b658916ca222838429b2094064986fb1994806722d393c78dc65ce152d2c6",
+      "source_excerpt": "**Точка 3 — данные и память:** сравнить проверяемые row-counts/checksums/границы последних сообщений и IDs чатов в SQLite и PG против согласованных финальных snapshots; подтвердить доступность историй, alias → Telegram ID, embedding index, ",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-P3",
+      "slice": "POST",
+      "acceptance": "Точка 3: row-counts/checksums/границы последних сообщений и IDs чатов в SQLite и PG совпадают с согласованными финальными снапшотами; выборочные чтения и целостность связей: истории, alias → Telegram ID, embedding index, GraphRAG, dossiers/episodes, Golden Facts, L1/L2, памяти чатов, summary/nostalgia/initiative state, pending jobs; новых импортов и перестроек памяти нет.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00130-REQ-RM-POST-P4",
+      "source_line": 130,
+      "source_text_sha256": "b4605ff8031499e24e913195c17d20cd0bb2107f217855eda93b5bf5192eedae",
+      "source_excerpt": "**Точка 4 — прикладное поведение:** по существующим диагностическим средствам и изолированным non-delivery вызовам проверить критичные маршруты: Direct Chat/L1/Writer, ToolRouter и поиск, Fact-check с fallback, Summary и расписания, Initiat",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-P4",
+      "slice": "POST",
+      "acceptance": "Точка 4: критичные маршруты проверены по существующим диагностическим средствам и изолированным non-delivery вызовам: Direct Chat/L1/Writer, ToolRouter и поиск, Fact-check с fallback, Summary и расписания, Initiative, Nostalgia, Vision/media, генерация и редактирование изображений (без платных live-запросов, если требуется только контракт), админка (логин, роли, права, глобальные и per-chat настройки, сохранённые провайдеры, промпты); acceptance текущей релизной задачи воспроизведены в безопасной среде с реальными runtime-логами; контрактный mock не выдан за живую проверку провайдера.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00132-REQ-RM-POST-P5",
+      "source_line": 132,
+      "source_text_sha256": "3d0dd9ebaa94164cd163e0f690d921c39aeeaea64ff552202571056af182e61d",
+      "source_excerpt": "**Точка 5 — штатное production-наблюдение:** после переключения изучить реальные новые `journalctl`/структурированные события, результаты штатных фоновых тиков и доступные естественные входящие обновления. Не генерировать тестовые сообщения",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-P5",
+      "slice": "POST",
+      "acceptance": "Точка 5: изучены реальные новые journalctl/структурированные события, результаты штатных фоновых тиков и доступные естественные входящие обновления; тестовые сообщения в рабочие Telegram-чаты не генерировались, искусственное ожидание не применялось; для функций без естественного события отмечено not_observed с указанием косвенно проверенного; «все функции проверены на проде» не заявлено только на основании health или моков.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00134-REQ-RM-POST-P6",
+      "source_line": 134,
+      "source_text_sha256": "280db84d905718ff919028111181613d96502b54f5707c665cbb05c0b6511a8d",
+      "source_excerpt": "**Точка 6 — сеть и клиент:** проверить публичный домен админки, DNS и сертификат снаружи, `healthz`/`/api/health`, нужные функции Mini App и пути медиа, отсутствие открытых наружу портов PG/локального Telegram Bot API и служебных сервисов; ",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-P6",
+      "slice": "POST",
+      "acceptance": "Точка 6: публичный домен админки, DNS и сертификат проверены снаружи; healthz//api/health, нужные функции Mini App и пути медиа работают; порты PG/локального Telegram Bot API и служебных сервисов не открыты наружу; старые URL/IP не остались конечным адресом активного production.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00136-REQ-RM-POST-ACCEPT",
+      "source_line": 136,
+      "source_text_sha256": "fc48b84c8f617e2b468786ed80e319c795fc0cf41e7b544f5f29c2831159b053",
+      "source_excerpt": "**Критерий приёмки:** нет потери данных, не потеряны или не перезаписаны настройки, сервисы работоспособны, текущий релиз и включённые основные маршруты доступны, нет подтверждённых новых критических регрессий относительно последнего провер",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-ACCEPT",
+      "slice": "POST",
+      "acceptance": "Критерий приёмки: нет потери данных, настройки не потеряны и не перезаписаны, сервисы работоспособны, текущий релиз и включённые основные маршруты доступны, нет подтверждённых новых критических регрессий относительно последнего проверенного состояния на старом VPS; при критической регрессии — локализация причины и безопасное исправление на новом production либо rollback по §8 с сохранением всех данных, созданных после cutover; слепой откат к старому снапшоту при уже принятых обновлениях не выполняется.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00138-REQ-RM-POST-TABLE",
+      "source_line": 138,
+      "source_text_sha256": "02bb05ca19eb568f005aad11057bae8c17dc22204f06e733b7ce804c7c4df861",
+      "source_excerpt": "**Финальный артефакт приёмки:** короткая таблица `компонент | старый production | новый production | evidence | status`, где статусы `PASS`, `FAIL`, `NOT_OBSERVED` честно соответствуют реальным данным; отдельно приложить контрольные суммы/ч",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-POST-TABLE",
+      "slice": "POST",
+      "acceptance": "Финальный артефакт приёмки создан: таблица «компонент | старый production | новый production | evidence | status» с честными PASS/FAIL/NOT_OBSERVED; приложены контрольные суммы/числа по БД и подтверждение соответствия MIGRATION_SOURCE_SHA принятой текущей задаче; NOT_OBSERVED не превращён в PASS.",
+      "live_required": true,
+      "live_when": "postdeploy",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00142-REQ-RM-ROLLBACK-PRE",
+      "source_line": 142,
+      "source_text_sha256": "970d209201572fde297ad217c0616796ba43ca947c2f394b21b50afb1f75f546",
+      "source_excerpt": "Пока новый VPS не обработал новых обновлений Telegram и не создал новых записей, допустимо вернуть старый VPS к заранее сохранённому состоянию, убедившись, что новый остановлен.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-ROLLBACK-PRE",
+      "slice": "ROLLBACK",
+      "acceptance": "План отката для фазы «новый VPS ещё не обрабатывал новые обновления и записи» задокументирован ДО cutover: возможен возврат старого VPS к заранее сохранённому состоянию с предварительной остановкой нового.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00144-REQ-RM-ROLLBACK-POST",
+      "source_line": 144,
+      "source_text_sha256": "4eb293dcf829d0f64eae01f13108d6556901abb7391f9df6a90a6dbe1327c7ea",
+      "source_excerpt": "После того как новый VPS начал принимать сообщения или выполнять фоновые задачи, **нельзя** просто включать старый snapshot: это потеряет уже созданные на новом данные или повторит отправки. Для возврата нужно сначала останавливать новых пи",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-ROLLBACK-POST",
+      "slice": "ROLLBACK",
+      "acceptance": "План отката для фазы «новый VPS уже принимает сообщения/выполняет фоновые задачи» задокументирован ДО cutover: простое включение старого снапшота запрещено; сначала останавливаются новые писатели, изменения согласованно переносятся назад, восстанавливаются очереди/offset, и только затем запускается старый экземпляр; при невозможности безопасного обратного переноса новый сервер остаётся единственным источником истины и проблема устраняется на нём; одновременный запуск двух экземпляров всегда исключён.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00148-REQ-RM-SWITCH-TARGET",
+      "source_line": 148,
+      "source_text_sha256": "1af8797d47b4f0d4bc0efb00966173721c176a1f62ad81bfe07dcbef57cd8f5b",
+      "source_excerpt": "После успешного переключения обновить deploy target в применимых конфигурациях DevOps/AGENTS, но сохранить данные старого сервера для rollback и историю релизов. Проверить, что Orchestrator/DevOps теперь делает `git pull --ff-only` и `syste",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SWITCH-TARGET",
+      "slice": "SWITCH",
+      "acceptance": "Deploy target обновлён в применимых конфигурациях DevOps/AGENTS на новый VPS; данные старого сервера сохранены для rollback и истории релизов; Orchestrator/DevOps выполняют git pull --ff-only и systemctl restart admin_bot на новом VPS, а не по старому IP; конфигурация fail2ban/SSH доступов проверена — скрипты не блокируют себя повторными подключениями.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00150-REQ-RM-SWITCH-REPORT",
+      "source_line": 150,
+      "source_text_sha256": "aa2cb80285b190c7c33d002b4e1f46ae47cbcf782051eae5f83cc6ee1c0c53c3",
+      "source_excerpt": "Вывести короткий отчёт **с двумя отдельными фазами**: (1) текущая задача завершена, принята Reviewer, выкачена на старый VPS, указан полный `MIGRATION_SOURCE_SHA`, проверены основные acceptance criteria на старом production; (2) перенос име",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SWITCH-REPORT",
+      "slice": "SWITCH",
+      "acceptance": "Итоговый отчёт владельцу с двумя отдельными фазами доставлен: (1) текущая задача завершена, принята Reviewer, выкачена на старый VPS, указан полный MIGRATION_SOURCE_SHA, проверены основные acceptance; (2) перенос именно этого SHA на новый VPS: ОС/версии runtime, размеры SQLite/PG/media, проверка переноса данных, время начала/окончания cutover, фактический гэп, состояние /api/health, PG/Docker/systemd, домен/TLS, Git access и результаты расширенной post-migration проверки §7.1; отдельно указаны фактически проверенные функции, not_observed сценарии, серьёзные регрессии с исправлением/rollback и остаток к проверке; секреты не раскрыты.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00152-REQ-RM-SWITCH-QUEUE",
+      "source_line": 152,
+      "source_text_sha256": "0fe8b58f146312e380fec757ab9d5d473c5af7b6c4b2122434a6d5a26e757f07",
+      "source_excerpt": "Не останавливать основную очередь разработческих задач без технической необходимости после успешного переноса. Следующий обычный деплой должен попадать уже на новый VPS.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-SWITCH-QUEUE",
+      "slice": "SWITCH",
+      "acceptance": "Основная очередь задач разработки не остановлена без технической необходимости после успешного переноса; следующий обычный деплой попадает уже на новый VPS.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "M00154-REQ-RM-DONE-CRITERIA",
+      "source_line": 154,
+      "source_text_sha256": "cfc8687f9e7e1ed66e0c5bc6cd84aad7c9cf03d857eaa37987f716393a48b293",
+      "source_excerpt": "**Критерий завершения:** **текущая задача сначала успешно задеплоена и проверена на старом VPS**, после чего **именно её принятый SHA** перенесён на новый VPS; новый VPS — единственный работающий production, данные сверены с финальным snaps",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-DONE-CRITERIA",
+      "slice": "SWITCH",
+      "acceptance": "Критерий завершения подтверждён: текущая задача сначала успешно задеплоена и проверена на старом VPS; именно её принятый SHA перенесён на новый; новый VPS — единственный работающий production; данные сверены с финальным снапшотом; Git-деплой работает; расширенная post-migration приёмка приложения и функций пройдена без критических регрессий; старый сервер сохранён с выключенными production-писателями для возможного возврата; DONE не заявлялся до прохождения обоих этапов.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    }
+  ],
+  "items": [
+    {
+      "source_id": "L00014",
+      "source_line": 14,
+      "source_text_sha256": "b455c73934f3cfa6dc6f2888719f1cf7212f96b2941a24098c1915ca932dc9ae",
+      "source_excerpt": "## 0. Распоряжение владельца",
+      "disposition": "context",
+      "reason": "Заголовок §0; распоряжение A→B→C→D→E и запреты извлечены в REQ-RM-ORDER-A2E и REQ-RM-PROHIB-* (строки 16, 22).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00026",
+      "source_line": 26,
+      "source_text_sha256": "8c7656fe430d03bb2230a946bfebfad3b9908537d89d3e29526448a382697957",
+      "source_excerpt": "## 1. Модель выполнения и ответственная роль",
+      "disposition": "context",
+      "reason": "Заголовок §1; модель исполнения и роли извлечены в REQ-RM-ROLES (строка 28), измерение простоя — REQ-RM-DOWNTIME-MEASURE (строка 30).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00032",
+      "source_line": 32,
+      "source_text_sha256": "e67915a8c9c46dee3e7bfe9dfdbb4377db9c9cd81e53ebfa9f47f72e8ed314a7",
+      "source_excerpt": "## 1.5. ФАЗА A–C — завершение, деплой и приёмка ТЕКУЩЕЙ задачи на СТАРОМ VPS (строго до миграции)",
+      "disposition": "context",
+      "reason": "Заголовок §1.5; фазы A/B/C, release gate и заморозка SHA извлечены в REQ-RM-PHASE-A/B/C, REQ-RM-RELEASE-GATE, REQ-RM-GIT-SHA-FREEZE (строки 36-44).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00048",
+      "source_line": 48,
+      "source_text_sha256": "6f3e3763cc1d63682948cbdda854464398d83b413b39d65a91fa963eabf042c5",
+      "source_excerpt": "## 2. Read-only инвентаризация старого сервера",
+      "disposition": "context",
+      "reason": "Заголовок §2; обязательства инвентаризации извлечены в REQ-RM-INV-* (строки 50-62).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00052",
+      "source_line": 52,
+      "source_text_sha256": "5b891d376107e7c73b23bfc9fa09db0ee7ff78e897bd571f5dfdedbad1b31d56",
+      "source_excerpt": "- ОС, архитектуру, версии Python и venv, CPU/RAM/диск, свободное место на обоих VPS;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-SYSTEM",
+      "slice": "INV",
+      "acceptance": "Зафиксированы фактические ОС/архитектура, версии Python и venv, CPU/RAM/диск и свободное место на СТАРОМ и НОВОМ VPS; инфраструктурные расхождения нового хоста задокументированы без изменения прикладной логики.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §1 + §10 — REQ-RM-INV-SYSTEM (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Старый VPS: Ubuntu 24.04.4 LTS x86_64, ядро 6.8.0-147, 1 CPU, 961 MiB RAM (swap 3 GiB, занят 1.5 GiB), диск 24G (17G used, 5.8G free); Python 3.12.3 system и venv (aiogram 3.31.0, aiosqlite 0.22.1, asyncpg 0.31.0, sqlite-vec 0.1.9, fastapi 0.141.1); healthz 200 2.58.141, journal 24 ч — 0 Traceback/ERROR. Новый VPS: Ubuntu 24.04 Noble x86_64, 2 CPU, 3.8 GiB RAM без swap, 99G диск (91G free), python 3.12.3 и git 2.43.0 есть, docker/caddy/nginx отсутствуют (установка — slice PREP); swap предложено добавить на PREP.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00053",
+      "source_line": 53,
+      "source_text_sha256": "f55bc9b2f7f32302cb2857ed27bc62bee2af161ec96f0a01dc7c3cea165e03f9",
+      "source_excerpt": "- владельца процессов, `systemctl cat admin_bot`, рабочий каталог `/var/www/admin_bot`, EnvironmentFile, ExecStart, WorkingDirectory, дополнительные unit/timer/cron, persistent workers и scheduler;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-SYSTEMD",
+      "slice": "INV",
+      "acceptance": "Зафиксированы владелец процессов, полный systemctl cat admin_bot (EnvironmentFile/ExecStart/WorkingDirectory), рабочий каталог /var/www/admin_bot, дополнительные unit/timer/cron, persistent workers и scheduler старого production.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §2 — REQ-RM-INV-SYSTEMD (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "systemctl cat admin_bot: Type=simple, User=root, WorkingDirectory=/var/www/admin_bot, ExecStart=venv/bin/python bot.py, Restart=always/5s, override TimeoutStopSec=60; EnvironmentFile отсутствует — приложение читает /var/www/admin_bot/.env (8121 B, nik:developers); active/running, MainPID 959071, NRestarts=0, старт 2026-10-28 22:35 UTC; смежные caddy/docker/xray active, nginx нет; cron nik — еженедельный tools/disk_retention.py; systemd-таймеры только штатные; отдельных worker/scheduler-сервисов нет — всё внутри единственного процесса admin_bot.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00054",
+      "source_line": 54,
+      "source_text_sha256": "754f09bfb0d79eeae7bb1f8f62fa2ff28a29858affc0d5d44b316bb004bb76b4",
+      "source_excerpt": "- `git status --porcelain`, `git rev-parse HEAD`, текущую ветку, upstream, безопасный вид `git remote -v` без вывода секретов, локальные незакоммиченные изменения и untracked runtime-файлы;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-GIT",
+      "slice": "INV",
+      "acceptance": "Зафиксированы git status --porcelain, HEAD, ветка/upstream старого VPS, безопасный git remote -v без секретов, перечень локальных незакоммиченных и untracked runtime-файлов.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §3 — REQ-RM-INV-GIT (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "HEAD старого VPS = 5346ee765e83ee859596b60437811b21db1e4564 — точное MATCH с MIGRATION_SOURCE_SHA (bump 2.58.140→2.58.141); detached HEAD без upstream; origin https://github.com/Henry-Case-dev/adminbot.git без встроенных кредов; git status --porcelain — 13 строк, все untracked (??), tracked-изменений НЕТ; untracked классифицированы: 9 бэкап-копий info_text.md, осиротевший pre_migration_20261001_161834.db-journal (не живое состояние), pre_migration_backup/ 2.9 MB, test_subs.ru.json3 400 KB, tools/_s41_precheck.py — ничего не удалять, решение SYNC.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00055",
+      "source_line": 55,
+      "source_text_sha256": "4629494e99ff915e68babfaae1e8dbcf5a20c04a46b557855a906fd58a5cd64a",
+      "source_excerpt": "- реальные пути SQLite: `DB_PATH`, возможные дополнительные .db, SQLite WAL/SHM, L1/L2/GraphRAG/aliases/embeddings/summary/initiative state; не полагаться только на дефолты .env.example;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-SQLITE",
+      "slice": "INV",
+      "acceptance": "Зафиксированы реальные пути SQLite (DB_PATH и все дополнительные .db, включая WAL/SHM и L1/L2/GraphRAG/aliases/embeddings/summary/initiative state) по факту на сервере, а не по дефолтам .env.example.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §4 — REQ-RM-INV-SQLITE (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Фактический поиск файлов на сервере (maxdepth 5), не дефолты .env.example: единственная БД /var/www/admin_bot/local_database.db 1,669,767,168 B (1.55 GiB), DB_PATH=local_database.db относительный; WAL 4,177,712 B активен, SHM 32 KB; отдельных .db файлов L1/L2/graph/aliases/embeddings/summary/initiative НЕТ — все memory-состояния внутри local_database.db (sqlite-vec в venv); backups/local_database_20261028.db 1.48 GiB — ежедневный бэкап 00:00 UTC; осиротевший pre_migration_*.db-journal от 01.10 — не живое состояние.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00056",
+      "source_line": 56,
+      "source_text_sha256": "00124db0bc51bc8215c04e98e6cec4f66eb7ea7412f9339fed922e9a1dccc4eb",
+      "source_excerpt": "- реальный PostgreSQL: `POSTGRES_DSN`, `POSTGRES_DB`, `POSTGRES_USER`, docker compose `postgres:16-alpine`, список БД/схем и объём; PG хранит часть настроек админки, ролей, промптов и состояния;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-PG",
+      "slice": "INV",
+      "acceptance": "Зафиксирован реальный PostgreSQL: POSTGRES_DSN/DB/USER, docker compose postgres:16-alpine, список БД/схем и объём; отмечено, что PG хранит настройки админки, роли, промпты и состояние.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §5 — REQ-RM-INV-PG (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Контейнер adminbot-postgres, образ postgres:16-alpine, фактическая версия PostgreSQL 16.15, Up 3 days healthy, порт только 127.0.0.1:5432; POSTGRES_USER=adminbot, POSTGRES_DB=adminbot; POSTGRES_DSN/POSTGRES_PASSWORD существуют в .env — значения не печатались; база adminbot 16 MB, postgres 7.3 MB; крупнейшие таблицы public: llm_usage_events 3.5 MB, chat_lore_history 1.4 MB, uptime_events 680 KB, bot_settings 504 KB и др.; PG хранит настройки админки, роли, промпты, состояние — вывод: перенос дампом pg_dump -Fc, не сырым volume.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00057",
+      "source_line": 57,
+      "source_text_sha256": "763e7a32d76bc4e9c9e7e1e9f0e1e50884b8b87b1769d06d128146a34ac456b4",
+      "source_excerpt": "- `docker compose config --services`, сервисы `telegram-bot-api`, `cobalt`, `bgutil-ytdlp-pot-provider`, `postgres`, состояние Docker volume `adminbot_pgdata`, bind mounts `docker/telegram-bot-api` и все реально используемые контейнеры;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-DOCKER",
+      "slice": "INV",
+      "acceptance": "Зафиксированы docker compose config --services (telegram-bot-api, cobalt, bgutil-ytdlp-pot-provider, postgres), состояние Docker volume adminbot_pgdata, bind mounts docker/telegram-bot-api и все реально используемые контейнеры.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §6 — REQ-RM-INV-DOCKER (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "docker compose config --services: bgutil-ytdlp-pot-provider, cobalt, postgres, telegram-bot-api — все 4 Up 3 days healthy; порты: bot-api 127.0.0.1:8081, PG 127.0.0.1:5432, cobalt/bgutil без published-портов; volume точно называется admin_bot_adminbot_pgdata (compose-префикс, не «adminbot_pgdata» из owner-дока), volumes всего 73.51 MB, images 1.39 GB; bind mount docker/telegram-bot-api → /var/lib/telegram-bot-api: внутри контейнера 66.3 MB (tqueue.binlog 31,748 B активный, webhooks_db.binlog пуст), владелец на хосте messagebus:lxd 2750/600 — из-под nik не читается, UID/GID сохранить при переносе.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00058",
+      "source_line": 58,
+      "source_text_sha256": "0b15049dcd7b615547ab77b80d81be4de60180ae2f681fde22193682bd186fbc",
+      "source_excerpt": "- `.env`, hot config из PG, пользовательские настройки, медиа, аватары, промпты, `info_text.md`, cookies, пользовательские файлы, необходимые runtime-state и service-local файлы; исключить только доказанно восстанавливаемые временные кэши;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-FILES",
+      "slice": "INV",
+      "acceptance": "Зафиксирован полный набор переносимых файлов: .env, hot config из PG, пользовательские настройки, медиа, аватары, промпты, info_text.md, cookies, пользовательские и runtime-state/service-local файлы; исключены только доказанно восстанавливаемые временные кэши.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §7 — REQ-RM-INV-FILES (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "/var/www/admin_bot итого 4.6 GB; обязательный набор: SQLite 1.6 GB, media 96 MB / 59 файлов, bot-api store 66.3 MB, .env 8121 B, info_text.md 20,900 B (tracked), extra_images 2.9 MB, docker-конфиги; .env — 156 фактических ключей, 35 серверных ключей отсутствуют в .env.example → example ненадёжен, переносить .env целиком байт-в-байт (включая дубли ключей — поведение по последнему вхождению dotenv); hot config — из PG (bot_settings/personas/промпты), отдельных hot-файлов нет; имена секретов зафиксированы без значений; опционально backups/ 1.5 GB, plans/ 413 MB, chrome-profile 5 MB; venv 404 MB — пересоздать, не переносить.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00059",
+      "source_line": 59,
+      "source_text_sha256": "facd65c5a1f5547e2d84f9cdaaa8bbc502dc53b97c154cbe0a5a6fea8a70d6a3",
+      "source_excerpt": "- публичный домен админки, reverse proxy, DNS, TLS/Certbot, websocket/webhook vs polling, порты, публичные media share URL, прокси/xray и связанные переменные;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-NETWORK",
+      "slice": "INV",
+      "acceptance": "Зафиксированы публичный домен админки, reverse proxy, DNS, TLS/Certbot, режим websocket/webhook vs polling, порты, публичные media share URL, прокси/xray и связанные переменные.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §8 — REQ-RM-INV-NETWORK (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Домен admin-bot.duckdns.org → Caddy auto-HTTPS (certbot не используется; Caddyfile 127 B + 2 бэкапа) → reverse_proxy 127.0.0.1:8000 (uvicorn, /media/* тоже); публичные медиа https://admin-bot.duckdns.org/media/...; режим приёма polling (dp.start_polling), webhook НЕ используется (webhooks_db.binlog пуст); TELEGRAM_LOCAL=1 — локальный Bot API 127.0.0.1:8081, большие файлы до 2000 MB; xray.service active, конфиг root:root 0600 (содержит секреты — переносить root-only); прокси-переменные COBALT_HTTP_PROXY/YOUTUBE_TRANSPORT_PROXY_* зафиксированы по именам без значений; слушающие порты: 8000/8081/5432 loopback, 443 публично.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00060",
+      "source_line": 60,
+      "source_text_sha256": "820d86290a0038937af169af8da33089cbb92a03807f4c65b1be1c705f5f0bd2",
+      "source_excerpt": "- журналы/очереди/scheduler, незавершённые задачи, Telegram offsets и способ локального Bot API; важно отсутствие повторной отправки и потери событий при переходе.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-INV-JOBS",
+      "slice": "INV",
+      "acceptance": "Зафиксированы журналы/очереди/scheduler, незавершённые задачи, Telegram offsets и способ локального Bot API с оценкой риска повторной отправки/потери событий при переходе.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/inventory-old-vps.md, §9 — REQ-RM-INV-JOBS (read-only инвентаризация не имеет кодового кандидата; привязана к 0b8dfe6a — HEAD локальной копии на момент инвентаризации; проверенное состояние старого production — релиз 2.58.141 @ 5346ee76 = MIGRATION_SOURCE_SHA)",
+          "observation": "Scheduler/workers внутри единственного процесса admin_bot (подтверждено деплой-артефактом 2.58.141), отдельных таймеров нет кроме еженедельного cron disk_retention; ежедневные артефакты 00:00 UTC — backups/local_database_*.db (1.5 GB) + facts_*.txt (4.4 MB); Telegram offset в памяти aiogram, неконсьюмленные обновления — в локальном Bot API tqueue.binlog (активный 31.7 KB) → перенос каталога bot-api при cutover сохраняет очередь; риск двойной обработки минимизируется строгой последовательностью «старый остановлен → перенесён bot-api каталог → новый стартует»; pending jobs: backups/dossier_jobs/ (6 файлов) + активное состояние PG (image_reservation, worker_budget) и SQLite — переносить консистентным снапшотом.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/inventory-old-vps.md",
+          "artifact_sha256": "ac25726cad8b20a6ea9524a789588930c9a85a94aaa0192964998e192c4923f7"
+        }
+      ]
+    },
+    {
+      "source_id": "L00064",
+      "source_line": 64,
+      "source_text_sha256": "76e1354ba861826659cd46f8051835ddb7c1a3b5fbf9380e79957208101f2bef",
+      "source_excerpt": "## 3. Подготовить новый VPS без запуска рабочего бота",
+      "disposition": "context",
+      "reason": "Заголовок §3; обязательства подготовки нового VPS извлечены в REQ-RM-PREP-* (строки 66-70, 11).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00072",
+      "source_line": 72,
+      "source_text_sha256": "78e045cc332b6ffacc3befc225bdce5625a684461e316e47dcf0e031520b7a19",
+      "source_excerpt": "## 4. Git — закрепить реальный production commit и дальнейший `git pull`",
+      "disposition": "context",
+      "reason": "Заголовок §4; обязательства Git-переноса извлечены в REQ-RM-GIT-* (строки 74-78) и REQ-RM-GIT-SHA-FREEZE (строка 44).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00080",
+      "source_line": 80,
+      "source_text_sha256": "93c93c2228e244563decdbcbd92920d1076488666d02bf79086f5f367dd8d469",
+      "source_excerpt": "## 5. Предварительная синхронизация без простоя",
+      "disposition": "context",
+      "reason": "Заголовок §5; обязательства предсинхронизации извлечены в REQ-RM-SYNC-* (строки 82-88).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00090",
+      "source_line": 90,
+      "source_text_sha256": "fb1ac3859cf96d61aba5bf5bc18330b6913b2c8c262f187fabb0dec44f0b1242",
+      "source_excerpt": "## 6. Финальный cutover с коротким гэпом",
+      "disposition": "context",
+      "reason": "Заголовок §6; шаги cutover извлечены в REQ-RM-CUT-PRECHECK и REQ-RM-CUT-STEP1..8, REQ-RM-CUT-NOT-DONE-200 (строки 92-103).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00094",
+      "source_line": 94,
+      "source_text_sha256": "0294a8915c64077b04df90107cc33cd887d7adafb15d5439b7c62841325a9194",
+      "source_excerpt": "1. Сохранить удобную точку возврата и последний preflight нового сервера, убедиться, что PostgreSQL и приложение там готовы, но бот НЕ принимает updates.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP1",
+      "slice": "CUT",
+      "acceptance": "Перед cutover сохранена точка возврата и выполнен последний preflight нового сервера; PostgreSQL и приложение готовы, но бот на новом VPS НЕ принимает updates.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00095",
+      "source_line": 95,
+      "source_text_sha256": "46acb89ebb5275787afbc6678af24b9bf9c429f5d9d4a2a08785970d85709326",
+      "source_excerpt": "2. Штатно остановить `admin_bot` на старом сервере и все связанные writer/scheduler процессы. Убедиться, что нет действующих писателей SQLite, PG, отправителей Telegram и продолжительных jobs. По необходимости остановить старый локальный Bo",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP2",
+      "slice": "CUT",
+      "acceptance": "admin_bot на старом сервере и все связанные writer/scheduler процессы штатно остановлены; подтверждено отсутствие активных писателей SQLite/PG, отправителей Telegram и продолжительных jobs; старый локальный Bot API остановлен с учётом фактического режима polling/webhook.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00096",
+      "source_line": 96,
+      "source_text_sha256": "12d6bbae7b22c6b954e7b8d93145e75992f3cb0321e188c569c23e96d4f74a63",
+      "source_excerpt": "3. Сделать консистентные **финальные** snapshots SQLite (включая активное состояние WAL), PostgreSQL (SQL dump), `.env`/hot-settings и изменяемых runtime-файлов. Выполнить быструю окончательную дельта-синхронизацию media и данных, изменивши",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP3",
+      "slice": "CUT",
+      "acceptance": "Сделаны консистентные финальные снапшоты SQLite (включая активное состояние WAL), PostgreSQL (SQL dump), .env/hot-settings и изменяемых runtime-файлов; выполнена финальная дельта-синхронизация изменившихся media/данных.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00097",
+      "source_line": 97,
+      "source_text_sha256": "908553727bceb883f8c3595a2633ffe55be2c64b6e618000155f7bf45254956f",
+      "source_excerpt": "4. Перед загрузкой в новый сервер проверить целостность файлов/SQLite `PRAGMA integrity_check`/PG restore, важные счетчики строк и контрольные границы истории, ID чатов, алиасы, память и задания. Не заменять работающее состояние на непровер",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP4",
+      "slice": "CUT",
+      "acceptance": "До загрузки на новый сервер проверена целостность: файлы, PRAGMA integrity_check SQLite, тестовый restore PG, счётчики строк, контрольные границы истории, ID чатов, алиасы, память и задания; работающее состояние не заменено непроверенным дампом.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00098",
+      "source_line": 98,
+      "source_text_sha256": "f03517d0ab4c462b0e9bdca34e2589b728b1e2087bdd590343d47f31571d8289",
+      "source_excerpt": "5. Восстановить окончательный набор на новом VPS, строго сопоставив владельцев файлов, переменные окружения и PG пароли/DSN. Не выполнять `initdb`, seed, миграции с очисткой, reset или `docker compose down -v` на боевых данных.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP5",
+      "slice": "CUT",
+      "acceptance": "Окончательный набор восстановлен на новом VPS с точным сопоставлением владельцев файлов, переменных окружения и PG паролей/DSN; без initdb/seed/очищающих миграций/reset/docker compose down -v на боевых данных.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00099",
+      "source_line": 99,
+      "source_text_sha256": "cba2d1da5d1b6cf5a45a872751f75fb0822248ef23331843f92f5305b6654852",
+      "source_excerpt": "6. Убедиться, что старый бот остановлен, и только затем включить **единственный** `admin_bot` на новом VPS. При использовании локального Telegram Bot API проверить правила переключения `TELEGRAM_LOCAL` и `logOut/close` согласно реально испо",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP6",
+      "slice": "CUT",
+      "acceptance": "Старый бот остановлен до включения единственного admin_bot на новом VPS; переключение TELEGRAM_LOCAL и logOut/close выполнено по правилам реально используемого режима; pending updates сохранены, двойной обработки нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00100",
+      "source_line": 100,
+      "source_text_sha256": "955ca067fe00045d9139c496544157a41e8e2175b85a444c70c93188f9ff0806",
+      "source_excerpt": "7. Перевести DNS/внешний reverse proxy/админку на новый VPS (учесть TTL, HTTPS, TLS и публичные media URLs), не открывая служебные порты наружу.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP7",
+      "slice": "CUT",
+      "acceptance": "DNS/внешний reverse proxy/админка переведены на новый VPS с учётом TTL, HTTPS, TLS и публичных media URLs; служебные порты не открыты наружу.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00101",
+      "source_line": 101,
+      "source_text_sha256": "9412029cffbaba54179626ce3c7a4df2f12aa5f9e76f852d8b1aa7451919fb90",
+      "source_excerpt": "8. Проверить health endpoint, systemd, Docker, PostgreSQL, SQLite, чтение памяти, корректность админки и существующих настроек, отсутствие fatal ошибок в journald. Telegram входящие/исходящие проверить безопасным штатным способом без тестов",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-CUT-STEP8",
+      "slice": "CUT",
+      "acceptance": "После старта проверены health endpoint, systemd, Docker, PostgreSQL, SQLite, чтение памяти, корректность админки и настроек, отсутствие fatal ошибок в journald; Telegram проверен безопасным штатным способом без тестовых сообщений; зафиксированы время первого рабочего старта и фактическая длительность гэпа; приёмка продолжена по §7.1.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00105",
+      "source_line": 105,
+      "source_text_sha256": "ae8b2b50633f19977806ceba47a7ae821321138ce17f9aad7f400e41d2166ab6",
+      "source_excerpt": "## 7. Проверка без потерь",
+      "disposition": "context",
+      "reason": "Заголовок §7; критерии без-потерь извлечены в REQ-RM-VERIFY-* (строки 109-118).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00109",
+      "source_line": 109,
+      "source_text_sha256": "e1c442d4419c46dc86d4b4ed3a6ef567d1574b33ecd7f473a87fcbb262af7e0e",
+      "source_excerpt": "- SQLite `integrity_check` OK, размеры/таблицы/row counts и последние записи равнозначны зафиксированному старому snapshot; сохранены `smart_messages`, history, mca memory, graph facts, episodes, embeddings, alias/identity, summary/nostalgi",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-SQLITE",
+      "slice": "VERIFY",
+      "acceptance": "SQLite integrity_check OK; размеры/таблицы/row counts и последние записи равнозначны зафиксированному финальному снапшоту старого сервера (smart_messages, history, mca memory, graph facts, episodes, embeddings, alias/identity, summary/nostalgia/initiative state, pending jobs).",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00110",
+      "source_line": 110,
+      "source_text_sha256": "73be4a4673d73e5ab40743ba198ceec28e114f3581ddcc75dcc7bf35f1312b0d",
+      "source_excerpt": "- PostgreSQL восстановлен из финального дампа: chat settings, admin roles, providers, prompts, dashboard state и другие реальные таблицы на месте;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-PG",
+      "slice": "VERIFY",
+      "acceptance": "PostgreSQL восстановлен именно из финального дампа: chat settings, admin roles, providers, prompts, dashboard state и остальные реальные таблицы на месте.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00111",
+      "source_line": 111,
+      "source_text_sha256": "ea05e802d83498e722d916fa25885326221fb7f3cc8b6b3e3a52b35b53e697e8",
+      "source_excerpt": "- `.env`, приватные runtime-конфигурации, media files и директории доступны, нет пустых замен вместо ранее настроенного;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-FILES",
+      "slice": "VERIFY",
+      "acceptance": ".env, приватные runtime-конфигурации, media files и директории доступны на новом сервере; пустых замен вместо ранее настроенного нет.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00112",
+      "source_line": 112,
+      "source_text_sha256": "761992c0b228358880d34a3365c994b6035746fab2f5a3c98a0e919353d4f3ba",
+      "source_excerpt": "- текущий git HEAD соответствует принятому production; `.env` и `deploy_commands.txt` не вошли в Git;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-GIT",
+      "slice": "VERIFY",
+      "acceptance": "git HEAD нового сервера соответствует принятому production; .env и deploy_commands.txt в Git не попали.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00113",
+      "source_line": 113,
+      "source_text_sha256": "e4e20e756aab536364e7a815185bd023e0c7e84aa9fef4a04b86004f1127f742",
+      "source_excerpt": "- приложения и сервисы используют те же настройки/маршруты, HTTP/TLS/домен работают, персистентные volumes подключены;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-ROUTES",
+      "slice": "VERIFY",
+      "acceptance": "Приложения и сервисы используют те же настройки/маршруты; HTTP/TLS/домен работают; персистентные volumes подключены.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00114",
+      "source_line": 114,
+      "source_text_sha256": "f7e25997baa617719a967fd4f4ca094a90ddb0a3e5942423fd97e1ac4743ae40",
+      "source_excerpt": "- нет двух одновременно активных bot pollers, второго scheduler, дублирующих инициатив/саммари/уведомлений;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-SINGLE",
+      "slice": "VERIFY",
+      "acceptance": "Нет двух одновременно активных bot pollers, второго scheduler, дублирующих инициатив/саммари/уведомлений.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00115",
+      "source_line": 115,
+      "source_text_sha256": "e54692c0986dcac6772a788a44dab4e73c03117f68185f0c201f7236e6a7df93",
+      "source_excerpt": "- доступы администратора и права ролей сохранены, GraphRAG работает с существующими embeddings без перестройки;",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-ACCESS",
+      "slice": "VERIFY",
+      "acceptance": "Доступы администратора и права ролей сохранены; GraphRAG работает с существующими embeddings без перестройки.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00116",
+      "source_line": 116,
+      "source_text_sha256": "e3cb1875bc435645be2440cb73f4d8c59b3aa5e8e777390c8364518f62431cd7",
+      "source_excerpt": "- старый VPS сохранён и остановлен как fallback, не удалены файлы/базы/скрипты.",
+      "disposition": "required",
+      "reason": "",
+      "req_id": "REQ-RM-VERIFY-OLDVPS",
+      "slice": "VERIFY",
+      "acceptance": "Старый VPS сохранён и остановлен как fallback; файлы/базы/скрипты не удалены.",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00120",
+      "source_line": 120,
+      "source_text_sha256": "9f83987b7feba4fbb27ec734018f5ac70fad11d86fc8c3298db89a333614162e",
+      "source_excerpt": "## 7.1. ОБЯЗАТЕЛЬНАЯ post-migration проверка РЕАЛЬНОГО PRODUCTION",
+      "disposition": "context",
+      "reason": "Заголовок §7.1; шесть точек приёмки, критерий и артефакт-таблица извлечены в REQ-RM-POST-* (строки 122-138).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00140",
+      "source_line": 140,
+      "source_text_sha256": "2bbe9e5719b3e3dc01400ec935f76e49c7156a8b7b7df5cd36d9006e85f76128",
+      "source_excerpt": "## 8. Rollback",
+      "disposition": "context",
+      "reason": "Заголовок §8; правила отката извлечены в REQ-RM-ROLLBACK-PRE/POST (строки 142-144).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    },
+    {
+      "source_id": "L00146",
+      "source_line": 146,
+      "source_text_sha256": "3ba1ef89b9eb385f961cb443ce5fbe3b97f430ef9c4132e41f67ae3aad7a2e65",
+      "source_excerpt": "## 9. Интеграция с OpenCode workflow и отчёт",
+      "disposition": "context",
+      "reason": "Заголовок §9; обновление deploy target, отчёт и очередь извлечены в REQ-RM-SWITCH-* (строки 148-154).",
+      "req_id": "",
+      "slice": "",
+      "acceptance": "",
+      "live_required": false,
+      "live_when": "preprod",
+      "status": "PENDING",
+      "evidence": []
+    }
+  ]
+}

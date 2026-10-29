@@ -264,7 +264,7 @@
     },
     {
       "id": "p0-history-analysis",
-      "status": "BUILDING",
+      "status": "VERIFIED",
       "source_path": "plans/owner_inputs/2026-10-29-history-analysis-p0-corrective.md",
       "source_sha256": "A2B977B9EEBD2F55F0FDFC6F79E517AAA3644B30A2DE470EC21D34A0FB2BB4E0",
       "maps": [
@@ -272,17 +272,19 @@
       ],
       "coverage_complete": true,
       "updated": "2026-10-29",
-      "source_note": "P0 CORRECTIVE 29.10 (root chat, дословный снимок): полноценный анализ истории чата — убрать потолок 150 сообщений и обрезку 3500 символов в get_recent_history; динамическая глубина с постраничным извлечением без нового общего потолка; сегментный анализ больших выборок с фиксацией границы выборки; изоляция запрошенного диапазона от старой памяти (RAG/GraphRAG/Golden Facts/Lore/self-echo); устранение гиперфикса на старых темах (Внуково) без хардкодов и чёрных списков; качество анализа участников; регрессии H1-H32; инцидент-аудит 400 сообщений (read-only, без живых тестов в чатах). Очередь: после ранее зарегистрированных обязательных задач; затем инженерная приёмка + штатный deployment. | Intake согласован 29.10: карта plans/features/p0-history-analysis/requirements-map.json (required=125: инвентарь 38 + PM 87; context/duplicate 251; unclassified 0; H1-H32 отдельными строками; 9 слайсов AUDIT/DEPTH/TRUNC-PAGES/SEGMENTS/ISOLATION/RELEVANCE/QUALITY/ACCEPT/DEPLOY; строгий slice-граф); план-гейт EXIT 0 (инвентарь 184, manual 192, errors 0) перепроверен оркестратором; инцидент-аудит завершён (evidence/incident-audit.md: двойная потеря подтверждена репро — из 400 сообщений до LLM доходит 35; простой путь 9% охвата; тай-стемпы 120 групп; канал Внуково статически доказан). Волна 1: DEPTH (не блокируется Architect) параллельно с контрактной валидацией Architect (TRUNC-PAGES/SEGMENTS/ISOLATION)."
+      "source_note": "P0 CORRECTIVE 29.10 (root chat, дословный снимок): полноценный анализ истории чата — убрать потолок 150 сообщений и обрезку 3500 символов в get_recent_history; динамическая глубина с постраничным извлечением без нового общего потолка; сегментный анализ больших выборок с фиксацией границы выборки; изоляция запрошенного диапазона от старой памяти (RAG/GraphRAG/Golden Facts/Lore/self-echo); устранение гиперфикса на старых темах (Внуково) без хардкодов и чёрных списков; качество анализа участников; регрессии H1-H32; инцидент-аудит 400 сообщений (read-only, без живых тестов в чатах). | ЗАКРЫТО 29.10: 124/125 required VERIFIED (release-gate errors=1 — только документированный структурный класс deployed=bump!=candidate при конвенции bump-деплоя; blob-пины 10/10 байт-идентичность); ACCEPT H1-H32 ACCEPTED без отказов (232+767 passed); RELEVANCE Approved (штраф reorder-only, tg-учёт, bot-origin demotion, dream zero-weight); релиз 2.58.141 @ 5346ee76 на СТАРОМ production (healthz 200 локально+извне, NRestarts=0, journal чист); откат 5c8bf35d; финальный отчёт владельцу plans/reports/final-report-history-analysis-258141.md @ ce02e706 (10 пунктов §22); fetched=-чек на естественном трафике — not_observed вне знаменателя (§21). MIGRATION_SOURCE_SHA=5346ee76."
     },
     {
       "id": "release-then-migrate",
-      "status": "PENDING",
+      "status": "BUILDING",
       "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
       "source_sha256": "CCC204766633F595B486794E1B7FD2E831520BE1AE00931CD63182A69D4EB301",
-      "maps": [],
-      "coverage_complete": false,
+      "maps": [
+        "plans/features/release-then-migrate/requirements-map.json"
+      ],
+      "coverage_complete": true,
       "updated": "2026-10-29",
-      "source_note": "P0 RELEASE-THEN-MIGRATE 29.10 (root chat, дословный снимок): строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS nik@198.46.175.136 -> (C) приёмка релиза на старом production -> (D) только после release gate подготовка/перенос на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка §7.1. MIGRATION_SOURCE_SHA = SHA принятого старого production; перенос именно этой версии. Запреты: без удаления данных, без двух живых ботов, без одновременного обновления приложения и сервера, без переимпорта истории/перестройки эмбеддингов, без тестов в рабочих чатах, без чистых установок поверх. Секреты нового VPS — только из локального deploy_commands.txt, не в код/логи/git. Старый VPS сохраняется как fallback. Детальная карта/чек-лист — при старте фазы D (после релизного гейта задачи p0-history-analysis). Фазы A-C исполняются в рамках DEPLOY-слайса p0-history-analysis."
+      "source_note": "P0 RELEASE-THEN-MIGRATE 29.10 (root chat, дословный снимок): строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS nik@198.46.175.136 -> (C) приёмка релиза на старом production -> (D) только после release gate подготовка/перенос на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка §7.1. | Intake согласован 29.10: карта plans/features/release-then-migrate/requirements-map.json (required=78, context=12, duplicate=1; слайсы DONE-ABC/INV/PREP/GIT/SYNC/ROLLBACK/CUT/VERIFY/POST/SWITCH; строгая серийная цепь, параллельные писатели не назначены — перестановка этапов запрещена владельцем); план-гейт EXIT 0 (37+54, errors 0). Фазы A-C ЗАКРЫТЫ доказательствами p0-history-analysis (релиз 2.58.141 @ 5346ee76, DONE-ABC 6/9 VERIFIED сразу). MIGRATION_SOURCE_SHA=5346ee765e83ee859596b60437811b21db1e4564 (2.58.141). Фаза D стартовала: INV (13 строк, read-only, fail2ban-safe)."
     }
   ],
   "owner_inputs": [
@@ -537,8 +539,8 @@
         "release-then-migrate",
         "p0-history-analysis"
       ],
-      "reconciled": false,
-      "note": "P0 RELEASE-THEN-MIGRATE 29.10: строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS -> (C) приёмка на старом production -> (D) подготовка/миграция на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка (§7.1). Перестановка этапов запрещена; миграция не начинается до релизного гейта. MIGRATION_SOURCE_SHA = принятый SHA старого production. Секреты/пароль нового VPS не в код/логи/git. Read-only инвентаризация старого, подготовка нового без запуска бота, предварительная синхронизация, короткий cutover, проверки без потерь, rollback-план, перенос deploy target. Регистрация сейчас; детальная карта при старте миграционной фазы.",
+      "reconciled": true,
+      "note": "P0 RELEASE-THEN-MIGRATE 29.10: строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS -> (C) приёмка на старом production -> (D) подготовка/миграция на новый VPS -> (E) полная post-migration приёмка (§7.1). | Сверено 29.10: фазы A-C закрыты (релиз 2.58.141 @ 5346ee76 на старом production, приёмка, отчёт владельцу); карта release-then-migrate 78 required, план-гейт EXIT 0; фаза D (инвентаризация) запущена. Секреты не в код/логи/git; старый VPS — fallback.",
       "origin": "root chat 29.10.2026",
       "received": "2026-10-29"
     }
