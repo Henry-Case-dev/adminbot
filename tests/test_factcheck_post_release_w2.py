@@ -255,12 +255,19 @@ class TestFC06CCacheCleanup:
         assert "temporal.freshness_historical_ttl_hours" not in temporal
 
     def test_smart_cache_slug_removed(self):
-        """Slug-регистрация `factcheck_temporal` снята; SmartCache жив для
-        остальных слагов (нового механизма кеша взамен не введено)."""
+        """FC-06C: slug-регистрация `factcheck_temporal` снята.
+        EVOL-031 (30.10.2026): ответные слаги (`search`/`web`/`youtube`/
+        `direct_dedup`) также сняты — replay готовых ответов удалён.
+        `factcheck` остаётся (provenance-метка оркестратора), CFG-06
+        `factcheck_wide_context` жив (кеш среза, не ответ)."""
         from services.smart_cache import _NORMALIZERS, build_key
         assert "factcheck_temporal" not in _NORMALIZERS
+        for gone in ("search", "web", "youtube", "direct_dedup"):
+            assert gone not in _NORMALIZERS
+            with pytest.raises(ValueError):
+                build_key(gone, "ok")
         build_key("factcheck", "ok")
-        build_key("search", "ok")
+        build_key("factcheck_wide_context", "ok")
 
     def test_process_registry_no_dead_cache_refs(self):
         """Реестр процессов не ссылается на удалённые настройки и не

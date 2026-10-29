@@ -71,7 +71,6 @@ from services.persistent_throttling import (
     cooldown_touch,
     make_cooldown,
 )
-from services.smart_cache import get_smart_cache
 from services.smartmodule_concurrency import (
     get_smartmodule_concurrency_pool,
     smartmodule_wait_seconds,
@@ -1027,7 +1026,7 @@ async def _process_youtube_transcript(bot, message: types.Message,
     «каскад-выжимки» (отметить юзеру, T-699). Субтитры недоступны →
     скачивание (yt-dlp/cobalt, 360) → STT (timeout 120) → текст кружков.
     STT пуст/недоступен → пул 5.11. Память (FR-B7): только факт;
-    smart_cache НЕ пишем (кэш — только summary-результаты)."""
+    ответный кеш не существует (EVOL-031) — результат не воспроизводится."""
     chat_id = message.chat.id
     target_message_id = message.message_id
     video_id = request.video_id
@@ -1221,18 +1220,12 @@ async def _process_youtube_summary(bot, message: types.Message,
     субтитры (`summarize_cascade`, L3-only). При флаге OFF / выключенной
     публикации / без downloader / без доступного видео-клиента — сразу C
     (совместимость с прежним путём).
-    Cache-key, слот пула, on_retry, 🗿 и фразы сохранены."""
+    Слот пула, on_retry, 🗿 и фразы сохранены."""
     text = (message.text or message.caption or "")
-    cache = get_smart_cache()
-    cache_key = cache.build_key("youtube", video_id)
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        await _reply(bot, message.chat.id, cached, message.message_id)
-        logger.info("[youtube] cache hit | chat=%s video_id=%r",
-                    message.chat.id, video_id)
-        return
-    # Раунд N (T-841): слот пула per-chat перед LLM-каскадом (cache-hit выше —
-    # быстрый путь БЕЗ пула). Таймаут → busy-фраза на ВЫЗОВ.
+    # EVOL-031 (30.10.2026): Exact Match Cache готовых ответов удалён —
+    # каждое видео пересказывается заново (мультимодалка/субтитры).
+    # Раунд N (T-841): слот пула per-chat перед LLM-каскадом. Таймаут →
+    # busy-фраза на ВЫЗОВ.
     pool = get_smartmodule_concurrency_pool()
     permit = await pool.try_acquire(message.chat.id,
                                     timeout=smartmodule_wait_seconds())
@@ -1275,7 +1268,6 @@ async def _process_youtube_summary(bot, message: types.Message,
                     if text_out:
                         await send_chunked_reply(bot, message.chat.id, text_out,
                                                  target.message_id)
-                        await cache.set(cache_key, text_out)
                         logger.info(                                # R41-5
                             "[youtube] multimodal summary sent | chat=%s "
                             "video_id=%r", message.chat.id, video_id)
@@ -1290,7 +1282,6 @@ async def _process_youtube_summary(bot, message: types.Message,
             )
             await send_chunked_reply(bot, message.chat.id, text_out,
                                      target.message_id)
-        await cache.set(cache_key, text_out)      # только успешная генерация (59.2)
         logger.info("[youtube] summary sent | chat=%s video_id=%r",      # R41-5
                     message.chat.id, video_id)
     except LLMBadResponseError as exc:
@@ -1392,9 +1383,9 @@ async def youtube_handler(message: types.Message, bot: Bot = None) -> None:
             await _process_youtube_transcript(bot, message, request)
             return
         if request.kind == "native":
-            # Медиа-ветка (консьюм; в smart_cache НЕ пишем — у файла нет
-            # стабильного канонического ключа, FR-10; кулдаун общий уже
-            # touch'нут).
+            # Медиа-ветка (консьюм; ответный кеш отсутствует (EVOL-031) —
+            # у файла нет стабильного канонического ключа, FR-10; кулдаун
+            # общий уже touch'нут).
             await _process_video_media(bot, message, request)
             return
         await _process_url_media(bot, message, request)

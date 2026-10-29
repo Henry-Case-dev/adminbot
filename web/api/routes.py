@@ -617,8 +617,9 @@ async def _write_chat_overrides_with_retry(
     """P0 admin-toggle-save (28.10.2026): запись per-chat overrides с ОДНИМ
     ограниченным ретраем на ``ChatParamsConflict``.
 
-    Root cause бага «Сохранено 0 из 1; не сохранено: Exact Match Cache»
-    (Модули → Умный кэш, прод 2.58.139): optimistic-токен UI
+    Root cause бага «Сохранено 0 из 1; не сохранено: тумблер конфига»
+    (прод 2.58.139; исторический пример — снятая вкладка «Умный кэш»):
+    optimistic-токен UI
     (``configChatUpdatedAt``) систематически устаревает — chat_params пишут
     и другие потоки (гейты модулей, speech/persona правки, вторая вкладка
     TMA на другом устройстве), а ``set_gates_opt_in`` сдвигает

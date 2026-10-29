@@ -2928,18 +2928,12 @@ class TestCanonP20MemoryGuards:
 
 
 class TestHandleDedup:
-    """Epic 60 Фаза E (67.4, T-499, п.8): дедуп одинаковых текстов подряд.
-    Ключ «чат+человек+текст» (slug direct_dedup в smart_cache); проверка ПОСЛЕ
-    throttle/CB/замка и ПЕРЕД сборкой контекста; повтор → сохранённый ответ
-    без LLM (или молчание, если в прошлый раз ответа не было)."""
-
-    @pytest.fixture(autouse=True)
-    def _legacy_dedup_policy(self, monkeypatch):
-        """MCA-07 (T-3851): этот класс проверяет ПРЕЖНИЙ text-replay
-        (baseline-паритет) — форсируем гейт ответного кеша OFF. ON-политика
-        проверяется отдельным тестом ниже (`..._on_no_text_replay`)."""
-        monkeypatch.setattr(
-            "services.mca_gates.context_answer_cache_enabled", lambda: False)
+    """EVOL-031 (30.10.2026): replay-ветка direct_dedup (Epic 60, 67.4)
+    УДАЛЕНА по продуктовому решению владельца — повторный идентичный текст
+    обрабатывается заново (новая генерация, никакие флаги не возвращают
+    старый ответ). Дедуп Telegram-update по (chat, tg, revision) — отдельный
+    механизм идентичности, покрыт своими тестами. Retirement-контракты:
+    tests/test_evol031_smart_cache_retirement.py."""
 
     @pytest_asyncio.fixture
     async def cache(self, tmp_path):
@@ -2963,14 +2957,17 @@ class TestHandleDedup:
         assert llm.call_count == 2                 # текстового реплея нет
 
     @pytest.mark.asyncio
-    async def test_first_occurrence_answers_then_repeat_replays(self, fake_time, cache):
+    async def test_repeat_identical_text_runs_llm_again(self, fake_time, cache):
+        """EVOL-031: повтор идентичного текста (нормализация совпала бы в
+        старом EMC) → НОВАЯ генерация и новый ответ; реплея нет."""
         llm = FakeLLM(text="короткий ответ бота")
         service = _make_service(llm=llm, cache=cache)
         bot = _bot()
         await service.handle(bot, _message(text="бот, привет", message_id=1), _user())
-        assert llm.call_count == 1
+        n_first = llm.call_count
+        assert n_first >= 1
         await service.handle(bot, _message(text="БОТ, ПРИВЕТ", message_id=2), _user())
-        assert llm.call_count == 1                 # LLM НЕ вызван повторно
+        assert llm.call_count == n_first + 1        # живая генерация, не шорткат
         assert bot.send_message.await_count == 2
         second = bot.send_message.await_args_list[1]
         assert second.args[1] == "короткий ответ бота"
@@ -3002,41 +2999,10 @@ class TestHandleDedup:
         assert llm.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_ttl_expiry_calls_llm_again(self, fake_time, cache, monkeypatch):
-        clock = {"now": 1000.0}
-
-        class FakeCacheTime:
-            @staticmethod
-            def monotonic():
-                return clock["now"]
-
-            @staticmethod
-            def time():
-                return clock["now"]
-
-        monkeypatch.setattr("services.smart_cache.time", FakeCacheTime)
-        monkeypatch.setattr(
-            "services.smart_cache.settings",
-            dataclasses.replace(settings, CHAT_DEDUP_TTL_SECONDS=10))
-        llm = FakeLLM()
-        service = _make_service(llm=llm, cache=cache)
-        bot = _bot()
-        # Разные tg message_id: это РАЗНЫЕ Telegram-сообщения с тем же
-        # текстом (update-identity дедуп MCA-22 C7 не должен их склеивать;
-        # класс проверяет ЛЕГАСИ text-dedup и его TTL).
-        await service.handle(bot, _message(text="один и тот же",
-                                           message_id=1101), _user())
-        clock["now"] += 5
-        await service.handle(bot, _message(text="один и тот же",
-                                           message_id=1102), _user())
-        assert llm.call_count == 1                 # в пределах TTL — кэш
-        clock["now"] += 11
-        await service.handle(bot, _message(text="один и тот же",
-                                           message_id=1103), _user())
-        assert llm.call_count == 2                 # TTL истёк — обычный поток
-
-    @pytest.mark.asyncio
     async def test_switch_off_restores_old_behavior(self, fake_time, cache, monkeypatch):
+        """EVOL-031: legacy-рубильник CHAT_DEDUP_ENABLED больше не читается
+        кодом — при ЛЮБОМ его значении повтор текста обрабатывается заново
+        (ключ инертен, replay не возвращается)."""
         monkeypatch.setattr(
             "services.smart_cache.settings",
             dataclasses.replace(settings, CHAT_DEDUP_ENABLED=False))
@@ -3045,9 +3011,11 @@ class TestHandleDedup:
         bot = _bot()
         await service.handle(bot, _message(text="задвоенный текст",
                                            message_id=1201), _user())
+        n_first = llm.call_count
+        assert n_first >= 1
         await service.handle(bot, _message(text="задвоенный текст",
                                            message_id=1202), _user())
-        assert llm.call_count == 2                 # рубильник выключил слой
+        assert llm.call_count == n_first + 1        # флаг ни на что не влияет
 
     @pytest.mark.asyncio
     async def test_update_dedup_hit_releases_concurrency_slot(
@@ -3097,44 +3065,53 @@ class TestHandleDedup:
         assert llm.call_count == 2
 
     @pytest.mark.asyncio
-    async def test_empty_answer_repeat_silence(self, fake_time, cache):
-        """Прошлый раз ответа не было (🗿-пустой) → повтор того же текста
-        МОЛЧИТ: ни LLM, ни заглушки (67.4: маркер "" в дедуп-кэше)."""
+    async def test_empty_answer_repeat_retried_live(self, fake_time, cache):
+        """EVOL-031: «в прошлый раз ответа не было» больше НЕ кешируется —
+        повтор того же текста даёт НОВУЮ попытку генерации (🗿-ветка 65.1
+        работает каждый раз, маркера молчания нет)."""
         llm = FakeLLM(text="   ")                  # пустой ответ
         service = _make_service(llm=llm, cache=cache)
         bot = _bot()
         await service.handle(bot, _message(text="бот, эй", message_id=1), _user())
         bot.send_message.assert_not_called()       # 🗿-ветка (65.1)
+        n_first = llm.call_count
+        assert n_first >= 1
         await service.handle(bot, _message(text="бот, эй", message_id=2), _user())
-        assert llm.call_count == 1                 # модель не дёргается
-        bot.send_message.assert_not_called()       # повтор — чистое молчание
+        assert llm.call_count == n_first + 1       # новая попытка, не маркер молчания
+        bot.send_message.assert_not_called()       # 🗿 снова, без реплея молчания
 
     @pytest.mark.asyncio
-    async def test_llm_error_repeat_silence(self, fake_time, cache):
-        """После LLMError (фраза-ошибка отправлена) повтор того же текста
-        молчит: фраза-ошибка НЕ переотправляется и НЕ кэшируется как ответ."""
+    async def test_llm_error_repeat_gets_fresh_attempt(self, fake_time, cache):
+        """EVOL-031: после LLMError повтор того же текста — НОВАЯ попытка
+        генерации (своя фраза-ошибка на каждый ход); старый «маркер молчания»
+        не существует."""
         llm = FakeLLM(error=LLMError("апи упал"))
         service = _make_service(llm=llm, cache=cache)
         bot = _bot()
         await service.handle(bot, _message(text="бот, эй", message_id=1), _user())
         assert bot.send_message.await_count == 1   # фраза CHAT_ERROR_PHRASES
+        n_first = llm.call_count
+        assert n_first >= 1
         await service.handle(bot, _message(text="бот, эй", message_id=2), _user())
-        assert llm.call_count == 1
-        assert bot.send_message.await_count == 1   # тишина, не повтор заглушки
+        assert llm.call_count == n_first + 1       # свежая попытка
+        assert bot.send_message.await_count == 2   # своя фраза-ошибка на ход
 
     @pytest.mark.asyncio
     async def test_throttle_stays_first_barrier(self, fake_time, cache):
-        """D237: троттлинг остаётся первым барьером — флудер одинаковым
-        текстом выжигает заряды и получает cooldown-фразу, а НЕ обход кэша."""
+        """D237 (EVOL-031): троттлинг — первый барьер ДО любой генерации.
+        Заряд исчерпан ДО ходов → оба сообщения получают cooldown-фразу;
+        ни генерации, ни (бывшего) реплея из кэша."""
         llm = FakeLLM()
-        service = _make_service(llm=llm, cache=cache,
-                                throttle=DirectChatThrottle(1, 300.0))
+        throttle = DirectChatThrottle(1, 300.0)
+        service = _make_service(llm=llm, cache=cache, throttle=throttle)
         bot = _bot()
+        # Заряд бакета (burst=1) исчерпан ещё ДО первого сообщения.
+        assert throttle.allow(CHAT_ID, 10) == 0.0
         await service.handle(bot, _message(text="спам", message_id=1), _user())
-        assert llm.call_count == 1
+        assert llm.call_count == 0                 # кулдаун: генерации нет
         before = bot.send_message.await_count
         await service.handle(bot, _message(text="спам", message_id=2), _user())
-        assert llm.call_count == 1                 # до дедупа слои не дошли
+        assert llm.call_count == 0                 # и на повторе — никаких ответов
         assert bot.send_message.await_count > before   # cooldown-фраза R50-7
 
 

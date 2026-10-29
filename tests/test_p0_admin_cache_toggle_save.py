@@ -1,20 +1,22 @@
-"""P0 corrective 28.10.2026 — админ-тумблер «Exact Match Cache» (Модули →
-Умный кэш) не сохраняется: тост «Сохранено 0 из 1; не сохранено:
-Exact Match Cache» (прод 2.58.139).
-
+"""P0 corrective 28.10.2026 — GENERIC-регресс сохранения конфиг-тумблера
+админки (POST /api/config, optimistic-токен + bounded retry на
+ChatParamsConflict). Исторический триггер — тумблер «Exact Match Cache»
+(Модули → Умный кэш, прод 2.58.139, тост «Сохранено 0 из 1»); сама вкладка
+и флаг `flags.smart_cache_enabled` УДАЛЕНЫ EVOL-031 (30.10.2026), поэтому
+регресс переведён на живой флаг `flags.throttle_persistent_enabled`.
 Воспроизводит ТОЧНЫЙ payload TMA (saveModalEdits → persistItems →
-POST /api/config): body = {items:[{key: 'flags.smart_cache_enabled',
-value: bool}], updated_at} — глобальный scope (updated_at=null, без
-X-Chat-Id) и chat-scope (X-Chat-Id + updated_at чата).
+POST /api/config): body = {items:[{key: FLAG_KEY, value: bool}], updated_at}
+— глобальный scope (updated_at=null, без X-Chat-Id) и chat-scope
+(X-Chat-Id + updated_at чата).
 
 Контракты (REGRESSION):
-1. POST /api/config для flags.smart_cache_enabled — 200, значение сохранено
-   (и глобальный слой, и per-chat override).
-2. Эффективный рантайм: hot.get('flags.smart_cache_enabled') отражает
-   сохранённое значение БЕЗ рестарта; SmartCache._active(dedup=False)
-   переключается; SmartCache.set() начинает писать.
+1. POST /api/config для флага — 200, значение сохранено (глобальный слой
+   и per-chat override).
+2. Эффективный рантайм: hot.get отражает сохранённое значение БЕЗ рестарта.
 3. Чтение UI: GET /api/config (глобальный и chat-scope) показывает
-   актуальное состояние тумблера.
+   актуальное состояние.
+4. EVOL-031: удалённая поверхность «Умный кэш» не вернулась — SmartCache
+   без ответного API, каталог/группы флага нет (replay не включить).
 """
 import json
 import datetime
@@ -28,7 +30,6 @@ from fastapi.testclient import TestClient
 import services.chat_params as chat_params
 import services.hot_config as hot_config
 from services.config_cache import ConfigCache
-from services.smart_cache import get_smart_cache
 from web.app import create_app
 from web.api import deps as deps_mod
 
@@ -36,7 +37,9 @@ TEST_TOKEN = "123456:TEST_TOKEN_FOR_API_TESTS"
 ADMIN_ID = 5885953495
 CHAT = -100460000000      # групповой чат (отрицательный id; положительный — DM)
 
-FLAG_KEY = "flags.smart_cache_enabled"
+# EVOL-031: payload-ключ регресса — ЖИВОЙ флаг (старый
+# flags.smart_cache_enabled удалён из каталога вместе с вкладкой).
+FLAG_KEY = "flags.throttle_persistent_enabled"
 
 
 def make_init_data(user_id: int = ADMIN_ID) -> str:
@@ -148,7 +151,7 @@ def _admin_cache() -> ConfigCache:
         settings_rows=[
             {"key": FLAG_KEY, "value": False, "category": "flags",
              "updated_at": "2026-10-28T00:00:00+00:00"},
-            {"key": "limits.smart_cache_ttl_seconds", "value": 1800,
+            {"key": "limits.search_cooldown_seconds", "value": 60,
              "category": "limits", "updated_at": None},
         ],
         role_rows=[
@@ -266,16 +269,14 @@ def test_toggle_save_chat_scope_roundtrip(webapp):
 # ── 2. Эффективный рантайм (hot, без рестарта) ─────────────────────────────
 
 def test_toggle_effective_runtime_hot_after_save(webapp):
-    """После глобального сохранения hot.get отражает новое значение;
-    SmartCache._active(dedup=False) переключается; set() пишет."""
+    """После глобального сохранения hot.get отражает новое значение
+    БЕЗ рестарта (горячая точка T-619 — общий механизм для всех флагов)."""
     assert hot_config.get(FLAG_KEY, False) is False
     resp = webapp.post("/api/config",
                        json={"items": [{"key": FLAG_KEY, "value": True}]},
                        headers=_hdr())
     assert resp.status_code == 200, resp.text
     assert hot_config.get(FLAG_KEY, False) is True
-    sc = get_smart_cache()
-    assert sc._active(dedup=False) is True
 
 
 # ── 3. Чтение UI показывает актуальное состояние ────────────────────────────
@@ -510,7 +511,7 @@ def webapp_sqlite(monkeypatch, tmp_path):
         (FLAG_KEY, json.dumps(False), "flags"))
     db.execute(
         "INSERT INTO bot_settings (key, value, category) VALUES (?, ?, ?)",
-        ("limits.smart_cache_ttl_seconds", json.dumps(1800), "limits"))
+        ("limits.search_cooldown_seconds", json.dumps(60), "limits"))
 
     pg = _SqlitePg(db)
     cache = ConfigCache(pg=pg, retry_attempts=1, retry_delay=0)
@@ -647,8 +648,10 @@ def test_missing_group_profile_first_write_ensures_and_saves(webapp_sqlite):
     assert json.loads(row[0])["overrides"][FLAG_KEY] is True
 
 
-# ═══ Эффективный рантайм SmartCache.get: рубильник — горячая точка (T-619),
-# тот же паттерн, что get_dedup/_sweep_ttl; settings остаётся дефолтом. ═══
+# ═══ EVOL-031: удалённая поверхность «Умный кэш» не вернулась. SmartCache
+# без ответного API (get/set/get_dedup/set_dedup сняты вместе с replay);
+# hot-механика (сохранение из админки → рантайм без рестарта) продолжает
+# работать для ЖИВЫХ ключей. ═══════════════════════════════════════════════
 
 class _Cfg:
     def __init__(self, values):
@@ -658,50 +661,23 @@ class _Cfg:
         return self._v.get(key, default)
 
 
-def test_smart_cache_get_follows_hot_flag(tmp_path, monkeypatch):
-    """hot ON при settings OFF → get обслуживает; hot OFF при settings ON →
-    get None (рубильник из админки работает в обе стороны)."""
+def test_smart_cache_replay_api_absent_and_hot_mechanics_alive(tmp_path, monkeypatch):
+    """Никакого API, которым можно снова включить replay готовых ответов;
+    hot-рубильник для живого флага работает в обе стороны (общий механизм)."""
+    import asyncio
+
     import services.hot_config as hot
     from services.smart_cache import SmartCache
 
-    async def _noop_sweep(self):
-        return 60
+    # 1) ответное API удалено безвозвратно
+    for gone in ("get", "set", "get_dedup", "set_dedup", "_active"):
+        assert not hasattr(SmartCache, gone), gone
 
-    monkeypatch.setattr(SmartCache, "_sweep_ttl", _noop_sweep)
-    sc = SmartCache()
-    sc._db = None
-
-    async def _fake_ensure_db():
-        return object()          # _read не должен вызываться при OFF
-
-    monkeypatch.setattr(sc, "_ensure_db", _fake_ensure_db)
-
-    async def _fail_read(key, ttl_seconds):   # pragma: no cover
-        raise AssertionError("read при OFF не должен выполняться")
-
-    monkeypatch.setattr(sc, "_read", _fail_read)
-
-    # settings OFF (конфест-дефолт) + hot ON
-    hot.set_config_cache(_Cfg({"flags.smart_cache_enabled": True,
-                               "limits.smart_cache_ttl_seconds": 60}))
+    # 2) hot-механика (горячая точка T-619) жива для существующего флага
+    hot.set_config_cache(_Cfg({FLAG_KEY: True}))
     try:
-        assert hot.get("flags.smart_cache_enabled", False) is True
-
-        async def _ok_read(key, ttl_seconds):
-            return "cached-answer"
-
-        monkeypatch.setattr(sc, "_read", _ok_read)
-        # event loop для get
-        import asyncio
-        assert asyncio.run(sc.get("k")) == "cached-answer"
-
-        # hot OFF при settings ON
-        monkeypatch.setattr("services.smart_cache.settings",
-                            types.SimpleNamespace(
-                                SMART_CACHE_ENABLED=True,
-                                SMART_CACHE_TTL_SECONDS=60),
-                            raising=False)
-        hot.set_config_cache(_Cfg({"flags.smart_cache_enabled": False}))
-        assert asyncio.run(sc.get("k")) is None
+        assert hot.get(FLAG_KEY, False) is True
+        hot.set_config_cache(_Cfg({FLAG_KEY: False}))
+        assert hot.get(FLAG_KEY, False) is False
     finally:
         hot.set_config_cache(None)

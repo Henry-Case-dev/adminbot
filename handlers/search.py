@@ -28,7 +28,6 @@ from services.persistent_throttling import (
     make_cooldown,
 )
 from services.search_aggregator import AllSearchEnginesFailedException
-from services.smart_cache import get_smart_cache
 from services.smartmodule_concurrency import (
     get_smartmodule_concurrency_pool,
     smartmodule_wait_seconds,
@@ -135,18 +134,10 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
         await _reply(bot, message.chat.id, random.choice(SEARCH_EMPTY_QUERY_PHRASES),
                      message.message_id)
         return
-    # Epic 51 (59.2, D210): Exact Match Cache — ДО поиска/LLM. Хит → reply
-    # на ТЕКУЩЕЕ сообщение, БЕЗ вызовов поисковиков.
-    cache = get_smart_cache()
-    cache_key = cache.build_key("search", query)
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        await _reply(bot, message.chat.id, cached, message.message_id)
-        logger.info("[smartsearch] cache hit | chat=%s", message.chat.id)
-        return
+    # EVOL-031 (30.10.2026): Exact Match Cache готовых ответов удалён —
+    # каждый запрос проходит живой путь (поиск + LLM) с текущим контекстом.
     # Раунд N (T-841): слот пула per-chat перед LLM-вызовом research.
-    # Cache-hit выше идёт БЕЗ пула (быстрый путь). Таймаут →
-    # SMARTMODULE_BUSY_PHRASES.
+    # Таймаут → SMARTMODULE_BUSY_PHRASES.
     pool = get_smartmodule_concurrency_pool()
     permit = await pool.try_acquire(message.chat.id,
                                     timeout=smartmodule_wait_seconds())
@@ -165,7 +156,6 @@ async def smartsearch_handler(message: types.Message, bot: Bot = None) -> None:
             summary = await _service.research(query, chat_id=message.chat.id,
                                               chat_context=chat_context or None)
             await send_chunked_reply(bot, message.chat.id, summary, message.message_id)
-        await cache.set(cache_key, summary)    # только успешная генерация (59.2)
         logger.info("[smartsearch] summary sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:
         # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).

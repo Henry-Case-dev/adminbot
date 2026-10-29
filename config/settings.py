@@ -2187,13 +2187,17 @@ class Settings:
     # Потолок символов <Conversation_Thread>; <500 → дефолт 2000 (WARNING).
     CHAT_THREAD_MAX_CHARS: int = _env_int_min("CHAT_THREAD_MAX_CHARS", 2000, 500)
 
-    # ── Smart Cache (Epic 51, Section 59.2) ────────────────────
-    # Аварийный рубильник Exact Match Cache. По умолчанию ВЫКЛЮЧЕН (mandate D212):
-    # включается явно в прод-.env при деплое (T-407).
+    # ── Smart Cache (Epic 51 → EVOL-031) ───────────────────────
+    # EVOL-031 (30.10.2026): Exact Match Cache готовых LLM-ответов удалён
+    # (handlers search/web/youtube + direct_dedup + UI «Умный кэш»).
+    # SMART_CACHE_ENABLED и SMART_CACHE_TTL_SECONDS больше НЕ читаются
+    # кодом: включить replay через эти ключи невозможно. Поля оставлены
+    # аддитивно (совместимость старых .env; никакого эффекта).
     SMART_CACHE_ENABLED: bool = _env_bool("SMART_CACHE_ENABLED", False)
-    # TTL кэш-строк, сек; <60 → дефолт 1800 (WARNING).
     SMART_CACHE_TTL_SECONDS: int = _env_int_min("SMART_CACHE_TTL_SECONDS", 1800, 60)
-    # Потолок строк таблицы smart_cache; <100 → дефолт 1000 (WARNING).
+    # Потолок строк ОБЩЕЙ таблицы smart_cache (теперь только технические
+    # маркеры: update-identity 24 h + wide-context срезы фактчека); <100 →
+    # дефолт 1000 (WARNING). Активен.
     SMART_CACHE_MAX_ROWS: int = _env_int_min("SMART_CACHE_MAX_ROWS", 1000, 100)
     # F17 (раунд 10.24, ADR-1024-18): kill-switch устойчивости smart_cache к
     # `database is locked` — паритет PRAGMA (WAL/busy_timeout/synchronous),
@@ -2918,15 +2922,15 @@ class Settings:
     # LLM-реранк top-k RAG в direct (F4, T-810): флаг off → 0 лишних LLM-вызовов.
     CHAT_RAG_RERANK_ENABLED: bool = _env_bool("CHAT_RAG_RERANK_ENABLED", False)
 
-    # ── Epic 60 Фаза E (Section 67.4, R60-35, T-499 — последним) ──
-    # Дедуп одинаковых текстов подряд direct_chat (п.8): ключ
-    # «чат+человек+текст» в smart_cache (slug direct_dedup); повтор в течение
-    # TTL → повтор сохранённого ответа (или молчание, если в прошлый раз
-    # ответа не было). false → ровно старое поведение. Троттлинг остаётся
-    # ПЕРВЫМ барьером (D237); SMART_CACHE_ENABLED дедуп НЕ выключает
-    # (разные фичи, рубильник только свой).
+    # ── Epic 60 Фаза E (Section 67.4) → EVOL-031 ──────────────────
+    # EVOL-031 (30.10.2026): replay-ветка direct_dedup удалена вместе с
+    # кешем готовых ответов (slug direct_dedup). CHAT_DEDUP_ENABLED и
+    # CHAT_DEDUP_TTL_SECONDS больше НЕ читаются кодом: включить replay
+    # через эти ключи невозможно. Поля оставлены аддитивно (совместимость
+    # старых .env; никакого эффекта). Дедуп Telegram-update (идентичность
+    # (chat, tg, revision), MCA-22) — отдельный механизм, не зависит от
+    # этих ключей. Троттлинг — первый барьер (D237), не затронут.
     CHAT_DEDUP_ENABLED: bool = _env_bool("CHAT_DEDUP_ENABLED", True)
-    # TTL дедуп-записи, сек; <1 → дефолт 300 (WARNING).
     CHAT_DEDUP_TTL_SECONDS: int = _env_int_min("CHAT_DEDUP_TTL_SECONDS", 300, 1)
 
     # ── Epic 66: Cobalt Downloader (Section 70) ──

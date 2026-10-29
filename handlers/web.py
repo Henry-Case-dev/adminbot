@@ -23,7 +23,6 @@ from services.persistent_throttling import (
     cooldown_touch,
     make_cooldown,
 )
-from services.smart_cache import get_smart_cache
 from services.smartmodule_concurrency import (
     get_smartmodule_concurrency_pool,
     smartmodule_wait_seconds,
@@ -166,17 +165,10 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
         return                                # консьюм
     await cooldown_touch(_cooldown, message.chat.id, user_id)
     text = body                                    # Epic 46 (55.5): rag_query (без префикса)
-    # Epic 51 (59.2, D210): Exact Match Cache — ДО Trafilatura/Tavily/LLM.
-    # Хит → reply на ТЕКУЩЕЕ сообщение.
-    cache = get_smart_cache()
-    cache_key = cache.build_key("web", url)
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        await _reply(bot, message.chat.id, cached, message.message_id)
-        logger.info("[web] cache hit | chat=%s", message.chat.id)
-        return
-    # Раунд N (T-841): слот пула per-chat перед LLM-вызовом summarize
-    # (cache-hit выше — быстрый путь БЕЗ пула). Таймаут → busy-фраза.
+    # EVOL-031 (30.10.2026): Exact Match Cache готовых ответов удалён —
+    # каждая страница пересказывается заново (Trafilatura/Tavily + LLM).
+    # Раунд N (T-841): слот пула per-chat перед LLM-вызовом summarize.
+    # Таймаут → busy-фраза.
     pool = get_smartmodule_concurrency_pool()
     permit = await pool.try_acquire(message.chat.id,
                                     timeout=smartmodule_wait_seconds())
@@ -194,7 +186,6 @@ async def web_handler(message: types.Message, bot: Bot = None) -> None:
                 url, chat_id=message.chat.id, rag_query=text
             )
             await send_chunked_reply(bot, message.chat.id, summary, target.message_id)
-        await cache.set(cache_key, summary)       # только успешная генерация (59.2)
         logger.info("[web] summary sent | chat=%s", message.chat.id)
     except LLMBadResponseError as exc:
         # Epic 60 (65.1, T-469): пустой ответ модели → молчание + 🗿 (НЕ R13).

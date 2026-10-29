@@ -292,8 +292,8 @@ GROUPS: tuple[GroupSpec, ...] = (
     # A3/D3 (T-1208): RAG-ключи из бюджета прямого чата + дедупа RAG.
     GroupSpec("limits_rag", "limits", "Память: бюджет и повторы",
               "Доля бюджета чата на поиск по памяти и порог повторов.", 21),
-    GroupSpec("limits_smart_cache", "limits", "Умный кэш",
-              "Сколько хранить готовые ответы и как много строк.", 22),
+    # EVOL-031: группа limits_smart_cache («Умный кэш») удалена вместе
+    # с Exact Match Cache готовых ответов.
     GroupSpec("limits_service", "limits", "Служебное",
               "Технические интервалы и кулдаун /info — обычно не трогать.", 23),
     GroupSpec("limits_user_aliases", "limits", "Имена людей",
@@ -378,9 +378,9 @@ GROUPS: tuple[GroupSpec, ...] = (
     GroupSpec("flags_summary", "flags", "Саммари: доступ и стриминг",
               "Стриминг пересказов и доступ по списку/админу.", 9),
     GroupSpec("flags_chat_behavior", "flags", "Поведение в чате",
-              "Стиль ответов, настроение, дедуп, importance, индикатор набора.", 10),
-    GroupSpec("flags_smart_cache", "flags", "Умный кэш: рубильник",
-              "Exact Match Cache — мгновенные ответы на точные повторы.", 11),
+              "Стиль ответов, настроение, importance, индикатор набора.", 10),
+    # EVOL-031: группа flags_smart_cache («Умный кэш: рубильник») удалена
+    # вместе с Exact Match Cache готовых ответов.
     GroupSpec("flags_throttle", "flags", "Троттлинг",
               "Общие лимиты частоты запросов между smart-модулями.", 12),
     GroupSpec("flags_service", "flags", "Служебное",
@@ -1317,8 +1317,8 @@ _FLAGS: list[tuple] = [
      "Мастер-рубильник чекапа/диагностики. Выключено — хендлеры чекапа молчат."),
     ("GRAPH_RAG_ENABLED", "Извлечение фактов при архивации", "flags_memory",
      "Старые сообщения превращаются в факты для памяти. Выключишь — бот обойдётся кратким сжатием."),
-    ("SMART_CACHE_ENABLED", "Exact Match Cache", "flags_smart_cache",
-     "Кэш точных повторов вопросов — бот отвечает мгновенно из памяти. Выключено — всегда новый ответ."),
+    # EVOL-031: параметр SMART_CACHE_ENABLED («Exact Match Cache») удалён
+    # вместе с кешем готовых ответов.
     ("THROTTLE_PERSISTENT_ENABLED", "Персистентный троттлинг", "flags_throttle",
      "Модули общими силами следят за частотой запросов. Выключишь — каждый ограничивает себя сам."),
     ("DOWNLOAD_ENABLED", "Скачивание видео («скачай <ссылка>»)", "flags_module_media_download",
@@ -1352,8 +1352,8 @@ _FLAGS: list[tuple] = [
      "Бот следит за настроением сообщений и подстраивает ответы. Выключено — ответы нейтральные."),
     ("CHAT_RUNNING_SUMMARY_ENABLED", "Бегущий конспект", "flags_chat_behavior",
      "Бот держит краткий конспект длинного разговора. Выключено — контекст только из сообщений."),
-    ("CHAT_DEDUP_ENABLED", "Дедуп одинаковых текстов подряд", "flags_chat_behavior",
-     "Бот не отвечает на одинаковые сообщения подряд. Выключено — отвечает на каждое."),
+    # EVOL-031: параметр CHAT_DEDUP_ENABLED («Дедуп одинаковых текстов
+    # подряд») удалён вместе с replay-веткой direct_dedup.
     # Раунд 10.4 (B-1): рендер-группа — limits_chat_budgets (блок «Прямой
     # чат: бюджеты токенов»); pg-ключ и семантика БЕЗ изменений.
     ("CHAT_CONTEXT_BUDGETS_ENABLED", "Бюджеты контекста direct_chat", "limits_chat_budgets",
@@ -1691,10 +1691,10 @@ _LIMITS: list[tuple] = [
      "Сколько последних сообщений видеть в ветке. Больше — контекстнее, но дороже."),
     ("CHAT_THREAD_MAX_CHARS", "Потолок <Conversation_Thread>, символов", "int", "limits_chat",
      "Максимальный размер ветки. Больше — точнее, но дороже."),
-    ("SMART_CACHE_TTL_SECONDS", "Срок жизни умного кэша, сек", "int", "limits_smart_cache",
-     "Сколько хранить готовый ответ на повторный вопрос. Больше — быстрее отвечает, но память засоряется."),
-    ("SMART_CACHE_MAX_ROWS", "Потолок строк smart_cache", "int", "limits_smart_cache",
-     "Сколько готовых ответов максимум хранить. Больше — больше попаданий, но тяжелее."),
+    # EVOL-031: параметры SMART_CACHE_TTL_SECONDS/SMART_CACHE_MAX_ROWS
+    # («Умный кэш») удалены вместе с кешем готовых ответов; потолок строк
+    # общей таблицы smart_cache (маркеры/срезы) — env-only
+    # SMART_CACHE_MAX_ROWS (в каталог не возвращается).
     ("CHAT_LOCK_WAIT_SECONDS", "Таймаут per-chat замка, сек", "float", "limits_chat",
      "Сколько ждать, пока чат освободится. Больше — терпеливее, но дольше тишина."),
     ("CHAT_LOCK_MAX_ENTRIES", "Потолок словаря замков", "int", "limits_chat",
@@ -1853,8 +1853,8 @@ _LIMITS: list[tuple] = [
      "Не влияет: значение сохраняется в конфиге, но рантайм его не читает."),
     ("CHAT_BUDGET_RESERVE_RATIO", "Доля бюджета: Reserve", "float", "limits_chat_budgets",
      "Запасной резерв бюджета. Больше — запас на непредвиденное."),
-    ("CHAT_DEDUP_TTL_SECONDS", "Срок жизни записи о повторе, сек", "int", "limits_chat",
-     "Как долго помнить одинаковые сообщения подряд. Больше — дольше дедуп."),
+    # EVOL-031: параметр CHAT_DEDUP_TTL_SECONDS удалён вместе с
+    # replay-веткой direct_dedup.
     # SUMMARY_ALIASES — 6-элементная запись: последний элемент widget
     # («keyvalue» → KV-редактор пар «Telegram ID → имя» на фронте, FR-28).
     ("SUMMARY_ALIASES", "Словарь алиасов имён", "json", "limits_user_aliases",
@@ -3163,9 +3163,10 @@ def group_order(group_id: str) -> int:
 # Конфиг-вкладки покрывают ВСЕ группы категорий models/keys/prompts/limits/
 # flags/reactions ровно один раз (не-конфиг вкладки «Доступы»/«Статус»/
 # «Как это работает» здесь не участвуют).
-# ── Раунд 10.6 (T-1201/T-1208): 19 config-вкладок ─────────────────────────
-# 11 «Модули» (mod_*) + LLM Провайдеры + Промпты + Память + Умный кэш +
+# ── Раунд 10.6 (T-1201/T-1208): config-вкладки ────────────────────────────
+# 11 «Модули» (mod_*) + LLM Провайдеры + Промпты + Память +
 # Имена + Участники и отношения + Лор чата + Функции PERMsoc.
+# EVOL-031: вкладка «Умный кэш» удалена (было 19 config-вкладок → 18).
 TAB_MOD_SUMMARY = "mod_summary"
 TAB_MOD_DIRECT = "mod_direct"
 TAB_MOD_FACTCHECK = "mod_factcheck"
@@ -3195,7 +3196,7 @@ TAB_MOD_INITIATIVE = "mod_initiative"
 TAB_LLM_PROVIDERS = "llm_providers"
 TAB_PROMPTS = "prompts"
 TAB_MEMORY_RAG = "memory_rag"
-TAB_SMART_CACHE = "smart_cache"
+# EVOL-031: TAB_SMART_CACHE («Умный кэш») удалён вместе с Exact Match Cache.
 TAB_PEOPLE_NAMES = "people_names"
 TAB_RELATIONS = "relations"
 TAB_CHAT_LORE = "chat_lore"
@@ -3221,7 +3222,6 @@ CONFIG_TAB_TITLES: dict[str, str] = {
     TAB_LLM_PROVIDERS: "LLM Провайдеры",
     TAB_PROMPTS: "Промпты",
     TAB_MEMORY_RAG: "Память",
-    TAB_SMART_CACHE: "Умный кэш",
     TAB_PEOPLE_NAMES: "Имена",
     TAB_RELATIONS: "Участники и отношения",
     TAB_CHAT_LORE: "Лор чата",
@@ -3270,7 +3270,6 @@ TAB_NAV: dict[str, str] = {
     TAB_MOD_INITIATIVE: NAV_MODULES,
     TAB_LLM_PROVIDERS: NAV_AI,
     TAB_PROMPTS: NAV_AI,
-    TAB_SMART_CACHE: NAV_AI,
     TAB_PEOPLE_NAMES: NAV_AI,
     TAB_MEMORY_RAG: NAV_MEMORY,
     TAB_RELATIONS: NAV_MEMORY,
@@ -3436,10 +3435,8 @@ TAB_RULES: tuple[tuple[str, tuple[tuple[str, object], ...]], ...] = (
         # на ТОЙ ЖЕ вкладке «Память» (правило in-place, TAB_RULES без роста).
         (CATEGORY_FLAGS, frozenset({"flags_stories"})),
     )),
-    (TAB_SMART_CACHE, (
-        (CATEGORY_LIMITS, frozenset({"limits_smart_cache"})),
-        (CATEGORY_FLAGS, frozenset({"flags_smart_cache"})),
-    )),
+    # EVOL-031: правило вкладки TAB_SMART_CACHE (limits_smart_cache /
+    # flags_smart_cache) удалено вместе с Exact Match Cache.
     (TAB_PEOPLE_NAMES, (
         (CATEGORY_LIMITS, frozenset({"limits_user_aliases"})),
     )),

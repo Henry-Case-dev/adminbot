@@ -55,7 +55,9 @@ EXPECTED_TAB_RULES_IDS = [
     "mod_vision",
     # ASAP 7 (F3, §3.2): +mod_initiative (23-я вкладка — «Инициатива»).
     "mod_initiative",
-    "llm_providers", "prompts", "memory_rag", "smart_cache", "people_names",
+    # EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена вместе с Exact
+    # Match Cache → 22 config-вкладки (пин обновлён — frozen-contract).
+    "llm_providers", "prompts", "memory_rag", "people_names",
     "relations", "chat_lore", "permsoc",
 ]
 
@@ -72,16 +74,17 @@ EXPECTED_MODULE_IDS = [
     "mod_vision", "mod_initiative",
 ]
 
-# Витрина TABS (JS-порядок): 23 config-вкладки + 5 служебных
+# Витрина TABS (JS-порядок): 22 config-вкладки + 5 служебных
 # (modules/access/status/info/oversight). Пинится СОСТАВ, не только число —
 # иначе подмена вкладки при том же количестве проходит незамеченной
 # (rev1/R1: детект мутации `oversight` → `oversight_evil`).
+# EVOL-031 (30.10.2026): «Умный кэш» удалена из витрины (было 23).
 EXPECTED_TAB_IDS = [
     "llm_providers", "prompts", "mod_summary", "mod_direct", "mod_factcheck",
     "mod_search", "mod_transcribe", "mod_video_summary", "mod_media_download",
     "mod_web", "mod_checkup", "mod_sleep", "mod_nostalgia", "mod_budgets",
     "mod_images", "mod_vision", "mod_initiative", "modules", "memory_rag",
-    "smart_cache", "people_names", "relations", "permsoc", "access",
+    "people_names", "relations", "permsoc", "access",
     "chat_lore", "status", "info", "oversight",
 ]
 
@@ -135,12 +138,15 @@ class TestCatalogPins:
     вкладка) валит пин — это и есть защита от регресса F21."""
 
     def test_registry_counts_pinned(self):
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
-        assert len(pc.TAB_NAV) == 23
-        assert len(pc.CONFIG_TAB_TITLES) == 23
+        # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
+        # −2 GROUPS/mapped, −1 вкладка (TAB_RULES/TAB_NAV/TITLES 23→22).
+        # REGISTRY: пин 587 дрейфовал ещё на базе W1 (факт 586) — учтено.
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
+        assert len(pc.TAB_NAV) == 22
+        assert len(pc.CONFIG_TAB_TITLES) == 22
 
     def test_budgets_enabled_spec_pinned(self):
         spec = pc.get("BUDGETS_ENABLED")
@@ -218,7 +224,8 @@ class TestMenuFreeze:
         # СОСТАВ и порядок (rev1: раньше пинилось только число — подмена
         # вкладки при count=26 проходила молча).
         assert ids == EXPECTED_TAB_IDS
-        assert len(ids) == 28
+        # EVOL-031: «Умный кэш» удалена из витрины → 28 → 27.
+        assert len(ids) == 27
         assert len(ids) == len(set(ids))
         assert ids.count("mod_budgets") == 1
 
@@ -435,7 +442,8 @@ class TestDeltaZeroGuard:
         assert len(pg_db.DDL_STATEMENTS) == 54
 
     def test_catalog_counts_unchanged_by_guardrails(self):
-        # F23 — только тесты: значения совпадают с Δ F21 (D8).
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
+        # F23 — только тесты. EVOL-031 (30.10.2026): −5 REGISTRY, −2 GROUPS/
+        # mapped (см. пин выше; вкладка «Умный кэш» удалена).
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117

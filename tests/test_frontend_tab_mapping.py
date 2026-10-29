@@ -30,7 +30,6 @@ from services.param_catalog import (
     TAB_PERMSOC,
     TAB_PROMPTS,
     TAB_RELATIONS,
-    TAB_SMART_CACHE,
     group_tab,
     tab_group_ids,
 )
@@ -48,7 +47,9 @@ ALL_TABS = [
     # ASAP 7 (F3, §3.2): вкладка модуля «Инициатива» (23-я; nav «Модули»;
     # группы flags_intent/limits_intent; env K1–K4 — аварийные).
     TAB_MOD_INITIATIVE,
-    TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG, TAB_SMART_CACHE,
+    # EVOL-031 (30.10.2026): вкладка «Умный кэш» (TAB_SMART_CACHE) удалена
+    # вместе с Exact Match Cache → 23 → 22 config-вкладок.
+    TAB_LLM_PROVIDERS, TAB_PROMPTS, TAB_MEMORY_RAG,
     TAB_PEOPLE_NAMES, TAB_RELATIONS, TAB_CHAT_LORE, TAB_PERMSOC,
 ]
 
@@ -60,8 +61,10 @@ class TestTabMappingAudit:
         # nav «Модули»; группа flags_module_images перенесена из mod_direct).
         # ASAP 7 (F3, §3.2): +1 — mod_initiative («Инициатива», nav «Модули»;
         # product-оси Intent + лимиты; env K1–K4 — аварийные).
-        assert len(ALL_TABS) == 23
-        assert len(pc.TAB_RULES) == 23
+        # EVOL-031 (30.10.2026): −1 — «Умный кэш» удалена вместе с Exact
+        # Match Cache → 22.
+        assert len(ALL_TABS) == 22
+        assert len(pc.TAB_RULES) == 22
         assert set(pc.CONFIG_TAB_TITLES) == set(ALL_TABS)
 
     def test_tab_nav_covers_all_21_tabs(self):
@@ -84,10 +87,10 @@ class TestTabMappingAudit:
         assert pc.tab_nav(TAB_CHAT_LORE) == pc.NAV_MEMORY
         assert pc.tab_nav(TAB_MEMORY_RAG) == pc.NAV_MEMORY
         assert pc.tab_nav(TAB_RELATIONS) == pc.NAV_MEMORY
-        # «ИИ» сохранён: провайдеры/промпты/кэш/имена (ADR-1025-1 D1).
+        # «ИИ» сохранён: провайдеры/промпты/имена (ADR-1025-1 D1; EVOL-031:
+        # «Умный кэш» выведена из «ИИ» вместе с Exact Match Cache).
         assert pc.tab_nav(TAB_LLM_PROVIDERS) == pc.NAV_AI
         assert pc.tab_nav(TAB_PROMPTS) == pc.NAV_AI
-        assert pc.tab_nav(TAB_SMART_CACHE) == pc.NAV_AI
         assert pc.tab_nav(TAB_PEOPLE_NAMES) == pc.NAV_AI
         assert pc.tab_nav(None) is None
         assert pc.tab_nav("unknown") is None
@@ -180,10 +183,16 @@ class TestTabMappingAudit:
         # NOST-REWORK W2 (28.10.2026, NOST-12 source-2026-10-27.md): +1
         # REGISTRY (NOSTALGIA_HISTORY_DEPTH_YEARS, группа memory_nostalgia —
         # вкладка mod_nostalgia существующая); GROUPS/mapped/TAB_RULES без
-        # изменений → 587+1=588.
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(GROUPS) == 121
-        assert len(pc.REGISTRY) == 588
+        # изменений → 587+1=588 (пин).
+        # ФАКТ на базе W1 (5346ee76): фактический REGISTRY был 586 — пин 588
+        # дрейфовал ЕЩЁ ДО W1 (pre-existing failure test_mapped_and_counts).
+        # EVOL-031 (30.10.2026): −5 REGISTRY (SMART_CACHE_ENABLED/
+        # SMART_CACHE_TTL_SECONDS/SMART_CACHE_MAX_ROWS/CHAT_DEDUP_ENABLED/
+        # CHAT_DEDUP_TTL_SECONDS), −2 GROUPS (limits_smart_cache/
+        # flags_smart_cache), −2 mapped → фактические 581/119/117.
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(GROUPS) == 119
+        assert len(pc.REGISTRY) == 581
 
 
 class TestModuleTabs:
@@ -321,10 +330,6 @@ class TestAiTabs:
         assert "limits_memory" in groups and "limits_graph" in groups
         assert "reactions_memory" in groups
 
-    def test_smart_cache(self):
-        assert tab_group_ids(TAB_SMART_CACHE) == {
-            "limits_smart_cache", "flags_smart_cache"}
-
     def test_relocated_params_are_in_new_groups(self):
         by_pg = {s.pg_key: s for s in pc.REGISTRY.values()}
         # RAG-ключи в limits_rag (не в Модуле 2)
@@ -385,9 +390,12 @@ class TestJsMirror:
         assert "scroll-area" in self.HTML
         assert ".fullscreen-mode .scroll-area" in self.HTML
 
-    def test_smart_cache_and_7_ai_cards(self):
-        assert "id: 'smart_cache'" in self.JS
-        assert "'#/ai/smart-cache'" in self.JS
+    def test_smart_cache_card_retired(self):
+        """EVOL-031: карточка/вкладка «Умный кэш» удалена из фронтенда;
+        старый маршрут алиасится на витрину «ИИ» (не 404, кеш не открыть)."""
+        assert "id: 'smart_cache'" not in self.JS
+        assert "'#/ai/smart-cache': 'smart_cache'" not in self.JS
+        assert "'#/ai/smart-cache': '#/ai'" in self.JS
 
     def test_matrix_nav_grouping_markers(self):
         """F6 (D4): фронт группирует матрицу по nav из backend-ответа."""

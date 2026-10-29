@@ -626,8 +626,9 @@ async def on_startup():
             throttle=throttle,
             bot_id=bot.id,
             bot_username=(getattr(bot_user, "username", None) or "").lower(),
-            # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд
-            # (smart_cache, slug direct_dedup; рубильник CHAT_DEDUP_ENABLED).
+            # MCA-22 (C7): smart_cache — ТОЛЬКО update-identity маркеры
+            # Telegram (response_freshness, 24 h; дедуп событий, не ответов).
+            # EVOL-031: replay-кеш direct_dedup удалён.
             cache=get_smart_cache(),
             tool_router=_tool_router,
             # Раунд 7 (T-781/F1): ChatLoreCache — инжект PG-лора в

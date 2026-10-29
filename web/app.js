@@ -270,13 +270,8 @@
         // эпизоды» (flags_stories) на вкладке «Память» (in-place).
         { category: 'flags', groups: ['flags_stories'] },
       ] },
-    // A3/T-1174: «Умный кэш» — отдельный подраздел AI.
-    { id: 'smart_cache', icon: 'bolt', label: 'Умный кэш', type: 'config',
-      menu: 'ai',
-      sources: [
-        { category: 'limits', groups: ['limits_smart_cache'] },
-        { category: 'flags', groups: ['flags_smart_cache'] },
-      ] },
+    // EVOL-031: вкладка/подраздел «Умный кэш» (smart_cache) удалён вместе
+    // с Exact Match Cache готовых ответов.
     // Раунд 10.4 (B-11): «Имена людей» — KV-редактор алиасов + per-chat/ЛС.
     { id: 'people_names', icon: 'badge', label: 'Имена', type: 'config',
       menu: 'ai',
@@ -351,7 +346,7 @@
     // ASAP 7 F3 (§3.2): +mod_initiative (23-я config-вкладка; зеркало TAB_RULES).
     'mod_initiative',
     'llm_providers', 'prompts',
-    'memory_rag', 'smart_cache', 'people_names', 'relations', 'chat_lore',
+    'memory_rag', 'people_names', 'relations', 'chat_lore',
     'permsoc',
   ];
   // F6 (ADR-1018-6 D4): фактические navbar-разделы мини-аппа с настройками
@@ -420,7 +415,7 @@
     mod_vision: 'visibility',
     // ASAP 7 F3 (§3.2): bolt — из сабсета (инициатива/импульс).
     mod_initiative: 'bolt',
-    memory_rag: 'memory', smart_cache: 'bolt', people_names: 'badge',
+    memory_rag: 'memory', people_names: 'badge',
     relations: 'group', permsoc: 'admin_panel_settings',
     access: 'supervisor_account', chat_lore: 'auto_stories',
     status: 'monitoring', info: 'help', oversight: 'radar',
@@ -471,7 +466,7 @@
   var HUBS = {
     '#/ai': {
       title: 'ИИ',
-      subtitle: 'Провайдеры, промпты, память, кэш, имена и отношения',
+      subtitle: 'Провайдеры, промпты, память, имена и отношения',
       cards: [
         { icon: 'smart_toy', title: 'LLM Провайдеры',
           subtitle: 'Блоки по модулям: base_url, модель, ключ, тест',
@@ -482,9 +477,6 @@
         { icon: 'memory', title: 'Память',
           subtitle: 'Память, граф, хранение, RAG-доли',
           route: '#/ai/memory', tab: 'memory_rag' },
-        { icon: 'bolt', title: 'Умный кэш',
-          subtitle: 'Exact Match Cache: TTL и строки',
-          route: '#/ai/smart-cache', tab: 'smart_cache' },
         { icon: 'badge', title: 'Имена',
           subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
           route: '#/ai/names', tab: 'people_names' },
@@ -523,7 +515,7 @@
   var HUBS_V2 = {
     '#/ai': {
       title: 'ИИ',
-      subtitle: 'Провайдеры, промпты, кэш, имена и личность',
+      subtitle: 'Провайдеры, промпты, имена и личность',
       // F5 (ADR-1025-15 D2/§47): ровно 5 внутренних страниц в порядке ТЗ.
       // «LLM Провайдеры» → витринное «Модели и подключения» (route/tab НЕ
       // меняются: `#/ai/llm` / `llm_providers`).
@@ -540,9 +532,6 @@
         { icon: 'badge', title: 'Имена и алиасы',
           subtitle: 'Имена людей (алиасы, per-chat/ЛС)',
           route: '#/ai/names', tab: 'people_names' },
-        { icon: 'bolt', title: 'Умный кэш',
-          subtitle: 'Exact Match Cache: TTL и строки',
-          route: '#/ai/smart-cache', tab: 'smart_cache' },
       ],
     },
     '#/memory': {
@@ -1530,7 +1519,6 @@
     '#/ai': 'llm_providers',
     '#/ai/llm': 'llm_providers',
     '#/ai/prompts': 'prompts',
-    '#/ai/smart-cache': 'smart_cache',
     '#/ai/names': 'people_names',
     // F1 (ADR-1025-1 D3): legacy-маршруты остаются валидными (алиасы ниже),
     // канонический дом «Памяти» — #/memory/*.
@@ -1567,7 +1555,7 @@
     mod_vision: '#/modules/vision',
     llm_providers: '#/ai/llm', prompts: '#/ai/prompts',
     // F1 (ADR-1025-1 D3): «Память» живёт в своём разделе.
-    memory_rag: '#/memory/rag', smart_cache: '#/ai/smart-cache',
+    memory_rag: '#/memory/rag',
     people_names: '#/ai/names', relations: '#/memory/relations',
     chat_lore: '#/memory/lore', access: '#/access',
     // F3 (10.14): persona — special-screen маршрут (нет записи в TABS).
@@ -1583,6 +1571,9 @@
     '#/ai/limits': '#/ai',
     '#/ai/sleep': '#/modules',
     '#/ai/nostalgia': '#/modules',
+    // EVOL-031: старый маршрут «Умного кэша» → витрина «ИИ» (вкладка
+    // удалена вместе с Exact Match Cache; старые ссылки не 404).
+    '#/ai/smart-cache': '#/ai',
     // F1 (ADR-1025-1 D3): старые «дом-в-ИИ» маршруты памяти → «Память».
     '#/ai/memory': '#/memory',
     '#/ai/lore': '#/memory/lore',
@@ -1597,7 +1588,7 @@
     '#/status/graph': '#/',
     '#/oversight': '#/',
     '#/ai/llm': '#/ai', '#/ai/prompts': '#/ai',
-    '#/ai/smart-cache': '#/ai', '#/ai/names': '#/ai',
+    '#/ai/names': '#/ai',
     '#/ai/persona': '#/ai',   // F3 (10.14)
     '#/ai/speech': '#/ai',    // SOUL-1 W6 (§6): «Речь и характер»
     // F1 (ADR-1025-1 D3/D6): подстраницы «Памяти» → родитель-хаб #/memory.
@@ -6197,7 +6188,7 @@
       // в `computed` → шаблоны (`index.html`) вызывают его как функцию
       // `stickyFieldFailed(item.key)`; computed-геттер отдавал boolean →
       // `TypeError: stickyFieldFailed is not a function` в render → пустой
-      // generic config-раздел (`#/ai/llm`, `#/ai/names`, `#/ai/smart-cache`,
+      // generic config-раздел (`#/ai/llm`, `#/ai/names`,
       // `#/memory/rag`, …). Перенесён в `methods` (тело не менялось).
       stickyFieldFailed: function (key) {
         return (this.stickyFailedKeys || []).indexOf(key) >= 0;

@@ -1,13 +1,34 @@
-"""Epic 51 — Exact Match Cache (R51-1/R51-3, Section 59.2, D208/D209/D210).
+"""Smart Cache storage — технические TTL-маркеры в общей таблице smart_cache.
 
-SQLite-кэш (таблица smart_cache, аддитивная — user_version НЕ поднимается):
-ключ MD5(slug + "\\x00" + нормализованный ввод) → СГЕНЕРИРОВАННЫЙ ответ бота.
-TTL 1800с, лимит SMART_CACHE_MAX_ROWS (1000), ленивая очистка на каждом set.
-Кэшируются ТОЛЬКО успешные финальные тексты (пулы кулдауна/ошибок/фолбеков и
-исключения НИКОГДА не пишутся). SMART_CACHE_ENABLED=False → get() всегда None,
-set() — no-op (аварийный рубильник, R51-3). Ошибки БД — WARNING + miss
-(кэш НЕ роняет хендлер).
+EVOL-031 (30.10.2026): replay готовых LLM-ответов выведен из эксплуатации.
+Раньше модуль был Exact Match Cache (Epic 51/60): слаги `search` / `web` /
+`youtube` / `factcheck` / `direct_dedup` кешировали финальные ответы бота и
+воспроизводили их на точные повторы. Consult+store на ответном пути удалён
+(handlers/search.py, handlers/web.py, handlers/youtube.py, ветка direct_dedup
+в services/direct_chat_service.py), UI-карточка/рубильники сняты; ответы
+модели здесь больше НЕ хранятся и НЕ воспроизводятся, восстановить replay
+через env/PG-ключи или старый UI невозможно. Семантический/векторный кеш
+ответов взамен НЕ вводится.
 
+Таблица `smart_cache` СОХРАНЕНА (аддитивно, без деструктивной миграции и без
+сброса данных) — в ней живут защищённые технические механизмы:
+
+* update-identity маркеры Telegram (MCA-22 C7, префикс `direct_update`,
+  TTL 24 h, потребитель services/response_freshness.py) — дедупликация
+  СОБЫТИЙ, не ответов;
+* широкий контекст-срез фактчека (CFG-06, slug `factcheck_wide_context`,
+  TTL ~120 с, потребитель services/factcheck_context.py).
+
+Legacy-строки удалённых ответных кешей остаются инертными: читателей нет,
+записей нет, выметаются ленивой чисткой/вытеснением по потолку строк.
+
+Ключи: `build_key` = MD5(slug + "\\x00" + нормализованный ввод); slug-словарь
+закрытый (неизвестный slug → ValueError). Утилиты normalize_url/normalize_text
+— общие (lore_compiler_service, temporal_factcheck, direct_chat_service,
+factcheck_context и др.). Маркерные методы принимают ЯВНЫЙ TTL вызывающего;
+ленивая чистка при записи использует порог НЕ НИЖЕ самого долгого активного
+TTL (24 h маркеров), чтобы коротко-TTL запись не выметала долгоживущие
+маркеры. Ошибки БД — WARNING + miss/no-op (кеш НЕ роняет потребителя).
 Ленивый синглтон без DI-хендлеров (прецедент MediaGroupCaptionBuffer);
 close() вызывается в on_shutdown (bot.py).
 """
@@ -44,20 +65,14 @@ _UPDATE_MARKER_SWEEP_TTL = 24 * 3600
 # процесса = сброс счётчика — событие остаётся в логе).
 _lock_exhausted_total = 0
 
+# EVOL-031: слаги ответных кешей (`search`/`web`/`youtube`/`factcheck_temporal`
+#/`direct_dedup`) сняты. `factcheck` остаётся зарегистрированным как
+# provenance-метка оркестратора фактчека (FC-06C: вердикт-кеш удалён,
+# FactCheckPlan.cache_slug — только ярлык; внешних читателей нет). Остальные:
+# CFG-06 W1 — кеш широкого контекст-среза (services/factcheck_context.py).
 _NORMALIZERS = {
     "factcheck": "text",
-    # FC-06C (P0-FACTCHECK §6.3, 28.10.2026): slug-регистрация
-    # `factcheck_temporal` снята вместе с кешем готовых вердиктов (W1) —
-    # внешних пользователей не осталось (SmartCache модуль и остальные
-    # слаги живут). Новый механизм кеша взамен старого не создаётся.
-    # CFG-06 W1 (06I.9): кеш широкого контекст-среза (версия+диапазон+ID
-    # сообщений в компонентах ключа; см. services/factcheck_context.py).
     "factcheck_wide_context": "text",
-    "search": "text",
-    "youtube": "url",
-    "web": "url",
-    # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд direct_chat.
-    "direct_dedup": "text",
 }
 
 _UTM_PREFIX = "utm_"
@@ -150,7 +165,12 @@ async def _apply_pragmas(db: aiosqlite.Connection) -> None:
 
 class SmartCache:
     """Собственное ленивое aiosqlite-соединение к settings.DB_PATH
-    (WAL допускает несколько соединений; close() в on_shutdown)."""
+    (WAL допускает несколько соединений; close() в on_shutdown).
+
+    EVOL-031: публичный API — только маркерные методы с явным TTL
+    (`get_update_marker`/`set_update_marker`) и утилита `build_key`.
+    Ответный кеш (`get`/`set`) и legacy-дедуп (`get_dedup`/`set_dedup`)
+    удалены вместе с их рубильниками."""
 
     def __init__(self, db_path: str | None = None) -> None:
         self.db_path = db_path or settings.DB_PATH
@@ -188,28 +208,15 @@ class SmartCache:
         return self._db
 
     def _sweep_ttl(self) -> int:
-        """Порог ленивой чистки: максимум TTL АКТИВНЫХ фич (67.4) —
-        дедуп-строки не выметаются раньше своего TTL при маленьком
-        SMART_CACHE_TTL_SECONDS. T-619: рубильники — горячие точки.
-        MCA-22 (fix round-1 M-1): update-identity маркеры живут 24 h —
-        порог чистки учитывает их БЕЗУСЛОВНО (иначе маленький
-        SMART_CACHE_TTL_SECONDS/выключенный legacy-дедуп выметал бы
-        24-часовые маркеры раньше их собственного TTL)."""
-        ttls = [_UPDATE_MARKER_SWEEP_TTL]
-        if hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
-            ttls.append(hot.get("limits.smart_cache_ttl_seconds",
-                                settings.SMART_CACHE_TTL_SECONDS))
-        if hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
-            ttls.append(hot.get("limits.chat_dedup_ttl_seconds",
-                                settings.CHAT_DEDUP_TTL_SECONDS))
-        return max(ttls)
+        """Порог ленивой чистки (нижняя граница): максимум TTL АКТИВНЫХ фич.
 
-    def _active(self, dedup: bool) -> bool:
-        """Какой рубильник гейтит операцию: у дедупа — СВОЙ (67.4),
-        SMART_CACHE_ENABLED на него не влияет. T-619: горячие точки."""
-        if dedup:
-            return hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED)
-        return hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED)
+        MCA-22 (fix round-1 M-1): update-identity маркеры живут 24 h — порог
+        чистки учитывает их БЕЗУСЛОВНО. EVOL-031: ответные TTL
+        (`limits.smart_cache_ttl_seconds`/`limits.chat_dedup_ttl_seconds`)
+        удалены вместе с фичами; порог = константа 24 h. Порог — только
+        ЛЕНИВАЯ чистка: срок жизни конкретной записи определяет её
+        собственный TTL при чтении (маркерные методы)."""
+        return _UPDATE_MARKER_SWEEP_TTL
 
     async def _run_with_lock_retry(
         self,
@@ -281,9 +288,15 @@ class SmartCache:
     async def _write_once(self, db: aiosqlite.Connection, key: str,
                           payload: str, ttl_seconds: int) -> None:
         now = time.monotonic()
+        # Ленивая чистка порогом НЕ НИЖЕ `_sweep_ttl` (24 h): коротко-TTL
+        # запись (например, wide-context срез, ~120 с) НЕ выметает
+        # 24-часовые update-маркеры (fix: раньше порогом был «сырой» TTL
+        # вызывающего). Срок жизни самой записи определяет её TTL при
+        # чтении; порог тут — только фоновая уборка.
+        sweep_threshold = max(int(ttl_seconds), self._sweep_ttl())
         await db.execute(
             "DELETE FROM smart_cache WHERE created_at < ?",
-            (now - ttl_seconds,),
+            (now - sweep_threshold,),
         )
         await db.execute(
             "INSERT OR REPLACE INTO smart_cache (key, payload, created_at) "
@@ -313,73 +326,29 @@ class SmartCache:
         except Exception:
             logger.warning("smart cache: set failed | key=%s", key, exc_info=True)
 
-    async def get(self, key: str) -> str | None:
-        """None = miss/просрочен/выключен. Просроченный → DELETE + None.
-        Ошибки БД — WARNING + miss (кэш НЕ роняет хендлер).
-        P0 admin-toggle-save (28.10.2026): рубильник/TTL — горячие точки
-        (T-619, тот же паттерн, что get_dedup/_sweep_ttl). Раньше get()
-        читал ТОЛЬКО settings.SMART_CACHE_ENABLED — админ-тумблер
-        «Exact Match Cache» не влиял на чтение (env-дефолт False в проде →
-        кэш писал, но никогда не отдавал). settings остаётся дефолтом
-        (аварийный рубильник R51-3 через hot-фолбэк)."""
-        if not hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
-            return None
-        return await self._read(
-            key,
-            hot.get("limits.smart_cache_ttl_seconds",
-                    settings.SMART_CACHE_TTL_SECONDS))
-
-    async def set(self, key: str, payload: str) -> None:
-        """INSERT OR REPLACE + ленивая очистка: (1) истёкшие по TTL,
-        (2) > SMART_CACHE_MAX_ROWS → старейшие. Ошибки БД — WARNING + no-op."""
-        if not hot.get("flags.smart_cache_enabled", settings.SMART_CACHE_ENABLED):
-            return
-        await self._write(key, payload, self._sweep_ttl())
-
-    # ── Epic 60 (67.4, T-499): дедуп direct_chat ─────────────────
-    # Свой рубильник CHAT_DEDUP_ENABLED и свой TTL; SMART_CACHE_ENABLED=False
-    # дедуп НЕ выключает (разные фичи). Payload — сохранённый ответ;
-    # "" — маркер «в прошлый раз ответа не было» → молчание.
-
-    async def get_dedup(self, key: str) -> str | None:
-        """Чтение дедуп-записи. None — первый раз/просрочено; "" — прошлый
-        раз без ответа (молчание); непустая строка — прошлый ответ.
-        T-619: флаг/TTL — горячие точки (фолбек settings)."""
-        if not hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
-            return None
-        return await self._read(key, hot.get("limits.chat_dedup_ttl_seconds",
-                                             settings.CHAT_DEDUP_TTL_SECONDS))
-
-    async def set_dedup(self, key: str, payload: str) -> None:
-        if not hot.get("flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED):
-            return
-        await self._write(key, payload, self._sweep_ttl())
-
     # ── MCA-22 (C7, T-4307; fix round-1 M-1): update-identity маркер ────
     # Специальное хранилище для дедупа Telegram-update'ов (identity-ключ
-    # `(chat, tg, revision, user)` из response_freshness). Политика
-    # СОЗНАТЕЛЬНО отдельна от legacy-рубильников:
+    # `(chat, tg, revision, user)` из response_freshness). Политика:
     #   * единственный гейт фичи — `MCA_RESPONSE_FRESHNESS_GUARD_ENABLED`
     #     (проверяется вызывающим `response_freshness`);
-    #   * `CHAT_DEDUP_ENABLED` (UI-флаг legacy text-дедупа) и
-    #     `SMART_CACHE_ENABLED` маркер НЕ выключают — иначе несвязанные
-    #     флаги молча ломали бы идемпотентность update'ов (M-1);
     #   * TTL — явный аргумент вызывающего (`UPDATE_DEDUP_TTL_SECONDS`
-    #     = 24 h), НЕ `chat_dedup_ttl_seconds` (= 300 с);
+    #     = 24 h);
     #   * `_sweep_ttl` учитывает 24 h безусловно (см. выше); cap
     #     `SMART_CACHE_MAX_ROWS` — существующая политика кеша (вытеснение
     #     старейших — приемлемый компромисс, задокументирован).
     # Синхронизация констант с `response_freshness.UPDATE_DEDUP_TTL_
     # SECONDS` охраняется drift-guard тестом.
+    # EVOL-031: маркеры — дедуп СОБЫТИЙ Telegram, не replay ответов;
+    # механизм сохранён полностью.
 
     async def get_update_marker(self, key: str, *,
                                 ttl_seconds: int) -> str | None:
-        """Чтение update-маркера. None — не виден/TTL истёк."""
+        """Чтение маркера с явным TTL. None — не виден/TTL истёк."""
         return await self._read(key, ttl_seconds)
 
     async def set_update_marker(self, key: str, payload: str, *,
                                 ttl_seconds: int) -> None:
-        """Запись update-маркера с явным TTL (24 h для MCA-22 C7)."""
+        """Запись маркера с явным TTL (24 h для MCA-22 C7)."""
         await self._write(key, payload, ttl_seconds)
 
     async def close(self) -> None:
@@ -393,7 +362,8 @@ _cache_instance: SmartCache | None = None
 
 def get_smart_cache() -> SmartCache:
     """Ленивый синглтон (прецедент MediaGroupCaptionBuffer — класс без
-    DI-хендлеров). SMART_CACHE_ENABLED=False → методы no-op БЕЗ открытия БД."""
+    DI-хендлеров). Используется маркерными потребителями: update-дедуп
+    (response_freshness), wide-context срез фактчека (factcheck_context)."""
     global _cache_instance
     if _cache_instance is None:
         _cache_instance = SmartCache()
