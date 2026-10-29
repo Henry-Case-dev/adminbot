@@ -335,6 +335,17 @@ def _is_serviceability_error(exc: BaseException) -> bool:
         return False
 
 
+def _is_embed_code_defect(exc: BaseException) -> bool:
+    """EVOL-010: детерминированная ошибка кода embed-пути
+    (`EmbeddingCodeDefect`)? Ленивый импорт без циклов; fail-open → False
+    (неизвестный класс не выдаётся за дефект кода)."""
+    try:
+        from services.embedding_control_plane import EmbeddingCodeDefect
+        return isinstance(exc, EmbeddingCodeDefect)
+    except Exception:      # pragma: no cover — защитная ветка
+        return False
+
+
 # ── MCA-17 (W1-C1, группа «Сводки и память»): события mca_events §17 ────────
 # process_id → event_name: summary.window → SUMMARY_WINDOW_BUILD;
 # facts.extract → FACTS_EXTRACT; embeddings.index → EMBED_API_FAILED /
@@ -368,6 +379,15 @@ def _embed_fail_reason(exc: BaseException) -> str | None:
     name = type(exc).__name__
     if name == "EmbeddingGroupCoolingDown":
         return "quota_group_cooling_down"
+    # EVOL-010: честные подклассы (compat-иерархия EmbeddingBudgetExhausted)
+    # маппятся ДО родителя — телеметрия больше не выдаёт transport-исчерпание
+    # и отсутствие credential'ов за «исчерпанную квоту».
+    if name == "EmbeddingRetriesExhausted":
+        return "provider_unavailable"       # transport-попытки сгорели
+    if name == "EmbeddingNoUsableCredential":
+        return "provider_unconfigured"      # ключей нет / auth_failed
+    if name == "EmbeddingCodeDefect":
+        return "code_defect"                # whitelist EVOL-010 (mca_events)
     if name == "EmbeddingBudgetExhausted":
         return "budget_exceeded"
     if name == "EmbeddingConcurrencyBusy":
@@ -2060,6 +2080,19 @@ class MemoryManager:
         except Exception:      # pragma: no cover — контракт не рвёт gate
             return " | build in progress"
         if job is None:
+            # EVOL-010 (F6, дефект с 2.58.114): «durable job missing» был
+            # ложной тревогой для smart_archive — источник
+            # (`smart_archive_facts`) легитимно пуст (L3-архив не наполняется
+            # при infinite retention), планировщик честно НЕ строит
+            # (`SOURCE_EMPTY` → continue), а зомби-`building`-строка реестра
+            # (зарегистрирована до D10/T-5255 guard'а пустого источника)
+            # вечно выглядела как «потерянная джоба». Честная реконсиляция:
+            # строка → `superseded` (БЕЗ удаления строк/векторов; появление
+            # фактов → новое building-поколение штатно).
+            if await self._index_source_empty(index_name):
+                await self._reconcile_source_empty_building(index_name,
+                                                            latest)
+                return " | build pending — source empty (nothing to vectorize)"
             return " | build pending — durable job missing"
         job_status = str(job.get("status") or "")
         if job_status in FAILED_BUILD_JOB_STATUSES:
@@ -2070,6 +2103,51 @@ class MemoryManager:
         if job_gen and row_gen and job_gen < row_gen:
             return " | build pending — job for older generation"
         return " | build in progress"
+
+    async def _index_source_empty(self, index_name: str) -> bool:
+        """EVOL-010 (F6): пуст ли источник rebuild'а индекса? Reuse
+        `graphrag_rebuild._source_empty` (та же eligible-семантика: graph_facts
+        — с фильтром expires_at, smart_archive_facts — полный счёт). Fail-open:
+        ошибка чтения → False («не пусто») — тревога «durable job missing»
+        сохраняется, ложного «source empty» не возникает."""
+        try:
+            from services.graphrag_rebuild import _source_empty
+            return bool(await _source_empty(self.db, index_name))
+        except Exception:      # pragma: no cover — контракт не рвёт hint
+            return False
+
+    async def _reconcile_source_empty_building(self, index_name: str,
+                                               latest: dict) -> None:
+        """EVOL-010 (F6): зомби-`building`-поколение при пустом источнике и
+        отсутствующей durable-джобе → честный терминал `superseded` через
+        существующий §8.5 API (`supersede_building_generations`).
+
+        Почему это безопасно: (1) векторы/строки источника НЕ трогаются —
+        только статус реестра; (2) планировщик и так не строил бы
+        (SOURCE_EMPTY → continue), джобы у строки никогда не появится;
+        (3) появление фактов даёт новое building-поколение штатно
+        (`register_embedding_target_generation` игнорирует только живые
+        статусы, `superseded` — терминал). Никогда не бросает."""
+        try:
+            if str(latest.get("status") or "") not in (
+                    "building", "building_target", "catching_up", "ready"):
+                return
+            supersede = getattr(self.db, "supersede_building_generations",
+                                None)
+            if supersede is None:      # тест-двойник/БД без реестра
+                return
+            changed = int(await supersede(index_name) or 0)
+            if changed:
+                _GEN_LOG_STATE.pop(index_name, None)   # честный WARN при
+                # следующей проверке (новое состояние, не коалесинг старого)
+                logger.info(
+                    "SmartModule: source-empty building generations "
+                    "reconciled → superseded | index=%s | rows=%d",
+                    index_name, changed)
+        except Exception:      # pragma: no cover — контракт не рвёт hint
+            logger.debug(
+                "SmartModule: source-empty reconciliation failed | index=%s",
+                index_name, exc_info=True)
 
     async def _vec_write_allowed(self, index_name: str) -> bool:
         """§8.2/§8.6 (ASAP 6): можно ли ПИСАТЬ новые векторы в live ACTIVE
@@ -2588,9 +2666,21 @@ class MemoryManager:
                 try:
                     vectors = await self._embed(
                         [row["fact"] for row in batch], priority=_PRIO_REPAIR)
-                except Exception:
-                    logger.warning("SmartModule backfill: embed failed — deferred | processed=%d",
-                                   processed)
+                except Exception as exc:
+                    # EVOL-010: честный класс сбоя вместо безусловного
+                    # «deferred»: детерминированная ошибка кода — СТОП с
+                    # traceback (ретраи бесполезны, чинится деплоем), а
+                    # transport/квота — штатная отсрочка до следующего тика.
+                    if _is_embed_code_defect(exc):
+                        logger.error(
+                            "SmartModule backfill: embed failed — code "
+                            "defect (%s) — backfill stopped | processed=%d",
+                            type(exc).__name__, processed, exc_info=True)
+                    else:
+                        logger.warning(
+                            "SmartModule backfill: embed failed — deferred "
+                            "(%s) | processed=%d", type(exc).__name__,
+                            processed)
                     break
                 async with self.db.serialized():
                     for row, vector in zip(batch, vectors):
@@ -2657,10 +2747,21 @@ class MemoryManager:
                 try:
                     vectors = await self._embed(
                         [row["fact"] for row in batch], priority=_PRIO_REPAIR)
-                except Exception:
-                    logger.warning(
-                        "SmartModule graph backfill: embed failed — deferred | "
-                        "processed=%d", processed)
+                except Exception as exc:
+                    # EVOL-010: честный класс сбоя вместо безусловного
+                    # «deferred» (детерминированная ошибка кода — СТОП с
+                    # traceback, transport/квота — отсрочка до тика).
+                    if _is_embed_code_defect(exc):
+                        logger.error(
+                            "SmartModule graph backfill: embed failed — "
+                            "code defect (%s) — backfill stopped | "
+                            "processed=%d", type(exc).__name__, processed,
+                            exc_info=True)
+                    else:
+                        logger.warning(
+                            "SmartModule graph backfill: embed failed — "
+                            "deferred (%s) | processed=%d",
+                            type(exc).__name__, processed)
                     break
                 async with self.db.serialized():
                     for row, vector in zip(batch, vectors):

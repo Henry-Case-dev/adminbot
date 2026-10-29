@@ -1086,16 +1086,66 @@ class EmbeddingConcurrencyBusy(EmbeddingControlPlaneError):
 
 
 class EmbeddingBudgetExhausted(EmbeddingControlPlaneError):
-    """Исчерпан attempt budget (≤4) — наверх (FTS-fallback / pause)."""
+    """Compat-класс («исчерпан attempt budget»). EVOL-010: executor больше
+    НЕ синтезирует его напрямую — единственный честный provider budget/rate
+    сигнал (429) уходит в `EmbeddingGroupCoolingDown` (group_id +
+    next_allowed_at). Терминалы нев quota-класса raising'а подклассами:
+    transport-исчерпание → `EmbeddingRetriesExhausted`, нет usable
+    credential → `EmbeddingNoUsableCredential` (подклассы сохраняют
+    совместимость потребителей: is_busy пауза rebuild'а, batch-policy)."""
+
+
+class EmbeddingCodeDefect(EmbeddingControlPlaneError):
+    """EVOL-010: детерминированная ошибка КОДА в embed-пути (NameError,
+    AttributeError, TypeError, …). Не транспорт и не квота: retry того же
+    запроса бессмысленен, состояние «budget/quota» — ложь. Терминал без
+    ретраев; цепочка `from exc` сохраняет исходный traceback."""
+
+
+class EmbeddingRetriesExhausted(EmbeddingBudgetExhausted):
+    """EVOL-010: исчерпан attempt budget (≤4) на transport-ошибки (5xx/
+    timeout). Provider budget-сигнала НЕТ — честное имя состояния вместо
+    ложного «budget exceeded» (панель не показывает quota_group/
+    next_allowed_at как квоту). Подкласс `EmbeddingBudgetExhausted` —
+    потребители (rebuild paused-bounded, batch serviceability) совместимы."""
+
+
+class EmbeddingNoUsableCredential(EmbeddingBudgetExhausted):
+    """EVOL-010: ни одного usable credential (auth_failed/disabled) при
+    здоровых группах — конфигурационный терминал, не «квота». Подкласс
+    `EmbeddingBudgetExhausted` — совместимость потребителей сохранена."""
+
+
+# ── EVOL-010: классификация программных ошибок Python ──────────────────────
+# Детерминированные ошибки кода (не зависят от сети/провайдера) — retry того
+# же логического запроса бессмысленен и жжёт бюджет, маскируя дефект под
+# «транспорт» (прод-кейс: NameError `_LAST_EMBED_META` → 4 холостых
+# HTTP-вызова → ложный `EmbeddingBudgetExhausted`). ModuleNotFoundError/
+# IndentationError покрываются через isinstance-подклассы ImportError/
+# SyntaxError. TimeoutError/ConnectionError (OSError-семья) СОЗНАТЕЛЬНО вне
+# кортежа — они остаются transport-retryable.
+_PROGRAMMING_ERRORS = (NameError, AttributeError, TypeError, KeyError,
+                       IndexError, ImportError, SyntaxError,
+                       UnboundLocalError, RecursionError)
+
+
+def _is_programming_error(exc: BaseException) -> bool:
+    """True — детерминированная ошибка кода (не транспорт, не квота):
+    ретраить бессмысленно, наверх уходит честный
+    `EmbeddingCodeDefect` с исходным traceback (`raise … from exc`)."""
+    return isinstance(exc, _PROGRAMMING_ERRORS)
 
 
 # ── T-4878 (ASAP 4.4): terminal serviceability states для batch-policy ─────
-# `EmbeddingGroupCoolingDown` (группа cooling/parked) и `EmbeddingBudgetExhausted`
-# (бюджет исчерпан / нет usable credential) — состояние известно и не
-# изменится внутри того же logical batch: повторный embed бессмысленен.
+# `EmbeddingGroupCoolingDown` (группа cooling/parked), `EmbeddingBudgetExhausted`
+# ( compat: исчерпание попыток / нет usable credential — оба честных подкласса
+# EVOL-010) и `EmbeddingCodeDefect` (детерминированный дефект кода) — состояние
+# известно и не изменится внутри того же logical batch: повторный embed
+# бессмысленен (факты batch сохраняются text-only без повторных попыток).
 
 _SERVICEABILITY_ERRORS = (EmbeddingGroupCoolingDown,
-                          EmbeddingBudgetExhausted)
+                          EmbeddingBudgetExhausted,
+                          EmbeddingCodeDefect)
 
 
 def is_serviceability_error(exc: BaseException) -> bool:
@@ -1306,7 +1356,11 @@ class EmbeddingExecutor:
         * `EmbeddingGroupCoolingDown` — все доступные группы cooling/exhausted
           дольше max_wait (P0 → FTS-fallback; P3 → pause job);
         * LLMAuthError (401/403) — terminal (auth_failed, без ретраев);
-        * `EmbeddingBudgetExhausted` — исчерпаны ≤4 попытки на retryable.
+        * `EmbeddingCodeDefect` — детерминированная ошибка кода (EVOL-010):
+          терминал БЕЗ ретраев и БЕЗ сжигания бюджета, с исходным traceback;
+        * `EmbeddingNoUsableCredential` — нет usable credential (не квота);
+        * `EmbeddingRetriesExhausted` — исчерпаны ≤4 попытки на transport
+          (5xx/timeout; provider budget-сигнала не было).
         429 при burst-pressure: ожидание cooldown (bounded max_wait) и одна
         пере-подача; при quota-unavailable: group exhausted + тот же контракт
         ожидания (P3 ждёт — pause-цикл, P0 отступает к FTS)."""
@@ -1346,7 +1400,10 @@ class EmbeddingExecutor:
                         and not any(
                             self._registry.group_blocked(c.quota_group_id)
                             for c in pool):
-                    raise EmbeddingBudgetExhausted(
+                    # EVOL-010: это НЕ «бюджет» — честный конфигурационный
+                    # терминал (ключи auth_failed/disabled при здоровых
+                    # группах); совместимость потребителей — через подкласс.
+                    raise EmbeddingNoUsableCredential(
                         "no usable embedding credential "
                         "(auth_failed/disabled)")
                 permit = await self._scheduler.acquire(
@@ -1366,14 +1423,17 @@ class EmbeddingExecutor:
                 adapter = self.adapter_for(credential.base_url)
                 vectors = await self._call_with_segmentation(
                     adapter, credential, texts, stats)
-                # CANARY-03: фактическая модель генерации — тот credential,
-                # который реально обслужил батч (fallback-слот может быть
-                # настроен на другую модель, чем primary). Читает проба
-                # совместимости; R17: только модель/provider/alias, без ключа.
-                _LAST_EMBED_META.set({"model": credential.model,
-                                      "provider": credential.provider,
-                                      "alias": credential.alias,
-                                      "source": MODEL_SOURCE_REQUEST})
+                # EVOL-010 (первопричина прод-NameError 2.58.141): мёртвый
+                # CANARY-03 telemetry `.set()` (`_LAST_EMBED_META`) УДАЛЁН —
+                # на производственной линии нет ни определения ContextVar,
+                # ни констант MODEL_SOURCE_*, а единственный потенциальный
+                # consumer (`_compat_probe_once`) читает фактические
+                # model/params из ОТВЕТА API (`_split_probe_response`),
+                # а не из ContextVar: канал не имеет потребителей.
+                # `.set()` детерминированно ронял КАЖДЫЙ успешный embed
+                # (NameError сразу после HTTP 200). Решение — удаление
+                # vestigial-канала (не восстановление): см.
+                # plans/features/evol/audit/w1-evol010.md.
                 self._on_success(credential, len(texts))
                 return vectors
             except EmbeddingControlPlaneError:
@@ -1384,6 +1444,14 @@ class EmbeddingExecutor:
                     exc, pool, credential.quota_group_id, priority, stats)
                 if handled == "auth":
                     raise
+                if handled == "code_defect":
+                    # EVOL-010: детерминированная ошибка кода — НЕ транспорт
+                    # и не квота. Терминал БЕЗ ретраев/бюджета, честный
+                    # класс состояния, исходный traceback сохранён цепочкой
+                    # `from` (полный traceback — в логе `_on_error`).
+                    raise EmbeddingCodeDefect(
+                        f"embedding code defect "
+                        f"({type(exc).__name__}): {exc}") from exc
                 if handled == "defer":
                     # 429: перенос по next_allowed_at (НЕ лобовая попытка).
                     stats.deferred += 1
@@ -1407,9 +1475,14 @@ class EmbeddingExecutor:
             finally:
                 self._scheduler.release(permit)
 
-        raise EmbeddingBudgetExhausted(
-            f"embedding attempt budget exhausted "
-            f"(budget={_ATTEMPT_BUDGET})") from last_error
+        # EVOL-010: attempt budget исчерпан на RETRYABLE (transport) ошибках —
+        # provider budget-сигнала не было; честное имя состояния вместо
+        # ложного «budget exceeded» (compat — через подкласс).
+        raise EmbeddingRetriesExhausted(
+            f"embedding retries exhausted "
+            f"(budget={_ATTEMPT_BUDGET}, "
+            f"last={type(last_error).__name__ if last_error else 'n/a'})"
+        ) from last_error
 
     # ── внутреннее ──
 
@@ -1465,9 +1538,23 @@ class EmbeddingExecutor:
                         group_id: str, priority: Priority,
                         stats: ExecutionStats) -> str:
         """Классификация ошибки (§8/§11). Возвращает 'auth' | 'defer' |
-        'transport'. Логирует ТОЛЬКО тип/код/класс — без содержимого запроса
-        и без значений ключей (R17)."""
+        'transport' | 'code_defect'. Логирует ТОЛЬКО тип/код/класс — без
+        содержимого запроса и без значений ключей (R17); для code_defect —
+        полный traceback во внутренний лог (без секретов), это единственное
+        исключение: детерминированный дефект кода без traceback
+        недиагностируем (EVOL-010, прод-кейс NameError)."""
         name = type(exc).__name__
+        # EVOL-010: программные ошибки Python (NameError/AttributeError/…) —
+        # детерминированный дефект кода, а не транспорт/квота. НЕ ретраим,
+        # НЕ жжём attempt budget, НЕ трогаем credential-здоровье/AIMD и НЕ
+        # синтезируем quota-состояния. Наверх уходит EmbeddingCodeDefect
+        # (raise в `embed`), здесь — полный traceback во внутренний лог.
+        if _is_programming_error(exc):
+            logger.error(
+                "embed code defect | error=%s | detail=%s — retrying is "
+                "pointless (deterministic code error, not transport/quota)",
+                name, exc, exc_info=True)
+            return "code_defect"
         # 401/403 → auth_failed credential'а, БЕЗ ретраев как 429 (§11);
         # auth-fail одного credential не отключает другие группы.
         if "Auth" in name:
@@ -4504,6 +4591,8 @@ __all__ = [
     "note_backfill_progress",
     "EmbeddingGroupCoolingDown", "EmbeddingConcurrencyBusy",
     "EmbeddingBudgetExhausted", "EmbeddingControlPlaneError",
+    "EmbeddingCodeDefect", "EmbeddingRetriesExhausted",
+    "EmbeddingNoUsableCredential",
     "is_serviceability_error",
     # D11/D12 (asap5-final-fixes, T-5256…T-5258)
     "EmbeddingProfile", "resolve_embedding_profiles", "profile_identity",
