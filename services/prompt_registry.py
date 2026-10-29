@@ -87,6 +87,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import logging
+import pathlib
 import re
 from typing import Mapping
 
@@ -273,7 +274,401 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "genre.dream.rules": "genre-dream-w4",
     "genre.lore.rules": "genre-lore-w4",
     "genre.story.rules": "genre-story-w4",
+    # EVOL-018 (W2A): отставшие шаблоны, включённые в реестр (grep-аудит).
+    "summary.l2.reviewer": "summary-l2-reviewer-w2a",
+    "summary.l2.reviser": "summary-l2-reviser-w2a",
+    "summary.l1.anchors": "summary-l1-anchors-w2a",
+    "memory.fact_extract": "fact-extract-w2a",
+    "internal.observer_digest": "observer-digest-w2a",
+    "internal.experience.semantic": "experience-semantic-w2a",
+    "style.metatext_retry": "metatext-retry-w2a",
+    "internal.image_probe": "image-probe-w2a",
+    "internal.image_stage": "image-stage-w2a",
 }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 0.1 EVOL-016 — печати заводских ревизий (контракт §1.3)
+# ═══════════════════════════════════════════════════════════════════════════
+#: ``FACTORY_REVISION_SEALS[block_id] = (label, sha12(factory_text(block_id)))``
+#: — вторая половина идентичности заводской ревизии. Метка («что это за
+#: редакция») + печать содержимого («какие именно байты»). Правила:
+#:   * сменился текст  → печать обновляется В ТОМ ЖЕ коммите, что и метка
+#:     (иначе CI ``tests/test_evol018_prompt_audit.py`` падает);
+#:   * сменилась метка без обновления печати (или наоборот) → fail-closed:
+#:     релизная политика не пишет в БД (``integrity_reject``).
+#: Первичное заполнение сгенерировано из кода этого worktree (EVOL-016 W2A),
+#: хеши не выдумывались. Источник проверки — ``seal_integrity()``.
+FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
+    "direct.base.tool_phase": ("toolphase-search-decision", "747fa3a2e292"),
+    "direct.base.l2_writer": ("l2-writer-tech-reasoning", "f5c4807d088e"),
+    "direct.base.synthesizer": ("synthesizer-r1023", "6bae7eb26bc3"),
+    "direct.base.l1_planner": ("l1-planner-tech-reasoning", "14743d288ea3"),
+    "verbilizer.mode.casual": ("mode-r1023", "60feacddfea8"),
+    "verbilizer.mode.serious": ("mode-r1023", "0ffb292caf70"),
+    "verbilizer.mode.deep_research": ("mode-no-meta-lexical", "81721f7406a9"),
+    "verbilizer.mode.default": ("mode-r1024", "c633eb52f63c"),
+    "factcheck.base.single": ("factcheck-r1022", "aa6a2ed38b4c"),
+    "factcheck.base.analyst": ("factcheck-analyst-r1023-f3", "9573b3d86161"),
+    "factcheck.base.verbalizer": ("factcheck-verbalizer-w1", "42442333d77d"),
+    "summary.base.single": ("summary-cfg07a", "e66c40b6acdf"),
+    "summary.base.editor": ("summary-editor-r1025-hotfix4", "cbd95e5e2489"),
+    "summary.base.narrator": ("summary-narrator-legfix", "497732fb2f71"),
+    "summary.base.l1_clusterizer": ("summary-l1-clusterizer-asap41",
+                                    "45117539651c"),
+    "summary.base.l2_writer": ("summary-l2-writer-p0-factual", "3fce4bcd6370"),
+    "summary.cover.style": ("cover-style-default", "19d2dd88086e"),
+    "search.base.system": ("search-cfg07a", "3897cc7ad8b0"),
+    "checkup.base.system": ("checkup-p0-24-10", "b0c70f974e0e"),
+    "youtube.base.system": ("youtube-cfg07a", "f1bd9dcc9662"),
+    "youtube.base.video": ("youtube-video-cfg07a", "8c23609d8433"),
+    "web.base.system": ("web-cfg07a", "89a522e5ffa5"),
+    "memory.extract": ("extract-etl", "3459d3580788"),
+    "memory.compress": ("compress-canon", "746e75692d11"),
+    "internal.episodes.extract": ("episodes_extract-1", "0d96157e626e"),
+    "internal.episodes.confirm": ("continuation_confirm-1", "855e6bc14e3e"),
+    "internal.dream.distill": ("dream-distill", "0b91f9b8cbc7"),
+    "internal.dream.deep_sleep_bridge": ("deep-sleep-bridge", "ab6e326960a3"),
+    "internal.dream.persona_evolution": ("persona-evolution", "7ddde52d0ac4"),
+    "internal.lore.init": ("lore-init-p0-factual", "913da85bdeeb"),
+    "internal.lore.merge": ("lore-merge-p0-factual", "5f02dfdae055"),
+    "internal.lore.story": ("lore-story-p0-factual", "93315928c150"),
+    "internal.nostalgia.candidate": ("nostalgia-nost-rework-w2",
+                                     "49f914805247"),
+    "internal.dossier.system": ("dossier-system", "b66951639993"),
+    "internal.dossier.layer_a": ("dossier-layer-a", "e56763976ad3"),
+    "internal.dossier.layer_b": ("dossier-layer-b", "e6f035eeb5b9"),
+    "internal.vision.analysis": ("vision-analysis", "e3e4efb23349"),
+    "internal.self_reflection": ("self-reflection", "a1d2a21721a3"),
+    "internal.initiative_observer": ("initiative-observer", "f1169884093b"),
+    "internal.direct_orchestrator": ("direct-orchestrator", "f05c11426a49"),
+    "internal.anticliche.extract": ("anticliche-extract", "f8e60639b708"),
+    "identity.no_ai_disclosure": ("no-ai-disclosure", "fad1b64a2f0c"),
+    "identity.self_model_false_block": ("self-model-false-block",
+                                        "d675f920eb45"),
+    "identity.character_rules": ("character-rules-mca08", "00a09cf5e9ff"),
+    "style.anti_bot": ("anti-bot-r1022", "52dced8da19b"),
+    "style.asymmetry": ("asymmetry-r1022", "0e8445200baa"),
+    "style.typography": ("typography-r1023", "3270d0220360"),
+    "style.bot_knowledge": ("bot-knowledge-r1021", "87a768657fd3"),
+    "style.policy.hint": ("style-hint-soul16-w3", "b98c2bb6b669"),
+    "style.format.plain_html": ("format-plain-html", "d08b5345d3ad"),
+    "style.format.plain_text": ("format-plain-text", "bdb8a3825b8b"),
+    "style.format.rich": ("format-rich", "a48445702be3"),
+    "retry.cliche": ("retry-cliche-r1022", "a89ffa304fe3"),
+    "retry.form_guard": ("retry-form-guard-mca08", "ac1d16c4f105"),
+    "retry.numeric_claim": ("retry-numeric-mca15", "96ace0a5641d"),
+    "response.extent.micro": ("extent-r1023", "ea0a450a36aa"),
+    "response.extent.compact": ("extent-r1023", "5c2c19523c24"),
+    "response.extent.normal": ("extent-r1023", "a5146b0033b2"),
+    "response.extent.detailed": ("extent-r1023", "e7e282f1e652"),
+    "response.extent.longform": ("extent-r1023", "6f8748d6d569"),
+    "response.extent.exhaustive": ("extent-r1023", "44ec6710284a"),
+    "message.image_generation_fallback": ("image-fallback-r1023",
+                                          "6d44377ebc87"),
+    "message.clarify_media_target": ("clarify-media-mca23", "07498e837d55"),
+    "message.smartmodule.phrases": ("smartmodule-phrases-r1021",
+                                    "9d93e11979e4"),
+    "message.smartmodule.chat_persona": ("chat-persona-core-voice",
+                                         "231d75bfbbd4"),
+    "core.personality": ("asap-core-full-v4", "5597c09dd5f8"),
+    "core.personality.compact": ("asap-core-compact-v4", "8dbb8c10ddc6"),
+    "humor.craft.common": ("humor-craft-guard-h11", "790ee33596ce"),
+    "humor.technique.absurd_escalation": ("humor-technique-w4",
+                                          "6a3e01146a34"),
+    "humor.technique.literalism": ("humor-technique-w4", "a9d6cdaef326"),
+    "humor.technique.deadpan": ("humor-technique-w4", "252f246f5ca4"),
+    "humor.technique.bureaucratic_logic": ("humor-technique-w4",
+                                           "6ec0a5c40375"),
+    "humor.technique.unexpected_analogy": ("humor-technique-w4",
+                                           "eec433aa2b56"),
+    "humor.few_shot.block": ("humor-fewshot-w4", "bcda6bef6e01"),
+    "experience.humor_window.system": ("humor-window-classifier-w4",
+                                       "ed37c6c9fe0e"),
+    "genre.nostalgia.rules": ("genre-nostalgia-w4", "4ae77e55b8f1"),
+    "genre.dream.rules": ("genre-dream-w4", "b3dba89f2fed"),
+    "genre.lore.rules": ("genre-lore-w4", "bfdeea75d807"),
+    "genre.story.rules": ("genre-story-w4", "508d1a5578d4"),
+    # Управляемые сообщения без человекочитаемой метки (семейство
+    # managed_message): печать содержимого всё равно обязательна.
+    "message.image_failure.disabled": ("", "b5c8b4fc09d5"),
+    "message.image_failure.not_configured": ("", "ad4dadc0f7ec"),
+    "message.image_failure.temporarily_unavailable": ("", "9cf3b1b488ad"),
+    "message.image_failure.quota_exhausted": ("", "f435901ca31c"),
+    "message.image_failure.unsupported": ("", "9dec2c9d140c"),
+    "message.image_failure.unknown": ("", "786262718bb5"),
+    "message.image_failure.delivery_failed": ("", "9f14a8cf06b8"),
+    "message.image_failure.freq_limited": ("", "c23703ef0c4e"),
+    "message.image_request.clarify": ("", "0e246b7071ff"),
+    "message.checkup_fallback_notice": ("", "ba3fe05850c6"),
+    # EVOL-018 (W2A): отставшие шаблоны, включённые в реестр (grep-аудит).
+    "summary.l2.reviewer": ("summary-l2-reviewer-w2a", "ad56b7bcf655"),
+    "summary.l2.reviser": ("summary-l2-reviser-w2a", "54ad7dd700b2"),
+    "summary.l1.anchors": ("summary-l1-anchors-w2a", "fe0434bf0358"),
+    "memory.fact_extract": ("fact-extract-w2a", "01be6c765713"),
+    "internal.observer_digest": ("observer-digest-w2a", "018df26e2762"),
+    "internal.experience.semantic": ("experience-semantic-w2a", "f614eb40d3fc"),
+    "style.metatext_retry": ("metatext-retry-w2a", "8a78b8ce197f"),
+    "internal.image_probe": ("image-probe-w2a", "f3ec3cda586d"),
+    "internal.image_stage": ("image-stage-w2a", "73b63febff17"),
+}
+
+#: Явные исключения grep-аудита EVOL-018 (контракт §1.7 п.4): имя константы
+#: → причина в одну строку. Пустая причина/ложное имя → тест аудита падает.
+#: Константы, НЕ уходящие в LLM (ложные срабатывания эвристики), перечисляются
+#: здесь ТОЛЬКО с реальной причиной; «отставший» настоящий шаблон регистрируется
+#: через ``declare_prompt``, а не прячется в allowlist.
+PROMPT_AUDIT_ALLOWLIST: dict[str, str] = {
+    # Названа *PROMPT, но является Selenium-локатором для WebFetch-инструмента
+    # (не инструкция модели, в LLM-запрос не собирается).
+    "FETCH_PROMPT_XPATH": "web fetch tool: css/xpath locator, not an LLM template",
+}
+
+
+def seal_integrity() -> dict[str, str]:
+    """Код нарушения печати по каждому блоку (пусто в значении = цело).
+
+    Возможные коди: ``seal_missing`` (блок с текстом без печати),
+    ``seal_text_changed`` (текст сменился, метка та же — печать не бампнута),
+    ``seal_label_without_text`` (метка сменилась, печать не обновлена),
+    ``seal_unknown_block`` (печать для блока, которого нет в реестре).
+    Проверяется CI-тестом ``tests/test_evol018_prompt_audit.py`` и релизной
+    политикой при старте (fail-closed: сломанная печать запрещает запись).
+    """
+    problems: dict[str, str] = {}
+    known: set[str] = set()
+    for spec in all_blocks():
+        known.add(spec.block_id)
+        text = factory_text(spec.block_id)
+        if not text:
+            continue
+        seal = FACTORY_REVISION_SEALS.get(spec.block_id)
+        label = FACTORY_REVISION_LABELS.get(spec.block_id, "")
+        if seal is None:
+            problems[spec.block_id] = "seal_missing"
+        elif seal[1] != sha12(text):
+            problems[spec.block_id] = (
+                "seal_label_without_text" if seal[0] != label
+                else "seal_text_changed")
+        elif seal[0] != label:
+            problems[spec.block_id] = "seal_label_without_text"
+    for block_id in FACTORY_REVISION_SEALS:
+        if block_id not in known:
+            problems[block_id] = "seal_unknown_block"
+    return {k: v for k, v in problems.items() if v}
+
+
+def sealed_factory_revision(block_id: str) -> str:
+    """``fac:<sha12(метки)>`` по печати (идентичность заводской ревизии).
+
+    Пустая строка — блок без метки/печати (управляемые сообщения): их
+    релизная активация не ведётся, они версионируются печатями и CI.
+    """
+    seal = FACTORY_REVISION_SEALS.get(block_id)
+    if not seal or not seal[0]:
+        return ""
+    return FACTORY_PREFIX + sha12(seal[0])
+
+
+#: Эвристика grep-аудита (EVOL-018, контракт §1.7 п.4): присваивания
+#: ``NAME_PROMPT = ...`` и ``NAME_SYSTEM = '''...'''`` (>80 символов тройной
+#: кавычкой). ``module.attr`` обязан встречаться в ``code_source`` блока
+#: либо входить в ``PROMPT_AUDIT_ALLOWLIST`` с непустой причиной.
+_AUDIT_NAME_RE = re.compile(
+    r"^([A-Z][A-Z0-9_]*(?:PROMPT|SYSTEM))\s*(:?=)\s*(.*)$", re.M)
+_AUDIT_SCAN_MODULES = ("services", "handlers")
+_AUDIT_SKIP_FILES = frozenset({"prompt_migrations.py"})
+_AUDIT_EXCLUDE_PREFIXES = ("PREV_", "LEGACY_", "_")
+_AUDIT_TREE_MAX_FILES = 400
+
+
+def audit_unregistered_prompt_constants(root, *, blocks=None,
+                                        allowlist=None,
+                                        scan_paths=None) -> list[dict]:
+    """Найти prompt-константы вне реестра (ограниченный, детерминированный).
+
+    Сканируются ТОЛЬКО ``services/`` и ``handlers/`` (не tests/, не web/):
+    известные модули сборки промптов этого репозитория, не repo-wide magic.
+    ``blocks``/``allowlist`` — точки расширения для теста (по умолчанию
+    реальный реестр и реальный allowlist). Возвращает список нарушений
+    ``{module, attr, file, line, kind}``; тела переписки/f-string сборки
+    запроса шаблонами НЕ считаются и не сканируются.
+    """
+    root = pathlib.Path(root)
+    blocks = all_blocks() if blocks is None else blocks
+    allowlist = PROMPT_AUDIT_ALLOWLIST if allowlist is None else allowlist
+    registered: set[str] = set()
+    for spec in blocks:
+        if not spec.code_source:
+            continue
+        module_name, attr = spec.code_source.rsplit(".", 1)
+        registered.add(spec.code_source)
+        if spec.code_members == "*":
+            registered.add(module_name + ".*")
+        elif spec.code_members:
+            members = (spec.code_members
+                       if isinstance(spec.code_members, tuple)
+                       else (spec.code_members,))
+            for member in members:
+                registered.add(module_name + "." + member)
+    problems: list[dict] = []
+    scanned = 0
+    for sub in _AUDIT_SCAN_MODULES if scan_paths is None else scan_paths:
+        directory = root / sub
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.py")):
+            if scanned >= _AUDIT_TREE_MAX_FILES:
+                break
+            scanned += 1
+            if path.name in _AUDIT_SKIP_FILES:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:     # pragma: no cover — нечитаемый файл
+                continue
+            module = f"{sub}.{path.stem}"
+            for match in _AUDIT_NAME_RE.finditer(text):
+                name, _eq, value = match.groups()
+                if name.startswith(_AUDIT_EXCLUDE_PREFIXES):
+                    continue
+                if name in allowlist:
+                    if not str(allowlist.get(name) or "").strip():
+                        problems.append({"module": module, "attr": name,
+                                         "file": str(path),
+                                         "line": text[:match.start()].count(
+                                             "\n") + 1,
+                                         "kind": "allowlist_empty_reason"})
+                    continue
+                long_triple = ('"""' in value) or ("'''" in value)
+                if not (name.endswith("PROMPT")
+                        or (name.endswith("SYSTEM") and long_triple
+                            and len(value) > 80)):
+                    continue
+                if module + "." + name in registered \
+                        or module + ".*" in registered:
+                    continue
+                problems.append({
+                    "module": module, "attr": name, "file": str(path),
+                    "line": text[:match.start()].count("\n") + 1,
+                    "kind": "unregistered_prompt_constant"})
+    return problems
+
+
+def revision_id_for(block_id: str, scope: str, chat_id: int | None,
+                    origin: str, content_sha12: str) -> str:
+    """Идентичность ревизии (контракт §1.2): ``rev:sha12(домен+текст)``.
+
+    Повторный импорт того же текста (тот же scope/origin) даёт ТОТ ЖЕ
+    revision_id → ``ON CONFLICT DO NOTHING`` делает дубликаты невозможными:
+    две одинаковые ручные правки — одна неизменяемая ревизия.
+    """
+    domain = f"{block_id}\0{scope}\0{int(chat_id or 0)}\0{origin}\0{content_sha12}"
+    return "rev:" + sha12(domain)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 0.2 EVOL-016 — автомат активации (чистая функция, контракт §1.4)
+# ═══════════════════════════════════════════════════════════════════════════
+
+#: Действия плана активации.
+PLAN_NOOP = "no_op"                    # рестарт, та же заводская ревизия
+PLAN_ACTIVATE = "activate"             # новая заводская метка → активировать
+PLAN_INTEGRITY_REJECT = "integrity_reject"   # fail-closed: печать цела?
+PLAN_LEGACY_CUTOVER = "legacy_cutover" # первый запуск: снимок → активация
+
+#: Виды записей журнала активаций (контракт §1.2). ``restart`` строку не пишет.
+ACTIVATION_KINDS = ("legacy_import", "deploy_activate", "manual_edit",
+                    "manual_rollback", "manual_forward", "integrity_reject")
+
+#: Исходы записи активации.
+ACTIVATION_OUTCOMES = ("applied", "skipped_same", "skipped_empty", "failed")
+
+#: Происхождение ревизий. Других значений нет (контракт §1.2).
+REVISION_ORIGINS = ("factory", "manual", "restored", "legacy")
+
+
+@dataclasses.dataclass(frozen=True)
+class ActivationPlan:
+    """Решение автомата для одного блока на одном scope (без I/O)."""
+
+    action: str                     # PLAN_* константа
+    kind: str                       # ACTIVATION_KINDS
+    outcome: str = ""               # ACTIVATION_OUTCOMES (для reject/empty)
+    reason: str = ""                # код причины (без текстов промптов)
+    code_revision: str = ""         # fac:<sha12(label)> из кода
+    applied_revision: str = ""      # fac:<sha12(label)> из журнала
+
+
+def activation_plan(*, code_label: str, sealed_sha: str, text_sha12: str,
+                    applied_factory_revision: str, has_import: bool) -> ActivationPlan:
+    """Автомат активации заводской ревизии (контракт §1.3/§1.4, чистая).
+
+    Вход: метка из кода, печать из кода, фактический sha заводского текста,
+    применённая заводская ревизия журнала (``fac:<sha12(метки)>``), есть ли
+    legacy-снимок. Выход — одно действие. Сравнение строк с PREV_*/канонами
+    запрещено и здесь отсутствует: «новая заводская ревизия» = сменившаяся
+    МЕТКА при целой печати содержимого, не сам факт другого sha и не рестарт.
+    """
+    code_revision = (FACTORY_PREFIX + sha12(code_label)) if code_label else ""
+    # 1) Fail-closed: печать не соответствует байтам кода (текст правили без
+    #    бампа метки, или метку бампнули без обновления печати). БД не трогаем.
+    if not code_label:
+        return ActivationPlan(PLAN_NOOP, "manual_edit", "skipped_same",
+                              "no_label_managed_block", "", "")
+    if text_sha12 != sealed_sha:
+        return ActivationPlan(
+            PLAN_INTEGRITY_REJECT, "integrity_reject", "failed",
+            "integrity_label_unchanged", code_revision,
+            applied_factory_revision)
+    # 2) Первый запуск механизма: снять legacy-снимок, затем активировать.
+    if not has_import:
+        return ActivationPlan(PLAN_LEGACY_CUTOVER, "legacy_import", "",
+                              "cutover", code_revision,
+                              applied_factory_revision)
+    # 3) Рестарт с той же применённой ревизией: no-op — ручная правка и
+    #    откат, сделанные после этой ревизии, остаются активными.
+    if applied_factory_revision == code_revision:
+        return ActivationPlan(PLAN_NOOP, "deploy_activate", "skipped_same",
+                              "restart_same_revision", code_revision,
+                              applied_factory_revision)
+    # 4) Деплой с новой меткой: заводской текст становится активным даже
+    #    поверх ручной правки (она остаётся ревизией в истории).
+    return ActivationPlan(PLAN_ACTIVATE, "deploy_activate", "applied",
+                          "new_factory_revision", code_revision,
+                          applied_factory_revision)
+
+
+# ── 0.3 Состояние релизной политики на процесс ──────────────────────────────
+#: После успешного cutover/apply журнал активаций — источник правды об активной
+#: ревизии; persisted-текст PG больше не «удерживается» за отсутствие
+#: провенанса (контракт §1.6: активный PG-текст и есть эффективный текст).
+_RELEASE_POLICY_ACTIVE = False
+
+#: Блоки, снятые с регистрации (переименованы/удалены): ревизии остаются
+#: читаемыми с ``retired=true``; осиротевший активный указатель не молчит.
+_RETIRED_BLOCK_IDS: frozenset[str] = frozenset()
+
+
+def set_release_policy_active(active: bool) -> None:
+    """Переключить политику провенанса (вызывает релизная проводка старта)."""
+    global _RELEASE_POLICY_ACTIVE
+    _RELEASE_POLICY_ACTIVE = bool(active)
+
+
+def release_policy_active() -> bool:
+    """Активна ли журнал-политика (persisted-текст = эффективный слой)."""
+    return _RELEASE_POLICY_ACTIVE
+
+
+def set_retired_blocks(block_ids) -> None:
+    """Отметить снятые с регистрации блоки (вызывает релизная проводка)."""
+    global _RETIRED_BLOCK_IDS
+    _RETIRED_BLOCK_IDS = frozenset(block_ids or ())
+
+
+def retired_blocks() -> frozenset[str]:
+    return _RETIRED_BLOCK_IDS
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -515,6 +910,61 @@ _PG_META_REQUIRED = True
 
 # ── 1.2 Кодовые блоки (без PG-ключа): регистрация + решение о миграции ───────
 
+#: Ошибка декларации: дубликат Registry ID или конфликт данных одной декларации.
+class PromptDeclarationError(ValueError):
+    """Нарушение единой точки объявления промптов (EVOL-016, контракт §1.7)."""
+
+
+#: Реестр деклараций (block_id → spec). Идемпортен: повторная идентичная
+#: декларация возвращает прежний spec (``reset_cache`` перестраивает блоки,
+#: но декларации живут на процесс); конфликт данных — ``PromptDeclarationError``.
+_DECLARED: dict[str, PromptBlockSpec] = {}
+
+
+def declare_prompt(*, block_id: str, purpose: str, family: str, scope: str,
+                   pg_key: str | None = None, code_source: str | None = None,
+                   consumers: tuple[str, ...] = (), composition_point: str = "",
+                   enabled_by: str = "", migration: str = "factory",
+                   owner_lane: str = "W2", speech: bool = True,
+                   legacy_persona: bool = False, ui: str = "code_only",
+                   code_index: str | None = None, code_call: bool = False,
+                   code_members: tuple[str, ...] | str | None = None,
+                   note: str = "", pg_doc_field: str = "") -> PromptBlockSpec:
+    """ЕДИНАЯ ТОЧКА объявления промпта (EVOL-016, контракт §1.7).
+
+    Новый постоянный промпт объявляется только здесь: каталожный ключ +
+    метаданные, либо ``code_source`` для текста в коде. Отдельная миграция
+    «по имени ключа» запрещена: заводская ревизия новой декларации входит в
+    стандартный релизный путь (``FACTORY_REVISION_SEALS`` + печать + CI-аудит
+    ``tests/test_evol018_prompt_audit.py``).
+
+    Идемпотентна: повторная идентичная декларация возвращает прежний spec;
+    та же метка с другими данными → ``PromptDeclarationError`` (две точки
+    объявления одного блока = «скрытая инструкция», контракт EVOL-018).
+    """
+    spec = PromptBlockSpec(
+        block_id=block_id, purpose=purpose, family=family, scope=scope,
+        pg_key=pg_key, code_source=code_source, consumers=tuple(consumers),
+        composition_point=composition_point, enabled_by=enabled_by,
+        migration=migration, owner_lane=owner_lane, speech=speech,
+        legacy_persona=legacy_persona, ui=ui, code_index=code_index,
+        code_call=code_call, code_members=code_members, note=note,
+        pg_doc_field=pg_doc_field)
+    known = _DECLARED.get(block_id)
+    if known is not None:
+        if known == spec:
+            return known
+        raise PromptDeclarationError(
+            f"prompt block redeclared with different data: {block_id}")
+    _DECLARED[block_id] = spec
+    return spec
+
+
+def declared_blocks() -> tuple[PromptBlockSpec, ...]:
+    """Декларации, созданные через ``declare_prompt`` (диагностика/аудит)."""
+    return tuple(_DECLARED.values())
+
+
 def _b(block_id: str, purpose: str, family: str, scope: str,
        code_source: str | None, consumers: tuple[str, ...],
        composition_point: str, *, owner_lane: str, speech: bool,
@@ -523,7 +973,13 @@ def _b(block_id: str, purpose: str, family: str, scope: str,
        code_call: bool = False, code_members=None,
        note: str = "", pg_key: str | None = None,
        pg_doc_field: str = "") -> PromptBlockSpec:
-    return PromptBlockSpec(
+    """Позиционный адаптер прежнего каталога → ``declare_prompt``.
+
+    Сами блоки ниже объявлены исторически позиционными вызовами; их создание
+    идёт через ``declare_prompt`` (единственная точка, контракт §1.7).
+    Новые декларации должны вызывать ``declare_prompt`` напрямую.
+    """
+    return declare_prompt(
         block_id=block_id, purpose=purpose, family=family, scope=scope,
         pg_key=pg_key, code_source=code_source, consumers=consumers,
         composition_point=composition_point, enabled_by=enabled_by,
@@ -1015,16 +1471,16 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
             "но не переписывают Core."),
     _b("internal.lore.init", "Инициализация лора (машинная стадия).",
        "internal", "code", "services.lore_prompts.LORE_INIT_SYSTEM_PROMPT",
-       ("lore_worker.py:696",), "internal/lore_init", owner_lane="W4",
+       ("lore_worker.py:709",), "internal/lore_init", owner_lane="W4",
        speech=False),
     _b("internal.lore.merge", "Слияние записей лора (машинная стадия).",
        "internal", "code", "services.lore_prompts.LORE_MERGE_SYSTEM_PROMPT",
-       ("lore_worker.py:692",), "internal/lore_merge", owner_lane="W4",
+       ("lore_worker.py:705",), "internal/lore_merge", owner_lane="W4",
        speech=False),
     _b("internal.lore.story",
        "Рассказ о лоре — авторский текст, идущий в safe-HTML путь Direct.",
        "internal", "code", "services.lore_prompts.LORE_STORY_SYSTEM_PROMPT",
-       ("lore_compiler_service.py:190", "tool_router.py:2827",
+       ("lore_compiler_service.py:208", "tool_router.py:2827",
         "mca_authorial_speech.authorial_system"),
        "internal/lore_story", owner_lane="W4",
        speech=True,
@@ -1090,6 +1546,95 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
        "internal", "code", "services.anticliche_worker.EXTRACT_SYSTEM_PROMPT",
        ("anticliche_worker.py:150",), "internal/anticliche_extract",
        owner_lane="W3", speech=False),
+    # ── EVOL-018 (W2A): отставшие шаблоны, найденные grep-аудитом ──────────
+    # Постоянные инструкции для LLM, жившие только в Python (контракт §1.7):
+    # включены в реестр через declare_prompt, печати — FACTORY_REVISION_SEALS.
+    declare_prompt(
+        block_id="summary.l2.reviewer",
+        purpose="Стадия ревьюера L2-писателя (summary_l2_review): сверка "
+                "черновика с материалом, внутренний JSON-вердикт.",
+        family="summary", scope="code",
+        code_source="services.summary_prompts.SUMMARY_L2_REVIEWER_SYSTEM_PROMPT",
+        consumers=("summary_l2_review.py:102", "summary_l2_review.py:1116"),
+        composition_point="summary/l2_review",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="summary.l2.reviser",
+        purpose="Стадия правки L2-писателя (summary_l2_review): переработка "
+                "черновика по вердикту ревьюера.",
+        family="summary", scope="code",
+        code_source="services.summary_prompts.SUMMARY_L2_REVISER_SYSTEM_PROMPT",
+        consumers=("summary_l2_review.py:103", "summary_l2_review.py:1385"),
+        composition_point="summary/l2_review",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="summary.l1.anchors",
+        purpose="Извлечение опорных точек (якорей) темы для L1-кластеризатора "
+                "саммари.",
+        family="summary", scope="code",
+        code_source="services.summary_prompts.SUMMARY_L1_ANCHORS_SYSTEM_PROMPT",
+        consumers=("summary_l1_clusterizer.py:106",
+                   "summary_execution_input.py:111"),
+        composition_point="summary/l1_clusterizer",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="memory.fact_extract",
+        purpose="ETL-извлечение фактов из переписки (батч-вход, "
+                "стабильность/временность — контракт EVOL-006).",
+        family="memory", scope="code",
+        code_source="services.summary_memory.FACT_EXTRACT_PROMPT",
+        consumers=("summary_memory.py:3331", "summary_memory.py:3423"),
+        composition_point="machine_json/fact_extract",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="internal.observer_digest",
+        purpose="Дайджест наблюдателя инициативы: сжатие окна наблюдений в "
+                "карту для решения об инициативе.",
+        family="initiative", scope="code",
+        code_source="services.initiative_observer."
+                    "OBSERVER_DIGEST_SYSTEM_PROMPT",
+        consumers=("initiative_observer.py:650",
+                   "initiative_observer.py:1566"),
+        composition_point="internal/initiative_observer",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="internal.experience.semantic",
+        purpose="Семантическая стадия обзора опыта (mca_experience_jobs): "
+                "сведение эпизодов в смысловые выводы.",
+        family="experience", scope="code",
+        code_source="services.mca_experience_jobs.SEMANTIC_SYSTEM_PROMPT",
+        consumers=("mca_experience_jobs.py:385",
+                   "mca_experience_jobs.py:1366"),
+        composition_point="internal/experience_review",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="style.metatext_retry",
+        purpose="Повторная генерация при сломанной метатекст-форме ответа: "
+                "инструкция повтора для вербализатора.",
+        family="style", scope="code",
+        code_source="services.prompt_style_blocks.METATEXT_RETRY_SYSTEM_PROMPT",
+        consumers=("negative_constraints.py:29", "negative_constraints.py:697"),
+        composition_point="retry/metatext",
+        migration="factory", owner_lane="W2A-EVOL016", speech=True),
+    declare_prompt(
+        block_id="internal.image_probe",
+        purpose="Диагностический запрос image-провайдера (probe доступности "
+                "генерации изображений).",
+        family="image", scope="code",
+        code_source="services.image_generation.PROBE_PROMPT",
+        consumers=("image_generation.py:97", "image_generation.py:1439"),
+        composition_point="internal/image_probe",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    declare_prompt(
+        block_id="internal.image_stage",
+        purpose="Инструкция стадии генерации изображения в execution graph "
+                "(маршрутизация/форма запроса картинки).",
+        family="image", scope="code",
+        code_source="services.execution_graph_source.STAGE_IMAGE_PROMPT",
+        consumers=("execution_graph_source.py:94",
+                   "execution_graph_source.py:722"),
+        composition_point="internal/execution_graph",
+        migration="factory", owner_lane="W2A-EVOL016", speech=False),
 )
 
 
@@ -1372,7 +1917,7 @@ def _pg_blocks() -> tuple[PromptBlockSpec, ...]:
                 consumers=("unknown",), composition_point="unknown",
                 enabled_by="", speech=True, scope="global",
                 ui="catalog", legacy_persona=False)
-        out.append(PromptBlockSpec(
+        out.append(declare_prompt(
             block_id=meta["block_id"], purpose=meta["purpose"],
             family=meta["family"], scope=meta.get("scope", "global"),
             pg_key=spec.pg_key, code_source=spec.code_source,
@@ -1889,7 +2434,15 @@ def factory_set_fingerprint() -> str:
 #: NOST-08 (W2, 28.10.2026): в каноны добавлена протокольная инструкция
 #: номера выбранного блока («SAY <№>», детерминированный служебный
 #: суффикс); fbc44eb0f879 уже её учитывает.
-FACTORY_SET_SHA256_12 = "fbc44eb0f879"
+#: Бамп EVOL-016/018 (W2A, 30.10.2026): зарегистрированы 9 отставших
+#: шаблонов, найденных grep-аудитом (``summary.l2.reviewer``,
+#: ``summary.l2.reviser``, ``summary.l1.anchors``, ``memory.fact_extract``,
+#: ``internal.observer_digest``, ``internal.experience.semantic``,
+#: ``style.metatext_retry``, ``internal.image_probe``,
+#: ``internal.image_stage``); введены печати ``FACTORY_REVISION_SEALS``.
+#: Было ``fbc44eb0f879``, стало ``b980947c71aa``.
+#: Переутверждено осознанно (SOUL-AMD.3.2 + EVOL-016 контракт §1.7).
+FACTORY_SET_SHA256_12 = "b980947c71aa"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2125,9 +2678,17 @@ def effective_prompt(pg_key_or_id: str, *, pg_value=None,
 
 
 def registry_view() -> list[dict]:
-    """Вид реестра для UI/PM (W6) и тестов: метаданные + фабричная ревизия."""
+    """Вид реестра для UI/PM (W6) и тестов: метаданные + фабричная ревизия.
+
+    EVOL-016 (контракт §1.6): добавлены ``factory_seal`` (метка+sha печати),
+    ``sealed_revision`` (``fac:<sha12(метки)>`` — идентичность, по которой
+    релизная политика решает активацию) и ``retired`` (блок снят с
+    регистрации; осиротевший активный указатель не молчит). Старые ключи
+    не удалялись — обратная совместимость UI/тестов.
+    """
     rows: list[dict] = []
     for spec in all_blocks():
+        seal = FACTORY_REVISION_SEALS.get(spec.block_id) or ("", "")
         rows.append({
             "block_id": spec.block_id,
             "purpose": spec.purpose,
@@ -2148,6 +2709,9 @@ def registry_view() -> list[dict]:
             "production_kind": production_kind(spec.block_id),
             "factory_revision": factory_revision(spec.block_id),
             "factory_chars": len(factory_text(spec.block_id)),
+            "factory_seal": {"label": seal[0], "sha256_12": seal[1]},
+            "sealed_revision": sealed_factory_revision(spec.block_id),
+            "retired": spec.block_id in _RETIRED_BLOCK_IDS,
             "registry_version": REGISTRY_VERSION,
         })
     return rows
@@ -2619,12 +3183,16 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
     Порядок решений:
       1) источник не ``chat|global`` (кодовый fallback/PG down) — значение
          отдаётся как есть (OFF-паритет W2 не затрагивается);
-      2) блок требует провенанса и сохранённая ревизия НЕ записана API
-         реестра/фабрики → **значение удерживается**: действует заводская
-         редакция (в том же виде, что и для persisted-канона: известные
-         сегменты старой личности вычищены), в PG ничего не пишется;
-      3) иначе — прежнее поведение (детерминированная вычистка известных
-         сегментов legacy-личности; кастом владельца не правится).
+      2) ДО релизной политики (журнала нет/старт до проводки) — прежний
+         шлагбаум провенанса: незаписанная через API ревизия удерживается;
+      3) ПОСЛЕ релизной политики (EVOL-016, контракт §1.6) активный
+         PG-текст и есть эффективный слой: ``provenance_missing`` /
+         ``provenance_mismatch`` больше не подменяют правку заводским
+         текстом. Удерживается ТОЛЬКО известный токсичный слепок
+         (``legacy_incompatible``): подмена на заводской текст + один
+         аудит-событие на процесс (не WARN на каждое чтение);
+      4) известные сегменты legacy-личности вычищаются на сборке, кастом
+         владельца не правится (как и прежде).
     """
     spec = by_pg_key(pg_key)
     raw = str(value or "")
@@ -2638,41 +3206,62 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
     if withholding_required(spec):
         reason, entry = provenance_state(spec, raw, cache=cache)
         if reason != "attested":
-            factory = factory_text(spec.block_id)
             classification = withheld_classification(spec.block_id, raw)
             withheld_class = (classification or {}).get(
                 "class", WITHHELD_UNCLASSIFIED_CLASS)
-            # Заводская редакция отдаётся ровно в том виде, в каком её
-            # отдавал бы persisted-канон: те же вычищенные сегменты.
-            text, _info = suppress_legacy_speech(factory, source="global")
-            diagnostics = ["persisted_value_withheld", reason]
-            if legacy_persona_present(raw):
-                diagnostics.append("persisted_legacy_persona_marker")
-            if withheld_class == WITHHELD_IDENTICAL_CLASS:
-                # Байты совпадают с ЗАРЕГИСТРИРОВАННОЙ заводской редакцией
-                # (classification.md §2). Текущая фабрика может быть новее,
-                # поэтому старая редакция не активируется, но это не конфликт
-                # владельца: WARNING заменён на INFO (ложный шум снят).
-                diagnostics.append("provenance_factory_equivalent")
-                logger.info(
-                    "[prompt_registry] persisted speech value is a registered "
-                    "factory edition | key=%s | block=%s | reason=%s | "
-                    "stored_sha=%s | stored_chars=%d",
-                    pg_key, spec.block_id, reason, sha12(raw), len(raw))
-            else:
-                logger.warning(
-                    "[prompt_registry] persisted speech value withheld | "
-                    "key=%s | block=%s | reason=%s | class=%s | stored_sha=%s "
-                    "| stored_chars=%d",
-                    pg_key, spec.block_id, reason, withheld_class,
-                    sha12(raw), len(raw))
+            if not release_policy_active():
+                factory = factory_text(spec.block_id)
+                # Прежний шлагбаум (до cutover): persisted-текст без
+                # провенанса не является действующим слоем.
+                text, _info = suppress_legacy_speech(factory, source="global")
+                diagnostics = ["persisted_value_withheld", reason]
+                if legacy_persona_present(raw):
+                    diagnostics.append("persisted_legacy_persona_marker")
+                if withheld_class == WITHHELD_IDENTICAL_CLASS:
+                    # Байты совпадают с ЗАРЕГИСТРИРОВАННОЙ заводской редакцией
+                    # (classification.md §2). Текущая фабрика может быть новее,
+                    # поэтому старая редакция не активируется, но это не конфликт
+                    # владельца: WARNING заменён на INFO (ложный шум снят).
+                    diagnostics.append("provenance_factory_equivalent")
+                    logger.info(
+                        "[prompt_registry] persisted speech value is a "
+                        "registered factory edition | key=%s | block=%s | "
+                        "reason=%s | stored_sha=%s | stored_chars=%d",
+                        pg_key, spec.block_id, reason, sha12(raw), len(raw))
+                else:
+                    logger.warning(
+                        "[prompt_registry] persisted speech value withheld | "
+                        "key=%s | block=%s | reason=%s | class=%s | "
+                        "stored_sha=%s | stored_chars=%d",
+                        pg_key, spec.block_id, reason, withheld_class,
+                        sha12(raw), len(raw))
+                return SpeechResolution(
+                    text=text if text.strip() else factory, source="default",
+                    diagnostics=tuple(diagnostics), withheld=True,
+                    withheld_sha256_12=sha12(raw),
+                    provenance_reason=reason, provenance=entry,
+                    withheld_class=withheld_class,
+                    withheld_reason=(classification or {}).get("reason", ""))
+            # EVOL-016 (контракт §1.6): после cutover провенанс больше не
+            # шлагбаум effective-слоя — активный PG-текст эффективен.
+            if withheld_class == WITHHELD_LEGACY_CLASS:
+                factory = factory_text(spec.block_id)
+                _withhold_legacy_audit(spec, raw, reason)
+                text, _info = suppress_legacy_speech(factory, source="global")
+                return SpeechResolution(
+                    text=text if text.strip() else factory, source="default",
+                    diagnostics=("persisted_value_withheld",
+                                 "legacy_incompatible", reason),
+                    withheld=True, withheld_sha256_12=sha12(raw),
+                    provenance_reason=reason, provenance=entry,
+                    withheld_class=withheld_class,
+                    withheld_reason=(classification or {}).get("reason", ""))
+            text, _info = suppress_legacy_speech(raw, source=source,
+                                                 custom_clean=custom_clean)
             return SpeechResolution(
-                text=text if text.strip() else factory, source="default",
-                diagnostics=tuple(diagnostics), withheld=True,
-                withheld_sha256_12=sha12(raw),
-                provenance_reason=reason, provenance=entry,
-                withheld_class=withheld_class,
-                withheld_reason=(classification or {}).get("reason", ""))
+                text=text, source=source,
+                diagnostics=("release_policy_persisted_effective", reason),
+                provenance_reason=reason, provenance=entry)
         text, _info = suppress_legacy_speech(raw, source=source,
                                              custom_clean=custom_clean)
         return SpeechResolution(text=text, source=source,
@@ -2681,6 +3270,23 @@ def resolve_speech_value(pg_key: str, value: str, *, source: str,
     text, _info = suppress_legacy_speech(raw, source=source,
                                          custom_clean=custom_clean)
     return SpeechResolution(text=text, source=source)
+
+
+#: Один аудит-событие на процесс для удержанного legacy-слепка (контракт
+#: §1.6/§1.8: не WARN на каждое чтение за факт «текст другой»).
+_LEGACY_WITHHELD_SEEN: set[tuple[str, str]] = set()
+
+
+def _withhold_legacy_audit(spec, raw: str, reason: str) -> None:
+    key = (spec.block_id, sha12(raw))
+    if key in _LEGACY_WITHHELD_SEEN:
+        return
+    _LEGACY_WITHHELD_SEEN.add(key)
+    logger.warning(
+        "[prompt_registry] legacy_incompatible persisted value withheld "
+        "(release policy) | key=%s | block=%s | reason=%s | stored_sha=%s "
+        "| stored_chars=%d", spec.pg_key, spec.block_id, reason,
+        sha12(raw), len(raw))
 
 
 def withheld_values(*, pg_get=None, cache=None) -> list[dict]:

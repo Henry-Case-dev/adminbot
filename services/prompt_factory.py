@@ -75,6 +75,24 @@ HISTORY_VERSION = 1
 #: глобальный `character.core` управляется правом на ключ категории content).
 CORE_DOC_CATEGORY = "content"
 
+#: EVOL-016 (контракт §1.2): после одноразового импорта в журнал версий
+#: ``character.prompt_history`` замораживается — ``_append_history`` и
+#: ``_mark_provenance`` больше не дописывают JSON. Документ не удаляется;
+#: обрезанные HISTORY_MAX_PER_BLOCK хвосты не восстанавливаются и не выдаются
+#: за полную историю. Флаг выставляет релизная проводка старта каждый раз,
+#: когда журнал подтверждён (cutover или no-op-рестарт с целым журналом).
+_HISTORY_FROZEN = False
+
+
+def freeze_history() -> None:
+    """Заморозить дописывание журнала ``character.prompt_history``."""
+    global _HISTORY_FROZEN
+    _HISTORY_FROZEN = True
+
+
+def history_frozen() -> bool:
+    return _HISTORY_FROZEN
+
 
 class FactoryConflict(Exception):
     """Optimistic-конфликт: значение изменилось между diff и записью."""
@@ -234,7 +252,13 @@ async def _load_history(cache) -> dict:
 async def _append_history(cache, block_id: str, *, pg_key: str,
                           value: str, source: str, kind: str,
                           actor=None, reason: str = "") -> int:
-    """Добавить ревизию в историю (bounded). Возвращает число записей блока."""
+    """Добавить ревизию в историю (bounded). Возвращает число записей блока.
+
+    EVOL-016: после заморозки (``freeze_history``) — no-op: ревизии ведёт
+    журнал ``prompt_revisions`` (релизная политика), а не этот JSON-документ.
+    """
+    if _HISTORY_FROZEN:
+        return 0
     doc = await _load_history(cache)
     entry = {
         "revision": pr.ACTIVE_PREFIX + pr.sha12(value),
@@ -281,6 +305,10 @@ async def _mark_provenance(cache, block_id: str, *, pg_key: str, value: str,
     Возвращает ``(entry, persisted)``: ``persisted=False`` означает, что
     журнал записать не удалось (PG down) — вызывающий обязан показать это
     вызывающему, а не считать правку действующей.
+
+    EVOL-016: после заморозки (``freeze_history``) провенанс-факты ведёт
+    журнал активаций; здесь — no-op с ``persisted=True`` (запись значения
+    не должна ломаться).
     """
     entry = {
         "revision": pr.ACTIVE_PREFIX + pr.sha12(value),
@@ -295,6 +323,8 @@ async def _mark_provenance(cache, block_id: str, *, pg_key: str, value: str,
         "block_id": block_id,
         "pg_key": pg_key,
     }
+    if _HISTORY_FROZEN:
+        return entry, True
     if cache is None or not hasattr(cache, "set"):
         return entry, False
     doc = await _load_history(cache)
@@ -399,6 +429,17 @@ async def apply_factory_reset(block_id: str, *, cache=None,
                            reason=reason or "factory_reset", scope="global")
     await _store_spec_value(spec, factory, cache, document=document,
                             set_level=False)
+    # EVOL-016: факт «заводской текст снова активен» — в журнал (rev + строка
+    # активации), иначе рестарт увидит расхождение журнала и значения.
+    try:
+        from services import prompt_release_policy as prp
+        await prp.record_manual_activation(
+            block_id, factory, scope="global", actor=actor,
+            reason=reason or "factory_reset", kind="manual_rollback",
+            cache=cache)
+    except Exception:          # pragma: no cover — журнал не роняет сброс
+        logger.warning("[prompt_factory] журнал не зафиксировал заводской "
+                       "сброс | block=%s", block_id, exc_info=True)
     logger.info("[prompt_factory] factory reset | block=%s | key=%s | "
                 "was=%s | now=%s", block_id, spec.pg_key,
                 pr.sha12(previous), pr.sha12(factory))
@@ -430,10 +471,17 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
     """Записать речевое значение через API реестра (правка владельца).
 
     Единственный путь, делающий значение ДЕЙСТВУЮЩИМ слоем (SOUL-AMD.1.1/4.1:
-    владелец управляет речью через MiniApp): запись идёт в PG/чат + журнал
-    провенанса. Значение, попавшее в PG иным путём (старый UI, SQL), остаётся
-    без провенанса и удерживается резолвером (SOUL-AMD.1.2/4.6) — но не
-    теряется (stay retrievable) и видно в ``prompt_registry.withheld_values``.
+    владелец управляет речью через MiniApp).
+
+    EVOL-016 (контракт §1.6): правка становится ИММУТАБЕЛЬНОЙ ревизией
+    журнала (``origin=manual``) со строкой активации ``kind=manual_edit``;
+    ``factory_revision_applied`` не сбрасывается — рестарт без новой метки
+    правку не тронет, следующая заводская ревизия снимет её в историю.
+    Глобальный слой: ревизия + активация + значение одной транзакцией
+    (``prompt_release_policy.write_versioned_value``). Per-chat override:
+    запись значения остаётся за ``chat_params`` (его история и локи), журнал
+    получает факт активации (best-effort). Журнал недоступен → прежний путь,
+    честный признак ``journal_recorded=False``.
 
     ``chat_id`` задан → per-chat override (наследование глобала сохраняется);
     иначе — глобальный ключ блока. ``expected_updated_at`` — существующий
@@ -442,6 +490,7 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
     (нужно owner-preserving миграции активной редакции Core).
     """
     from services import chat_params
+    from services import prompt_release_policy as prp
     spec = pr.block(block_id)
     if spec is None or not spec.pg_key:
         return {"applied": False, "reason": "block_not_pg_managed",
@@ -462,23 +511,65 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
                 "block_id": block_id, "pg_key": spec.pg_key,
                 "detail": classification.get("reason", ""),
                 "stored_sha256_12": pr.sha12(value)}
+    cache = cache if cache is not None else _default_cache()
     if chat_id is not None:
-        return await _write_chat_speech_value(
+        # Per-chat: запись значения и optimistic-токен остаются за
+        # ``chat_params.set_chat_params`` (его 409-семантика и
+        # идемпотентный short-circuit D-409-1 не дублируются здесь).
+        legacy = await _write_chat_speech_value(
             spec, value, cache=cache, actor=actor, reason=reason,
             chat_id=int(chat_id), expected_updated_at=expected_updated_at,
             pg=pg, get_root=get_root, set_root=set_root)
-    cache = cache if cache is not None else _default_cache()
-    if cache is None:
-        return {"applied": False, "reason": "config_cache_unavailable",
-                "block_id": block_id}
+        if legacy.get("applied") and cache is not None:
+            await prp.record_manual_activation(
+                block_id, value, scope="chat", chat_id=int(chat_id),
+                actor=actor, reason=reason or "owner_edit", cache=cache)
+            legacy["journal_recorded"] = True
+        else:
+            legacy.setdefault("journal_recorded", False)
+        return legacy
+    # Optimistic-токен глобального слоя: общий гейт журнального и
+    # легаси-путей (чужая правка → 409-семантика FactoryConflict).
     if expected_updated_at is not None:
         actual = None
         try:
-            actual = cache.get_updated_at(spec.pg_key)
+            actual = cache.get_updated_at(spec.pg_key) if cache is not None \
+                else None
         except Exception:      # pragma: no cover
             actual = None
         if actual != expected_updated_at:
             raise FactoryConflict(spec.pg_key, expected_updated_at, actual)
+    # Журнальный путь (глобальный слой): одна транзакция — ревизия,
+    # активация, значение; память кэша обновляет сам write_versioned_value.
+    journal = prp.default_journal(cache)
+    if journal is not None:
+        result = await prp.write_versioned_value(
+            block_id, value, cache=cache, store=journal,
+            scope="global", chat_id=None, actor=actor,
+            reason=reason or "owner_edit")
+        if result.get("journal_recorded"):
+            return {
+                "applied": result.get("applied", False),
+                "reason": result.get("outcome", "ok")
+                if result.get("applied") else "already_that_value",
+                "block_id": block_id, "pg_key": spec.pg_key,
+                "scope": "global", "chat_overrides_touched": False,
+                "changed": result.get("applied", False),
+                "revision": pr.ACTIVE_PREFIX + result.get("sha256_12", ""),
+                "sha256_12": result.get("sha256_12", ""),
+                "factory_revision_applied": result.get(
+                    "factory_revision_applied", ""),
+                "history_key": FACTORY_HISTORY_KEY,
+                "provenance_persisted": True,
+                "effective": True,
+                "journal_recorded": True,
+                "legacy_persona_marker": pr.legacy_persona_present(value),
+                "provenance": {"kind": "manual_edit", "scope": "global"},
+            }
+    # журнал недоступен → прежний путь (честный journal_recorded=False)
+    if cache is None:
+        return {"applied": False, "reason": "config_cache_unavailable",
+                "block_id": block_id, "journal_recorded": False}
     _present, previous, document = _read_spec_value(spec, cache)
     if previous:
         await _append_history(cache, block_id, pg_key=spec.pg_key,
@@ -511,6 +602,7 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
         "history_key": FACTORY_HISTORY_KEY,
         "provenance_persisted": persisted,
         "effective": persisted,
+        "journal_recorded": False,
         "legacy_persona_marker": marker,
         "provenance": {"kind": entry["kind"], "scope": entry["scope"]},
     }
@@ -794,6 +886,17 @@ async def restore_backup(backup: dict, *, apply: bool = False, cache=None,
                                   source="global", kind="backup_restore",
                                   actor=actor, reason="restore_backup")
         await cache.set(row["key"], text, row["category"])
+        # EVOL-016: восстановленное значение — ревизия + активация в журнале
+        # (иначе рестарт честно зафиксирует activation_drift по этому ключу).
+        try:
+            from services import prompt_release_policy as prp
+            await prp.record_manual_activation(
+                spec.block_id, text, scope="global", actor=actor,
+                reason="restore_backup", kind="manual_rollback", cache=cache)
+        except Exception:      # pragma: no cover — журнал не роняет откат
+            logger.warning("[prompt_factory] журнал не зафиксировал "
+                           "restore_backup | key=%s", row["key"],
+                           exc_info=True)
         applied.append({"key": row["key"],
                         "sha256_12": row["backup_sha256_12"],
                         # SOUL-AMD.4.6: старое значение вернулось как ДАННЫЕ;
@@ -880,12 +983,97 @@ def _cli(argv: list[str] | None = None) -> int:
     return asyncio.run(_run())
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# EVOL-016/017 — API журнала версий (контракт §1.6: имена живут здесь,
+# реализация — в prompt_release_policy; UI заводит только эти вызовы)
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def apply_release(cache, *, release_id: str, store=None) -> dict:
+    """Применить заводской релиз промптов (детерминированная проводка старта).
+
+    Снимок legacy + активация cutover — ОДНА транзакция, поэтому контрактное
+    имя ``import_legacy_snapshots`` — это тот же cutover-вызов: раздельно
+    «снимок без активации» запрещён контрактом §1.4 (частичная смесь).
+    """
+    from services import prompt_release_policy as prp
+    return await prp.apply_release(cache, release_id=release_id, store=store)
+
+
+async def import_legacy_snapshots(cache, *, store=None) -> dict:
+    """Одноразовый перенос текущих активных текстов в журнал (cutover)."""
+    from services import prompt_release_policy as prp
+    return await prp.apply_release(cache, release_id=prp.CUTOVER_RELEASE_ID,
+                                   store=store)
+
+
+async def activate_revision(block_id: str, revision_id: str, *, scope: str =
+                            "global", chat_id: int | None = None,
+                            actor=None, cache=None, store=None) -> dict:
+    """Откат/вперёд на сохранённую совместимую ревизию (EVOL-017 UI)."""
+    from services import prompt_release_policy as prp
+    return await prp.activate_revision(
+        block_id, revision_id, scope=scope, chat_id=chat_id, actor=actor,
+        cache=cache, store=store)
+
+
+async def list_revisions(block_id: str, *, chat_id: int | None = None,
+                         cache=None, store=None) -> list[dict]:
+    """Хронология ревизий блока (данные для UI истории версий)."""
+    from services import prompt_release_policy as prp
+    store = store if store is not None else prp.default_journal(cache)
+    if store is None:
+        return []
+    try:
+        await store.ensure_journal()
+        rows = await store.list_revisions(block_id, chat_id)
+    except Exception:          # pragma: no cover — журнал не роняет view
+        logger.warning("[prompt_factory] список ревизий недоступен",
+                       exc_info=True)
+        return []
+    return [{
+        "revision_id": r.revision_id, "origin": r.origin,
+        "sha256_12": r.content_sha12, "factory_revision": r.factory_revision,
+        "release_id": r.release_id, "actor": r.actor, "reason": r.reason,
+        "retired": r.retired, "created_at": r.created_at,
+        "scope": r.scope, "chat_id": r.chat_id,
+    } for r in rows]
+
+
+async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
+                         store=None) -> dict:
+    """Diff двух ревизий (существующий difflib; EVOL-017 UI)."""
+    from services import prompt_release_policy as prp
+    return await prp.diff_revisions(revision_a, revision_b, cache=cache,
+                                    store=store)
+
+
+async def get_revision_source(revision_id: str, *, cache=None,
+                              store=None) -> dict:
+    """Полный текст ревизии (просмотр в UI истории версий)."""
+    from services import prompt_release_policy as prp
+    return await prp.get_revision_source(revision_id, cache=cache,
+                                         store=store)
+
+
+async def list_versions(block_id: str, *, scope: str = "global",
+                        chat_id: int | None = None, cache=None,
+                        store=None) -> dict:
+    """Сводка «История версий»: активная ревизия, заводская, хронология."""
+    from services import prompt_release_policy as prp
+    return await prp.list_versions(block_id, scope=scope, chat_id=chat_id,
+                                   cache=cache, store=store)
+
+
 __all__ = [
     "FACTORY_HISTORY_KEY", "FACTORY_HISTORY_CATEGORY", "CORE_DOC_CATEGORY",
     "HISTORY_MAX_PER_BLOCK", "FactoryConflict", "factory_default",
     "plan_factory_reset", "apply_factory_reset", "write_speech_value",
     "history_for", "reset_chat_override", "plan_speech_profile_reset",
     "apply_speech_profile_reset", "restore_backup", "restore_backup_from_file",
+    "freeze_history", "history_frozen",
+    # EVOL-016/017 API журнала версий
+    "apply_release", "import_legacy_snapshots", "activate_revision",
+    "list_revisions", "diff_revisions", "get_revision_source", "list_versions",
 ]
 
 

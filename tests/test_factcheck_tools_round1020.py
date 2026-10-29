@@ -24,6 +24,8 @@ from services.factcheck_prompts import (
 )
 from services.factcheck_service import FactCheckService
 from services.llm_client import LLMChatResult, LLMToolCall
+from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services.prompt_migrations import PROMPT_MIGRATIONS, migrate_prompt_canons
 from services.tool_schemas import factcheck_tools
 
@@ -310,7 +312,7 @@ class TestFactcheckPromptCanon:
                 FACTCHECK_SYSTEM_PROMPT) in steps
 
     @pytest.mark.asyncio
-    async def test_prev_r2020_migrates_to_new_canon(self):
+    async def test_prev_r2020_migrates_to_new_canon(self, monkeypatch):
         class FakeCache:
             pg_available = True
 
@@ -333,11 +335,25 @@ class TestFactcheckPromptCanon:
         cache = FakeCache({
             "prompts.factcheck_system_prompt":
                 PREV_FACTCHECK_R2020_SYSTEM_PROMPT})
+        store = prp.MemoryPromptJournal()
+        monkeypatch.setattr(prp, "default_journal",
+                            lambda cache=None: store)
         report = await migrate_prompt_canons(cache)
-        assert report == {"prompts.factcheck_system_prompt": "updated"}
-        assert cache.set_calls == [
-            ("prompts.factcheck_system_prompt", FACTCHECK_SYSTEM_PROMPT,
-             "prompts")]
+        # EVOL-016/012: прежний канон → снимок legacy + активная заводская
+        # ревизия (значение уходит штатной записью + синхронизация кэша).
+        assert report.get("prompts.factcheck_system_prompt") == "updated"
+        assert ("prompts.factcheck_system_prompt", FACTCHECK_SYSTEM_PROMPT,
+                "prompts") in cache.set_calls
+        legacy = [r for r in store.revisions.values()
+                  if r.pg_key == "prompts.factcheck_system_prompt"
+                  and r.origin == "legacy"
+                  and r.content_sha12 == pr.sha12(
+                      PREV_FACTCHECK_R2020_SYSTEM_PROMPT)]
+        assert len(legacy) == 1
+        pr.set_release_policy_active(False)
+        from services import prompt_factory as _pf
+        _pf._HISTORY_FROZEN = False
+        pr.reset_cache()
 
 
 # ── T-1910a: CLI retention при живом боте (снапшот/WAL) ─────────────────────

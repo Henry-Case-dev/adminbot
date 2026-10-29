@@ -26,6 +26,8 @@ import pytest
 from config.settings import Settings
 from services import param_catalog as pc
 from services import prompt_migrations as pm
+from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services.llm_client import LLMError, LLMTimeoutError
 from services.prompt_style_blocks import resolve_prompt
 from services.summary_l1_clusterizer import (
@@ -1010,37 +1012,74 @@ class _FakeCache:
 
 
 class TestCanonMigrations:
+    """EVOL-016/012: активацию решает релизная политика (метка+печать,
+    журнал); лестницы канонов сняты. Слепки — байт-эталоны."""
+
+    @pytest.fixture(autouse=True)
+    def _journal(self, monkeypatch):
+        store = prp.MemoryPromptJournal()
+        monkeypatch.setattr(
+            prp, "default_journal",
+            lambda cache=None: store
+            if getattr(cache, "pg_available", False) else None)
+        self.journal = store
+        yield
+        pr.set_release_policy_active(False)
+        from services import prompt_factory as _pf
+        _pf._HISTORY_FROZEN = False
+        pr.reset_cache()
+
     @pytest.mark.asyncio
     async def test_prev_updates_to_canon(self):
-        cache = _FakeCache({PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1026})
+        cache = _FakeCache(
+            {PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1026})
         report = await pm.migrate_prompt_canons(cache)
-        assert report == {PROMPT_PG_KEY: "updated"}
-        assert cache.values[PROMPT_PG_KEY] == SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
-        assert cache.sets == [(PROMPT_PG_KEY,
-                               SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT,
-                               "prompts")]
+        assert report[PROMPT_PG_KEY] == "updated"
+        assert cache.values[PROMPT_PG_KEY] == \
+            SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
+        legacy = [r for r in self.journal.revisions.values()
+                  if r.origin == "legacy"
+                  and r.content_sha12 ==
+                  pr.sha12(PREV_SUMMARY_L1_CLUSTERIZER_R1026)]
+        assert len(legacy) == 1
 
     @pytest.mark.asyncio
     async def test_idempotent_second_run(self):
         cache = _FakeCache({PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1026})
         await pm.migrate_prompt_canons(cache)
+        sets_after_first = len(cache.sets)
+        state_after_first = (len(self.journal.activations),
+                             len(self.journal.revisions))
         report = await pm.migrate_prompt_canons(cache)
-        assert PROMPT_PG_KEY not in report
-        assert len(cache.sets) == 1
+        assert all(v == "same" for v in report.values())
+        assert len(cache.sets) == sets_after_first
+        assert (len(self.journal.activations),
+                len(self.journal.revisions)) == state_after_first
 
     @pytest.mark.asyncio
     async def test_missing_key_skipped(self):
         cache = _FakeCache({})
         report = await pm.migrate_prompt_canons(cache)
-        assert PROMPT_PG_KEY not in report and cache.sets == []
+        # skipped_empty → затем активация заводской ревизии
+        assert report[PROMPT_PG_KEY] in ("updated", "same")
+        assert cache.values[PROMPT_PG_KEY] == \
+            SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
 
     @pytest.mark.asyncio
     async def test_custom_value_untouched(self, caplog):
         cache = _FakeCache({PROMPT_PG_KEY: "мой кастомный промпт"})
         with caplog.at_level("WARNING"):
             report = await pm.migrate_prompt_canons(cache)
-        assert PROMPT_PG_KEY not in report and cache.sets == []
-        assert "кастом юзера" in caplog.text
+        # EVOL-012: кастом — снимок legacy, заводская ревизия активна,
+        # никакого WARN «кастом юзера».
+        assert report[PROMPT_PG_KEY] == "updated"
+        assert cache.values[PROMPT_PG_KEY] == \
+            SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT
+        assert "кастом юзера" not in caplog.text
+        legacy = [r for r in self.journal.revisions.values()
+                  if r.origin == "legacy"
+                  and r.content_sha12 == pr.sha12("мой кастомный промпт")]
+        assert len(legacy) == 1
 
     @pytest.mark.asyncio
     async def test_pg_down_skipped(self):
@@ -1050,19 +1089,39 @@ class TestCanonMigrations:
         assert report == {} and cache.sets == []
 
     @pytest.mark.asyncio
-    async def test_rollback_returns_prev(self):
-        cache = _FakeCache({PROMPT_PG_KEY: SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT})
-        report = await pm.rollback_prompt_canons(cache)
-        assert report == {PROMPT_PG_KEY: "rolled_back"}
-        assert cache.values[PROMPT_PG_KEY] == \
-            PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41
+    async def test_rollback_returns_prev(self, caplog):
+        """Лестница снята (отказ); прежние байты возвращает журнал."""
+        cache = _FakeCache(
+            {PROMPT_PG_KEY: SUMMARY_L1_CLUSTERIZER_SYSTEM_PROMPT})
+        with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+            report = await pm.rollback_prompt_canons(cache)
+        assert report == {} and cache.sets == []
+        block_id = pr.by_pg_key(PROMPT_PG_KEY).block_id
+        prev = PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41
+        await self.journal.insert_revision(prp.RevisionRow(
+            revision_id=pr.revision_id_for(block_id, "global", None, "manual",
+                                           pr.sha12(prev)),
+            block_id=block_id, scope="global", origin="manual",
+            content_sha12=pr.sha12(prev), body=prev, pg_key=PROMPT_PG_KEY))
+        res = await prp.activate_revision(block_id, await _rev_id(
+            self.journal, block_id, prev), cache=cache, store=self.journal,
+            actor="runbook")
+        assert res["applied"]
+        assert cache.values[PROMPT_PG_KEY] == prev
 
     @pytest.mark.asyncio
-    async def test_rollback_idempotent(self):
+    async def test_rollback_idempotent(self, caplog):
         cache = _FakeCache(
             {PROMPT_PG_KEY: PREV_SUMMARY_L1_CLUSTERIZER_R1027_ASAP41})
-        report = await pm.rollback_prompt_canons(cache)
+        with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+            report = await pm.rollback_prompt_canons(cache)
         assert PROMPT_PG_KEY not in report and cache.sets == []
+
+
+async def _rev_id(store, block_id: str, text: str) -> str:
+    row = await store.get_revision(
+        pr.revision_id_for(block_id, "global", None, "manual", pr.sha12(text)))
+    return row.revision_id
 
 
 # ── SC-14/SC-16/SC-19: живой путь не тронут, ровно 2 вызова ────────────────

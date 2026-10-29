@@ -467,74 +467,108 @@ class TestPromptMigrationsCatalog:
             assert _PREV_BY_KEY[key] != _NEW_BY_KEY[key]
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# EVOL-016/012 (30.10.2026, решение владельца 29.10.2026): строковые ступени
+# и барьер «кастом юзера — НЕ трогаем» СНЯТЫ. Активацию решает релизная
+# политика (метка заводской ревизии + печать, журнал версий/активаций):
+#   * старт (migrate_prompt_canons) — делегатор apply_release (cutover);
+#   * любая устаревшая редакция (LEGACY/PREV_*) — просто снимок legacy в
+#     журнале, активной становится ТЕКУЩАЯ заводская ревизия по метке;
+#   * рестарт без новой метки не меняет ничего;
+#   * rollback_prompt_canons/migrate_core_owner_patch — отказ без записи.
+# Слепки PREV_* и карты PROMPT_MIGRATIONS/ROLLBACK_MIGRATIONS сохранены как
+# БАЙТ-ЭТАЛОНЫ (тестируются словарные тесты выше) — не как механизм.
+# ═══════════════════════════════════════════════════════════════════════════
+
+from services import prompt_registry as pr
+from services import prompt_release_policy as prp
+
+
+@pytest.fixture()
+def journal(monkeypatch):
+    """Memory-стор журнала как default_journal (юнит-контур без PG)."""
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+    yield store
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
+
+
+def _factory(key: str) -> str:
+    """Текущий заводской текст PG-ключа (единый источник — реестр)."""
+    spec = pr.by_pg_key(key)
+    assert spec is not None, key
+    return pr.factory_text(spec.block_id)
+
+
 class TestMigratePromptCanons:
-    @pytest.mark.asyncio
-    async def test_all_prev_values_updated_to_new(self):
-        cache = FakeCache(values=_PREV_BY_KEY)
-        report = await migrate_prompt_canons(cache)
-        assert report == {key: "updated" for key in _ALL_KEYS}
-        assert cache.set_calls == [
-            (key, _NEW_BY_KEY[key], "prompts") for key in _ALL_KEYS]
+    """Стартовая проводка релизной политики (бывшая канон-миграция)."""
 
     @pytest.mark.asyncio
-    async def test_direct_chat_prev_r2020_step_updates(self):
-        """Прод мог отстать на прод-канон раунда 9 (PREV_CHAT_R2020) →
-        пятая ступень обновляет до канона раунда 10.20 (анти-галлюцинации +
-        persona fallback)."""
-        cache = FakeCache(values={
-            "prompts.direct_chat_system_prompt":
-                PREV_CHAT_R2020_SYSTEM_PROMPT})
+    async def test_all_stale_values_updated_to_current_factory(self, journal):
+        """Cutover: любое устаревшее значение → снимок legacy + заводская."""
+        cache = FakeCache(values=dict(_PREV_BY_KEY))
         report = await migrate_prompt_canons(cache)
-        assert report == {"prompts.direct_chat_system_prompt": "updated"}
-        assert cache.set_calls == [
-            ("prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
-             "prompts")]
+        cache.apply_writes()
+        for key in _ALL_KEYS:
+            assert report.get(key) in ("updated", "same"), (key, report)
+            assert cache.values[key] == _factory(key), key
+            # прежние байты сохранены как неизменяемая ревизия legacy
+            legacy = [r for r in journal.revisions.values()
+                      if r.pg_key == key and r.origin == "legacy"
+                      and r.content_sha12 == pr.sha12(_PREV_BY_KEY[key])]
+            assert len(legacy) == 1, key
 
     @pytest.mark.asyncio
-    async def test_direct_chat_prev_r9_step_updates(self):
-        """Прод мог отстать на канон раунда 8 (PREV_R9, слепок HEAD 84c4887)
-        → четвёртая ступень обновляет до нового канона."""
-        cache = FakeCache(values={
-            "prompts.direct_chat_system_prompt":
-                PREV_R9_CHAT_SYSTEM_PROMPT})
-        report = await migrate_prompt_canons(cache)
-        assert report == {"prompts.direct_chat_system_prompt": "updated"}
-        assert cache.set_calls == [
-            ("prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
-             "prompts")]
+    async def test_stale_canons_activate_current_factory_revision(
+            self, journal):
+        """Любой устаревший канон (LEGACY/R8/R9/R2020/MCA23) — не «ступень»,
+        а просто прежнее значение: активна ТЕКУЩАЯ заводская ревизия."""
+        for stale in (LEGACY_CHAT_SYSTEM_PROMPT, PREV_R8_CHAT_SYSTEM_PROMPT,
+                      PREV_R9_CHAT_SYSTEM_PROMPT,
+                      PREV_CHAT_R2020_SYSTEM_PROMPT,
+                      PREV_CHAT_MCA23_SYSTEM_PROMPT):
+            store = prp.MemoryPromptJournal()
+            monkey_store = store
+            prp_default = prp.default_journal
+            prp.default_journal = lambda cache=None, _s=monkey_store: _s
+            try:
+                key = "prompts.direct_chat_system_prompt"
+                cache = FakeCache(values={key: stale})
+                await migrate_prompt_canons(cache)
+                cache.apply_writes()
+                assert cache.values[key] == _factory(key), type(stale)
+                legacy = [r for r in store.revisions.values()
+                          if r.pg_key == key and r.origin == "legacy"
+                          and r.content_sha12 == pr.sha12(stale)]
+                assert len(legacy) == 1, type(stale)
+            finally:
+                prp.default_journal = prp_default
+                pr.set_release_policy_active(False)
 
     @pytest.mark.asyncio
-    async def test_direct_chat_prev_r8_step_updates(self):
-        """Прод мог отстать на канон раунда 5 (PREV_R8, слепок HEAD b198d13)
-        → третья ступень обновляет до нового канона раунда 8."""
-        cache = FakeCache(values={
-            "prompts.direct_chat_system_prompt":
-                PREV_R8_CHAT_SYSTEM_PROMPT})
+    async def test_already_new_canons_restart_is_full_noop(self, journal):
+        """Рестарт с той же заводской ревизией: ни записи значения, ни строк."""
+        cache = FakeCache(values=dict(_NEW_BY_KEY))
+        await migrate_prompt_canons(cache)
+        cache.apply_writes()
+        first = (len(journal.activations), len(journal.revisions),
+                 len(cache.set_calls))
         report = await migrate_prompt_canons(cache)
-        assert report == {"prompts.direct_chat_system_prompt": "updated"}
-        assert cache.set_calls == [
-            ("prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
-             "prompts")]
+        assert all(v == "same" for v in report.values())
+        assert (len(journal.activations), len(journal.revisions),
+                len(cache.set_calls)) == first
+        assert cache.values == dict(_NEW_BY_KEY) or all(
+            cache.values[key] == _NEW_BY_KEY.get(key, cache.values[key])
+            for key in _NEW_BY_KEY)
 
     @pytest.mark.asyncio
-    async def test_direct_chat_legacy_step_updates(self):
-        """Прод мог отстать на канон раунда 2 (LEGACY) → первая ступень."""
-        cache = FakeCache(values={
-            "prompts.direct_chat_system_prompt": LEGACY_CHAT_SYSTEM_PROMPT})
-        report = await migrate_prompt_canons(cache)
-        assert report == {"prompts.direct_chat_system_prompt": "updated"}
-        assert cache.set_calls == [
-            ("prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT, "prompts")]
-
-    @pytest.mark.asyncio
-    async def test_already_new_canons_noop(self):
-        cache = FakeCache(values=_NEW_BY_KEY)
-        report = await migrate_prompt_canons(cache)
-        assert report == {}
-        assert cache.set_calls == []
-
-    @pytest.mark.asyncio
-    async def test_custom_user_values_untouched_with_warning(self, caplog):
+    async def test_custom_value_becomes_legacy_snapshot_no_warning(
+            self, journal, caplog):
+        """EVOL-012: кастом владельца — ревизия legacy, заводская активна,
+        никакого WARN «кастом юзера — НЕ трогаем»."""
         cache = FakeCache(values={
             "prompts.direct_chat_system_prompt": "мой кастомный промпт",
             "prompts.summary_system_prompt": "ещё один кастом",
@@ -542,54 +576,65 @@ class TestMigratePromptCanons:
         with caplog.at_level(logging.WARNING,
                              logger="services.prompt_migrations"):
             report = await migrate_prompt_canons(cache)
-        assert report == {}
-        assert cache.set_calls == []
-        warns = [r for r in caplog.records
-                 if "кастом юзера — НЕ трогаем" in r.message]
-        assert len(warns) == 2
-        assert "key=prompts.direct_chat_system_prompt" in warns[0].message
-        assert "chars=" in warns[0].message
+        cache.apply_writes()
+        assert report["prompts.direct_chat_system_prompt"] == "updated"
+        assert cache.values["prompts.direct_chat_system_prompt"] == \
+            _factory("prompts.direct_chat_system_prompt")
+        barrier = [r for r in caplog.records
+                   if "НЕ трогаем" in r.message or "кастом" in r.message]
+        assert barrier == []
 
     @pytest.mark.asyncio
-    async def test_missing_keys_skipped_info(self, caplog):
+    async def test_missing_keys_activated_not_deferred_to_seed(self, journal):
+        """Пустой ключ: skipped_empty (автор не выдумывается), затем активация
+        заводской ревизии — сид больше не ожидается поставить канон."""
         cache = FakeCache(values={})
-        with caplog.at_level(logging.INFO, logger="services.prompt_migrations"):
-            report = await migrate_prompt_canons(cache)
-        assert report == {}
-        assert cache.set_calls == []
-        infos = [r for r in caplog.records
-                 if "ключ отсутствует — сид сделает своё" in r.message]
-        assert len(infos) == len(_ALL_KEYS)
+        report = await migrate_prompt_canons(cache)
+        cache.apply_writes()
+        empty = [a for a in journal.activations
+                 if a.kind == "legacy_import" and a.outcome == "skipped_empty"]
+        assert len(empty) >= len(_ALL_KEYS)
+        for key in _ALL_KEYS:
+            assert cache.values[key] == _factory(key), key
+            assert report.get(key) in ("updated", "same"), key
 
     @pytest.mark.asyncio
     async def test_pg_unavailable_skipped(self, caplog):
-        cache = FakeCache(values=_PREV_BY_KEY, pg_available=False)
-        with caplog.at_level(logging.INFO, logger="services.prompt_migrations"):
+        """PG/журнал недоступен → skip (активация из констант запрещена)."""
+        cache = FakeCache(values=dict(_PREV_BY_KEY), pg_available=False)
+        with caplog.at_level(logging.INFO,
+                             logger="services.prompt_release_policy"):
             report = await migrate_prompt_canons(cache)
         assert report == {}
         assert cache.set_calls == []
-        assert any("[prompt_migration] skip: PG недоступен" in r.message
+        assert any("skip" in r.message and "недоступен" in r.message
                    for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_none_cache_skipped(self, caplog):
-        with caplog.at_level(logging.INFO, logger="services.prompt_migrations"):
+        with caplog.at_level(logging.INFO,
+                             logger="services.prompt_release_policy"):
             report = await migrate_prompt_canons(None)
         assert report == {}
-        assert any("[prompt_migration] skip: PG недоступен" in r.message
-                   for r in caplog.records)
+        assert any("skip" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
-    async def test_iteration_order_is_fixed(self, caplog):
-        """Логи/порядок set — по порядку объявления PROMPT_MIGRATIONS."""
-        cache = FakeCache(values=_PREV_BY_KEY)
-        await migrate_prompt_canons(cache)
-        assert [key for key, _val, _cat in cache.set_calls] == _ALL_KEYS
+    async def test_iteration_order_is_fixed(self, journal):
+        """Порядок применения — детерминированный (обход sorted по block_id,
+        отчёт в ключах pg_key; порядок повторного прогона идентичен)."""
+        cache = FakeCache(values=dict(_PREV_BY_KEY))
+        report = await migrate_prompt_canons(cache)
+        block_order = [
+            pr.by_pg_key(key).block_id for key in report
+            if pr.by_pg_key(key) is not None]
+        assert block_order == sorted(block_order)
+        report2 = await migrate_prompt_canons(cache)
+        assert list(report2) == list(report)
 
 
 class TestRound1021Migration:
-    """F2+F3 (раунд 10.21): ступень PREV_*_R1021 → новый канон и обратный шаг
-    rollback (Д9, ADR-1021-3 §5)."""
+    """F2+F3 (раунд 10.21): карты слепков сохранены как байт-эталоны;
+    исполнение ступеней снято (откат — через журнал ревизий)."""
 
     def test_rollback_keys_match_r1021_keys(self):
         assert list(ROLLBACK_MIGRATIONS) == _ROLLBACK_KEYS
@@ -607,22 +652,24 @@ class TestRound1021Migration:
         assert "prompts.compress_system_prompt" not in ROLLBACK_MIGRATIONS
 
     @pytest.mark.asyncio
-    async def test_r1021_snapshots_update_to_new(self):
+    async def test_r1021_snapshots_update_to_current_factory(self, journal):
         cache = FakeCache(values=dict(_PREV_R1021_BY_KEY))
         report = await migrate_prompt_canons(cache)
-        assert report == {key: "updated" for key in _PREV_R1021_BY_KEY}
-        assert cache.set_calls == [
-            (key, _NEW_BY_KEY[key], "prompts")
-            for key in _PREV_R1021_BY_KEY]
+        cache.apply_writes()
+        for key in _PREV_R1021_BY_KEY:
+            assert cache.values[key] == _factory(key), key
+            assert report.get(key) in ("updated", "same"), key
 
     @pytest.mark.asyncio
-    async def test_rollback_updates_new_to_prev(self):
+    async def test_rollback_refuses_without_writes(self, caplog):
+        """Откат лестницей снят: ERROR и отказ, БД не пишется (EVOL-016)."""
         cache = FakeCache(values=dict(_NEW_BY_KEY))
-        report = await rollback_prompt_canons(cache)
-        assert report == {key: "rolled_back" for key in _ROLLBACK_KEYS}
-        assert cache.set_calls == [
-            (key, _ROLLBACK_TARGET_BY_KEY[key], "prompts")
-            for key in _ROLLBACK_KEYS]
+        with caplog.at_level(logging.ERROR,
+                             logger="services.prompt_migrations"):
+            report = await rollback_prompt_canons(cache)
+        assert report == {}
+        assert cache.set_calls == []
+        assert any("отказ" in r.message for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_rollback_idempotent(self):
@@ -633,23 +680,26 @@ class TestRound1021Migration:
 
     @pytest.mark.asyncio
     async def test_rollback_custom_untouched(self, caplog):
+        """Кастом владельца более не предмет «отката лестницей»: отказ целиком."""
         cache = FakeCache(values={"prompts.factcheck_system_prompt": "мой кастом"})
-        with caplog.at_level(logging.WARNING,
+        with caplog.at_level(logging.ERROR,
                              logger="services.prompt_migrations"):
             report = await rollback_prompt_canons(cache)
         assert report == {}
         assert cache.set_calls == []
-        assert any("кастом юзера — НЕ трогаем" in r.message
-                   for r in caplog.records)
+        assert any("отказ" in r.message for r in caplog.records)
+        assert not any("кастом юзера — НЕ трогаем" in r.message
+                       for r in caplog.records)
 
     @pytest.mark.asyncio
     async def test_rollback_pg_down_skipped(self, caplog):
         cache = FakeCache(values=dict(_NEW_BY_KEY), pg_available=False)
-        with caplog.at_level(logging.INFO, logger="services.prompt_migrations"):
+        with caplog.at_level(logging.ERROR,
+                             logger="services.prompt_migrations"):
             report = await rollback_prompt_canons(cache)
         assert report == {}
-        assert any("[prompt_rollback] skip: PG недоступен" in r.message
-                   for r in caplog.records)
+        assert cache.set_calls == []
+        assert any("отказ" in r.message for r in caplog.records)
 
 
 class TestRound1023Migration:
@@ -695,17 +745,36 @@ class TestRound1023Migration:
             (PREV_CHAT_W2_SYSTEM_PROMPT, PREV_CHAT_W1_SYSTEM_PROMPT)]
 
     @pytest.mark.asyncio
-    async def test_rollback_chat_restores_pre_mca23(self):
+    async def test_rollback_refuses_journal_restore_instead(self, journal, caplog):
+        """Байты прежнего канона возвращаются ЖУРНАЛОМ (activate_revision),
+        а не лестницей; прямой rollback_prompt_canons — отказ."""
         cache = FakeCache(values={
             "prompts.direct_chat_system_prompt": CHAT_SYSTEM_PROMPT})
-        report = await rollback_prompt_canons(cache)
-        assert report == {"prompts.direct_chat_system_prompt": "rolled_back"}
-        assert cache.set_calls == [
-            ("prompts.direct_chat_system_prompt",
-             PREV_CHAT_W2_SYSTEM_PROMPT, "prompts")]
+        with caplog.at_level(logging.ERROR,
+                             logger="services.prompt_migrations"):
+            report = await rollback_prompt_canons(cache)
+        assert report == {}
+        assert cache.set_calls == []
+        # журнал: прежние байты — восстанавливаемая ревизия (manual)
+        rev = prp.RevisionRow(
+            revision_id=pr.revision_id_for(
+                "direct.base.tool_phase", "global", None, "manual",
+                pr.sha12(PREV_CHAT_W2_SYSTEM_PROMPT)),
+            block_id="direct.base.tool_phase", scope="global",
+            origin="manual", content_sha12=pr.sha12(PREV_CHAT_W2_SYSTEM_PROMPT),
+            body=PREV_CHAT_W2_SYSTEM_PROMPT,
+            pg_key="prompts.direct_chat_system_prompt")
+        await journal.insert_revision(rev)
+        res = await prp.activate_revision(
+            "direct.base.tool_phase", rev.revision_id, cache=cache,
+            store=journal, actor="runbook")
+        assert res["applied"]
+        cache.apply_writes()
+        assert cache.values["prompts.direct_chat_system_prompt"] == \
+            PREV_CHAT_W2_SYSTEM_PROMPT
 
     @pytest.mark.asyncio
-    async def test_r1023_snapshots_update_and_rollback(self):
+    async def test_r1023_snapshots_update_and_rollback(self, journal):
         values = {
             "prompts.direct_chat_system_prompt": PREV_CHAT_R1023_SYSTEM_PROMPT,
             "prompts.summary_editor_system_prompt": PREV_SUMMARY_EDITOR_R1023,
@@ -714,21 +783,23 @@ class TestRound1023Migration:
         }
         cache = FakeCache(values=dict(values))
         report = await migrate_prompt_canons(cache)
-        assert report == {key: "updated" for key in values}
+        cache.apply_writes()
+        for key in values:
+            assert cache.values[key] == _factory(key), key
+            assert report.get(key) in ("updated", "same"), key
         rollback_cache = FakeCache(values={
             "prompts.summary_editor_system_prompt": SUMMARY_EDITOR_SYSTEM_PROMPT,
             "prompts.factcheck_analyst_system_prompt":
                 FACTCHECK_ANALYST_SYSTEM_PROMPT,
         })
         rollback = await rollback_prompt_canons(rollback_cache)
-        assert set(rollback) == {
-            "prompts.summary_editor_system_prompt",
-            "prompts.factcheck_analyst_system_prompt"}
+        assert rollback == {}                    # лестница снята
+        assert rollback_cache.set_calls == []
 
 
 class TestMca23Migration:
-    """MCA-23 (Wave 3, §10/§11): ступень PREV_CHAT_MCA23 → канон MCA23
-    (снятие cap) и первые ступени ключа Вербализатора direct."""
+    """MCA-23 (Wave 3, §10/§11): слепки канонов — байт-эталоны; активация —
+    релизная политика, откат — журнал ревизий."""
 
     def test_verbalizer_key_steps(self):
         steps = PROMPT_MIGRATIONS[
@@ -776,92 +847,55 @@ class TestMca23Migration:
                 (PREV_CHAT_VERBALIZER_PA5W2, PREV_CHAT_VERBALIZER_CLAR)]
 
     @pytest.mark.asyncio
-    async def test_r3b_rollback_chain_restores_258113_bytes(self):
-        """REL-F1 (24.10.2026): полный откат канонов до байтов 2.58.113.
+    async def test_r3b_rollback_chain_restores_258113_bytes(self, journal):
+        """REL-F1 (24.10.2026), переписан на EVOL-016: байты 2.58.113
+        восстанавливаются ЖУРНАЛОМ ревизий, а не лестницей.
 
-        Dry-run на копии текущих канонов (L1 ``14743d28`` = ред.6 с
-        семантикой поиска W2, L2 ``f5c4807d``): процедура runbook'а
-        «повторный ``rollback_prompt_canons``» обязана вернуть
-        именно БАЙТЫ 2.58.113 (L1 ``c987c03e``, L2 ``d1b210c1``), а не только
-        отчёт; лишний вызов — no-op; повторный deploy новых канонов снова
-        применяется; кастом владельца не перетирается ни на одном шаге.
+        Байт-эталоны сохранены: текущие каноны L1 ``14743d28`` / L2
+        ``f5c4807d``, целевые байты отката 2.58.113 — L1 ``c987c03e`` /
+        L2 ``d1b210c1``. Лестница больше не исполняется (отказ без записи);
+        повторный deploy снова активирует новые каноны; кастом владельца
+        вне журнала не перетирается.
         """
         l1_key = "prompts.direct_l1_planner_system_prompt"
         l2_key = "prompts.direct_chat_verbalizer_system_prompt"
+        l1_block = "direct.base.l1_planner"
+        l2_block = "direct.base.l2_writer"
 
         def sha12(text: str) -> str:
             return hashlib.sha256(text.encode("utf-8")).hexdigest()[:12]
 
-        # «копия текущих значений» после boot-миграции
+        # «копия текущих значений» после boot-проводки
         cache = FakeCache(values={l1_key: DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                                   l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
         assert (sha12(cache.values[l1_key]), sha12(cache.values[l2_key])) == \
             ("14743d288ea3", "f5c4807d088e")
 
-        # шаг 0: снимается семантика поиска W2 L1 (→ байты ред.5/W1,
-        # 902dd00edf52) и секция расчётов L2 (→ байты R3b, 83ff62bbee40)
-        assert await rollback_prompt_canons(cache) == {
-            l1_key: "rolled_back", l2_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_PA5W2
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_PA5W2
-        assert sha12(cache.values[l1_key]) == "902dd00edf52"
+        # лестница снята: любые вызовы — отказ без записи
+        assert await rollback_prompt_canons(cache) == {}
+        assert cache.set_calls == []
 
-        # шаг 1: снимается секция PA5W1 L1 (→ байты ред.4, 422e9d73d316)
-        # и ступень R3b L2 (→ 2.58.113, d1b210c156c8)
-        assert await rollback_prompt_canons(cache) == {
-            l1_key: "rolled_back", l2_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_PA5W1
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "422e9d73d316"
-
-        # шаг 1: снимается редакция 4 L1 (→ P0CINTR2, байты ред.3);
-        # L2 уже на 2.58.113
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CINTR2
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "ca1ba3049991"
-
-        # шаг 2: снимается редакция 3 L1 (→ P0CINT, байты ред.2)
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CINT
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "23aae0c9499d"
-
-        # шаг 3: снимается приоритет разбора L1 (→ P0CS2); L2 уже на 2.58.113
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CS2
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "f6f5d3b1fc1d"
-
-        # шаг 2: снимается смысловая маршрутизация L1 (→ P0CS);
-        # L2 уже на 2.58.113
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_P0CS
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "8ef75b632d12"
-
-        # шаг 3: L1 → R3b (прежние байты без правила 7); L2 уже на 2.58.113
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_R3B
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "6c2ddc17c998"
-
-        # шаг 4: L1 → R3 (усиление продолжения); L2 уже на 2.58.113 — no-op
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_R3
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
-        assert sha12(cache.values[l1_key]) == "ab6817a18657"
-
-        # шаг 5: L1 доходит до канона 2.58.113; L2 уже на нём — no-op
-        assert await rollback_prompt_canons(cache) == {l1_key: "rolled_back"}
+        # журнал: прежние байты 2.58.113 — восстанавливаемые ревизии
+        for block_id, key, prev in ((l1_block, l1_key,
+                                     PREV_DIRECT_L1_PLANNER_CLAR),
+                                    (l2_block, l2_key,
+                                     PREV_CHAT_VERBALIZER_CLAR)):
+            await journal.insert_revision(prp.RevisionRow(
+                revision_id=pr.revision_id_for(block_id, "global", None,
+                                               "manual", pr.sha12(prev)),
+                block_id=block_id, scope="global", origin="manual",
+                content_sha12=pr.sha12(prev), body=prev, pg_key=key))
+        for block_id, key, prev in ((l1_block, l1_key,
+                                     PREV_DIRECT_L1_PLANNER_CLAR),
+                                    (l2_block, l2_key,
+                                     PREV_CHAT_VERBALIZER_CLAR)):
+            rev = await journal.get_revision(
+                pr.revision_id_for(block_id, "global", None, "manual",
+                                   pr.sha12(prev)))
+            res = await prp.activate_revision(block_id, rev.revision_id,
+                                              cache=cache, store=journal,
+                                              actor="runbook")
+            assert res["applied"] and res["activation_kind"] == "manual_rollback"
         cache.apply_writes()
         assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_CLAR
         assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
@@ -870,126 +904,137 @@ class TestMca23Migration:
         assert (len(cache.values[l1_key]), len(cache.values[l2_key])) == \
             (6542, 2827)
 
-        # шаг 6: оба на целевом прод-каноне 2.58.113 — полный no-op
-        assert await rollback_prompt_canons(cache) == {}
-        assert cache.set_calls == []
-        assert cache.values[l1_key] == PREV_DIRECT_L1_PLANNER_CLAR
-        assert cache.values[l2_key] == PREV_CHAT_VERBALIZER_CLAR
+        # повторный deploy: релизная политика снова активирует новые каноны
+        store2 = prp.MemoryPromptJournal()
+        prp_default = prp.default_journal
+        prp.default_journal = lambda cache=None, _s=store2: _s
+        try:
+            report = await migrate_prompt_canons(cache)
+            cache.apply_writes()
+            assert report[l1_key] == "updated" and report[l2_key] == "updated"
+            assert cache.values[l1_key] == DIRECT_L1_PLANNER_SYSTEM_PROMPT
+            assert cache.values[l2_key] == DIRECT_VERBALIZER_SYSTEM_PROMPT
+        finally:
+            prp.default_journal = prp_default
+            pr.set_release_policy_active(False)
 
-        # повторный deploy: boot-миграция снова ставит новые каноны
-        assert await migrate_prompt_canons(cache) == {
-            l1_key: "updated", l2_key: "updated"}
-        cache.apply_writes()
-        assert cache.values[l1_key] == DIRECT_L1_PLANNER_SYSTEM_PROMPT
-        assert cache.values[l2_key] == DIRECT_VERBALIZER_SYSTEM_PROMPT
-
-        # кастом (не точные байты известного канона) не трогается на откате
+        # кастом владельца вне журнала: лестницей не трогался и раньше,
+        # теперь отказ получает вся операция отката — байты не меняются
         custom = FakeCache(values={
             l1_key: PREV_DIRECT_L1_PLANNER_R3 + " правка владельца",
             l2_key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
-        assert await rollback_prompt_canons(custom) == {l2_key: "rolled_back"}
-        assert custom.set_calls == [(l2_key, PREV_CHAT_VERBALIZER_PA5W2,
-                                     "prompts")]
+        assert await rollback_prompt_canons(custom) == {}
+        assert custom.set_calls == []
 
     @pytest.mark.asyncio
-    async def test_pre_mca23_canon_migrates_to_new(self):
-        """Прод на каноне 10.21/10.23 → новая ступень обновляет до MCA23."""
+    async def test_pre_mca23_canon_activates_current_factory(self, journal):
+        """Прод на каноне 10.21/10.23 → активна ТЕКУЩАЯ заводская ревизия."""
         cache = FakeCache(values={
             "prompts.direct_chat_system_prompt":
                 PREV_CHAT_MCA23_SYSTEM_PROMPT})
         report = await migrate_prompt_canons(cache)
-        assert report == {"prompts.direct_chat_system_prompt": "updated"}
-        assert cache.set_calls == [
-            ("prompts.direct_chat_system_prompt", CHAT_SYSTEM_PROMPT,
-             "prompts")]
+        cache.apply_writes()
+        assert cache.values["prompts.direct_chat_system_prompt"] == \
+            _factory("prompts.direct_chat_system_prompt")
+        assert report["prompts.direct_chat_system_prompt"] == "updated"
 
     @pytest.mark.asyncio
-    async def test_verbalizer_prev_values_migrate_to_new(self):
-        """Оба прод-значения 10.23 (база и полный канон) → новый канон."""
+    async def test_verbalizer_prev_values_activate_current_factory(
+            self, journal):
+        """Оба прод-значения 10.23 (база и полный канон) → текущий канон."""
         for prev in (PREV_CHAT_VERBALIZER_R1023, PREV_CHAT_VERBALIZER_MCA23):
-            cache = FakeCache(values={
-                "prompts.direct_chat_verbalizer_system_prompt": prev})
-            report = await migrate_prompt_canons(cache)
-            assert report == {
-                "prompts.direct_chat_verbalizer_system_prompt": "updated"}
-            assert cache.set_calls == [
-                ("prompts.direct_chat_verbalizer_system_prompt",
-                 DIRECT_VERBALIZER_SYSTEM_PROMPT, "prompts")]
+            store = prp.MemoryPromptJournal()
+            prp_default = prp.default_journal
+            prp.default_journal = lambda cache=None, _s=store: _s
+            try:
+                key = "prompts.direct_chat_verbalizer_system_prompt"
+                cache = FakeCache(values={key: prev})
+                report = await migrate_prompt_canons(cache)
+                cache.apply_writes()
+                assert cache.values[key] == \
+                    _factory("prompts.direct_chat_verbalizer_system_prompt")
+                assert report[key] == "updated"
+            finally:
+                prp.default_journal = prp_default
+                pr.set_release_policy_active(False)
 
     @pytest.mark.asyncio
-    async def test_verbalizer_custom_untouched(self):
+    async def test_verbalizer_custom_becomes_legacy_snapshot(self, journal):
         cache = FakeCache(values={
             "prompts.direct_chat_verbalizer_system_prompt":
                 "мой кастомный вербализатор"})
         report = await migrate_prompt_canons(cache)
-        assert report == {}
-        assert cache.set_calls == []
+        cache.apply_writes()
+        key = "prompts.direct_chat_verbalizer_system_prompt"
+        assert cache.values[key] == _factory(key)
+        assert report[key] == "updated"
 
     @pytest.mark.asyncio
-    async def test_resolve_after_migration_gives_new_canon(self, monkeypatch):
-        """resolve после миграции: hot-слой отдаёт новый канон (обе ступени).
+    async def test_resolve_after_migration_gives_new_canon(self, journal,
+                                                           monkeypatch):
+        """resolve после проводки: hot-слой отдаёт текущий заводской канон.
 
         SOUL-1 (W1, §1.2/§7.2): effective-значение проходит реестр речевых
         инструкций — известные сегменты legacy-личности вычищаются на сборке.
-        Проверяется ЛЕСТНИЦА (новый канон, не PREV), а не байты канона.
-        W1: новый канон §3.1 без legacy-личности — suppress no-op
-        (effective == канон); прежние ступени (R1023/MCA23) по-прежнему
-        вычищаются.
+        Проверяется АКТИВНАЯ ревизия (текущий канон, не PREV).
         """
         from services import hot_config as hot
-        from services import prompt_registry as pr
         from services.prompt_style_blocks import resolve_prompt
-        from services.chat_prompts import PREV_CHAT_VERBALIZER_W1
+        key = "prompts.direct_chat_verbalizer_system_prompt"
         for prev in (PREV_CHAT_VERBALIZER_R1023, PREV_CHAT_VERBALIZER_MCA23,
                      PREV_CHAT_VERBALIZER_W1):
-            cache = FakeCache(values={
-                "prompts.direct_chat_verbalizer_system_prompt": prev})
+            fresh = prp.MemoryPromptJournal()
+            monkeypatch.setattr(prp, "default_journal",
+                                lambda cache=None, _s=fresh: _s)
+            cache = FakeCache(values={key: prev})
             await migrate_prompt_canons(cache)
             # FakeCache.set не мутирует values — воспроизводим запись в PG.
             for _key, _value, _cat in cache.set_calls:
                 cache.values[_key] = _value
             hot.set_config_cache(cache)
             try:
-                resolved = resolve_prompt(
-                    "prompts.direct_chat_verbalizer_system_prompt",
-                    "CODE_DEFAULT")
+                resolved = resolve_prompt(key, "CODE_DEFAULT")
                 assert resolved == DIRECT_VERBALIZER_SYSTEM_PROMPT
                 assert resolved != prev
                 assert "бот-абьюзер" not in resolved
             finally:
                 hot.set_config_cache(None)
+            pr.set_release_policy_active(False)
 
     @pytest.mark.asyncio
-    async def test_verbalizer_missing_key_skipped(self):
+    async def test_verbalizer_missing_key_activated(self, journal):
+        """Пустой ключ → skipped_empty + активация заводской ревизии."""
         cache = FakeCache(values={})
         report = await migrate_prompt_canons(cache)
-        assert report == {}
-        assert cache.set_calls == []
+        cache.apply_writes()
+        key = "prompts.direct_chat_verbalizer_system_prompt"
+        assert cache.values[key] == _factory(key)
+        assert report[key] in ("updated", "same")
 
     @pytest.mark.asyncio
-    async def test_verbalizer_rollback_and_reapply(self):
-        cache = FakeCache(values={
-            "prompts.direct_chat_verbalizer_system_prompt":
-                DIRECT_VERBALIZER_SYSTEM_PROMPT})
-        report = await rollback_prompt_canons(cache)
-        assert report == {
-            "prompts.direct_chat_verbalizer_system_prompt": "rolled_back"}
-        # ASAP W1: откат — на прод-канон 2.58.110 (d0ef0d376fc3)
-        # ASAP 2 (23.10.2026): откат снимает ТОЛЬКО ступень уточнений →
-        # канон W1 §3.1 (прод 2.58.111, PREV_CHAT_VERBALIZER_W1_31).
-        # R3b: откат снимает ТОЛЬКО ступень R3b → канон 2.58.113.
-        # POST-ASAP5 W2: откат снимает ТОЛЬКО секцию расчётов → байты R3b
-        # (PREV_CHAT_VERBALIZER_PA5W2, 83ff62bbee40).
-        assert cache.set_calls == [(
-            "prompts.direct_chat_verbalizer_system_prompt",
-            PREV_CHAT_VERBALIZER_PA5W2, "prompts")]
-        # обратная миграция возвращает новый канон (идемпотентность стека)
-        back = FakeCache(values={
-            "prompts.direct_chat_verbalizer_system_prompt":
-                PREV_CHAT_VERBALIZER_PA5W2})
-        report2 = await migrate_prompt_canons(back)
-        assert report2 == {
-            "prompts.direct_chat_verbalizer_system_prompt": "updated"}
-        assert back.set_calls == [(
-            "prompts.direct_chat_verbalizer_system_prompt",
-            DIRECT_VERBALIZER_SYSTEM_PROMPT, "prompts")]
+    async def test_verbalizer_rollback_and_reapply(self, journal, caplog):
+        """Откат/повторное применение через журнал (лестница снята)."""
+        key = "prompts.direct_chat_verbalizer_system_prompt"
+        block_id = "direct.base.l2_writer"
+        cache = FakeCache(values={key: DIRECT_VERBALIZER_SYSTEM_PROMPT})
+        with caplog.at_level(logging.ERROR,
+                             logger="services.prompt_migrations"):
+            report = await rollback_prompt_canons(cache)
+        assert report == {} and cache.set_calls == []
+        assert any("отказ" in r.message for r in caplog.records)
+        # журнал: канон W1 §3.1 — восстанавливаемая ревизия
+        await journal.insert_revision(prp.RevisionRow(
+            revision_id=pr.revision_id_for(block_id, "global", None, "manual",
+                                           pr.sha12(PREV_CHAT_VERBALIZER_W1_31)),
+            block_id=block_id, scope="global", origin="manual",
+            content_sha12=pr.sha12(PREV_CHAT_VERBALIZER_W1_31),
+            body=PREV_CHAT_VERBALIZER_W1_31, pg_key=key))
+        rev = await journal.get_revision(
+            pr.revision_id_for(block_id, "global", None, "manual",
+                               pr.sha12(PREV_CHAT_VERBALIZER_W1_31)))
+        res = await prp.activate_revision(block_id, rev.revision_id,
+                                          cache=cache, store=journal,
+                                          actor="runbook")
+        assert res["applied"]
+        cache.apply_writes()
+        assert cache.values[key] == PREV_CHAT_VERBALIZER_W1_31

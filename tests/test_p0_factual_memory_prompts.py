@@ -9,6 +9,8 @@ TEST-LIFECYCLE: CONTRACT owner=SPEECH-P0-B2/MEMORY-NO-UNSUPPORTED-CAUSAL-STORY
 import pytest
 
 from services import prompt_migrations as pm
+from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services import summary_prompts as sp
 from services.lore_prompts import (
     LORE_INIT_SYSTEM_PROMPT,
@@ -18,6 +20,17 @@ from services.lore_prompts import (
 
 _L2_KEY = "prompts.summary_l2_writer_system_prompt"
 
+@pytest.fixture()
+def journal(monkeypatch):
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+    yield store
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
+
+
 
 class FakeCache:
     def __init__(self, values=None):
@@ -25,8 +38,8 @@ class FakeCache:
         self.pg_available = True
         self.set_calls = []
 
-    def get(self, key):
-        return self.values.get(key)
+    def get(self, key, default=None):
+        return self.values.get(key, default)
 
     async def set(self, key, value, category):
         self.set_calls.append((key, value, category))
@@ -90,22 +103,30 @@ class TestL2PgStageAndRollback:
              sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41)]
 
     @pytest.mark.asyncio
-    async def test_dry_run_migrates_prod_canon_and_is_idempotent(self):
+    async def test_dry_run_migrates_prod_canon_and_is_idempotent(
+            self, journal):
+        """EVOL-016/012: прежний канон → снимок legacy + активная заводская
+        редакция; повторный старт — no-op."""
         cache = FakeCache({_L2_KEY: sp.PREV_SUMMARY_L2_WRITER_R1030_P0})
         report = await pm.migrate_prompt_canons(cache)
         assert report.get(_L2_KEY) == "updated"
         assert cache.values[_L2_KEY] == sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT
         again = await pm.migrate_prompt_canons(cache)
-        assert _L2_KEY not in again
+        assert again.get(_L2_KEY) == "same"
         assert cache.values[_L2_KEY] == sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT
 
     @pytest.mark.asyncio
-    async def test_owner_custom_value_not_touched(self):
+    async def test_owner_custom_value_not_touched(self, journal):
+        """EVOL-012: кастом владельца — ревизия legacy; заводская активна."""
         custom = "МОЙ КАНОН L2: " + "x" * 120
         cache = FakeCache({_L2_KEY: custom})
         report = await pm.migrate_prompt_canons(cache)
-        assert _L2_KEY not in report
-        assert cache.values[_L2_KEY] == custom
+        assert report.get(_L2_KEY) == "updated"
+        assert cache.values[_L2_KEY] == sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT
+        legacy = [r for r in journal.revisions.values()
+                  if r.pg_key == _L2_KEY and r.origin == "legacy"
+                  and r.content_sha12 == pr.sha12(custom)]
+        assert len(legacy) == 1
 
 
 class TestLoreFactualCanon:

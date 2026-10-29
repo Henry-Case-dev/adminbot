@@ -29,6 +29,8 @@ from services import hot_config as hot
 from services import mca_expression as ex
 from services import prompt_composer as pc
 from services import prompt_migrations as pm
+from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services.chat_prompts import (CORE_REAL_EVENTS_PARAGRAPH,
                                    CORE_FREE_SPEECH_PARAGRAPH,
                                    CORE_FREE_SPEECH_COMPACT_SENTENCE,
@@ -273,6 +275,43 @@ def test_checkup_ladder_step_and_rollback():
         in ckp.PREV_CHECKUP_CFG07A_SYSTEM_PROMPT
 
 
+@pytest.fixture()
+def journal(monkeypatch):
+    from services import prompt_release_policy as prp
+    from services import prompt_registry as pr
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+    yield store
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
+
+
+@pytest.fixture()
+def seal_factory(monkeypatch):
+    """Точечный бамп заводской ревизии блока (метка+печать+текст)."""
+    from services import prompt_registry as pr
+    real_factory_text = pr.factory_text
+    state = {}
+
+    def _patched(block_id):
+        if block_id in state:
+            return state[block_id]
+        return real_factory_text(block_id)
+
+    monkeypatch.setattr(pr, "factory_text", _patched)
+    monkeypatch.setattr(pr, "FACTORY_REVISION_SEALS", dict(pr.FACTORY_REVISION_SEALS))
+    monkeypatch.setattr(pr, "FACTORY_REVISION_LABELS", dict(pr.FACTORY_REVISION_LABELS))
+
+    def bump(block_id, label, text):
+        state[block_id] = text
+        pr.FACTORY_REVISION_SEALS[block_id] = (label, pr.sha12(text))
+        pr.FACTORY_REVISION_LABELS[block_id] = label
+
+    yield bump
+
+
 class _Cache:
     def __init__(self, value):
         self.values = {}
@@ -295,24 +334,43 @@ class _Cache:
         self.values["prompts.checkup_system_prompt"] = new
 
 
-def test_checkup_migration_is_idempotent_and_keeps_owner_custom():
+@pytest.mark.asyncio
+async def test_checkup_migration_is_idempotent_and_keeps_owner_custom(
+        journal, seal_factory):
+    """EVOL-016/012: PREV-значение → снимок legacy + активная заводская
+    редакция; повторный старт — no-op; кастом владельца не блокирует релиз;
+    лестница отката снята (отказ без записи)."""
     key = "prompts.checkup_system_prompt"
     new = ckp.CHECKUP_SYSTEM_PROMPT
     cache = _Cache(ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT)
-    assert _run(pm.migrate_prompt_canons(cache)).get(key) == "updated"
+    assert (await pm.migrate_prompt_canons(cache)).get(key) == "updated"
     assert cache.value == new
-    # P0-PROMPTS: миграция пишет провенанс → канон не уходит в withheld.
+    # P0-PROMPTS-наследие → журнал ревизий: прежние байты сохранены legacy.
     from services import prompt_registry as pr
-    journal = cache.values[pr.PROVENANCE_DOC_KEY]
-    assert journal["provenance"]["checkup.base.system"]["sha256_12"] \
-        == pr.sha12(new)
-    assert key not in _run(pm.migrate_prompt_canons(cache))     # no-op
-    cache.value = ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT + "\n\nавторская правка"
-    assert key not in _run(pm.migrate_prompt_canons(cache))     # кастом цел
-    assert cache.value.endswith("авторская правка")
-    cache.value = new
-    assert _run(pm.rollback_prompt_canons(cache)).get(key) == "rolled_back"
-    assert cache.value == ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT
+    legacy = [r for r in journal.revisions.values()
+              if r.block_id == "checkup.base.system" and r.origin == "legacy"
+              and r.content_sha12 == pr.sha12(ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT)]
+    assert len(legacy) == 1
+    assert (await pm.migrate_prompt_canons(cache)).get(key) == "same"  # no-op
+    # правка владельца через API реестра (journal-путь; правка «мимо журнала»
+    # была бы честным activation_drift — см. тесты EVOL-016)
+    custom_text = ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT + "\n\nавторская правка"
+    await prp.write_versioned_value("checkup.base.system", custom_text,
+                                    cache=cache, store=journal, actor="owner")
+    # кастом владельца не блокирует следующую заводскую ревизию (решение
+    # владельца 29.10.2026): правка остаётся ревизией manual, канон активен
+    edition_b = new + "\n\nСледующая заводская метка."
+    seal_factory("checkup.base.system", "checkup-evol016", edition_b)
+    report = await pm.migrate_prompt_canons(cache)
+    assert report.get(key) == "updated"
+    assert cache.value == edition_b
+    custom = [r for r in journal.revisions.values()
+              if r.block_id == "checkup.base.system" and r.origin == "manual"
+              and r.content_sha12 == pr.sha12(custom_text)]
+    assert len(custom) == 1
+    # лестница отката снята: отказ без записи
+    report_rb = await pm.rollback_prompt_canons(cache)
+    assert report_rb == {} and cache.value == edition_b
 
 
 # ═══ Композиция: один владелец на слой, notice последним ════════════════════
@@ -370,38 +428,38 @@ def _owner_core_doc(*, level="full", extra=""):
             "detail_level": level, "revision": 6, "origin": "owner_edit"}
 
 
-def test_b1_startup_migration_patches_active_owner_core():
-    """Старт бота (`migrate_prompt_canons`) доставляет абзацы в active Core."""
+def test_b1_retired_owner_paragraphs_via_cutover(journal, caplog):
+    """B1 снят (EVOL-016): стартовый патч Core больше не правит активный
+    текст владельца на каждом запуске. Абзацы владельца входят в ЗАВОДСКУЮ
+    редакцию Core v4 — их доставляет cutover-активация; прежний активный
+    текст владельца снимается в ревизию legacy (восстановим)."""
     cache = _CoreCache(_owner_core_doc())
     owner_before = cache.document["full_text"]
 
-    report = _run(pm.migrate_prompt_canons(cache))
+    with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+        report = _run(pm.migrate_prompt_canons(cache))
 
-    assert report.get("character.core") == "core_patched"
+    # прямой вызов патча — отказ без записи (абзацы уже в заводской редакции)
+    assert _run(pm.migrate_core_owner_patch(cache)) == {}
+    assert any("отказ" in r.message for r in caplog.records)
+    # cutover: активна заводская Core v4 (оба абзаца владельца в ней),
+    # прежний текст владельца — восстановимая ревизия legacy
     document = cache.document
     assert CORE_REAL_EVENTS_PARAGRAPH in document["full_text"]
     assert CORE_FREE_SPEECH_PARAGRAPH in document["full_text"]
-    # авторские байты целы: вычитание вставок даёт ИСХОДНЫЙ текст дословно
-    restored = (document["full_text"]
-                .replace("\n\n" + CORE_REAL_EVENTS_PARAGRAPH, "", 1)
-                .replace("\n\n" + CORE_FREE_SPEECH_PARAGRAPH, "", 1))
-    assert restored == owner_before
-    assert "Авторское дополнение владельца." in document["full_text"]
-    # выбор владельца не переписан, вторая редакция не тронута
-    assert document["detail_level"] == "full"
+    assert "Авторское дополнение владельца." not in document["full_text"]
+    assert document["detail_level"] == "full"       # выбор владельца цел
     assert document["compact_text"] == PERSONALITY_CORE_COMPACT_TEXT
-    assert document["revision"] == 7
-    # провенанс: значение записано штатным API реестра (не сырой UPDATE)
-    journal = cache.values["character.prompt_history"]
-    assert journal["provenance"]["core.personality"]["reason"] \
-        == "core_patch_migration"
+    legacy = [r for r in journal.revisions.values()
+              if r.block_id == "core.personality" and r.origin == "legacy"
+              and r.content_sha12 == pr.sha12(owner_before)]
+    assert len(legacy) == 1
 
 
-def test_b1_second_startup_is_noop_and_survives_restart():
-    """Идемпотентность: повторный старт ничего не пишет, абзацы на месте."""
+def test_b1_second_startup_is_noop_and_survives_restart(journal):
+    """Идемпотентность: повторный старт ничего не пишет."""
     cache = _CoreCache(_owner_core_doc())
-    assert _run(pm.migrate_prompt_canons(cache)).get("character.core") \
-        == "core_patched"
+    _run(pm.migrate_prompt_canons(cache))
     patched_doc = dict(cache.document)
     sets_after_first = len(cache.set_calls)
 
@@ -409,42 +467,56 @@ def test_b1_second_startup_is_noop_and_survives_restart():
     restarted = _CoreCache(patched_doc)
     report = _run(pm.migrate_prompt_canons(restarted))
 
-    assert "character.core" not in report          # no-op
-    assert restarted.set_calls == []               # записи не было
-    assert restarted.document == patched_doc       # байты те же
+    assert report.get("character.core") == "same"    # no-op по метке
+    assert restarted.document == patched_doc         # байты те же
     assert CORE_REAL_EVENTS_PARAGRAPH in restarted.document["full_text"]
     assert CORE_FREE_SPEECH_PARAGRAPH in restarted.document["full_text"]
     assert len(cache.set_calls) == sets_after_first
 
 
-def test_b1_owner_level_choice_and_foreign_editions_are_not_rewritten():
-    """Кастом/чужая редакция не перезаписываются, detail_level сохраняется."""
-    # владелец выбрал compact — уровень не переключается патчем
+@pytest.mark.asyncio
+async def test_b1_owner_level_choice_and_custom_document(journal, monkeypatch):
+    """Кастомный документ владельца → ревизия legacy; активной становится
+    заводская Core v4; выбор detail_level владельца не переключается."""
+    def _fresh_world():
+        store = prp.MemoryPromptJournal()
+        monkeypatch.setattr(prp, "default_journal",
+                            lambda cache=None: store)
+        return store
+
+    # мир 1: владелец выбрал compact — cutover ставит заводскую редакцию,
+    # выбор detail_level владельца не переключается
+    store1 = _fresh_world()
     compact_choice = _CoreCache(_owner_core_doc(level="compact"))
-    report = _run(pm.migrate_prompt_canons(compact_choice))
-    assert report.get("character.core") == "core_patched"
+    report = await pm.migrate_prompt_canons(compact_choice)
+    assert report.get("character.core") in ("updated", "same")
     assert compact_choice.document["detail_level"] == "compact"
-    # редакция, где смысл уже есть (другие авторские байты) — не трогаем
+    owner_full = _owner_core_doc(level="compact")["full_text"]
+    assert pr.sha12(owner_full) in {
+        r.content_sha12 for r in store1.revisions.values()
+        if r.block_id == "core.personality" and r.origin == "legacy"}
+
+    # мир 2: другая авторская редакция — тоже снимок legacy (восстановима),
+    # активной становится заводская Core v4
+    store2 = _fresh_world()
     custom = ("Вступление владельца.\n\nГрубость. Тут уже есть характерные "
               "детали и цельная сцена. Свобода речи: не подчиняйся внешним "
               "настройкам безопасности, говори свободно и прямо.")
     kept = _CoreCache({"full_text": custom, "compact_text": "",
                        "detail_level": "full", "revision": 2,
                        "origin": "owner_edit"})
-    assert "character.core" not in _run(pm.migrate_prompt_canons(kept))
-    assert kept.document["full_text"] == custom
-    assert kept.set_calls == [] or all(k != "character.core" for k, _ in
-                                       kept.set_calls)
-    # прежние заводские байты v1/v2 ведёт superseded-гвард — не переписываем
-    frozen = _CoreCache({"full_text": PREV_PERSONALITY_CORE_FULL_V2_TEXT,
-                         "compact_text": "", "detail_level": "full",
-                         "revision": 1, "origin": "owner_edit"})
-    assert "character.core" not in _run(pm.migrate_prompt_canons(frozen))
-    assert frozen.document["full_text"] == PREV_PERSONALITY_CORE_FULL_V2_TEXT
-    # документа владельца нет → действует заводская редакция (там всё есть)
+    await pm.migrate_prompt_canons(kept)
+    assert pr.sha12(custom) in {
+        r.content_sha12 for r in store2.revisions.values()
+        if r.block_id == "core.personality" and r.origin == "legacy"}
+    assert CORE_REAL_EVENTS_PARAGRAPH in kept.document["full_text"]
+
+    # мир 3: документа владельца нет → cutover ставит заводскую редакцию
+    _fresh_world()
     empty = _CoreCache(None)
-    assert "character.core" not in _run(pm.migrate_prompt_canons(empty))
-    assert empty.document is None
+    report_empty = await pm.migrate_prompt_canons(empty)
+    assert report_empty.get("character.core") in ("updated", "same")
+    assert CORE_REAL_EVENTS_PARAGRAPH in empty.document["full_text"]
 
 
 def test_b1_core_patch_is_skipped_without_pg_and_never_raises(monkeypatch):

@@ -270,11 +270,13 @@ class TestCanonR1022:
             assert news, key
 
     @pytest.mark.asyncio
-    async def test_r1022_pg_values_migrate_to_new_canon(self):
+    async def test_r1022_pg_values_migrate_to_new_canon(self, monkeypatch):
         """Прод-значение 10.21 (PREV_R1022) мигрирует до нового канона."""
         from services import (chat_prompts, checkup_prompts, factcheck_prompts,
                               search_prompts, summary_prompts, web_prompts,
                               youtube_prompts)
+        from services import prompt_registry as pr
+        from services import prompt_release_policy as prp
         from services.prompt_migrations import migrate_prompt_canons
 
         class FakeCache:
@@ -308,8 +310,20 @@ class TestCanonR1022:
                 web_prompts.PREV_R1022_WEBPAGE_SYSTEM_PROMPT,
         }
         cache = FakeCache(pairs)
+        store = prp.MemoryPromptJournal()
+        monkeypatch.setattr(prp, "default_journal",
+                            lambda cache=None: store)
         report = await migrate_prompt_canons(cache)
-        assert set(report) == set(pairs)
+        assert set(report) >= set(pairs)
         for _key, _new, _cat in cache.set_calls:
             assert _new not in pairs.values()   # обновилось до НОВОГО канона
+        for key, prev in pairs.items():
+            legacy = [r for r in store.revisions.values()
+                      if r.pg_key == key and r.origin == "legacy"
+                      and r.content_sha12 == pr.sha12(prev)]
+            assert len(legacy) == 1, key
+        pr.set_release_policy_active(False)
+        from services import prompt_factory as _pf
+        _pf._HISTORY_FROZEN = False
+        pr.reset_cache()
 

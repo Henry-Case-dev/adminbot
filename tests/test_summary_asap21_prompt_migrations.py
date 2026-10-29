@@ -1,15 +1,33 @@
-"""ASAP-2.1 — T-3980: миграции канонов L2 + Narrator + Legacy Single
-(§26, контракт (g), механика ADR-1013-3).
+"""ASAP-2.1 — T-3980: каноны L2 + Narrator + Legacy Single (§26).
 
-  (а) canonical-old → canonical-new;
-  (б) genuinely-custom → не тронут;
-  (в) ключ отсутствует → code default (сид);
-  ROLLBACK на PREV_*_R1028 возвращает прежний текст.
+EVOL-016/012 (30.10.2026): строковые ступени сняты — активацию решает
+релизная политика (метка заводской ревизии + печать, журнал версий).
+Проверяется здесь:
+  (а) любое прежнее значение (слепки PREV_*) → снимок legacy в журнале,
+      активной становится ТЕКУЩАЯ заводская редакция;
+  (б) genuinely-custom → тоже снимок legacy (вечного иммунитета нет),
+      заводская ревизия активна; лестница отката снята (отказ без записи),
+      прежние байты возвращаются журналом (activate_revision);
+  (в) ключ отсутствует → skipped_empty, затем активация заводской ревизии;
+  рестарт без новой метки — no-op. Слепки PREV_* — байт-эталоны (ниже).
 """
 import pytest
 
 from services import prompt_migrations as pm
+from services import prompt_registry as pr
+from services import prompt_release_policy as prp
 from services import summary_prompts as sp
+
+
+@pytest.fixture()
+def journal(monkeypatch):
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+    yield store
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
 
 
 class FakeCache:
@@ -20,8 +38,8 @@ class FakeCache:
         self.pg_available = True
         self.sets = []
 
-    def get(self, key):
-        return self.values.get(key)
+    def get(self, key, default=None):
+        return self.values.get(key, default)
 
     async def set(self, key, value, category):
         self.sets.append((key, value, category))
@@ -79,42 +97,78 @@ _ROLLBACK_CASES = [
                          ids=[f"{c[1]}->{c[0].rsplit('.', 1)[-1]}"
                               for c in _CANON_CASES])
 @pytest.mark.asyncio
-async def test_canonical_old_migrated_to_new(key, _name, old_fn, new_fn):
+async def test_canonical_old_migrated_to_new(key, _name, old_fn, new_fn,
+                                             journal):
     cache = FakeCache({key: old_fn()})
     report = await pm.migrate_prompt_canons(cache)
     assert report.get(key) == "updated"
     assert cache.values[key] == new_fn()
+    # прежние байты — неизменяемая ревизия legacy в журнале
+    spec = pr.by_pg_key(key)
+    legacy = [r for r in journal.revisions.values()
+              if r.block_id == spec.block_id and r.origin == "legacy"
+              and r.content_sha12 == pr.sha12(old_fn())]
+    assert len(legacy) == 1
 
 
-# ── (а-2) ROLLBACK: новый канон → непосредственный прежний (PREV_*_R1028) ──
+# ── (а-2) ROLLBACK: лестница снята — прежние байты возвращает журнал ───────
 
 @pytest.mark.parametrize("key,_name,new_fn,old_fn", _ROLLBACK_CASES,
                          ids=[c[1] for c in _ROLLBACK_CASES])
 @pytest.mark.asyncio
-async def test_rollback_returns_previous_canon(key, _name, new_fn, old_fn):
+async def test_rollback_returns_previous_canon(key, _name, new_fn, old_fn,
+                                               journal, caplog):
     cache = FakeCache({key: new_fn()})
-    report = await pm.rollback_prompt_canons(cache)
-    assert report.get(key) == "rolled_back"
+    with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+        report = await pm.rollback_prompt_canons(cache)
+    assert report == {}
+    assert cache.sets == []
+    # журнал: прежние байты — восстанавливаемая ревизия (activate_revision)
+    spec = pr.by_pg_key(key)
+    await journal.insert_revision(prp.RevisionRow(
+        revision_id=pr.revision_id_for(spec.block_id, "global", None,
+                                       "manual", pr.sha12(old_fn())),
+        block_id=spec.block_id, scope="global", origin="manual",
+        content_sha12=pr.sha12(old_fn()), body=old_fn(), pg_key=key))
+    rev = await journal.get_revision(
+        pr.revision_id_for(spec.block_id, "global", None, "manual",
+                           pr.sha12(old_fn())))
+    res = await prp.activate_revision(spec.block_id, rev.revision_id,
+                                      cache=cache, store=journal,
+                                      actor="runbook")
+    assert res["applied"]
     assert cache.values[key] == old_fn()
 
 
 @pytest.mark.asyncio
-async def test_l2_second_rollback_step_reaches_r1029():
-    """SPEECH-P0-B2: стек отката L2 — P0-канон → 2.58.130 (R1030) → R1029
-    (2.58.46). Повторный вызов снимает следующую ступень; стек цел."""
+async def test_l2_rollback_stack_retired_journal_restores(journal, caplog):
+    """SPEECH-P0-B2: стек отката L2 существовал в лестнице; теперь лестница
+    снята (отказ), а журнал возвращает любую сохранённую редакцию —
+    включая байты 2.58.130 (PREV_*_R1030_P0) и R1029."""
     key = _L2
     cache = FakeCache({key: sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT})
-    first = await pm.rollback_prompt_canons(cache)
-    assert first.get(key) == "rolled_back"
+    with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+        assert await pm.rollback_prompt_canons(cache) == {}
+    assert cache.sets == []
+    for prev in (sp.PREV_SUMMARY_L2_WRITER_R1030_P0,
+                 sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41):
+        await journal.insert_revision(prp.RevisionRow(
+            revision_id=pr.revision_id_for("summary.base.l2_writer", "global",
+                                           None, "manual", pr.sha12(prev)),
+            block_id="summary.base.l2_writer", scope="global",
+            origin="manual", content_sha12=pr.sha12(prev), body=prev,
+            pg_key=key))
+    rev = await journal.get_revision(
+        pr.revision_id_for("summary.base.l2_writer", "global", None, "manual",
+                           pr.sha12(sp.PREV_SUMMARY_L2_WRITER_R1030_P0)))
+    res = await prp.activate_revision("summary.base.l2_writer", rev.revision_id,
+                                      cache=cache, store=journal,
+                                      actor="runbook")
+    assert res["applied"]
     assert cache.values[key] == sp.PREV_SUMMARY_L2_WRITER_R1030_P0
-    second = await pm.rollback_prompt_canons(cache)
-    assert second.get(key) == "rolled_back"
-    assert cache.values[key] == sp.PREV_SUMMARY_L2_WRITER_R1029_ASAP41
-    third = await pm.rollback_prompt_canons(cache)
-    assert key not in third               # последняя ступень — no-op
 
 
-# ── (б) genuinely-custom не трогается ──────────────────────────────────────
+# ── (б) genuinely-custom: снимок legacy, заводская активна (иммунитета нет) ─
 
 @pytest.mark.parametrize("key", [
     "prompts.summary_l2_writer_system_prompt",
@@ -122,32 +176,47 @@ async def test_l2_second_rollback_step_reaches_r1029():
     "prompts.summary_system_prompt",
 ])
 @pytest.mark.asyncio
-async def test_custom_value_untouched(key):
+async def test_custom_value_untouched(key, journal, caplog):
     custom = ("МОЙ СОБСТВЕННЫЙ ПРОМПТ владельца: " + key + " " + "x" * 100)
     cache = FakeCache({key: custom})
-    report = await pm.migrate_prompt_canons(cache)
-    assert key not in report
-    assert cache.values[key] == custom
-    # ROLLBACK тоже не трогает custom.
-    report2 = await pm.rollback_prompt_canons(cache)
-    assert key not in report2
-    assert cache.values[key] == custom
+    with caplog.at_level("WARNING", logger="services.prompt_migrations"):
+        report = await pm.migrate_prompt_canons(cache)
+    assert report.get(key) == "updated"
+    assert cache.values[key] == _factory_text(key)
+    spec = pr.by_pg_key(key)
+    legacy = [r for r in journal.revisions.values()
+              if r.block_id == spec.block_id and r.origin == "legacy"
+              and r.content_sha12 == pr.sha12(custom)]
+    assert len(legacy) == 1
+    assert not any("НЕ трогаем" in r.message for r in caplog.records)
+    # ROLLBACK лестницей невозможен в принципе (отказ) — custom не «трогают»
+    sets_before = len(cache.sets)
+    with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+        report2 = await pm.rollback_prompt_canons(cache)
+    assert report2 == {}
+    assert len(cache.sets) == sets_before
 
 
-# ── (в) ключ отсутствует → skip (сид поставит канон) ───────────────────────
+def _factory_text(key: str) -> str:
+    spec = pr.by_pg_key(key)
+    assert spec is not None
+    return pr.factory_text(spec.block_id)
+
+
+# ── (в) ключ отсутствует → skipped_empty, затем активация заводской ────────
 
 @pytest.mark.asyncio
-async def test_missing_key_skipped():
+async def test_missing_key_skipped(journal):
     cache = FakeCache({})
     report = await pm.migrate_prompt_canons(cache)
-    assert report == {}
-    assert cache.sets == []
+    assert report.get(_L2) in ("updated", "same")
+    assert cache.values[_L2] == _factory_text(_L2)
 
 
-# ── идемпотентность: уже новый канон → no-op ───────────────────────────────
+# ── идемпотентность: рестарт с той же ревизией — no-op ─────────────────────
 
 @pytest.mark.asyncio
-async def test_already_new_canon_noop():
+async def test_already_new_canon_noop(journal):
     cache = FakeCache({
         "prompts.summary_l2_writer_system_prompt":
             sp.SUMMARY_L2_WRITER_SYSTEM_PROMPT,
@@ -155,11 +224,13 @@ async def test_already_new_canon_noop():
             sp.SUMMARY_NARRATOR_SYSTEM_PROMPT,
         "prompts.summary_system_prompt": sp.SYSTEM_PROMPT,
     })
+    await pm.migrate_prompt_canons(cache)
+    first = (len(journal.activations), len(journal.revisions))
+    cache.sets.clear()
     report = await pm.migrate_prompt_canons(cache)
-    assert report == {}
-    # P0-PROMPTS: для provenance-блоков журнал может аттестоваться, но сами
-    # каноны не переписываются.
-    assert [s for s in cache.sets if s[2] == "prompts"] == []
+    assert all(v == "same" for v in report.values())
+    assert (len(journal.activations), len(journal.revisions)) == first
+    assert cache.sets == []
 
 
 # ── снимки байт-в-байт: PREV_*_R1028 == прежний канон (2.58.33) ────────────

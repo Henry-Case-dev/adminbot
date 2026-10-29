@@ -23,6 +23,7 @@ TEST-LIFECYCLE: CONTRACT owner=P0-PROMPTS/PR-01..03 + ADDENDUM #2
 """
 from __future__ import annotations
 
+import pytest
 import asyncio
 import logging
 import pathlib
@@ -51,6 +52,19 @@ LEGACY_BLOCKS = {
     "youtube.base.system": "youtube.base.system.txt",
     "youtube.base.video": "youtube.base.video.txt",
 }
+
+@pytest.fixture()
+def journal(monkeypatch):
+    from services import prompt_release_policy as _prp
+    from services import prompt_registry as _pr
+    store = _prp.MemoryPromptJournal()
+    monkeypatch.setattr(_prp, "default_journal", lambda cache=None: store)
+    yield store
+    _pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    _pr.reset_cache()
+
 
 
 class DictCache:
@@ -87,9 +101,10 @@ def _withheld_text(block_id: str) -> str:
 
 def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
-    # Пин актуализирован 28.10.2026: бампы NOST-REWORK W1/W2
-    # (986108f6d63c -> fbc44eb0f879) — каноны ностальгии §8/§9.
-    assert pr.FACTORY_SET_SHA256_12 == "fbc44eb0f879"
+    # Пин актуализирован 30.10.2026 (EVOL-016/018 W2A): бампы NOST-REWORK
+    # W1/W2 (986108f6d63c -> fbc44eb0f879), затем регистрация 9 отставших
+    # шаблонов grep-аудита + FACTORY_REVISION_SEALS -> b980947c71aa.
+    assert pr.FACTORY_SET_SHA256_12 == "b980947c71aa"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \
@@ -174,20 +189,29 @@ def test_pr02_legacy_write_is_rejected_and_stays_retrievable():
 
 # ═══ PR-03: миграция пишет провенанс; редакция действует после рестарта ════
 
-def test_pr03_migration_attests_canon_and_survives_restart():
+@pytest.mark.asyncio
+async def test_pr03_migration_attests_canon_and_survives_restart(
+        journal, monkeypatch):
+    """EVOL-016/012: проводка стартом активирует заводскую ревизию по метке;
+    прежние байты — ревизия legacy в журнале; рестарт — no-op; резолв
+    читает активный PG-текст (политика провенанс-шлагбаум снят)."""
+    from services import prompt_release_policy as _prp
     block_id = "checkup.base.system"
     key = _block_key(block_id)
     new = ckp.CHECKUP_SYSTEM_PROMPT
     prev = ckp.PREV_CHECKUP_P0_SYSTEM_PROMPT
     cache = DictCache({key: prev})
 
-    report = _run(pm.migrate_prompt_canons(cache))
+    report = await pm.migrate_prompt_canons(cache)
     assert report.get(key) == "updated"
     assert cache.values[key] == new
-    journal = cache.values[pr.PROVENANCE_DOC_KEY]
-    entry = journal["provenance"][block_id]
-    assert entry["sha256_12"] == pr.sha12(new)
-    assert entry["reason"] == "canon_migration"
+    # прежние байты — неизменяемая ревизия legacy (вместо старого
+    # attestation-журнала character.prompt_history, замороженного после
+    # одноразового импорта)
+    legacy = [r for r in journal.revisions.values()
+              if r.block_id == block_id and r.origin == "legacy"
+              and r.content_sha12 == pr.sha12(prev)]
+    assert len(legacy) == 1
 
     # «Рестарт»: значение и журнал остаются в PG; резолв снова действующий.
     resolved = pr.resolve_speech_value(key, cache.values[key],
@@ -195,13 +219,15 @@ def test_pr03_migration_attests_canon_and_survives_restart():
     assert resolved.withheld is False
     assert resolved.source == "global"
     assert resolved.text == new
-    assert resolved.provenance_reason == "attested"
-    # повторная миграция — no-op и не переписывает провенанс
-    before = dict(entry)
-    assert key not in _run(pm.migrate_prompt_canons(cache))
-    assert cache.values[pr.PROVENANCE_DOC_KEY]["provenance"][block_id] == before
+
+    # повторная миграция — no-op: ни записи значения, ни новых строк журнала
+    state = (len(journal.activations), len(journal.revisions))
+    report = await pm.migrate_prompt_canons(cache)
+    assert report.get(key) == "same"
+    assert (len(journal.activations), len(journal.revisions)) == state
     assert not [row for row in pr.withheld_values(cache=cache)
                 if row["block_id"] == block_id]
+    pr.set_release_policy_active(False)
 
 
 # ═══ direct.l2_writer: байты заводской редакции — не ложный WARNING ════════

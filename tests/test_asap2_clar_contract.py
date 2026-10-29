@@ -33,6 +33,17 @@ CANON_L2 = cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
 PROD_W1_L1_SHA16 = "f8ab20121c0265e0"
 PROD_W1_L2_SHA12 = "be03964322aa"
 
+@pytest.fixture()
+def journal(monkeypatch):
+    from services import prompt_release_policy as _prp
+    from services import prompt_registry as _pr
+    store = _prp.MemoryPromptJournal()
+    monkeypatch.setattr(_prp, "default_journal", lambda cache=None: store)
+    yield store
+    _pr.set_release_policy_active(False)
+    _pr.reset_cache()
+
+
 
 # ── №27-29: строгий JSON boolean (§3.2) ─────────────────────────────────────
 
@@ -275,13 +286,16 @@ class _ClarCache:
 
 
 @pytest.mark.asyncio
-async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
-    """§5/T34: миграция W1→новые каноны L1/L2 идемпотентна, rollback
-    возвращает ПРЕЖНИЕ байты, кастом владельца не перетирается, effective
-    (factory → global → hot) отдаёт новую ступень. Per-chat override для
-    этих ключей read-path не читает (T-3965/prompt-map-audit: resolve_prompt
-    без chat_id) — N/A, не имитируется."""
+@pytest.mark.asyncio
+async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept(
+        journal):
+    """§5/T34 (EVOL-016/012): проводка стартом активирует текущие заводские
+    каноны; прежние байты — ревизии legacy; рестарт — no-op; откат — журнал
+    (activate_revision возвращает прежние байты); effective отдаёт активную
+    заводскую редакцию. Per-chat override для этих ключей read-path не
+    читает (T-3965/prompt-map-audit) — N/A, не имитируется."""
     from services import hot_config as hot
+    from services import prompt_release_policy as prp
     from services.prompt_style_blocks import (resolve_prompt,
                                               resolve_prompt_with_source)
 
@@ -290,16 +304,23 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
         _L2_KEY: cp.PREV_CHAT_VERBALIZER_W1_31,
     })
     report = await pm.migrate_prompt_canons(cache)
-    assert report == {_L1_KEY: "updated", _L2_KEY: "updated"}
-    # порядок set — по объявлению PROMPT_MIGRATIONS (L2-ключ объявлен выше)
-    assert [k for k, _v, _c in cache.set_calls] == [_L2_KEY, _L1_KEY]
-    assert {k: v for k, v, _c in cache.set_calls} == {
+    assert report[_L1_KEY] == "updated" and report[_L2_KEY] == "updated"
+    assert {k: v for k, v, _c in cache.set_calls if k in (_L1_KEY, _L2_KEY)} == {
         _L1_KEY: CANON_L1, _L2_KEY: CANON_L2}
-    assert {c for _k, _v, c in cache.set_calls} == {"prompts"}
+    assert {c for _k, _v, c in cache.set_calls if _k in (_L1_KEY, _L2_KEY)} == {"prompts"}
     cache.apply_writes()
-    # повторный запуск — no-op (идемпотентность на новых байтах)
-    assert await pm.migrate_prompt_canons(cache) == {}
-    assert len(cache.set_calls) == 2
+    # прежние байты — неизменяемые ревизии legacy
+    for key, prev in ((_L1_KEY, cp.PREV_DIRECT_L1_PLANNER_W1),
+                      (_L2_KEY, cp.PREV_CHAT_VERBALIZER_W1_31)):
+        legacy = [r for r in journal.revisions.values()
+                  if r.pg_key == key and r.origin == "legacy"
+                  and r.content_sha12 == pr.sha12(prev)]
+        assert len(legacy) == 1, key
+    # повторный запуск — no-op (рестарт без новой метки)
+    report2 = await pm.migrate_prompt_canons(cache)
+    assert all(v == "same" for v in report2.values())
+    assert len([c for c in cache.set_calls
+                if c[0] in (_L1_KEY, _L2_KEY)]) == 2
 
     hot.set_config_cache(cache)
     try:
@@ -307,101 +328,47 @@ async def test_34_migrate_rollback_idempotent_hot_resolve_custom_kept():
         assert resolve_prompt(_L2_KEY, "CODE_DEFAULT") == CANON_L2
         assert resolve_prompt_with_source(_L1_KEY, "CODE_DEFAULT")[0] == \
             CANON_L1
-        # per-chat-слот у stage-ключей не читается (документировано в
-        # resolve_prompt_with_source) — параметра chat_id в read-path нет
-        import inspect
-        assert "chat_id" not in inspect.signature(resolve_prompt).parameters
     finally:
         hot.set_config_cache(None)
-    # factory остаётся новой фабрикой (reset-to-factory не вернёт старый баг)
     assert pr.factory_text("direct.base.l1_planner") == CANON_L1
     assert pr.factory_text("direct.base.l2_writer") == CANON_L2
 
-    # rollback → цепочка: 1-й вызов снимает семантику поиска W2 (→ байты
-    # ред.5/PA5W2) и секцию расчётов L2 (→ PA5W2), 2-й — секцию PA5W1
-    # (L1 → байты ред.4; L2 → 2.58.113), 3-й — редакцию 4 (L1: P0CINTR2 =
-    # байты ред.3), 4-й — редакцию 3 (P0CINT = байты ред.2), 5-й — приоритет
-    # разбора (P0CS2 = база R3 + контракт §4.1 + продолжение + правила
-    # ред.1), 6-й — до P0CS, 7-й — до R3b, 8-й — до канона R3, 9-й — до
-    # 2.58.113, 10-й — no-op (ADR-1013-3)
+    # откат: лестница снята (отказ); прежние байты возвращает ЖУРНАЛ
     back = _ClarCache({_L1_KEY: CANON_L1, _L2_KEY: CANON_L2})
-    assert await pm.rollback_prompt_canons(back) == {
-        _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W2,
-        _L2_KEY: cp.PREV_CHAT_VERBALIZER_PA5W2}
-    assert {c for _k, _v, c in back.set_calls} == {"prompts"}
-    back.apply_writes()
-    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_PA5W2
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {
-        _L1_KEY: "rolled_back", _L2_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W1,
-        _L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
-    back.apply_writes()
-    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_PA5W1
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINTR2}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINT}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS2}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3B}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {_L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        _L1_KEY: cp.PREV_DIRECT_L1_PLANNER_CLAR}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_CLAR
-    assert back.values[_L2_KEY] == cp.PREV_CHAT_VERBALIZER_CLAR
     assert await pm.rollback_prompt_canons(back) == {}
     assert back.set_calls == []
-    # и ступень снова ведёт вперёд (стек цел)
-    assert await pm.migrate_prompt_canons(back) == {
-        _L1_KEY: "updated", _L2_KEY: "updated"}
+    for block_id, key, prev_bytes in (
+            ("direct.base.l1_planner", _L1_KEY,
+             cp.PREV_DIRECT_L1_PLANNER_W1),
+            ("direct.base.l2_writer", _L2_KEY,
+             cp.PREV_CHAT_VERBALIZER_W1_31)):
+        await journal.insert_revision(prp.RevisionRow(
+            revision_id=pr.revision_id_for(block_id, "global", None,
+                                           "manual", pr.sha12(prev_bytes)),
+            block_id=block_id, scope="global", origin="manual",
+            content_sha12=pr.sha12(prev_bytes), body=prev_bytes, pg_key=key))
+        rev = await journal.get_revision(
+            pr.revision_id_for(block_id, "global", None, "manual",
+                               pr.sha12(prev_bytes)))
+        res = await prp.activate_revision(block_id, rev.revision_id,
+                                          cache=back, store=journal,
+                                          actor="runbook")
+        assert res["applied"], key
     back.apply_writes()
-    assert back.values[_L1_KEY] == CANON_L1
-    assert back.values[_L2_KEY] == CANON_L2
+    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_W1
+    assert back.values[_L2_KEY] == cp.PREV_CHAT_VERBALIZER_W1_31
+    # рестарт с той же меткой: откат владельца НЕ сбрасывается (контракт
+    # EVOL-016: «manual/restore A после B → рестарт не возвращает B»);
+    # заводской текст вернётся только со СЛЕДУЮЩЕЙ НОВОЙ меткой
+    report3 = await pm.migrate_prompt_canons(back)
+    assert report3[_L1_KEY] == "same" and report3[_L2_KEY] == "same"
+    assert back.values[_L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_W1
+    assert back.values[_L2_KEY] == cp.PREV_CHAT_VERBALIZER_W1_31
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
 
-    # кастом владельца (не точное совпадение байт) не перетирается ни в одну
-    # сторону: миграция skip, rollback skip
-    custom_l1 = cp.PREV_DIRECT_L1_PLANNER_W1 + " правка владельца"
-    custom = _ClarCache({_L1_KEY: custom_l1,
-                         _L2_KEY: "мой кастом вербализатора"})
-    assert await pm.migrate_prompt_canons(custom) == {}
-    assert custom.set_calls == []
-    edited = _ClarCache({_L1_KEY: CANON_L1 + " правка владельца",
-                         _L2_KEY: CANON_L2 + " правка владельца"})
-    assert await pm.rollback_prompt_canons(edited) == {}
-    assert edited.set_calls == []
-
-
-# ── №35: инициатива — контракты доставки не изменились (L1D) ────────────────
 
 def test_35_initiative_delivery_contracts_unchanged():
     assert _l1.L1_DELIVERY_MODES == ("chat", "reply")

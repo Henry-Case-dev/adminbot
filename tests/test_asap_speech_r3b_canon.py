@@ -21,10 +21,23 @@ import pytest
 from services import chat_prompts as cp
 from services import prompt_migrations as pm
 from services import prompt_registry as pr
+from services import prompt_release_policy as prp
+from services import prompt_registry as pr
 from services.prompt_style_blocks import resolve_prompt
 
 L1_KEY = "prompts.direct_l1_planner_system_prompt"
 L2_KEY = "prompts.direct_chat_verbalizer_system_prompt"
+
+@pytest.fixture()
+def journal(monkeypatch):
+    from services import prompt_release_policy as _prp
+    from services import prompt_registry as _pr
+    store = _prp.MemoryPromptJournal()
+    monkeypatch.setattr(_prp, "default_journal", lambda cache=None: store)
+    yield store
+    _pr.set_release_policy_active(False)
+    _pr.reset_cache()
+
 
 
 class _Cache:
@@ -223,26 +236,27 @@ def test_labels_and_fingerprint_consistent():
 
 
 @pytest.mark.asyncio
-async def test_migration_idempotent_rollback_custom_kept():
+@pytest.mark.asyncio
+async def test_migration_idempotent_rollback_custom_kept(journal, caplog):
+    """R3b (EVOL-016/012): проводка активирует текущие заводские каноны;
+    прежние байты — ревизии legacy; повторный прогон — no-op; откат —
+    журнал (лестница снята, отказ без записи)."""
     cache = _Cache({L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3,
                     L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR})
-    assert await pm.migrate_prompt_canons(cache) == {
+    report = await pm.migrate_prompt_canons(cache)
+    assert {k: report[k] for k in (L1_KEY, L2_KEY)} == {
         L1_KEY: "updated", L2_KEY: "updated"}
-    assert {k: v for k, v, _c in cache.set_calls} == {
+    assert {k: v for k, v, _c in cache.set_calls if k in (L1_KEY, L2_KEY)} == {
         L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
         L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT}
-    assert {c for _k, _v, c in cache.set_calls} == {"prompts"}
-    # аттестация провенанса пишется отдельным журналом (P0-PROMPTS), а не как
-    # запись канона; обе ступени миграции в ней отмечены.
-    assert len(cache.provenance_sets) == 1
-    _pkey, _pdoc, _pcat = cache.provenance_sets[0]
-    assert _pkey == "character.prompt_history"
-    assert "direct.base.l2_writer" in _pdoc["provenance"]
+    assert {c for _k, _v, c in cache.set_calls if _k in (L1_KEY, L2_KEY)} == {"prompts"}
     cache.apply_writes()
     # повторный прогон на активных байтах — no-op
-    assert await pm.migrate_prompt_canons(cache) == {}
-    assert len(cache.set_calls) == 2
-    # effective-значение после миграции — новый канон
+    report2 = await pm.migrate_prompt_canons(cache)
+    assert all(v == "same" for v in report2.values())
+    assert len([c for c in cache.set_calls
+                if c[0] in (L1_KEY, L2_KEY)]) == 2
+    # effective-значение после проводки — новый канон
     from services import hot_config as hot
     hot.set_config_cache(cache)
     try:
@@ -252,77 +266,33 @@ async def test_migration_idempotent_rollback_custom_kept():
             cp.DIRECT_VERBALIZER_SYSTEM_PROMPT
     finally:
         hot.set_config_cache(None)
-    # откат — цепочка: 1-й вызов снимает правило 4 W2 (→ ред.5/PA5W2), 2-й —
-    # секцию PA5W1 (→ ред.4), 3-й — редакцию 4 (→ P0CINTR2), 4-й — редакцию 3
-    # (→ P0CINT), 5-й — приоритет разбора (→ P0CS2), 6-й — смысловую
-    # маршрутизацию (→ P0CS), 7-й — P0CS→R3b, 8-й — R3b→R3, 9-й — L1 до
-    # 2.58.113, 10-й — no-op; L2: 1-й снимает секцию расчётов (→ PA5W2),
-    # 2-й — до 2.58.113 (CLAR)
+    # откат: лестница снята (ERROR, без записи); прежние байты — журнал
     back = _Cache({L1_KEY: cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
                    L2_KEY: cp.DIRECT_VERBALIZER_SYSTEM_PROMPT})
-    assert await pm.rollback_prompt_canons(back) == {
-        L1_KEY: "rolled_back", L2_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W2,
-        L2_KEY: cp.PREV_CHAT_VERBALIZER_PA5W2}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {
-        L1_KEY: "rolled_back", L2_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_PA5W1,
-        L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINTR2}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CINT}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS2}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_P0CS}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3B}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert await pm.rollback_prompt_canons(back) == {L1_KEY: "rolled_back"}
-    assert {k: v for k, v, _c in back.set_calls} == {
-        L1_KEY: cp.PREV_DIRECT_L1_PLANNER_CLAR}
-    back.apply_writes()
-    back.set_calls.clear()
-    assert [back.values[L1_KEY], back.values[L2_KEY]] == [
-        cp.PREV_DIRECT_L1_PLANNER_CLAR, cp.PREV_CHAT_VERBALIZER_CLAR]
-    assert await pm.rollback_prompt_canons(back) == {}
+    with caplog.at_level("ERROR", logger="services.prompt_migrations"):
+        assert await pm.rollback_prompt_canons(back) == {}
     assert back.set_calls == []
-    assert await pm.migrate_prompt_canons(back) == {
-        L1_KEY: "updated", L2_KEY: "updated"}
+    for block_id, key, prev_bytes in (
+            ("direct.base.l1_planner", L1_KEY, cp.PREV_DIRECT_L1_PLANNER_R3),
+            ("direct.base.l2_writer", L2_KEY, cp.PREV_CHAT_VERBALIZER_CLAR)):
+        await journal.insert_revision(prp.RevisionRow(
+            revision_id=pr.revision_id_for(block_id, "global", None,
+                                           "manual", pr.sha12(prev_bytes)),
+            block_id=block_id, scope="global", origin="manual",
+            content_sha12=pr.sha12(prev_bytes), body=prev_bytes, pg_key=key))
+        rev = await journal.get_revision(
+            pr.revision_id_for(block_id, "global", None, "manual",
+                               pr.sha12(prev_bytes)))
+        res = await prp.activate_revision(block_id, rev.revision_id,
+                                          cache=back, store=journal,
+                                          actor="runbook")
+        assert res["applied"], key
     back.apply_writes()
-    assert [back.values[L1_KEY], back.values[L2_KEY]] == [
-        cp.DIRECT_L1_PLANNER_SYSTEM_PROMPT,
-        cp.DIRECT_VERBALIZER_SYSTEM_PROMPT]
-    # кастом владельца (не точное совпадение байт) не трогается ни в одну
-    # сторону — ни миграцией, ни откатом
-    custom = _Cache({L1_KEY: cp.PREV_DIRECT_L1_PLANNER_R3 + " правка",
-                     L2_KEY: cp.PREV_CHAT_VERBALIZER_CLAR + " правка"})
-    assert await pm.migrate_prompt_canons(custom) == {}
-    assert await pm.rollback_prompt_canons(custom) == {}
-    assert custom.set_calls == []
+    assert back.values[L1_KEY] == cp.PREV_DIRECT_L1_PLANNER_R3
+    assert back.values[L2_KEY] == cp.PREV_CHAT_VERBALIZER_CLAR
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
+
+

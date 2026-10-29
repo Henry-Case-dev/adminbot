@@ -1,5 +1,15 @@
 """Раунд 5 (T-740, spec 3.3.4, FR-D3): авто-миграция канонов промптов в PG.
 
+EVOL-016/012 (30.10.2026, решение владельца 29.10.2026): строковые ступени
+и барьер «кастом юзера — НЕ трогаем» СНЯТЫ со старта — активацию решает
+релизная политика ``services/prompt_release_policy.py`` (метка заводской
+ревизии + печать содержимого, журнал версий/активаций). Этот модуль остаётся
+в волне только как ХРАНИЛИЩЕ СЛЕПКОВ ``PREV_*`` (байт-эталоны тестов и
+откатных ревизий): ``PROMPT_MIGRATIONS``/``ROLLBACK_MIGRATIONS`` больше не
+вызываются стартом и не решают активацию; ``migrate_prompt_canons`` —
+делегатор релизной политики; ``rollback_prompt_canons`` и
+``migrate_core_owner_patch`` при прямом вызове отказывают (ERROR, без записи).
+
 Раунд 8 (T-790, Context-Layer X-Features): для prompts.direct_chat_system_prompt
 добавлена третья ступень (PREV_R8_CHAT_SYSTEM_PROMPT → новый канон раунда 8);
 существующие ступени (LEGACY→новый, PREV→новый) сохранены и указывают на новый
@@ -860,92 +870,82 @@ async def _attest_migrated_canon(cache, key: str, value: str) -> None:
 
 
 async def migrate_prompt_canons(cache) -> dict[str, str]:
-    """Авто-миграция канонов промптов (раунд 5): канон → новый канон;
-    кастом юзера НЕ трогаем; PG down / ключ отсутствует → skip с логом
-    [prompt_migration]. Возврат: dict обновлённых ключей (пусто — ничего
-    не обновлено). Вызывается из bot.py main() сразу после cache.init().
+    """Стартовая проводка релизной политики промптов (EVOL-016/012).
 
-    B1 (24.10.2026): после ступеней канонов тем же стартом выполняется
-    owner-preserving патч активной авторской редакции Full Core
-    (``migrate_core_owner_patch``) — иначе новые абзацы владельца не доезжали
-    до действующей редакции в PG.
+    ИМЯ СОХРАНЕНО для точки вызова ``bot.py`` (после ``cache.init()``), но
+    прежний механизм СНЯТ (решение владельца 29.10.2026, контракт
+    ``plans/features/evol/arch/contracts.md`` §1.3–§1.6):
+
+      * строковое равенство с канонами и барьер «кастом юзера — НЕ трогаем»
+        больше не существуют: решение об активации принимает автомат
+        ``prompt_registry.activation_plan`` по МЕТКЕ заводской ревизии и
+        печати содержимого;
+      * новая заводская метка активируется автоматически даже поверх ручной
+        правки (прежний текст остаётся неизменяемой ревизией);
+      * рестарт без новой метки не меняет ничего (в т.ч. активную ручную
+        правку);
+      * первый запуск: снимок фактических активных текстов (``origin=legacy``,
+        время = время импорта), затем активация текущей заводской ревизии
+        (``release_id=evol-016-cutover``) — одна PG-транзакция;
+      * owner-preserving патч Core со старта снят: оба абзаца владельца
+        («Как говорить о реальных событиях», «Свобода речи») уже входят в
+        заводскую редакцию Core v4 и доезжают cutover-активацией.
+
+    PG/журнал недоступен → skip с INFO (активация «из констант поверх
+    журнала» запрещена). Возврат: сводка применения в форме
+    ``{key: "updated" | "same" | "skipped"}`` для совместимости логов старта.
     """
+    from services import prompt_release_policy as prp
+    from services import prompt_registry as _pr
+    summary = await prp.apply_release(cache, release_id=prp.CUTOVER_RELEASE_ID)
     report: dict[str, str] = {}
-    if cache is None or not getattr(cache, "pg_available", False):
-        logger.info("[prompt_migration] skip: PG недоступен")
-        return report
-    for key, steps in PROMPT_MIGRATIONS.items():
-        current = cache.get(key)
-        if current is None:
-            logger.info("[prompt_migration] ключ отсутствует — сид сделает "
-                        "своё | key=%s", key)
-            continue
-        matched = None
-        for prev, new in steps:
-            if current == new:
-                matched = ("new", new)
-                break
-            if current == prev:
-                matched = ("prev", prev, new)
-                break
-        if matched is None:
-            logger.warning("[prompt_migration] кастом юзера — НЕ трогаем | "
-                           "key=%s | chars=%d", key, len(current))
-            continue
-        if matched[0] == "new":
-            # P0-PROMPTS: значение уже новый канон, но провенанс мог быть
-            # потерян прежней миграцией — аттестуем идемпотентно.
-            await _attest_migrated_canon(cache, key, matched[1])
-            logger.info("[prompt_migration] уже новый канон | key=%s", key)
-            continue
-        new = matched[2]
-        await cache.set(key, new, "prompts")
-        await _attest_migrated_canon(cache, key, new)
-        report[key] = "updated"
-        logger.info("[prompt_migration] канон обновлён | key=%s", key)
-    # B1 (24.10.2026): активная авторская редакция Full Core получает новые
-    # абзацы владельца тем же стартом (owner-preserving патч, идемпотентно).
-    report.update(await migrate_core_owner_patch(cache))
+    for row in summary.get("results", []):
+        spec = _pr.block(row.block_id)
+        key = (spec.pg_key or row.block_id) if spec is not None else row.block_id
+        if row.scope == "chat":
+            continue               # per-chat проводки — в журнале, не в сводке
+        if row.outcome == "applied":
+            report[key] = "updated"
+        elif row.outcome == "skipped_same":
+            report[key] = "same"
+        else:
+            report.setdefault(key, row.outcome or "skipped")
+    if not summary.get("applied"):
+        logger.info("[prompt_migration] релизная политика: %s",
+                    summary.get("reason", "skip"))
     return report
 
 
 async def rollback_prompt_canons(cache) -> dict[str, str]:
-    """Обратная канон-миграция раунда 10.21 (F3 Д9, ADR-1021-3 §5).
+    """УСТАРЕВШЕ (EVOL-016, контракт §1.6): лестница канонов снята со старта.
 
-    Снимает у каждого ключа ровно ОДНУ ступень своей цепочки
-    (`ROLLBACK_MIGRATIONS`): сначала текущий канон → непосредственный прежний,
-    повторный вызов — следующая ступень, пока не достигнут последний `old`
-    (целевой прод-канон отката). Идемпотентна: на последней ступени — no-op.
-    Кастом юзера не трогаем (WARNING), ключ отсутствует / PG down — skip.
-    Вызывается вручную (runbook @DevOps) при откате `git revert` — столько
-    раз, сколько ступеней нужно снять (L1 R3b: 2 вызова до канона 2.58.113,
-    L2: 2 вызова — P0-канон → прод-байты 2.58.130 → R1029/2.58.46)."""
-    report: dict[str, str] = {}
-    if cache is None or not getattr(cache, "pg_available", False):
-        logger.info("[prompt_rollback] skip: PG недоступен")
-        return report
-    for key, steps in ROLLBACK_MIGRATIONS.items():
-        current = cache.get(key)
-        if current is None:
-            logger.info("[prompt_rollback] ключ отсутствует | key=%s", key)
-            continue
-        target = None
-        for new, old in steps:
-            if current == new:
-                target = old
-                break
-        if target is None:
-            if current == steps[-1][1]:
-                logger.info("[prompt_rollback] уже прежний канон | key=%s",
-                            key)
-            else:
-                logger.warning("[prompt_rollback] кастом юзера — НЕ трогаем | "
-                               "key=%s | chars=%d", key, len(current))
-            continue
-        await cache.set(key, target, "prompts")
-        report[key] = "rolled_back"
-        logger.info("[prompt_rollback] канон откачен | key=%s", key)
-    return report
+    Откат редакций теперь — ``activate_revision`` (журнал версий, история
+    не удаляется; runbook: сервисный API EVOL-017 или CLI релизной
+    политики). Прямой вызов: ERROR и отказ, БД не пишется — ручная правка
+    «откатом лестницы» поверх журнала создала бы расхождение (drift).
+    """
+    logger.error(
+        "[prompt_rollback] отказ: строковая лестница канонов снята "
+        "(EVOL-016); используйте prompt_release_policy.activate_revision "
+        "(журнал версий, без строковых сравнений). Записей нет.")
+    return {}
+
+
+async def migrate_core_owner_patch(cache) -> dict[str, str]:
+    """УСТАРЕВШЕ (EVOL-016, контракт §1.6): стартовый патч Core снят.
+
+    «Рестарт без новой заводской метки ничего не меняет» противоречит
+    правке активного текста на каждом запуске. Оба абзаца владельца уже
+    входят в заводскую редакцию Core v4 (проверено: ``CORE_REAL_EVENTS_
+    PARAGRAPH``/``CORE_FREE_SPEECH_PARAGRAPH`` в ``PERSONALITY_CORE_FULL_
+    TEXT``) — их доезжает cutover-активация заводской ревизии. Прямой вызов:
+    ERROR и отказ, БД не пишется.
+    """
+    logger.error(
+        "[prompt_migration] отказ: стартовый owner-patch Core снят "
+        "(EVOL-016: рестарт без новой метки ничего не меняет; абзацы "
+        "владельца входят в заводскую редакцию Core v4). Записей нет.")
+    return {}
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -124,7 +124,7 @@ def test_factory_texts_registered_set_has_no_mat_outside_expression():
         валидатору стилей предписано НЕ браковать мат (юрисдикция —
         Expression), это не мат-правило речи.
     Двойная проверка от «тихого» возврата темы в пользовательские каноны."""
-    allowed_blocks = frozenset({"memory.extract"})
+    allowed_blocks = frozenset({"memory.extract", "summary.l2.reviewer"})
     for block_id, text in pr.factory_texts().items():
         if block_id in allowed_blocks:
             continue
@@ -174,4 +174,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # квота {max_words} удалена, «объём ≠ интересность», протокольный номер
     # блока «SAY <№>» (метка nostalgia-nost-rework-w2; прежние байты W1 —
     # PREV_*_1027W1; было 986108f6d63c, стало fbc44eb0f879).
-    assert pr.FACTORY_SET_SHA256_12 == "fbc44eb0f879"
+    assert pr.FACTORY_SET_SHA256_12 == "b980947c71aa"

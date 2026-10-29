@@ -36,6 +36,8 @@ from services import mca_expression as mex
 from services import nostalgia_prompts as np
 from services import prompt_migrations as pm
 from services import prompt_registry as pr
+from services import prompt_release_policy as prp
+from services import prompt_registry as pr
 from services import prompt_style_blocks as psb
 from services import search_prompts as sp
 from services import summary_prompts as sm
@@ -230,14 +232,16 @@ def test_prev_canon_is_byte_identical_to_deployed_family(name):
 
 
 @pytest.mark.parametrize("name", sorted(PREV_CANONS))
-def test_migrate_deployed_value_to_new_canon(name):
+@pytest.mark.asyncio
+async def test_migrate_deployed_value_to_new_canon(name, monkeypatch):
     """Прод-значение новейшей прежней ступени мигрирует на чистый канон;
     новый канон — no-op; кастом не трогается (идемпотентность лестницы)."""
     key = MIGRATION_KEYS[name]
     prev, new = _latest_step(name)
 
     class _Cache:
-        def __init__(self, value):
+        def __init__(self, key, value):
+            self.key = key
             self.value = value
             self.provenance = None
             self.pg_available = True
@@ -246,30 +250,57 @@ def test_migrate_deployed_value_to_new_canon(name):
             if key == "character.prompt_history":
                 return self.provenance if self.provenance is not None \
                     else default
+            if key != self.key:
+                return default          # другие ключи в PG отсутствуют
             return self.value if self.value is not None else default
 
         async def set(self, key, value, _category):
             if key == "character.prompt_history":
                 self.provenance = value
-            else:
+            elif key == self.key:
                 self.value = value
 
-    cache = _Cache(prev)
-    report = asyncio.run(pm.migrate_prompt_canons(cache))
+    # EVOL-016/012: прежний канон → снимок legacy + активная заводская
+    # ревизия (метка+печать, журнал версий); лестницы сняты.
+    store = prp.MemoryPromptJournal()
+    monkeypatch.setattr(prp, "default_journal", lambda cache=None: store)
+
+    cache = _Cache(key, prev)
+    report = await pm.migrate_prompt_canons(cache)
     assert report.get(key) == "updated", name
     assert cache.value == new, name
-    # уже новый канон → no-op
-    report2 = asyncio.run(pm.migrate_prompt_canons(cache))
-    assert key not in report2
-    # кастом владельца не перезаписывается
-    cache.value = prev + "\n\nправка владельца"
-    report3 = asyncio.run(pm.migrate_prompt_canons(cache))
-    assert key not in report3
-    # откат на непосредственный прежний канон и возврат
+    # прежние байты — неизменяемая ревизия legacy
+    spec = pr.by_pg_key(key)
+    legacy = [r for r in store.revisions.values()
+              if r.block_id == spec.block_id and r.origin == "legacy"
+              and r.content_sha12 == pr.sha12(prev)]
+    assert len(legacy) == 1, name
+    # уже новый канон → no-op (рестарт без новой метки)
+    report2 = await pm.migrate_prompt_canons(cache)
+    assert report2.get(key) == "same", name
+    # кастом владельца через API реестра: остаётся активным до следующей
+    # метки (рестарт без новой метки ничего не меняет)
     cache.value = new
-    rb = asyncio.run(pm.rollback_prompt_canons(cache))
-    assert rb.get(key) == "rolled_back", name
-    assert cache.value == prev, name
+    custom_text = prev + "\n\nправка владельца"
+    await prp.write_versioned_value(spec.block_id, custom_text, cache=cache,
+                                    store=store, actor="owner")
+    report3 = await pm.migrate_prompt_canons(cache)
+    assert report3.get(key) == "same", name
+    assert cache.value == custom_text, name
+    manual = [r for r in store.revisions.values()
+              if r.block_id == spec.block_id and r.origin == "manual"
+              and r.content_sha12 == pr.sha12(custom_text)]
+    assert len(manual) == 1, name
+    # откат лестницей снят: отказ без записи (байты прежнего канона
+    # возвращаются журналом — activate_revision, см. tests/test_evol016_*)
+    cache.value = new
+    rb = (await pm.rollback_prompt_canons(cache))
+    assert rb == {}, name
+    assert cache.value == new, name
+    pr.set_release_policy_active(False)
+    from services import prompt_factory as _pf
+    _pf._HISTORY_FROZEN = False
+    pr.reset_cache()
 
 
 # ═══ 3. Suppress: persisted гасится, кодовый fallback нет (OFF-паритет) ═════
