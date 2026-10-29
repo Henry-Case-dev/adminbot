@@ -41,11 +41,16 @@ class TestCatalogInvariant106:
         # 459/98/96/20/418; TAB_RULES 20 — новых вкладок нет.
         # 10.24 (F5/ADR-1024-9 D3): Δ REGISTRY/GROUPS/_TAB_BY_GROUP = 0
         # (group переносит вкладку) → 459/98/96; TAB_RULES 20→21 (+mod_images).
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
+        # −2 GROUPS/mapped, −1 TAB_RULES (вкладка «Умный кэш» удалена).
+        # Пин REGISTRY 587 дрейфовал на базе W1 (факт 586) — учтено.
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
+        # Settings-поля: EVOL-031 все 5 smart/dedup-ключей СОХРАЕНЫ (no-op) —
+        # дрейф 466→465 внешний (закоммиченный EVOL-016/012), не этой задачи.
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 465
 
     def test_five_master_flags_default_true(self):
         s = Settings()
@@ -141,9 +146,12 @@ class TestModulesAndAi:
         assert "Кастомные модули" not in HTML
 
     def test_ai_hub_seven_cards(self):
-        assert "id: 'smart_cache'" in JS
-        assert "'#/ai/smart-cache'" in JS
-        # «Лимиты»/«Сон»/«Ностальгия» — не в AI
+        """EVOL-031: карточка/вкладка «Умный кэш» удалена из хаба «ИИ»;
+        старый маршрут алиасится на витрину «ИИ» (не 404, кеш не открыть)."""
+        assert "id: 'smart_cache'" not in JS
+        assert "'#/ai/smart-cache': 'smart_cache'" not in JS
+        assert "'#/ai/smart-cache': '#/ai'" in JS
+        # «Лимиты»/«Сон»/«Ностальгия» — по-прежнему не в AI
         assert "route: '#/ai/limits'" not in JS
         assert "route: '#/ai/sleep'" not in JS
         assert "route: '#/ai/nostalgia'" not in JS

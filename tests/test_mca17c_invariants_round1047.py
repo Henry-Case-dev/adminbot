@@ -34,7 +34,11 @@ def test_reason_280_single_delta():
     # 279 → 280 (mca-17c) → 285: +5 кодов Initiative v2 (ASAP 8 F6: writer_failed, initiative и др. — см. f6-report §8).
     # v6.3 B01/B02 (W1-CHAT-INTEL): 285→290 (+5: initiative_writer_unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/semantic_parse_error).
     # CFG-06 06G.3 (29b91004): +1 attribution_not_found
-    assert len(mca_events.REASON_CODES) == 309
+    # EVOL-011/013 + EVOL-010 (30.10.2026): 309→311 (+2: empty_content —
+    # пустой content ответа модели ≠ не-JSON; code_defect — честный код
+    # детерминированной ошибки кода embeddings).
+    assert len(mca_events.REASON_CODES) == 311
+    assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     assert "oversight_job_action" in mca_events.REASON_CODES
     # другие контрольные коды в словаре отсутствуют (grep-факт T-5179)
     for alien in ("oversight_cancel", "oversight_resume", "oversight_retry",
@@ -68,7 +72,8 @@ def test_no_ddl_catalog_ks_tools_delta():
         row = loop.run_until_complete(cur.fetchone())
         # ADD-SAMPLES-UX (samples-ux, 20.10): v37 — категории примеров +
         # expression_mode + tombstone seed_key; пересанкционировано 20.10
-        assert int(row[0]) == 37
+        # EVOL-015 (e7443fad, 30.10.2026): v38 — additive-миграция quote_*.
+        assert int(row[0]) == 38
     finally:
         loop.run_until_complete(d.close())
         loop.close()
@@ -83,7 +88,9 @@ def test_no_ddl_catalog_ks_tools_delta():
     # приземляющийся последним (ребейзер — один sed).
     # P0-FACTCHECK §6.3 (FC-06C): 587 → 586 (−2 мёртвых TTL-ключа
     # TEMPORAL_FRESHNESS_*, кеш готовых вердиктов удалён W1).
-    assert len(pc.REGISTRY) == 586
+    # EVOL-031 (28d55bd1, 30.10.2026): 586 → 581 (−5 answer-cache ключей
+    # SMART_CACHE_*/CHAT_DEDUP, replay готовых ответов удалён).
+    assert len(pc.REGISTRY) == 581
 
 
 def test_registry_47_no_new_widgets():

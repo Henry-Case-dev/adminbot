@@ -1,14 +1,14 @@
 {
   "_provenance": {
     "feature": "F1 ia-shell-navigation-round1025 (T-2402)",
-    "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян). round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). round1026 A7 decision-making (ADR-1026-20 D6): санкционированная Δ каталога +3 CHAT_DECISION_* + 1 группа flags_decision_making (REGISTRY 470→473, GROUPS 101→102, _TAB_BY_GROUP 99→100, TAB_RULES 21 без изменений). ASAP-2.1 mca-asap21-summary-quality-ui-cleanup (ADR-1028-1 D1, контракт (i)): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога: -8 ключей summary_filter_* и -2 группы (flags_summary_filter, limits_summary_filter); TAB_RULES 21 без изменений (in-place). REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103. Титулы 6 промпт-ключей приведены к §9 (контент-дифф, Δ количества=0). Старые БД-значения summary_filter_* игнорируются безопасно (читателей нет, startup не валидирует каталог против БД). | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-5 asap5-final-fixes reissue (ADR-1028-25 §5, T-5256): +6 PG-only профилей embeddings models.embedding_fallback{1,2}_{base_url,model,quota_group} (REGISTRY 523→529, delta 112→118); F8 meta-pin переиздан | ASAP 7 F2 reissue (Wave 3, architecture §1.6/§1.10): +9 PG-only ключей L1 Planner (models_direct_l1 / limits_direct_l1 / flags_direct_l1, вкладка mod_direct; REGISTRY +9, GROUPS +3, _TAB_BY_GROUP +3, TAB_RULES 23 in-place) + ΔDDL v35 plan_meta JSONB (pg_db.py). GROUPS/_TAB_BY_GROUP/registry_keys снимок включает аддитивные правки параллельного лейна F4 (flags_stories/flags_character + подмодули §3.2) на момент снимка — финальные счётчики фиксирует лейн, приземляющийся последним. | ASAP 7 F2 reissue (Wave 3, architecture §1.6/§1.10): +9 PG-only ключей L1 Planner (models_direct_l1 / limits_direct_l1 / flags_direct_l1, вкладка mod_direct; REGISTRY +9, GROUPS +3, _TAB_BY_GROUP +3, TAB_RULES 23 in-place) + ΔDDL v35 plan_meta JSONB (pg_db.py). GROUPS/_TAB_BY_GROUP/registry_keys снимок включает аддитивные правки параллельного лейна F4 (flags_stories/flags_character + подмодули §3.2) на момент снимка — финальные счётчики фиксирует лейн, приземляющийся последним. | SOUL-1 mobile-prompts (2026-10-16): +1 PG-only промпт-ключ prompts.direct_l1_planner_system_prompt (группа prompts_direct_chat, stage=synthesizer) — ключ читался рантаймом (direct_chat_service.py:3641/7552) и имел ступень prompt_migrations.PROMPT_MIGRATIONS, но записи каталога не имел, поэтому /api/config его не отдавал и UI его не рендерил (ключ нельзя было ни посмотреть, ни отредактировать). REGISTRY 571→572; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений; delta 160→161.; P0-FACTCHECK post-release W2 (FC-06C §6.3, решение владельца 28.10.2026): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога −2 ParamSpec TEMPORAL_FRESHNESS_{CURRENT,HISTORICAL}_TTL_HOURS (pg_id temporal.freshness_*, кеш готовых Fact-check вердиктов удалён W1) → REGISTRY 587→586, delta 176→175; GROUPS/_TAB_BY_GROUP/TAB_RULES без роста; Settings-поля удалены вместе с гейтом MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED (env-only, читателей нет). Старые БД-значения temporal.freshness_* игнорируются безопасно (config_cache._REMOVED_SETTING_KEYS: чтения нет, строка БД не трогается, startup каталог против БД не валидирует, POST /api/config — 422 «неизвестный ключ»). Фактический счётчик дерева (см. W1 incidental #1: пины 587 отставали от каталога 588).",
+    "note": "Снимок множеств pg_key / групп / {group_id: tab_id} из services/param_catalog.py. Обновлён round1026 S1 (ADR-1026-1 D1): санкционированная Δ каталога +8 записей / +2 группы (REGISTRY 459→467, GROUPS 98→100, _TAB_BY_GROUP 96→98); round1026 S3 (ADR-1026-5 D4): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l1_clusterizer_system_prompt; REGISTRY 467→468, GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). Множество = источник истины инвентаря (ни один параметр не потерян). round1026 S5 summary-l2-writer-formatter (ADR-1026-7 D3): санкционированная Δ каталога +1 (промпт-ключ prompts.summary_l2_writer_system_prompt; REGISTRY 468→469, categorized 443→444; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений). round1026 A7 decision-making (ADR-1026-20 D6): санкционированная Δ каталога +3 CHAT_DECISION_* + 1 группа flags_decision_making (REGISTRY 470→473, GROUPS 101→102, _TAB_BY_GROUP 99→100, TAB_RULES 21 без изменений). ASAP-2.1 mca-asap21-summary-quality-ui-cleanup (ADR-1028-1 D1, контракт (i)): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога: -8 ключей summary_filter_* и -2 группы (flags_summary_filter, limits_summary_filter); TAB_RULES 21 без изменений (in-place). REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103. Титулы 6 промпт-ключей приведены к §9 (контент-дифф, Δ количества=0). Старые БД-значения summary_filter_* игнорируются безопасно (читателей нет, startup не валидирует каталог против БД). | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-3 round1028 reissue: +2 keys (flags.chat_autonomous_reply_enabled, flags.chat_silent_ack_enabled) — санкция spec §6 / ADR-1028-2 D12 | ASAP-5 asap5-final-fixes reissue (ADR-1028-25 §5, T-5256): +6 PG-only профилей embeddings models.embedding_fallback{1,2}_{base_url,model,quota_group} (REGISTRY 523→529, delta 112→118); F8 meta-pin переиздан | ASAP 7 F2 reissue (Wave 3, architecture §1.6/§1.10): +9 PG-only ключей L1 Planner (models_direct_l1 / limits_direct_l1 / flags_direct_l1, вкладка mod_direct; REGISTRY +9, GROUPS +3, _TAB_BY_GROUP +3, TAB_RULES 23 in-place) + ΔDDL v35 plan_meta JSONB (pg_db.py). GROUPS/_TAB_BY_GROUP/registry_keys снимок включает аддитивные правки параллельного лейна F4 (flags_stories/flags_character + подмодули §3.2) на момент снимка — финальные счётчики фиксирует лейн, приземляющийся последним. | ASAP 7 F2 reissue (Wave 3, architecture §1.6/§1.10): +9 PG-only ключей L1 Planner (models_direct_l1 / limits_direct_l1 / flags_direct_l1, вкладка mod_direct; REGISTRY +9, GROUPS +3, _TAB_BY_GROUP +3, TAB_RULES 23 in-place) + ΔDDL v35 plan_meta JSONB (pg_db.py). GROUPS/_TAB_BY_GROUP/registry_keys снимок включает аддитивные правки параллельного лейна F4 (flags_stories/flags_character + подмодули §3.2) на момент снимка — финальные счётчики фиксирует лейн, приземляющийся последним. | SOUL-1 mobile-prompts (2026-10-16): +1 PG-only промпт-ключ prompts.direct_l1_planner_system_prompt (группа prompts_direct_chat, stage=synthesizer) — ключ читался рантаймом (direct_chat_service.py:3641/7552) и имел ступень prompt_migrations.PROMPT_MIGRATIONS, но записи каталога не имел, поэтому /api/config его не отдавал и UI его не рендерил (ключ нельзя было ни посмотреть, ни отредактировать). REGISTRY 571→572; GROUPS/_TAB_BY_GROUP/TAB_RULES без изменений; delta 160→161.; P0-FACTCHECK post-release W2 (FC-06C §6.3, решение владельца 28.10.2026): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога −2 ParamSpec TEMPORAL_FRESHNESS_{CURRENT,HISTORICAL}_TTL_HOURS (pg_id temporal.freshness_*, кеш готовых Fact-check вердиктов удалён W1) → REGISTRY 587→586, delta 176→175; GROUPS/_TAB_BY_GROUP/TAB_RULES без роста; Settings-поля удалены вместе с гейтом MCA_TEMPORAL_FACTCHECK_CACHE_ENABLED (env-only, читателей нет). Старые БД-значения temporal.freshness_* игнорируются безопасно (config_cache._REMOVED_SETTING_KEYS: чтения нет, строка БД не трогается, startup каталог против БД не валидирует, POST /api/config — 422 «неизвестный ключ»). Фактический счётчик дерева (см. W1 incidental #1: пины 587 отставали от каталога 588).; EVOL-031 (30.10.2026, commit 28d55bd1, W1-отчёт plans/features/evol/audit/w1-evol031.md): санкционированная ОТРИЦАТЕЛЬНАЯ Δ каталога −5 ParamSpec Exact Match Cache / direct_dedup (flags.smart_cache_enabled, limits.smart_cache_ttl_seconds, limits.smart_cache_max_rows, flags.chat_dedup_enabled, limits.chat_dedup_ttl_seconds; replay готовых LLM-ответов удалён) → REGISTRY 586→581, delta 175→170, GROUPS 121→119, _TAB_BY_GROUP 119→117, TAB_RULES 23→22 (вкладка smart_cache удалена, legacy-маршрут #/ai/smart-cache алиасится на «ИИ»). Settings-поля СОХРАЕНЫ no-op (аддитивно), PG/hot-значения удалённых ключей — игнорируемые orphans; таблица smart_cache сохранена (технические маркеры MCA-22/CFG-06), деструктивной миграции нет.",
     "source": "services/param_catalog.py"
   },
   "counts": {
-    "REGISTRY": 586,
-    "GROUPS": 121,
-    "_TAB_BY_GROUP": 119,
-    "TAB_RULES": 23
+    "REGISTRY": 581,
+    "GROUPS": 119,
+    "_TAB_BY_GROUP": 117,
+    "TAB_RULES": 22
   },
   "group_ids": [
     "content_info",
@@ -36,7 +36,6 @@
     "flags_permsoc_behavior",
     "flags_relations",
     "flags_service",
-    "flags_smart_cache",
     "flags_stories",
     "flags_summary",
     "flags_summary_hybrid",
@@ -77,7 +76,6 @@
     "limits_relations",
     "limits_search",
     "limits_service",
-    "limits_smart_cache",
     "limits_summary",
     "limits_summary_hybrid",
     "limits_summary_legacy",
@@ -159,7 +157,6 @@
     "flags_permsoc_behavior": "permsoc",
     "flags_relations": "relations",
     "flags_service": "mod_checkup",
-    "flags_smart_cache": "smart_cache",
     "flags_stories": "memory_rag",
     "flags_summary": "mod_summary",
     "flags_summary_hybrid": "mod_summary",
@@ -200,7 +197,6 @@
     "limits_relations": "relations",
     "limits_search": "mod_search",
     "limits_service": "mod_checkup",
-    "limits_smart_cache": "smart_cache",
     "limits_summary": "mod_summary",
     "limits_summary_hybrid": "mod_summary",
     "limits_summary_legacy": "mod_summary",
@@ -312,8 +308,6 @@
     "CHAT_DECISION_IGNORE_TRIVIAL_ENABLED",
     "CHAT_DECISION_IMAGE_REACTIONS_ENABLED",
     "CHAT_DECISION_REACTIONS_ENABLED",
-    "CHAT_DEDUP_ENABLED",
-    "CHAT_DEDUP_TTL_SECONDS",
     "CHAT_DIRECT_REPLY_TTL_DAYS",
     "CHAT_GLOBAL_CONTEXT_LIMIT",
     "CHAT_GLOBAL_CONTEXT_MAX_CHARS",
@@ -694,9 +688,6 @@
     "SLAVIK_USER_ID",
     "SMARTMODULE_CONCURRENCY_PER_CHAT",
     "SMARTMODULE_CONCURRENCY_WAIT_SECONDS",
-    "SMART_CACHE_ENABLED",
-    "SMART_CACHE_MAX_ROWS",
-    "SMART_CACHE_TTL_SECONDS",
     "STT_GROQ_MAX_UPLOAD_MB",
     "STT_OPENROUTER_MAX_UPLOAD_MB",
     "SUMMARY_ADMIN_ONLY",
@@ -878,7 +869,6 @@
     "people_names": "ai",
     "permsoc": "permsoc",
     "prompts": "ai",
-    "relations": "memory",
-    "smart_cache": "ai"
+    "relations": "memory"
   }
 }

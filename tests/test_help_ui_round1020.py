@@ -249,7 +249,8 @@ class TestNavigationUnchanged:
         "mod_images", "mod_vision",
         # ASAP 7 (F3, §3.2): +mod_initiative (23-я config-вкладка).
         "mod_initiative",
-        "modules", "memory_rag", "smart_cache", "people_names", "relations",
+        # EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена из витрины.
+        "modules", "memory_rag", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]
 

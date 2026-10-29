@@ -44,13 +44,16 @@ VISION_KILL_SWITCHES = {"MCA_VISION_ENABLED", "MCA_VISION_AUTO_ENABLED",
 def test_catalog_counts_sanctioned():
     # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 587 → 586 (−2 мёртвых
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
-    assert len(pc.REGISTRY) == 586          # 510 → 519 (+9) → 586 (FC-06C)
-    assert len(pc.GROUPS) == 121            # 108 → 112 (+4 группы)
-    assert len(pc._TAB_BY_GROUP) == 119     # 106 → 110
-    assert len(pc.TAB_RULES) == 23          # 21 → 22 (mod_vision)
-    # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23).
-    assert len(pc.TAB_NAV) == 23
-    assert len(pc.CONFIG_TAB_TITLES) == 23
+    # EVOL-031 (28d55bd1, 30.10.2026): 586→581, 121→119, 119→117, 23→22 —
+    # удаление answer-cache ключей/группы/tab (SMART_CACHE_*, CHAT_DEDUP).
+    assert len(pc.REGISTRY) == 581          # 510 → 519 (+9) → 586 → 581
+    assert len(pc.GROUPS) == 119            # 108 → 112 (+4) → 121 → 119
+    assert len(pc._TAB_BY_GROUP) == 117     # 106 → 110 → 119 → 117
+    assert len(pc.TAB_RULES) == 22          # 21 → 22 (mod_vision)
+    # ASAP 7 (F3, §3.2): +mod_initiative (TAB_NAV/CONFIG_TAB_TITLES 22→23);
+    # EVOL-031: tab smart_cache удалён → 22.
+    assert len(pc.TAB_NAV) == 22
+    assert len(pc.CONFIG_TAB_TITLES) == 22
 
 
 def test_vision_keys_registered():
@@ -167,8 +170,12 @@ def test_reason_codes_269():
     # unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/
     # semantic_parse_error; честные исходы observer инициативы и
     # семантического опыта, §17.2 — словарь расширяемый).
-    assert len(mca_events.REASON_CODES) == 309       # 285 → 290
+    # EVOL-011/013 + EVOL-010 (30.10.2026): 309→311 (+2: empty_content —
+    # пустой content ответа модели ≠ не-JSON; code_defect — честный код
+    # детерминированной ошибки кода embeddings).
+    assert len(mca_events.REASON_CODES) == 311       # 309 → 311
     assert VISION_REASON_CODES <= mca_events.REASON_CODES
+    assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
     # `no_text`/`pending`/`ready` — статусы MediaAnalysis, НЕ reason-коды
     # (spec §8.5).
     assert not ({"no_text", "pending", "ready"} & mca_events.REASON_CODES)

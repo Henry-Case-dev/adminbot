@@ -265,10 +265,13 @@ def test_blockE_catalog_random_uses_keys():
     from services import param_catalog as pc
     # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 587 → 586 (−2 мёртвых
     # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
-    assert len(pc.REGISTRY) == 586
-    assert len(pc.GROUPS) == 121
-    assert len(pc._TAB_BY_GROUP) == 119
-    assert len(pc.TAB_RULES) == 23
+    # EVOL-031 (30.10.2026): 586 → 581 (−5 ключей Exact Match Cache /
+    # direct_dedup, replay готовых ответов удалён; вкладка smart_cache
+    # снята) → 581/119/117/22.
+    assert len(pc.REGISTRY) == 581
+    assert len(pc.GROUPS) == 119
+    assert len(pc._TAB_BY_GROUP) == 117
+    assert len(pc.TAB_RULES) == 22
     uses = [f"memory.random_uses_{u}" for u in sorted(mx.USES)]
     assert len(uses) == 6
     for key in uses:
@@ -304,19 +307,20 @@ def test_blockE_f8_check_green_and_baselines():
     # limits_images: тумблер частоты + серия + пауза + режим счёта).
     # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 587 → 586 (−2 мёртвых
     # TTL-ключа TEMPORAL_FRESHNESS_*).
-    assert "586" in res.stdout
+    # EVOL-031 (30.10.2026): 586 → 581 (−5 Exact Match Cache / direct_dedup).
+    assert "581" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 586
-    assert fx["counts"]["GROUPS"] == 121
-    assert fx["counts"]["TAB_BY_GROUP"] == 119
-    assert fx["counts"]["TAB_RULES"] == 23
+    assert fx["counts"]["REGISTRY"] == 581
+    assert fx["counts"]["GROUPS"] == 119
+    assert fx["counts"]["TAB_BY_GROUP"] == 117
+    assert fx["counts"]["TAB_RULES"] == 22
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
-    assert fx["counts"]["delta"] == 175   # FC-06C §6.3: −2 (TTL-ключи кеша вердиктов удалены)
+    assert fx["counts"]["delta"] == 175   # FC-06C/EVOL-031: снятые ключи исторические, delta-набор не менялся
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 586
+    assert len(cb["registry_keys"]) == 581
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

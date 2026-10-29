@@ -323,7 +323,11 @@ class TestObservabilityContract:
         # mca-17c (round 10.47): 279 → 280 (+1 oversight_job_action).
         # ASAP 8 (F6): 280 → 285 (+5 инициативы — вне observability-стадий).
         # v6.3 B01/B02 (W1-CHAT-INTEL): 285→290 (+5: initiative_writer_unavailable/no_opportunities_24h/hearsay_or_joke/no_canonical_rule/semantic_parse_error).
-        assert len(mca_events.REASON_CODES) == 309
+        # EVOL-011/013 + EVOL-010 (30.10.2026): 309→311 (+2: empty_content —
+        # пустой content ответа модели ≠ не-JSON; code_defect — честный код
+        # детерминированной ошибки кода embeddings вместо fake transport).
+        assert len(mca_events.REASON_CODES) == 311
+        assert {"empty_content", "code_defect"} <= mca_events.REASON_CODES
         # дата-ошибка ≠ дата-отсутствие (D15, `:1805`)
         assert {"temporal_date_extract_failed", "temporal_date_unknown"} \
             <= mca_events.REASON_CODES
@@ -697,11 +701,18 @@ class TestSanctions:
 
     def test_smart_cache_slug_removed(self):
         """FC-06C (§6.3): slug-регистрация `factcheck_temporal` снята вместе
-        с кешем вердиктов; SmartCache жив для остальных слагов."""
+        с кешем вердиктов. EVOL-031 (30.10.2026): ответные слаги
+        (`search`/`web`/`youtube`/`direct_dedup`) сняты — replay готовых
+        ответов удалён; `factcheck` жив (provenance-метка оркестратора),
+        CFG-06 `factcheck_wide_context` — кеш среза (не ответ)."""
         from services.smart_cache import _NORMALIZERS, build_key
         assert "factcheck_temporal" not in _NORMALIZERS
-        build_key("factcheck", "ok")          # legacy slug жив (OFF-путь)
-        build_key("search", "ok")             # кеш поиска не затронут
+        for gone in ("search", "web", "youtube", "direct_dedup"):
+            assert gone not in _NORMALIZERS
+            with pytest.raises(ValueError):
+                build_key(gone, "ok")         # replay-слаги удалены
+        build_key("factcheck", "ok")          # legacy slug жив (метка)
+        build_key("factcheck_wide_context", "ok")
 
     def test_settings_temporal_fields(self):
         from config.settings import Settings

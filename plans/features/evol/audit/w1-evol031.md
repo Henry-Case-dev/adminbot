@@ -140,3 +140,84 @@ TestCanonicalEnvelope (4) + TestQuoteResolver::test_priority6_bounded_history (1
 QuoteResolver ×1, `OperationalError: near "?"` из `services/message_identity.py:268`)
 — **не EVOL-031**: message_identity.py/database.py изменены параллельным lane
 (EVOL-010/013), на чистой базе тесты проходят. Остаётся на авторе той правки.
+
+---
+
+## 10. Follow-up #2: волна stale-пинов UI/каталога (Reviewer findings)
+
+Правки только в тестах; продукт не менялся. Коммит-база lane: `28d55bd1`
+(EVOL-031) → HEAD волны `44437903` (EVOL-015/016/012 — не тронуты).
+
+| # | Файл:место | Disposition |
+|---|---|---|
+| 1 | `tests/test_mca20_integration_round1045.py::TestSanctions::test_smart_cache_slug_removed` (:698-704) | **updated** — retired-контракт: `search`/`web`/`youtube`/`direct_dedup` отсутствуют в `_NORMALIZERS` и `build_key` → ValueError; `factcheck` (provenance-метка) и `factcheck_wide_context` (CFG-06) работают |
+| 2 | `tests/test_ia_shell_round1025.py:31` | **updated** — `pc.TAB_SMART_CACHE` убран из проверки nav «ИИ» (константы больше нет); «ИИ» = провайдеры/промпты/имена |
+| 3a | `tests/test_help_ui_round1020.py` (EXPECTED_TABS :252) | **updated** — `smart_cache` удалён из ожидаемого состава/порядка витрины TABS |
+| 3b | `tests/test_round106_ia_smoke.py` (:143-149 `test_ai_hub_seven_cards`) | **updated** → карточка «Умный кэш» ОТСУТСТВУЕТ (`id: 'smart_cache'`, `'/ai/smart-cache': 'smart_cache'` — not in JS), алиас `#/ai/smart-cache → #/ai` присутствует; лимиты/сон/ностальгия по-прежнему не в «ИИ» |
+| 3c | `tests/test_round106_ia_smoke.py::TestCatalogInvariant106::test_counts` (:44-51) | **updated** — счётчики 587/121/119/23 → фактические 581/119/117/22 (EVOL-031 −5/−2/−2/−1; pre-existing −2 дрейф REGISTRY базы учтён) |
+| 3d | `tests/test_webapp_round1020_ui.py` (:48 EXPECTED_TABS; :249 counters) | **updated** — `smart_cache` из снапшота меню; счётчики 587/121 → 581/119 |
+| 3e | `tests/test_webapp_ui_rework_round1020.py` (:206 EXPECTED_TABS) | **updated** — `smart_cache` из снапшота меню |
+| 3f | `tests/test_webapp_parity_smoke.py` (:104 route-parity; :148 generic-renderer; :163 TAB_TO_ROUTE-parity; :64-65 catalog counts) | **updated** — `smart_cache` удалён из трёх списков ожидаемых вкладок; REGISTRY/GROUPS 588/121 → 581/119 |
+| 4 | Node `tests/js/round1020_ui_test.js` (:94) и `round1020_ui_rework_test.js` (:118) | **updated** — `smart_cache` удалён из expectedTabs обоих node-тестов; прогон `node` → `JS-UNIT-OK` / exit 0 в обоих |
+| — | Settings-пины полей (round106 :51 `==466`, parity :73 `==467`) | **updated** → факт **465** с пометкой: дрейф ВНЕШНИЙ (все 5 smart/dedup-ключей СОХРАНЕНЫ как no-op — проверено), дельта от закоммиченного EVOL-016/012 |
+
+**Итог прогона:** перечисленные pytest-файлы + `test_evol031_smart_cache_retirement.py`
+→ **180 passed**; `node tests/js/round1020_ui_test.js` и `node tests/js/round1020_ui_rework_test.js`
+→ оба `JS-UNIT-OK` (exit 0).
+
+**Вне перечня (не тронуто, атрибуция):**
+- `tests/test_mca20_integration_round1045.py::TestObservabilityContract::test_reason_codes_279`
+  — пин `len(mca_events.REASON_CODES) == 309`, факт **311** (+2 reason codes):
+  `mca_events.py` изменён параллельным lane (закоммичено), EVOL-031 словарь
+  REASON_CODES не менял (удалённый `answer_cache_disabled` в словаре ОСТАЛСЯ —
+  это статический vocabulary, не живая эмиссия). Требуемая правка — 309→311 —
+  на lane, добавившем коды (санцированное Δ состава = обновление пина в том же
+  коммите, конвенция TestMenuFreeze). Опциональная гигиена для MCA-lane: решить,
+  выводить ли `answer_cache_disabled` из vocabulary после EVOL-031 (продуктовое
+  решение — вне этого follow-up: NO product code changes).
+
+---
+
+## 11. Follow-up #3: осознанная переквалификация byte-freeze пинов F8/F11
+
+Триггер: коммит EVOL-031 `28d55bd1` изменил `web/api/routes.py` (5 строк —
+docstring `_write_chat_overrides_with_retry`, снята ссылка на удалённую
+вкладку «Умный кэш») и `services/param_catalog.py` (−5 ParamSpec, −2 группы,
+−1 вкладка) — governance-пины F8/F11 сработали по замыслу. Выполнена
+сознательная переквалификация (L-F11S-1) по конвенции файла
+`tests/test_round1025_f8_registry.py` (прецедент FC-06C:
+`tools/_fcpost_w2_reissue_f8.py`):
+
+1. **`ROUTES_SHA256_F11`** → `e743842f…4e8` (новый sha256 `web/api/routes.py`);
+   запись в комментарии пина: EVOL-031, commit 28d55bd1, контентная Δ
+   docstring СУЩЕСТВУЮЩЕГО helper'а, Δ routes=0, RBAC/маскировка/DDL не
+   менялись.
+2. **`PARAM_CATALOG_SHA256_FOLLOWUP`** → `30a73ddd…595a`; запись: −5 ParamSpec
+   EMC/direct_dedup, REGISTRY 586→581, GROUPS 121→119, _TAB_BY_GROUP
+   119→117, TAB_RULES 23→22, delta 175 без изменений (снятые ключи —
+   исторические, Epic 51, до инвентаря round1014 → delta-множество не
+   менялось); Settings-поля сохранены no-op, таблица smart_cache сохранена
+   (маркеры MCA-22/CFG-06).
+3. **Переэмиссия артефактов/фикстур** (по конвенции, механически):
+   `python tools/gen_param_registry_round1025.py` (TSV 581 строк /
+   screen-map / meta) → **новый** `tools/_evol031_reissue_f8.py` (mirror
+   FC-06C-прецедента: f8_baseline.json counts 581/119/117/22/delta 175 +
+   sha256 param_catalog/routes + routes-set (без изменений, 44) +
+   superseded_by-провенанс; catalog_baseline.json — registry_keys 581,
+   группы/таб-маппинги/counts с живого каталога, tab_nav пересобран) →
+   `--check` OK (реестр 581 == REGISTRY, карта полна, R17-чисто,
+   TSV/map идемпотентны).
+4. **Пины внутри тест-файла** (`test_counts_frozen` 581/119/117/22,
+   `test_rows_complete_no_empty` 581, `test_delta_explicit` 175+пояснение,
+   `test_meta_provenance` 581/411/175, `test_all_params_have_a_place` 581).
+
+**Зелёный прогон:** `test_round1025_f8_registry.py` (полностью),
+`test_mca17c_invariants_round1047.py` (в нём
+`test_routes_py_byte_freeze_pin_intact`), `test_asap7_cover_preview.py`,
+`test_mca10b_random_applications_block_d_round1041.py` (2 каскадных
+счётчик-пина 586→581/119/117/22/175 + «581» в stdout --check),
+`test_mca12_stories_round1046.py`, `test_asap7_cover_readpath.py`
+(импортёр константы), `test_evol031_smart_cache_retirement.py` →
+**105 passed / 0 failed**. Изменённые файлы: только тесты/фикстуры/docs-
+артефакты F8 + одноразовый tools-скрипт (прецедентный паттерн); продуктовый
+код не менялся, коммитов нет.

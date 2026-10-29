@@ -28,7 +28,9 @@ class TestBackendNav:
         for tab in (pc.TAB_MEMORY_RAG, pc.TAB_CHAT_LORE, pc.TAB_RELATIONS):
             assert pc.tab_nav(tab) == pc.NAV_MEMORY
         for tab in (pc.TAB_LLM_PROVIDERS, pc.TAB_PROMPTS,
-                    pc.TAB_SMART_CACHE, pc.TAB_PEOPLE_NAMES):
+                    pc.TAB_PEOPLE_NAMES):
+            # EVOL-031: pc.TAB_SMART_CACHE («Умный кэш») удалён вместе
+            # с Exact Match Cache — в «ИИ» остались провайдеры/промпты/имена.
             assert pc.tab_nav(tab) == pc.NAV_AI
 
 

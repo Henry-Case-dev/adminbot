@@ -45,7 +45,7 @@ class TestNavigationSnapshot:
         "mod_vision",  # MCA-19 (10.43, ADR-1028-19 D16)
         # ASAP 7 (F3, §3.2): +mod_initiative (23-я config-вкладка).
         "mod_initiative",
-        "modules", "memory_rag", "smart_cache", "people_names", "relations",
+        "modules", "memory_rag", "people_names", "relations",
         "permsoc", "access", "chat_lore", "status", "info", "oversight",
     ]
 
@@ -251,8 +251,10 @@ class TestHumanReadableLabels:
         # 10.23 (F5/ADR-1023-5 D5): рост каталога — отдельная фича → 446/95.
         # 10.24 (F21/ADR-1024-22 D8): +1 REGISTRY/GROUPS (BUDGETS_ENABLED,
         # flags_module_budgets) → 459/98.
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
+        # EVOL-031 (30.10.2026): −5 REGISTRY/−2 GROUPS (Умный кэш удалён);
+        # пин 587 дрейфовал на базе W1 (факт 586) — учтено → 581/119.
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
 
 
 class TestAdvancedAccordion:

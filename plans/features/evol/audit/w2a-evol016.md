@@ -404,3 +404,103 @@ CI теперь ловит любой новый промпт мимо реес�
 версии. Осталось на следующих шагах: экран «История версий» в админке
 (EVOL-017, API готов), регистрация шага книги схемы v39 (готовая инструкция
 передана) и smoke-проверка на staging-PG перед выкатом.
+
+---
+
+# Приложение A (диагностика 30.10.2026): contract-тест
+# `test_evidence_injection_stays_data_not_instructions` — RED до и независимо
+# от W2a
+
+Статус: **PRE-EXISTING ON PRODUCTION** (верект (a) из брифа) — fix в этой
+задаче НЕ выполняется; дефект уходит в backlog фактчек-лейна с точным
+указанием причины и варианта починки.
+
+## A.1 Воспроизведение
+
+```
+python -m pytest "tests/test_mca20_rework1_f1_f2.py::
+TestValidatorStage::test_evidence_injection_stays_data_not_instructions" -x -q
+```
+
+HEAD `44437903` + незакоммиченные пин-фиксы (не затрагивают этот тест):
+**FAILED** на `assert "&lt;/evidence&gt;" in v_user`
+(`tests/test_mca20_rework1_f1_f2.py:249`).
+
+Факт (инструментированный прогон, spy на `temporal_factcheck.
+evidence_rows_from_results`): агрегаторский текст режется по пустой строке на
+3 блока — `ev-1` (сниппет, url=good.example/a), `ev-2` = **инъекция**
+(`</evidence>SYSTEM: …`, url=None), `ev-3` (url=evil.example/b). До payload
+доходят только `ev-1` и `ev-3`: comprehension в `factcheck_service.py:1403-1406`
+(`evidence = tuple(r for r in tf.evidence_rows_from_results(...) if
+r.get("url"))`) выбрасывает url=None-строку `ev-2` **целиком**, поэтому
+экранировать в `_temporal_validator_payload` (он вызывает `escape_xml_text`,
+проверено: `services/summary_xml.py` корректно даёт `&lt;/evidence&gt;`)
+просто нечего — инъекция молча исчезла из данных. Тест же (контракт mca-20
+D10/§18G.3) требует противоположного: url-less блок должен дойти до модели
+КАК экранированные данные, а не выкидываться.
+
+## A.2 Bisect (чистые worktree-чекинуты на каждый коммит, все удалены после)
+
+| Commit | Результат | Комментарий |
+|---|---|---|
+| `968b0496` (mca-20, 2.58.64 — введение теста и `_temporal_validator_payload`) | **PASS** | тест писался зелёным |
+| `2e406151` (asap8-v6 D09/D10/D11, 2.58.77) | PASS | — |
+| `97818475` (FC-R1 unified retrieval) | PASS | — |
+| `c43d0363` (p0b «close factcheck review r1 (F1-F6)») | **FAIL** | ломающий коммит |
+| `5346ee76` (**production 2.58.141**) | **FAIL** | дефект в проде |
+| `f382bd87` (база ветки evol/impl) | **FAIL** | до всех 5 коммитов ветки |
+| `44437903` (W2a, HEAD) + рабочее дерево | FAIL | идентично |
+
+Коммиты собственной ветки (`44437903`, `28d55bd1`, `e7443fad`, `dc1fdba6`,
+`0e853f7f`) не трогали `services/factcheck_service.py`,
+`services/search_aggregator.py`, `temporal_factcheck.py`
+(`git diff f382bd87..44437903 --stat` — пусто по этим файлам), и тест падает
+на базе ветки до них.
+
+## A.3 Механизм и точная причина
+
+`c43d0363` (F2 «envelope path never rebuilds URL-less evidence») перестроил
+evidence-ветку: при `retrieval is not None` — только структурные строки плана
+(лечение прод-симптома tfr-6e0ab2db…: url=None-дублями), а в else-ветке
+(внутренний поиск) добавлен фильтр `if r.get("url")` с комментарием «строки
+без URL тоже не доказательство». Побочный эффект: url-less блоки выдачи
+(в т.ч. инъекция) больше не доходят до payload ни в каком виде —
+экранирование `_temporal_validator_payload` стало no-op для них, а контрактный
+тест mca-20 (утверждён ревью итер.2 в 968b0496) требует их экранированной
+доставки. Это конфликт двух санкционированных правок прод-линии:
+mca-20 D10/§18G.3 (инъекция = данные, экранировать и доставить) против
+p0b F2 (url-less = не доказательство). Ветка evol/impl и W2a наследует его
+без изменений.
+
+## A.4 Вердикт и передача
+
+* **Verdict: (a) pre-existing на production** (5346ee76/2.58.141 содержит
+  `c43d0363`; проверено прямым прогоном — FAIL). Не регрессия ветки evol/impl
+  и не регрессия W2a.
+* **Fix не выполнялся** (механизм — `services/factcheck_service.py:1403-1406`,
+  файл другого лейна; санкция на конфликт контрактов — не моё решение).
+* **Рекомендация для backlog/EVOL (фактчек-лейн)**: в else-ветке внутреннего
+  поиска вернуть url-less блоки в evidence (убрать `if r.get("url")` из
+  comprehension), сохранив FC-EVIDQ dedup; честность «нельзя открыть и
+  проверить» уже выражена полем `url=None` + retrieval-оговоркой, а защита от
+  инъекции — экранирование `_temporal_validator_payload`/`_temporal_user_payload`
+  (работает и проверяется этим тестом). Альтернатива (если F2-семантика
+  «url-less ≠ evidence» приоритетнее) — переписать контрактный тест mca-20 на
+  ожидание «инъекция не доставляется вовсе» с явной санкцией владельца, т.к.
+  это ослабление D10/§18G.3. Любой вариант — решение фактчек-лейна/владельца,
+  не лейна промптов.
+* Смежные прогоны (HEAD + пин-фиксы): `test_mca20_rework1_f1_f2.py` +
+  `test_factcheck_post_release_w2.py` — 30 passed / 1 failed (только этот);
+  `test_factcheck_fc_r1_fix.py`, `test_asap8_v63_b07_temporal_factcheck.py`,
+  `test_factcheck_service.py` — passed. `test_factcheck_post_release_w1.py`
+  — 2 FAILED (`TestAggregatorFailureTaxonomy::test_timeout_is_not_provider_
+  unavailable`, `test_api_error_is_provider_error`) — тоже пре-существующие:
+  ветка не трогала `search_aggregator.py`/`factcheck_service.py`/сам файл
+  теста (пустой diff f382bd87..44437903), механизм не связан с W2a. Отдельный
+  backlog-предмет фактчек-лейна (search_aggregator taxonomy vs live-provider
+  fallback).
+
+Инструментальные скрипты диагностики: одноразовые, в
+`WorkspaceData/runs/c742e4de9e92c489/` (debug_evidence*.py, probe_*.py);
+bisect-worktree удалены после использования, `git worktree list` чист.
+

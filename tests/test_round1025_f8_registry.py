@@ -112,7 +112,15 @@ ROUTES_SHA256_F11 = (
     # токен ронял ВСЕ per-chat сохранения при конкурентных chat_params-
     # записях. Новых endpoint'ов нет (Δ routes=0), RBAC/маскировка/DDL не
     # менялись. Хэш переутверждён осознанно (L-F11S-1).
-    "b63dab2a47117c6805886d7a412f8f1659fd1b9d1d8f8c0700937dce0c60c085")
+    # EVOL-031 (30.10.2026, commit 28d55bd1, W1 audit
+    # plans/features/evol/audit/w1-evol031.md §2/§9): вывод Exact Match Cache
+    # из эксплуатации — контентная Δ в docstring СУЩЕСТВУЮЩЕГО helper'а
+    # _write_chat_overrides_with_retry (тот самый «тумблер Exact Match Cache»
+    # из P0-записи выше): историческая ссылка на несуществующую вкладку
+    # «Модули → Умный кэш» заменена нейтральной (вкладка/флаг удалены
+    # EVOL-031). Новых endpoint'ов нет (Δ routes=0), RBAC/маскировка/DDL/
+    # семантика retry не менялись. Хэш переутверждён осознанно (L-F11S-1).
+    "e743842f1491d88effaa3817ccc8646fd8f39edab2ecda2ad73ec0e237c2e4e8")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`
@@ -193,8 +201,18 @@ PG_DB_SHA256_B07 = (
 # игнорируются config_cache._REMOVED_SETTING_KEYS). REGISTRY 587→586,
 # delta 176→175; TSV/meta/fixture переэмитированы генератором + reissue
 # (--check OK, 587 строк). Хэш переутверждён осознанно (L-F11S-1).
+# EVOL-031 (30.10.2026, commit 28d55bd1, W1-отчёт
+# plans/features/evol/audit/w1-evol031.md §2): санкционированная
+# ОТРИЦАТЕЛЬНАЯ Δ каталога −5 ParamSpec Exact Match Cache / direct_dedup
+# (replay готовых LLM-ответов удалён; Settings-поля сохранены no-op,
+# PG-значения — игнорируемые orphans, таблица smart_cache сохранена для
+# маркеров MCA-22/CFG-06). REGISTRY 586→581, GROUPS 121→119,
+# _TAB_BY_GROUP 119→117, TAB_RULES 23→22 (вкладка smart_cache удалена);
+# delta 175 без изменений. TSV/meta/fixture переэмитированы генератором +
+# reissue (tools/_evol031_reissue_f8.py; --check OK, 581 строк). Хэш
+# переутверждён осознанно (L-F11S-1).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "54fd0d4b5e6bbbac030aff99faa22b0f59c80d78033b08f571f016b4b13b395e")
+    "30a73ddd1e44be55a27e7d47ecb73322283407def032a8a0ea87892a0903595a")
 
 
 def _sha256(path: Path) -> str:
@@ -306,10 +324,13 @@ class TestFrozenInvariants:
         # (группа/вкладка/Settings/secret/hidden без изменений).
         # P0-FACTCHECK §6.3 (FC-06C, round 10.48): −2 мёртвых TTL-ключа
         # TEMPORAL_FRESHNESS_* (кеш вердиктов удалён) → 586/121/119/23.
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 586
-        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 121
-        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 119
-        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 23
+        # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
+        # (replay готовых ответов удалён; вкладка smart_cache снята) →
+        # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 581
+        assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 119
+        assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 117
+        assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
 
     def test_registry_keys_match_catalog_baseline(self):
         # F1-baseline фиксирует ключи REGISTRY (settings_field/env), не pg_key.
@@ -360,7 +381,8 @@ class TestRegistry:
         # v6.3 B01 (W1-CHAT-INTEL): +10 (INITIATIVE_*) → 571.
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 (TEMPORAL_FRESHNESS_*) → 586.
-        assert len(rows) == 586
+        # EVOL-031 (30.10.2026): −5 (Exact Match Cache / direct_dedup) → 581.
+        assert len(rows) == 581
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -379,6 +401,9 @@ class TestRegistry:
         delta = _registry_keys() - _inventory_keys()
         # ASAP 7 F2 (§1.10): дельта 127→149 (+9 F2; F4 in-flight — фактом).
         # P0-FACTCHECK §6.3 (FC-06C): −2 → дельта 175.
+        # EVOL-031 (30.10.2026): снятые 5 ключей — исторические (Epic 51,
+        # до инвентаря round1014), в delta-набор не входили → дельта 175
+        # без изменений (FIXTURE см. tools/_evol031_reissue_f8.py).
         assert len(delta) == FIXTURE["counts"]["delta"] == 175
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
@@ -432,7 +457,8 @@ class TestRegistry:
         # v6.3 B01 (W1-CHAT-INTEL): reissue под 571/160 (+10 INITIATIVE_*).
         # SOUL-1 mobile-prompts (2026-10-16): reissue под 572/161.
         # P0-FACTCHECK §6.3 (FC-06C): reissue под 586/175 (−2 TTL-ключа).
-        assert "586" in meta and "411" in meta and "175" in meta
+        # EVOL-031 (30.10.2026): reissue под 581/175 (−5 EMC/dedup-ключей).
+        assert "581" in meta and "411" in meta and "175" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -451,7 +477,8 @@ class TestScreenMap:
         # v6.3 B01 (W1-CHAT-INTEL): санкционированная Δ +10 → 571.
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
         # P0-FACTCHECK §6.3 (FC-06C): санкционированная Δ −2 → 586.
-        assert len(keys) == 586
+        # EVOL-031 (30.10.2026): санкционированная Δ −5 → 581.
+        assert len(keys) == 581
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

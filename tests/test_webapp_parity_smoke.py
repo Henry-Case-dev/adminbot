@@ -60,14 +60,19 @@ class TestCatalogParity:
         # MCA-10a (ADR-1028-14 D8/D12, санкция §13.2): +13 REGISTRY/Settings,
         # +2 GROUPS (memory_random/keys_random) → 502/107/439.
         # NOST-REWORK W2 (28.10.2026, NOST-12): +1 REGISTRY/Settings
-        # (NOSTALGIA_HISTORY_DEPTH_YEARS, группа memory_nostalgia) → 588.
-        assert len(REGISTRY) == 588, len(REGISTRY)
-        assert len(GROUPS) == 121
+        # (NOSTALGIA_HISTORY_DEPTH_YEARS, группа memory_nostalgia) → пин 588.
+        # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
+        # −2 GROUPS (Умный кэш удалена); пин 588 дрейфовал на базе W1
+        # (факт 586) — учтено → 581/119.
+        assert len(REGISTRY) == 581, len(REGISTRY)
+        assert len(GROUPS) == 119
         from config.settings import Settings
         import dataclasses
         # NOST-REWORK W2 (28.10.2026, NOST-12): +1 поле Settings
-        # (NOSTALGIA_HISTORY_DEPTH_YEARS) → 466+1=467.
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 467  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа
+        # (NOSTALGIA_HISTORY_DEPTH_YEARS) → пин 467. EVOL-031 все 5
+        # smart/dedup-ключей СОХРАЕНЫ (no-op); дрейф 467→465 внешний
+        # (закоммиченный EVOL-016/012), не этой задачи.
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 465
 
     def test_every_param_has_group_and_reachable(self):
         for spec in _catalog_specs():
@@ -99,9 +104,10 @@ class TestRouteParity:
         tab_to_route = _parse_block("TAB_TO_ROUTE")
         tab_ids = set(_tabs_in(tab_to_route))
         # каждая вкладка приложения (кроме не-роутовых) имеет маршрут
+        # (EVOL-031: smart_cache удалена из ROUTE_TO_TAB/TAB_TO_ROUTE).
         for tab in ("status", "info", "oversight", "modules",
                     "permsoc", "llm_providers", "prompts", "memory_rag",
-                    "smart_cache", "people_names", "relations", "chat_lore",
+                    "people_names", "relations", "chat_lore",
                     "access"):
             assert tab in tab_ids, tab
         # значения ROUTE_TO_TAB — только существующие вкладки
@@ -144,8 +150,9 @@ class TestScreenComposition:
 
     def test_config_tabs_covered_by_generic_renderer(self):
         # все config-типы вкладок идут через один generic-шаблон по sources.
+        # (EVOL-031: smart_cache удалена из TABS.)
         config_tabs = ("llm_providers", "prompts", "memory_rag",
-                       "smart_cache", "people_names", "relations",
+                       "people_names", "relations",
                        "chat_lore", "permsoc", "mod_summary", "mod_direct",
                        "mod_checkup", "mod_sleep", "mod_nostalgia")
         for tab in config_tabs:
@@ -159,8 +166,9 @@ class TestNoOrphans:
         # TABS в app.js и TAB_RULES синхронны (см. test_frontend_tab_mapping).
         # A1: sidebar/MENU_ORDER удалены; синхрон — через ROUTE_TO_TAB.
         tab_to_route = _parse_block("TAB_TO_ROUTE")
+        # (EVOL-031: smart_cache удалена из TAB_TO_ROUTE.)
         for tab in ("chat_lore", "relations", "people_names",
-                    "modules", "permsoc", "memory_rag", "smart_cache"):
+                    "modules", "permsoc", "memory_rag"):
             assert ("%s:" % tab) in tab_to_route, tab
 
     def test_oversight_extras_kept(self):
