@@ -1633,9 +1633,16 @@ def _strip_markdown_fence(raw: str) -> str:
 def parse_analysis_payload(raw: str) -> VisionAnalysis:
     """Разбор ответа VLM в раздельный контракт. Не-JSON → честный `failed`
     (parse_error не маскируется в no_text); OCR-текст НИКОГДА не
-    интерпретируется как инструкции — он только переносится в data-канал."""
+    интерпретируется как инструкции — он только переносится в data-канал.
+    EVOL-011: пустой content — ОТДЕЛЬНАЯ причина (`empty_content`), не «не
+    JSON»: по телеметрии различимы пустой ответ провайдера и битый payload;
+    статус терминала (`failed`) и поведение пайплайна не меняются."""
+    text = str(raw or "")
+    if not text.strip():
+        return VisionAnalysis("failed", [], "", ["ответ модели пуст"],
+                              None, "empty_content")
     try:
-        payload = json.loads(_strip_markdown_fence(str(raw or "")))
+        payload = json.loads(_strip_markdown_fence(text))
     except Exception:
         return VisionAnalysis("failed", [], "", ["ответ модели не JSON"],
                               None, "parse_error")
@@ -1934,40 +1941,129 @@ async def analyze_adaptive(image: DownloadedImage, *, chat_id: int,
                     started=started, image=image, chat_id=chat_id,
                     strategy=strategy)
         return analysis
-    except asyncio.CancelledError:
+    except asyncio.CancelledError as exc:
+        # EVOL-011: отмена — ожидаемый промежуточный исход, не «failed»:
+        # событие честно помечается outcome=cancelled (INFO) и job-контур
+        # продолжает вести гранулу как раньше.
+        _emit_adapt(plan=plan, calls=calls, merged=None, limits=limits,
+                    started=started, image=image, chat_id=chat_id,
+                    strategy=strategy, error=exc)
         raise
     except Exception as exc:
         _emit_adapt(plan=plan, calls=calls, merged=None, limits=limits,
                     started=started, image=image, chat_id=chat_id,
-                    strategy=strategy, error_class=type(exc).__name__)
+                    strategy=strategy, error=exc)
         raise
+
+
+# ── EVOL-013: дедуп повторных WARN одной установленной проблемы ─────────────
+# Повтор ТОЙ ЖЕ причины (fingerprint: статус|reason_code|класс) в окне не
+# создаёт новый WARN: событие уходит на INFO со счётчиком `repeats` (ошибки
+# НЕ скрываются и считаются). Первое появление и повтор после окна — WARN.
+# Успех (ready/no_text) сбрасывает состояние: следующая проблема снова WARN
+# (восстановление не прячется, новая отличная проблема не гасится старой).
+_ADAPT_WARN_REPEAT_WINDOW_SECONDS = 600.0
+_adapt_warn_state: dict[str, dict] = {}
+
+
+def _adapt_warn_level(fingerprint: str) -> tuple[str, int]:
+    """(level, repeats) для повторяющейся проблемы: WARN — новая/после окна."""
+    now = time.monotonic()
+    state = _adapt_warn_state.get(fingerprint)
+    if state is None or (now - float(state.get("ts") or 0.0)) \
+            >= _ADAPT_WARN_REPEAT_WINDOW_SECONDS:
+        _adapt_warn_state[fingerprint] = {"ts": now, "repeats": 0}
+        return mca_events.LEVEL_WARN, 0
+    state["repeats"] = int(state.get("repeats") or 0) + 1
+    return mca_events.LEVEL_INFO, state["repeats"]
+
+
+def _adapt_warn_clear() -> None:
+    """Восстановление (успешный анализ) снимает «установленную проблему»."""
+    _adapt_warn_state.clear()
+
+
+def _safe_exc_text(exc: BaseException, limit: int = 300) -> str:
+    """R17-safe однострочное ограниченное сообщение исключения: класс +
+    message без переводов строк и repr-длины (для логов/error_json)."""
+    text = " ".join(str(exc).split())
+    text = text[:max(0, int(limit))]
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
+
+def _classify_adapt_error(exc: BaseException) -> tuple[str, str]:
+    """(reason_code, error_class) из ФАКТИЧЕСКИ пойманного исключения —
+    EVOL-013: категория причины и точка возникновения без выдумывания
+    («всё непонятное → transport» запрещено). VisionError несёт существующий
+    код (`vision_unavailable`/`vision_rate_limited`/`vision_failed`/…),
+    бюджетный таймаут — `timeout`; остальное — честный пустой код (класс
+    уходит в error_json)."""
+    if isinstance(exc, VisionError):
+        return str(exc.reason or ""), type(exc).__name__
+    if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+        return "timeout", type(exc).__name__
+    return "", type(exc).__name__
 
 
 def _emit_adapt(*, plan, calls: int, merged, limits, started: float,
                 image: DownloadedImage, chat_id: int | None,
-                strategy: str = "", error_class: str = "") -> None:
-    """R17-safe наблюдаемость адаптивного контура (метрики: стратегия/шаги)."""
+                strategy: str = "", error_class: str = "",
+                error: BaseException | None = None) -> None:
+    """R17-safe наблюдаемость адаптивного контура (метрики: стратегия/шаги).
+
+    EVOL-011/013: терминальный отказ различает ЧЕСТНУЮ причину —
+    `reason_code` из существующего словаря (`parse_error`/`empty_content`
+    для parse-отказов, `vision_*` для VisionError, `timeout` для бюджета);
+    готовые исходы (ready/no_text) — success/INFO как раньше; отмена —
+    outcome=cancelled, не «failed». Повторные WARN одной установленной
+    проблемы дедуплицируются (см. `_adapt_warn_level`)."""
     try:
         strategy = strategy or plan.strategy
         status = str(getattr(merged, "status", "") or
-                     ("failed" if error_class else ""))
+                     ("failed" if (error_class or error) else ""))
+        reason_code = ""
+        error_detail = ""
+        if merged is not None:
+            # Парсер положил error_reason (parse_error/empty_content);
+            # прочие не-готовые статусы — по существующему словарю.
+            reason_code = str(getattr(merged, "error_reason", "") or "")
+            if not reason_code and status not in ("ready", "no_text"):
+                reason_code = _reason_by_status(status)
+        if error is not None:
+            reason_code, error_class = _classify_adapt_error(error)
+            error_detail = _safe_exc_text(error)
+        if status in ("ready", "no_text"):
+            outcome = "success"
+            _adapt_warn_clear()
+        elif isinstance(error, asyncio.CancelledError):
+            outcome = "cancelled"
+        else:
+            outcome = "failed"
+        level = mca_events.LEVEL_INFO
+        repeats = 0
+        if outcome == "failed":
+            level, repeats = _adapt_warn_level(
+                f"{status}|{reason_code}|{error_class}")
         logger.info(
             "[vision] adapt | strategy=%s | reason=%s | calls=%d | "
-            "status=%s | bytes=%d | pixels=%d | ms=%d%s",
+            "status=%s | bytes=%d | pixels=%d | ms=%d%s%s",
             strategy, plan.reason, calls, status or "-",
             len(image.data or b""), plan.pixels,
             int((time.monotonic() - started) * 1000),
+            f" | reason_code={reason_code}" if reason_code else "",
             f" | error={error_class}" if error_class else "")
         mca_events.emit_mca_event(
             "vision_adapt",
-            outcome=("success" if status in ("ready", "no_text")
-                     else "failed"),
-            level="INFO" if status in ("ready", "no_text") else "WARN",
+            outcome=outcome,
+            level=level,
             component="vision.media",
             stage=strategy,
+            reason_code=reason_code or None,
             chat_id=chat_id,
             error_json={"strategy": strategy, "reason": plan.reason,
-                        "calls": calls, "error": error_class})
+                        "calls": calls, "error": error_class,
+                        **({"detail": error_detail} if error_detail else {}),
+                        **({"repeats": repeats} if repeats else {})})
     except Exception:      # pragma: no cover - телеметрия не рвёт анализ
         pass
 
@@ -3159,8 +3255,9 @@ class VisionMediaWorker:
 
     def _on_task_done(self, task: asyncio.Task) -> None:
         """D9-наблюдаемость: сбой фоновой обработки виден в логе (не тихий
-        «Task exception was never retrieved»). R17: только класс ошибки —
-        repr исключения может содержать endpoint."""
+        «Task exception was never retrieved»). R17: класс + ограниченное
+        однострочное сообщение (`_safe_exc_text`), repr/стек — только в
+        внутреннем debug-логе."""
         self._tasks.discard(task)
         self._log_task_failure(task, "[vision] background vision task failed")
 
@@ -3174,7 +3271,12 @@ class VisionMediaWorker:
             return
         exc = task.exception()
         if exc is not None:
-            logger.warning("%s | class=%s", prefix, type(exc).__name__)
+            # EVOL-013: не только имя класса — класс + R17-safe ограниченное
+            # сообщение (repr/стек наружу не идут); полный traceback —
+            # в безопасном внутреннем debug-логе.
+            logger.warning("%s | class=%s | error=%s", prefix,
+                           type(exc).__name__, _safe_exc_text(exc))
+            logger.debug("%s traceback", prefix, exc_info=exc)
 
     def _inflight(self) -> int:
         return sum(1 for t in list(self._tasks) if not t.done())

@@ -174,7 +174,6 @@ from services.smartmodule_utils import (
     send_chunked_reply,
     strip_lore_html,
 )
-from services.smart_cache import normalize_text
 from services.smartmodule_urls import resolve_context_url
 from services.self_reflection import extract_self_essence, record_extractor_status
 from services.summary_memory import (
@@ -263,6 +262,14 @@ from services import direct_capabilities as _caps
 from services import direct_execution as _dx
 
 logger = logging.getLogger(__name__)
+
+
+def _exc_brief(exc: BaseException, limit: int = 200) -> str:
+    """EVOL-013: класс + однострочное ограниченное сообщение исключения
+    для внутренних логов (R17: без repr/стека; переводы строк схлопнуты,
+    строка усечена). Только диагностика — машинные коды не меняются."""
+    text = " ".join(str(exc).split())[:max(0, int(limit))]
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
 
 # ── ASAP 8 (F6, §13.1): маркер «бот отправил текст в этом ходе» ─────────────
 # Invoke-scoped (contextvar): параллельные ходы разных чатов изолированы,
@@ -718,26 +725,10 @@ def _l1_usage_plan_meta(plan, meta: dict, *, fallback_flag: str,
     return out
 
 
-# MCA-07 (T-3851): одноразовый маркер эмиссии `answer_cache_disabled` (не
-# спамим событием на каждое сообщение; R17-safe — только код).
-_answer_cache_disabled_emitted = False
-
-
-def _answer_cache_disabled_notified() -> bool:
-    """True, если событие `answer_cache_disabled` уже эмитировано в процессе."""
-    global _answer_cache_disabled_emitted
-    if _answer_cache_disabled_emitted:
-        return True
-    _answer_cache_disabled_emitted = True
-    return False
-
-
-def _legacy_text_replay_enabled() -> bool:
-    """MCA-07 (T-3851): прежний text-replay активен только при гейте OFF.
-
-    ON (default) → MCA-07 context-keyed политика (legacy-кеш query/chat/user
-    для контекстных ответов отключён); OFF → прежний ответный кеш (baseline)."""
-    return not mca_gates.context_answer_cache_enabled()
+# EVOL-031 (30.10.2026): MCA-07 хелперы ответного кеша
+# (`_answer_cache_disabled_notified`/`_legacy_text_replay_enabled`) удалены
+# вместе с replay-веткой direct_dedup — повтор готовых ответов пользователя
+# больше невозможен ни при каких флагах.
 
 # ── F5 (cognition-dashboard-round1013, spec §3.6/F5-Q4): in-memory
 #    accounting последнего собранного контекста + времени инжекта лора.
@@ -2363,9 +2354,11 @@ class DirectChatService:
         # (правило п.49: никаких списков в коде).
         self._mood_negative = _parse_mood_words(settings.CHAT_MOOD_NEGATIVE_WORDS)
         self._mood_positive = _parse_mood_words(settings.CHAT_MOOD_POSITIVE_WORDS)
-        # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд. cache
-        # инжектится из bot.py (get_smart_cache()); None → фича неактивна
-        # (прецедент DI-тестов), env-рубильник CHAT_DEDUP_ENABLED — свой.
+        # MCA-22 (C7): cache инжектится из bot.py (get_smart_cache()) —
+        # ТОЛЬКО для update-identity маркеров Telegram (response_freshness,
+        # 24 h; дедуп событий, не ответов). None → маркеров нет (паритет
+        # DI-тестов). EVOL-031: replay-кеш direct_dedup удалён, ответный
+        # путь этот объект не использует.
         self._cache = cache
         # Раунд 7 (chat-lore-management-v2, T-781/F1): PG-лор чатов —
         # опциональный ChatLoreCache (None → выключено → старое поведение;
@@ -2816,49 +2809,15 @@ class DirectChatService:
                 asyncio.create_task(
                     self._run_correction_path(chat_id, query,
                                               _trigger_tg_id))
-        answer_text: str | None = None
-        dedup_key = None
+        # EVOL-031 (30.10.2026): replay-ветка direct_dedup (Epic 60, 67.4,
+        # T-499) и её рубильник `CHAT_DEDUP_ENABLED`/`flags.chat_dedup_enabled`
+        # удалены вместе с кешем готовых ответов (slug `direct_dedup`).
+        # Каждый повторный текст обрабатывается заново с текущим контекстом;
+        # троттлинг (D237) остаётся первым барьером. Дедуп Telegram-update
+        # по (chat_id, tg_message_id) — отдельный механизм идентичности
+        # mca-03/MCA-22, сохранён (выше). Требование MCA-07 «No-replay»
+        # теперь безусловно.
         try:
-            # Epic 60 (67.4, T-499): дедуп одинаковых текстов подряд (п.8) —
-            # ПОСЛЕ throttle/CB/замка (D237: троттлинг остаётся первым
-            # барьером), ПЕРЕД сборкой контекста. Ключ «чат+человек+текст»;
-            # payload — сохранённый ответ → повторная отправка; "" — прошлый
-            # раз без ответа → молчание; None (первый раз/TTL истёк) — обычный
-            # поток. Внутри try/finally: ранний return обязан отпустить замок.
-            # MCA-07 (T-3851, ADR-1027-7 D9): при `MCA_CONTEXT_ANSWER_CACHE_
-            # ENABLED` ON прежний text-replay по одному нормализованному
-            # query/chat/user для контекстных ответов ОТКЛЮЧЁН (дедуп одного
-            # Telegram update по (chat_id, tg_message_id) — отдельный механизм
-            # идентичности mca-03, сохраняется). OFF → прежний ответный кеш.
-            answer_cache_policy_on = mca_gates.context_answer_cache_enabled()
-            if answer_cache_policy_on and not _answer_cache_disabled_notified():
-                # L-MCA07-4: отдельная стадия `answer_cache` (не `summary`).
-                _mca_rc.emit_stage_event("answer_cache", "skipped",
-                                         reason_code="answer_cache_disabled")
-            if self._cache is not None and _legacy_text_replay_enabled() and hot.get(
-                    "flags.chat_dedup_enabled", settings.CHAT_DEDUP_ENABLED) \
-                    and query:
-                dedup_key = hashlib.md5(
-                    f"direct_dedup\x00{chat_id}\x00{user_id}\x00"
-                    f"{normalize_text(query)}".encode("utf-8")
-                ).hexdigest()
-                cached = await self._cache.get_dedup(dedup_key)
-                if cached is not None:
-                    dedup_key = None          # исход уже решён — finally не перезапишет
-                    if cached:
-                        replay_id = await send_chunked_reply(
-                            bot, chat_id, cached, message.message_id)
-                        if replay_id is not None:
-                            # D3/T-800: parent = сообщение, на которое реплика
-                            await self.remember_bot_reply(
-                                chat_id, replay_id, cached,
-                                parent_tg_message_id=message.message_id)
-                        logger.info("[direct] dedup replay | chat=%s user=%s",
-                                    chat_id, target_name)
-                    else:
-                        logger.info("[direct] dedup silence | chat=%s user=%s",
-                                    chat_id, target_name)
-                    return
             # MCA-07 (T-3852): исключённые бюджетом блоки → EvidenceBundle.
             _excluded_blocks: list = []
             # ASAP-3.1 §14/§42: fallback recompose factory (заполняет
@@ -4466,7 +4425,6 @@ class DirectChatService:
                 style_outcome=_style_outcome,
                 correlation_id=correlation_id)
             if sent_id is not None:
-                answer_text = answer
                 self._mark_turn_text_replied(chat_id)  # F6: ответ доставлен
                 # MCA-07 (T-3852, D11): `context_version`/число исключений —
                 # в наблюдаемость (R17: только версия/числа, без сырья).
@@ -4607,12 +4565,9 @@ class DirectChatService:
                 self._breaker.on_failure()
         finally:
             permit.release()   # раунд N (T-840): слот пула возвращён
-            # Epic 60 (67.4, T-499): исход попытки — в дедуп-кэш: успешный
-            # ответ → payload-ответ (повтор получит его из кэша); ЛЮБОЙ
-            # неуспех (🗿-пустой/LLMError/исключение/send fail) → маркер ""
-            # → повтор того же текста молчит. Заглушки в кэш НЕ пишутся.
-            if dedup_key is not None and self._cache is not None:
-                await self._cache.set_dedup(dedup_key, answer_text or "")
+            # EVOL-031: запись исхода попытки в дедуп-кэш удалена вместе
+            # с replay-веткой — ни ответы, ни маркеры «молчания» не
+            # сохраняются для воспроизведения.
 
     # ── ASAP 7 (F1, §1.1–§1.6): Direct L1 Planner pipeline ──────────────
 
@@ -4905,7 +4860,7 @@ class DirectChatService:
                 logger.warning(
                     "[direct] l1 planner attempt failed | chat=%s | "
                     "source=%s | error=%s", chat_id, label,
-                    type(exc).__name__)
+                    _exc_brief(exc))
         latency_ms = int((time.monotonic() - started) * 1000)
         fallback_flag = "deterministic" if plan is None else ""
         if plan is None:
@@ -5388,7 +5343,7 @@ class DirectChatService:
                 # §6.2: обогащение не началось → паритет, sources не тронуты
                 logger.warning("[direct] history segments unavailable | "
                                "chat=%s | error=%s", chat_id,
-                               type(exc).__name__)
+                               _exc_brief(exc))
                 return None
             complete = False
             reason = reason or ("timeout"
@@ -6279,7 +6234,7 @@ class DirectChatService:
         except Exception as exc:                # fail-safe → финал tool-loop
             logger.info(
                 "[direct] system2 failed — fallback tool-loop | chat=%s | "
-                "error=%s", chat_id, type(exc).__name__)
+                "error=%s", chat_id, _exc_brief(exc))
             return None
 
     # ── Context Partitioning (58.6) ─────────────────────────────
@@ -6343,7 +6298,7 @@ class DirectChatService:
             except Exception as exc:      # fail-open → прежние ветки
                 logger.warning(
                     "[direct] rich send failed — legacy path | chat=%s | "
-                    "error=%s", chat_id, type(exc).__name__)
+                    "error=%s", chat_id, _exc_brief(exc))
         if not (lore or deep_research):
             _verify_style_payload(text, style_outcome, chat_id,
                                   stage="direct_plain",
@@ -6360,7 +6315,7 @@ class DirectChatService:
             except TelegramBadRequest as exc:
                 logger.warning(
                     "[direct] safe-HTML send failed — plain fallback | "
-                    "chat=%s | error=%s", chat_id, type(exc).__name__)
+                    "chat=%s | error=%s", chat_id, _exc_brief(exc))
                 return await send_chunked_reply(bot, chat_id, text, reply_to)
         logger.info("[direct] text too long for safe HTML — plain | "
                     "chat=%s | chars=%d", chat_id, len(escaped))
@@ -6421,6 +6376,17 @@ class DirectChatService:
         _quote_present = _quote_known or any(
             str(a).startswith("quote:")
             for a in (getattr(bundle, "ambiguities", ()) or ()))
+        # EVOL-015 (30.10.2026): дословный выделенный фрагмент — из живого
+        # Telegram quote (`TextQuote.text`), если SDK его доставил. Сам факт
+        # quote в транспорте = структурный маркер (родной эквивалент ручной
+        # `>`-цитаты, которую build_speech_understanding детектит в тексте).
+        # None/пусто → прежнее поведение (байт-паритет); новых вызовов
+        # резолвера нет — только чтение уже полученного поля сообщения.
+        _quote_text = getattr(getattr(message, "quote", None), "text", None)
+        if isinstance(_quote_text, str) and _quote_text.strip():
+            _quote_present = True
+        else:
+            _quote_text = None
         return _ce.build_speech_understanding(
             query,
             has_reply_parent=(reply is not None),
@@ -6428,7 +6394,8 @@ class DirectChatService:
             reply_parent_from_bot=reply_bot,
             reply_parent_ends_with_question=reply_ends_question,
             quote_attribution_known=_quote_known,
-            quote_text_present=_quote_present)
+            quote_text_present=_quote_present,
+            quote_text=_quote_text)
 
     async def _estimate_external_payload_tokens(
             self, chat_id: int, budget_tokens, *,

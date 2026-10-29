@@ -608,12 +608,6 @@ async def collect_runtime_metrics(db) -> dict:
                 runtime["episodes"] = int(row["c"])
         except Exception:
             pass
-    try:
-        from services.smart_cache import get_smart_cache
-        cache = get_smart_cache()
-        size = getattr(cache, "size", None) or getattr(cache, "__len__", None)
-        if callable(size):
-            runtime["cache_entries"] = int(size())
-    except Exception:
-        pass
+    # EVOL-031: мёртвый блок `cache_entries` удалён — SmartCache никогда
+    # не имел size/__len__, метрика не эмитилась; ответный кеш удалён.
     return runtime

@@ -62,6 +62,14 @@ from services.tool_loop import (
 
 logger = logging.getLogger(__name__)
 
+
+def _exc_brief(exc: BaseException, limit: int = 200) -> str:
+    """EVOL-013: класс + однострочное ограниченное сообщение исключения
+    для внутренних логов (R17: без repr/стека; переводы строк схлопнуты,
+    строка усечена). Машинные коды деградации не меняются."""
+    text = " ".join(str(exc).split())[:max(0, int(limit))]
+    return f"{type(exc).__name__}: {text}" if text else type(exc).__name__
+
 # ── Execution modes (§18C.7) ─────────────────────────────────────────────────
 
 EXECUTION_NONE = "none"
@@ -800,7 +808,7 @@ async def run_adaptive_chain(*, llm, router, ctx, plan, query: str,
                 limitations.append(f"orchestrator_error_{type(exc).__name__}")
                 logger.warning(
                     "[direct-exec] orchestrator llm failed | chat=%s | "
-                    "error=%s", chat_id, type(exc).__name__)
+                    "error=%s", chat_id, _exc_brief(exc))
                 break
             spent_tokens += _safe_count_tokens(str(raw_decision or ""))
             if spent_tokens > max_tokens:

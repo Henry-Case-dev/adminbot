@@ -165,6 +165,14 @@ async def _aclose(client: httpx.AsyncClient) -> None:
 class LLMError(Exception):
     """Base error for all LLM client failures."""
 
+    def __init__(self, *args, cause_class: str = "") -> None:
+        super().__init__(*args)
+        # EVOL-013: класс исходной транспортной причины — machine-readable
+        # атрибут: downstream-классификация не парсит текст сообщения
+        # (type(exc).__name__ самого LLM*-класса причину не передаёт).
+        # Пусто — когда транспортной причины не было (бюджет/бизнес-ошибка).
+        self.cause_class = str(cause_class or "")
+
 
 class LLMAuthError(LLMError):
     """401/403 — invalid or missing API key."""
@@ -958,10 +966,12 @@ class LLMClient:
                                 url, attempt, type(exc).__name__,
                                 _provider_host(base))
                             raise LLMTimeoutError(
-                                f"LLM request timed out after {total_attempts} attempts: {url}"
+                                f"LLM request timed out after {total_attempts} attempts: {url}",
+                                cause_class=type(exc).__name__,
                             ) from exc
                         raise LLMTransportError(
-                            f"LLM transport error after {total_attempts} attempts: {exc}: {url}"
+                            f"LLM transport error after {total_attempts} attempts: {exc}: {url}",
+                            cause_class=type(exc).__name__,
                         ) from exc
                     except httpx.HTTPError as exc:
                         # Не-транспортное (InvalidURL и пр.) → мгновенно
@@ -1175,9 +1185,11 @@ class LLMClient:
         except httpx.TransportError as exc:
             if isinstance(exc, httpx.TimeoutException):
                 raise LLMTimeoutError(
-                    f"LLM stream timed out: {url}") from exc
+                    f"LLM stream timed out: {url}",
+                    cause_class=type(exc).__name__) from exc
             raise LLMTransportError(
-                f"LLM stream transport error: {exc}: {url}") from exc
+                f"LLM stream transport error: {exc}: {url}",
+                cause_class=type(exc).__name__) from exc
         content = "".join(parts)
         if not content.strip():
             raise LLMBadResponseError("LLM stream: empty content")

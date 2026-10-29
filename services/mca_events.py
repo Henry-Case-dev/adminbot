@@ -120,6 +120,15 @@ REASON_CODES = frozenset({
     # `model_unavailable` (недоступность модели) и `parse_error` добавлены
     # в словарь явно (комментарий раньше ошибочно считал их существующими).
     "model_unavailable", "parse_error",
+    # EVOL-011/013 (30.10.2026): пустой content ответа модели ≠ битый JSON —
+    # отдельная честная причина терминального parse-отказа vision-анализа
+    # (см. `mca_vision.parse_analysis_payload`); §17.2 расширяемый.
+    "empty_content",
+    # EVOL-010 (30.10.2026): детерминированная ошибка кода embed-пути
+    # (`EmbeddingCodeDefect`, `embedding_control_plane._on_error`) — честная
+    # причина вместо unknown (не транспорт и не квота, ретраи бессмысленны);
+    # §17.2 расширяемый.
+    "code_defect",
     "dossier_rebuild_started", "dossier_batch_processed",
     "dossier_paused_budget", "dossier_interrupted", "dossier_partial_range",
     "dossier_reclassified", "dossier_staging_activated",
