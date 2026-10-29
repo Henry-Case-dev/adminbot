@@ -284,6 +284,16 @@ FACTORY_REVISION_LABELS: dict[str, str] = {
     "style.metatext_retry": "metatext-retry-w2a",
     "internal.image_probe": "image-probe-w2a",
     "internal.image_stage": "image-stage-w2a",
+    # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита.
+    "temporal.analyst": "temporal-analyst-fc08",
+    "temporal.validator": "temporal-validator-fc08",
+    "temporal.fallback": "temporal-fallback-fc08",
+    "memory.fact_retry": "fact-retry-w2b",
+    "memory.memorize_compress": "memorize-compress-w2b",
+    "memory.chat_rag_rerank": "chat-rag-rerank-w2b",
+    "search.rerank": "search-rerank-w2b",
+    "direct.history_segment": "history-segment-w2b",
+    "cover.scene_verify": "scene-verify-w2b",
 }
 
 
@@ -411,6 +421,17 @@ FACTORY_REVISION_SEALS: dict[str, tuple[str, str]] = {
     "style.metatext_retry": ("metatext-retry-w2a", "8a78b8ce197f"),
     "internal.image_probe": ("image-probe-w2a", "f3ec3cda586d"),
     "internal.image_stage": ("image-stage-w2a", "73b63febff17"),
+    # EVOL-018 (W2B, ревью F3): живые LLM-инструкции расширенного аудита
+    # (приватные имена + скобочные конкатенации без тройных кавычек).
+    "temporal.analyst": ("temporal-analyst-fc08", "cd212371aa22"),
+    "temporal.validator": ("temporal-validator-fc08", "d5418d060fdc"),
+    "temporal.fallback": ("temporal-fallback-fc08", "c14641150137"),
+    "memory.fact_retry": ("fact-retry-w2b", "4719f303d725"),
+    "memory.memorize_compress": ("memorize-compress-w2b", "fe2747b1f5cc"),
+    "memory.chat_rag_rerank": ("chat-rag-rerank-w2b", "eb60769a4d16"),
+    "search.rerank": ("search-rerank-w2b", "09a8999edd2d"),
+    "direct.history_segment": ("history-segment-w2b", "c09094652f9d"),
+    "cover.scene_verify": ("scene-verify-w2b", "507d915349e1"),
 }
 
 #: Явные исключения grep-аудита EVOL-018 (контракт §1.7 п.4): имя константы
@@ -422,6 +443,9 @@ PROMPT_AUDIT_ALLOWLIST: dict[str, str] = {
     # Названа *PROMPT, но является Selenium-локатором для WebFetch-инструмента
     # (не инструкция модели, в LLM-запрос не собирается).
     "FETCH_PROMPT_XPATH": "web fetch tool: css/xpath locator, not an LLM template",
+    # Ревью F3: текст КНОПКИ подтверждения отправки медиа (UI-лейбл, не
+    # инструкция модели; в LLM-запросы не собирается).
+    "_QUALITY_PROMPT": "media_send: confirmation button label, not an LLM instruction",
 }
 
 
@@ -475,10 +499,13 @@ def sealed_factory_revision(block_id: str) -> str:
 #: кавычкой). ``module.attr`` обязан встречаться в ``code_source`` блока
 #: либо входить в ``PROMPT_AUDIT_ALLOWLIST`` с непустой причиной.
 _AUDIT_NAME_RE = re.compile(
-    r"^([A-Z][A-Z0-9_]*(?:PROMPT|SYSTEM))\s*(:?=)\s*(.*)$", re.M)
+    r"^(_{0,2}[A-Z][A-Z0-9_]*(?:PROMPT|SYSTEM))\s*(:?=)\s*(.*)$", re.M)
 _AUDIT_SCAN_MODULES = ("services", "handlers")
 _AUDIT_SKIP_FILES = frozenset({"prompt_migrations.py"})
-_AUDIT_EXCLUDE_PREFIXES = ("PREV_", "LEGACY_", "_")
+# Ревью F3: контракт §1.7 разрешает пропуск только слепков PREV_*/LEGACY_*
+# (байт-эталоны); приватные имена с ``_`` — полноценные инструкции
+# (``_TEMPORAL_FALLBACK_SYSTEM`` и т.п.) и аудируются наравне с публичными.
+_AUDIT_EXCLUDE_PREFIXES = ("PREV_", "LEGACY_")
 _AUDIT_TREE_MAX_FILES = 400
 
 
@@ -540,17 +567,39 @@ def audit_unregistered_prompt_constants(root, *, blocks=None,
                                              "\n") + 1,
                                          "kind": "allowlist_empty_reason"})
                     continue
+                # Ревью F3: скобочная конкатенация — значение на нескольких
+                # строках (NAME = ("…" "…")); берём блок до балансной скобки.
+                paren_block = value.lstrip().startswith("(")
+                if paren_block:
+                    depth = 0
+                    block_lines: list[str] = []
+                    base_line = text[:match.start()].count("\n") + 1
+                    for ln in text[match.start():].splitlines():
+                        block_lines.append(ln)
+                        depth += ln.count("(") - ln.count(")")
+                        if depth <= 0 and len(block_lines) > 1:
+                            break
+                    value = "\n".join(block_lines)
+                    line_no = base_line
+                else:
+                    line_no = text[:match.start()].count("\n") + 1
                 long_triple = ('"""' in value) or ("'''" in value)
-                if not (name.endswith("PROMPT")
-                        or (name.endswith("SYSTEM") and long_triple
-                            and len(value) > 80)):
+                # Ревью F3: кандидат — сам факт именованной *_SYSTEM-сборки
+                # длиннее 80 символов источника (в т.ч. скобочная конкатенация
+                # без тройных кавычек — temporal_factcheck.TEMPORAL_*); для
+                # одиночной строки тройная кавычка остаётся сигналом шаблона.
+                is_candidate = (
+                    name.endswith("PROMPT")
+                    or (name.endswith("SYSTEM") and len(value) > 80
+                        and (long_triple or paren_block)))
+                if not is_candidate:
                     continue
                 if module + "." + name in registered \
                         or module + ".*" in registered:
                     continue
                 problems.append({
                     "module": module, "attr": name, "file": str(path),
-                    "line": text[:match.start()].count("\n") + 1,
+                    "line": line_no,
                     "kind": "unregistered_prompt_constant"})
     return problems
 
@@ -1635,6 +1684,90 @@ _CODE_BLOCKS: tuple[PromptBlockSpec, ...] = (
                    "execution_graph_source.py:722"),
         composition_point="internal/execution_graph",
         migration="factory", owner_lane="W2A-EVOL016", speech=False),
+    # ── EVOL-018 (W2B, ревью F3): живые LLM-инструкции, найденные расширенным
+    # grep-аудитом (приватные имена + скобочные конкатенации) ──────────────
+    declare_prompt(
+        block_id="temporal.analyst",
+        purpose="Вердиктная стадия временного фактчека (data-only JSON): "
+                "утверждение + временной контекст + evidence (D11/CA-20-12).",
+        family="factcheck", scope="code",
+        code_source="services.temporal_factcheck.TEMPORAL_ANALYST_SYSTEM",
+        consumers=("factcheck_service.py:1471",),
+        composition_point="factcheck/verdict",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="temporal.validator",
+        purpose="CoVe-валидатор временного фактчека: перепроверка "
+                "evidence↔claim, согласие/коррекция (TH-2).",
+        family="factcheck", scope="code",
+        code_source="services.temporal_factcheck.TEMPORAL_VALIDATOR_SYSTEM",
+        consumers=("factcheck_service.py:1512",),
+        composition_point="factcheck/validator",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="temporal.fallback",
+        purpose="Строгий повтор аналитика временного фактчека после неудачи "
+                "первой попытки (fallback-слот ≤1).",
+        family="factcheck", scope="code",
+        code_source="services.temporal_factcheck._TEMPORAL_FALLBACK_SYSTEM",
+        consumers=("factcheck_service.py:1476", "factcheck_service.py:1531"),
+        composition_point="factcheck/verdict_fallback",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="memory.fact_retry",
+        purpose="Повтор извлечения фактов (батч-ретрай после мягкого сбоя "
+                "первой попытки ETL).",
+        family="memory", scope="code",
+        code_source="services.summary_memory._FACT_RETRY_SYSTEM_PROMPT",
+        consumers=("summary_memory.py:3446",),
+        composition_point="machine_json/fact_extract_retry",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="memory.memorize_compress",
+        purpose="Сжатие запоминаемого текста в нетоксичную выжимку на фазе "
+                "memorize (фоновая память).",
+        family="memory", scope="code",
+        code_source="services.summary_memory._MEMORIZE_COMPRESS_PROMPT",
+        consumers=("summary_memory.py:1305",),
+        composition_point="machine_json/memorize",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="memory.chat_rag_rerank",
+        purpose="Переранжирование RAG-кандидатов памяти чата перед выдачей "
+                "в контекст (data-only JSON).",
+        family="memory", scope="code",
+        code_source="services.summary_memory._CHAT_RAG_RERANK_SYSTEM_PROMPT",
+        consumers=("summary_memory.py:4339",),
+        composition_point="memory/rag_rerank",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="search.rerank",
+        purpose="Переранжирование поисковой выдачи перед отдачей в "
+                "фактчек/ответ (system-инструкция реранкера).",
+        family="search", scope="code",
+        code_source="services.search_service._RERANK_SYSTEM_PROMPT",
+        consumers=("search_service.py:121",),
+        composition_point="search/rerank",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="direct.history_segment",
+        purpose="Сжатие сегмента истории Direct в служебную выжимку для "
+                "длинного контекста (data-only).",
+        family="direct", scope="code",
+        code_source="services.direct_chat_service."
+                    "_HISTORY_SEGMENT_SYSTEM_PROMPT",
+        consumers=("direct_chat_service.py:5226",),
+        composition_point="direct/history_segment",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
+    declare_prompt(
+        block_id="cover.scene_verify",
+        purpose="Bounded image-comparison верификатор сцены обложки "
+                "(format_valid ≠ scene_preserved, B04).",
+        family="image", scope="code",
+        code_source="services.cover_style_jobs._SCENE_VERIFY_PROMPT",
+        consumers=("cover_style_jobs.py:1889",),
+        composition_point="cover/scene_verify",
+        migration="factory", owner_lane="W2B-EVOL016", speech=False),
 )
 
 
@@ -2441,8 +2574,14 @@ def factory_set_fingerprint() -> str:
 #: ``style.metatext_retry``, ``internal.image_probe``,
 #: ``internal.image_stage``); введены печати ``FACTORY_REVISION_SEALS``.
 #: Было ``fbc44eb0f879``, стало ``b980947c71aa``.
+#: Бамп EVOL-016/018 (W2B, 30.10.2026, ревью F3): расширенный grep-аудит
+#: (приватные имена + скобочные конкатенации) — зарегистрированы 9 живых
+#: LLM-инструкций (``temporal.analyst/validator/fallback``,
+#: ``memory.fact_retry/memorize_compress/chat_rag_rerank``,
+#: ``search.rerank``, ``direct.history_segment``, ``cover.scene_verify``);
+#: было ``b980947c71aa``, стало ``c1535d3d4252``.
 #: Переутверждено осознанно (SOUL-AMD.3.2 + EVOL-016 контракт §1.7).
-FACTORY_SET_SHA256_12 = "b980947c71aa"
+FACTORY_SET_SHA256_12 = "c1535d3d4252"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

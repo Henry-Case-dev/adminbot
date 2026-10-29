@@ -317,13 +317,18 @@ def check_permission(actor: str, action: str, **ctx) -> None:
 # In-memory стор (тесты): та же семантика, откат пакета, инъекция сбоев
 # ═══════════════════════════════════════════════════════════════════════════
 
-class MemoryPromptJournal:
-    """Фейковый стор журнала: контракт PG-стора без реального PostgreSQL.
+class _JournalState:
+    """Контейнер состояния стора: committed-снапшот или tx-overlay.
 
-    ``fail_at`` — имя шага для инъекции сбоя (``ensure``, ``tx_enter``,
-    ``insert_revision``, ``insert_activation``, ``tx_exit``): тесты крэша
-    mid-apply проверяют, что пакет откатился целиком.
+    Ревью F5 (эмуляция семантики соединений PG): на время транзакции
+    ``_live`` указывает на КЛОН committed — записи транзакции невидимы
+    снаружи до коммита и откатываются целиком при сбое; методы стора читают
+    и пишут только через ``_live`` (один «коннект» на транзакцию).
     """
+
+    __slots__ = ("revisions", "activations", "activation_seq", "bot_settings",
+                 "chat_overrides", "retired_blocks", "notified_chats",
+                 "revision_seq")
 
     def __init__(self) -> None:
         self.revisions: dict[str, RevisionRow] = {}
@@ -333,11 +338,66 @@ class MemoryPromptJournal:
         self.chat_overrides: dict[int, dict[str, str]] = {}
         self.retired_blocks: set[str] = set()
         self.notified_chats: list[int] = []
+        self.revision_seq: dict[str, int] = {}
+
+    def clone(self) -> "_JournalState":
+        copy = _JournalState()
+        copy.revisions = {k: RevisionRow(**vars(r))
+                          for k, r in self.revisions.items()}
+        copy.activations = [ActivationRow(**vars(a))
+                            for a in self.activations]
+        copy.activation_seq = self.activation_seq
+        copy.bot_settings = dict(self.bot_settings)
+        copy.chat_overrides = {c: dict(o)
+                               for c, o in self.chat_overrides.items()}
+        copy.retired_blocks = set(self.retired_blocks)
+        copy.notified_chats = list(self.notified_chats)
+        copy.revision_seq = dict(self.revision_seq)
+        return copy
+
+
+class MemoryPromptJournal:
+    """Фейковый стор журнала: контракт PG-стора без реального PostgreSQL.
+
+    Транзакционная семантика как у PG (ревью F5): на время ``transaction()``
+    все методы работают на клоне состояния (``_live``); коммит публикует клон,
+    откат отбрасывает целиком. ``fail_at`` — имя шага для инъекции сбоя
+    (``ensure``, ``tx_enter``, ``insert_revision``, ``insert_activation``,
+    ``tx_exit``): тесты крэша mid-apply проверяют, что пакет откатился целиком.
+    """
+
+    def __init__(self) -> None:
+        self._committed = _JournalState()
+        self._live = self._committed
         self.ensure_called = 0
         self.fail_at: str | None = None
         self._tx_conn = None
         self._lock = asyncio.Lock()
-        self._revision_seq: dict[str, int] = {}
+
+    # — доступ к состоянию (committed или tx-overlay через _live) —
+    @property
+    def revisions(self) -> dict[str, RevisionRow]:
+        return self._live.revisions
+
+    @property
+    def activations(self) -> list[ActivationRow]:
+        return self._live.activations
+
+    @property
+    def bot_settings(self) -> dict[str, str]:
+        return self._live.bot_settings
+
+    @property
+    def chat_overrides(self) -> dict[int, dict[str, str]]:
+        return self._live.chat_overrides
+
+    @property
+    def retired_blocks(self) -> set[str]:
+        return self._live.retired_blocks
+
+    @property
+    def notified_chats(self) -> list[int]:
+        return self._live.notified_chats
 
     # — инфраструктура —
     async def ensure_journal(self) -> bool:
@@ -357,31 +417,23 @@ class MemoryPromptJournal:
             store = self.store
             if store.fail_at == "tx_enter":
                 raise PromptJournalError("injected failure: tx_enter")
-            # Полный снапшот мутируемых структур → откат пакета при исключении.
-            self._snapshot = (
-                {k: RevisionRow(**vars(r)) for k, r in store.revisions.items()},
-                [ActivationRow(**vars(a)) for a in store.activations],
-                dict(store.bot_settings),
-                {c: dict(o) for c, o in store.chat_overrides.items()},
-                set(store.retired_blocks), store.activation_seq,
-                list(store.notified_chats))
+            # Один «коннект» на транзакцию: _live = клон committed; записи
+            # транзакции невидимы снаружи до коммита (семантика PG, ревью F5).
+            store._tx_conn = object()
+            store._live = store._committed.clone()
             return store
 
         async def __aexit__(self, exc_type, exc, tb):
             store = self.store
-            if exc_type is not None:
-                (revs, acts, settings, overrides, retired, seq,
-                 notified) = self._snapshot
-                store.revisions = revs
-                store.activations = acts
-                store.bot_settings = settings
-                store.chat_overrides = overrides
-                store.retired_blocks = retired
-                store.activation_seq = seq
-                store.notified_chats = notified
-                return False
-            if store.fail_at == "tx_exit":
-                raise PromptJournalError("injected failure: tx_exit")
+            try:
+                if exc_type is not None:
+                    return False          # rollback: клон отбрасывается
+                if store.fail_at == "tx_exit":
+                    raise PromptJournalError("injected failure: tx_exit")
+                store._committed = store._live   # commit
+            finally:
+                store._live = store._committed
+                store._tx_conn = None
             return False
 
     def transaction(self):
@@ -457,14 +509,15 @@ class MemoryPromptJournal:
         row.created_at = created_at or datetime.datetime.now(
             datetime.timezone.utc).isoformat()
         self.revisions[row.revision_id] = row
-        self._revision_seq[row.revision_id] = len(self._revision_seq) + 1
+        self._live.revision_seq[row.revision_id] = \
+            len(self._live.revision_seq) + 1
         return True
 
     async def revision_precedes(self, revision_id: str,
                                 other_id: str) -> bool | None:
         """Целевая ревизия создана РАНЬШЕ другой (порядок вставки журнала)."""
-        seq_a = self._revision_seq.get(revision_id)
-        seq_b = self._revision_seq.get(other_id)
+        seq_a = self._live.revision_seq.get(revision_id)
+        seq_b = self._live.revision_seq.get(other_id)
         if seq_a is None or seq_b is None:
             return None
         return seq_a < seq_b
@@ -472,9 +525,9 @@ class MemoryPromptJournal:
     async def insert_activation(self, row: ActivationRow) -> int:
         if self.fail_at == "insert_activation":
             raise PromptJournalError("injected failure: insert_activation")
-        self.activation_seq += 1
+        self._live.activation_seq += 1
         self.activations.append(row)
-        return self.activation_seq
+        return self._live.activation_seq
 
     async def mark_retired(self, block_ids: Iterable[str]) -> int:
         changed = 0
@@ -546,8 +599,24 @@ class PgPromptJournal:
         self._ready = True
         return True
 
+    async def _run_on_conn(self, fn):
+        """Выполнить операцию ЖУРНАЛА на правильном соединении.
+
+        Ревью F5: внутри транзакции применения все чтения/записи идут через
+        ``_tx_conn`` (иначе читается чужой снапшот — собственные незакоммиченные
+        записи невидимы, план считается по устаревшему состоянию, а
+        ``mark_retired`` фиксировался бы отдельным автокоммитом до коммита
+        релиза). Вне транзакции — короткоживущий коннект пула.
+        """
+        if self._tx_conn is not None:
+            return await fn(self._tx_conn)
+        async with self._pool.acquire() as conn:
+            return await fn(conn)
+
     def apply_lock(self):
-        # Сериализация применений — advisory xact lock ВНУТРИ транзакции.
+        # Сериализация применений — advisory xact lock ВНУТРИ транзакции;
+        # отказ лока (ошибка БД) поднимается из ``transaction().__aenter__``
+        # и отвергает ВЕСЬ пакет (ревью F5: никакого тихого skip).
         class _NullLock:
             async def __aenter__(self):
                 return self
@@ -568,9 +637,22 @@ class PgPromptJournal:
             await self._tx.start()
             self.store._tx_conn = self.conn
             try:
+                # Ревью F5: сбой advisory-лока НЕ проглатывается — применение
+                # пакета refuse (исключение уходит вызывающему).
                 await self.conn.execute(APPLY_LOCK_SQL)
-            except Exception:      # pragma: no cover — не-PG двойник
-                logger.debug("[prompt_release] advisory lock skipped")
+            except Exception:
+                # __aexit__ при сбое __aenter__ не вызывается — прибираемся:
+                # транзакция откатывается, коннект возвращается в пул.
+                try:
+                    await self._tx.rollback()
+                finally:
+                    self.store._tx_conn = None
+                    await self.store._pool.release(self.conn)
+                    self.conn = None
+                    logger.error("[prompt_release] advisory lock не взят — "
+                                 "применение пакета ОТКЛОНЕНО (fail-closed)",
+                                 exc_info=True)
+                raise
             return self.store
 
         async def __aexit__(self, exc_type, exc, tb):
@@ -590,9 +672,10 @@ class PgPromptJournal:
 
     async def read_applied(self, block_id: str, scope: str,
                            chat_id: int | None) -> AppliedState | None:
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(_LAST_APPLIED_SQL, block_id, scope,
-                                      chat_id)
+        async def _run(conn):
+            return await conn.fetchrow(_LAST_APPLIED_SQL, block_id, scope,
+                                       chat_id)
+        row = await self._run_on_conn(_run)
         if row is None:
             return None
         return AppliedState(revision_id=row["revision_id"] or "",
@@ -603,15 +686,17 @@ class PgPromptJournal:
 
     async def has_import(self, block_id: str, scope: str,
                          chat_id: int | None) -> bool:
-        async with self._pool.acquire() as conn:
+        async def _run(conn):
             if await conn.fetchval(_HAS_IMPORT_SQL, block_id, scope, chat_id):
                 return True
             return bool(await conn.fetchval(_HAS_CUTOVER_SQL, block_id, scope,
                                             chat_id))
+        return await self._run_on_conn(_run)
 
     async def get_revision(self, revision_id: str) -> RevisionRow | None:
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(_GET_REVISION_SQL, revision_id)
+        async def _run(conn):
+            return await conn.fetchrow(_GET_REVISION_SQL, revision_id)
+        row = await self._run_on_conn(_run)
         if row is None:
             return None
         return RevisionRow(
@@ -629,8 +714,10 @@ class PgPromptJournal:
 
     async def known_block_ids(self) -> set[str]:
         await self.ensure_journal()
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_KNOWN_BLOCK_IDS_SQL)
+
+        async def _run(conn):
+            return await conn.fetch(_KNOWN_BLOCK_IDS_SQL)
+        rows = await self._run_on_conn(_run)
         return {r["block_id"] for r in rows}
 
     async def revision_precedes(self, revision_id: str,
@@ -650,8 +737,10 @@ class PgPromptJournal:
     async def list_revisions(self, block_id: str, chat_id: int | None = None,
                              *, include_retired: bool = True) -> list:
         await self.ensure_journal()
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_LIST_REVISIONS_SQL, block_id, chat_id)
+
+        async def _run(conn):
+            return await conn.fetch(_LIST_REVISIONS_SQL, block_id, chat_id)
+        rows = await self._run_on_conn(_run)
         out = []
         for row in rows:
             if not include_retired and row["retired"]:
@@ -674,9 +763,11 @@ class PgPromptJournal:
                                chat_id: int | None = None,
                                limit: int = 50) -> list[ActivationRow]:
         await self.ensure_journal()
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_LIST_ACTIVATIONS_SQL, block_id, chat_id,
+
+        async def _run(conn):
+            return await conn.fetch(_LIST_ACTIVATIONS_SQL, block_id, chat_id,
                                     limit)
+        rows = await self._run_on_conn(_run)
         return [ActivationRow(
             block_id=r["block_id"], scope=r["scope"], kind=r["kind"],
             outcome=r["outcome"], revision_id=r["revision_id"] or "",
@@ -687,54 +778,45 @@ class PgPromptJournal:
 
     async def insert_revision(self, row: RevisionRow,
                               created_at: str | None = None) -> bool:
-        conn = self._tx_conn
-        if conn is None:       # вне транзакции — короткоживущий коннект
-            async with self._pool.acquire() as conn:
-                status = await conn.execute(
-                    _INSERT_REVISION_SQL, row.revision_id, row.block_id,
-                    row.pg_key, row.scope, row.chat_id, row.origin,
-                    row.content_sha12, row.body, row.factory_revision,
-                    row.schema_compat, row.release_id, row.actor, row.reason,
-                    row.source_updated_at, _parse_ts(created_at))
-        else:                  # внутри транзакции применения
-            status = await conn.execute(
+        async def _run(conn):
+            return await conn.execute(
                 _INSERT_REVISION_SQL, row.revision_id, row.block_id,
                 row.pg_key, row.scope, row.chat_id, row.origin,
                 row.content_sha12, row.body, row.factory_revision,
                 row.schema_compat, row.release_id, row.actor, row.reason,
                 row.source_updated_at, _parse_ts(created_at))
+        status = await self._run_on_conn(_run)
         return status.endswith("INSERT 0 1")
 
     async def insert_activation(self, row: ActivationRow) -> int:
-        conn = self._tx_conn
-        if conn is None:
-            async with self._pool.acquire() as conn:
-                activation_id = await conn.fetchval(
-                    _INSERT_ACTIVATION_SQL, row.block_id, row.scope,
-                    row.chat_id, row.revision_id, row.factory_revision_applied,
-                    row.kind, row.outcome, row.release_id, row.actor,
-                    row.detail_code)
-        else:
-            activation_id = await conn.fetchval(
-                _INSERT_ACTIVATION_SQL, row.block_id, row.scope, row.chat_id,
-                row.revision_id, row.factory_revision_applied, row.kind,
-                row.outcome, row.release_id, row.actor, row.detail_code)
+        async def _run(conn):
+            return await conn.fetchval(
+                _INSERT_ACTIVATION_SQL, row.block_id, row.scope,
+                row.chat_id, row.revision_id, row.factory_revision_applied,
+                row.kind, row.outcome, row.release_id, row.actor,
+                row.detail_code)
+        activation_id = await self._run_on_conn(_run)
         return int(activation_id)
 
     async def mark_retired(self, block_ids: Iterable[str]) -> int:
         ids = sorted(set(block_ids or ()))
         if not ids:
             return 0
-        async with self._pool.acquire() as conn:
-            status = await conn.execute(_MARK_RETIRED_SQL, ids)
+
+        async def _run(conn):
+            # Ревью F5: внутри применения — через tx-коннект (фиксируется
+            # КОММИТОМ релиза, никакого отдельного автокоммита до него).
+            return await conn.execute(_MARK_RETIRED_SQL, ids)
+        status = await self._run_on_conn(_run)
         try:
             return int(status.split()[-1])
         except Exception:      # pragma: no cover
             return 0
 
     async def read_global(self, pg_key: str) -> str | None:
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(_SELECT_BOT_SETTING_SQL, pg_key)
+        async def _run(conn):
+            return await conn.fetchrow(_SELECT_BOT_SETTING_SQL, pg_key)
+        row = await self._run_on_conn(_run)
         return None if row is None else (row["text"] or "")
 
     async def write_global(self, pg_key: str, value: str) -> None:
@@ -744,8 +826,9 @@ class PgPromptJournal:
                                     json.dumps(value), "prompts")
 
     async def iter_chat_overrides(self, pg_key: str) -> list[tuple[int, str]]:
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(_SELECT_CHAT_OVERRIDES_SQL, pg_key)
+        async def _run(conn):
+            return await conn.fetch(_SELECT_CHAT_OVERRIDES_SQL, pg_key)
+        rows = await self._run_on_conn(_run)
         return [(int(r["chat_id"]), r["value"]) for r in rows]
 
     async def remove_chat_override(self, chat_id: int, pg_key: str) -> bool:
@@ -1119,6 +1202,21 @@ async def _apply_scope_release(store, spec, *, scope: str,
 
     if plan.action == pr.PLAN_NOOP:
         # Рестарт: ни строки, ни записи — ручная правка остаётся активной.
+        # Ревью F1: дрейф обнаруживается и на рестарте (метка не новее
+        # применённой) — один ERROR + снимок, активации НЕТ: рестарт с
+        # неизменённой меткой остаётся истинным no-op (снимок известен
+        # журналу, повторные рестарты молчат).
+        if state is not None and state.revision_id and current:
+            drift = await _check_activation_drift(
+                store, spec, scope, chat_id, state, current, release_id,
+                activate_after=False)
+            if drift is not None:
+                results.append(drift)
+                results.append(BlockReleaseResult(
+                    spec.block_id, scope, chat_id, plan.action,
+                    "skipped_same", plan.reason,
+                    factory_revision_applied=plan.code_revision))
+                return
         results.append(BlockReleaseResult(
             spec.block_id, scope, chat_id, plan.action, "skipped_same",
             plan.reason, factory_revision_applied=plan.code_revision))
@@ -1130,12 +1228,14 @@ async def _apply_scope_release(store, spec, *, scope: str,
             plan.reason))
         return
 
+    # Ревью F1: дрейф при НОВОЙ метке — снимок и активация заводской ревизии
+    # в ЭТОЙ ЖЕ транзакции (второй старт для применения не нужен).
     if state is not None and state.revision_id and current:
         drift = await _check_activation_drift(
-            store, spec, scope, chat_id, state, current, release_id)
+            store, spec, scope, chat_id, state, current, release_id,
+            activate_after=True)
         if drift is not None:
-            results.append(drift)
-            return
+            results.append(drift)   # ERROR-аудит + снимок; активация ниже
 
     if current is None:
         current = ""
@@ -1219,8 +1319,16 @@ def _source_updated_at(spec, cache) -> str:
 
 async def _check_activation_drift(store, spec, scope, chat_id,
                                   state: AppliedState, current: str,
-                                  release_id: str) -> BlockReleaseResult | None:
-    """Журнал говорит «applied», а активный текст другой → не угадывать (§1.4)."""
+                                  release_id: str, *,
+                                  activate_after: bool
+                                  ) -> BlockReleaseResult | None:
+    """Журнал говорит «applied», а активный текст другой → не угадывать (§1.4).
+
+    Ревью F1: снимок делается всегда, а дальнейшее зависит от метки — при
+    НОВОЙ метке (``activate_after=True``) заводская ревизия активируется в той
+    же транзакции вызывающим; при неизменённой метке активации нет (рестарт —
+    истинный no-op, снимок известен журналу, повторных ERROR не будет).
+    """
     if not current.strip():
         return None             # пустой активный текст — не дрейф
     rev = await store.get_revision(state.revision_id)
@@ -1233,12 +1341,15 @@ async def _check_activation_drift(store, spec, scope, chat_id,
                                pr.sha12(current)))
         if existing is not None:
             return None
+    disposition = ("снимок зафиксирован; заводская ревизия новой метки "
+                   "активируется в этой же транзакции" if activate_after else
+                   "метка не новее применённой — активации нет, рестарт "
+                   "остаётся no-op")
     logger.error(
         "[prompt_release] activation_drift | block=%s | scope=%s | chat=%s | "
         "journal_rev=%s | journal_sha=%s | active_sha=%s — источник истины "
-        "на этот старт: PG-значение; заводской текст заново не включается "
-        "до новой метки", spec.block_id, scope, chat_id, state.revision_id,
-        rev.content_sha12, pr.sha12(current))
+        "на этот старт: PG-значение (%s)", spec.block_id, scope, chat_id,
+        state.revision_id, rev.content_sha12, pr.sha12(current), disposition)
     snapshot = await _insert_revision_once(
         store, spec, origin="legacy", body=current, scope=scope,
         chat_id=chat_id, actor="", reason="drift_recovery",
@@ -1279,7 +1390,10 @@ async def _write_active_value(store, spec, scope: str, chat_id: int | None,
             doc = _doc_from_raw(raw)
         doc = _doc_with_field(doc, spec.pg_doc_field, value, set_level=False)
         doc_state[spec.pg_key] = dict(doc)
-        if store._tx_conn is not None:
+        if isinstance(store, PgPromptJournal):
+            if store._tx_conn is None:       # pragma: no cover
+                raise PromptJournalError(
+                    "doc write outside release transaction")
             await store._tx_conn.execute(_UPSERT_BOT_SETTING_SQL, spec.pg_key,
                                          json.dumps(doc), "content")
         else:
@@ -1569,25 +1683,95 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
         precedes = await store.revision_precedes(revision_id,
                                                  state.revision_id)
         kind = "manual_rollback" if precedes else "manual_forward"
-    result = await write_versioned_value(
-        block_id, revision.body, cache=cache, store=store, scope=scope,
-        chat_id=chat_id, actor=actor, reason=f"activate:{revision.origin}",
-        kind=kind)
-    result["activated_revision"] = revision_id
-    result["activated_origin"] = revision.origin
-    result["activation_kind"] = kind
-    return result
+    # Ревью F2: активация указывает на ЗАПРОШЕННУЮ ревизию — клона origin=manual
+    # не создаётся; байты записываются, origin сохраняется у самой ревизии
+    # (rollback на manual-правку остаётся manual, forward на заводскую —
+    # factory); ``factory_revision_applied`` не сбрасывается.
+    async with store.transaction() as tx:
+        try:
+            outcome = "applied"
+            if scope == "global":
+                previous = _spec_current_text(spec, cache)
+                if previous == revision.body:
+                    outcome = "skipped_same"
+                else:
+                    await _write_active_value(
+                        store, spec, scope, chat_id, revision.body,
+                        current_doc=(_spec_current_doc(spec, cache)
+                                     if spec.pg_doc_field else None))
+            else:
+                same = await _read_override_value(store, int(chat_id or 0),
+                                                  spec.pg_key)
+                if same == revision.body:
+                    outcome = "skipped_same"
+                else:
+                    await _write_active_value(store, spec, scope, chat_id,
+                                              revision.body)
+            await store.insert_activation(ActivationRow(
+                block_id=spec.block_id, scope=scope, chat_id=chat_id,
+                revision_id=revision.revision_id,
+                factory_revision_applied=(state.factory_revision_applied
+                                          if state is not None else ""),
+                kind=kind, outcome=outcome, release_id="",
+                actor=str(actor or ""),
+                detail_code=f"activate:{revision.origin}"))
+        except Exception:
+            logger.error("[prompt_release] активация ревизии отменена | "
+                         "block=%s | revision=%s", spec.block_id,
+                         revision_id, exc_info=True)
+            raise
+    if outcome == "applied" and cache is not None and scope == "global":
+        try:
+            category = "content" if spec.pg_doc_field else "prompts"
+            value: object = revision.body
+            if spec.pg_doc_field:
+                from services.prompt_factory import _doc_from_raw
+                raw = cache.get(spec.pg_key, None)
+                value = _doc_with_field_public(_doc_from_raw(raw),
+                                               spec.pg_doc_field,
+                                               revision.body)
+            await cache.set(spec.pg_key, value, category)
+        except Exception:      # pragma: no cover — память не роняет активацию
+            logger.warning("[prompt_release] кэш памяти не обновлён | "
+                           "key=%s", spec.pg_key, exc_info=True)
+    if scope == "chat" and chat_id is not None:
+        try:
+            from services.chat_params import get_chat_params_cache
+            chat_cache = get_chat_params_cache()
+            if chat_cache is not None:
+                await chat_cache.invalidate_chat(int(chat_id))
+        except Exception:          # pragma: no cover — fail-open
+            pass
+    logger.info("[prompt_release] revision activated | block=%s | scope=%s | "
+                "chat=%s | rev=%s | origin=%s | kind=%s | outcome=%s | "
+                "actor=%s", spec.block_id, scope, chat_id,
+                revision.revision_id, revision.origin, kind, outcome,
+                str(actor or ""))
+    return {"applied": outcome == "applied", "reason": "ok",
+            "block_id": spec.block_id, "pg_key": spec.pg_key,
+            "scope": scope, "chat_id": chat_id,
+            "revision_id": revision.revision_id,
+            "sha256_12": revision.content_sha12,
+            "factory_revision_applied": (state.factory_revision_applied
+                                         if state is not None else ""),
+            "outcome": outcome, "journal_recorded": True,
+            "activated_revision": revision_id,
+            "activated_origin": revision.origin,
+            "activation_kind": kind}
 
 
 async def list_versions(block_id: str, *, scope: str = "global",
                         chat_id: int | None = None, cache=None,
-                        store=None) -> dict:
+                        store=None, actor=None) -> dict:
     """Данные «Истории версий» (EVOL-017): активная ревизия, заводская,
     хронология ревизий и событий включения. Тексты по умолчанию не отдаются
-    (источник просмотра — ``get_revision_source``/``diff_revisions``)."""
+    (источник просмотра — ``get_revision_source``/``diff_revisions``).
+    Ревью F4: доступ через hook полномочий (checker, иначе непустой actor)."""
     spec = pr.block(block_id)
     if spec is None:
         return {"block_id": block_id, "known": False}
+    check_permission(str(actor or ""), "prompt.list_versions",
+                     block_id=block_id, scope=scope, chat_id=chat_id)
     store = store if store is not None else default_journal(cache)
     revisions: list = []
     activations: list = []
@@ -1649,8 +1833,11 @@ def _revision_chars(store, revision: RevisionRow) -> int:
 
 
 async def get_revision_source(revision_id: str, *, cache=None,
-                              store=None) -> dict:
-    """Полный текст ревизии (просмотр/diff-источник в EVOL-017)."""
+                              store=None, actor=None) -> dict:
+    """Полный текст ревизии (просмотр/diff-источник в EVOL-017).
+    Ревью F4: доступ через hook полномочий; тела промптов в логи не пишутся."""
+    check_permission(str(actor or ""), "prompt.get_revision_source",
+                     revision_id=revision_id)
     store = store if store is not None else default_journal(cache)
     if store is None:
         return {"known": False, "reason": "journal_unavailable",
@@ -1667,10 +1854,15 @@ async def get_revision_source(revision_id: str, *, cache=None,
 
 
 async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
-                         store=None) -> dict:
-    """Сравнение двух ревизий (существующий ``difflib``, не новый движок)."""
-    a = await get_revision_source(revision_a, cache=cache, store=store)
-    b = await get_revision_source(revision_b, cache=cache, store=store)
+                         store=None, actor=None) -> dict:
+    """Сравнение двух ревизий (существующий ``difflib``, не новый движок).
+    Ревью F4: доступ через hook полномочий."""
+    check_permission(str(actor or ""), "prompt.diff_revisions",
+                     revision_a=revision_a, revision_b=revision_b)
+    a = await get_revision_source(revision_a, cache=cache, store=store,
+                                  actor=actor)
+    b = await get_revision_source(revision_b, cache=cache, store=store,
+                                  actor=actor)
     if not a.get("known") or not b.get("known"):
         return {"known": False,
                 "reason": a.get("reason") or b.get("reason") or "unknown"}

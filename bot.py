@@ -1375,10 +1375,11 @@ async def main():
     from services.bot_persona import load_global_cache
     await load_global_cache()
 
-    # ── Раунд 5 (T-740, spec 3.3.4): авто-миграция канонов промптов в PG
-    # (9 ключей; канон → новый канон; кастом юзера НЕ трогаем; PG down /
-    # ключ отсутствует → skip с логом [prompt_migration]). Заменяет
-    # migrate_direct_chat_prompt_if_legacy (удалена из chat_prompts.py).
+    # ── EVOL-016/012 (30.10.2026): релизная политика промптов — делегатор.
+    # Активацию решает автомат по метке заводской ревизии + печати
+    # (prompt_release_policy.apply_release); строковые лестницы канонов и
+    # барьер «кастом юзера НЕ трогаем» сняты (решение владельца 29.10.2026).
+    # PG down → skip с INFO (активация из констант запрещена).
     from services.prompt_migrations import migrate_prompt_canons
     await migrate_prompt_canons(cache)
 

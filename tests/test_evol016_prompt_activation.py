@@ -229,16 +229,34 @@ async def test_manual_restore_via_activate_revision(edition, store):
                                       store=store, actor="owner")
     assert res["applied"] and cache.values[PG_KEY] == MANUAL_M
     assert res["activation_kind"] == "manual_rollback"
+    # Ревью F2: указатель — на ЗАПРОШЕННУЮ ревизию (клона нет)
+    assert res["revision_id"] == manual.revision_id
+    state = await store.read_applied(BLOCK, "global", None)
+    assert state.revision_id == manual.revision_id
+    assert state.factory_revision_applied == pr.sealed_factory_revision(BLOCK)
     # рестарт не возвращает B: factory_revision_applied сохранён
     await _cutover(cache, store, release_id="restart-after-rollback")
     assert cache.values[PG_KEY] == MANUAL_M
     # вперед: возврат к заводской B — тоже через журнал
     factory_b = [r for r in _revisions_of(store, origin="factory")
                  if r.content_sha12 == pr.sha12(FACTORY_B)][0]
+    revs_before = len(store.revisions)
     fwd = await prp.activate_revision(BLOCK, factory_b.revision_id,
                                       cache=cache, store=store, actor="owner")
     assert fwd["applied"] and fwd["activation_kind"] == "manual_forward"
+    # Ревью F2: forward на заводскую ревизию НЕ клонирует её (origin=factory
+    # остаётся у запрошенной ревизии, указатель == запрошенный id)
+    assert fwd["revision_id"] == factory_b.revision_id
+    assert len(store.revisions) == revs_before          # клонов нет
+    state = await store.read_applied(BLOCK, "global", None)
+    assert state.revision_id == factory_b.revision_id
+    pointer_rev = await store.get_revision(state.revision_id)
+    assert pointer_rev.origin == "factory"
     assert cache.values[PG_KEY] == FACTORY_B
+    # list_versions показывает заводское происхождение активной ревизии
+    view = await prp.list_versions(BLOCK, store=store, actor="owner")
+    assert view["active"]["revision_id"] == factory_b.revision_id
+    assert view["active"]["origin"] == "factory"
 
 
 # ── 6. Неизвестный legacy-текст: снимок + cutover, повтор no-op ─────────────
@@ -466,10 +484,11 @@ async def test_schema_incompatible_revision_not_activatable(edition, store):
     assert res["applied"] is False
     assert res["reason"] == "schema_incompatible"
     assert cache.values[PG_KEY] == FACTORY_A      # активный не менялся
-    # просмотр доступен (EVOL-017: читать/сравнивать можно)
-    src = await prp.get_revision_source(old.revision_id, store=store)
+    # просмотр доступен (EVOL-017: читать/сравнивать можно; ревью F4 — actor)
+    src = await prp.get_revision_source(old.revision_id, store=store,
+                                        actor="owner")
     assert src["known"] and src["body"] == "СОВСЕМ СТАРАЯ ВЕРСИЯ\n"
-    view = await prp.list_versions(BLOCK, store=store)
+    view = await prp.list_versions(BLOCK, store=store, actor="owner")
     row = [r for r in view["revisions"]
            if r["revision_id"] == old.revision_id][0]
     assert row["schema_compat"] == "pre-evol-schema-v1"
@@ -536,10 +555,13 @@ async def test_history_frozen_after_cutover(edition, store):
     assert len(doc["items"].get(BLOCK, [])) == 1   # не вырос
 
 
-# ── 14. Дрейф журнала и активного значения ─────────────────────────────────
+# ── 14. Дрейф журнала и активного значения (ревью F1) ──────────────────────
 
 @pytest.mark.asyncio
 async def test_activation_drift_honest_no_guess(edition, store):
+    """Дрейф при НОВОЙ метке: один ERROR + снимок + активация заводской
+    ревизии в ТОЙ ЖЕ транзакции (ревью F1 — второй старт не нужен);
+    последующие рестарты — истинный no-op."""
     cache = FakeCache({PG_KEY: FACTORY_A})
     await _cutover(cache, store)
     # «чужая» SQL-правка активного значения мимо журнала (авария/restore)
@@ -548,19 +570,65 @@ async def test_activation_drift_honest_no_guess(edition, store):
     edition.set_edition(BLOCK, "narrator-b", FACTORY_B)
     result = await prp.apply_release(cache, release_id="deploy-b", store=store,
                                      blocks=[BLOCK])
-    rows = _rows_by_outcome(result)
-    assert rows[(BLOCK, "global", None)].detail_code == "activation_drift"
-    # источник истины — PG-значение: заводской текст заново НЕ включён
-    assert cache.values[PG_KEY] == drifted
-    # дрейф снят в ревизию (origin=legacy, reason=drift_recovery)
+    # дрейф зафиксирован ОДИН раз в этом же применении
+    drift_rows = [r for r in result["results"]
+                  if r.detail_code == "activation_drift"]
+    assert len(drift_rows) == 1
+    # снимок дрейфа существует (origin=legacy, reason=drift_recovery)
     snap = [r for r in _revisions_of(store, origin="legacy")
             if r.reason == "drift_recovery"]
     assert len(snap) == 1
-    # следующая НОВАЯ метка снова включает заводской текст
-    edition.set_edition(BLOCK, "narrator-c", FACTORY_C)
-    await prp.apply_release(cache, release_id="deploy-c", store=store,
+    # и заводская ревизия новой метки активирована В ТОМ ЖЕ apply
+    assert cache.values[PG_KEY] == FACTORY_B
+    activations = [r for r in result["results"]
+                   if r.block_id == BLOCK and r.scope == "global"
+                   and r.action == "activate"]
+    assert len(activations) == 1
+    assert activations[0].outcome == "applied"
+    assert activations[0].factory_revision_applied == \
+        pr.sealed_factory_revision(BLOCK)
+    # последующие рестарты — истинный no-op: ни строки, ни записи
+    before = (len(store.activations), len(store.revisions))
+    cache.set_calls.clear()
+    await prp.apply_release(cache, release_id="restart-1", store=store,
                             blocks=[BLOCK])
-    assert cache.values[PG_KEY] == FACTORY_C
+    await prp.apply_release(cache, release_id="restart-2", store=store,
+                            blocks=[BLOCK])
+    assert (len(store.activations), len(store.revisions)) == before
+    assert cache.set_calls == []
+    assert cache.values[PG_KEY] == FACTORY_B
+
+
+@pytest.mark.asyncio
+async def test_activation_drift_on_plain_restart_is_true_noop(edition, store,
+                                                              caplog):
+    """Дрейф на рестарте БЕЗ новой метки: один ERROR + снимок, активации
+    нет (метка не новее применённой), рестарт остаётся истинным no-op."""
+    cache = FakeCache({PG_KEY: FACTORY_A})
+    await _cutover(cache, store)
+    drifted = "ЗНАЧЕНИЕ ПОСЛЕ АВАРИЙНОГО ВОССТАНОВЛЕНИЯ (без метки)\n"
+    cache.values[PG_KEY] = drifted
+    with caplog.at_level("ERROR", logger="services.prompt_release_policy"):
+        result = await prp.apply_release(cache, release_id="restart-drift",
+                                         store=store, blocks=[BLOCK])
+    drift_rows = [r for r in result["results"]
+                  if r.detail_code == "activation_drift"]
+    assert len(drift_rows) == 1
+    # активаций нет: метка не новее применённой
+    assert not [r for r in result["results"] if r.action == "activate"]
+    # активный PG-текст остаётся источником истины
+    assert cache.values[PG_KEY] == drifted
+    snap = [r for r in _revisions_of(store, origin="legacy")
+            if r.reason == "drift_recovery"]
+    assert len(snap) == 1
+    # повторный рестарт: снимок известен журналу — молча, без новых строк
+    before = (len(store.activations), len(store.revisions))
+    result2 = await prp.apply_release(cache, release_id="restart-2",
+                                      store=store, blocks=[BLOCK])
+    assert (len(store.activations), len(store.revisions)) == before
+    assert all(r.detail_code != "activation_drift"
+               for r in result2["results"])
+    assert cache.values[PG_KEY] == drifted
 
 
 # ── Автомат: чистая функция (пограничные решения) ──────────────────────────
@@ -617,3 +685,219 @@ async def test_permission_hook_enforced(edition, store, monkeypatch):
     assert ok["applied"]
     assert ok["activation_kind"] == "manual_rollback"
     assert cache.values[PG_KEY] == FACTORY_A
+
+
+# ── Ревью F4: hook полномочий на ВСЕХ API журнала ──────────────────────────
+
+@pytest.mark.asyncio
+async def test_permission_hook_covers_read_apis(edition, store, monkeypatch):
+    """Без checker'а пустой actor → PromptPermissionError на всех четырёх;
+    установленный checker управляет доступом; тела промптов в логи не пишутся."""
+    cache = FakeCache({PG_KEY: FACTORY_A})
+    await _cutover(cache, store)
+    with pytest.raises(prp.PromptPermissionError):
+        await prp.list_versions(BLOCK, store=store)
+    with pytest.raises(prp.PromptPermissionError):
+        await prp.get_revision_source("rev:whatever", store=store)
+    with pytest.raises(prp.PromptPermissionError):
+        await prp.diff_revisions("rev:a", "rev:b", store=store)
+    # непустой actor без checker'а — сервисное правило: доступ разрешён
+    view = await prp.list_versions(BLOCK, store=store, actor="runbook")
+    assert view["known"] is True
+    # установленный checker: deny для чужого, allow для своего
+    monkeypatch.setattr(
+        prp, "_permission_checker",
+        lambda actor, action, ctx: actor == "admin")
+    with pytest.raises(prp.PromptPermissionError):
+        await prp.list_versions(BLOCK, store=store, actor="intruder")
+    with pytest.raises(prp.PromptPermissionError):
+        await prp.get_revision_source("rev:whatever", store=store,
+                                      actor="intruder")
+    with pytest.raises(prp.PromptPermissionError):
+        await prp.diff_revisions("rev:a", "rev:b", store=store,
+                                 actor="intruder")
+    ok = await prp.list_versions(BLOCK, store=store, actor="admin")
+    assert ok["known"] is True
+    monkeypatch.setattr(prp, "_permission_checker", None)
+
+
+# ── Ревью F5: транзакционная семантика стора (один «коннект») ──────────────
+
+class SplitReadJournal(prp.MemoryPromptJournal):
+    """Эмуляция СТАРОГО бага (ревью F5): чтения идут мимо tx-коннекта —
+    видят только committed-состояние; ``mark_retired`` коммитится отдельно
+    (автокоммит до коммита релиза). Существовал для доказательства, что
+    тесты ловят split-connection состояния."""
+
+    async def read_applied(self, block_id, scope, chat_id):
+        saved, self._live = self._live, self._committed
+        try:
+            return await super().read_applied(block_id, scope, chat_id)
+        finally:
+            self._live = saved
+
+    async def has_import(self, block_id, scope, chat_id):
+        saved, self._live = self._live, self._committed
+        try:
+            return await super().has_import(block_id, scope, chat_id)
+        finally:
+            self._live = saved
+
+    async def get_revision(self, revision_id):
+        saved, self._live = self._live, self._committed
+        try:
+            return await super().get_revision(revision_id)
+        finally:
+            self._live = saved
+
+    async def known_block_ids(self):
+        saved, self._live = self._live, self._committed
+        try:
+            return await super().known_block_ids()
+        finally:
+            self._live = saved
+
+    async def mark_retired(self, block_ids):
+        # автокоммит мимо транзакции: пишем в committed напрямую
+        saved, self._live = self._live, self._committed
+        try:
+            return await super().mark_retired(block_ids)
+        finally:
+            self._live = saved
+
+
+@pytest.mark.asyncio
+async def test_tx_store_hides_uncommitted_writes_from_outside(edition):
+    """Хороший стор: записи транзакции невидимы снаружи до коммита и
+    откатываются целиком (семантика одного коннекта, ревью F5)."""
+    store = prp.MemoryPromptJournal()
+    row = prp.RevisionRow(
+        revision_id="rev:txtest", block_id=BLOCK, scope="global",
+        origin="manual", content_sha12="abc", body="x")
+    async with store.transaction():
+        await store.insert_revision(row)
+        # внутри транзакции — своя запись видна
+        assert await store.get_revision("rev:txtest") is not None
+        # снаружи («другой коннект») — ещё нет: committed не изменился
+        assert "rev:txtest" not in store._committed.revisions
+    # после коммита — опубликовано
+    assert await store.get_revision("rev:txtest") is not None
+    # откат
+    with pytest.raises(RuntimeError, match="crash"):
+        async with store.transaction():
+            await store.insert_revision(prp.RevisionRow(
+                revision_id="rev:rollback", block_id=BLOCK, scope="global",
+                origin="manual", content_sha12="zzz", body="y"))
+            raise RuntimeError("crash")
+    assert await store.get_revision("rev:rollback") is None
+
+
+@pytest.mark.asyncio
+async def test_split_connection_store_is_caught_by_partial_retire(edition):
+    """Доказательство, что тесты ловят split-connection баг (ревью F5):
+    стор, чей ``mark_retired`` коммитится мимо транзакции, оставляет
+    частичное состояние после крэша — хороший стор откатывает всё целиком.
+    (Чтения мимо tx дополнительно проверены крэш-тестом ниже.)"""
+    removed = "legacy.gone.block"
+    results = {}
+    for name, store in (("good", prp.MemoryPromptJournal()),
+                        ("split", SplitReadJournal())):
+        cache = FakeCache({PG_KEY: FACTORY_A})
+        prp_default = prp.default_journal
+        prp.default_journal = lambda cache=None, _s=store: _s
+        try:
+            # ревизия снятого с регистрации блока — уже в committed
+            await store.insert_revision(prp.RevisionRow(
+                revision_id="rev:gone", block_id=removed, scope="global",
+                origin="legacy", content_sha12="ggg", body="старый текст"))
+            store.fail_at = "tx_exit"                # крэш на коммите
+            with pytest.raises(prp.PromptJournalError):
+                await prp.apply_release(cache, release_id="crash",
+                                        store=store, blocks=[BLOCK])
+            store.fail_at = None
+            results[name] = (removed in store.retired_blocks,
+                             any(r.block_id == BLOCK
+                                 for r in store.revisions.values()),
+                             "rev:gone" in store.revisions)
+        finally:
+            prp.default_journal = prp_default
+            pr.set_release_policy_active(False)
+            pr.reset_cache()
+    # хороший стор: крэш откатил ВСЁ — retired не зафиксирован, ревизий
+    # релиза нет, seed-ревизия снятого блока цела
+    assert results["good"] == (False, False, True), results
+    # split-стор: retired=true закоммичен отдельно до крэша — частичное
+    # состояние (баг, который ловит тест)
+    assert results["split"][0] is True, results
+
+
+# ── Ревью F5: PG advisory-лок — отказ лока отвергает пакет ─────────────────
+
+class _FakeLockPgConn:
+    """Минимальный asyncpg-подобный коннект: execute/fetchrow/fetchval/fetch."""
+
+    def __init__(self, store_mirror, fail_on_lock: bool):
+        self._mirror = store_mirror
+        self._fail_on_lock = fail_on_lock
+
+    async def execute(self, sql, *args):
+        if "pg_advisory_xact_lock" in sql:
+            if self._fail_on_lock:
+                raise RuntimeError("advisory lock unavailable")
+            return "SELECT 1"
+        if "_MARK_RETIRED_SQL_MARKER" in sql:
+            return "UPDATE 0"
+        return "UPDATE 0"
+
+    async def fetchrow(self, sql, *args):
+        return None
+
+    async def fetchval(self, sql, *args):
+        return None
+
+    async def fetch(self, sql, *args):
+        return []
+
+    def transaction(self):
+        tx = self
+
+        class _Tx:
+            async def start(self):
+                return None
+
+            async def commit(self):
+                return None
+
+            async def rollback(self):
+                return None
+        return _Tx()
+
+
+class _FakeLockPgPool:
+    def __init__(self, fail_on_lock: bool):
+        self.fail_on_lock = fail_on_lock
+        self.released = 0
+
+    async def acquire(self):
+        return _FakeLockPgConn({}, self.fail_on_lock)
+
+    async def release(self, conn):
+        self.released += 1
+
+
+@pytest.mark.asyncio
+async def test_pg_advisory_lock_failure_refuses_package():
+    """Ревью F5: отказ advisory-лока поднимается из transaction() (пакет
+    отклонён, fail-closed) и коннект возвращается в пул — никакого тихого
+    skip с продолжением применения."""
+    store = prp.PgPromptJournal(_FakeLockPgPool(fail_on_lock=True))
+    with pytest.raises(RuntimeError, match="advisory lock"):
+        await store.transaction().__aenter__()
+    pool = store._pool
+    assert pool.released == 1               # коннект возвращён
+    # исправный лок — транзакция открывается, _tx_conn привязан и снят
+    store_ok = prp.PgPromptJournal(_FakeLockPgPool(fail_on_lock=False))
+    async with store_ok.transaction() as tx:
+        assert tx._tx_conn is not None
+    assert store_ok._tx_conn is None
+    assert store_ok._pool.released == 1

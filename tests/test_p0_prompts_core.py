@@ -101,10 +101,11 @@ def _withheld_text(block_id: str) -> str:
 
 def test_factory_fingerprint_and_labels_after_p0_changes():
     assert pr.FACTORY_SET_SHA256_12 == pr.factory_set_fingerprint()
-    # Пин актуализирован 30.10.2026 (EVOL-016/018 W2A): бампы NOST-REWORK
-    # W1/W2 (986108f6d63c -> fbc44eb0f879), затем регистрация 9 отставших
-    # шаблонов grep-аудита + FACTORY_REVISION_SEALS -> b980947c71aa.
-    assert pr.FACTORY_SET_SHA256_12 == "b980947c71aa"
+    # Пин актуализирован 30.10.2026 (EVOL-016/018 W2B, ревью F3): W2A
+    # (9 шаблонов + печати, b980947c71aa), затем расширенный аудит — ещё 9
+    # живых LLM-инструкций (temporal/memory-rerank/search/cover) ->
+    # c1535d3d4252.
+    assert pr.FACTORY_SET_SHA256_12 == "c1535d3d4252"
     assert pr.FACTORY_REVISION_LABELS["checkup.base.system"] == \
         "checkup-p0-24-10"
     assert pr.FACTORY_REVISION_LABELS[pr.CORE_FULL_BLOCK_ID] == \

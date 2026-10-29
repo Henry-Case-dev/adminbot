@@ -174,4 +174,4 @@ def test_fingerprint_constant_matches_recomputed_registry():
     # квота {max_words} удалена, «объём ≠ интересность», протокольный номер
     # блока «SAY <№>» (метка nostalgia-nost-rework-w2; прежние байты W1 —
     # PREV_*_1027W1; было 986108f6d63c, стало fbc44eb0f879).
-    assert pr.FACTORY_SET_SHA256_12 == "b980947c71aa"
+    assert pr.FACTORY_SET_SHA256_12 == "c1535d3d4252"

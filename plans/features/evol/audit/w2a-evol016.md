@@ -504,3 +504,139 @@ p0b F2 (url-less = не доказательство). Ветка evol/impl и W
 `WorkspaceData/runs/c742e4de9e92c489/` (debug_evidence*.py, probe_*.py);
 bisect-worktree удалены после использования, `git worktree list` чист.
 
+---
+
+# Приложение B (30.10.2026): Fixes F1–F5 по ревью W2a
+
+Статус: все 5 блокеров исправлены по руководству ревьюера; контракта не
+меняли (`plans/features/evol/arch/contracts.md` отвечал на все вопросы).
+Прогоны после фиксов: EVOL-батарея (11 файлов) **175 passed**; расширенная
+батарея legacy (12 переписанных файлов + смежные) — passed, кроме ранее
+задокументированных пре-существующих (см. §Приложение A и §6);
+`compileall services` exit 0.
+
+## B.1 F1 — дрейф: рестарт больше не меняет активный промпт
+
+**Было:** дрейф-ветка возвращалась до обновления указателя → следующий
+`apply_release` с ТОЙ ЖЕ меткой видел «метка новее» и применял заводской
+текст вторым стартом.
+**Стало** (`_apply_scope_release` + `_check_activation_drift(...,
+activate_after)`):
+* метка НОВЕЕ применённой (план activate/cutover) → один ERROR + снимок
+  `drift_recovery` + активация заводской ревизии **в той же транзакции**
+  (второго старта нет);
+* метка НЕ новее (план noop — дрейф обнаруживается и на рестарте) → один
+  ERROR + снимок, активации нет; снимок известен журналу → повторные
+  рестарты молчат (истинный no-op, указатель не тронут).
+**Тест:** `test_activation_drift_honest_no_guess` переписан (drift-строка +
+snapshot + `action="activate"` outcome=applied с новой меткой в одном apply;
+два рестарта — 0 строк, 0 записей) + новый
+`test_activation_drift_on_plain_restart_is_true_noop` (ERROR один раз,
+активаций нет, повторный рестарт молчит).
+
+## B.2 F2 — `activate_revision` активирует ЗАПРОШЕННУЮ ревизию, не клон
+
+**Было:** делегация в `write_versioned_value` → всегда новая ревизия
+`origin=manual` (rev:7cb8… вместо запрошенной rev:ccf5…).
+**Стало:** `activate_revision` ведёт собственную транзакцию: запись байтов
+запрошенной ревизии + строка активации с `revision_id = запрошенный`;
+клона нет; `factory_revision_applied` сохраняется; origin принадлежит самой
+ревизии (rollback на manual-правку остаётся `manual`, forward на заводскую —
+`factory`); после коммита — синхронизация памяти кэша (включая doc-поля
+Core) и инвалидация чат-кэша.
+**Тест:** `test_manual_restore_via_activate_revision` расширен — указатель ==
+запрошенный id (`read_applied` + результат), `len(store.revisions)` не
+растёт при forward, `get_revision(pointer).origin == "factory"`,
+`list_versions(..., actor=...)['active']` показывает заводское
+происхождение, а не «изменена в админке».
+
+## B.3 F3 — grep-аудит ловит приватные/скобочные константы; 9 живых
+инструкций зарегистрированы
+
+**Сканер** (`audit_unregistered_prompt_constants`):
+* имена с ведущим подчёркиванием аудируются (из исключений оставлены только
+  контрактные `PREV_*`/`LEGACY_*`);
+* скобочная конкатенация (`NAME = ("…" "…")`, в т.ч. без тройных кавычек —
+  `temporal_factcheck.TEMPORAL_*`) — кандидат при длине блока > 80;
+* граница не расширена: f-string сборки запросов/переписка/tool results не
+  сканируются (контракт §1.7.5).
+**Evidence до фикса:** аудит находил ровно 10 — 9 живых инструкций +
+`media_send._QUALITY_PROMPT` (кнопочный лейбл → allowlist с причиной,
+не регистрация).
+**Регистрация** (declare_prompt + печати, sha12 констант проставлены;
+запрещённые файлы НЕ редактировались — только `code_source`-ссылки):
+`temporal.analyst/validator/fallback` (factcheck_service.py:1471/1476/1512/1531),
+`memory.fact_retry` (:3446), `memory.memorize_compress` (:1305),
+`memory.chat_rag_rerank` (:4339), `search.rerank` (search_service.py:121),
+`direct.history_segment` (direct_chat_service.py:5226),
+`cover.scene_verify` (cover_style_jobs.py:1889).
+**Evidence после фикса:** `audit_unregistered_prompt_constants(...) == []`;
+`seal_integrity() == {}`; отпечаток набора `b980947c71aa → c1535d3d4252`
+(пины в моих тестах `test_p0_prompts_core.py`,
+`test_expression_isolation_followup.py` выровнены).
+
+## B.4 F4 — hook полномочий на всех API журнала
+
+`check_permission` добавлен в начало `list_versions`,
+`get_revision_source`, `diff_revisions` (в дополнение к
+`activate_revision`); `actor=None` прокинут в делегаты
+`prompt_factory.list_versions/get_revision_source/diff_revisions/
+list_revisions`. Без checker'а пустой actor → `PromptPermissionError`;
+тела промптов в логи не пишутся (ни один лог-вызов не содержит body).
+**Тест:** `test_permission_hook_covers_read_apis` — все четыре API: пустой
+actor без checker'а → отказ; непустой actor без checker'а → сервисное
+правило (доступ); checker deny → отказ на всех четырёх; checker allow →
+работает.
+
+## B.5 F5 — применение релиза в ОДНОЙ транзакции
+
+* **PG-стор**: все операции журнала (`read_applied`, `has_import`,
+  `get_revision`, `known_block_ids`, `list_*`, `insert_*`,
+  `iter_chat_overrides`, `mark_retired`, `read_global`) идут через
+  `_run_on_conn` → внутри применения это ТОТ ЖЕ коннект (`_tx_conn`),
+  собственные незакоммиченные записи видимы; `mark_retired` фиксируется
+  КОММИТОМ релиза (никакого автокоммита до него).
+* **Advisory-лок**: проглатывание ошибки убрано — отказ лока поднимается из
+  `transaction().__aenter__`, транзакция откатывается, коннект возвращается
+  в пул, применение пакета ОТКЛОНЕНО (fail-closed, без тихого skip).
+* **Memory-стор** получил ту же семантику соединений (`_committed`/`_live`:
+  транзакция работает на клоне, коммит публикует, откат отбрасывает) —
+  тесты теперь exercising транзакционный путь.
+**Тесты:** `test_tx_store_hides_uncommitted_writes_from_outside` (записи tx
+невидимы снаружи до коммита; откат целиком);
+`test_split_connection_store_is_caught_by_partial_retire` (SplitReadJournal —
+эмуляция старого бага с автокоммитом `mark_retired`: после крэша остаётся
+частичное состояние `retired=true` — доказательство, что тест ловит класс
+бага; хороший стор откатывает всё);
+`test_pg_advisory_lock_failure_refuses_package` (отказ лока → исключение,
+коннект возвращён; исправный лок → `_tx_conn` привязан/снят корректно).
+
+## B.6 Nonblocking-чистки
+
+* Мёртвое тело старого `migrate_core_owner_patch` (B1, затенённое отказной
+  версией) удалено из `prompt_migrations.py`.
+* `bot.py:1378` — комментарий переписан под делегацию релизной политики
+  (упоминание «кастом юзера НЕ трогаем» убрано); правка ограничена комментарием.
+* `write_speech_value` (chat-ветка): `journal_recorded` теперь отражает
+  фактический результат `record_manual_activation` (честный флаг), а не
+  безусловный True.
+* Пины счётчиков каталога параллельного лейна не затронуты (мои изменения
+  каталог не меняют); `test_round1025_f8_registry` в текущем дереве зелёный
+  (базлайны выровнены параллельным лейном).
+
+## B.7 Итоговые прогоны
+
+* EVOL-батарея: `test_evol016_prompt_activation` (21, включая новые
+  F1/F2/F4/F5-тесты) + `test_evol012_barrier_retired` +
+  `test_evol018_prompt_audit` + `test_prompt_migrations` +
+  `test_p0_prompts_core` + `test_summary_asap21_prompt_migrations` +
+  `test_p0_checkup_core_contract` + `test_expression_isolation_followup` +
+  `test_soul1_factory_defaults` + `test_evol015_quote_pipeline` +
+  `test_factcheck_post_release_w2` = **175 passed**.
+* Расширенная legacy-батарея (12 переписанных + смежные): passed, красные
+  только документированные пре-существующие (`catalog_delta_sanctioned`,
+  `off_chain_byte_identical_single_call`,
+  `legacy_persona_canons_...deep_research`,
+  `entry_lives_inside_ai...` — все доказаны на базе 28d55bd1, §Приложение A/§6).
+* `compileall services` — exit 0.
+

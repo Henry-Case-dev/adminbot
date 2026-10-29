@@ -521,10 +521,11 @@ async def write_speech_value(block_id: str, text: str, *, cache=None,
             chat_id=int(chat_id), expected_updated_at=expected_updated_at,
             pg=pg, get_root=get_root, set_root=set_root)
         if legacy.get("applied") and cache is not None:
-            await prp.record_manual_activation(
+            recorded = await prp.record_manual_activation(
                 block_id, value, scope="chat", chat_id=int(chat_id),
                 actor=actor, reason=reason or "owner_edit", cache=cache)
-            legacy["journal_recorded"] = True
+            # Ревью (nonblocking): честный флаг — журнал мог не записать.
+            legacy["journal_recorded"] = bool(recorded.get("recorded"))
         else:
             legacy.setdefault("journal_recorded", False)
         return legacy
@@ -1017,15 +1018,20 @@ async def activate_revision(block_id: str, revision_id: str, *, scope: str =
 
 
 async def list_revisions(block_id: str, *, chat_id: int | None = None,
-                         cache=None, store=None) -> list[dict]:
+                         cache=None, store=None,
+                         actor=None) -> list[dict]:
     """Хронология ревизий блока (данные для UI истории версий)."""
     from services import prompt_release_policy as prp
     store = store if store is not None else prp.default_journal(cache)
     if store is None:
         return []
     try:
+        prp.check_permission(str(actor or ""), "prompt.list_revisions",
+                             block_id=block_id, chat_id=chat_id)
         await store.ensure_journal()
         rows = await store.list_revisions(block_id, chat_id)
+    except prp.PromptPermissionError:
+        raise
     except Exception:          # pragma: no cover — журнал не роняет view
         logger.warning("[prompt_factory] список ревизий недоступен",
                        exc_info=True)
@@ -1040,28 +1046,28 @@ async def list_revisions(block_id: str, *, chat_id: int | None = None,
 
 
 async def diff_revisions(revision_a: str, revision_b: str, *, cache=None,
-                         store=None) -> dict:
+                         store=None, actor=None) -> dict:
     """Diff двух ревизий (существующий difflib; EVOL-017 UI)."""
     from services import prompt_release_policy as prp
     return await prp.diff_revisions(revision_a, revision_b, cache=cache,
-                                    store=store)
+                                    store=store, actor=actor)
 
 
 async def get_revision_source(revision_id: str, *, cache=None,
-                              store=None) -> dict:
+                              store=None, actor=None) -> dict:
     """Полный текст ревизии (просмотр в UI истории версий)."""
     from services import prompt_release_policy as prp
     return await prp.get_revision_source(revision_id, cache=cache,
-                                         store=store)
+                                         store=store, actor=actor)
 
 
 async def list_versions(block_id: str, *, scope: str = "global",
                         chat_id: int | None = None, cache=None,
-                        store=None) -> dict:
+                        store=None, actor=None) -> dict:
     """Сводка «История версий»: активная ревизия, заводская, хронология."""
     from services import prompt_release_policy as prp
     return await prp.list_versions(block_id, scope=scope, chat_id=chat_id,
-                                   cache=cache, store=store)
+                                   cache=cache, store=store, actor=actor)
 
 
 __all__ = [
