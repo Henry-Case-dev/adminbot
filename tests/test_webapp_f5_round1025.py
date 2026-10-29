@@ -259,12 +259,18 @@ def test_connection_card_fields_and_disclosure():
 
 
 def test_no_new_endpoints_reused_only():
-    """F5 не добавляет НОВЫХ эндпоинтов (R16)."""
+    """F5 не добавляет НОВЫХ эндпоинтов (R16).
+
+    EVOL-017 (L-F11S-1, осознанная переквалификация): история версий
+    добавляет ``/api/prompts/...`` в существующий редактор, не новую
+    вкладку и не ``/api/module`` / ``/api/workspace``. Запрет F5 на эти
+    два префикса сохраняется.
+    """
     assert "'/api/llm/test'" in APP_JS
     assert "'/api/images/test'" in APP_JS
-    # Новых серверных маршрутов нет.
-    for forbidden in ("/api/module", "/api/workspace", "/api/prompts/"):
+    for forbidden in ("/api/module", "/api/workspace"):
         assert forbidden not in APP_JS, forbidden
+    assert "/api/prompts/" in APP_JS
 
 
 def test_api_keys_not_copied_into_module():

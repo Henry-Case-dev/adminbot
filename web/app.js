@@ -1452,6 +1452,15 @@
   var _avatarCache = new Map();
   var _AVATAR_CACHE_MAX = 200;
 
+  // ═══ EVOL-017: кэш состояния «Истории версий» промпта ═══
+  // Ключ `key|global` / `key|chat:<id>` → снапшот панели (data/selA/selB/
+  // diff/текст/скролл). Переключение промпта/области НЕ теряет выбор и
+  // позицию списка; свежесть 60 c (старше — честная перезагрузка), лимит
+  // 24 записи (вытеснение самой старой) — панель одна на фокус.
+  var _promptHistoryCache = new Map();
+  var _PROMPT_HISTORY_TTL_MS = 60000;
+  var _PROMPT_HISTORY_CACHE_MAX = 24;
+
   // ═══ F4 (graph-physics-stabilization-round1018, ADR-1018-4) ═══
   // Физика графа: короткая стабилизация (150 итераций вместо 250) и
   // авто-отключение physics после первичной расстановки по событию
@@ -2065,6 +2074,33 @@
           error: '',
           coverBusy: false,
           cover: null,
+        },
+        // EVOL-017: «История версий» активного промпта (панель в редакторе
+        // библиотеки). Ручная редакция — НОРМАЛЬНОЕ состояние (не авария);
+        // при провале активации активная версия остаётся, UI говорит об этом.
+        promptHistory: {
+          open: false,            // панель развернута
+          loading: false,
+          error: '',              // ошибка загрузки истории
+          data: null,             // ответ GET /api/prompts/<key>/versions
+          selA: '', selB: '',     // выбранные ревизии для сравнения
+          diff: null,             // строки unified-diff
+          diffLoading: false, diffError: '',
+          viewId: '',             // ревизия полного текста ("" — скрыт)
+          viewBody: '', viewLoading: false,
+          busyRev: '',            // activate в полёте (revision_id)
+          result: null,           // {ok: boolean, text: string}
+          cacheKey: '',           // ключ, под которым снимок лежит в кэше
+        },
+        // EVOL-017: каталог ВСЕХ зарегистрированных промптов на существующей
+        // вкладке «Промпты» (не новая вкладка меню). Внутренние/кодовые
+        // блоки видны для истории; включение — только у совместимых pg-ключей.
+        promptCatalog: {
+          open: false,
+          loading: false,
+          error: '',
+          families: [],
+          focusKey: '',
         },
         // MCA-19 (T-5103/T-5116): живая effective-линия карточки «Распознава­
         // ние изображений» (GET /api/vision/state при открытии вкладки
@@ -3403,12 +3439,63 @@
         });
         return out;
       },
+      // ═══ EVOL-017: «История версий» — computed ═══
+      // Ключ кэша состояния: промпт + область (global/chat:<id>). Смена
+      // промпта ИЛИ области → watcher перезагружает/восстанавливает панель.
+      promptHistoryCacheKey: function () {
+        if (this.promptCatalog && this.promptCatalog.focusKey
+            && !(this.workspace && this.workspace.promptKey)) {
+          return 'catalog:' + this.promptCatalog.focusKey + '|global';
+        }
+        var it = this.workspacePromptFocus;
+        if (!it || !it.key) return '';
+        return it.key + '|' + (this.activeChatId == null
+          ? 'global' : ('chat:' + this.activeChatId));
+      },
+      promptHistoryActiveLabel: function () {
+        var d = this.promptHistory.data;
+        if (!d) return '';
+        if (!d.active) return 'Активная версия не зафиксирована';
+        return this.phOriginLabel(d.active);
+      },
+      promptHistoryScopeLabel: function () {
+        var d = this.promptHistory.data;
+        if (!d) return '';
+        return d.scope === 'chat'
+          ? ('Область: чат ' + d.chat_id) : 'Область: глобальная';
+      },
+      // Время ревизии активной версии (честная метка данных журнала).
+      phActiveCreated: function () {
+        var d = this.promptHistory.data;
+        return (d && d.active && d.active.created_at) || '';
+      },
+      // Шорткат «Активная ⇄ заводская»: есть обе ревизии (последняя
+      // заводская — из хронологии, origin=factory).
+      phFactoryCompareAvailable: function () {
+        var d = this.promptHistory.data;
+        if (!d || !d.active || !d.active.revision_id) return false;
+        return !!this.phLatestFactoryRevision();
+      },
+      // Событие, которым текущая ревизия стала активной. Отдельного таймера
+      // активации сервисный payload не отдаёт — время рядом это время записи
+      // версии, не выдуманные часы включения.
+      phActivationNote: function () {
+        var d = this.promptHistory.data;
+        if (!d || !d.active) return '';
+        var rows = d.activations || [];
+        var hit = null;
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].revision_id === d.active.revision_id
+              && (rows[i].outcome === 'applied'
+                  || rows[i].outcome === 'skipped_same')) {
+            hit = rows[i];
+            break;
+          }
+        }
+        if (!hit) return 'Событие включения для активной версии не зафиксировано';
+        return 'Включена событием: ' + this.phEventLabel(hit);
+      },
       // §9.3 spec: инвариант покрытия §117(1–4) — ДОКАЗАТЕЛЬНЫЙ.
-      // `old` — статически объявленные группы источника вкладки модуля
-      // (`TABS[m.tab].sources`); `seen` — группы, реально достижимые в
-      // ПРИМЕНИМЫХ вкладках workspace (учитывается `m.tabs`). Расхождение =
-      // провал (потеря группы/параметра при переработке UI). «Старое»
-      // множество НЕ выводится из `groupedForTab` → проверка не тавтологична.
       workspaceCoverage: function () {
         var m = this.workspaceModule;
         if (!m) return { groups: [], missing: [] };
@@ -5921,6 +6008,16 @@
       // загружен (0 items) → редиректа нет, обычный рендер списка.
       workspacePromptStale: function (stale) {
         if (stale) this.promptBackToList();
+      },
+      // EVOL-017: смена промпта или области не теряет выбор версий —
+      // снимок уходит в кэш, новый ключ восстанавливается или грузится.
+      promptHistoryCacheKey: function (key, prev) {
+        if (prev && prev !== key && typeof this._phSaveCache === 'function') {
+          this._phSaveCache(prev);
+        }
+        if (key && typeof this._phApplyCache === 'function') {
+          this._phApplyCache(key);
+        }
       },
       // F11 (§16/D4): смена режима графа (mobile-упрощение ↔ отдельный экран
       // полного исследования) — пере-рендер vis.Network (режим входит в
@@ -13325,6 +13422,394 @@
         if (!ws) return;
         this.navigateTo('#/ai/prompts/' + ws.slug);
       },
+      // ═══ EVOL-017: «История версий» ═══
+      phOriginLabel: function (rev) {
+        if (!rev) return '';
+        var origin = rev.origin || '';
+        if (origin === 'factory') {
+          var label = rev.factory_revision || '';
+          if (!label && this.promptHistory && this.promptHistory.data) {
+            var rows = this.promptHistory.data.revisions || [];
+            for (var i = 0; i < rows.length; i++) {
+              if (rows[i].revision_id === rev.revision_id) {
+                label = rows[i].factory_revision || '';
+                break;
+              }
+            }
+          }
+          return label ? ('Заводская #' + label) : 'Заводская';
+        }
+        if (origin === 'manual') return 'Изменена в админке';
+        if (origin === 'restored') return 'Восстановлена из истории';
+        // Импорт неизвестного старого текста — не автор и не дата правки.
+        if (origin === 'legacy') return 'импортировано при переходе';
+        return origin || 'версия';
+      },
+      phWhen: function (iso) {
+        if (!iso) return '';
+        var s = String(iso);
+        if (s.length >= 16) return s.slice(0, 16).replace('T', ' ');
+        return s;
+      },
+      // Пусто для legacy и для строки без актора: не выдумываем автора.
+      phAuthor: function (row) {
+        if (!row) return '';
+        if (row.origin === 'legacy' || row.reason === 'legacy_import'
+            || row.kind === 'legacy_import'
+            || row.detail_code === 'legacy_import') return '';
+        var actor = String(row.actor || '').trim();
+        return actor ? ('кто: ' + actor) : '';
+      },
+      phEventLabel: function (ev) {
+        var kind = ev && ev.kind;
+        var map = {
+          deploy_activate: 'заводская поставка',
+          factory_apply: 'заводская поставка',
+          manual_edit: 'правка в админке',
+          manual_rollback: 'откат на сохранённую версию',
+          manual_forward: 'возврат вперёд',
+          legacy_import: 'импортировано при переходе',
+          integrity_reject: 'поставка отклонена',
+        };
+        return map[kind] || (kind || 'событие');
+      },
+      phOutcomeLabel: function (ev) {
+        var outcome = ev && ev.outcome;
+        if (outcome === 'applied') return 'включено';
+        if (outcome === 'skipped_same') return 'уже было активно';
+        if (outcome === 'failed') return 'не включено';
+        if (outcome === 'skipped_empty') return 'пусто, пропущено';
+        return outcome || '';
+      },
+      phIsActive: function (rev) {
+        var d = this.promptHistory && this.promptHistory.data;
+        return !!(rev && d && d.active
+                  && d.active.revision_id === rev.revision_id);
+      },
+      phSchemaOk: function (rev) {
+        if (!rev || !rev.schema_compat) return true;
+        var allowed = (this.promptHistory && this.promptHistory.data
+                       && this.promptHistory.data.supported_schema_compat) || [];
+        return allowed.indexOf(rev.schema_compat) >= 0;
+      },
+      phCanActivate: function (rev) {
+        if (!rev || rev.retired) return false;
+        if (!this.phSchemaOk(rev)) return false;
+        var d = this.promptHistory && this.promptHistory.data;
+        if (d && d.manageable === false) return false;
+        return true;
+      },
+      phBlockReason: function (rev) {
+        if (!rev) return '';
+        if (rev.retired) {
+          return 'Снята с регистрации (retired): включение заблокировано. '
+            + 'Просмотр и сравнение доступны.';
+        }
+        if (rev.schema_compat && !this.phSchemaOk(rev)) {
+          return 'Несовместима со схемой «' + rev.schema_compat
+            + '» (schema_incompatible): включение заблокировано. '
+            + 'Просмотр и сравнение доступны. Безопасный путь — новая '
+            + 'заводская поставка или новая правка, совместимая с текущей схемой.';
+        }
+        var d = this.promptHistory && this.promptHistory.data;
+        if (d && d.manageable === false) {
+          return 'Нет переключаемого значения в базе: включение из админки '
+            + 'недоступно. Просмотр истории доступен.';
+        }
+        return 'Включение недоступно';
+      },
+      phActivateLabel: function (rev) {
+        var d = this.promptHistory && this.promptHistory.data;
+        var active = d && d.active;
+        var rows = (d && d.revisions) || [];
+        var ai = -1;
+        var ri = -1;
+        for (var i = 0; i < rows.length; i++) {
+          if (active && rows[i].revision_id === active.revision_id) ai = i;
+          if (rev && rows[i].revision_id === rev.revision_id) ri = i;
+        }
+        if (ri >= 0 && ai >= 0 && ri < ai) return 'Откатить сюда';
+        if (ri >= 0 && ai >= 0 && ri > ai) return 'Вернуть вперёд';
+        return 'Включить';
+      },
+      phRevisionsNewestFirst: function () {
+        var d = this.promptHistory && this.promptHistory.data;
+        var rows = (d && d.revisions) ? d.revisions.slice() : [];
+        rows.reverse();
+        return rows;
+      },
+      phLatestFactoryRevision: function () {
+        var d = this.promptHistory && this.promptHistory.data;
+        var rows = (d && d.revisions) || [];
+        var found = null;
+        for (var i = 0; i < rows.length; i++) {
+          if (rows[i].origin === 'factory' && !rows[i].retired) found = rows[i];
+        }
+        return found;
+      },
+      phDiffClass: function (ln) {
+        var s = String(ln || '');
+        if (s.indexOf('+++') === 0 || s.indexOf('---') === 0) return 'ph-diff-meta';
+        if (s.indexOf('+') === 0) return 'ph-diff-add';
+        if (s.indexOf('-') === 0) return 'ph-diff-del';
+        if (s.indexOf('@@') === 0) return 'ph-diff-hunk';
+        return '';
+      },
+      _phTarget: function () {
+        if (this.promptCatalog && this.promptCatalog.focusKey
+            && !(this.workspace && this.workspace.promptKey)) {
+          return { key: this.promptCatalog.focusKey, chatId: null, global: true };
+        }
+        var it = this.workspacePromptFocus;
+        if (!it || !it.key) return null;
+        if (this.activeChatId == null) {
+          return { key: it.key, chatId: null, global: true };
+        }
+        return { key: it.key, chatId: this.activeChatId, global: false };
+      },
+      _phSaveCache: function (key) {
+        var h = this.promptHistory;
+        if (!h || !key) return;
+        var snap = {
+          at: Date.now(),
+          open: !!h.open,
+          selA: h.selA || '',
+          selB: h.selB || '',
+          viewId: h.viewId || '',
+          data: h.data || null,
+        };
+        _promptHistoryCache.delete(key);
+        _promptHistoryCache.set(key, snap);
+        while (_promptHistoryCache.size > _PROMPT_HISTORY_CACHE_MAX) {
+          var oldest = _promptHistoryCache.keys().next().value;
+          _promptHistoryCache.delete(oldest);
+        }
+      },
+      _phApplyCache: function (key) {
+        var h = this.promptHistory;
+        if (!h) return;
+        h.cacheKey = key || '';
+        h.diff = null;
+        h.diffError = '';
+        h.result = null;
+        h.error = '';
+        var snap = key ? _promptHistoryCache.get(key) : null;
+        var fresh = snap && (Date.now() - snap.at) < _PROMPT_HISTORY_TTL_MS;
+        if (fresh) {
+          h.open = !!snap.open;
+          h.selA = snap.selA || '';
+          h.selB = snap.selB || '';
+          h.viewId = snap.viewId || '';
+          h.data = snap.data || null;
+          h.viewBody = '';
+          if (h.open && !h.data) this.loadPromptHistory(false);
+          return;
+        }
+        h.data = null;
+        h.selA = '';
+        h.selB = '';
+        h.viewId = '';
+        h.viewBody = '';
+        if (h.open) this.loadPromptHistory(false);
+      },
+      togglePromptHistory: function () {
+        var h = this.promptHistory;
+        h.open = !h.open;
+        if (h.open && !h.data && !h.loading) this.loadPromptHistory(false);
+        if (h.cacheKey) this._phSaveCache(h.cacheKey);
+      },
+      loadPromptHistory: async function (force) {
+        var target = this._phTarget();
+        var h = this.promptHistory;
+        if (!target) {
+          h.error = 'Промпт не выбран';
+          return;
+        }
+        if (h.loading) return;
+        h.loading = true;
+        h.error = '';
+        try {
+          var data = await this.api(
+            '/api/prompts/' + encodeURIComponent(target.key) + '/versions',
+            { global: target.global, chatId: target.chatId, silent403: true });
+          if (this.promptHistoryCacheKey
+              && this._phTarget()
+              && this._phTarget().key !== target.key) return;
+          h.data = data;
+          var revs = (data && data.revisions) || [];
+          if (!h.selA && revs.length) h.selA = revs[0].revision_id;
+          if (!h.selB && revs.length > 1) h.selB = revs[revs.length - 1].revision_id;
+          if (h.selA && !revs.some(function (r) { return r.revision_id === h.selA; })) {
+            h.selA = revs.length ? revs[0].revision_id : '';
+          }
+          if (h.selB && !revs.some(function (r) { return r.revision_id === h.selB; })) {
+            h.selB = revs.length ? revs[revs.length - 1].revision_id : '';
+          }
+          if (force) h.result = null;
+        } catch (e) {
+          h.error = (e && e.message) ? String(e.message) : 'Не удалось загрузить историю';
+          h.data = null;
+        } finally {
+          h.loading = false;
+          if (h.cacheKey) this._phSaveCache(h.cacheKey);
+        }
+      },
+      loadPromptDiff: async function () {
+        var h = this.promptHistory;
+        if (!h.selA || !h.selB || h.selA === h.selB) {
+          h.diffError = 'Выберите две разные версии';
+          return;
+        }
+        h.diffLoading = true;
+        h.diffError = '';
+        h.diff = null;
+        var target = this._phTarget();
+        try {
+          var data = await this.api(
+            '/api/prompts/revisions/diff?a=' + encodeURIComponent(h.selA)
+            + '&b=' + encodeURIComponent(h.selB),
+            { global: !target || target.global, chatId: target && target.chatId,
+              silent403: true });
+          h.diff = (data && data.diff) || [];
+          if (!h.diff.length) h.diffError = 'Тексты совпадают — отличий нет';
+        } catch (e) {
+          h.diffError = (e && e.message) ? String(e.message) : 'Сравнение не удалось';
+        } finally {
+          h.diffLoading = false;
+        }
+      },
+      comparePromptFactory: function () {
+        var d = this.promptHistory.data;
+        var factory = this.phLatestFactoryRevision();
+        if (!d || !d.active || !factory) return;
+        this.promptHistory.selA = d.active.revision_id;
+        this.promptHistory.selB = factory.revision_id;
+        this.loadPromptDiff();
+      },
+      viewPromptRevision: async function (rev) {
+        var h = this.promptHistory;
+        if (!rev) return;
+        if (h.viewId === rev.revision_id) {
+          h.viewId = '';
+          h.viewBody = '';
+          return;
+        }
+        h.viewLoading = true;
+        h.viewId = rev.revision_id;
+        h.viewBody = '';
+        var target = this._phTarget();
+        try {
+          var data = await this.api(
+            '/api/prompts/revisions/' + encodeURIComponent(rev.revision_id) + '/source',
+            { global: !target || target.global, chatId: target && target.chatId,
+              silent403: true });
+          h.viewBody = (data && data.body != null) ? String(data.body) : '';
+        } catch (e) {
+          h.viewBody = '';
+          h.result = {
+            ok: false,
+            text: (e && e.message) ? String(e.message) : 'Текст не загрузился',
+          };
+        } finally {
+          h.viewLoading = false;
+        }
+      },
+      activatePromptRevision: async function (rev) {
+        var h = this.promptHistory;
+        if (!rev || h.busyRev) return;
+        if (!this.phCanActivate(rev) || this.phIsActive(rev)) return;
+        var label = this.phOriginLabel(rev);
+        var msg = 'Включить сохранённую версию «' + label + '»? '
+          + 'Это выбор сохранённого состояния: история не удаляется, '
+          + 'версия не переписывается. Новая заводская поставка позже '
+          + 'снова станет активной автоматически.';
+        if (typeof window === 'undefined' || typeof window.confirm !== 'function'
+            || !window.confirm(msg)) {
+          h.result = {
+            ok: false,
+            text: 'Включение отменено. Активная версия не изменилась.',
+          };
+          return;
+        }
+        var previousId = (h.data && h.data.active && h.data.active.revision_id) || '';
+        var target = this._phTarget();
+        if (!target) return;
+        h.busyRev = rev.revision_id;
+        h.result = null;
+        try {
+          var data = await this.api(
+            '/api/prompts/' + encodeURIComponent(target.key) + '/activate',
+            { method: 'POST',
+              body: JSON.stringify({ revision_id: rev.revision_id }),
+              global: target.global, chatId: target.chatId, silent403: true });
+          if (!data || data.applied !== true && data.outcome !== 'skipped_same') {
+            var why = (data && (data.reason_text || data.reason)) || 'отказ сервера';
+            h.result = {
+              ok: false,
+              text: String(why) + ' Активная версия не изменилась.',
+            };
+            return;
+          }
+          await this.loadPromptHistory(true);
+          var now = (h.data && h.data.active && h.data.active.revision_id) || '';
+          if (now && now !== rev.revision_id && data.outcome !== 'skipped_same') {
+            h.result = {
+              ok: false,
+              text: 'Сервер не подтвердил смену активной версии. '
+                + 'Прежняя активная версия осталась.',
+            };
+            return;
+          }
+          h.result = {
+            ok: true,
+            text: 'Сервер подтвердил: активна «' + this.phOriginLabel(
+              (h.data && h.data.active) || rev) + '».',
+          };
+        } catch (e) {
+          h.result = {
+            ok: false,
+            text: ((e && e.message) ? String(e.message) : 'Ошибка включения')
+              + ' Активная версия не изменилась'
+              + (previousId ? ' (' + previousId + ').' : '.'),
+          };
+        } finally {
+          h.busyRev = '';
+        }
+      },
+      togglePromptCatalog: function () {
+        var c = this.promptCatalog;
+        c.open = !c.open;
+        if (c.open && !c.families.length && !c.loading) this.loadPromptCatalog();
+      },
+      loadPromptCatalog: async function () {
+        var c = this.promptCatalog;
+        c.loading = true;
+        c.error = '';
+        try {
+          var data = await this.api('/api/prompts/catalog',
+                                    { global: true, silent403: true });
+          c.families = (data && data.families) || [];
+        } catch (e) {
+          c.error = (e && e.message) ? String(e.message) : 'Каталог недоступен';
+          c.families = [];
+        } finally {
+          c.loading = false;
+        }
+      },
+      openPromptCatalogItem: function (item) {
+        if (!item) return;
+        var key = item.pg_key || item.block_id;
+        this.promptCatalog.focusKey = key;
+        this.promptHistory.open = true;
+        this.promptHistory.data = null;
+        this.promptHistory.selA = '';
+        this.promptHistory.selB = '';
+        this.promptHistory.diff = null;
+        this.promptHistory.viewId = '';
+        this.promptHistory.viewBody = '';
+        this.promptHistory.result = null;
+        this.loadPromptHistory(true);
+      },
       // §48: выбор промпта в дереве (desktop — центр; mobile — полный экран).
       // ASAP-2.1 (T-3981, Q6 фикс 1): URL строится ПО stage КЛИКНУТОГО item'а —
       // залипший `ws.stage` убран из цепочки (он имел приоритет и создавал
@@ -17035,6 +17520,20 @@
         this.stickyFailedKeys = failed.map(function (f) { return f.key; });
         if (!opts.silent && typeof this.notify === 'function') {
           this.notify(operationId, result, list);
+        }
+        // EVOL-017: успешная правка промпта создаёт новый снимок на сервере
+        // (существующий POST /api/config). Открытая история перечитывается,
+        // локальный указатель активной версии сам не подменяется.
+        if (saved.length && this.promptHistory && this.promptHistory.open
+            && typeof this.loadPromptHistory === 'function') {
+          var focus = (typeof this.promptHistoryCacheKey === 'string')
+            ? this.promptHistoryCacheKey : '';
+          for (var ph = 0; ph < saved.length; ph++) {
+            if (focus && focus.indexOf(saved[ph]) === 0) {
+              this.loadPromptHistory(true);
+              break;
+            }
+          }
         }
         return result;
       },

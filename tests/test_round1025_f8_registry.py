@@ -120,7 +120,13 @@ ROUTES_SHA256_F11 = (
     # «Модули → Умный кэш» заменена нейтральной (вкладка/флаг удалены
     # EVOL-031). Новых endpoint'ов нет (Δ routes=0), RBAC/маскировка/DDL/
     # семантика retry не менялись. Хэш переутверждён осознанно (L-F11S-1).
-    "e743842f1491d88effaa3817ccc8646fd8f39edab2ecda2ad73ec0e237c2e4e8")
+    # EVOL-017 (30.10.2026, L-F11S-1 conscious requalification): routes +5
+    # в СУЩЕСТВУЮЩЕМ редакторе промптов (не новая вкладка меню):
+    # GET /prompts/catalog, GET /prompts/{key}/versions,
+    # GET /prompts/revisions/{id}/source, GET /prompts/revisions/diff,
+    # POST /prompts/{key}/activate. Меню/вкладки не менялись. Хэш и набор
+    # путей f8_baseline переутверждены осознанно.
+    "ce5951d747077900b194d77067865d0a48a965f21b84bae7380cbb7f85321cb9")
 # P0-Vision FIX2 (V-FIX2, 19.10.2026, L-F11S-1 re-pin, приёмка 2.58.91):
 # аддитивный контекст чата у СУЩЕСТВУЮЩИХ `GET /api/vision/state` и
 # `POST /api/vision/test` — опциональные `chat_id` (query) / `X-Chat-Id`

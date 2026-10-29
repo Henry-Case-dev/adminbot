@@ -774,11 +774,17 @@ async def post_config(
                 "revalidated=%s",
                 chat_id, len(patch_overrides), user.id,
                 bool(getattr(new_root, "revalidated", False)))
-    return {"updated": sorted(patch_overrides),
-            "chat_id": chat_id,
-            "revalidated": bool(getattr(new_root, "revalidated", False)),
-            "updated_at": (getattr(new_root, "updated_at", None)
-                           or await chat_params.get_chat_updated_at(chat_id))}
+    snapshots = await _prompt_record_saved_snapshots(
+        cache, list(patch_overrides.items()), scope="chat", chat_id=chat_id,
+        actor=user.id)
+    out_chat = {"updated": sorted(patch_overrides),
+                "chat_id": chat_id,
+                "revalidated": bool(getattr(new_root, "revalidated", False)),
+                "updated_at": (getattr(new_root, "updated_at", None)
+                               or await chat_params.get_chat_updated_at(chat_id))}
+    if snapshots:
+        out_chat["prompt_snapshots"] = snapshots
+    return out_chat
 
 
 @api_router.get("/config/params-meta")
@@ -1354,11 +1360,17 @@ async def _post_config_global(request: Request, payload: ConfigUpdateRequest,
         logger.info("[api] config updated | key=%s | by=%s", key, user.id)
     # R10.9-4 (F5 round1014): смена base_url/model/key → health переспрашивается.
     _invalidate_provider_health(updated)
+    snapshots = await _prompt_record_saved_snapshots(
+        cache, [(entry["key"], entry["value"]) for entry in prepared
+                if entry["key"] in updated],
+        scope="global", chat_id=None, actor=user.id)
     out: dict = {"updated": updated}
     if tokens_used:
         # Аддитивно (R16): поле появляется только при per-key-токенах —
         # базовая форма ответа `{"updated": [...]}` не меняется.
         out["revalidated"] = revalidated
+    if snapshots:
+        out["prompt_snapshots"] = snapshots
     return out
 
 
@@ -3097,3 +3109,494 @@ async def get_persona_health(
 ):
     """GET /api/persona/health: метрики Личности (spec §5, F4). Global admin."""
     return await bot_persona.get_persona_health()
+
+
+# ═══ EVOL-017: «История версий» промптов (журнал CONTRACT 1) ════════════════
+# HTTP-слой над сервисным API ``services/prompt_release_policy.py``
+# (list_versions / get_revision_source / diff_revisions / activate_revision).
+# Журнал — единственный источник истории; таблицы напрямую не читаются.
+#
+# RBAC (два слоя, честно разделённых):
+#   * ПОЛНАЯ проверка — здесь, в маршрутах (async, полный AccessCtx: гранты
+#     chat_admins, hidden-ключи, per-key права);
+#   * sync-хук сервиса (контракт: «HTTP-слой обязан установить») — fail-closed
+#     backstop: пустой actor / «пустая» роль при активации отвергаются; он НЕ
+#     заменяет маршруточную проверку (chat-грант sync-недоступен).
+
+from services import prompt_registry as prompt_reg          # noqa: E402
+from services import prompt_release_policy as prompt_policy  # noqa: E402
+
+
+def _prompt_journal(cache: ConfigCache):
+    """Стор журнала (публичный API сервиса); точка инъекции в тестах."""
+    return prompt_policy.default_journal(cache)
+
+
+def _prompt_perm_hook(actor: str, action: str, ctx: dict) -> bool:
+    """RBAC-хук сервисного API (устанавливается ниже, при импорте).
+
+    Правила: пустой actor — отказ; source/diff — блок-уровень проверяет
+    маршрут после резолва ревизии; вне веб-процесса (hot-кэш не установлен)
+    действует прежнее сервисное правило «непустой actor»; в веб-процессе
+    активация требует существующей роли у telegram-id (не «пустой» user).
+    Строковые не-int акторы (сервисные вызовы с actor="owner") не сужаются.
+    """
+    actor_s = str(actor or "").strip()
+    if not actor_s:
+        return False
+    if action in ("prompt.get_revision_source", "prompt.diff_revisions"):
+        return True
+    cache = hot.get_config_cache()
+    if cache is None:
+        return True
+    try:
+        tg_id = int(actor_s)
+    except ValueError:
+        return True
+    if action == "prompt.activate" and not cache.get_role(tg_id):
+        return False
+    return True
+
+
+prompt_policy.set_permission_checker(_prompt_perm_hook)
+
+
+class PromptActivateRequest(BaseModel):
+    """Тело POST /api/prompts/{key}/activate: выбор СОХРАНЁННОЙ версии."""
+    revision_id: str
+
+
+def _prompt_block_or_404(prompt_key: str):
+    """config-ключ (``prompts.*``) ИЛИ block_id → spec реестра."""
+    spec = prompt_reg.by_pg_key(prompt_key) or prompt_reg.block(prompt_key)
+    if spec is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"промпт вне реестра версий: {prompt_key}")
+    return spec
+
+
+def _prompt_value_scope(spec):
+    """Кодовые блоки без ``pg_key`` не имеют переключаемого значения (§1.5).
+    История и сравнение для них доступны; включение — 422 с причиной."""
+    if not spec.pg_key:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{spec.block_id}: нет переключаемого значения в базе — "
+                   "включение из админки недоступно, просмотр истории доступен")
+
+
+def _prompt_is_hidden(spec) -> bool:
+    """Скрытость — свойство каталога параметров, не реестра промптов."""
+    if not getattr(spec, "pg_key", None):
+        return False
+    cat = get_by_pg_key(spec.pg_key)
+    return bool(cat is not None and getattr(cat, "hidden", False))
+
+
+def _prompt_list_scope(spec, chat_id: int | None) -> str:
+    if chat_id is not None:
+        return "chat"
+    if getattr(spec, "scope", "") == "code":
+        return "code"
+    return "global"
+
+
+def _prompt_reason_text(result: dict) -> str:
+    """Человеческая причина гейта сервиса. Активный указатель при отказе
+    не меняется — это говорит и текст."""
+    reason = str(result.get("reason") or "")
+    if reason in ("ok", ""):
+        if result.get("outcome") == "skipped_same":
+            return "Сервер подтвердил: эта версия уже активна."
+        return "Сервер подтвердил включение. Активная версия обновлена."
+    if reason == "revision_retired":
+        return ("Снята с регистрации (retired): включение заблокировано. "
+                "Просмотр и сравнение доступны. Активная версия не изменилась.")
+    if reason == "schema_incompatible":
+        schema = result.get("schema_compat") or "неизвестная"
+        return (f"Несовместима со схемой «{schema}» (schema_incompatible): "
+                "включение заблокировано. Просмотр и сравнение доступны. "
+                "Безопасный путь — новая заводская поставка или новая правка, "
+                "совместимая с текущей схемой. Активная версия не изменилась.")
+    if reason == "revision_unknown":
+        return "Такой сохранённой версии нет. Активная версия не изменилась."
+    if reason == "block_not_pg_managed":
+        return ("Нет переключаемого значения в базе: включение недоступно. "
+                "Просмотр истории доступен. Активная версия не изменилась.")
+    if reason == "journal_unavailable":
+        return "Журнал версий недоступен. Активная версия не изменилась."
+    return f"Включение не выполнено ({reason}). Активная версия не изменилась."
+
+
+def _prompt_hidden_admin(request: Request, user: WebAppUser) -> bool:
+    """Глобальный админ (для hidden-ключей; зеркало GET /config)."""
+    from web.api.deps import user_is_global_admin
+    return user_is_global_admin(get_cache(request), user.id)
+
+
+async def _prompt_require_view(request: Request, user: WebAppUser,
+                               spec, chat_id: int | None) -> None:
+    """Право ПРОСМОТРА истории: hidden → global admin; chat-скоуп →
+    can_access_chat (изоляция чужих чатов); global — любая роль (значения
+    промптов не секреты, зеркало GET /config)."""
+    cache: ConfigCache = get_cache(request)
+    if _prompt_is_hidden(spec) and not _prompt_hidden_admin(request, user):
+        raise HTTPException(status_code=403,
+                            detail="нет доступа к этому промпту")
+    if chat_id is None:
+        # Глобальная история — только админ (или явное право на этот ключ).
+        # Обычная роль без права на промпт сюда не проходит.
+        allowed = _prompt_hidden_admin(request, user)
+        if spec.pg_key and can_edit_param(cache, user.id, spec.pg_key):
+            allowed = True
+        if not allowed:
+            raise HTTPException(status_code=403,
+                                detail="нет права на историю промпта")
+        return
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if not access_srv.can_access_chat(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    # Изоляция чатов: глобальный модератор без гранта на ЭТОТ чат не читает
+    # чужой override. Глобальный админ и владелец своих ЛС — могут.
+    if (not ctx.is_global_admin and not ctx.is_dm_owner
+            and ctx.role_chat not in ("local_admin", "moderator")):
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+
+
+async def _prompt_require_edit(request: Request, user: WebAppUser,
+                               spec, chat_id: int | None) -> None:
+    """Право АКТИВАЦИИ (= право записи значения, как POST /api/config):
+    global — can_edit_param(cache, …); chat — доступ к чату + per-param
+    матрица чата. Нет права → 403 ДО вызова сервиса."""
+    cache: ConfigCache = get_cache(request)
+    await _prompt_require_view(request, user, spec, chat_id)
+    if chat_id is None:
+        if not can_edit_param(cache, user.id, spec.pg_key):
+            raise HTTPException(status_code=403,
+                                detail=f"нет права на {spec.pg_key}")
+        return
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    try:
+        db_overrides = await access_srv.db_override_map(cache.pg)
+    except Exception:
+        db_overrides = {}
+    try:
+        chat_root = await chat_params.get_all_chat_params(chat_id)
+        perm_overrides = dict(chat_root.get("perm_overrides") or {})
+    except Exception:
+        perm_overrides = {}
+    matrix = access_srv.effective_matrix(
+        spec.pg_key, db_overrides.get(spec.pg_key),
+        perm_overrides.get(spec.pg_key))
+    if not access_srv.can_edit_param(ctx, matrix):
+        raise HTTPException(status_code=403,
+                            detail=f"нет права на {spec.pg_key}")
+
+
+def _prompt_scope_of(chat_id: int | None) -> str:
+    return "chat" if chat_id is not None else "global"
+
+
+def _prompt_journal_or_none(cache: ConfigCache):
+    try:
+        return _prompt_journal(cache)
+    except Exception:                      # pragma: no cover — журнал не роняет
+        return None
+
+
+async def _prompt_record_saved_snapshots(cache: ConfigCache, items,
+                                         *, scope: str,
+                                         chat_id: int | None,
+                                         actor) -> list[dict]:
+    """После успешного POST /api/config: промпт реестра получает новый
+    immutable-снимок. Значение уже записал существующий путь — журнал только
+    фиксирует факт. Сбой журнала не откатывает сохранение. Пустой список,
+    если журнала нет (тестовый пул не asyncpg) — ответ /api/config не меняется."""
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        return []
+    recorded: list[dict] = []
+    for key, value in items:
+        spec = prompt_reg.by_pg_key(str(key))
+        if spec is None or not spec.pg_key or not isinstance(value, str):
+            continue
+        try:
+            result = await prompt_policy.record_manual_activation(
+                spec.block_id, value, scope=scope, chat_id=chat_id,
+                actor=str(actor or ""), reason="owner_edit",
+                kind="manual_edit", cache=cache, store=store)
+        except Exception:
+            logger.warning("[api] prompt snapshot not recorded | key=%s",
+                           key, exc_info=True)
+            continue
+        if result.get("recorded"):
+            recorded.append({
+                "key": spec.pg_key,
+                "revision_id": result.get("revision_id") or "",
+                "sha256_12": result.get("sha256_12") or "",
+            })
+    return recorded
+
+
+async def _prompt_require_revision_view(request: Request, user: WebAppUser,
+                                        cache: ConfigCache, store,
+                                        revision_id: str) -> None:
+    """Резолв ревизии → блок/(scope, chat) и право просмотра её текста."""
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    try:
+        row = await store.get_revision(revision_id)
+    except Exception:                      # pragma: no cover — PG-сбой
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail=f"ревизия не найдена: {revision_id}")
+    spec = prompt_reg.block(row.block_id)
+    if spec is None:
+        raise HTTPException(status_code=404,
+                            detail=f"блок вне реестра: {row.block_id}")
+    # Chat-ревизия — данные чата: чужой scope не отдаём (изоляция).
+    chat_id = row.chat_id if row.scope == "chat" else None
+    await _prompt_require_view(request, user, spec, chat_id)
+
+
+@api_router.get("/prompts/revisions/diff")
+async def get_prompt_revision_diff(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    a: str = Query(..., description="revision_id «было»"),
+    b: str = Query(..., description="revision_id «стало»"),
+):
+    """Сравнение двух сохранённых ревизий (сервисный difflib, unified).
+
+    RBAC: обе ревизии резолвятся в блок; просмотр — по правам на блок
+    (chat-ревизия отдаётся только с доступом к её чату). 404 — неизвестная
+    ревизия; 503 — журнал недоступен."""
+    cache: ConfigCache = get_cache(request)
+    store = _prompt_journal_or_none(cache)
+    for rev_id in (a, b):
+        await _prompt_require_revision_view(request, user, cache, store,
+                                            rev_id)
+    try:
+        result = await prompt_policy.diff_revisions(a, b, cache=cache,
+                                                    store=store,
+                                                    actor=str(user.id))
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    if not result.get("known"):
+        reason = result.get("reason") or "unknown"
+        if reason == "journal_unavailable":
+            raise HTTPException(status_code=503,
+                                detail="журнал версий недоступен")
+        raise HTTPException(status_code=404,
+                            detail=f"ревизия не найдена: {reason}")
+    logger.info("[api] prompt diff | a=%s | b=%s | by=%s", a[:20], b[:20],
+                user.id)
+    return result
+
+
+@api_router.get("/prompts/revisions/{revision_id}/source")
+async def get_prompt_revision_source(
+    request: Request,
+    revision_id: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Полный текст сохранённой ревизии (просмотр, без права активации).
+
+    RBAC как у diff: резолв ревизии → блок + (scope, chat) → право просмотра;
+    chat-ревизия чужого чата не отдаётся."""
+    cache: ConfigCache = get_cache(request)
+    store = _prompt_journal_or_none(cache)
+    await _prompt_require_revision_view(request, user, cache, store,
+                                        revision_id)
+    try:
+        data = await prompt_policy.get_revision_source(
+            revision_id, cache=cache, store=store, actor=str(user.id))
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    if not data.get("known"):
+        if data.get("reason") == "journal_unavailable":
+            raise HTTPException(status_code=503,
+                                detail="журнал версий недоступен")
+        raise HTTPException(status_code=404, detail="ревизия не найдена")
+    return data
+
+
+async def _prompt_can_activate(request: Request, user: WebAppUser,
+                               spec, chat_id: int | None) -> bool:
+    """Тихая проверка права активации (для бейджа UI; 403 здесь не бросаем).
+    Полная проверка всё равно выполняется в POST-маршруте."""
+    try:
+        await _prompt_require_edit(request, user, spec, chat_id)
+    except HTTPException:
+        return False
+    return True
+
+
+_PROMPT_FAMILY_TITLES = {
+    "internal": "Внутренние инструкции",
+    "message": "Сообщения",
+    "style": "Стиль",
+    "summary": "Саммаризация",
+    "direct": "Прямой чат",
+    "humor": "Юмор",
+    "factcheck": "Фактчек",
+    "memory": "Память",
+    "response": "Ответ",
+    "genre": "Жанр",
+    "identity": "Личность",
+    "image": "Изображения",
+    "search": "Поиск",
+    "youtube": "YouTube",
+    "core": "Ядро",
+    "experience": "Опыт",
+    "checkup": "Проверка",
+    "web": "Веб",
+    "initiative": "Инициатива",
+}
+
+
+@api_router.get("/prompts/catalog")
+async def get_prompt_catalog(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+):
+    """Каталог всех зарегистрированных промптов (EVOL-017), без текстов.
+
+    Только глобальный админ. Группировка по подсистемам (family). Тела,
+    секреты и акторы сюда не входят — история открывается отдельным
+    запросом по block_id / pg_key."""
+    if not _prompt_hidden_admin(request, user):
+        raise HTTPException(status_code=403,
+                            detail="только для глобального админа")
+    grouped: dict[str, list] = {}
+    for spec in prompt_reg.all_blocks():
+        purpose = str(spec.purpose or "").strip()
+        if len(purpose) > 180:
+            purpose = purpose[:177] + "…"
+        grouped.setdefault(spec.family or "other", []).append({
+            "block_id": spec.block_id,
+            "pg_key": spec.pg_key or "",
+            "purpose": purpose,
+            "ui": spec.ui,
+            "scope": spec.scope,
+            "manageable": bool(spec.pg_key) and not _prompt_is_hidden(spec),
+            "factory_revision": prompt_reg.factory_revision(spec.block_id),
+        })
+    families = []
+    for fam in sorted(grouped):
+        items = sorted(grouped[fam], key=lambda row: row["block_id"])
+        families.append({
+            "id": fam,
+            "title": _PROMPT_FAMILY_TITLES.get(fam, fam),
+            "prompts": items,
+        })
+    return {"families": families, "count": sum(len(f["prompts"])
+                                               for f in families)}
+
+
+@api_router.get("/prompts/{prompt_key}/versions")
+async def get_prompt_versions(
+    request: Request,
+    prompt_key: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """«История версий» промпта (EVOL-017): активная ревизия, заводская,
+    хронология ревизий/активаций. X-Chat-Id → chat-скоуп (изоляция по
+    can_access_chat); без него — global. 404 — ключ вне реестра. Тексты по
+    умолчанию не отдаются (только /source и /diff)."""
+    spec = _prompt_block_or_404(prompt_key)
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_view(request, user, spec, chat_id)
+    cache: ConfigCache = get_cache(request)
+    store = _prompt_journal_or_none(cache)
+    try:
+        out = await prompt_policy.list_versions(
+            spec.block_id, scope=_prompt_list_scope(spec, chat_id),
+            chat_id=chat_id, cache=cache, store=store, actor=str(user.id))
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    if not out.get("known"):
+        raise HTTPException(status_code=404,
+                            detail=f"промпт вне реестра версий: {prompt_key}")
+    # Аддитивные поля UI-слоя (R16): scope/права/доступность журнала —
+    # чтобы фронт честно показывал и состояние, и допустимые действия.
+    out["prompt_key"] = spec.pg_key or ""
+    out["block_id"] = spec.block_id
+    out["scope"] = _prompt_list_scope(spec, chat_id)
+    out["chat_id"] = chat_id
+    out["journal_available"] = store is not None
+    out["hidden"] = _prompt_is_hidden(spec)
+    out["manageable"] = bool(spec.pg_key) and not _prompt_is_hidden(spec)
+    # Сервис не отдаёт отдельный таймер активации (ActivationRow без
+    # created_at). UI показывает время записи версии и не выдумывает часы.
+    out["activation_time_available"] = False
+    out["supported_schema_compat"] = sorted(
+        prompt_policy.SUPPORTED_SCHEMA_COMPAT)
+    out["can_activate"] = bool(out["manageable"]) and \
+        await _prompt_can_activate(request, user, spec, chat_id)
+    return out
+
+
+@api_router.post("/prompts/{prompt_key}/activate")
+async def post_prompt_activate(
+    request: Request,
+    prompt_key: str,
+    payload: PromptActivateRequest,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """Активировать СОХРАНЁННУЮ версию (откат/вперёд; история не удаляется).
+
+    Права — уровень записи значения (как POST /api/config: global —
+    can_edit_param; chat — доступ + матрица чата). Гейты сервиса
+    (retired/schema_compat) отдаются как 200 applied=false c причиной —
+    UI показывает конкретную причину; активный указатель не меняется.
+    503 — журнал/PG недоступен; 403 — нет права; 422 — пустой revision_id."""
+    if not str(payload.revision_id or "").strip():
+        raise HTTPException(status_code=422, detail="revision_id обязателен")
+    spec = _prompt_block_or_404(prompt_key)
+    _prompt_value_scope(spec)
+    if _prompt_is_hidden(spec):
+        raise HTTPException(
+            status_code=422,
+            detail=f"{spec.pg_key}: значение задаётся в соответствующем "
+                   "разделе Mini App, а не вручную")
+    chat_id = _chat_id_or_none(x_chat_id)
+    await _prompt_require_edit(request, user, spec, chat_id)
+    cache: ConfigCache = get_cache(request)
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    store = _prompt_journal_or_none(cache)
+    if store is None:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    try:
+        result = await prompt_policy.activate_revision(
+            spec.block_id, payload.revision_id,
+            scope=_prompt_scope_of(chat_id), chat_id=chat_id,
+            actor=str(user.id), cache=cache, store=store)
+    except prompt_policy.PromptPermissionError:
+        raise HTTPException(status_code=403, detail="permission denied")
+    except prompt_policy.PromptJournalError:
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен (R6)")
+    if result.get("reason") == "journal_unavailable":
+        raise HTTPException(status_code=503,
+                            detail="журнал версий недоступен")
+    logger.info("[api] prompt revision activate | block=%s | scope=%s | "
+                "chat=%s | rev=%s | applied=%s | outcome=%s | kind=%s | "
+                "by=%s", spec.block_id, result.get("scope"),
+                result.get("chat_id"),
+                str(payload.revision_id)[:20], result.get("applied"),
+                result.get("outcome"), result.get("activation_kind"),
+                user.id)
+    result = dict(result)
+    result["reason_text"] = _prompt_reason_text(result)
+    result["active_unchanged"] = not bool(result.get("applied"))
+    return result

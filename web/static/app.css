@@ -5127,3 +5127,31 @@ html.cover-editor-open { overflow: hidden; }
 .speech-hub-entry__sub { color: #AEBACB; }
 /* ═══ /ASAP-speech-arch W4 ═══ */
 
+/* EVOL-017: «История версий» в редакторе промпта. На 390px портрет
+   контролы переносятся, тач-цели ≥44px, длинный diff не раздувает страницу. */
+.prompt-history { min-width: 0; max-width: 100%; }
+.prompt-history-toggle { min-height: 44px; }
+.prompt-history-diff-controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.prompt-history-select { min-width: 0; flex: 1 1 12rem; max-width: 100%; }
+.prompt-history-row { min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 0; }
+.prompt-history-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.prompt-history-diff, .prompt-history-view {
+  max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere;
+  font-size: 11px; line-height: 1.35; margin: 6px 0;
+}
+.ph-diff-add { color: #6ee7b7; }
+.ph-diff-del { color: #fca5a5; }
+.ph-diff-hunk, .ph-diff-meta { color: #93c5fd; }
+.prompt-history button:focus-visible,
+.prompt-history select:focus-visible,
+[data-prompt-catalog] button:focus-visible {
+  outline: 2px solid #2dd4bf;
+  outline-offset: 2px;
+}
+@media (max-width: 420px) {
+  .prompt-history-select { flex-basis: 100%; }
+  .prompt-history-actions .btn-ghost,
+  .prompt-history-diff-controls .btn-ghost,
+  [data-prompt-catalog] .prompt-tree-item { min-height: 44px; }
+}
+
