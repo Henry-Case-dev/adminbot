@@ -271,3 +271,15 @@ CONFIG_TAB_TITLES|categorized|...) == <stale>`); сопутствующие
 в §10 (все 5 smart/dedup-ключей СОХРАНЕНЫ no-op; дельта от закоммиченного
 EVOL-016/012). Пины categorized 562→556: −5 снятые ключи + −1 pre-existing
 дрейф базы.
+
+**Micro-fix (re-review):** 4 файла добиты до тех же фактических счётчиков —
+`test_summary_asap2_miniapp_round1027.py` (TAB_RULES 23→22 + хвост блока
+117/119/581), `test_summary_l1_clusterizer.py` и `test_summary_l2_writer.py`
+(581/465/556/119/117/22; файл l1_clusterizer теперь наш — W2a закоммитил свою
+часть), `test_param_catalog.py` (GROUPS 121→119; per-category design-пин
+flags 107→105 / limits 226→223; тестам покрытия Settings добавлено
+санкционированное исключение `_EVOL031_RETIRED_NOOP` — 5 no-op полей снятого
+кеша сознательно вне каталога). Прогон 4 файлов + sentinel: **219 passed / 1
+failed** — единственный отказ `test_summary_l1_clusterizer.py::
+test_off_chain_byte_identical_single_call` (:1235, байт-идентичность промпта) —
+известный PRE-EXISTING red на production-base, вне EVOL-031, не тронут.

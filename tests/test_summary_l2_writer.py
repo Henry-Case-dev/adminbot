@@ -582,16 +582,18 @@ class TestCanon:
         # SUMMARY_REVISION_PATCH_ENABLED, spec §8.2) — ClassVar (как все
         # env-рубильники ASAP-4) → dataclass-fields не растут (426);
         # Δ каталога = 0 (env-only, F8).
-        assert len(pc.REGISTRY) == 587
+        assert len(pc.REGISTRY) == 581
         # MCA-19 Wave 1 (ADR-1028-19 §8.2): +9 vision-ключей → Settings 450
         # (evidence-pin Wave 1; fixture-бампы см. tools/_mca19_reissue_f8.py).
+        # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/465/556/119/117/22
+        # (Settings-поля сохранены no-op; дрейф 466→465 — внешний, EVOL-016/012).
         assert len({f.name for f in dataclasses.fields(settings.__class__)}) \
-            == 466   # +4 TEMPORAL_* (mca-20, ADR-1028-20 D13); CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+            == 465
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 562
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
+                    if s.category is not None]) == 556
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
 
 
 # ── SC-13: R17-логи ────────────────────────────────────────────────────────

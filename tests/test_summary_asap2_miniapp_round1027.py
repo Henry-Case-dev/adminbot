@@ -168,7 +168,8 @@ def test_t3960_js_workspace_sections():
 
 def test_t3960_tab_rules_mod_summary_covers_new_groups():
     """Правило mod_summary правится in-place (TAB_RULES 21 без роста)."""
-    assert len(pc.TAB_RULES) == 23
+    # EVOL-031 (30.10.2026): вкладка «Умный кэш» удалена → TAB_RULES 23→22.
+    assert len(pc.TAB_RULES) == 22
     rules = dict(pc.TAB_RULES)[pc.TAB_MOD_SUMMARY]
     claimed: set[str] = set()
     for _cat, sel in rules:
@@ -177,10 +178,11 @@ def test_t3960_tab_rules_mod_summary_covers_new_groups():
     # прежние общие группы НЕ переехали (нейтральные вне секций остаются);
     # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): группы префильтра удалены —
     # в правиле mod_summary их больше нет, счётчики 481/105/103.
+    # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/119/117.
     assert {"limits_summary", "flags_summary",
             "reactions_summary"} <= claimed
     assert "flags_summary_filter" not in claimed
     assert "limits_summary_filter" not in claimed
-    assert len(pc._TAB_BY_GROUP) == 119
-    assert len(pc.GROUPS) == 121
-    assert len(pc.REGISTRY) == 587
+    assert len(pc._TAB_BY_GROUP) == 117
+    assert len(pc.GROUPS) == 119
+    assert len(pc.REGISTRY) == 581

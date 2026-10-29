@@ -74,9 +74,19 @@ class TestCompleteness:
                                       "INITIATIVE_EVAL_MIN_MESSAGES",
                                       "INITIATIVE_EVAL_MIN_INTERVAL_SECONDS",
                                       "INITIATIVE_EVAL_LLM_BUDGET_PER_DAY"})
+    # EVOL-031 (30.10.2026): 5 полей снятого Exact Match Cache / direct_dedup
+    # СОЗНАТЕЛЬНО оставлены в Settings как no-op (аддитивно, без каталога):
+    # код их не читает, replay готовых ответов через них невозможен
+    # (settings.py, W1-отчёт w1-evol031.md §2). Санкционированное
+    # исключение из покрытия — прецедент _CLASSVAR_CATALOGUED.
+    _EVOL031_RETIRED_NOOP = frozenset({
+        "SMART_CACHE_ENABLED", "SMART_CACHE_TTL_SECONDS",
+        "SMART_CACHE_MAX_ROWS", "CHAT_DEDUP_ENABLED",
+        "CHAT_DEDUP_TTL_SECONDS"})
 
     def test_every_settings_field_covered(self):
         missing, extra = pc.settings_field_coverage()
+        missing = missing - self._EVOL031_RETIRED_NOOP
         assert missing == set(), f"не покрыты: {sorted(missing)}"
         extra = extra - self._CLASSVAR_CATALOGUED
         assert extra == set(), f"лишние записи: {sorted(extra)}"
@@ -169,7 +179,9 @@ class TestCompleteness:
         #   TEMPORAL_FRESHNESS_* (кеш готовых вердиктов удалён W1) → 465.
         assert len(fields) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера; ASAP5 §22: +5 типов медиа; FC-06C: −2 TTL кеша вердиктов
         covered = {s.settings_field for s in REGISTRY.values() if s.settings_field}
-        assert covered - TestCompleteness._CLASSVAR_CATALOGUED == fields
+        # EVOL-031: 5 no-op полей снятого кеша — сознательно вне каталога.
+        assert covered - TestCompleteness._CLASSVAR_CATALOGUED == \
+            fields - TestCompleteness._EVOL031_RETIRED_NOOP
 
     def test_categories_canonical(self):
         for spec in REGISTRY.values():
@@ -425,7 +437,8 @@ class TestGroups8424:
         # → GROUPS 107.
         # ASAP 7 (F3, §3.2): +2 — flags_intent (mod_initiative),
         # limits_intent (mod_initiative) → GROUPS 115.
-        assert len(GROUPS) == 121
+        # EVOL-031 (30.10.2026): −2 группы (smart_cache flags/limits) → 119.
+        assert len(GROUPS) == 119
         categories_in_groups = {g.category for g in GROUPS}
         assert categories_in_groups == set(CATEGORIES)
 
@@ -572,8 +585,10 @@ class TestGroups8424:
         # → temporal 2. memory 48 — фактический счётчик дерева (бамп
         # параллельного лейна, пин 47 отставал — W1 incidental #1).
         # Итого categorized 561.
+        # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → flags 105, limits 223,
+        # итого categorized 556.
         assert counts == {"prompts": 25, "models": 74, "keys": 35,
-                          "limits": 226, "flags": 107, "reactions": 39,
+                          "limits": 223, "flags": 105, "reactions": 39,
                           "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

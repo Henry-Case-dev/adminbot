@@ -974,13 +974,15 @@ class TestCanon:
 
     def test_catalog_delta_sanctioned(self):
         # ASAP-3 (ADR-1028-2 D12, санкция spec §6): Δ +2 каталога-ключа → 483/423/458 (см. примечание в test_round1025_f8_registry).
-        assert len(pc.REGISTRY) == 587
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581/465/556/119/117/22
+        # (Settings-поля сохранены no-op; дрейф 466→465 — внешний, EVOL-016/012).
+        assert len(pc.REGISTRY) == 581
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 465
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 562
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
+                    if s.category is not None]) == 556
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
 
     def test_migration_step_present(self):
         steps = pm.PROMPT_MIGRATIONS[PROMPT_PG_KEY]
