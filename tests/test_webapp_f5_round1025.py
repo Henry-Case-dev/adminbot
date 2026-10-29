@@ -301,27 +301,29 @@ def test_summary_and_direct_ui_only():
     assert "min-height: 44px" in CSS
 
 
-# ── §47: ИИ — ровно 5 страниц, порядок ТЗ ──────────────────────────────────
+# ── §47: ИИ — страницы, порядок ТЗ ──────────────────────────────────────────
 def test_ai_hub_five_pages_order():
     block = _block("var HUBS_V2 = {", "'#/memory': {")
     titles = re.findall(r"\btitle: '([^']+)'", block)
+    # EVOL-031 (30.10.2026): карточка «Умный кэш» удалена из хаба «ИИ»
+    # (Exact Match Cache выведен из эксплуатации; старый маршрут
+    # #/ai/smart-cache алиасится на витрину «ИИ») → 5 → 4 карточки.
     assert titles[1:] == ["Библиотека промптов", "Модели и подключения",
-                          "Личность и стиль", "Имена и алиасы",
-                          "Умный кэш"], titles
+                          "Личность и стиль", "Имена и алиасы"], titles
     routes = re.findall(r"route: '([^']+)'", block)
     assert routes == ["#/ai/prompts", "#/ai/llm", "#/ai/persona",
-                      "#/ai/names", "#/ai/smart-cache"], routes
+                      "#/ai/names"], routes
 
 
 # ── Инварианты окружения ────────────────────────────────────────────────────
 def test_catalog_delta_zero():
     import services.param_catalog as pc
     from config.settings import Settings
-    assert len(pc.REGISTRY) == 587
-    assert len(pc.GROUPS) == 121
-    assert len(pc._TAB_BY_GROUP) == 119
-    assert len(pc.TAB_RULES) == 23
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+    assert len(pc.REGISTRY) == 581
+    assert len(pc.GROUPS) == 119
+    assert len(pc._TAB_BY_GROUP) == 117
+    assert len(pc.TAB_RULES) == 22
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
 
 
 def test_no_webgl_and_no_new_libraries():

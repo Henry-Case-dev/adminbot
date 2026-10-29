@@ -113,11 +113,11 @@ class TestKillSwitch:
 class TestInvariants:
     def test_catalog_delta_zero(self):
         from services import param_catalog as pc
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
 
     def test_app_version_bump(self):
         m = re.search(r'APP_VERSION = "([\d.]+)"', SETTINGS)

@@ -120,12 +120,14 @@ def test_screen_map_and_registry_artifacts_regenerated():
     # P0-FACTCHECK §6.3 (FC-06C, round 10.48): −2 мёртвых TTL-ключа
     # TEMPORAL_FRESHNESS_* → 586+header=587 (reissue по фактическому
     # каталогу дерева; пин 588 на базе расходился с TSV — W1 incidental #1).
-    assert len(tsv) == 587
+    # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → 581+header=582.
+    assert len(tsv) == 582
     assert "flags.vision_enabled" in "\t".join(tsv)
     meta = (ROOT / "plans/docs/param-registry-round1025.meta.md").read_text(
         encoding="utf-8")
-    # ASAP 7 F2: reissue под 560/149 (см. meta.md); FC-06C: 586/175.
-    assert "586" in meta and "411" in meta and "175" in meta
+    # ASAP 7 F2: reissue под 560/149 (см. meta.md); FC-06C: 586/175;
+    # EVOL-031: 581/175 (снятые ключи исторические — delta-набор не менялся).
+    assert "581" in meta and "411" in meta and "175" in meta
 
 
 # ── Kill-switches +4 (76→80; env-only default ON; OFF-инертности) ───────────

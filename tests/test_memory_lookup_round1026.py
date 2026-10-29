@@ -225,10 +225,10 @@ class TestContract:
             f.name for f in dataclasses.fields(Settings)}
         # P0-FACTCHECK §6.3 (FC-06C, round 10.48): 587 → 586 (−2 мёртвых
         # TTL-ключа TEMPORAL_FRESHNESS_*, кеш вердиктов удалён W1).
-        assert len(pc.REGISTRY) == 586
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
 
 
 # ── §52 п.14: невалидные аргументы ───────────────────────────────────────

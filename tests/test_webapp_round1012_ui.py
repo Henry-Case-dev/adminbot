@@ -190,14 +190,14 @@ class TestCatalogDelta1012:
         # 10.19 (F3/ADR-1019-3 D3, UPD3 п.5): → 437/92/90/20/407, categorized 412.
         # 10.23 (F5/ADR-1023-5 D5): +5/+3/+3 → 446/95/93/20/416, categorized 421.
         # 10.24 (F21/ADR-1024-22 D8): +1/+1/+1 → 459/98/96/20/418, categorized 434.
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
-        assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
+        assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         categorized = [s for s in pc.REGISTRY.values()
                        if s.category is not None]
-        assert len(categorized) == 562
+        assert len(categorized) == 556
 
     def test_new_param_specs(self):
         from services import param_catalog as pc

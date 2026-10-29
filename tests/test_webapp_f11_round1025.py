@@ -236,10 +236,10 @@ class TestD6Invariants:
 
     def test_catalog_delta_zero(self):
         import services.param_catalog as pc
-        assert len(pc.REGISTRY) == 587
-        assert len(pc.GROUPS) == 121
-        assert len(pc._TAB_BY_GROUP) == 119
-        assert len(pc.TAB_RULES) == 23
+        assert len(pc.REGISTRY) == 581
+        assert len(pc.GROUPS) == 119
+        assert len(pc._TAB_BY_GROUP) == 117
+        assert len(pc.TAB_RULES) == 22
 
     def test_no_new_routes(self):
         routes = sorted(set(re.findall(

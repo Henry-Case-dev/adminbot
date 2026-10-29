@@ -54,11 +54,14 @@ class TestCatalogFrozen:
         # keys.embedding_quota_group_labels.
         # SOUL-1 mobile-prompts (2026-10-16): +1 → REGISTRY 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 мёртвых TTL-ключа → REGISTRY 586.
-        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 586
-        assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 121
+        # EVOL-031 (30.10.2026): −5 EMC/dedup-ключей → REGISTRY 581,
+        # GROUPS 119, _TAB_BY_GROUP 117, TAB_RULES 22 (вкладка smart_cache
+        # удалена; BASELINE переиздан tools/_evol031_reissue_f8.py).
+        assert len(pc.REGISTRY) == BASELINE["counts"]["REGISTRY"] == 581
+        assert len(pc.GROUPS) == BASELINE["counts"]["GROUPS"] == 119
         # ASAP 7 F2: +3 группы L1 Planner (mod_direct); F4 in-flight — факт.
-        assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 119
-        assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 23
+        assert len(pc._TAB_BY_GROUP) == BASELINE["counts"]["_TAB_BY_GROUP"] == 117
+        assert len(pc.TAB_RULES) == BASELINE["counts"]["TAB_RULES"] == 22
 
 
 class TestIaMapCoverage:

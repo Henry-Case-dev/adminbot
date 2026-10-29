@@ -221,3 +221,53 @@ docstring `_write_chat_overrides_with_retry`, снята ссылка на уд�
 **105 passed / 0 failed**. Изменённые файлы: только тесты/фикстуры/docs-
 артефакты F8 + одноразовый tools-скрипт (прецедентный паттерн); продуктовый
 код не менялся, коммитов нет.
+
+---
+
+## 12. Follow-up #4: массовое выравнивание legacy-пинов счётчиков каталога
+
+Фактические значения (по переизданным фикстурам F8): REGISTRY=581, GROUPS=119,
+_TAB_BY_GROUP=117, TAB_RULES=22, TSV=581 строк данных (582 с заголовком),
+categorized=556, Settings-поля=465, TAB_NAV/CONFIG_TAB_TITLES=22.
+Механическая замена ТОЛЬКО catalog-ассертов (каждое вхождение проверено
+контекстом: `assert len(pc.REGISTRY|GROUPS|_TAB_BY_GROUP|TAB_RULES|TAB_NAV|
+CONFIG_TAB_TITLES|categorized|...) == <stale>`); сопутствующие
+не-каталоговые числа не тронуты. Продуктовый код не менялся; коммитов нет.
+
+**Правлено (41 файл, все зелёные):**
+
+| Группа файлов | Выравненные пины |
+|---|---|
+| `test_mca19_block_f_round1043.py` | TSV-строки 587→582 (581+header); meta «586»→«581» (411/175 без изменений); счётный блок уже 581/119/117/22 |
+| `test_budget_settings_round1019.py` | 587/121/119/23→581/119/117/22; TAB_NAV 23→22; Settings 466→465; categorized 562→556 |
+| `test_budget_global_toggle_round1024.py` | 587/121/119/23→581/119/117/22; Settings 466→465 |
+| `test_budget_data_repair_round1024.py` | REGISTRY 587→581, GROUPS 121→119 |
+| `test_cfg02a_image_quota_ui.py` | REGISTRY 587→581, GROUPS 121→119 |
+| `test_cfg03_param_audit.py` | 587/121/119/23→581/119/117/22; TSV data rows 587→581 |
+| `test_decision_making_round1026.py` | 587/121/119/23→581/119/117/22; Settings 466→465; categorized 562→556 |
+| `test_help_guide_round1014.py` | 587/121/119/23→581/119/117/22; Settings 466→465; categorized 562→556 |
+| `test_ia_inventory_round1025.py` | литералы 586/121/119/23→581/119/117/22 (BASELINE=catalog_baseline.json уже переиздан, §11) |
+| `test_image_context_memory_round1026.py`, `test_memory_lookup_round1026.py` | 586/121/119/23→581/119/117/22 |
+| `test_mca10a_random_source_block_c_round1037.py` | 587/121/119/23→581/119/117/22; Settings 466→465 |
+| `test_self_reflection_provider_round1014.py`, `test_settings_persistence_round1014.py` | 587/121/119/23→581/119/117/22; Settings 466→465; categorized 562→556 |
+| `test_summary_asap21_prefilter_removal.py` | 587/121/119/23→581/119/117/22 |
+| `test_summary_deploy_round1026.py` | 587/121/119/23→581/119/117/22 |
+| `test_summary_fact_package.py`, `test_summary_logging_runid.py`, `test_summary_publish_integration_round1026.py`, `test_summary_test_run.py`, `test_telegram_reactions_round1026.py`, `test_tool_coordinator_round1026.py` | 587/121/119/23→581/119/117/22; Settings 466→465; categorized 562→556 |
+| `test_tool_chains_round1026.py` | 587/121/119/23→581/119/117/22 |
+| `test_ui_verbilizer_tabs_round1023.py` | 587/121/119/23→581/119/117/22 + второй TAB_RULES-пин 23→22; CONFIG_TAB_TITLES 23→22 |
+| `test_unified_image_request_round1026.py` | 587/121/119/23→581/119/117/22 |
+| `test_webapp_f4/f7/f9/f11_round1025.py`, `test_webapp_hotfix7/8/9/10_round1025.py`, `test_webapp_round1010/1011/1012/1013/1014_ui.py`, `test_webapp_round1026_polygon.py`, `test_webapp_round109_ui.py` | 587/121/119/23→581/119/117/22; Settings 466→465 (у кого есть); categorized 562→556 (round1012/1013/1014) |
+| `test_webapp_f5_round1025.py` | счётчики 587/121/119/23→581/119/117/22; Settings 466→465; `test_ai_hub_five_pages_order` — карточка «Умный кэш» и `#/ai/smart-cache` убраны из ожидаемого порядка хаба «ИИ» (5→4 карточки; алиас старого маршрута проверяется в test_frontend_tab_mapping/test_round106) |
+
+**Прогон:** 25 py-файлов первой группы → **895 passed**; 16 webapp-файлов →
+**361 passed**; residual-скан stale-паттернов по всем 41 файлам → **0 вхождений**.
+
+**Skipped (чужой lane, не тронуто):** `tests/test_summary_l1_clusterizer.py`,
+`tests/test_summary_asap21_prompt_migrations.py`. Не тронуты также
+`tests/test_round1025_f8_registry.py`, `tests/test_mca17c_invariants_round1047.py`,
+`tests/test_mca10b_random_applications_block_a/d_round1041.py` (уже зелёные, §11).
+
+Примечание: пины полей Settings 466→465 — тот же ВНЕШНИЙ дрейф, что задокументирован
+в §10 (все 5 smart/dedup-ключей СОХРАНЕНЫ no-op; дельта от закоммиченного
+EVOL-016/012). Пины categorized 562→556: −5 снятые ключи + −1 pre-existing
+дрейф базы.

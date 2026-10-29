@@ -464,13 +464,13 @@ def test_catalog_zero_delta():
     # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
     # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы
     # (REGISTRY 489→481, GROUPS 107→105, _TAB_BY_GROUP 105→103).
-    assert len(pc.REGISTRY) == 587
-    assert len({f.name for f in dataclasses.fields(Settings)}) == 466  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
+    assert len(pc.REGISTRY) == 581
+    assert len({f.name for f in dataclasses.fields(Settings)}) == 465  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
     assert len([s for s in pc.REGISTRY.values()
-                if s.category is not None]) == 562
-    assert len(pc.GROUPS) == 121
-    assert len(pc._TAB_BY_GROUP) == 119
-    assert len(pc.TAB_RULES) == 23
+                if s.category is not None]) == 556
+    assert len(pc.GROUPS) == 119
+    assert len(pc._TAB_BY_GROUP) == 117
+    assert len(pc.TAB_RULES) == 22
 
 
 def test_no_new_env_catalog_key():
