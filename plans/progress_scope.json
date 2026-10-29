@@ -285,6 +285,16 @@
       "coverage_complete": true,
       "updated": "2026-10-29",
       "source_note": "P0 RELEASE-THEN-MIGRATE 29.10 (root chat, дословный снимок): строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS nik@198.46.175.136 -> (C) приёмка релиза на старом production -> (D) только после release gate подготовка/перенос на новый VPS root@192.255.209.205 -> (E) полная post-migration приёмка §7.1. | ВЫПОЛНЕНО 29.10: карта 78 required — 75 VERIFIED + 3 READY_FOR_LIVE (естественные postdeploy-наблюдения на новом проде: fetched= на реальном трафике, media-URL на опубликованном файле, summary/dream циклы), 0 PENDING; release-gate errors=4 = 1 документированный структурный класс (bump-деплой) + 3 ожидаемых деферрала. Фазы A-C: релиз 2.58.141 @ 5346ee76 на старом prod, приёмка, отчёт владельцу. Фаза D: INV/PREP/GIT/SYNC без остановки бота (SQLite backup-API 1.55GiB integrity ok, PG 9/9 каунтов, media/bot-api бит-в-бит, .env байт-в-байт, dotenv/systemd 0 расхождений, venv запиннен 48 пакетов). Окно-1 CUT 00:53-01:04Z — честный ABORT на DNS-гейте (токен DuckDNS owner-only; OQ-16) с чистым откатом и верификацией восстановления (гэп 10м53с, ноль потерь). Окно-2 04:06-04:17Z после передачи токена владельцем — SUCCESS: гэп 11м21с, logOut-переключение локального bot-api (tqueue.binlog 17408 B пережил, 0×409), DNS→192.255.209.205 (~4с), TLS LE выпущен (до 27.01.2027), бот 2.58.141 — единственный production. VERIFY: SQLite 76/76 таблиц (smart_messages 2 050 132, граница==снапшоту, MONOTONIC_OK), PG 26/26, роли админов 3/4, media digest бит-в-бит, .env sha256 match, HEAD==SHA, единственный poller. POST §7.1: 6 точек — PASS (KNN по боевой graph_facts_vec 5 соседей/0.6с, alias→user_id, админка: роли 4/bot_admins 3/промпты 20+, рестарт сохранил кастом-промпты ×11; порты 5432/8081/9000/10808/4416/8000 закрыты снаружи, открыты только 22/80/443; управляемый рестарт чистый 251мс→healthz try1). ffmpeg доустановлен на NEW (инфра-паритет, без изменения кода); pre-existing (wikipedia-403, embed NameError, FTS-only smart_archive) — вне среза, в backlog. SWITCH: deploy_commands.txt селектор → NEW primary / OLD «FALLBACK, НЕ деплоить»; AGENTS.md инфра-секция обновлена; fail2ban на NEW установлен/включён (sshd jail). Старый VPS цел и остановлен (данные байт-в-байт 1 669 840 896 B, бэкапы на месте) — rollback. Критических регрессий нет. OQ-16 ANSWERED (токен передан владельцем)."
+    },
+    {
+      "id": "final-vps-decommission",
+      "status": "VERIFIED",
+      "source_path": "plans/owner_inputs/2026-10-29-final-vps-decommission.md",
+      "source_sha256": "6BABC1F30EB078AFE596AB73B36F137A462A5453D43076CD57602AD04A092E86",
+      "maps": [],
+      "coverage_complete": true,
+      "updated": "2026-10-29",
+      "source_note": "FINAL VPS ACCEPTANCE & OLD SERVER DECOMMISSION 29.10 (заключительный этап миграции, без нового эпика — порядок 1-7 исполнен по директиве). | Фаза 1 GO: новый prod принят (SHA 5346ee76 / 2.58.141, NRestarts=0, единственный poller, 4 контейнера healthy, PG 26 таблиц, SQLite integrity ok, TLS до 27.01.2027, DNS только новый IP; естественный трафик живой). Счётчики админки расшифрованы: 3 err-since-start = одно событие wikipedia-403 (pre-existing внешний); 17 warn (к вечеру 106) = семейство embed-дефектов (NameError + smart_archive FTS-only + пустые embeddings ×4) — было и на старом сервере, НЕ регрессия миграции, Builder-backlog; 4 problems = устаревшие записи worker_lost от 2-27.10 (до cutover), гасятся владельцем в админке. Данные: 2 050 595 на фазе 1 (монотонный рост с 2 050 132; 463 записаны на новом сервере), без разрывов; память НЕ чистилась (4 633 expired belief на месте — политика), KNN работает. | Фаза 2: независимый бэкап на машине владельца WorkspaceData/backups/adminbot-postmigration-2026-10-29 (8 файлов, ~1,7 ГБ: SQLite integrity ok обе стороны 2 050 649 сообщений, pg_dump pg_restore -l TOC 124, .env, media 59, tqueue.binlog, манифест версий; sha256 MANIFEST+VERIFY-LOCAL). | Фазы 3-5: инвентаризация → адресное удаление → сверка. Удалено только доказанно ботное: /var/www/admin_bot целиком (4,6 ГБ: git tree, .env 158 ключей, SQLite+WAL+orphan journal, backups 1,5 ГБ, media, venv), unit admin_bot + drop-in, 4 контейнера + volume admin_bot_adminbot_pgdata + сеть admin_bot_default + 4 образа (по labels, без prune), vhost admin-bot.duckdns.org из Caddyfile (конфиг валиден; бинарник и cert storage не тронуты), cron disk_retention, /tmp-артефакты релизов + процесс probe_258140 (убит), 26 файлов + 5 каталогов в /home/nik (поимённо, вкл. копию .env и 3 PG-бэкапа 17.10). Освобождено ≈8,7 ГБ (75%→37% занято). Намеренно оставлено: xray (VPN владельца, ambiguous), /opt/headroom (чужой сервис), /tmp/data-gym-cache (root:root), общие journald/auth.log/.bash_history/.ssh nik, fwupd degraded (pre-existing). Git-креды: удалять нечего (публичный HTTPS). DuckDNS-апдейтера нет ни на одном сервере (риск DNS-flip отсутствует). | Фаза 6: новый prod после удаления — 2 050 911 сообщений (+262, integrity ok), 0 ошибок с 07:00Z (единственный Traceback — известный embed-дефект), скрытых зависимостей от 198.46.175.136 нет (.env/Caddy/compose/unit/PG — ноль). | Reviewer §22: ACCEPT (бэкап цел: 6/6 хешей + integrity; область удаления корректна; чужое не тронуто; отсутствие остатков подтверждено spot-check; DOCUMENT FIX AGENTS.md/deploy_commands — исполнен оркестратором). Rollback теперь только из бэкапа на машине владельца."
     }
   ],
   "owner_inputs": [
@@ -541,6 +551,19 @@
       ],
       "reconciled": true,
       "note": "P0 RELEASE-THEN-MIGRATE 29.10: строгий порядок (A) завершить текущую задачу -> (B) релиз на СТАРЫЙ VPS -> (C) приёмка на старом production -> (D) подготовка/миграция на новый VPS -> (E) полная post-migration приёмка (§7.1). | Сверено 29.10: фазы A-C закрыты (релиз 2.58.141 @ 5346ee76 на старом production, приёмка, отчёт владельцу); карта release-then-migrate 78 required, план-гейт EXIT 0; фаза D (инвентаризация) запущена. Секреты не в код/логи/git; старый VPS — fallback.",
+      "origin": "root chat 29.10.2026",
+      "received": "2026-10-29"
+    },
+    {
+      "id": "OI-2026-10-29-FINAL-DECOMMISSION",
+      "source_path": "plans/owner_inputs/2026-10-29-final-vps-decommission.md",
+      "source_sha256": "6BABC1F30EB078AFE596AB73B36F137A462A5453D43076CD57602AD04A092E86",
+      "kind": "new_task",
+      "target_task_ids": [
+        "final-vps-decommission"
+      ],
+      "reconciled": true,
+      "note": "FINAL VPS ACCEPTANCE & OLD SERVER DECOMMISSION 29.10: порядок 1-7 исполнен полностью. Фаза 1-2 GO (новый prod принят; независимый бэкап на машине владельца верифицирован). Фазы 3-5: декомиссия COMPLETE (≈8,7 ГБ освобождено, только bot-specific, чужое не тронуто, sweep чист). Фаза 6: новый prod здоров, зависимостей от старого IP нет. Reviewer ACCEPT. Задача VERIFIED; AGENTS.md и deploy_commands.txt обновлены (старый VPS больше не резерв).",
       "origin": "root chat 29.10.2026",
       "received": "2026-10-29"
     }
