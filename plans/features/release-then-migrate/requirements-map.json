@@ -2,8 +2,8 @@
   "schema": "openworkflow-coverage-v1",
   "source_path": "plans/owner_inputs/2026-10-29-release-then-migrate.md",
   "source_sha256": "ccc204766633f595b486794e1b7fd2e831520be1ae00931cd63182a69d4eb301",
-  "candidate_commit": "",
-  "deployed_commit": "",
+  "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+  "deployed_commit": "5346ee765e83ee859596b60437811b21db1e4564",
   "strict_evidence": true,
   "slice_graph_path": "slice-graph.json",
   "additional_requirements": [
@@ -19,8 +19,25 @@
       "acceptance": "Порядок A→B→C→D→E соблюдён и закреплён серийной цепочкой slice-graph (DONE-ABC→INV→PREP→GIT→SYNC→ROLLBACK→CUT→VERIFY→POST→SWITCH); миграция не начинается до завершения/деплоя/приёмки текущей задачи на старом production; перестановка этапов исключена зависимостями графа.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §0–§5 + полная цепочка артефактов срезов — REQ-RM-ORDER-A2E (порядок A→B→C→D→E: DONE-ABC release gate → INV → PREP → GIT → SYNC → ROLLBACK → CUT → VERIFY → POST → SWITCH)",
+          "observation": "Порядок A→E соблюдён строго: миграция начата только после release gate (текущая задача инженерно завершена, Reviewer Approved, релиз 2.58.141 @ 5346ee76 задеплоен и принят на старом production); срезы исполнялись серийно по slice-graph; даже сбой первого окна CUT не нарушил порядок — честный ABORT на шаге 7 и чистый откат к OLD по rollback-plan.md, retry выполнен только после разрешения OQ-16 владельцем; перестановки этапов нет.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §1+§2 — REQ-RM-ORDER-A2E (retry-окно 2026-10-29 04:06:18Z–04:17:39Z: cutover выполнен серийно после release gate; VERIFY и POST — после успешного cutover; SWITCH — после POST)",
+          "observation": "Retry-окно подтверждает серийность: шаги 6–8 исполнены только после разрешения OQ-16 (владелец передал DuckDNS-токен), VERIFY (сравнения со снапшотом) и POST (§7.1) — после cutover, SWITCH — после POST; фаза D (перенос только после проверки релиза на старом) предшествует E (переключение).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "M00018-REQ-RM-MIGRATE-NOW",
@@ -34,8 +51,25 @@
       "acceptance": "Миграция выполнена как продолжение текущего релиза, а не новый функциональный эпик: подготовка нового сервера начата только после проверки релиза на старом, при работающем старом production; единственное краткое окно остановки — окончательная фиксация и перенос изменяемого состояния; независимые деплои backlog приостановлены только на окно миграции, очередь/журнал/current_task.md сохранены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §1+§2 — REQ-RM-MIGRATE-NOW (миграция выполнена как продолжение текущего релиза; OQ-16 разрешён владельцем — DuckDNS-токен передан в приватный deploy_commands.txt, повтор окна без нового эпика)",
+          "observation": "Миграция не отложена как новый функциональный эпик: подготовка нового сервера начата только после проверки релиза на старом, при работающем старом production (INV/PREP/GIT/SYNC — online, healthz 200 2.58.141 на каждом OLD-сеансе); единственные краткие окна остановки — первое окно 00:53:38Z–01:04:31Z (ABORT+чистый откат, гэп ~10 м 53 с, ноль потерь) и успешное retry-окно 04:06:18Z–04:17:39Z; независимые деплои backlog приостанавливались только на окно миграции; очередь/журнал/current_task.md сохранены.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1+§2.1 — REQ-RM-MIGRATE-NOW (без потери данных, памяти, пользовательских настроек и возможностей)",
+          "observation": "Потерь нет: структурные счётчики SQLite/PG == финальному снапшоту (graph_facts 21 688, embedding_cache 16 649, dream_log 1 521, nostalgia_log 414, summary_runs 28, bot_settings 544 и др.), рост только живой (+13 сообщений MONOTONIC, +62 mca_events, heartbeat uptime); память/настройки/промпты на месте (промпты пережили рестарт, ×11 «НЕ трогаем»).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00028-REQ-RM-ROLES",
@@ -49,8 +83,25 @@
       "acceptance": "Модель исполнения соблюдена: Orchestrator довёл текущую задачу до завершения/Review/деплоя на старый VPS и подтверждения реально работающей версии; DevOps — ведущий исполнитель подготовки и миграции; Architect — ограниченный проход по критичным контрактам; Builder во время миграции исправляет только подтверждённые несовместимости нового окружения; Reviewer сначала принял релиз на старом production, затем проверяет целостность переноса и фактическое поведение нового production; без выдуманных многократных гейтов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §0–§5 + цепочка артефактов срезов — REQ-RM-ROLES (модель исполнения по разделу «Модель выполнения и ответственная роль» источника)",
+          "observation": "Модель исполнения соблюдена: Orchestrator довёл текущую задачу до завершения/Review/деплоя на старый VPS и подтверждения реально работающей версии (review-relevance-fix2 Approved, DEPLOY-258141, отчёт [OWNER-REPORT-258141]); DevOps — единственный ведущий исполнитель INV/PREP/GIT/SYNC/CUT/VERIFY/POST/SWITCH (журналы сеансов каждого среза, single-auth дисциплина); Architect — ограниченный проход по критичным контрактам (форма unit/.env/compose взяты из фактического runtime инвентаризацией); Builder во время миграции не потребовался для кодовых правок — единственная несовместимость нового окружения (отсутствие ffmpeg) устранена как инфра-паритет без изменения кода; Reviewer сначала принял релиз на старом production, затем целостность переноса (cutover-verify/retry: counts/integrity/sha) и фактическое поведение нового production (§7.1); выдуманных многократных гейтов нет — единственный реальный owner-гейт OQ-16 закрыт владельцем.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/p0-history-analysis/evidence/review-relevance-fix2.md — REQ-RM-ROLES (независимое ревью фазы A: Approved кандидата 0b8dfe6a, регрессия 758 passed / 0 failed)",
+          "observation": "Роль Reviewer в фазе A–C: независимая приёмка кандидата 0b8dfe6a до миграции — Approved, 758 passed / 0 failed; релиз допущен к деплою на старый VPS только после этого подтверждения.",
+          "artifact_path": "plans/features/p0-history-analysis/evidence/review-relevance-fix2.md",
+          "artifact_sha256": "fd47b8425f3a4901d2d3b58d42069ff332fc33c8326724838067217e7bcf24e8"
+        }
+      ]
     },
     {
       "source_id": "M00034-REQ-RM-CURRENT-TASK-ONLY",
@@ -232,8 +283,17 @@
       "acceptance": "Ни один переносимый или старый массив данных не удалён; чистая установка поверх старой системы не выполнялась; исключение только доказанно восстанавливаемых временных кэшей задокументировано в инвентаризации.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §2+§5 — REQ-RM-PROHIB-DATA (окно CUT/ROLLBACK 2026-10-29 00:53:38Z–01:04:31Z; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141 подтверждён на OLD и NEW в окне)",
+          "observation": "Ни один переносимый или старый массив данных не удалён: OLD live-набор в окне не изменялся (финальные снапшоты — только копии, оригиналы на месте); staging-копии на OLD удалены только после верифицированного пуша (REMOTE sha 4/4 == OLD); NEW содержит загруженный финальный набор (заморожен) и не удалялся. Чистая установка поверх старой системы не выполнялась — OLD восстановлен без переустановки, NEW работает поверх разрешённого пустого placeholder-префлайта PREP штатным pg_restore финального дампа.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "M00022-REQ-RM-PROHIB-DUAL",
@@ -247,8 +307,17 @@
       "acceptance": "В каждый момент времени работает максимум один экземпляр Telegram-бота: старый остановлен и проверен до включения нового; одновременный запуск двух активных экземпляров не допущен.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1+§2+§5 — REQ-RM-PROHIB-DUAL (окно CUT/ROLLBACK 2026-10-29 00:53:38Z–01:04:31Z; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "В каждый момент окна работает максимум один экземпляр Telegram-бота: OLD admin_bot остановлен 00:53:38Z и перезапущен только после ABORT (~01:04:20Z, healthz 200 в 01:04:31Z); NEW unit inactive+disabled, 0 процессов, бот не запускался ни разу — abort выполнен ДО logOut/переключения bot-api и ДО старта нового (шаги 6–8 не выполнялись); двойной привязки токена и двойных pollers нет (journal §2 «двойного экземпляра/повторных отправок не было ни в один момент окна»).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "M00022-REQ-RM-PROHIB-DUALUPGRADE",
@@ -342,8 +411,17 @@
       "acceptance": "Тестовые сообщения в рабочие Telegram-чаты не отправлялись; проверки выполнены штатными диагностическими средствами, изолированными non-delivery вызовами и анализом реальных штатных событий.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, шапка+§0+§1+§5 — REQ-RM-PROHIB-TESTMSG (POST на новом production, окно 04:44–05:00 UTC 2026-10-29)",
+          "observation": "Тестовые сообщения в рабочие Telegram-чаты не отправлялись (зафиксировано в шапке артефакта и §5); проверки — штатными диагностическими средствами (read-only батчи S0–S10/R0–R5 на прод-БД), изолированными non-delivery вызовами (bogus media-URL → 405/403, TMA-слой без initData → 401, KNN/FTS-пробы чтения) и анализом реальных штатных событий (естественные входящие обработаны в 2 чатах, initiative-тики, heartbeat); платные live-вызовы не выполнялись.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00022-REQ-RM-PROHIB-ADMINRESET",
@@ -405,8 +483,17 @@
       "acceptance": "Приёмка production не подменена unit-тестами или одним HTTP 200: выполнены сравнения данных и подтверждение единственности экземпляра по §7-7.1.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «SQLite данные», «PostgreSQL», «Выборочные чтения памяти», «Единственный production»)+§2.1 — REQ-RM-PROHIB-HTTP200",
+          "observation": "Приёмка production не подменена unit-тестами или одним HTTP 200: выполнены сравнения данных против согласованного финального снапшота (структурные счётчики == снапшоту: graph_facts 21 688, embedding_cache 16 649, dream_log 1 521, nostalgia_log 414, summary_runs 28, bot_settings 544; рост только живой: +13 сообщений MONOTONIC, +62 mca_events, heartbeat), выборочные чтения связей (alias→user_id, KNN 5 соседей/0.6 c на боевой graph_facts_vec, FTS, Golden Facts, L1 running_summary) и подтверждение единственности экземпляра (старый inactive+disabled/Exited, 1 poller, 0×409) по §7–7.1.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00020-REQ-RM-SECRETS-DEPLOY",
@@ -868,8 +955,17 @@
       "acceptance": "Перед переключением подтверждено: на старом production продолжает работать принятая текущая задача и SHA совпадает с MIGRATION_SOURCE_SHA; долговременная память и состояние заданий сверены; параллельные CI/DevOps релизы на оба VPS заблокированы на момент cutover; новые изменения после него направляются только на выбранный production; зафиксировано точное начало окна.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §0+§1 шаги 0-1+§5 — REQ-RM-CUT-PRECHECK (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ; MIGRATION_SOURCE_SHA 5346ee76 подтверждён на OLD (O1) и NEW (N1/nc2) в окне)",
+          "observation": "O1 recon до окна: OLD healthz 200 2.58.141 (принятая текущая задача работает), HEAD == MIGRATION_SOURCE_SHA 5346ee765e83…, unit active, .env sha == SYNC; N1 preflight NEW: unit inactive+disabled, 0 процессов, PG healthy, staging на месте; долговременная память и задания перенесены финальным консистентным снапшотом (SQLite 76 таблиц с count'ами, PG 26/26 == OLD); параллельных CI/DevOps релизов в окне не было — единственный DevOps-сеанс (journal §0); WINDOW_START зафиксирован 00:53:38Z (epoch 1793235218).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "M00103-REQ-RM-CUT-NOT-DONE-200",
@@ -883,8 +979,17 @@
       "acceptance": "DONE не объявлен по HTTP 200: требуются сравнения данных и подтверждение единственности экземпляра (совместно с VERIFY и POST-строками).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1 шаги 4-5+§2+§5 — REQ-RM-CUT-NOT-DONE-200 (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "DONE не объявлялся: окно остановлено ABORT RULE на шаге 7 (недоступный токен DuckDNS) с честным откатом по плану; сравнения данных выполнены (SQLite integrity_check=ok, 76/76 таблиц с count'ами, PG 26/26 == финальному OLD, REMOTE sha 4/4 == OLD); единственность экземпляра подтверждена (NEW ни разу не запускался, OLD единственный активный). Финальная приёмка DONE остаётся за VERIFY/POST-строками карты — PENDING до успешного повторного CUT.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "M00118-REQ-RM-VERIFY-SNAPSHOT-BASIS",
@@ -898,8 +1003,17 @@
       "acceptance": "Точечные сравнения и тесты привязаны к фактическому старому финальному снапшоту, а не к дефолтному чистому серверу; при неожиданном расхождении данных выполнен откат cutover до запуска новых писателей либо исправление на новой копии без потери пользовательских событий.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-SNAPSHOT-BASIS — REQ-RM-VERIFY-SNAPSHOT-BASIS (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Все сравнения — против финального снапшота ЭТОГО окна (O2 04:06–04:11Z, снят backup API с остановленных писателей), не дефолтного чистого сервера. Расхождений, требующих отката, нет: SQLite 75/75 equal-таблиц + 1 GROW, PG 25/26 equal + 1 heartbeat, 0 shrink/missing, границы (max_rowid 2 372 360, counts) == снапшоту. Откат cutover не потребовался; новые писатели запущены только после успешной верификации.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "M00122-REQ-RM-POST-SCOPE",
@@ -907,14 +1021,23 @@
       "source_text_sha256": "a32d3ca665b89ae25ce20267bd153c1b7ab3720107ea744850f269d4471eadef",
       "source_excerpt": "Проверить не только то, что бот запустился, но и что **актуальная задача, задеплоенная сначала на старый сервер, осталась рабочей после переноса**, а остальные существующие функции не пострадали. Использовать фактические параметры и включён",
       "disposition": "required",
-      "reason": "",
+      "reason": "READY_FOR_LIVE: приёмка §7.1 принята (проба пути инструмента на прод-БД PASS, критических регрессий нет); осталось естественное postdeploy-наблюдение — строка fetched= от реального трафика (tool-вызовов в окне не было). Никогда не PASS по этому пункту; наблюдение продолжается на новом production.",
       "req_id": "REQ-RM-POST-SCOPE",
       "slice": "POST",
       "acceptance": "Проверка ведёт сравнение до (старый принятый релиз) / после (новый production); используются фактические параметры и включённые модули чатов; выключенные функции не включаются специально ради формальных проверок; подтверждено, что актуальная релизная задача осталась рабочей после переноса, а остальные существующие функции не пострадали.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «Текущая задача (p0-history-analysis)», «Прикладные маршруты (конфиг/данные)»)+§5 — REQ-RM-POST-SCOPE",
+          "observation": "Сравнение до/после ведётся против принятого релиза на старом (2.58.141 @ 5346ee76, DEPLOY-258141); использованы фактические параметры и включённые модули чатов (конфиги/флаги/промпты из прод-БД и .env); выключенные функции специально не включались (форс-раны не звали); актуальная релизная задача подтверждена рабочей после переноса read-only пробой пути инструмента на прод-БД (depth=150 и 60 БЕЗ клампа, available=150/60, стр.1 fetched=40, FTS-путь жив); остальные существующие функции не пострадали (§7.1 без критических регрессий). НЕ наблюдено: естественная строка fetched= от реального трафика — ожидается на живом трафике; READY_FOR_LIVE (postdeploy), не PASS.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00124-REQ-RM-POST-P1",
@@ -928,8 +1051,17 @@
       "acceptance": "Точка 1: полный Git SHA и build на новом VPS совпадают с MIGRATION_SOURCE_SHA; старый admin_bot и production-writers остановлены; нет двойных Telegram pollers, scheduler/worker, повторной инициативы и дублирующихся отправок; Git/DevOps будущего деплоя указывает на новый IP, а не на старый сервер.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «Версия/код», «Единственный production», «Deploy-таргет»)+§3 — REQ-RM-POST-P1",
+          "observation": "Точка 1 PASS: полный Git SHA и build на новом VPS == MIGRATION_SOURCE_SHA 5346ee765e83ee859596b60437811b21db1e4564 (2.58.141, merge кандидата 0b8dfe6a + bump, код байт-идентичен ревью-кандидату); старый admin_bot и production-writers остановлены: inactive+disabled, 4 контейнера Exited, 0 bot/bot-api процессов; двойных Telegram pollers/scheduler/worker нет — единственный poller («Run polling» 04:17:38), 0×409/conflict, повторной инициативы и дублирующихся отправок нет; Git/DevOps деплой указывает на новый IP: deploy_commands.txt host selector обновлён (NEW = production, OLD = fallback «НЕ деплоить»; содержимое не печаталось) + репо AGENTS.md обновлён.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00126-REQ-RM-POST-P2",
@@ -937,14 +1069,23 @@
       "source_text_sha256": "d2fe2ee868198a41e069dddb7926ac587c4d9f08ae47982b936c8257929ce442",
       "source_excerpt": "**Точка 2 — процессы и зависимости:** systemd service устойчиво работает после старта, корректно поднимается после управляемого рестарта без потери данных; Docker Compose сервисы и необходимые healthcheck доступны; PostgreSQL, SQLite, локал",
       "disposition": "required",
-      "reason": "",
+      "reason": "READY_FOR_LIVE: systemd/Docker/health/error-loops PASS; осталось естественное postdeploy-наблюдение — файловый HEAD публичного media-URL на реально опубликованном элементе (опубликованных файлов сейчас нет, media/share пуст и на замороженном старом; маршрут жив, подпись обязательна: bogus → 405/403). Никогда не PASS по этому пункту.",
       "req_id": "REQ-RM-POST-P2",
       "slice": "POST",
       "acceptance": "Точка 2: systemd service устойчиво работает и корректно поднимается после управляемого рестарта без потери данных; Docker Compose сервисы и необходимые healthcheck доступны; PostgreSQL, SQLite, локальный Telegram Bot API, Cobalt, прокси, веб-сервер, TLS и публичные media URLs проверены по фактическим активным настройкам; нет повторяющихся exceptions, error loops, stuck jobs и неожиданных рестартов.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «systemd», «Docker», «Служебные порты снаружи», «Журнал с cutover», «Публичные media URLs»)+§2.1 — REQ-RM-POST-P2",
+          "observation": "Точка 2 PASS по существу: systemd устойчив (active+enabled, NRestarts=0) и корректно поднимается после единственного управляемого рестарта (graceful stop 251 мс → healthz try1 ≈5 c, NRestarts остаётся 0, новый MainPID, данные монотонны); Docker Compose сервисы healthy: postgres 127.0.0.1:5432, telegram-bot-api 127.0.0.1:8081, cobalt loopback:9000, bgutil :4416 (снаружи закрыт ufw); PostgreSQL/SQLite/локальный bot-api/Cobalt/прокси/веб-сервер/TLS проверены по фактическим активным настройкам; нет error loops (ERR=4 = одно pre-existing wikipedia-403 событие), stuck jobs 0, неожиданных рестартов 0. НЕ наблюдено: файловый HEAD публичного media-URL — опубликованных файлов сейчас нет (маршрут жив, подпись обязательна: bogus → 405/403; 59 файлов бит-в-бит на месте); доставка на реально опубликованном элементе — естественное postdeploy-наблюдение; READY_FOR_LIVE, не PASS.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00128-REQ-RM-POST-P3",
@@ -958,8 +1099,17 @@
       "acceptance": "Точка 3: row-counts/checksums/границы последних сообщений и IDs чатов в SQLite и PG совпадают с согласованными финальными снапшотами; выборочные чтения и целостность связей: истории, alias → Telegram ID, embedding index, GraphRAG, dossiers/episodes, Golden Facts, L1/L2, памяти чатов, summary/nostalgia/initiative state, pending jobs; новых импортов и перестроек памяти нет.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «SQLite данные», «Выборочные чтения памяти», «PostgreSQL»)+§2.1 — REQ-RM-POST-P3",
+          "observation": "Точка 3 PASS: row-counts/границы совпадают с согласованными финальными снапшотами — SQLite: smart_messages 2 050 132→2 050 145 (+13 MONOTONIC, max_rowid 2 372 360→2 372 373), graph_facts 21 688 =, nodes 28 964 =, edges 52 598 =, embedding_cache 16 649 =, dream_log 1 521 =, nostalgia_log 414 =, summary_runs 28 =, integrity ok, user_version 37, 121 таблиц; PG: bot_settings 544 =, chat_profiles 3 =, personas 2 =, chat_lore_history 250 =, image_reservation 14 =, worker_budget 311 =, anticliche_cache 1 = (рост только uptime heartbeat и llm_usage); выборочные чтения и целостность связей: alias→user_id OK (3 пары) + mca_self_identity, KNN на боевой graph_facts_vec 5 соседей/0.6 c (vec0, 21 771 строк, dims 3072), FTS OK, Golden Facts =1, L1 running_summary =1, последние сообщения читаются; новых импортов и перестроек памяти нет (index generations 3 =).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00130-REQ-RM-POST-P4",
@@ -973,8 +1123,17 @@
       "acceptance": "Точка 4: критичные маршруты проверены по существующим диагностическим средствам и изолированным non-delivery вызовам: Direct Chat/L1/Writer, ToolRouter и поиск, Fact-check с fallback, Summary и расписания, Initiative, Nostalgia, Vision/media, генерация и редактирование изображений (без платных live-запросов, если требуется только контракт), админка (логин, роли, права, глобальные и per-chat настройки, сохранённые провайдеры, промпты); acceptance текущей релизной задачи воспроизведены в безопасной среде с реальными runtime-логами; контрактный mock не выдан за живую проверку провайдера.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «Текущая задача», «Прикладные маршруты (конфиг/данные)», «Админка», «Фоновые тики») — REQ-RM-POST-P4",
+          "observation": "Точка 4 PASS (конфиг/данные/пробы): ToolRouter и поиск — FTS-проба мгновенная на прод-БД; Direct Chat/L1/Writer — конфиг+промпты на месте; Fact-check с fallback — промпты/ключи/лимиты на месте (платные live-запросы не выполнялись — только контракт, как разрешено acceptance); Summary и расписания — env+PG-флаги+история runs (28) на месте; Initiative — конфиг на месте + observer tick каждые 5 мин executed successfully (живой); Nostalgia — конфиг+лог 414; Vision/media — флаги+ключи, cobalt/bot-api healthy; генерация/редактирование изображений — контракт на месте (флаг+IMAGE_API_KEY); админка — логин-флоу 307→/web/ 200, TMA-слой 401 без initData, роли 4 + bot_admins 3 + 3 per-chat профиля + 20+ промптов, кастомные промпты пережили рестарт (×11 «НЕ трогаем»); acceptance текущей релизной задачи воспроизведены в безопасной среде с реальными runtime-логами (read-only проба depth=150/60 без клампа, стр.1 fetched=40, FTS жив); контрактный mock не выдан за живую проверку провайдера.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00132-REQ-RM-POST-P5",
@@ -982,14 +1141,23 @@
       "source_text_sha256": "3d0dd9ebaa94164cd163e0f690d921c39aeeaea64ff552202571056af182e61d",
       "source_excerpt": "**Точка 5 — штатное production-наблюдение:** после переключения изучить реальные новые `journalctl`/структурированные события, результаты штатных фоновых тиков и доступные естественные входящие обновления. Не генерировать тестовые сообщения",
       "disposition": "required",
-      "reason": "",
+      "reason": "READY_FOR_LIVE: журнал/тики/естественные входящие изучены (879 строк, ERR=4 = одно pre-existing событие; initiative 4 тика ✓; входящие в 2 чатах); осталось естественное postdeploy-наблюдение — summary/dream/consolidation циклы, не наступавшие за ~30-минутное окно (расписания длиннее окна; состояния в БД целы, билд-заданий нет). Никогда не PASS по этому пункту.",
       "req_id": "REQ-RM-POST-P5",
       "slice": "POST",
       "acceptance": "Точка 5: изучены реальные новые journalctl/структурированные события, результаты штатных фоновых тиков и доступные естественные входящие обновления; тестовые сообщения в рабочие Telegram-чаты не генерировались, искусственное ожидание не применялось; для функций без естественного события отмечено not_observed с указанием косвенно проверенного; «все функции проверены на проде» не заявлено только на основании health или моков.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "READY_FOR_LIVE",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «Журнал с cutover», «Фоновые тики»)+§2.2+§5 — REQ-RM-POST-P5",
+          "observation": "Точка 5 PASS по существу: изучены реальные journalctl/структурированные события с cutover (879 строк; ERR=4 — все одно pre-existing wikipedia-403 событие; WARN 15: embed NameError + FTS-only smart_archive — пре-существующие и на старом проде за 2 дня: 124 и 26 вхождений, не регрессия миграции), результаты штатных фоновых тиков (initiative_observer: 4 тика ✓ каждые 5 мин) и доступные естественные входящие обновления (обработаны в 2 чатах); тестовые сообщения не генерировались, искусственное ожидание не применялось; для функций без естественного события честно NOT_OBSERVED с указанием косвенно проверенного (состояния в БД на месте, билд-заданий нет: active=0). НЕ наступили за окно: summary/dream/consolidation циклы — естественное postdeploy-наблюдение продолжается; READY_FOR_LIVE, не PASS.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00134-REQ-RM-POST-P6",
@@ -1003,8 +1171,17 @@
       "acceptance": "Точка 6: публичный домен админки, DNS и сертификат проверены снаружи; healthz//api/health, нужные функции Mini App и пути медиа работают; порты PG/локального Telegram Bot API и служебных сервисов не открыты наружу; старые URL/IP не остались конечным адресом активного production.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (строки «Домен/DNS/TLS», «Служебные порты снаружи», «Админка», «Публичные media URLs») — REQ-RM-POST-P6",
+          "observation": "Точка 6 PASS: публичный домен админки, DNS и сертификат проверены снаружи — DNS (1.1.1.1/8.8.8.8/9.9.9.9) → только 192.255.209.205 (старая A-запись снята, старый :443 refused); TLS Let's Encrypt VALID (CN=admin-bot.duckdns.org, notAfter 27.01.2027); healthz 200 2.58.141, /api/health 200, / и /web/ 200; нужные функции Mini App: админка 307→/web/ 200, TMA-слой жив (401 без initData); пути медиа работают: маршрут жив и подпись обязательна (bogus → 405/403), 59 файлов бит-в-бит на месте; порты PG/локального Telegram Bot API и служебных сервисов не открыты наружу: 5432/8081/9000/10808/4416/8000 → CLOSED извне, открыты только 22/80/443; старые URL/IP не остались конечным адресом активного production.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00136-REQ-RM-POST-ACCEPT",
@@ -1018,8 +1195,17 @@
       "acceptance": "Критерий приёмки: нет потери данных, настройки не потеряны и не перезаписаны, сервисы работоспособны, текущий релиз и включённые основные маршруты доступны, нет подтверждённых новых критических регрессий относительно последнего проверенного состояния на старом VPS; при критической регрессии — локализация причины и безопасное исправление на новом production либо rollback по §8 с сохранением всех данных, созданных после cutover; слепой откат к старому снапшоту при уже принятых обновлениях не выполняется.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (полная таблица)+§2.2+§5 — REQ-RM-POST-ACCEPT",
+          "observation": "Критерий приёмки выполнен: потери данных нет (структурные счётчики == финальному снапшоту, рост только живой), настройки не потеряны/не перезаписаны (bot_settings 544 =, промпты пережили рестарт ×11, роли/профили на месте), сервисы работоспособны (systemd/Docker/PG/SQLite/TLS), текущий релиз 2.58.141 и включённые основные маршруты доступны, подтверждённых новых критических регрессий относительно последнего проверенного состояния на старом VPS нет (ERR=4 = одно pre-existing wikipedia-403; embed NameError/FTS-only smart_archive пре-существующие на OLD; ffmpeg-паритет восстановлен в POST без изменения кода); критической регрессии нет — откат по §8 не потребовался.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00138-REQ-RM-POST-TABLE",
@@ -1033,8 +1219,17 @@
       "acceptance": "Финальный артефакт приёмки создан: таблица «компонент | старый production | новый production | evidence | status» с честными PASS/FAIL/NOT_OBSERVED; приложены контрольные суммы/числа по БД и подтверждение соответствия MIGRATION_SOURCE_SHA принятой текущей задаче; NOT_OBSERVED не превращён в PASS.",
       "live_required": true,
       "live_when": "postdeploy",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1 (таблица 17 строк)+§2 — REQ-RM-POST-TABLE",
+          "observation": "Финальный артефакт приёмки создан: таблица «компонент | старый production | новый production | evidence | status» (17 строк) с честными PASS/FAIL/NOT_OBSERVED — NOT_OBSERVED не превращён в PASS (естественная fetched=, media-HEAD на опубликованном, summary/dream циклы помечены честно); контрольные суммы/числа по БД приложены (§2.1: дельты живой активности, структурные == снапшоту; sha 4/4 MATCH при загрузке — cutover-retry §2); соответствие MIGRATION_SOURCE_SHA принятой текущей задаче подтверждено в шапке (5346ee76 = merge кандидата 0b8dfe6a + bump, код байт-идентичен, blob-пины 10/10).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00142-REQ-RM-ROLLBACK-PRE",
@@ -1048,8 +1243,25 @@
       "acceptance": "План отката для фазы «новый VPS ещё не обрабатывал новые обновления и записи» задокументирован ДО cutover: возможен возврат старого VPS к заранее сохранённому состоянию с предварительной остановкой нового.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/rollback-plan.md, §1+§2+§4+§7 — REQ-RM-ROLLBACK-PRE (инфраструктурный срез ROLLBACK без кодового кандидата; план написан ДО cutover, до любых изменений состояния; замороженный кандидат MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "План отката для фазы «новый VPS ещё не обрабатывал новые обновления и записи» задокументирован ДО cutover (шапка rollback-plan.md «Написан ДО cutover»): §1 — точка возврата, зафиксированная recon O1 2026-10-29T00:43:25Z (SHA, unit active, DNS → 198.46.175.136, объёмы, shas); §2 — процедура возврата с предварительной полной остановкой НОВОГО до запуска СТАРОГО; §4 — критерии решения об откате в окне; §7 — чек-лист команд.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/rollback-plan.md",
+          "artifact_sha256": "de628fcbf203f1ad3374338a7d1dd85a2ec84cea8757d104d952abae1a929ee7"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §2+§5 — REQ-RM-ROLLBACK-PRE (окно CUT/ROLLBACK 2026-10-29 00:53:38Z–01:04:31Z; откат исполнен ровно по rollback-plan.md §2/§7, ROLLBACK_DONE 01:04:31Z)",
+          "observation": "План не только задокументирован, но и исполнен в реальном чистом откате: NEW ни разу не запускался, OLD возвращён systemctl start admin_bot — healthz 200 (try5, ~20 c), body {\"status\":\"ok\",\"version\":\"2.58.141\"}; внешняя верификация без SSH: healthz 200 2.58.141, DNS → 198.46.175.136 (точное совпадение с точкой возврата §1); гэп ≈10 м 53 с, ноль потерь данных.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "M00144-REQ-RM-ROLLBACK-POST",
@@ -1063,8 +1275,25 @@
       "acceptance": "План отката для фазы «новый VPS уже принимает сообщения/выполняет фоновые задачи» задокументирован ДО cutover: простое включение старого снапшота запрещено; сначала останавливаются новые писатели, изменения согласованно переносятся назад, восстанавливаются очереди/offset, и только затем запускается старый экземпляр; при невозможности безопасного обратного переноса новый сервер остаётся единственным источником истины и проблема устраняется на нём; одновременный запуск двух экземпляров всегда исключён.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "review",
+          "ref": "plans/features/release-then-migrate/evidence/rollback-plan.md, §3+§4+§6 — REQ-RM-ROLLBACK-POST (инфраструктурный срез ROLLBACK без кодового кандидата; план написан ДО cutover, до любых изменений состояния; замороженный кандидат MIGRATION_SOURCE_SHA 5346ee76 = релиз 2.58.141)",
+          "observation": "План отката для фазы «новый VPS уже принимает сообщения/выполняет фоновые задачи» задокументирован ДО cutover: §3 — backward-consistent процедура (простое включение старого снапшота запрещено; сначала остановка писателей NEW, согласованный дельта-перенос NEW→OLD, очереди/offset/tqueue, запуск OLD при полностью остановленном NEW); §4 — условие применимости фаз (после обработки реальных обновлений действует §3, не §2); §6 — правило «NEW остаётся единственным источником истины» и эскалация без согласований. Фаза в окне не наступала (NEW не обрабатывал реальные обновления и не создавал записей) — исполнение не потребовалось, процедура готова.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/rollback-plan.md",
+          "artifact_sha256": "de628fcbf203f1ad3374338a7d1dd85a2ec84cea8757d104d952abae1a929ee7"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §5 — REQ-RM-ROLLBACK-PRE/POST (мэппинг исполнителя окна: план написан до окна §1–§7; откат исполнен по нему, возврат верифицирован)",
+          "observation": "Мэппинг DevOps-журнала подтверждает обе rollback-строки VERIFIED: план существовал и применён; в реальном окне откат шёл по фазе §2 (§8.1), фаза §8.2 не требовалась — одновременный запуск двух экземпляров исключён в любой момент.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "M00148-REQ-RM-SWITCH-TARGET",
@@ -1078,8 +1307,17 @@
       "acceptance": "Deploy target обновлён в применимых конфигурациях DevOps/AGENTS на новый VPS; данные старого сервера сохранены для rollback и истории релизов; Orchestrator/DevOps выполняют git pull --ff-only и systemctl restart admin_bot на новом VPS, а не по старому IP; конфигурация fail2ban/SSH доступов проверена — скрипты не блокируют себя повторными подключениями.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §3 п.1–3 + §1 строка «Deploy-таргет» — REQ-RM-SWITCH-TARGET (SWITCH выполнен 2026-10-29)",
+          "observation": "Deploy target обновлён в применимых конфигурациях DevOps/AGENTS: локальный приватный deploy_commands.txt (вне Git; значения не печатались) — host selector: НОВЫЙ VPS = единый production (деплой git pull --ff-only + systemctl restart admin_bot там), СТАРЫЙ = остановленный fallback с пометкой «НЕ деплоить»; AGENTS.md в репо обновлён (production с 29.10.2026 = новый IP, старый = fallback для отката, fail2ban на обоих, логины из приватного файла); Orchestrator/DevOps цикл: git-цикл доказан неинтерактивно в срезе GIT, рестарт-цикл — единственным управляемым рестартом N2, следующий деплой попадает на новый VPS; fail2ban/SSH на NEW проверены: установлен/включён (jail sshd, backend systemd для Ubuntu 24.04), уже 1 бан сканера, single-auth скрипты себя не блокируют (все сеансы окна — single auth); данные старого сервера сохранены для rollback и истории релизов (admin_bot inactive+disabled, контейнеры Exited, данные/бэкапы целы).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00150-REQ-RM-SWITCH-REPORT",
@@ -1093,8 +1331,25 @@
       "acceptance": "Итоговый отчёт владельцу с двумя отдельными фазами доставлен: (1) текущая задача завершена, принята Reviewer, выкачена на старый VPS, указан полный MIGRATION_SOURCE_SHA, проверены основные acceptance; (2) перенос именно этого SHA на новый VPS: ОС/версии runtime, размеры SQLite/PG/media, проверка переноса данных, время начала/окончания cutover, фактический гэп, состояние /api/health, PG/Docker/systemd, домен/TLS, Git access и результаты расширенной post-migration проверки §7.1; отдельно указаны фактически проверенные функции, not_observed сценарии, серьёзные регрессии с исправлением/rollback и остаток к проверке; секреты не раскрыты.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/reports/final-report-history-analysis-258141.md @ commit ce02e706 [OWNER-REPORT-258141] — REQ-RM-SWITCH-REPORT, фаза (1): текущая задача завершена, принята Reviewer, выкачена на старый VPS, указан полный MIGRATION_SOURCE_SHA 5346ee76, основные acceptance criteria проверены на старом production",
+          "observation": "Фаза (1) итогового отчёта доставлена владельцу [OWNER-REPORT-258141]: 10 пунктов §22, версия на production 2.58.141 @ 5346ee76, дефекты/тесты/границы зафиксированы без раскрытия секретов.",
+          "artifact_path": "plans/reports/final-report-history-analysis-258141.md",
+          "artifact_sha256": "689866fb7e733aea282cf3cd7655800edb0bccd435dccd3bb95bb685ebf899de"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "report",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1+§2+§5 — REQ-RM-SWITCH-REPORT, фаза (2): перенос именно SHA 5346ee76 на новый VPS и расширенная приёмка §7.1 (консолидированный итог владельцу передаёт Orchestrator по этому артефакту)",
+          "observation": "Фаза (2) задокументирована: ОС/версии runtime (INV/PREP), размеры SQLite/PG/media (SYNC), проверка переноса данных (cutover-verify/retry), время начала/окончания cutover и фактический гэп, состояние /api/health, PG/Docker/systemd, домен/TLS, Git access (§3) и результаты расширенной post-migration проверки §7.1; отдельно указаны фактически проверенные функции, честные NOT_OBSERVED (естественная fetched=, media-HEAD на опубликованном, summary/dream циклы, TMA-логин владельцем, live-LLM), серьёзных регрессий нет — пре-существующие классифицированы (§2.2), остаток к проверке перечислен (§5); секреты не раскрыты (санитизация raw-логов, контрольные сканы 0 совпадений).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00152-REQ-RM-SWITCH-QUEUE",
@@ -1108,8 +1363,17 @@
       "acceptance": "Основная очередь задач разработки не остановлена без технической необходимости после успешного переноса; следующий обычный деплой попадает уже на новый VPS.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §3 п.4 — REQ-RM-SWITCH-QUEUE",
+          "observation": "Основная очередь задач разработки не остановлена без технической необходимости: приостановка независимых деплоев была только на окно миграции (см. REQ-RM-MIGRATE-NOW); после успешного переноса следующий обычный деплой попадает уже на новый VPS (deploy_commands.txt селектор + AGENTS.md указывают на NEW; git-цикл доказан в срезе GIT, рестарт-цикл — управляемым рестартом N2).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        }
+      ]
     },
     {
       "source_id": "M00154-REQ-RM-DONE-CRITERIA",
@@ -1123,8 +1387,25 @@
       "acceptance": "Критерий завершения подтверждён: текущая задача сначала успешно задеплоена и проверена на старом VPS; именно её принятый SHA перенесён на новый; новый VPS — единственный работающий production; данные сверены с финальным снапшотом; Git-деплой работает; расширенная post-migration приёмка приложения и функций пройдена без критических регрессий; старый сервер сохранён с выключенными production-писателями для возможного возврата; DONE не заявлялся до прохождения обоих этапов.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/post-acceptance.md, §1+§5 + цепочка артефактов — REQ-RM-DONE-CRITERIA (критерий завершения источника)",
+          "observation": "Критерий завершения подтверждён: текущая задача сначала успешно задеплоена и проверена на старом VPS (DEPLOY-258141, Reviewer Approved, отчёт владельцу), затем именно её принятый SHA 5346ee76 перенесён на новый (HEAD == MIGRATION_SOURCE_SHA, код байт-идентичен ревью-кандидату); новый VPS — единственный работающий production (старый inactive+disabled, 1 poller, 0×409); данные сверены с финальным снапшотом (структурные ==, рост живой); Git-деплой работает (неинтерактивный цикл + селектор на NEW); расширенная post-migration приёмка §7.1 пройдена без критических регрессий; старый сервер сохранён с выключенными production-писателями для возможного возврата; DONE не заявлялся до прохождения обоих этапов. Честный остаток: 3 POST-строки READY_FOR_LIVE (естественные события: fetched= на реальном трафике, media-HEAD на опубликованном, summary/dream циклы) — postdeploy-наблюдения, не критические регрессии; наблюдение продолжается на новом production.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/post-acceptance.md",
+          "artifact_sha256": "3db3b7be3c04d94daf554e3900763aa80d5c5829ea9a26c1819275f2020c2748"
+        },
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §1+§2 — REQ-RM-DONE-CRITERIA (обе стадии доказаны на реальных окнах)",
+          "observation": "Первая стадия — release gate на OLD (2.58.141 @ 5346ee76 принят; включая чистый ABORT+откат первого окна без потерь и двойного экземпляра); вторая — retry-cutover 04:06:18Z–04:17:39Z с VERIFY против финального снапшота (SQLite 75/75 equal + 1 GROW, PG 25/26 equal + heartbeat, 0 shrink/missing, границы == снапшоту), новые писатели запущены только после успешной верификации.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     }
   ],
   "items": [
@@ -1476,8 +1757,17 @@
       "acceptance": "Перед cutover сохранена точка возврата и выполнен последний preflight нового сервера; PostgreSQL и приложение готовы, но бот на новом VPS НЕ принимает updates.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1 шаги 0-1 (точка возврата — rollback-plan.md §1, зафиксирована recon O1 00:43:25Z) — REQ-RM-CUT-STEP1 (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Точка возврата сохранена и зафиксирована ДО окна: rollback-plan.md §1 (SHA 5346ee76, unit active, DNS → 198.46.175.136, объёмы, shas) по recon O1. Последний preflight NEW (N1): PostgreSQL healthy, staging на месте, unit inactive+disabled, 0 процессов — PostgreSQL и приложение готовы, бот на NEW НЕ принимает updates (не запускался ни разу, включая окно).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "L00095",
@@ -1491,8 +1781,17 @@
       "acceptance": "admin_bot на старом сервере и все связанные writer/scheduler процессы штатно остановлены; подтверждено отсутствие активных писателей SQLite/PG, отправителей Telegram и продолжительных jobs; старый локальный Bot API остановлен с учётом фактического режима polling/webhook.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1 шаг 2 (O2) + §4 п.4 — REQ-RM-CUT-STEP2 (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "O2: systemctl stop admin_bot → inactive, 0 процессов bot.py; старый локальный bot-api остановлен (exited); режим polling — старый poller остановлен первым, tqueue.binlog не потреблялся (неконсьюмленные апдейты сохранены в локальном bot-api OLD). Аномалия db_holders=3 (после stop, скан /proc) зафиксирована и компенсирована консистентностью снапшота: integrity_check=ok, 76/76 таблиц с count'ами, PG 26/26 == OLD, pg_restore rc=0; имена держателей — контроль на повторном окне (журнал §4 п.4).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "L00096",
@@ -1506,8 +1805,17 @@
       "acceptance": "Сделаны консистентные финальные снапшоты SQLite (включая активное состояние WAL), PostgreSQL (SQL dump), .env/hot-settings и изменяемых runtime-файлов; выполнена финальная дельта-синхронизация изменившихся media/данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1 шаги 3+5 (O2/O2b) — REQ-RM-CUT-STEP3 (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Консистентные финальные снапшоты после остановки писателей (O2): SQLite backup API (quiet, WAL-консистентный) 1,669,840,896 B sha 760aa5e8…; pg_dump -Fc 603,446 B sha fce935bc…; bot-api tar 69,529,600 B / 426 файлов sha 1317bffd…; тихие финальные PG counts 26 таблиц; media дельта — 59 файлов, 0 изменённых, digest d25b19c1…; .env sha 67bb8b1e… == SYNC. Финальная дельта-синхронизация выполнена пушем O2b: REMOTE sha 4/4 == OLD.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "L00097",
@@ -1521,8 +1829,17 @@
       "acceptance": "До загрузки на новый сервер проверена целостность: файлы, PRAGMA integrity_check SQLite, тестовый restore PG, счётчики строк, контрольные границы истории, ID чатов, алиасы, память и задания; работающее состояние не заменено непроверенным дампом.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1 шаг 4 (N2/O2b) — REQ-RM-CUT-STEP4 (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Целостность проверена ДО загрузки на NEW: SQLite integrity_check=ok (page_count 407676, freelist 80, user_version 37, 76 таблиц с count'ами — счётчики строк/границы/память/задания сверены); PG pg_restore -l по финальному дампу; REMOTE sha 4/4 == OLD (SQLite/dump/bot-api tar/.env). Работающее состояние OLD не заменялось — снапшоты только копии, live-набор OLD на месте.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "L00098",
@@ -1536,8 +1853,17 @@
       "acceptance": "Окончательный набор восстановлен на новом VPS с точным сопоставлением владельцев файлов, переменных окружения и PG паролей/DSN; без initdb/seed/очищающих миграций/reset/docker compose down -v на боевых данных.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-verify.md, §1 шаг 5 (N2) — REQ-RM-CUT-STEP5 (окно CUT/ROLLBACK 2026-10-29; инфраструктурный срез CUT без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Финальный набор восстановлен на NEW (N2): live db размещена /var/www/admin_bot/local_database.db (adminbot:adminbot 640); pg_restore --clean --if-exists rc=0, 0 ошибок, counts 26/26 == финальным OLD; соединение по реальному DSN с паролем из .env OK (asyncpg, server_version_num=160015); ENV_BYTES_MATCH=yes (sha 67bb8b1e…); media размещены с chown adminbot — владельцы/окружение/PG-пароли и DSN сопоставлены точно. Без initdb/seed/очищающих миграций/reset/docker compose down -v на боевых данных.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-verify.md",
+          "artifact_sha256": "83e043f22235d4a82d329739f976ad930020a10a1d270156e007fcbfcd2e06b3"
+        }
+      ]
     },
     {
       "source_id": "L00099",
@@ -1545,14 +1871,23 @@
       "source_text_sha256": "cba2d1da5d1b6cf5a45a872751f75fb0822248ef23331843f92f5305b6654852",
       "source_excerpt": "6. Убедиться, что старый бот остановлен, и только затем включить **единственный** `admin_bot` на новом VPS. При использовании локального Telegram Bot API проверить правила переключения `TELEGRAM_LOCAL` и `logOut/close` согласно реально испо",
       "disposition": "required",
-      "reason": "",
+      "reason": "RESOLVED (retry-окно 2026-10-29 04:06–04:17Z): первое окно остановлено честным ABORT на шаге 7 ДО logOut (новый bot-api не стартовал, двойной привязки токена нет); OQ-16 разрешён владельцем (DuckDNS-токен передан в приватный deploy_commands.txt), шаги 6–8 выполнены в retry-окне успешно — см. evidence ниже (cutover-retry.md).",
       "req_id": "REQ-RM-CUT-STEP6",
       "slice": "CUT",
       "acceptance": "Старый бот остановлен до включения единственного admin_bot на новом VPS; переключение TELEGRAM_LOCAL и logOut/close выполнено по правилам реально используемого режима; pending updates сохранены, двойной обработки нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §1, строка «6 единственный admin_bot + logOut» (O3/N3/N4) — REQ-RM-CUT-STEP6 (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Окно retry: OLD остановлен ДО старта NEW (WINDOW_START 04:06:18Z, stop admin_bot+bot-api; NEW enable --now 04:17:33, первый healthz 04:17:39Z — OLD остановлен раньше). TELEGRAM_LOCAL-переключение по правилам реально используемого режима: logOut на старом bot-api HTTP 200 {\"ok\":true} (O3), затем claim токена на NEW — getMe 200 {\"ok\":true} (N3). Pending updates сохранены: tqueue.binlog пережил logOut (17 408 B); двойной обработки нет — 0×409/conflict в журнале, единственный poller.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00100",
@@ -1560,14 +1895,23 @@
       "source_text_sha256": "955ca067fe00045d9139c496544157a41e8e2175b85a444c70c93188f9ff0806",
       "source_excerpt": "7. Перевести DNS/внешний reverse proxy/админку на новый VPS (учесть TTL, HTTPS, TLS и публичные media URLs), не открывая служебные порты наружу.",
       "disposition": "required",
-      "reason": "",
+      "reason": "RESOLVED (retry-окно 2026-10-29): блокер OQ-16 (owner-only DuckDNS credential) разрешён владельцем — токен передан в приватный deploy_commands.txt, A-запись admin-bot.duckdns.org → 192.255.209.205 через DuckDNS API (verdict OK); историческая запись о первом окне (DNS → 198.46.175.136, точка возврата) сохранена в cutover-verify.md.",
       "req_id": "REQ-RM-CUT-STEP7",
       "slice": "CUT",
       "acceptance": "DNS/внешний reverse proxy/админка переведены на новый VPS с учётом TTL, HTTPS, TLS и публичных media URLs; служебные порты не открыты наружу.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §1, строка «7 DNS/reverse proxy» (dns/N3/N5/ext) — REQ-RM-CUT-STEP7 (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "A-запись admin-bot.duckdns.org → 192.255.209.205 (DuckDNS API verdict OK); резолв у 1.1.1.1/8.8.8.8/9.9.9.9 через ~4 с (TTL учтён). Caddy active, ACME LE-сертификат выпущен ~04:13:45, handshake OK (TLS); домен https 200. Публичные media URL: MEDIA_PUBLIC_BASE_URL = https://admin-bot.duckdns.org в журнале старта (конфигурация на новом домене; живая раздача реального media-item в окне NOT_OBSERVED — приёмка §7.1 точка 6, slice POST-P6). Служебные порты не открыты: ufw только 22/80/443; 5432/8000/8081/9000/10808 — только loopback.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00101",
@@ -1575,14 +1919,23 @@
       "source_text_sha256": "9412029cffbaba54179626ce3c7a4df2f12aa5f9e76f852d8b1aa7451919fb90",
       "source_excerpt": "8. Проверить health endpoint, systemd, Docker, PostgreSQL, SQLite, чтение памяти, корректность админки и существующих настроек, отсутствие fatal ошибок в journald. Telegram входящие/исходящие проверить безопасным штатным способом без тестов",
       "disposition": "required",
-      "reason": "",
+      "reason": "RESOLVED (retry-окно 2026-10-29): новый бот стартовал в retry-окне (первый healthz 04:17:39Z); приёмка нового production выполнена — health/systemd/Docker/PG/SQLite/админка/journald (cutover-retry §1–2 + post-acceptance §7.1).",
       "req_id": "REQ-RM-CUT-STEP8",
       "slice": "CUT",
       "acceptance": "После старта проверены health endpoint, systemd, Docker, PostgreSQL, SQLite, чтение памяти, корректность админки и настроек, отсутствие fatal ошибок в journald; Telegram проверен безопасным штатным способом без тестовых сообщений; зафиксированы время первого рабочего старта и фактическая длительность гэпа; приёмка продолжена по §7.1.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §1, строка «8 старт + приёмка» (N4/ext) — REQ-RM-CUT-STEP8 (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Первый рабочий healthz 200 в 04:17:39Z (локально и по домену); NRestarts=0, 1 proc; 4 контейнера healthy; PostgreSQL+SQLite с реальными данными (26/26 и 76/76 таблиц); чтение памяти подтверждено живой активностью (mca_events 136964→136967, uptime_events +1 heartbeat 60 c, td.binlog растёт); админка 200/307→/web/; настройки из байт-точного .env; journal 0 fatals/errors. Telegram проверен штатно: polling запущен, тестовые сообщения не отправлялись. Время первого рабочего старта 04:17:39Z, фактический гэп 11 мин 21 с (04:06:18Z→04:17:39Z); приёмка продолжена по §7.1 — отдельный slice POST (POST-P1..P6).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00105",
@@ -1611,8 +1964,17 @@
       "acceptance": "SQLite integrity_check OK; размеры/таблицы/row counts и последние записи равнозначны зафиксированному финальному снапшоту старого сервера (smart_messages, history, mca memory, graph facts, episodes, embeddings, alias/identity, summary/nostalgia/initiative state, pending jobs).",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-SQLITE — REQ-RM-VERIFY-SQLITE (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "integrity_check=ok; 76/76 таблиц: 75 equal + 1 GROW (mca_events 136964→136967 — естественная активность после старта), 0 shrink; user_version 37; smart_messages 2 050 132, граница max_rowid 2 372 360 == снапшоту (MONOTONIC_OK); graph_facts 21 688, nodes 28 964, edges 52 598, embedding_cache 16 649, mca_episodes 23, mca_experience_episodes 449, memory_dream_log 1 521, nostalgia_log 414, task_jobs 7 650, message_source_records 66 834, summary_runs 28 — всё == финальному снапшоту O2 (smart_messages, history, mca memory, graph facts, episodes, embeddings, alias/identity, summary/nostalgia/initiative state, pending jobs).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00110",
@@ -1626,8 +1988,17 @@
       "acceptance": "PostgreSQL восстановлен именно из финального дампа: chat settings, admin roles, providers, prompts, dashboard state и остальные реальные таблицы на месте.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-PG — REQ-RM-VERIFY-PG (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Восстановлен именно из финального дампа этого окна (sha 9d3482ad…, pg_restore --clean --if-exists rc=0, 0 ошибок): 26/26 таблиц — 25 equal + uptime_events 4296→4297 (heartbeat), 0 shrink/missing; chat settings (bot_settings 544, chat_profiles 3), admin roles, providers, prompts (personas 2, persona_traits 50), prompts/lore 250, cover_* на месте; DSN-коннект реальным паролем OK (asyncpg, server_version_num 160015).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00111",
@@ -1641,8 +2012,17 @@
       "acceptance": ".env, приватные runtime-конфигурации, media files и директории доступны на новом сервере; пустых замен вместо ранее настроенного нет.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-FILES — REQ-RM-VERIFY-FILES (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": ".env sha 67bb8b1e… == OLD == SYNC (байт-в-байт); приватные runtime-конфигурации на месте (info_text sha == SYNC c8866df2…, cookies присутствуют); media 59 файлов, tree digest d25b19c1… old==new (бит-в-бит); extra_images 3; dossier_jobs 6; пустых замен вместо ранее настроенного нет.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00112",
@@ -1656,8 +2036,17 @@
       "acceptance": "git HEAD нового сервера соответствует принятому production; .env и deploy_commands.txt в Git не попали.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-GIT — REQ-RM-VERIFY-GIT (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "git HEAD NEW == 5346ee765e83ee859596b60437811b21db1e4564 (MIGRATION_SOURCE_SHA, 2.58.141) == принятому production; .env NOT_TRACKED_OK; deploy_commands.txt ABSENT_OK; dirty=1 — только «?? .cache/» (untracked pip-кэш, не данные).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00113",
@@ -1671,8 +2060,17 @@
       "acceptance": "Приложения и сервисы используют те же настройки/маршруты; HTTP/TLS/домен работают; персистентные volumes подключены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-ROUTES — REQ-RM-VERIFY-ROUTES (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Настройки/маршруты те же: env байт-в-байт; WEBAPP_URL/MEDIA_PUBLIC_BASE_URL = https://admin-bot.duckdns.org в журнале старта. HTTP/TLS/домен работают: внешне (реальный DNS) healthz 200 «2.58.141», admin UI 200 (307→/web/), домен https 200, ACME LE-сертификат выпущен, handshake OK. Volumes подключены: PG volume, bot-api bind, media-дерево. Публичная раздача реального media-URL — §7.1 точка 6 (POST-P6), в окне NOT_OBSERVED (нет естественного события; файлы бит-в-бит на месте).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00114",
@@ -1686,8 +2084,17 @@
       "acceptance": "Нет двух одновременно активных bot pollers, второго scheduler, дублирующих инициатив/саммари/уведомлений.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-SINGLE — REQ-RM-VERIFY-SINGLE (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "OLD: unit inactive+disabled, 4 контейнера exited, 0 procs. NEW: ровно 1 процесс bot.py, 1 bot-api; cron_admin_hits=0; systemd timers=0; 409/conflict=0 — два одновременно активных pollers отсутствуют, второго scheduler/дублей инициатив-саммари-уведомлений нет.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00115",
@@ -1701,8 +2108,17 @@
       "acceptance": "Доступы администратора и права ролей сохранены; GraphRAG работает с существующими embeddings без перестройки.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-ACCESS — REQ-RM-VERIFY-ACCESS (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Доступы и права сохранены, восстановлены из финального дампа: bot_admins=3, bot_roles=4, chat_admins=1, param_permissions=1. GraphRAG работает с существующими embeddings без перестройки: mca_embedding_index_generations=3 (без изменений), embedding_cache 16 649 == снапшоту; файлы embeddings/GraphRAG на месте.",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00116",
@@ -1716,8 +2132,17 @@
       "acceptance": "Старый VPS сохранён и остановлен как fallback; файлы/базы/скрипты не удалены.",
       "live_required": false,
       "live_when": "preprod",
-      "status": "PENDING",
-      "evidence": []
+      "status": "VERIFIED",
+      "evidence": [
+        {
+          "candidate_commit": "0b8dfe6af297aaa65caa1a216d584ef43f6b1d73",
+          "type": "production",
+          "ref": "plans/features/release-then-migrate/evidence/cutover-retry.md, §2, строка VERIFY-OLDVPS (O4 04:22:07Z) — REQ-RM-VERIFY-OLDVPS (retry-окно CUT шаги 6-8 + VERIFY 2026-10-29 04:06:18Z-04:17:39Z UTC; инфраструктурный срез CUT/VERIFY без кодового кандидата; привязан к 0b8dfe6a — HEAD локальной копии на момент работ)",
+          "observation": "Старый VPS сохранён и остановлен как fallback (unit inactive+disabled, контейнеры exited): db stat не менялся (1 669 840 896 B / mtime 1793244883), env sha == SYNC, HEAD 5346ee76, media 59, backups/ на месте; staging-копии удалены — оригиналы целы. Остаточный probe_258140.py (pid 800296) на замороженном fallback безопасен, решение об остановке — владельцу (вне среза).",
+          "artifact_path": "plans/features/release-then-migrate/evidence/cutover-retry.md",
+          "artifact_sha256": "6135cbccc2ef13c88f666437fba7995234b5526f2a79d75ec0515dba5a85ba1f"
+        }
+      ]
     },
     {
       "source_id": "L00120",
