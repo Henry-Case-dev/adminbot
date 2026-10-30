@@ -1,0 +1,24 @@
+{
+  "url": "http://127.0.0.1:8791/web/index.html",
+  "steps": [
+    {
+      "step": "card_open",
+      "card_present": true,
+      "hash": "#/memory/rag"
+    },
+    {
+      "step": "after_open_in_memory",
+      "card_present": true,
+      "hash": "#/memory?episode=ep-1",
+      "feed_item_active": true,
+      "what_text": "Тестовая встреча\nполный\nпроверен\n20.10.2026, 22:00:00 — 20.10.2026, 23:00:00 · чат -1001234567890\nскрыть\nЧто произошло: "
+    },
+    {
+      "step": "feed_click_toggles_off",
+      "card_absent": true
+    }
+  ],
+  "console_errors": [],
+  "failures": [],
+  "ok": true
+}

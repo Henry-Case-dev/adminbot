@@ -1,0 +1,31 @@
+{
+  "url": "http://127.0.0.1:8791/web/index.html",
+  "steps": [
+    {
+      "step": "card_open",
+      "card_present": true,
+      "hash": "#/memory/rag"
+    },
+    {
+      "step": "after_open_in_memory",
+      "card_present": false,
+      "hash": "#/memory?episode=ep-1",
+      "feed_item_active": false,
+      "what_text": null
+    },
+    {
+      "step": "feed_click_toggles_off",
+      "card_absent": false
+    },
+    {
+      "step": "toggle_reopen_error",
+      "error": "Page.wait_for_selector: Timeout 10000ms exceeded."
+    }
+  ],
+  "console_errors": [],
+  "failures": [
+    "карточка закрылась после «Открыть в памяти»",
+    "тумблер ленты перестал закрывать карточку"
+  ],
+  "ok": false
+}
