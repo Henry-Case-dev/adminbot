@@ -141,7 +141,11 @@ class TestMigrationV21:
     async def test_v21_tables_and_user_version(self, tmp_path):
         db = await _db(tmp_path)
         cur = await db.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_STORIES_MARK
+        # Пин на хвост реестра, а не на метку волны mca-05: после v37
+        # (humor_samples_v37) реестр продолжили EVOL-015 (v38
+        # quote_metadata) и EVOL-016 (v39 prompt_revision_journal), поэтому
+        # свежая БД мигрирует до фактического хвоста.
+        assert (await cur.fetchone())[0] == _current_schema_tail()
         for table in ("mca_episodes", "mca_stories", "mca_story_versions",
                       "mca_story_episode_links", "mca_story_continuations",
                       "mca_story_redirects", "mca_story_legacy_links"):
@@ -162,7 +166,7 @@ class TestMigrationV21:
         db2 = DatabaseService(str(tmp_path / "mca05.db"))
         await db2.initialize()
         cur = await db2.db.execute("PRAGMA user_version")
-        assert (await cur.fetchone())[0] == _SCHEMA_VERSION_STORIES_MARK
+        assert (await cur.fetchone())[0] == _current_schema_tail()
         book = await _count(
             db2, "SELECT COUNT(*) FROM schema_migrations WHERE version = 21")
         assert book == 1
@@ -193,7 +197,12 @@ class TestMigrationV21:
         # MCA-22 (ADR-1028-6 §4.1): хвост реестра теперь v22 — mca-05
         # остаётся в реестре; mark обновлён на текущий хвост по конвенции
         # волн (прецедент v16→v21).
-        assert versions[-1] == _SCHEMA_VERSION_STORIES_MARK
+        # EVOL-015/EVOL-016 (30.10.2026): хвост ушёл дальше метки волны —
+        # v38 quote_metadata, v39 prompt_revision_journal. Семантика mark
+        # сохранена: шаг-метка обязан ПРИСУТСТВОВАТЬ в реестре (stories-
+        # контракт жив), но последним шагом он уже не является.
+        assert versions[-1] == _current_schema_tail()
+        assert _SCHEMA_VERSION_STORIES_MARK in versions
         assert _SCHEMA_VERSION_EPISODES_STORIES in versions
         assert _SCHEMA_VERSION_EPISODES_STORIES == 21
 
@@ -259,6 +268,16 @@ from services.database import (  # noqa: E402
 # библиотека примеров; аддитивно, идемпотентно, PG no-op) — mark обновлён по
 # той же конвенции волн (прецедент v34→v35).
 _SCHEMA_VERSION_STORIES_MARK = _SCHEMA_VERSION_TAIL_V36
+
+
+def _current_schema_tail() -> int:
+    """Фактический хвост реестра миграций (не метка волны mca-05).
+
+    Метка ``_SCHEMA_VERSION_STORIES_MARK`` фиксирует шаг, на котором появились
+    таблицы эпизодов/историй; реестр продолжается дальше (EVOL-015 → v38
+    quote_metadata, EVOL-016 → v39 prompt_revision_journal), поэтому
+    ``PRAGMA user_version`` свежей БД равен этому хвосту."""
+    return max(s.version for s in DatabaseService.migration_steps())
 
 
 # ═══ Kill-switch OFF-паритет (SC-20, T-4249) ═════════════════════════════════

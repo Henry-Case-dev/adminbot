@@ -602,15 +602,32 @@ async def test_running_summary_cas_off_baseline(tmp_path, monkeypatch):
 
 # ═══ D9: ответный кеш ════════════════════════════════════════════════════════
 
-def test_answer_cache_policy_helper(monkeypatch):
+def test_answer_cache_policy_helper():
+    """EVOL-031 (30.10.2026): MCA-07 ответный кеш с replay-веткой выведен
+    из эксплуатации.
+
+    Пост-выходной контракт вместо прежнего флага `_legacy_text_replay_enabled`
+    (ON → replay off, OFF → replay on): хелперов ответного кеша в
+    `direct_chat_service` больше нет, ветки replay нет ни при каких значениях
+    kill-switch (повтор готового ответа пользователя невозможен), а
+    защищённый слаг `factcheck` (provenance-метка) остаётся живым.
+    """
+    import inspect
+
     import services.direct_chat_service as dcs
-    # ON (default) → legacy text-replay ОТКЛЮЧЁН, update-дедуп сохранён.
-    monkeypatch.setattr("services.mca_gates.context_answer_cache_enabled",
-                        lambda: True)
-    assert dcs._legacy_text_replay_enabled() is False
-    monkeypatch.setattr("services.mca_gates.context_answer_cache_enabled",
-                        lambda: False)
-    assert dcs._legacy_text_replay_enabled() is True
+    from services.smart_cache import build_key
+
+    assert not hasattr(dcs, "_legacy_text_replay_enabled")
+    assert not hasattr(dcs, "_answer_cache_disabled_notified")
+    src = inspect.getsource(dcs)
+    assert "_legacy_text_replay_enabled()" not in src
+    assert ".get_dedup(" not in src
+    assert ".set_dedup(" not in src
+    # kill-switch остаётся зарегистрированным (default ON) — OFF-паритет
+    # прочих механизмов не ломается, но replay-пути за ним уже нет.
+    assert mca_gates.context_answer_cache_enabled() is True
+    # защищённый слаг фактчека (не ответный кеш) — нормализация как прежде.
+    assert build_key("factcheck", "x") == build_key("factcheck", " x ")
 
 
 # ═══ kill-switch: имена и default ═══════════════════════════════════════════

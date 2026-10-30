@@ -51,13 +51,24 @@ CONTRACTS = {
 }
 
 LEGACY_BLOCK_IDS = tuple(b.block_id for b in pr.legacy_persona_blocks())
+#: SPEECH-P0-A1 (25.10.2026, owner addendum §1): канон
+#: ``verbilizer.mode.deep_research`` переписан дословно по тексту владельца —
+#: identity-сегмента нет ни в фабрике, ни в зарегистрированной ступени
+#: PREV_MODE_DEEP_RESEARCH_BLOCK (там уже «Без пафосных вступлений»).
+#: Поэтому «известный канон со старой личностью» для этого блока не
+#: существует; контракт подавления исторических ПЕРСИСТЕНТНЫХ байтов
+#: («Интегрируй токсичный стиль…») проверяется в
+#: ``test_soul1_registry_completeness::
+#: test_legacy_persona_canons_are_registered_with_revision_labels``.
+_NO_PERSISTED_LEGACY_BYTES = frozenset({"verbilizer.mode.deep_research"})
 #: Блоки effective-слоя (PG-каноны), к которым применяется подавление на
 #: сборке. Код-пути без PG-ключа (например фраза smartmodule) регистрируются
 #: отдельно и заменяются владельцем слайса (W3) — см.
 #: ``test_code_path_legacy_phrase_is_registered_for_replacement``.
 LEGACY_CANON_BLOCK_IDS = tuple(
     b.block_id for b in pr.legacy_persona_blocks()
-    if b.pg_key or len(pr.factory_text(b.block_id)) >= 400)
+    if (b.pg_key or len(pr.factory_text(b.block_id)) >= 400)
+    and b.block_id not in _NO_PERSISTED_LEGACY_BYTES)
 
 #: CFG-07A-2 (20.10.2026, ADR-1013-3): фабричные каноны этих блоков ВЫЧИЩЕНЫ
 #: (safety-bypass/identity/hostility сняты из кода), поэтому контракт
@@ -199,6 +210,14 @@ def test_cleaned_factory_canons_have_no_legacy_markers():
             continue
         assert info.legacy_present is False, block_id
         assert info.applied is False, block_id
+    # SPEECH-P0-A1 (25.10.2026, owner addendum §1): фабрика deep_research
+    # переписана дословно — identity-сегмента нет, подавление на ней no-op.
+    deep_raw = pr.factory_text("verbilizer.mode.deep_research")
+    _deep_stripped, deep_info = pr.suppress_legacy_speech(
+        deep_raw, source="global")
+    assert deep_info.legacy_present is False
+    assert deep_info.applied is False
+    assert "токсичн" not in deep_raw
 
 
 def test_custom_value_is_never_edited_but_is_visible_as_conflict():

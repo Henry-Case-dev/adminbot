@@ -105,16 +105,26 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
     """Флаг legacy_persona = контракт подавления ПЕРСИСТЕНТНОГО слоя.
     CFG-07A-2 (20.10.2026, ADR-1013-3): фабрики 6 канонов НЕ-фактчек
     маршрутов вычищены (маркеров нет, подавление на них no-op) — прежние
-    байты живут в ступенях PREV_*_CFG07A; фактчек (фриз W3), Direct
-    (identity вне скоупа) и deep_research маркеры сохраняют.
+    байты живут в ступенях PREV_*_CFG07A; фактчек (фриз W3) и Direct
+    (identity вне скоупа) маркеры сохраняют.
     LEGFIX (22.10.2026, backlog «narrator-канон identity-фраза»,
     bindings.cfg-final §6): фабрика Рассказчика вычищена тем же классом
-    (SF-07) — прежние байты в ступени PREV_SUMMARY_NARRATOR_LEGFIX."""
+    (SF-07) — прежние байты в ступени PREV_SUMMARY_NARRATOR_LEGFIX.
+    SPEECH-P0-A1 (25.10.2026, source-owner-p0-hotfix-addendum-2026-10-25.md
+    §1): канон ``verbilizer.mode.deep_research`` переписан дословно по тексту
+    владельца — legacy-фраза «Интегрируй токсичный стиль…» из фабрики ушла
+    (прежние байты — PREV_MODE_DEEP_RESEARCH_BLOCK), поэтому маркер на
+    фабрике больше не ожидается; флаг legacy_persona остаётся контрактом
+    подавления ПЕРСИСТЕНТНЫХ значений (правило persona.mode_deep_research
+    ниже проверяется отдельно)."""
     legacy = {b.block_id: b for b in pr.legacy_persona_blocks()}
     cleaned_factories = {
         "summary.base.single", "search.base.system", "checkup.base.system",
         "youtube.base.system", "youtube.base.video", "web.base.system",
         "summary.base.narrator",
+        # SPEECH-P0-A1 (25.10.2026): канон deep_research — дословный текст
+        # владельца, identity-сегмента в фабрике нет.
+        "verbilizer.mode.deep_research",
         # ASAP W1 (22.10.2026, §3.1/§3.6/P0F-«точечно»): identity-фразы
         # сняты с фабрик Direct (tool phase, L2 writer) и Вербализатора
         # фактчека — прежние байты в ступенях PREV_*_W1; флаг legacy_persona
@@ -145,6 +155,18 @@ def test_legacy_persona_canons_are_registered_with_revision_labels():
         else:
             assert pr.legacy_persona_present(pr.factory_text(block_id)), \
                 block_id
+    # SPEECH-P0-A1: фабрика deep_research чистая, но контракт подавления
+    # ПЕРСИСТЕНТНЫХ legacy-значений не снят — правило
+    # persona.mode_deep_research по-прежнему вычищает старую фразу.
+    legacy_deep = (
+        "РЕЖИМ DEEP_RESEARCH - ГЛУБОКИЙ РАЗБОР:\n"
+        "Выведи переданный тебе структурированный отчет ПОЛНОСТЬЮ, ничего не "
+        "выбрасывай и не сжимай. Интегрируй токсичный стиль органично, без "
+        "пафосных вступлений.")
+    cleaned_deep, _info = pr.suppress_legacy_speech(
+        legacy_deep, source="global", custom_clean=True)
+    assert "токсичный" not in cleaned_deep
+    assert "Пиши по делу, без пафосных вступлений." in cleaned_deep
     for block_id in legacy:
         assert block_id in pr.FACTORY_REVISION_LABELS, (
             f"{block_id}: фабричная редакция без версии-метки")

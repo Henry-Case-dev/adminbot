@@ -226,7 +226,11 @@ async def test_legacy_rows_are_excluded_from_selection_until_classified(db):
 @pytest.mark.asyncio
 async def test_v37_migration_maps_categories_and_preserves_data(legacy_db):
     cursor = await legacy_db.db.execute("PRAGMA user_version")
-    assert (await cursor.fetchone())[0] == 37
+    # Пин на фактический хвост реестра, а не на v37: после v37
+    # (humor_samples_v37) реестр продолжили EVOL-015 (v38 quote_metadata) и
+    # EVOL-016 (v39 prompt_revision_journal).
+    assert (await cursor.fetchone())[0] == max(
+        s.version for s in DatabaseService.migration_steps())
     for cat in ("mat", "humor", "legacy"):
         rows = await sl.list_samples(legacy_db, chat_id=None, category=cat)
         assert rows, cat
