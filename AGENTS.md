@@ -50,6 +50,15 @@ Reviewer отклоняет новые искусственные квоты и�
 Любая новая или изменённая постоянная LLM-инструкция/шаблон/фрагмент в любом модуле обязана быть объявлена через `declare_prompt` в `services/prompt_registry.py` (каталожный ключ + метаданные; для текста в коде — `code_source`) с меткой заводской ревизии и печатью. Новые необъявленные строковые промпты, конфиги без версии, параллельные «канонические» константы и локальные миграторы-обходные пути запрещены. Смена заводского текста без бампа метки — нарушение сборочного контракта: релизная политика отклоняет его fail-closed, тест `tests/test_evol018_prompt_audit.py` падает. Активация, история, откат и legacy-снимки — только через релизную политику (`services/prompt_release_policy.apply_release`); ручные правки сохраняются как immutable-ревизии, а не переписываются. Полный контракт: `docs/prompt-versioning-contract.md`.
 
 
+## Папка `media/` — часть поставки (правило владельца, 30.10.2026)
+
+**Все изменения в `media/` идут на производство при любом деплое, по ходу выполнения любой задачи**, независимо от темы эпика. Правило распространяется на новые, заменённые и удалённые файлы: изображения, стикеры, библиотеки и любые ассеты.
+
+- Новые/изменённые файлы `media/` коммитятся в релизную ветку вместе с кодом (ассеты небольшие) либо доставляются на сервер штатным каналом синхронизации в рамках того же деплоя. При `git pull` на проде они оказываются вместе с релизом.
+- Ignored-секреты (`media/srv_cookies.txt` и подобные) не коммитятся и не копируются автоматически; их судьба решается отдельно.
+- Перед деплоем проверять: `git status media` и `git ls-files --others --exclude-standard media`; после деплоя — что новые файлы реально присутствуют на сервере.
+- Задача, затронувшая `media/`, не считается завершённой, пока эти файлы не доставлены на прод (или явно не зафиксировано, почему доставка отложена).
+
 ## Project-specific workspace and backup hygiene (28 Oct 2026)
 
 Create new workflow-owned temporary output only through the installed global `tools/workflow_housekeeping.py`. `allocate` writes under that config's `WorkspaceData/runs/`. New parallel Git worktrees use `worktree-path` (under `WorkspaceData/worktrees/`) and `git worktree add`, then `register-worktree`. Do not create sibling checkouts beside this repository. Do not hardcode a project path or a sibling worktree name pattern. Existing leftover checkouts must be classified against `git worktree list --porcelain`, cleanliness, commit reachability and active use before any `git worktree remove` (never `--force`, never delete the branch). Unknown or dirty trees stay.
