@@ -247,8 +247,19 @@ def _summary_fake_self(captured, *, llm_raw):
 
     fake.memory = _Memory()
 
+    # ASAP-VISION-SYNC-01 §4.6 (review-fix2, P2): конвейер сводки спрашивает
+    # состояние медиа окна и передаёт свидетельство в XML/факты. Здесь
+    # db=None (см. _Memory) → штатное «состояния нет», поведение прежнее.
+    async def _window_media_state(_chat_id, _rows):
+        return None
+
+    fake._window_media_state = _window_media_state
+    fake._media_xml_evidence = G._media_xml_evidence
+    fake._media_facts_evidence = G._media_facts_evidence
+
     class _Xml:
-        def build(self, rows, aliases, trigger_message_id, window_caps=None):
+        def build(self, rows, aliases, trigger_message_id, window_caps=None,
+                  media_evidence=None):
             return "<chat_history></chat_history>"
 
     fake.xml = _Xml()

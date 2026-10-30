@@ -159,6 +159,8 @@ LLM — двойники), файл `tests/test_evol_vision_sync_wave2.py`.
 | `test_mca08_style_form::test_declared_events_really_emitted_in_code`, `test_mca17a…::test_registry_event_names_exist_in_code` | `direct.reply` объявляет `mca07_answer_cache` (удалено EVOL-031) — пре-существующее, вне моего диффа |
 | `test_webapp_avatars_ui`, `test_webapp_js_unit`, `test_webapp_round1024_nodeflow`, `test_webapp_tma_fixes_ui` | падают в чистом HEAD либо вызваны незакоммиченными правками UI-лейна (`web/app.js`, `web/index.html`, `web/static/app.css`) |
 
+**Регрессия теста волны (исправлено, review-fix2 follow-up):** `tests/test_unified_core_route_coverage.py::_summary_fake_self` не имел `_window_media_state` → AttributeError на `summary_generator.py:1836`. Добавлены async-стаб (→ `None`, как при `db=None`) и параметр `media_evidence=None` в `_Xml.build`; файл целиком 18/18 зелёный, `pytest tests/ -k summary` → 5 failed / 1809 passed (ровно перечисленные выше pre-existing, без новой).
+
 ## 8. Честные зазоры этой волны (с точными патч-нотами)
 
 1. **Админ-кнопка «Проверить» (стадийная проверка Vision) — отложена.**
