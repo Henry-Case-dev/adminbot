@@ -623,3 +623,61 @@ class TestAudioOnlyReplyHonesty:
         text = bot.send_message.await_args.args[1]
         assert yt.TRANSCRIPT_ONLY_NOTE not in text
         assert _events("multimodal_success")
+
+
+# ── 10. Review-fix2 (F3): личка не перехватывает обычную речь ─────────
+
+class TestPrivateChatOrdinarySpeechNotHijacked:
+    """F3: общие императивы («перескажи/дай/хочу/покажи») — НЕ видео-просьба.
+
+    Эвристика `дай|покажи|скинь|хочу|нужн|перескажи` в личке съедала обычные
+    просьбы: сообщение потреблялось (pending=1, мгновенного ответа нет), а
+    после TTL бот просил ролик вместо ответа. Обычная речь уходит в LLM."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Перескажи кратко",
+        "Дай краткое содержание",
+        "Хочу понять суть",
+        "Покажи суть",
+        "Перескажи это кратко",
+        "Сделай краткое содержание",
+        "Дай краткое содержание статьи",
+        "Перескажи кратко прошлый ответ",
+    ])
+    async def test_ordinary_private_request_unhandled(self, env, text):
+        bot = _bot()
+        msg = _msg(text=text, message_id=960, chat_type="private")
+
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert not video_intent.has_pending(CHAT_ID)      # ожидания не создано
+        assert bot.send_message.await_count == 0          # и TTL-ответа не будет
+        assert not [e for e in _events("waiting_for_media")
+                    if e["message_id"] == 960]
+        assert env.svc.summarize_media_url.await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_group_ordinary_request_unhandled(self, env):
+        """«Бот, перескажи кратко» в группе — обычная речь, не видео-просьба."""
+        bot = _bot()
+        msg = _msg(text="Бот, перескажи кратко", message_id=961)
+
+        assert await yt.youtube_handler(msg, bot=bot) is UNHANDLED
+        assert not video_intent.has_pending(CHAT_ID)
+        assert bot.send_message.await_count == 0
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("text", [
+        "Сделай выжимку",
+        "Дай краткое содержание видео",
+        "Перескажи видео кратко",
+        "Сделай транскрипт",
+    ])
+    async def test_video_lexicon_still_waits(self, env, text):
+        """Видео-лексикон (выжимка/транскрипт/«краткое содержание видео») — ждём."""
+        bot = _bot()
+        msg = _msg(text=text, message_id=962, chat_type="private")
+
+        assert await yt.youtube_handler(msg, bot=bot) is None
+        assert bot.send_message.await_count == 0
+        assert video_intent.has_pending(CHAT_ID)
