@@ -169,7 +169,7 @@ class TestCfg02aCatalogAndUiContract:
         """Замороженные срезы каталога не сдвинуты этим слайсом.
         (ASAP5 §22, 27.10.2026: +5 тумблеров «Типы медиа» и группа
         flags_vision_media_types — REQ-ADMIN-TYPES; срез CFG-02A не менялся.)"""
-        assert len(pc.REGISTRY) == 583
+        assert len(pc.REGISTRY) == 595
         assert len(pc.GROUPS) == 120
 
     def test_vitrina_labels_and_units(self):

@@ -64,7 +64,7 @@ class TestCatalogParity:
         # EVOL-031 (30.10.2026): −5 REGISTRY (smart cache ×3 + chat dedup ×2),
         # −2 GROUPS (Умный кэш удалена); пин 588 дрейфовал на базе W1
         # (факт 586) — учтено → 581/119.
-        assert len(REGISTRY) == 583, len(REGISTRY)
+        assert len(REGISTRY) == 595, len(REGISTRY)
         assert len(GROUPS) == 120
         from config.settings import Settings
         import dataclasses

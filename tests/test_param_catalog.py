@@ -640,8 +640,13 @@ class TestGroups8424:
         # EVOL §5 W5 review-fix B1 (31.10.2026): +1 prompt (директива
         # «Критического разноса») +1 flags (тумблер раздела, группа
         # flags_factcheck_delivery) → prompts 26, flags 106, итого 558.
-        assert counts == {"prompts": 26, "models": 74, "keys": 35,
-                          "limits": 223, "flags": 106, "reactions": 39,
+        # ASAP-VISION-SYNC-01 wave2 (31.10.2026): +3 models (предел ответа и
+        # режимы распознавания, models_vision in-place) +9 limits (ожидание
+        # готовности, окно связи, срок ожидающего запроса, lease/очередь/срок
+        # жизни/попытки/backoff, limits_vision in-place) → models 77,
+        # limits 232, итого 570.
+        assert counts == {"prompts": 26, "models": 77, "keys": 35,
+                          "limits": 232, "flags": 106, "reactions": 39,
                           "content": 5, "memory": 48, "temporal": 2}
         assert {g.category for g in GROUPS} >= set(CATEGORIES)
 

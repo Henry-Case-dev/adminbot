@@ -1442,8 +1442,12 @@ class TestParamPermissionFlagsApi:
         # 10.24 (F21/ADR-1024-22 D8): +1 categorized (BUDGETS_ENABLED) → 434.
         # v6.3 B01 (W1-CHAT-INTEL): +10 INITIATIVE_* → categorized 546.
         # P0-FACTCHECK §6.3 (FC-06C, round 10.48): −2 мёртвых TTL-ключа
-        # TEMPORAL_FRESHNESS_* → categorized 561.
-        assert len(items) == len(categorized) == 561
+        # TEMPORAL_FRESHNESS_* → categorized 561; EVOL-031 (−5 EMC/dedup) и
+        # EVOL §5 W5 (+2) дают фактическое 558 (пин 561 отставал — W2 снял
+        # рассохшийся счётчик).
+        # ASAP-VISION-SYNC-01 wave2 (31.10.2026): +12 PG-only ключей
+        # распознавания (3 models + 9 limits) → categorized 570.
+        assert len(items) == len(categorized) == 570
         m = items["limits.search_max_symbols"]
         assert m["category"] == "limits"
         assert m["group"] == "limits_search"

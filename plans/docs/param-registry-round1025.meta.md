@@ -1,12 +1,12 @@
 # F8 — `param-registry-round1025` — провенанс `.meta.md`
 
 - **APP_VERSION:** `2.58.141`
-- **HEAD (short):** `03b57f0e`
+- **HEAD (short):** `390cacaf`
 - **Источник:** `services/param_catalog.py` (REGISTRY/GROUPS/_TAB_BY_GROUP/TAB_RULES) + `inventory.tsv` (10.14) для дельты.
-- **Счётчики каталога:** REGISTRY **583** / GROUPS **120** / `_TAB_BY_GROUP` **118** / TAB_RULES **22**.
-- **Реестр:** 583 строк == REGISTRY.
+- **Счётчики каталога:** REGISTRY **595** / GROUPS **120** / `_TAB_BY_GROUP` **118** / TAB_RULES **22**.
+- **Реестр:** 595 строк == REGISTRY.
 - **inventory.tsv (10.14):** 406 baseline-ключей.
-- **Дельта 411 → 583 = 177** новых ключей (`status=new`).
+- **Дельта 411 → 595 = 189** новых ключей (`status=new`).
 - **Команда генерации:** `python tools/gen_param_registry_round1025.py`
 - **Проверка (маркер):** `python tools/gen_param_registry_round1025.py --check`
 
@@ -22,7 +22,7 @@
 - `-` = поле неприменимо/отсутствует (документированное отсутствие).
 - `ui_visibility=api-only` — ключ существует (env/каталог), но UI-места нет → **не** считается сохранённым в UI.
 
-## Дельта 411 → 583 = 177 (ключи, отсутствовавшие в inventory.tsv)
+## Дельта 411 → 595 = 189 (ключи, отсутствовавшие в inventory.tsv)
 
 - `api_token`
 - `betterstack_host`
@@ -129,9 +129,18 @@
 - `limits.summary_hybrid_response_mode`
 - `limits.summary_hybrid_target_chars`
 - `limits.summary_hybrid_target_paragraphs`
+- `limits.vision_association_window_seconds`
 - `limits.vision_chat_rate`
 - `limits.vision_image_max_dimension`
+- `limits.vision_job_backoff_base_seconds`
+- `limits.vision_job_backoff_max_seconds`
+- `limits.vision_job_lease_seconds`
+- `limits.vision_job_lifetime_seconds`
+- `limits.vision_job_max_recoveries`
+- `limits.vision_pending_intent_ttl_seconds`
 - `limits.vision_queue_capacity`
+- `limits.vision_queue_wait_seconds`
+- `limits.vision_readiness_wait_seconds`
 - `limits.vision_user_rate`
 - `local_bot_api_url`
 - `log_ring_max_entries`
@@ -171,7 +180,10 @@
 - `models.summary_l2_model_name`
 - `models.vision_api_base_url`
 - `models.vision_api_type`
+- `models.vision_max_output_tokens`
 - `models.vision_model`
+- `models.vision_reasoning`
+- `models.vision_structured_output`
 - `postgres_db`
 - `postgres_dsn`
 - `postgres_password`

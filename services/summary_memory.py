@@ -1028,23 +1028,124 @@ def _validate_triplet(item) -> dict | None:
     }
 
 
-def _build_batch_text(batch: list, skip_empty: bool = False) -> str:
+def _build_batch_text(batch: list, skip_empty: bool = False,
+                      media_evidence: dict | None = None) -> str:
     """Same '[author]: text' lines as the compress prompt (DRY, 35.4).
 
     Epic 28 (R28-1): rows with is_forward get the source marker:
     [Оля (репост из "Канал X")]: текст / [Оля (репост)]: текст.
+
+    ASAP-VISION-SYNC-01 §4 (другие потребители): ``media_evidence`` —
+    ``{tg_message_id: {text, refs}}`` ТОЛЬКО для ЗАВЕРШЁННЫХ анализов
+    изображений (готовый OCR/описание с ссылкой на актив и ревизию). Строка
+    получает пометку «данные, не слова автора»; без словаря текст
+    байт-в-байт прежний (паритет всех существующих вызовов).
     """
     lines = []
+    evidence = media_evidence or {}
     for row in batch:
         author = (row["author_name"] or "").strip() or "unknown"
         text = row["text"] or ""
-        if skip_empty and not text:
+        visual = ""
+        if evidence:
+            try:
+                tg_id = int(row_get(row, "tg_message_id") or 0)
+            except (TypeError, ValueError):
+                tg_id = 0
+            item = evidence.get(tg_id) or {}
+            visual = str(item.get("text") or "").strip()
+            if visual:
+                refs = str(item.get("refs") or "").strip()
+                visual = (f"[изображение — {refs}: {visual}]"
+                          if refs else f"[изображение: {visual}]")
+        if skip_empty and not text and not visual:
             continue
         if row_get(row, "is_forward"):
             source = (row_get(row, "forward_source") or "").replace('"', "'").strip()
             author = f'{author} (репост из "{source}")' if source else f"{author} (репост)"
-        lines.append(f"[{author}]: {text}")
+        body = f"{text} {visual}".strip() if visual else text
+        lines.append(f"[{author}]: {body}")
     return "\n".join(lines)
+
+
+# ── ASAP-VISION-SYNC-01 §4: визуальное содержимое окна для фоновых ──────────
+# потребителей (сводки/факты/память). Единое правило: `pending` — НЕ
+# доказательство содержимого. Долговременное знание строится только по
+# ЗАВЕРШЁННОМУ анализу с ссылкой на актив и ревизию; фон не ждёт Vision
+# бесконечно и не отправляет сообщений в чат (только терминальный статус).
+
+async def visual_window_state(db, chat_id: int, rows, *,
+                              consumer: str = "summary") -> dict:
+    """Состояние медиа окна: ``{"ready": {...}, "pending": {...}, "failed": {...}}``.
+
+    Без ожидания и без новых Vision-вызовов: готовые анализы читаются, для
+    неготовых возвращается причина. Ключи — ``tg_message_id``. Ошибка/нет
+    БД/модуль выключен → пустые словари (fail-open, прежнее поведение).
+    Изоляция чата — в самих запросах готовности (chat_id обязателен)."""
+    out: dict = {"ready": {}, "pending": {}, "failed": {}}
+    if db is None or not chat_id:
+        return out
+    ids: list[int] = []
+    for row in rows or ():
+        try:
+            if str(row_get(row, "media_type") or "text") == "text":
+                continue
+            mid = int(row_get(row, "tg_message_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if mid and mid not in ids:
+            ids.append(mid)
+    if not ids:
+        return out
+    try:
+        from services import media_readiness
+        states = await media_readiness.prepare_images_ready(
+            db, chat_id=int(chat_id), message_ids=ids,
+            consumer=str(consumer or "summary"), wait_seconds=0.0,
+            enqueue=False)
+    except Exception:
+        logger.warning("visual window state: readiness read failed | "
+                       "chat=%s", chat_id, exc_info=True)
+        return out
+    for mid, state in (states or {}).items():
+        if getattr(state, "ready", False):
+            out["ready"][int(mid)] = {
+                "text": _visual_evidence_text(state),
+                "refs": _visual_evidence_refs(state, int(mid)),
+            }
+        elif getattr(state, "terminal_failure", False):
+            out["failed"][int(mid)] = str(getattr(state, "reason_code", "")
+                                          or "vision_failed")
+        else:
+            out["pending"][int(mid)] = str(getattr(state, "reason_code", "")
+                                          or "vision_queued")
+    return out
+
+
+def _visual_evidence_text(state) -> str:
+    """Текст готового анализа: OCR + описание, без домыслов о содержимом."""
+    parts: list[str] = []
+    for block in getattr(state, "ocr_blocks", ()) or ():
+        text = str((block or {}).get("text") or "").strip()
+        if text:
+            parts.append(f"текст на изображении (OCR, данные): {text}")
+    description = str(getattr(state, "visual_description", "") or "").strip()
+    if description:
+        parts.append(f"визуальное описание (результат модели): {description}")
+    return " ".join(parts)
+
+
+def _visual_evidence_refs(state, tg_message_id: int = 0) -> str:
+    """Ссылка на РЕАЛЬНО завершённый анализ: сообщение, актив, ревизия."""
+    tg_id = int(tg_message_id or 0) or int(getattr(state, "tg_message_id", 0) or 0)
+    asset_id = str(getattr(state, "asset_id", "") or "")[:12]
+    revision = getattr(state, "analysis_revision", None)
+    parts = [f"msg:{tg_id}" if tg_id else "msg:?"]
+    if asset_id:
+        parts.append(f"asset:{asset_id}")
+    if revision:
+        parts.append(f"анализ v{revision}")
+    return ", ".join(parts)
 
 
 def build_fts_query(keywords: list[str], mode: str = "prefix_or") -> str:
@@ -3113,6 +3214,10 @@ class MemoryManager:
             "skipped_stale": ("skipped", "summary_stale_dropped"),
             "skipped_empty": ("skipped", "parse_error"),
             "skipped_no_head": ("skipped", "no_new_contribution"),
+            # ASAP-VISION-SYNC-01 §4: медиа окна ещё распознаётся — конспект
+            # отложен (терминальный статус фонового потребителя, БЕЗ сообщения
+            # в чат). Повтор произойдёт при следующем чтении окна.
+            "skipped_media_pending": ("skipped", "vision_deferred"),
         }.get(str(status), ("success", None))
         fields = dict(chat_id=chat_id, stage="build",
                       duration_ms=int((time.perf_counter() - _t0) * 1000))
@@ -3147,10 +3252,30 @@ class MemoryManager:
         head, tail_rows = rows[:-tail], rows[-tail:]
         if not head:
             return "skipped_no_head"       # нечего сжимать — конспект не нужен
-        head_text = _build_batch_text(head, skip_empty=True)
+        # ASAP-VISION-SYNC-01 §4: конспект окна — ДОЛГОВРЕМЕННАЯ запись о
+        # разговоре. Пока анализ любого изображения окна (head+ tail уходят в
+        # один запрос) не готов, писать конспект нельзя: `pending` не
+        # доказательство содержимого, а конспект «замораживает» окно (позже
+        # готовый OCR в него уже не попадёт). Терминальный отказ НЕ блокирует:
+        # конспект честно сохраняет только доступный текст.
+        window_media = await visual_window_state(self.db, chat_id, rows,
+                                                 consumer="summary")
+        if window_media["pending"]:
+            _mca_rc.emit_stage_event("summary", "skipped",
+                                     reason_code="vision_deferred",
+                                     chat_id=chat_id)
+            logger.info("running summary: media pending — deferred | "
+                        "chat_id=%s | pending=%d | failed=%d", chat_id,
+                        len(window_media["pending"]),
+                        len(window_media["failed"]))
+            return "skipped_media_pending"
+        media_evidence = window_media["ready"] or None
+        head_text = _build_batch_text(head, skip_empty=True,
+                                      media_evidence=media_evidence)
         if len(head_text) > _RUNNING_SUMMARY_HEAD_MAX_CHARS:
             head_text = head_text[-_RUNNING_SUMMARY_HEAD_MAX_CHARS:]
-        tail_text = _build_batch_text(tail_rows, skip_empty=True)
+        tail_text = _build_batch_text(tail_rows, skip_empty=True,
+                                      media_evidence=media_evidence)
         user_content = head_text
         if tail_text:
             user_content += "\n\n=== последние сообщения дословно ===\n" + tail_text
@@ -5922,8 +6047,16 @@ class MemoryManager:
         Raises on any failure — the caller keeps the batch. При серии полных
         фейлов (``GRAPH_EXTRACT_MAX_BATCH_FAILURES``) поднимается
         ``GraphExtractDropped`` (caller ставит mark — батч отброшен ЯВНО).
+
+        ASAP-VISION-SYNC-01 §4: в долговременное знание (факты/граф) попадает
+        визуальное содержимое ТОЛЬКО по завершённым анализам — OCR/описание со
+        ссылкой на актив и ревизию. Ещё не распознанное изображение не
+        становится «фактом»: строка идёт без выдуманного содержимого.
         """
-        text = _build_batch_text(batch, skip_empty=True)
+        window_media = await visual_window_state(self.db, chat_id, batch,
+                                                 consumer="graph")
+        text = _build_batch_text(batch, skip_empty=True,
+                                 media_evidence=(window_media["ready"] or None))
         if not text:
             logger.info(
                 "graph extract: batch has no captions — nothing to extract | chat_id=%s",

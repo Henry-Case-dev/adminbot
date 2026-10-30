@@ -1708,6 +1708,40 @@ class Settings:
         "MCA_VISION_CAPABILITY_TTL_HOURS", 6, 1)
     MCA_VISION_REOCR_BUDGET: ClassVar[int] = _env_int_min(
         "MCA_VISION_REOCR_BUDGET", 2, 0)
+    # ── ASAP-VISION-SYNC-01 §5/§watchdog: env-дефолты выходного контракта
+    # Vision и жизненного цикла медиа-задач. Значения — ФОЛБЭК для горячей
+    # конфигурации: владелец правит их в каталоге (PG-only ключи
+    # `models.vision_max_output_tokens`, `models.vision_reasoning`,
+    # `models.vision_structured_output`, `limits.vision_*`); env остаётся
+    # аварийной осью и источником заводских значений.
+    #   * VISION_MAX_OUTPUT_TOKENS — предел ВЫВОДА модели (0 = по классу
+    #     маршрута: 4096 для обычной VLM, 16384 для reasoning);
+    #   * READINESS_WAIT_SECONDS — интерактивное ожидание готовности (не
+    #     отменяет Vision; запрос уходит в pending/defer);
+    #   * ASSOCIATION_WINDOW_SECONDS — окно слабых связей «фото рядом»;
+    #   * PENDING_INTENT_TTL_SECONDS — срок жизни ожидающего запроса;
+    #   * JOB_* — lease/очередь/общий срок жизни операции/попытки/backoff
+    #     watchdog'а (терминальный исход гарантирован).
+    VISION_MAX_OUTPUT_TOKENS: ClassVar[int] = _env_int_min(
+        "VISION_MAX_OUTPUT_TOKENS", 0, 0)
+    MCA_VISION_READINESS_WAIT_SECONDS: ClassVar[float] = _env_float_min(
+        "MCA_VISION_READINESS_WAIT_SECONDS", 20.0, 0.0)
+    MCA_VISION_ASSOCIATION_WINDOW_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_ASSOCIATION_WINDOW_SECONDS", 900, 1)
+    MCA_VISION_PENDING_INTENT_TTL_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_PENDING_INTENT_TTL_SECONDS", 1800, 1)
+    MCA_VISION_JOB_LEASE_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_JOB_LEASE_SECONDS", 180, 1)
+    MCA_VISION_QUEUE_WAIT_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_QUEUE_WAIT_SECONDS", 300, 1)
+    MCA_VISION_JOB_LIFETIME_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_JOB_LIFETIME_SECONDS", 1800, 1)
+    MCA_VISION_JOB_MAX_RECOVERIES: ClassVar[int] = _env_int_min(
+        "MCA_VISION_JOB_MAX_RECOVERIES", 3, 0)
+    MCA_VISION_JOB_BACKOFF_BASE_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_JOB_BACKOFF_BASE_SECONDS", 30, 1)
+    MCA_VISION_JOB_BACKOFF_MAX_SECONDS: ClassVar[int] = _env_int_min(
+        "MCA_VISION_JOB_BACKOFF_MAX_SECONDS", 300, 1)
     # ── Раунд 10.44 (MCA-20, ADR-1028-20 §8.3/D13): kill-switches Temporal
     # Factcheck ─ рубильники фичи (FC-06C §6.3, 28.10.2026: 83→82 — K3 кеш
     # готовых вердиктов удалён вместе с кешем); env-only ClassVar, default

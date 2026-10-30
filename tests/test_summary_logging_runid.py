@@ -934,10 +934,10 @@ class TestInvariants:
         # ASAP-2.1 (ADR-1028-1 D1, контракт (i)): санкционированная
         # ОТРИЦАТЕЛЬНАЯ Δ каталога — -8 ключей summary_filter_*, -2 группы,
         # -8 env-констант Settings (S1-слой удалён).
-        assert len(pc.REGISTRY) == 583
+        assert len(pc.REGISTRY) == 595
         assert len({f.name for f in dataclasses.fields(Settings)}) == 468  # CFG-06 v2 (5af56d8b): +3 поля фактчек-конвейера, пересанкционировано 20.10
         assert len([s for s in pc.REGISTRY.values()
-                    if s.category is not None]) == 558
+                    if s.category is not None]) == 570
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22

@@ -90,7 +90,7 @@ def test_no_ddl_catalog_ks_tools_delta():
     # TEMPORAL_FRESHNESS_*, кеш готовых вердиктов удалён W1).
     # EVOL-031 (28d55bd1, 30.10.2026): 586 → 581 (−5 answer-cache ключей
     # SMART_CACHE_*/CHAT_DEDUP, replay готовых ответов удалён).
-    assert len(pc.REGISTRY) == 583
+    assert len(pc.REGISTRY) == 595
 
 
 def test_registry_47_no_new_widgets():

@@ -1,7 +1,7 @@
 # F8 — Карта экранов `screen-map-round1025.md` (ADR-1025-21 D3)
 
 > Сгенерировано `tools/gen_param_registry_round1025.py` (read-only). Провенанс — `param-registry-round1025.meta.md`.
-> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(583)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
+> Инвариант «ни один параметр не остался без нового места»: `set(param_key) ⊇ REGISTRY(595)`, «без места» = 0. Неизвестные ключи (нет в каталоге) → секция `registry-only` реестра.
 > `ui_visibility ∈ {visible,hidden,api-only}`; **api-only ≠ сохранено** (REQ-F8-08). Секреты без открытого значения (R17).
 
 | old_screen | param_key | new_screen | read_api | write_api | ui_visibility | secret | hidden | status |
@@ -364,9 +364,18 @@
 | Выжимка видео | limits.video_summary_min_chars | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Транскрипт голосовых и видео | limits.video_transcribe_max_duration_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Транскрипт голосовых и видео | limits.video_transcribe_max_size_mb | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
+| Распознавание изображений | limits.vision_association_window_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Распознавание изображений | limits.vision_chat_rate | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Распознавание изображений | limits.vision_image_max_dimension | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_job_backoff_base_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_job_backoff_max_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_job_lease_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_job_lifetime_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_job_max_recoveries | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_pending_intent_ttl_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Распознавание изображений | limits.vision_queue_capacity | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_queue_wait_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
+| Распознавание изображений | limits.vision_readiness_wait_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Распознавание изображений | limits.vision_user_rate | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | new |
 | Транскрипт голосовых и видео | limits.voice_max_duration_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
 | Веб-страницы | limits.webpage_cooldown_seconds | Модули | GET /api/config; GET /api/config/params-meta | POST /api/config (X-Chat-Id); DELETE /api/config/chat/{key} (сброс override) | visible | false | false | OK |
@@ -510,7 +519,10 @@
 | LLM Провайдеры | models.video_timeout_seconds | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | OK |
 | LLM Провайдеры | models.vision_api_base_url | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.vision_api_type | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.vision_max_output_tokens | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | LLM Провайдеры | models.vision_model | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.vision_reasoning | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
+| LLM Провайдеры | models.vision_structured_output | ИИ | GET /api/config; GET /api/config/params-meta | POST /api/config | visible | false | false | new |
 | .env (infra) | postgres_db | .env (инфраструктура, вне UI) | нет API (env-only) | нет API (env-only) | api-only | false | false | new |
 | .env (infra) | postgres_dsn | .env (инфраструктура, вне UI) | нет API (env-only) | нет API (env-only) | api-only | true | false | new |
 | .env (infra) | postgres_password | .env (инфраструктура, вне UI) | нет API (env-only) | нет API (env-only) | api-only | true | false | new |
@@ -592,4 +604,4 @@
 
 ## registry-only (неизвестные каталогу параметры)
 
-Нет: множество `internal_key` каталога == множество `REGISTRY` == 583; все ключи получили новое место. Расхождений нет.
+Нет: множество `internal_key` каталога == множество `REGISTRY` == 595; все ключи получили новое место. Расхождений нет.

@@ -243,10 +243,13 @@ PG_DB_SHA256_B07 = (
 # directive, группа flags_factcheck_delivery) → REGISTRY 583, GROUPS 120,
 # _TAB_BY_GROUP 118, TAB_RULES 22 in-place, delta 177; артефакты
 # переэмитированы генератором, фикстуры — tools/_evol_w5_reissue_f8.py.
+# ASAP-VISION-SYNC-01 wave2 (31.10.2026): +12 PG-only ParamSpec, группы и
+# вкладки in-place (models_vision / limits_vision) → REGISTRY 595, delta 189;
+# фикстуры — tools/_vision_sync_w2_reissue_f8.py; routes.py не менялся.
 # Хэш переутверждён осознанно (L-F11S-1): правка ТОЛЬКО каталога
 # (Settings/pg_db/routes не тронуты).
 PARAM_CATALOG_SHA256_FOLLOWUP = (
-    "356dcf3e536a55253a549726619cc91e2b05771d700372c0c71955a4811b4009")
+    "23f3f22b4a6c931dd431a924f8b1c154acda7d3f6a7c97aa47f21298feae3171")
 
 
 def _sha256(path: Path) -> str:
@@ -361,7 +364,7 @@ class TestFrozenInvariants:
         # EVOL-031 (30.10.2026): −5 ключей Exact Match Cache / direct_dedup
         # (replay готовых ответов удалён; вкладка smart_cache снята) →
         # 581/119/117/22 (см. PARAM_CATALOG_SHA256_FOLLOWUP выше).
-        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 583
+        assert len(pc.REGISTRY) == FIXTURE["counts"]["REGISTRY"] == 595
         assert len(pc.GROUPS) == FIXTURE["counts"]["GROUPS"] == 120
         assert len(pc._TAB_BY_GROUP) == FIXTURE["counts"]["TAB_BY_GROUP"] == 118
         assert len(pc.TAB_RULES) == FIXTURE["counts"]["TAB_RULES"] == 22
@@ -416,7 +419,7 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): +1 (L1 Planner) → 572.
         # P0-FACTCHECK §6.3 (FC-06C): −2 (TEMPORAL_FRESHNESS_*) → 586.
         # EVOL-031 (30.10.2026): −5 (Exact Match Cache / direct_dedup) → 581.
-        assert len(rows) == 583
+        assert len(rows) == 595
         assert [r["internal_key"] for r in rows] == sorted(_registry_keys())
         assert all(v != "" for r in rows for v in r.values())
         assert len(rows[0]) == len(gen.TSV_COLUMNS) == 23
@@ -438,7 +441,7 @@ class TestRegistry:
         # EVOL-031 (30.10.2026): снятые 5 ключей — исторические (Epic 51,
         # до инвентаря round1014), в delta-набор не входили → дельта 175
         # без изменений (FIXTURE см. tools/_evol031_reissue_f8.py).
-        assert len(delta) == FIXTURE["counts"]["delta"] == 177
+        assert len(delta) == FIXTURE["counts"]["delta"] == 189
         new_rows = {r["internal_key"] for r in _read_registry_rows()
                     if r["status"] == "new"}
         assert new_rows == delta
@@ -492,9 +495,9 @@ class TestRegistry:
         # SOUL-1 mobile-prompts (2026-10-16): reissue под 572/161.
         # P0-FACTCHECK §6.3 (FC-06C): reissue под 586/175 (−2 TTL-ключа).
         # EVOL-031 (30.10.2026): reissue под 581/175 (−5 EMC/dedup-ключей).
-        # EVOL §5 W5 review-fix B1 (31.10.2026): reissue под 583/177
+        # EVOL §5 W5 review-fix B1 (31.10.2026): reissue под 595/189
         # (+2 ключа подачи фактчека).
-        assert "583" in meta and "411" in meta and "177" in meta
+        assert "595" in meta and "411" in meta and "189" in meta
         from config.settings import APP_VERSION
         assert APP_VERSION in meta
 
@@ -514,7 +517,7 @@ class TestScreenMap:
         # SOUL-1 mobile-prompts (2026-10-16): санкционированная Δ +1 → 572.
         # P0-FACTCHECK §6.3 (FC-06C): санкционированная Δ −2 → 586.
         # EVOL-031 (30.10.2026): санкционированная Δ −5 → 581.
-        assert len(keys) == 583
+        assert len(keys) == 595
 
     def test_no_empty_new_screen(self):
         text = (ROOT / "plans/docs/screen-map-round1025.md").read_text(encoding="utf-8")

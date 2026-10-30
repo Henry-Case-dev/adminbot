@@ -253,7 +253,7 @@ class TestHumanReadableLabels:
         # flags_module_budgets) → 459/98.
         # EVOL-031 (30.10.2026): −5 REGISTRY/−2 GROUPS (Умный кэш удалён);
         # пин 587 дрейфовал на базе W1 (факт 586) — учтено → 581/119.
-        assert len(pc.REGISTRY) == 583
+        assert len(pc.REGISTRY) == 595
         assert len(pc.GROUPS) == 120
 
 

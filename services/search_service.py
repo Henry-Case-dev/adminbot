@@ -65,7 +65,15 @@ class SearchService:
         3) user = [rag] [chat_context] "<query>…</query>\n\n<search_results>…</search_results>"
         4) raw = await self.llm.generate([{system}, {user}])
         5) return cleanup_llm_text(raw)          # R33-7
-        Raises: AllSearchEnginesFailedException / LLMError — пробрасываются."""
+        Raises: AllSearchEnginesFailedException / LLMError — пробрасываются.
+
+        ASAP-VISION-SYNC-01 §4: поиск НЕ потребляет сырое визуальное
+        содержимое само по себе — ``chat_context`` приходит уже собранным из
+        ЗАВЕРШЁННЫХ анализов (``chat_context.collect_media_analysis_blocks``),
+        а неготовое изображение рендерится честной строкой «ещё не
+        распознано». Поэтому `pending` здесь физически не может стать
+        доказательством: собственную логику ожидания поиск не заводит
+        (единый контракт — ``services.media_readiness``)."""
         # T-619: лимит/флаг реранка/промпт — горячие точки (фолбек settings)
         max_symbols = hot.get("limits.search_max_symbols",
                               settings.SEARCH_MAX_SYMBOLS)

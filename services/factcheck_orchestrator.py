@@ -50,6 +50,8 @@ from services.smartmodule_phrases import (
     FACTCHECK_ATTRIBUTION_MISS_PHRASES,
     FACTCHECK_CLARIFY_PHRASES,
     FACTCHECK_ERROR_PHRASES,
+    FACTCHECK_IMAGE_PENDING_PHRASES,
+    FACTCHECK_MEDIA_ERROR_PHRASES,
     FACTCHECK_NO_CLAIM_PHRASES,
     FACTCHECK_TARGET_UNAVAILABLE_PHRASES,
     LLM_ERROR_PHRASES,
@@ -80,10 +82,14 @@ OUTCOME_AMBIGUOUS = "ambiguous"        # непонятно, что провер
 OUTCOME_UNAVAILABLE = "unavailable"    # цель пуста/недоступна — честный ответ
 OUTCOME_ERROR = "error"                # сбой поиска/LLM/неожиданный
 OUTCOME_BUSY = "busy"                  # нет слота пула (параллельный дубль)
+# ASAP-VISION-SYNC-01 §4 (медиа-барьер v2-маршрута): анализ изображения ещё не
+# готов — допуск ОТЛОЖЕН (не вердикт и не «нечего проверять»). Ранний исход:
+# пользовательский лимит не расходуется, запрос можно повторить.
+OUTCOME_PENDING = "pending"
 # Ранние исходы НЕ должны съедать пользовательский лимит (повтор обоснован).
 REFUNDABLE_OUTCOMES = frozenset({OUTCOME_NO_CLAIM, OUTCOME_AMBIGUOUS,
                                  OUTCOME_UNAVAILABLE, OUTCOME_ERROR,
-                                 OUTCOME_BUSY})
+                                 OUTCOME_BUSY, OUTCOME_PENDING})
 
 COOLDOWN_REFUND = "refund"
 COOLDOWN_KEPT = "kept"
@@ -597,6 +603,59 @@ async def _run_inner(req: FactcheckRequest, *, service, db, bot,
             pipeline_path=pipeline_path, verdict_stage=verdict_stage,
             cooldown_outcome=cooldown_label(outcome))
         return outcome
+
+    # 2c. ASAP-VISION-SYNC-01 §4 (медиа-барьер v2-маршрута). Пока анализ
+    #     связанного изображения не готов, предварительный `no_claim`
+    #     запрещён: пустая подпись ≠ отсутствие тезиса (тезис может жить
+    #     только на картинке). Гейт стоит ДО gate-маршрутов, поэтому
+    #     `no_claim`/`ambiguous`/`unavailable` не могут «выиграть» у pending —
+    #     НО настоящая проверка (suitability=checkable) не блокируется: барьер
+    #     включается только там, где гейт собирался сказать «проверять нечего».
+    #     Ответ — честное «ещё разбираю», исход — отложенный (лимит не
+    #     расходуется), Vision продолжает работать (запрос durable).
+    pending_dependency = publication.admission_blocked_by_pending_media()
+    if pending_dependency and (
+            decision is None or decision.decision != fsg.DECISION_CHECKABLE):
+        media_pending_text = _guard_outbound(
+            random.choice(FACTCHECK_IMAGE_PENDING_PHRASES),
+            where="media_pending", chat_id=req.chat_id)
+        await send_chunked_reply(bot, req.chat_id, media_pending_text,
+                                 req.target_tg_message_id)
+        tf.stage_event("deliver", "skipped",
+                       reason_code="temporal_media_pending",
+                       chat_id=req.chat_id)
+        logger.info("[factcheck_v2] media pending — gate deferred | "
+                    "chat=%s | dependency=%s | images=%d | pending=%d | "
+                    "ocr_chars=%d", req.chat_id, publication.media_dependency(),
+                    publication.media.image_count,
+                    publication.media.pending_count,
+                    publication.media.ocr_chars)
+        return _finish(OUTCOME_PENDING, "v2_gate:media_pending")
+
+    # 2d. ASAP-VISION-SYNC-01 §4: терминальный отказ распознавания НЕ означает
+    #     «нечего проверять». Если проверяемого текста нет (ключа/подписи нет) и
+    #     гейт собирался отказать, предварительный `no_claim`/«недоступная цель»
+    #     запрещён: ответ честно говорит, что содержимое картинки НЕ проверено, и
+    #     называет причину. Когда тезис проверяемый — проверка идёт, а честная
+    #     оговорка о непроверенной картинке добавляется к вердикту
+    #     (publication.notice()).
+    if publication.media_unchecked and not target_resolved and (
+            decision is None or decision.decision != fsg.DECISION_CHECKABLE):
+        media_unchecked_text = _guard_outbound(
+            random.choice(FACTCHECK_MEDIA_ERROR_PHRASES),
+            where="media_unchecked", chat_id=req.chat_id)
+        notice = publication.notice()
+        if notice:
+            media_unchecked_text = f"{media_unchecked_text}\n\n{notice}"
+        await send_chunked_reply(bot, req.chat_id, media_unchecked_text,
+                                 req.target_tg_message_id)
+        tf.stage_event("deliver", "skipped", reason_code="vision_failed",
+                       chat_id=req.chat_id)
+        logger.info("[factcheck_v2] media unchecked — no_claim forbidden | "
+                    "chat=%s | reason=%s | images=%d", req.chat_id,
+                    publication.media.unchecked_reason,
+                    publication.media.image_count)
+        return _finish(OUTCOME_UNAVAILABLE, "v2_gate:media_unchecked")
 
     # 3. Gate-маршруты ДО платного поиска (06B.1/06J.3).
     scope = decision.scope if decision is not None else "web"

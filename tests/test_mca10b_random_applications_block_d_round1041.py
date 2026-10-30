@@ -268,7 +268,7 @@ def test_blockE_catalog_random_uses_keys():
     # EVOL-031 (30.10.2026): 586 → 581 (−5 ключей Exact Match Cache /
     # direct_dedup, replay готовых ответов удалён; вкладка smart_cache
     # снята) → 581/119/117/22.
-    assert len(pc.REGISTRY) == 583
+    assert len(pc.REGISTRY) == 595
     assert len(pc.GROUPS) == 120
     assert len(pc._TAB_BY_GROUP) == 118
     assert len(pc.TAB_RULES) == 22
@@ -310,19 +310,23 @@ def test_blockE_f8_check_green_and_baselines():
     # EVOL-031 (30.10.2026): 586 → 581 (−5 Exact Match Cache / direct_dedup).
     # EVOL §5 W5 review-fix B1 (31.10.2026): 581 → 583 (+2 ключа подачи
     # фактчека: флаг раздела + директива «Критического разноса»).
-    assert "583" in res.stdout
+    assert "595" in res.stdout
     fx = json.loads((ROOT / "tests/fixtures/round1025/f8_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert fx["counts"]["REGISTRY"] == 583
+    assert fx["counts"]["REGISTRY"] == 595
     assert fx["counts"]["GROUPS"] == 120
     assert fx["counts"]["TAB_BY_GROUP"] == 118
     assert fx["counts"]["TAB_RULES"] == 22
     # v6.3 B01 (W1-CHAT-INTEL): delta 150→160 (+10 INITIATIVE_*, все new).
     # SOUL-1 mobile-prompts (2026-10-16): delta 160→161 (+1 L1 Planner).
-    assert fx["counts"]["delta"] == 177   # FC-06C/EVOL-031: снятые ключи исторические, delta-набор не менялся
+    # ASAP-VISION-SYNC-01 wave2 (31.10.2026): 177→189 (+12 PG-only ключей
+    # распознавания: предел ответа/режимы модели + границы ожидания и жизни
+    # медиа-задачи). FC-06C/EVOL-031 сняли ключи исторически — набор не
+    # пересчитывался.
+    assert fx["counts"]["delta"] == 189
     cb = json.loads((ROOT / "tests/fixtures/round1025/catalog_baseline.json")
                     .read_text(encoding="utf-8"))
-    assert len(cb["registry_keys"]) == 583
+    assert len(cb["registry_keys"]) == 595
     for key in ("memory.random_uses_belief_review",
                 "memory.random_uses_ui_visualization"):
         assert key in cb["registry_keys"]

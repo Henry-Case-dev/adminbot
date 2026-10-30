@@ -48,7 +48,7 @@ class TestCatalogInvariant106:
         # (VIDEO_INTENT_PENDING_TTL_SECONDS / _WINDOW_MESSAGES /
         # _WINDOW_MAX_AGE_SECONDS); REGISTRY/GROUPS/TAB_RULES не растут
         # (hot.get с settings-дефолтом, ΔDDL = 0) → Settings 465→468.
-        assert len(pc.REGISTRY) == 583
+        assert len(pc.REGISTRY) == 595
         assert len(pc.GROUPS) == 120
         assert len(pc._TAB_BY_GROUP) == 118
         assert len(pc.TAB_RULES) == 22

@@ -409,10 +409,12 @@ _cooldown = CooldownTracker(settings.FACTCHECK_COOLDOWN_SECONDS)
 
 # ASAP-FC-ADMISSION-01 §D: исходы, при которых полный пользовательский лимит
 # НЕ расходуется (пустая цель, no_claim, уточнение, сбой, занятый пул).
+# ASAP-VISION-SYNC-01 §4: сюда же «медиа ещё распознаётся» (pending) — это
+# отложенный допуск, а не проверка, поэтому повтор не должен блокироваться.
 # Значения совпадают с `services.factcheck_orchestrator.OUTCOME_*`
 # (равенство проверяется тестом).
 _EARLY_OUTCOMES = frozenset({"no_claim", "ambiguous", "unavailable", "error",
-                             "busy"})
+                             "busy", "pending"})
 _VERDICT_OUTCOME = "verdict"
 
 # ASAP-FC-ADMISSION-01 §3.E: метки ФАКТИЧЕСКОГО исхода кулдауна (не
@@ -658,15 +660,20 @@ def _empty_content_phrase(publication, probe=None) -> str:
         if publication.album_incomplete:
             return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
         if publication.has_image:
-            if media.vision_failed:
+            if media.vision_failed or publication.media_unchecked:
+                # ASAP-VISION-SYNC-01 §4: терминальный отказ распознавания —
+                # «содержимое картинки не проверено», а НЕ «нечего проверять».
                 return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
             if media.image_not_analyzed:
                 return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
             return random.choice(FACTCHECK_IMAGE_NO_CLAIM_PHRASES)
         return random.choice(FACTCHECK_EMPTY_CONTEXT_PHRASES)
     if publication.album_incomplete or (
-            publication.has_image and media.vision_failed):
-        # Альбом/изображение технически недоступны — причина важнее окна.
+            publication.has_image
+            and (media.vision_failed or publication.media_unchecked)):
+        # Альбом/изображение технически недоступны ИЛИ распознавание не
+        # удалось — причина важнее окна и важнее «нет тезиса»: содержимое
+        # картинки НЕ проверено (честная оговорка добавится ответу).
         return random.choice(FACTCHECK_MEDIA_ERROR_PHRASES)
     if publication.has_image and media.image_not_analyzed:
         return random.choice(FACTCHECK_IMAGE_PENDING_PHRASES)
