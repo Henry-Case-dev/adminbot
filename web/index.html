@@ -913,6 +913,345 @@
                 </div>
               </div>
 
+              <!-- ═══ EVOL-019 (Wave 4 UI): «Проверить распознавание» ═══════
+                   Структурированные состояния вместо одного «ок» по HTTP 200:
+                   конфигурация → доступность провайдера → принятие медиа →
+                   завершённость распознавания → полученное содержимое (+
+                   безопасный образец) → длительность/модель/время → причина.
+                   Отдельное действие от «Проверить подключение» (тот же
+                   реальный/платный запрос, но проверяется весь путь). Ответ
+                   200 с не-JSON/неверной схемой/пустым телом НЕ показывается
+                   как «распознавание работает». Результат обновляет видимые
+                   данные (карточку и живую линию модуля), а не только тост.
+                   Секретов в ответе нет (R17): только провайдер/модель/тип. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_vision'
+                        && workspaceTab === 'models'"
+                   class="col-span-full card p-4" data-vision-recognition>
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('visibility') }}</span> Проверка распознавания</div>
+                  <span class="badge badge-warn" data-vision-paid-label>платный вызов</span>
+                  <button type="button" class="btn-accent prov-test-btn text-xs ml-auto"
+                          data-vision-recognition-btn
+                          :disabled="visionRecognitionBusy"
+                          @click="runVisionRecognitionCheck()">
+                    {{ visionRecognitionBusy ? 'Проверка…' : 'Проверить распознавание' }}
+                  </button>
+                </div>
+                <div class="text-xs text-gray-400 mb-2">
+                  Проверка отправляет провайдеру одно локальное тестовое
+                  изображение (малый, но платный запрос) и раздельно
+                  показывает: конфигурацию, доступность провайдера, принятие
+                  медиа, завершённость распознавания и полученное содержимое.
+                  «Проверить подключение» проверяет только способность модели
+                  принимать изображения — это другое действие.
+                </div>
+                <div v-if="visionRecognitionError" class="text-xs text-red-300 mb-2"
+                     data-vision-recognition-error>{{ visionRecognitionError }}</div>
+                <div v-if="!visionRecognitionView" class="text-xs text-gray-500"
+                     data-vision-recognition-idle>
+                  Проверка ещё не запускалась — данные появятся здесь после
+                  нажатия «Проверить распознавание».
+                </div>
+                <template v-else>
+                  <div class="vr-headline" data-vision-recognition-headline>
+                    <span class="badge"
+                          :class="visionRecognitionBadgeClass(visionRecognitionView)"
+                          :data-vision-recognition-state="visionRecognitionView.state">
+                      {{ visionRecognitionView.ok ? 'подтверждено' : 'не подтверждено' }}
+                    </span>
+                    <span class="text-xs">{{ visionRecognitionView.headline }}</span>
+                  </div>
+                  <div class="vr-state-grid" data-vision-recognition-states>
+                    <div v-for="st in visionRecognitionView.states" :key="'vr-' + st.key"
+                         class="vr-state"
+                         :class="st.ok ? 'vr-state--ok' : (st.bad ? 'vr-state--bad' : 'vr-state--unknown')"
+                         :data-vision-state-step="st.key">
+                      <div class="vr-state__label">{{ st.label }}</div>
+                      <div class="vr-state__value">{{ st.value }}</div>
+                    </div>
+                  </div>
+                  <div class="vr-facts" data-vision-recognition-facts>
+                    <div class="vr-fact" data-vision-fact-row="reason">
+                      <span class="vr-fact__label">Причина</span>
+                      <span class="vr-fact__value">
+                        {{ visionRecognitionView.reasonLabel || '—' }}
+                        <span v-if="visionRecognitionView.reason"
+                              class="text-gray-500 font-mono">· {{ visionRecognitionView.reason }}</span>
+                      </span>
+                    </div>
+                    <div v-if="visionRecognitionView.sample" class="vr-fact"
+                         data-vision-fact-row="sample">
+                      <span class="vr-fact__label">Образец содержимого</span>
+                      <span class="vr-fact__value vr-fact__value--sample">{{ visionRecognitionView.sample }}</span>
+                    </div>
+                    <div class="vr-fact" data-vision-fact-row="model">
+                      <span class="vr-fact__label">Модель</span>
+                      <span class="vr-fact__value">
+                        {{ visionRecognitionView.model || '—' }}
+                        <span class="text-gray-500">&nbsp;· {{ visionRecognitionView.provider || '—' }}</span>
+                        <span class="text-gray-500">&nbsp;· {{ visionRecognitionView.apiType || '—' }}</span>
+                      </span>
+                    </div>
+                    <div class="vr-fact" data-vision-fact-row="timing">
+                      <span class="vr-fact__label">Длительность / время</span>
+                      <span class="vr-fact__value">
+                        {{ visionRecognitionView.durationMs == null ? '—'
+                           : (visionRecognitionView.durationMs + ' мс') }}
+                        · {{ visionRecognitionView.timestamp || '—' }}
+                        <span v-if="visionRecognitionView.paidCall"
+                              class="text-amber-300">· платный вызов выполнен</span>
+                      </span>
+                    </div>
+                    <div v-if="visionRecognitionView.pipeline" class="vr-fact"
+                         data-vision-fact-row="pipeline">
+                      <span class="vr-fact__label">Готовность модуля</span>
+                      <span class="vr-fact__value">
+                        {{ visionRecognitionView.pipeline.label || '—' }}
+                        <span class="text-gray-500">· {{ visionRecognitionView.pipeline.note || '' }}</span>
+                      </span>
+                    </div>
+                    <div class="vr-fact" data-vision-fact-row="media-coverage">
+                      <span class="vr-fact__label">Покрытие типов медиа</span>
+                      <span class="vr-fact__value">
+                        <span v-for="mc in visionRecognitionView.mediaCoverage"
+                              :key="'vrm-' + mc.type" class="vr-media"
+                              :data-vision-media="mc.type"
+                              :data-vision-media-tested="mc.tested_by_this_check ? 'true' : 'false'">
+                          {{ mc.label }} —
+                          <b>{{ mc.tested_by_this_check ? 'проверено этой проверкой'
+                                 : 'не проверено' }}</b>
+                          <span class="text-gray-500"> ({{ mc.note }})</span>
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <!-- ═══ EVOL-014 (Wave 4 UI): мемы внутри «Инициативы» ═════════
+                   Своя ось (`flags.meme_initiative_enabled`) отдельно от
+                   текстовой инициативы; мастер модуля остаётся в каталоге —
+                   второго мастер-тумблера здесь нет. Всё — для ВЫБРАННОГО
+                   чата: окно, квота дня (0 = выключено) с остатком/сбросом/
+                   часовым поясом, кулдаун, минимум активности, тихие часы,
+                   модель выжимки, эффективный потолок длины с источником,
+                   шаблон картинки (заводской/ручной) и отношение к публикации.
+                   Аналитика — отдельно от текстовой инициативы. -->
+              <div v-if="workspaceModule && workspaceModule.id === 'mod_initiative'
+                        && workspaceTab === 'settings'"
+                   class="col-span-full card p-4" data-meme-settings>
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('bolt') }}</span> Мемы в инициативе</div>
+                  <span class="badge badge-muted">своя настройка, не мастер модуля</span>
+                  <button type="button" class="btn-ghost text-xs ml-auto"
+                          :disabled="memeSettingsBusy"
+                          aria-label="Обновить настройки мемов"
+                          data-meme-settings-refresh
+                          @click="loadMemeSettings()">⟳</button>
+                </div>
+                <div class="text-xs text-gray-400 mb-2">
+                  Мемы — отдельный выход инициативы: выключение мемов не
+                  выключает текстовые инициативные реплики, а выключение
+                  модуля «Инициатива» останавливает и мемы. Генеральный
+                  тумблер модуля — в каталоге, здесь его нет.
+                </div>
+                <div v-if="activeChatId == null" class="text-xs text-gray-500"
+                     data-meme-nochat>
+                  Выберите чат — мемы включаются и квотируются по чату.
+                </div>
+                <div v-else-if="memeSettingsBusy && !memeSettingsView"
+                     class="spinner my-2"></div>
+                <div v-else-if="memeSettingsError" class="text-xs text-red-300"
+                     data-meme-error>{{ memeSettingsError }}</div>
+                <div v-else-if="!memeSettingsView" class="text-xs text-gray-500">
+                  Настройки мемов недоступны.
+                </div>
+                <template v-else>
+                  <div v-if="!memeSettingsView.available"
+                       class="meme-unavailable" data-meme-unavailable>
+                    <span class="badge badge-warn">недоступно</span>
+                    <span>{{ memeUnavailableLabel(memeSettingsView.unavailableReason) }}</span>
+                    <span class="text-gray-600">· код: {{ memeSettingsView.unavailableReason }}</span>
+                  </div>
+                  <div class="meme-grid">
+                    <label class="meme-row">
+                      <input type="checkbox" v-model="memeDraft.enabled"
+                             data-meme-toggle>
+                      <span>Мемы включены в этом чате</span>
+                      <span class="text-gray-500">
+                        (по умолчанию {{ memeSettingsView.defaults.enabled ? 'включены' : 'выключены' }})
+                      </span>
+                    </label>
+                    <label class="meme-row">
+                      <span>Окно сообщений для выжимки</span>
+                      <input class="field w-24" type="number" min="1" max="5000"
+                             v-model="memeDraft.window_messages"
+                             data-meme-window>
+                    </label>
+                    <label class="meme-row">
+                      <span>Квота мемов в сутки (0 = выключено)</span>
+                      <input class="field w-24" type="number" min="0" max="50"
+                             v-model="memeDraft.daily_limit"
+                             data-meme-daily-limit>
+                    </label>
+                    <label class="meme-row">
+                      <span>Кулдаун между мемами, сек</span>
+                      <input class="field w-28" type="number" min="0" max="604800"
+                             v-model="memeDraft.cooldown_seconds"
+                             data-meme-cooldown>
+                    </label>
+                    <label class="meme-row">
+                      <span>Минимум сообщений для триггера</span>
+                      <input class="field w-24" type="number" min="0" max="500"
+                             v-model="memeDraft.min_messages"
+                             data-meme-min-messages>
+                    </label>
+                    <label class="meme-row">
+                      <span>Модель выжимки (пусто — общая)</span>
+                      <input class="field w-48" type="text" maxlength="120"
+                             v-model="memeDraft.summarizer_model"
+                             placeholder="наследовать"
+                             data-meme-summarizer>
+                    </label>
+                    <label class="meme-row">
+                      <span>Тихие часы (HH:MM-HH:MM)</span>
+                      <input class="field w-32" type="text" maxlength="11"
+                             v-model="memeDraft.quiet_hours"
+                             placeholder="не заданы"
+                             data-meme-quiet-hours>
+                    </label>
+                    <label class="meme-row">
+                      <span>Потолок длины промпта, симв. (пусто — авто)</span>
+                      <input class="field w-24" type="number" min="0" max="8000"
+                             v-model="memeDraft.length_limit"
+                             data-meme-length-limit>
+                    </label>
+                  </div>
+                  <div class="flex items-center gap-2 flex-wrap mt-2">
+                    <button type="button" class="btn-accent text-xs"
+                            :disabled="memeSettingsSaving"
+                            data-meme-save
+                            @click="saveMemeSettings()">
+                      {{ memeSettingsSaving ? 'Сохранение…' : 'Сохранить настройки мемов' }}
+                    </button>
+                    <span class="text-[10px] text-gray-500">
+                      Сохраняется для выбранного чата (локальное переопределение;
+                      глобальные значения не меняются).
+                    </span>
+                  </div>
+                  <!-- Квота дня: отдельная от текстовой инициативы. -->
+                  <div class="meme-quota mt-3" data-meme-quota>
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <b data-meme-quota-text>{{ memeSettingsView.quotaText }}</b>
+                      <span class="text-gray-400" data-meme-quota-remaining>
+                        {{ memeSettingsView.remainingText }}</span>
+                      <span class="text-gray-500" data-meme-quota-reset>
+                        · сброс: {{ memeSettingsView.resetAt || '—' }}
+                      </span>
+                      <span class="text-gray-500" data-meme-quota-tz>
+                        · часовой пояс: {{ memeSettingsView.timezone }}
+                        ({{ memeSettingsView.timezoneSource || 'источник неизвестен' }})
+                      </span>
+                    </div>
+                    <div class="text-[10px] text-gray-600">
+                      Считаются только реальные попытки генерации (бронь до
+                      вызова провайдера); день считается в часовом поясе чата.
+                      <template v-if="!memeSettingsView.schemaPresent">
+                        Схема квоты ещё не применена — счётчик честно недоступен.
+                      </template>
+                    </div>
+                  </div>
+                  <!-- Аналитика: стадии и причины — отдельно от текстовой инициативы. -->
+                  <div class="meme-analytics mt-3" data-meme-analytics>
+                    <div class="text-xs font-bold mb-1">Аналитика мемов (не смешивается с текстовой инициативой)</div>
+                    <div class="flex flex-wrap gap-1">
+                      <span v-for="st in memeSettingsView.stages" :key="'mst-' + st"
+                            class="badge badge-muted" :data-meme-stage="st">
+                        {{ memeStageLabel(st) }}: {{ memeSettingsView.counters[st] || 0 }}
+                      </span>
+                      <span class="badge badge-muted">
+                        охват: {{ memeSettingsView.coverage === 'durable' ? 'журнал'
+                          : (memeSettingsView.coverage === 'schema_absent' ? 'схемы нет'
+                             : 'в памяти процесса') }}
+                      </span>
+                    </div>
+                    <div v-if="memeSettingsView.skipRows.length" class="mt-1 text-xs"
+                         data-meme-skip-reasons>
+                      <div class="text-gray-500">Причины пропусков:</div>
+                      <div v-for="sk in memeSettingsView.skipRows" :key="'msk-' + sk.code"
+                           class="text-gray-400">
+                        {{ memeSkipLabel(sk.code) }} · {{ sk.count }}
+                        <span class="text-gray-600 font-mono">{{ sk.code }}</span>
+                      </div>
+                    </div>
+                    <div v-else class="text-xs text-gray-500 mt-1">
+                      Пропусков пока не зафиксировано.
+                    </div>
+                  </div>
+                  <!-- Шаблон картинки: заводской или ручной (один источник — реестр). -->
+                  <div class="mt-3 text-xs" data-meme-prompt>
+                    <div class="font-bold mb-1">
+                      Шаблон промпта картинки
+                      <span class="badge"
+                            :class="memeSettingsView.promptImage.differs_from_factory
+                              ? 'badge-warn' : 'badge-muted'"
+                            data-meme-prompt-source>
+                        {{ memeSettingsView.promptImage.differs_from_factory
+                          ? 'изменён вручную' : 'заводской' }}
+                      </span>
+                      <span class="text-gray-600">· ревизия
+                        {{ memeSettingsView.promptImage.revision || '—' }}
+                        (заводская: {{ memeSettingsView.promptImage.factory_revision || '—' }})</span>
+                    </div>
+                    <div class="meme-prompt-text" data-meme-prompt-text>
+                      {{ memeSettingsView.promptImage.text || '(шаблон недоступен)' }}
+                    </div>
+                    <div class="text-gray-500 mt-1">
+                      Эффективный потолок: {{ memeSettingsView.lengthLimit.known
+                        ? (memeSettingsView.lengthLimit.value + ' симв.') : 'неизвестен' }}
+                      · источник: {{ memeSettingsView.lengthLimit.source === 'explicit_override'
+                        ? 'явное переопределение'
+                        : (memeSettingsView.lengthLimit.source === 'admin_setting'
+                          ? 'настройка администратора'
+                          : (memeSettingsView.lengthLimit.source === 'model_capability'
+                            ? 'возможности модели' : 'неизвестен')) }}
+                      · цель выжимки: {{ memeSettingsView.lengthLimit.summary_target == null
+                        ? '—' : (memeSettingsView.lengthLimit.summary_target + ' симв.') }}
+                      <span class="text-gray-600">(считается ДО выжимки, без последующей обрезки)</span>
+                    </div>
+                  </div>
+                  <!-- Публикация и перепроверка: будет ли результат отправлен. -->
+                  <div class="mt-3 text-xs" data-meme-delivery>
+                    <div class="font-bold mb-1">Публикация и перепроверка</div>
+                    <div class="text-gray-400">
+                      Мем проходит те же ворота, что и другие инициативные
+                      сообщения: сначала генерация картинки, затем проверка
+                      готовности к отправке. Если ворота публикации закрыты,
+                      картинка НЕ отправляется, а причина фиксируется отдельно.
+                      Мемы никогда не отключают текстовую инициативу
+                      ({{ memeSettingsView.delivery.blocks_text_initiative
+                        ? 'внимание: контракт нарушен' : 'подтверждено' }}).
+                    </div>
+                    <div class="text-gray-500 mt-1">
+                      Заблокированных публикаций в журнале:
+                      {{ memeSettingsView.delivery.publish_blocked_count || 0 }}
+                      <template v-if="memeSettingsView.quotaDisabled">
+                        · квота 0 — результат не будет отправлен вовсе
+                      </template>
+                      <template v-else-if="memeSettingsView.remaining === 0">
+                        · остаток квоты 0 — до сброса дня отправок не будет
+                      </template>
+                      <template v-else-if="!memeSettingsView.available">
+                        · функция недоступна — отправки не будет (см. причину выше)
+                      </template>
+                      <template v-else>
+                        · при прохождении ворот результат будет отправлен в чат
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
               <!-- §46/T-2700: вкладка «Тестирование» — РЕАЛЬНЫЙ применимый
                    контент (проверка подключений модуля, reuse `testBlock`,
                    без записи). Пусто → вкладка не показывается. -->
@@ -1812,7 +2151,14 @@
                             data-conn-test
                             :disabled="blockTesting[c.testTarget.id]"
                             @click="testConnection(c.block)">
-                      {{ blockTesting[c.testTarget.id] ? 'Проверка…' : 'Проверить' }}
+                      <!-- EVOL-019: у Vision два РАЗНЫХ действия — эта кнопка
+                           проверяет только способность модели принимать
+                           изображения; «Проверить распознавание» — отдельный
+                           блок ниже. Подпись разведена, чтобы не было двух
+                           одинаковых «Проверить» на одной странице. -->
+                      {{ blockTesting[c.testTarget.id] ? 'Проверка…'
+                         : (c.id === 'vision' ? 'Проверить подключение'
+                                              : 'Проверить') }}
                     </button>
                     <button class="btn-ghost text-xs" data-conn-configure
                             :aria-expanded="!!connectionSettingsOpen[c.id]"
@@ -3219,6 +3565,190 @@
                   </div>
                 </template>
               </div>
+              <!-- ═══ EVOL-021 (Wave 4 UI): смысловые эпизоды ═══════════════
+                   Компактная лента: заголовок, 1–2 строки «что произошло»,
+                   период события, участники, число связанных сообщений,
+                   полнота/проверка. Отдельная СВЁРНУТАЯ группа «Требуют
+                   восстановления» с реальной причиной и числом затронутых.
+                   Карточка открывается РОВНО по выбранному эпизоду (запрос по
+                   id, сервер отсекает чужой чат); «Технические детали» — по
+                   требованию. Старая техническая таблица сохранена ниже под
+                   «Расширенный поиск». Пусто → честное состояние с датой
+                   последней сборки (без выдуманных «новых историй»). -->
+              <div v-if="currentTab && currentTab.id === 'memory_rag'
+                        && !workspaceModule"
+                   class="col-span-full card p-4" data-episode-feed>
+                <div class="flex items-center gap-2 flex-wrap mb-2">
+                  <div class="text-sm font-bold"><span class="msr" aria-hidden="true">{{ iconGlyph('auto_stories') }}</span> Эпизоды</div>
+                  <span v-if="episodeFeedView && episodeFeedView.items.length"
+                        class="text-xs text-gray-500">
+                    готовых: {{ episodeFeedView.totalReady }} из {{ episodeFeedView.totalEpisodes }}
+                  </span>
+                  <button type="button" class="btn-ghost text-xs ml-auto"
+                          :disabled="episodeFeedBusy"
+                          aria-label="Обновить эпизоды"
+                          data-episode-feed-refresh
+                          @click="loadEpisodeFeed()">⟳</button>
+                </div>
+                <div v-if="activeChatId == null" class="text-xs text-gray-500"
+                     data-episode-feed-nochat>
+                  Выберите чат — эпизоды показываются для выбранного чата.
+                </div>
+                <div v-else-if="episodeFeedBusy && !episodeFeedView"
+                     class="spinner my-2"></div>
+                <div v-else-if="episodeFeedError" class="text-xs text-red-300"
+                     data-episode-feed-error>{{ episodeFeedError }}</div>
+                <div v-else-if="!episodeFeedView" class="text-xs text-gray-500">
+                  Данные эпизодов недоступны.
+                </div>
+                <template v-else>
+                  <div v-if="!episodeFeedView.items.length"
+                       class="text-xs text-gray-500" data-episode-feed-empty>
+                    Готовых эпизодов пока нет.
+                    <template v-if="episodeFeedView.lastBuild && episodeFeedView.lastBuild.last_build_at">
+                      Последняя сборка: {{ fmtTs(episodeFeedView.lastBuild.last_build_at) }}.
+                    </template>
+                    <template v-else>
+                      Сборка эпизодов ещё не выполнялась.
+                    </template>
+                  </div>
+                  <div v-else class="ep-list" data-episode-feed-items>
+                    <button v-for="ep in episodeFeedView.items" :key="'ep-' + ep.id"
+                            type="button" class="ep-item"
+                            :class="{ 'ep-item--active': episodeCard && episodeCard.episode_id === ep.id }"
+                            :data-episode-id="ep.id"
+                            @click="openEpisodeCard(ep.id)">
+                      <div class="ep-item__title">
+                        {{ ep.hasTitle ? ep.title : 'Без названия (описание восстановлено из переписки)' }}
+                      </div>
+                      <div class="ep-item__what">
+                        {{ ep.happened || 'Краткое описание не восстановлено — см. технические детали.' }}
+                      </div>
+                      <div class="ep-item__meta">
+                        <span>{{ episodePeriodLabel(ep.periodStart, ep.periodEnd) }}</span>
+                        <span>· чат {{ ep.chatId }}</span>
+                        <span v-if="ep.participantsCount">
+                          · участники: {{ ep.participants.join(', ') }}
+                          <template v-if="ep.othersCount"> +{{ ep.othersCount }}</template>
+                        </span>
+                        <span>· {{ ep.linkedLabel || ('сообщений: ' + ep.linkedCount) }}</span>
+                        <span class="badge badge-muted">{{ ep.completenessLabel }}</span>
+                        <span v-if="ep.verification" class="badge badge-muted">{{ ep.verification.label }}</span>
+                      </div>
+                    </button>
+                  </div>
+                  <div v-if="episodeFeedView.recovery && episodeFeedView.recovery.count"
+                       class="mt-2" data-episode-recovery-group>
+                    <button type="button" class="btn-ghost text-xs"
+                            :aria-expanded="episodeRecoveryOpen ? 'true' : 'false'"
+                            data-episode-recovery-toggle
+                            @click="toggleEpisodeRecovery()">
+                      Требуют восстановления: {{ episodeFeedView.recovery.count }}
+                      {{ episodeRecoveryOpen ? '▲' : '▼' }}
+                    </button>
+                    <div v-if="episodeRecoveryOpen" class="mt-1 text-xs"
+                         data-episode-recovery-list>
+                      <div v-if="episodeRecoveryBusy && !episodeRecovery"
+                           class="spinner my-2"></div>
+                      <template v-else-if="episodeRecovery">
+                        <div v-for="r in episodeRecovery.by_reason" :key="'rr-' + r.reason"
+                             class="text-gray-400">
+                          {{ r.reason_label || r.reason }} · затронуто: {{ r.count }}
+                          <span class="text-gray-600">({{ r.status === 'pending_rebuild'
+                            ? 'ждёт пересборки' : 'восстановить нечего' }})</span>
+                        </div>
+                        <div v-for="it in episodeRecovery.items" :key="'ri-' + it.episode_id"
+                             class="text-gray-500">
+                          · {{ episodePeriodLabel(it.event_period && it.event_period.start,
+                                                   it.event_period && it.event_period.end) }}
+                          — {{ it.reason_label || it.reason }}
+                          <span class="text-gray-600">· сообщений: {{ (it.linked_messages || {}).count || 0 }}</span>
+                        </div>
+                        <div class="text-gray-600">{{ episodeRecovery.note }}</div>
+                      </template>
+                      <div v-else class="text-gray-500">Данные группы недоступны.</div>
+                    </div>
+                  </div>
+                  <!-- Карточка выбранного эпизода: читаемая история +
+                       «Технические детали» по требованию + адресный переход. -->
+                  <div v-if="episodeCardBusy" class="spinner my-2"></div>
+                  <div v-else-if="episodeCardError" class="text-xs text-red-300 mt-2"
+                       data-episode-card-error>{{ episodeCardError }}</div>
+                  <div v-else-if="episodeCard" class="ep-card mt-2" data-episode-card>
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <b>{{ episodeCard.title || 'Без названия' }}</b>
+                      <span class="badge badge-muted">{{ episodeCard.completeness_label }}</span>
+                      <span v-if="episodeCard.verification" class="badge badge-muted">
+                        {{ episodeCard.verification.label }}</span>
+                      <span class="text-xs text-gray-500">
+                        {{ episodePeriodLabel(episodeCard.event_period && episodeCard.event_period.start,
+                                              episodeCard.event_period && episodeCard.event_period.end) }}
+                        · чат {{ episodeCard.chat_id }}
+                      </span>
+                      <button type="button" class="btn-ghost text-[10px] ml-auto"
+                              @click="closeEpisodeCard()">скрыть</button>
+                    </div>
+                    <div class="text-xs text-gray-300" data-episode-card-what>
+                      <b>Что произошло:</b> {{ episodeCard.what_happened || 'описание не восстановлено' }}
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1" data-episode-card-participants>
+                      <b>Участники:</b>
+                      {{ (episodeCard.participants && episodeCard.participants.primary || []).join(', ') || '—' }}
+                      <template v-if="episodeCard.participants && episodeCard.participants.others_count">
+                        +{{ episodeCard.participants.others_count }}
+                      </template>
+                      <span class="text-gray-600"> · {{ (episodeCard.linked_messages || {}).label }}</span>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1" data-episode-card-story>
+                      <b>История:</b>&nbsp;
+                      <template v-if="episodeCard.story && episodeCard.story.linked">
+                        {{ episodeCard.story.title || 'без названия' }}                        <span class="text-gray-600">· {{ episodeCard.story.excluded_from_retrieval
+                          ? 'исключена из поиска' : 'участвует в поиске' }}</span>
+                      </template>
+                      <span v-else class="text-gray-500">сюжет не связан (честно: связи нет)</span>
+                    </div>
+                    <div class="mt-1 flex flex-wrap gap-2">
+                      <button type="button" class="btn-ghost text-xs"
+                              data-episode-open-in-memory
+                              @click="openEpisodeInMemory(episodeCard.episode_id)">
+                        Открыть в памяти
+                      </button>
+                      <button type="button" class="btn-ghost text-xs"
+                              :aria-expanded="episodeTechOpen ? 'true' : 'false'"
+                              data-episode-tech-toggle
+                              @click="episodeTechOpen = !episodeTechOpen">
+                        {{ episodeTechOpen ? 'Скрыть технические детали' : 'Технические детали' }}
+                      </button>
+                    </div>
+                    <div v-if="episodeTechOpen" class="text-[10px] text-gray-500 mt-1"
+                         data-episode-tech>
+                      <div>episode_id: <span class="mono">{{ episodeCard.episode_id }}</span></div>
+                      <div>обнаружен: {{ episodeCard.discovered_at ? fmtTs(episodeCard.discovered_at) : '—' }}
+                        · обработан: {{ episodeCard.processed_at ? fmtTs(episodeCard.processed_at) : '—' }}</div>
+                      <div>тип обнаружения: {{ episodeCard.discovery_label }}
+                        ({{ episodeCard.discovery_kind }})</div>
+                      <div>утверждений: {{ episodeCard.claims_count }}
+                        · связность участников: {{ (episodeCard.participants_coherence || {}).state }}
+                        — {{ (episodeCard.participants_coherence || {}).note }}</div>
+                      <div>проверка: {{ (episodeCard.verification || {}).status }}
+                        (источник: {{ (episodeCard.verification || {}).source }})</div>
+                      <div>доступен в поиске: {{ episodeCard.retrievable == null ? '—'
+                        : (episodeCard.retrievable ? 'да' : 'нет') }}</div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <!-- Старая техническая таблица историй — под «Расширенный поиск»
+                   (EVOL-021: смысловая лента выше, техническая витрина не
+                   удалена: фильтры/keyset-пагинация/карточка истории остаются
+                   доступны). -->
+              <details v-if="currentTab && currentTab.id === 'memory_rag'
+                        && storiesEnabled && !workspaceModule"
+                       class="col-span-full" data-stories-advanced>
+                <summary class="card p-3 cursor-pointer text-sm font-bold"
+                         data-stories-advanced-toggle>
+                  Расширенный поиск (техническая таблица историй)
+                </summary>
               <!-- Раунд 10.46 (MCA-12, ADR-1028-21 D6–D8, §16.2): таблица
                    управления историями в СУЩЕСТВУЮЩЕЙ «Памяти» (не новый
                    маршрут; прецедент lessons-таблицы выше). Серверная keyset-
@@ -3582,6 +4112,7 @@
                   </div>
                 </template>
               </div>
+              </details>
               <!-- F7 (10.25, ADR-1025-20 D1/D2): PERMsoc — локальное
                    пространство ВЫБРАННОГО чата (§60). Без чата редактируемых
                    блоков нет (banner): PERMsoc не правит глобальные значения.
@@ -11371,6 +11902,114 @@
                      durable данных D05. -->
                 <div v-if="runCardExperience" class="mb-2" data-experience-funnel>
                   <run-card v-bind="runCardExperience"></run-card>
+                </div>
+                <!-- ═══ EVOL-020 (Wave 4 UI): цепочка опыта — 8 стадий ═══════
+                     Заменяет «голые» счётчики: у каждой стадии реальные
+                     отметки последнего прогона/успеха, окна 24ч/7д/30д,
+                     причины пропусков и классификатор состояния. Подписи
+                     состояний приходят с сервера (working/idle/broken/
+                     disabled/stale/never_run) — UI не рисует зелёное
+                     «работает», когда ниже по цепочке ничего не происходит.
+                     Раскрытие причины — по одной стадии; ссылки на уроки/
+                     применения даются только при подтверждённых счётчиках. -->
+                <div v-if="isGlobalAdmin" class="mb-2 text-xs"
+                     data-experience-pipeline>
+                  <div class="flex items-center gap-2 flex-wrap mb-1">
+                    <div class="font-bold">Цепочка опыта (8 стадий)</div>
+                    <span v-if="expPipelineView"
+                          class="badge"
+                          :class="expPipelineView.state === 'working' ? 'badge-ok'
+                            : (expPipelineView.state === 'broken' ? 'badge-err'
+                               : 'badge-warn')"
+                          :data-experience-pipeline-state="expPipelineView.state">
+                      {{ expPipelineView.stateLabel }}
+                    </span>
+                    <button type="button" class="btn-ghost text-xs ml-auto"
+                            :disabled="expPipelineBusy"
+                            aria-label="Обновить цепочку опыта"
+                            data-experience-pipeline-refresh
+                            @click="loadExperiencePipeline()">⟳</button>
+                  </div>
+                  <div v-if="expPipelineBusy && !expPipelineView" class="spinner my-2"></div>
+                  <div v-else-if="expPipelineError" class="text-red-300"
+                       data-experience-pipeline-error>{{ expPipelineError }}</div>
+                  <div v-else-if="!expPipelineView" class="text-gray-500">
+                    Данные цепочки недоступны.
+                  </div>
+                  <template v-else>
+                    <div class="text-gray-500 mb-1" data-experience-pipeline-reason>
+                      {{ expPipelineView.reasonLabel || 'Причина не определена' }}
+                      <span v-if="expPipelineView.cadence && expPipelineView.cadence.name"
+                            class="text-gray-500">&nbsp;· проверка: {{ expPipelineView.cadence.name }}</span>
+                      <span v-if="expPipelineView.scope"
+                            class="text-gray-500">&nbsp;· {{ expPipelineView.scope }}</span>
+                    </div>
+                    <div v-if="!expPipelineView.enabled" class="text-amber-300 mb-1"
+                         data-experience-pipeline-disabled>
+                      Контур опыта выключен — стадии показываются как «выключено»,
+                      а не как «работает».
+                    </div>
+                    <div class="exp-funnel" data-experience-pipeline-stages>
+                      <div v-for="st in expPipelineView.stages" :key="'ef-' + st.key"
+                           class="exp-stage"
+                           :class="'exp-stage--' + st.state"
+                           :data-experience-stage="st.key"
+                           :data-experience-stage-state="st.state">
+                        <button type="button" class="exp-stage__head"
+                                :aria-expanded="expStageOpen && expStageOpen[st.key] ? 'true' : 'false'"
+                                @click="toggleExpStage(st.key)">
+                          <span class="exp-stage__label">{{ st.label }}</span>
+                          <span class="badge"
+                                :class="st.state === 'working' ? 'badge-ok'
+                                  : (st.state === 'broken' ? 'badge-err' : 'badge-muted')">
+                            {{ st.stateLabel }}
+                          </span>
+                          <span class="exp-stage__count">{{ st.w24 }} / {{ st.w7 }} / {{ st.w30 }}</span>
+                        </button>
+                        <div class="exp-stage__meta">
+                          <span>прогон: {{ st.lastRun ? fmtTs(st.lastRun) : 'не было' }}</span>
+                          <span>успех: {{ st.lastSuccess ? fmtTs(st.lastSuccess) : 'не было' }}</span>
+                          <span>всего: {{ st.total }}</span>
+                        </div>
+                        <div v-if="st.reasonLabel" class="exp-stage__reason">
+                          {{ st.reasonLabel }}
+                        </div>
+                        <div v-if="expStageOpen && expStageOpen[st.key]"
+                             class="exp-stage__detail"
+                             :data-experience-stage-detail="st.key">
+                          <div v-if="st.skips.length">
+                            <div class="text-gray-500">Пропуски (последние):</div>
+                            <div v-for="sk in st.skips" :key="'sk-' + st.key + sk.event"
+                                 class="text-gray-400">
+                              {{ sk.event }} → {{ sk.reason }}
+                              <span v-if="sk.count != null" class="text-gray-600">· {{ sk.count }} за 7д </span>
+                              <span v-if="sk.lastTs" class="text-gray-600">· {{ fmtTs(sk.lastTs) }}</span>
+                            </div>
+                          </div>
+                          <div v-if="st.excluded.length" class="mt-1">
+                            <div class="text-gray-500">Причины исключения уроков:</div>
+                            <div v-for="ex in st.excluded" :key="'ex-' + st.key + ex.reason_code"
+                                 class="text-gray-400">
+                              {{ ex.reason_code }}<span v-if="ex.count != null"> · {{ ex.count }}</span>
+                            </div>
+                          </div>
+                          <div v-if="!st.skips.length && !st.excluded.length"
+                               class="text-gray-500">
+                            Причин пропусков нет — либо стадия не запускалась, либо
+                            прошла без пропусков (см. отметки выше).
+                          </div>
+                          <div v-if="st.links.length" class="mt-1 flex flex-wrap gap-1">
+                            <a v-for="l in st.links" :key="'el-' + st.key + l.route"
+                               :href="l.route" class="underline text-violet-300">{{ l.label }}</a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="text-gray-600 mt-1">
+                      Числа в строке стадии: за 24ч / 7д / 30д. «Всего» — все строки
+                      за всё время; ноль применений сам по себе не означает поломку.
+                    </div>
+                  </template>
                 </div>
                 <!-- U03.4 (v6.3): воронка 24ч/7д с реальными статусами +
                      последнее применение + честная причина пустоты

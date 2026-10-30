@@ -5500,3 +5500,131 @@ html.cover-editor-open { overflow: hidden; }
   }
   .sfeed-modal-enter-active .sfeed-modal { animation: none !important; }
 }
+
+/* ═══ EVOL-019/020/021/014 (Wave 4 UI) — аддитивные стили ═══════════════════
+   Только новые классы; существующие страницы и токены не переопределяются.
+   Ритм — из EVOL-022 (--space-*, --radius-*, --border-hairline). Сетки
+   адаптивные (auto-fit/minmax): на 390 px нет узкой переполняющейся колонки,
+   длинные значения переносятся, а не растягивают карточку. */
+.vr-headline {
+  display: flex; align-items: center; gap: var(--space-2, 8px);
+  flex-wrap: wrap; margin-bottom: var(--space-2, 8px);
+}
+.vr-state-grid {
+  display: grid; gap: var(--space-2, 8px);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+.vr-state {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  min-width: 0;
+}
+.vr-state--ok { border-color: rgba(52, 211, 153, .45); }
+.vr-state--bad { border-color: rgba(248, 113, 113, .45); }
+.vr-state--unknown { border-color: rgba(251, 191, 36, .35); }
+.vr-state__label {
+  font-size: .66rem; color: #AAB6C8; text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.vr-state__value { font-size: .82rem; font-weight: 600; overflow-wrap: anywhere; }
+.vr-facts { margin-top: var(--space-2, 8px); display: flex; flex-direction: column; gap: 4px; }
+.vr-fact { display: flex; gap: var(--space-2, 8px); font-size: .72rem; flex-wrap: wrap; }
+.vr-fact__label { color: #8b98ab; flex: 0 0 148px; }
+.vr-fact__value { min-width: 0; overflow-wrap: anywhere; }
+.vr-fact__value--sample { font-style: italic; }
+.vr-media { display: inline-block; margin-right: var(--space-2, 8px); }
+
+/* EVOL-020: компактная воронка цепочки опыта (8 стадий). */
+.exp-funnel {
+  display: grid; gap: var(--space-2, 8px);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.exp-stage {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px);
+  min-width: 0;
+}
+.exp-stage--working { border-color: rgba(52, 211, 153, .45); }
+.exp-stage--broken { border-color: rgba(248, 113, 113, .45); }
+.exp-stage--idle, .exp-stage--stale { border-color: rgba(251, 191, 36, .35); }
+.exp-stage--disabled, .exp-stage--never_run { opacity: .82; }
+.exp-stage__head {
+  display: flex; align-items: center; gap: var(--space-2, 8px);
+  width: 100%; text-align: left; background: none; border: 0;
+  padding: 0; cursor: pointer; color: inherit; flex-wrap: wrap;
+}
+.exp-stage__label { font-size: .78rem; font-weight: 700; }
+.exp-stage__count {
+  margin-left: auto; font-variant-numeric: tabular-nums;
+  font-size: .72rem; color: #AAB6C8;
+}
+.exp-stage__meta {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: .66rem; color: #8b98ab; margin-top: 4px;
+}
+.exp-stage__reason { font-size: .68rem; color: #cbd5e1; margin-top: 4px; }
+.exp-stage__detail {
+  margin-top: var(--space-2, 8px); padding-top: var(--space-2, 8px);
+  border-top: var(--border-hairline, 1px) solid rgba(255, 255, 255, .08);
+  font-size: .68rem;
+}
+
+/* EVOL-021: смысловая лента эпизодов. */
+.ep-list { display: flex; flex-direction: column; gap: var(--space-2, 8px); }
+.ep-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: rgba(255, 255, 255, .02); color: inherit;
+}
+.ep-item--active { border-color: rgba(167, 139, 250, .55); }
+.ep-item__title { font-size: .8rem; font-weight: 700; overflow-wrap: anywhere; }
+.ep-item__what { font-size: .72rem; color: #cbd5e1; margin-top: 2px; }
+.ep-item__meta {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  font-size: .66rem; color: #8b98ab; margin-top: 4px;
+}
+.ep-card {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .12);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-3, 12px);
+}
+
+/* EVOL-014: настройки мемов (вкладка «Основные настройки» Инициативы). */
+.meme-grid {
+  display: grid; gap: var(--space-2, 8px);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.meme-row {
+  display: flex; align-items: center; gap: var(--space-2, 8px);
+  flex-wrap: wrap; font-size: .74rem; min-width: 0;
+}
+.meme-row > span:first-child { color: #cbd5e1; }
+.meme-unavailable {
+  display: flex; flex-wrap: wrap; gap: var(--space-2, 8px);
+  align-items: center; font-size: .74rem; color: #fcd34d;
+  border: var(--border-hairline, 1px) solid rgba(251, 191, 36, .35);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  margin-bottom: var(--space-2, 8px);
+}
+.meme-quota, .meme-analytics {
+  border: var(--border-hairline, 1px) solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  font-size: .74rem;
+}
+.meme-prompt-text {
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  background: rgba(255, 255, 255, .03);
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-2, 8px);
+  font-size: .72rem;
+}
+@media (max-width: 420px) {
+  .vr-fact__label { flex-basis: 100%; }
+  .exp-stage__count { margin-left: 0; }
+}

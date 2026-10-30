@@ -2106,6 +2106,14 @@
         // ние изображений» (GET /api/vision/state при открытии вкладки
         // «Модели»; null → линия скрыта, 403/RBAC — честно без линии).
         visionState: null,
+        // EVOL-019 (Wave 4 UI): структурированная проверка распознавания —
+        // POST /api/vision/recognition-check. Отдельное действие от
+        // «Проверить подключение» (тот же paid-вызов, но проверяется весь
+        // путь до полученного содержимого). Результат — видимые данные,
+        // не тост: null → блок ещё не запускался.
+        visionRecognition: null,
+        visionRecognitionBusy: false,
+        visionRecognitionError: '',
         // EXTRA (extra-cover-style-pipeline, ADR-1028-4 D12; spec §56/§75):
         // редактор обложечных стилей (вкладка «Стили обложки» модуля Саммари).
         // ASAP-3.2 (ADR-1028-5 D14, ТЗ §106–§114): management screen +
@@ -2658,6 +2666,35 @@
         expWindowsBusy: false,        // окна 24ч/7д опыта
         expWindow24h: null,           // /api/oversight/experience/funnel?days=1
         expWindow7d: null,            // /api/oversight/experience/funnel?days=7
+        // EVOL-020 (Wave 4 UI): цепочка опыта из 8 стадий — реальные
+        // отметки прогонов, окна 24ч/7д/30д, причины пропусков и
+        // классификатор состояния (GET /api/experience/pipeline).
+        expPipeline: null,
+        expPipelineBusy: false,
+        expPipelineError: '',
+        expStageOpen: {},             // раскрытая причина по стадии
+        // EVOL-021 (Wave 4 UI): смысловые эпизоды — лента готовых,
+        // свёрнутая группа «Требуют восстановления» и карточка РОВНО
+        // выбранного эпизода (GET /api/episodes/*).
+        episodeFeed: null,
+        episodeFeedBusy: false,
+        episodeFeedError: '',
+        episodeRecovery: null,
+        episodeRecoveryBusy: false,
+        episodeRecoveryOpen: false,
+        episodeCard: null,
+        episodeCardBusy: false,
+        episodeCardError: '',
+        episodeTechOpen: false,
+        episodeFocusId: '',           // адресный переход «Открыть в памяти»
+        // EVOL-014 (Wave 4 UI): настройки мемов внутри модуля «Инициатива»
+        // (GET/POST /api/initiative/meme-settings). Мастер модуля остаётся в
+        // каталоге — здесь только собственная ось мемов.
+        memeSettings: null,
+        memeSettingsBusy: false,
+        memeSettingsSaving: false,
+        memeSettingsError: '',
+        memeDraft: {},
         memoryHealthBusy: false,
         cognitionBusy: false,
         cognitionTimer: null,          // polling 15с (только вкладка «Статус»)
@@ -5530,6 +5567,249 @@
         if (b) out.push(b);
         return out.length ? out : null;
       },
+      // ── EVOL-020 (Wave 4 UI): цепочка опыта — компактная воронка ────────
+      // Проекция GET /api/experience/pipeline. Порядок стадий — с сервера
+      // (`order`), подписи/состояния — тоже с сервера (STATE_LABELS/
+      // REASON_LABELS): UI не придумывает «работает» там, где сервер сказал
+      // idle/stale/never_run. Ссылки на реальные уроки/применения даются
+      // ТОЛЬКО когда счётчики подтверждают их наличие.
+      expPipelineView: function () {
+        var p = this.expPipeline;
+        if (!p) return null;
+        var order = (p.order || []).slice();
+        var stages = p.stages || {};
+        var rows = [];
+        for (var i = 0; i < order.length; i++) {
+          var st = stages[order[i]];
+          if (!st) continue;
+          var w = st.windows || {};
+          var skips = (st.skip_reasons || []).map(function (s) {
+            return {
+              event: s.event,
+              reason: s.reason_code,
+              lastTs: s.last_ts || null,
+              count: s.count_window == null ? null : s.count_window,
+            };
+          });
+          var links = [];
+          if (order[i] === 'application' && (st.total || 0) > 0) {
+            links.push({ route: '#/memory', label: 'Применения уроков — в «Памяти»' });
+          }
+          if (order[i] === 'validation' && (st.total || 0) > 0) {
+            links.push({ route: '#/memory', label: 'Проверенные уроки — в «Памяти»' });
+          }
+          if (order[i] === 'retrieval'
+              && ((st.excluded_reasons || []).length)) {
+            links.push({ route: '#/memory', label: 'Уроки и отбор — в «Памяти»' });
+          }
+          rows.push({
+            key: order[i],
+            label: st.label || order[i],
+            state: st.state || 'unknown',
+            stateLabel: st.state_label || 'состояние неизвестно',
+            enabled: st.enabled !== false,
+            reason: st.reason || '',
+            reasonLabel: st.reason_label || '',
+            lastRun: st.last_run_at || null,
+            lastSuccess: st.last_success_at || null,
+            w24: (w['24h'] == null ? 0 : w['24h']),
+            w7: (w['7d'] == null ? 0 : w['7d']),
+            w30: (w['30d'] == null ? 0 : w['30d']),
+            total: st.total == null ? 0 : st.total,
+            skips: skips,
+            excluded: st.excluded_reasons || [],
+            links: links,
+          });
+        }
+        return {
+          scope: p.scope,
+          chatId: p.chat_id,
+          generatedAt: p.generated_at || null,
+          enabled: p.enabled !== false,
+          state: p.state || 'unknown',
+          stateLabel: p.state_label || 'состояние неизвестно',
+          reason: p.reason || '',
+          reasonLabel: p.reason_label || '',
+          cadence: p.cadence || {},
+          job: p.job || {},
+          stages: rows,
+          counters: p.counters || {},
+          definitions: p.definitions || {},
+          reasonDetails: p.reason_details || [],
+        };
+      },
+      // ── EVOL-019 (Wave 4 UI): состояния проверки распознавания ──────────
+      // Пять раздельных шагов + терминальная причина. «Работает» пишется
+      // ТОЛЬКО когда сервер подтвердил полученное содержимое
+      // (`content_received`); 200 с не-JSON/неверной схемой/пустым телом
+      // даёт отдельные честные состояния, а не зелёное «распознавание ок».
+      visionRecognitionView: function () {
+        var r = this.visionRecognition;
+        if (!r) return null;
+        var yes = 'да', no = 'нет', unknown = 'неизвестно';
+        var tri = function (v) {
+          if (v === true) return yes;
+          if (v === false) return no;
+          return unknown;
+        };
+        var ok = !!(r.content_received && r.recognition_completed);
+        var states = [
+          { key: 'config', label: 'Конфигурация',
+            value: r.config_ok ? 'задана' : 'не задана',
+            ok: r.config_ok === true },
+          { key: 'provider', label: 'Провайдер доступен',
+            value: tri(r.provider_reachable),
+            ok: r.provider_reachable === true,
+            bad: r.provider_reachable === false },
+          { key: 'media', label: 'Медиа принято',
+            value: tri(r.media_accepted),
+            ok: r.media_accepted === true,
+            bad: r.media_accepted === false },
+          { key: 'recognition', label: 'Распознавание завершено',
+            value: r.recognition_completed ? yes : no,
+            ok: r.recognition_completed === true,
+            bad: r.recognition_completed !== true },
+          { key: 'content', label: 'Содержимое получено',
+            value: r.content_received
+              ? ('да · ' + (r.content_chars || 0) + ' симв.')
+              : no,
+            ok: r.content_received === true,
+            bad: r.content_received !== true },
+        ];
+        return {
+          ok: ok,
+          state: r.state || 'unknown',
+          headline: ok
+            ? 'Распознавание подтверждено: содержимое получено'
+            : ('Не подтверждено: ' + (r.terminal_reason_label
+              || 'состояние не определено')),
+          reasonLabel: r.terminal_reason_label || '',
+          reason: r.terminal_reason || '',
+          states: states,
+          sample: r.content_sample || '',
+          contentChars: r.content_chars == null ? 0 : r.content_chars,
+          durationMs: r.duration_ms == null ? null : r.duration_ms,
+          model: r.model || '',
+          provider: r.provider || '',
+          apiType: r.api_type || '',
+          source: r.source || '',
+          timestamp: r.timestamp || '',
+          checkedAt: r.checked_at || null,
+          httpClass: r.http_class || '',
+          paidCall: !!r.paid_call,
+          budgetNote: r.budget_note || '',
+          pipeline: r.pipeline || null,
+          mediaCoverage: r.media_coverage || [],
+          chatId: (r.chat_id == null ? null : r.chat_id),
+          fixture: r.fixture || {},
+        };
+      },
+      // ── EVOL-021 (Wave 4 UI): смысловая лента эпизодов ──────────────────
+      episodeFeedView: function () {
+        var f = this.episodeFeed;
+        if (!f) return null;
+        var items = (f.items || []).map(function (it) {
+          var period = it.event_period || {};
+          return {
+            id: it.episode_id,
+            title: it.title || '',
+            hasTitle: !!it.title,
+            happened: it.what_happened || '',
+            happenedSource: it.what_happened_source || '',
+            periodStart: period.start || null,
+            periodEnd: period.end || null,
+            periodKnown: !!period.known,
+            discoveredAt: it.discovered_at || null,
+            discoveryLabel: it.discovery_label || '',
+            participants: (it.participants && it.participants.primary) || [],
+            othersCount: (it.participants && it.participants.others_count) || 0,
+            participantsCount: (it.participants && it.participants.count) || 0,
+            linkedCount: (it.linked_messages && it.linked_messages.count) || 0,
+            linkedLabel: (it.linked_messages && it.linked_messages.label) || '',
+            completeness: it.completeness || 'empty',
+            completenessLabel: it.completeness_label || '',
+            verification: it.verification || null,
+            story: it.story || {},
+            needsRecovery: !!it.needs_recovery,
+            recovery: it.recovery || null,
+            chatId: it.chat_id,
+          };
+        });
+        var rec = f.requires_recovery || null;
+        return {
+          state: f.state || 'unknown',
+          chatId: f.chat_id,
+          message: f.message || '',
+          items: items,
+          totalReady: f.total_ready || 0,
+          totalEpisodes: f.total_episodes || 0,
+          recovery: rec,
+          lastBuild: f.last_build || null,
+          generatedAt: f.generated_at || null,
+        };
+      },
+      // ── EVOL-014 (Wave 4 UI): настройки мемов ────────────────────────────
+      // Значения — из ответа сервера (эффективные), дефолты — из `defaults`
+      // (их показывает подпись «по умолчанию»). Мастер модуля НЕ выводится:
+      // `master_key` остаётся в каталоге, здесь только `own_key`.
+      memeSettingsView: function () {
+        var m = this.memeSettings;
+        if (!m) return null;
+        var s = m.settings || {};
+        var q = m.quota || {};
+        var a = m.analytics || {};
+        var avail = m.availability || {};
+        var d = m.defaults || {};
+        var day = m.day || {};
+        var len = m.length_limit || {};
+        var prompts = m.prompts || {};
+        var counters = a.counters || {};
+        var skips = a.skip_reasons || {};
+        var skipRows = Object.keys(skips).sort(function (x, y) {
+          return (skips[y] || 0) - (skips[x] || 0);
+        }).map(function (code) {
+          return { code: code, count: skips[code] || 0 };
+        });
+        var limit = (q.limit == null ? s.daily_limit : q.limit);
+        var spent = (q.spent == null ? null : q.spent);
+        var remaining = (q.remaining == null ? null : q.remaining);
+        return {
+          available: avail.available === true,
+          unavailableReason: avail.reason || '',
+          memeEnabled: s.enabled === true,
+          initiativeEnabled: avail.initiative_enabled === true,
+          image: avail.image || {},
+          schemaPresent: !!m.schema_present,
+          quotaDisabled: limit === 0,
+          limit: limit,
+          spent: spent,
+          remaining: remaining,
+          quotaText: (limit === 0
+            ? 'Генерации сегодня: выключено (0 = без мемов)'
+            : ('Генерации сегодня: ' + (spent == null ? '—' : spent)
+               + ' / ' + limit)),
+          remainingText: (limit === 0
+            ? 'Осталось: —'
+            : ('Осталось: ' + (remaining == null ? '—' : remaining))),
+          resetAt: day.next_reset || q.next_reset || '',
+          timezone: day.timezone_name || q.timezone_name || 'UTC',
+          timezoneSource: day.timezone_source || q.timezone_source || '',
+          dayBucket: day.bucket || q.day_bucket || '',
+          quotaReason: q.reason || '',
+          counters: counters,
+          skipRows: skipRows,
+          stages: m.delivery && m.delivery.stages ? m.delivery.stages : [],
+          lengthLimit: len,
+          promptImage: prompts.image || {},
+          promptSummary: prompts.summary || {},
+          imagePrefix: m.image_prefix || '',
+          defaults: d,
+          coverage: a.coverage || '',
+          delivery: m.delivery || {},
+          settings: s,
+          generatedAt: m.generated_at || null,
+        };
+      },
       // Последнее применение урока — событие/строка применений mca-16.
       expLastAppliedLabel: function () {
         var f = this.intelFunnels;
@@ -6188,6 +6468,12 @@
           if (typeof this.loadStoriesTable === 'function') {
             this.loadStoriesTable(true);
           }
+          // EVOL-021 (Wave 4 UI): смысловая лента эпизодов + адресный
+          // переход `?episode=<id>` (ссылка открывает ТОТ ЖЕ эпизод).
+          if (typeof this.loadEpisodeFeed === 'function') {
+            this.loadEpisodeFeed();
+            this.episodesApplyDeepLink();
+          }
         }
         // F2 (T-2540): после смены вкладки контент v-if достраивается позже —
         // пересчитываем уровень стекла после рендера (в дополнение к observer).
@@ -6217,6 +6503,14 @@
         // изображений» — факты суточной квоты из существующего
         // /api/workers/budget (fail-open, окно 30 c).
         if (tab === 'settings') this.maybeLoadImageQuota();
+        // EVOL-014 (Wave 4 UI): «Основные настройки» модуля «Инициатива» —
+        // настройки мемов/квота/аналитика этого чата (read-only до правки;
+        // мастер модуля остаётся в каталоге).
+        if (tab === 'settings' && this.workspace && this.workspace.module
+            && this.workspace.module.id === 'mod_initiative'
+            && typeof this.loadMemeSettings === 'function') {
+          this.loadMemeSettings();
+        }
       },
       // B05.3: пока открыт cover-editor — блокируем скролл app позади
       // оверлея (no behind-overlay scroll); guard сбрасывается вместе.
@@ -8772,6 +9066,339 @@
           this.expWindowsBusy = false;
         }
       },
+      // ── EVOL-020 (Wave 4 UI): цепочка опыта (8 стадий) ──────────────────
+      // Один GET, без polling: диагностика по кнопке ⟳. Global admin —
+      // прецедент существующей воронки oversight; не-админу данные не
+      // запрашиваются вовсе (никаких «пустых панелей по 403»).
+      loadExperiencePipeline: async function () {
+        if (!this.isGlobalAdmin || this.expPipelineBusy) return;
+        this.expPipelineBusy = true;
+        this.expPipelineError = '';
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/experience/pipeline'
+            + this._cidQuery(true));
+          if (!this._scopeGuard(epoch)) return;
+          this.expPipeline = data || null;
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.expPipeline = null;
+          this.expPipelineError = (e && e.message) || 'данные недоступны';
+        } finally {
+          if (this._scopeGuard(epoch)) this.expPipelineBusy = false;
+        }
+      },
+      // Причина по стадии раскрывается по одной (без «стены текста»).
+      toggleExpStage: function (key) {
+        if (!key) return;
+        var next = {};
+        next[key] = !(this.expStageOpen && this.expStageOpen[key]);
+        this.expStageOpen = next;
+      },
+      // ── EVOL-019 (Wave 4 UI): «Проверить распознавание» ──────────────────
+      // Отдельное действие от «Проверить подключение»: проверяет весь путь
+      // до полученного содержимого. Результат обновляет ВИДИМЫЕ данные —
+      // карточку состояний и живую effective-линию vision (`visionState`),
+      // а не только тост. Тост остаётся короткой сводкой.
+      runVisionRecognitionCheck: async function () {
+        if (this.visionRecognitionBusy) return;
+        this.visionRecognitionBusy = true;
+        this.visionRecognitionError = '';
+        try {
+          var data = await this.api('/api/vision/recognition-check', {
+            method: 'POST',
+            body: JSON.stringify({}),
+          });
+          this.visionRecognition = data || null;
+          var v = this.visionRecognitionView;
+          this.toast(v && v.ok
+            ? 'Распознавание подтверждено: содержимое получено'
+            : ('Распознавание не подтверждено: '
+               + ((v && v.reasonLabel) || 'см. карточку проверки')),
+            v && v.ok ? 'ok' : 'warn');
+          // Видимая линия модуля должна отражать факт проверки, а не жить
+          // старым кэшем (30 с): принудительно перечитываем состояние.
+          if (typeof this.maybeLoadVisionState === 'function') {
+            this.maybeLoadVisionState(true);
+          }
+        } catch (e) {
+          this.visionRecognition = null;
+          this.visionRecognitionError = (e && e.message) || 'проверка недоступна';
+          this.toast('Проверка распознавания: ' + this.visionRecognitionError,
+                     'err');
+        } finally {
+          this.visionRecognitionBusy = false;
+        }
+      },
+      visionRecognitionBadgeClass: function (view) {
+        if (!view) return 'badge-muted';
+        return view.ok ? 'badge-ok' : 'badge-warn';
+      },
+      // ── EVOL-021 (Wave 4 UI): смысловые эпизоды ─────────────────────────
+      loadEpisodeFeed: async function () {
+        if (this.episodeFeedBusy) return;
+        if (this.activeChatId == null) {
+          this.episodeFeed = null;
+          this.episodeRecovery = null;
+          this.episodeFeedError = '';
+          return;
+        }
+        this.episodeFeedBusy = true;
+        this.episodeFeedError = '';
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/episodes/feed?limit=20');
+          if (!this._scopeGuard(epoch)) return;
+          this.episodeFeed = data || null;
+          if (this.episodeRecoveryOpen) this.loadEpisodeRecovery();
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.episodeFeed = null;
+          this.episodeFeedError = (e && e.message) || 'эпизоды недоступны';
+        } finally {
+          if (this._scopeGuard(epoch)) this.episodeFeedBusy = false;
+        }
+      },
+      // Группа восстановления грузится ТОЛЬКО при раскрытии (свёрнута по
+      // умолчанию — это не «вторая лента», а отдельный честный список).
+      loadEpisodeRecovery: async function () {
+        if (this.episodeRecoveryBusy || this.activeChatId == null) return;
+        this.episodeRecoveryBusy = true;
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/episodes/recovery?limit=50');
+          if (!this._scopeGuard(epoch)) return;
+          this.episodeRecovery = data || null;
+        } catch (e) {
+          if (this._scopeGuard(epoch)) this.episodeRecovery = null;
+        } finally {
+          if (this._scopeGuard(epoch)) this.episodeRecoveryBusy = false;
+        }
+      },
+      toggleEpisodeRecovery: function () {
+        this.episodeRecoveryOpen = !this.episodeRecoveryOpen;
+        if (this.episodeRecoveryOpen) this.loadEpisodeRecovery();
+      },
+      // Карточка РОВНО выбранного эпизода: id уходит на сервер, сервер сам
+      // отсекает чужой чат (404). «Общий каталог» здесь не открывается.
+      openEpisodeCard: async function (episodeId) {
+        if (!episodeId || this.episodeCardBusy) return;
+        if (this.episodeCard && this.episodeCard.episode_id === episodeId) {
+          this.episodeCard = null;
+          return;
+        }
+        this.episodeCardBusy = true;
+        this.episodeCardError = '';
+        this.episodeTechOpen = false;
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/episodes/'
+            + encodeURIComponent(episodeId));
+          if (!this._scopeGuard(epoch)) return;
+          this.episodeCard = data || null;
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.episodeCard = null;
+          this.episodeCardError = (e && e.status === 404)
+            ? 'Эпизод не найден в этом чате'
+            : ((e && e.message) || 'карточка недоступна');
+        } finally {
+          if (this._scopeGuard(epoch)) this.episodeCardBusy = false;
+        }
+      },
+      closeEpisodeCard: function () {
+        this.episodeCard = null;
+        this.episodeCardError = '';
+        this.episodeTechOpen = false;
+      },
+      // «Открыть в памяти» — адресная ссылка на КОНКРЕТНЫЙ эпизод
+      // (`#/memory?episode=<id>`), а не на общий каталог: адрес копируется,
+      // а фокус применяется сразу (episodesApplyDeepLink) и раскрывает карточку.
+      openEpisodeInMemory: function (episodeId) {
+        if (!episodeId) return;
+        this.episodeFocusId = String(episodeId);
+        var target = '#/memory?episode=' + encodeURIComponent(episodeId);
+        var self = this;
+        var openNow = function () {
+          self.episodesApplyDeepLink();
+          self.openEpisodeCard(episodeId);
+        };
+        if (this.route === '#/memory' || this.route === '#/memory/rag') {
+          // Уже в «Памяти»: адресуем эпизод без смены экрана (pushState —
+          // ссылка остаётся копируемой, навигация не сбрасывается).
+          try { history.pushState(null, '', target); } catch (e) { /* file:// */ }
+          openNow();
+          return;
+        }
+        this.navigateTo('#/memory');
+        this.$nextTick(function () {
+          try { history.replaceState(null, '', target); } catch (e) { /* file:// */ }
+          openNow();
+        });
+      },
+      // Разбор `?episode=` из hash (прецедент oversight-deep-link): ссылку
+      // можно скопировать и открыть в другой вкладке — откроется ТОТ ЖЕ
+      // эпизод выбранного чата.
+      episodesApplyDeepLink: function () {
+        var raw = (typeof window !== 'undefined'
+          && typeof window.location.hash === 'string')
+          ? window.location.hash : '';
+        var m = /[?&]episode=([^&]+)/.exec(raw || '');
+        if (!m) {
+          if (this.episodeFocusId) this.episodeFocusId = '';
+          return null;
+        }
+        var id = '';
+        try { id = decodeURIComponent(m[1]); } catch (e) { id = m[1]; }
+        if (!id) return null;
+        this.episodeFocusId = id;
+        if (!this.episodeCard || this.episodeCard.episode_id !== id) {
+          this.openEpisodeCard(id);
+        }
+        return id;
+      },
+      episodePeriodLabel: function (start, end) {
+        if (!start && !end) return 'период неизвестен';
+        var a = start ? this.fmtTs(start) : '?';
+        if (!end || end === start) return a;
+        return a + ' — ' + this.fmtTs(end);
+      },
+      // ── EVOL-014 (Wave 4 UI): настройки мемов ────────────────────────────
+      loadMemeSettings: async function () {
+        if (this.memeSettingsBusy) return;
+        if (this.activeChatId == null) {
+          this.memeSettings = null;
+          return;
+        }
+        this.memeSettingsBusy = true;
+        this.memeSettingsError = '';
+        var epoch = this.scopeEpoch;
+        try {
+          var data = await this.api('/api/initiative/meme-settings');
+          if (!this._scopeGuard(epoch)) return;
+          this.memeSettings = data || null;
+          this.memeDraft = this.memeDraftFromSettings(data);
+        } catch (e) {
+          if (!this._scopeGuard(epoch)) return;
+          this.memeSettings = null;
+          this.memeSettingsError = (e && e.status === 403)
+            ? 'Нет доступа к настройкам этого чата'
+            : ((e && e.message) || 'настройки недоступны');
+        } finally {
+          if (this._scopeGuard(epoch)) this.memeSettingsBusy = false;
+        }
+      },
+      // Черновик — из эффективных значений сервера (не из дефолтов): поля
+      // показывают то, что реально действует в этом чате.
+      memeDraftFromSettings: function (data) {
+        var s = (data && data.settings) || {};
+        return {
+          enabled: s.enabled === true,
+          window_messages: s.window_messages == null ? '' : s.window_messages,
+          daily_limit: s.daily_limit == null ? '' : s.daily_limit,
+          cooldown_seconds: s.cooldown_seconds == null ? '' : s.cooldown_seconds,
+          min_messages: s.min_messages == null ? '' : s.min_messages,
+          summarizer_model: s.summarizer_model || '',
+          quiet_hours: s.quiet_hours || '',
+          length_limit: s.length_admin == null ? '' : s.length_admin,
+        };
+      },
+      saveMemeSettings: async function () {
+        if (this.memeSettingsSaving || this.activeChatId == null) return;
+        var d = this.memeDraft || {};
+        var num = function (v) {
+          if (v === '' || v == null) return null;
+          var n = parseInt(v, 10);
+          return isNaN(n) ? null : n;
+        };
+        var body = {
+          enabled: d.enabled === true,
+          summarizer_model: String(d.summarizer_model || ''),
+          quiet_hours: String(d.quiet_hours || ''),
+        };
+        var win = num(d.window_messages);
+        if (win != null) body.window_messages = win;
+        var limit = num(d.daily_limit);
+        if (limit != null) body.daily_limit = limit;
+        var cool = num(d.cooldown_seconds);
+        if (cool != null) body.cooldown_seconds = cool;
+        var minm = num(d.min_messages);
+        if (minm != null) body.min_messages = minm;
+        var len = num(d.length_limit);
+        if (len != null) body.length_limit = len;
+        this.memeSettingsSaving = true;
+        this.memeSettingsError = '';
+        try {
+          var data = await this.api('/api/initiative/meme-settings', {
+            method: 'POST',
+            body: JSON.stringify(body),
+          });
+          this.memeSettings = data || this.memeSettings;
+          this.memeDraft = this.memeDraftFromSettings(this.memeSettings);
+          this.toast('Настройки мемов сохранены для этого чата', 'ok');
+        } catch (e) {
+          this.memeSettingsError = (e && e.status === 403)
+            ? 'Нет права менять настройки этого чата'
+            : (e && e.status === 409
+              ? 'Конфликт версии (409) — обновите настройки'
+              : ((e && e.message) || 'не удалось сохранить'));
+          this.toast('Мемы: ' + this.memeSettingsError, 'err');
+        } finally {
+          this.memeSettingsSaving = false;
+        }
+      },
+      // Человеческая причина недоступности мемов (не общее «не работает»).
+      memeUnavailableLabel: function (reason) {
+        var ru = {
+          initiative_disabled: 'Модуль «Инициатива» выключен — мемы не '
+            + 'запускаются (сначала включите модуль в каталоге)',
+          disabled_by_setting: 'Мемы выключены для этого чата',
+          image_provider_not_configured: 'Image-провайдер не настроен '
+            + '(адрес/модель/ключ) — генерация мемов недоступна',
+          image_module_off: 'Модуль генерации изображений выключен',
+          image_provider_unhealthy: 'Image-провайдер недоступен (health)',
+          schema_absent: 'Схема квоты мемов ещё не применена — генерации '
+            + 'не будет, счётчик честно недоступен',
+          ok: '',
+        };
+        return ru[reason] || ('Причина: ' + (reason || 'неизвестна'));
+      },
+      memeStageLabel: function (stage) {
+        var ru = {
+          considered: 'Рассмотрено',
+          eligible: 'Годно к генерации',
+          summary: 'Выжимка',
+          image_generation: 'Генерация картинки',
+          publish: 'Публикация',
+          failed: 'Ошибка',
+          skipped: 'Пропуск',
+        };
+        return ru[stage] || stage || '—';
+      },
+      memeSkipLabel: function (code) {
+        var ru = {
+          disabled_by_setting: 'выключено настройкой',
+          initiative_disabled: 'инициатива выключена',
+          image_module_off: 'модуль картинок выключен',
+          image_provider_not_configured: 'image-провайдер не настроен',
+          image_provider_unhealthy: 'image-провайдер недоступен',
+          random_unavailable: 'источник случайности недоступен',
+          no_random_hit: 'случайный порог не пройден',
+          cooldown_active: 'кулдаун',
+          summary_failed: 'выжимка не удалась',
+          image_generation_failed: 'генерация картинки не удалась',
+          publish_blocked: 'публикация заблокирована',
+          daily_quota_reached: 'суточная квота исчерпана',
+          low_activity: 'мало активности',
+          schema_absent: 'схема квоты отсутствует',
+          length_limit_unknown: 'потолок длины неизвестен',
+          in_flight: 'уже выполняется',
+          quiet_hours: 'тихие часы',
+          cycle_exception: 'исключение цикла',
+          slot_released: 'бронь квоты освобождена',
+        };
+        return ru[code] || code || '—';
+      },
       // Предупреждение о низком свободном месте (порог 2 ГБ).
       memoryStorageWarn: function () {
         var s = this.memoryHealth && this.memoryHealth.storage;
@@ -10549,6 +11176,12 @@
           // данные/API, что в «Аналитике» (runs + общий detail-modal);
           // лениво, ~30с кэш (loadTemporalRuns внутри).
           this.loadTemporalRuns();
+        } else if (m.id === 'mod_initiative') {
+          // EVOL-014 (Wave 4 UI): настройки мемов/квота/аналитика этого чата
+          // — тот же единственный источник, что и на вкладке «Настройки».
+          if (typeof this.loadMemeSettings === 'function') {
+            this.loadMemeSettings();
+          }
         }
       },
       closeModule: function () {
@@ -13649,7 +14282,7 @@
       // карточки «Распознавание изображений». Fail-open: 403/ошибка →
       // visionState=null (линия скрыта). Без сети на бэкенде — из кеша
       // capabilities (не «проверка подключения», а честное состояние).
-      maybeLoadVisionState: function () {
+      maybeLoadVisionState: function (force) {
         var ws = this.workspace;
         var inVisionModels = !!(ws && ws.module && ws.module.id === 'mod_vision'
                                 && ws.tab === 'models');
@@ -13659,7 +14292,9 @@
         if (!inVisionModels && this.activeTab !== 'llm_providers') {
           return;
         }
-        if (this.visionState && this._visionStateAt
+        // EVOL-019: `force` — после «Проверить распознавание» видимая линия
+        // должна отражать ФАКТ проверки, а не 30-секундный кэш.
+        if (!force && this.visionState && this._visionStateAt
             && (Date.now() - this._visionStateAt) < 30000) {
           return;
         }
@@ -16421,6 +17056,11 @@
         });
         if (id === 'status') {
           this.loadStatus();
+          // EVOL-020 (Wave 4 UI): цепочка опыта — 8 стадий с реальными
+          // отметками (GET /api/experience/pipeline; global admin, лениво).
+          if (typeof this.loadExperiencePipeline === 'function') {
+            this.loadExperiencePipeline();
+          }
           // U04 (v6.3): viewer логов теперь ЖИВЁТ в конце «Статуса» —
           // лениво догружаем при входе (как раньше на входе в Аналитику;
           // счётчики — по-прежнему в loadStatus, fetch один).

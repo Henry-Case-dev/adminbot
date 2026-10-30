@@ -27,6 +27,7 @@ from services.experience_diagnostics import (
     REASON_NO_WORTHY_LESSONS,
     REASON_OUTCOME_NOT_MEASURED,
     REASON_SELECTION_EMPTY,
+    REASON_SELECTION_NOT_IN_WINDOW,
     STATE_BROKEN,
     STATE_DISABLED,
     STATE_IDLE,
@@ -522,5 +523,103 @@ async def test_selection_failure_is_not_reported_as_nothing_matched():
         assert retrieval["reason"] == "selection_failed"
         assert retrieval["failed_runs_7d"] == 1
         assert retrieval["empty_runs_7d"] == 0
+    finally:
+        await db.close()
+
+
+# ═══ review-fix2: два блокера витрины «Опыт» ═══════════════════════════════
+
+
+@pytest.mark.parametrize("outcome", ["success", "failed"])
+@pytest.mark.asyncio
+async def test_selection_run_outside_window_is_not_never_run(outcome):
+    """F1: прогон старше 7 дней — «были раньше», а не «ни разу не запускался».
+
+    Реальный тихий чат: отбор запускался 10 дней назад (`retrieved`,
+    `outcome=success|failed`). Окно 7д = 0, но `total` = 1 и `last_run_at`
+    заполнен. Раньше этап объявлял `never_run/no_selection_runs` (а причина
+    применения — `no_selection_runs`, что B3 прямо запретил), хотя прогон был.
+    """
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _lesson(db, lesson_id="l-quiet", status="active",
+                      created_at=NOW - 10 * DAY)
+        await _event(db, "retrieved", NOW - 10 * DAY, outcome=outcome,
+                     reason="retrieval_empty", chat_id=-100)
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        retrieval = body["stages"]["retrieval"]
+        assert retrieval["state"] != STATE_NEVER_RUN
+        assert retrieval["state"] == STATE_IDLE
+        assert retrieval["reason"] == REASON_SELECTION_NOT_IN_WINDOW
+        assert retrieval["reason"] != REASON_NO_SELECTION_RUN
+        assert "раньше" in retrieval["reason_label"]
+        # total — за всё время, окна честно нулевые.
+        assert retrieval["total"] == 1
+        assert retrieval["windows"]["7d"] == 0
+        assert retrieval["windows"]["30d"] == 1
+        assert retrieval["last_run_at"] == NOW - 10 * DAY
+        assert retrieval["last_selection_outcome"] == outcome
+        # Причина применения не сваливается в «отбор ни разу не запускался».
+        application = body["stages"]["application"]
+        assert application["reason"] != REASON_NO_SELECTION_RUN
+        assert application["reason"] == REASON_NOTHING_MATCHED
+        assert application["selection_runs_total"] == 1
+    finally:
+        await db.close()
+
+
+@pytest.mark.asyncio
+async def test_activation_is_not_inferred_from_lesson_updated_at():
+    """F2: «проверены и активированы в окне» — только по событию `activated`.
+
+    Реальный путь: активный урок 10 дней назад, затем смена окружения →
+    `recheck_stale()` ставит `recheck_required=1` и двигает `updated_at`
+    (плюс `applications_count` двигает его при каждом применении). Раньше
+    `updated_at` считался активацией: цепочка показывала
+    `working/lessons_flowing` при validated=0, applied=0, активаций не было.
+    """
+    db = await _db()
+    try:
+        await _job(db, "completed", NOW - 1800)
+        await _lesson(db, lesson_id="l-old", status="active",
+                      created_at=NOW - 10 * DAY)
+        svc = me.get_service(db)
+        assert await svc.lesson.recheck_stale() == 1
+        row = await db.db.execute(
+            "SELECT recheck_required, updated_at FROM mca_lessons "
+            "WHERE lesson_id = 'l-old'")
+        stored = dict(await row.fetchone())
+        assert stored["recheck_required"] == 1
+        assert stored["updated_at"] > NOW - 3600
+
+        body = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        activation = body["stages"]["activation"]
+        assert activation["state"] != STATE_NEVER_RUN  # уроки активны
+        assert activation["windows"] == {"24h": 0, "7d": 0, "30d": 0}
+        assert activation["last_success_at"] is None
+        assert activation["last_run_at"] is None
+        assert activation["recheck_required"] == 1
+        assert body["evidence"]["activated_in_window"] == 0
+        assert body["evidence"]["validated_in_window"] == 0
+        assert body["evidence"]["applied_in_window"] == 0
+        # Ни «работает», ни «проверены и активированы в окне».
+        assert body["state"] != STATE_WORKING
+        assert body["reason"] != "lessons_flowing"
+        assert "активированы" not in body["reason_label"]
+
+        # Обратная сторона того же механизма: реальное событие активации в
+        # окне по-прежнему даёт `working/lessons_flowing`.
+        await _event(db, "activated", NOW - 600, reason="activated",
+                     chat_id=-100)
+        fresh = await experience_pipeline_snapshot(
+            db, now=NOW, chat_id=-100, gates=ALL_ON)
+        assert fresh["stages"]["activation"]["windows"]["24h"] == 1
+        assert fresh["stages"]["activation"]["last_success_at"] == NOW - 600
+        assert fresh["evidence"]["activated_in_window"] == 1
+        assert fresh["state"] == STATE_WORKING
+        assert fresh["reason"] == "lessons_flowing"
     finally:
         await db.close()

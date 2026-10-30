@@ -2350,30 +2350,40 @@ def _prune_vision_test_last(now: float) -> None:
         _VISION_TEST_LAST.pop(k, None)
 
 
-async def _vision_chat_scope(cache: ConfigCache, user: WebAppUser,
-                             chat_id: int | None,
-                             x_chat_id: str | None) -> int | None:
-    """Контекст ЧАТА для `/api/vision/*` (FIX2 + NF-1).
+async def _scoped_chat_or_none(cache: ConfigCache, user: WebAppUser,
+                               chat_id: int | None,
+                               x_chat_id: str | None) -> int | None:
+    """Контекст ЧАТА запроса: явный `chat_id` (query) или `X-Chat-Id`
+    (header, его ставит `web/api()` при активном чате).
 
-    Источник — явный `chat_id` (query) или `X-Chat-Id` (header, его ставит
-    `web/api()` при активном чате). Нет контекста → None (глобальный слой,
-    прежнее поведение). Чужой чат (нет доступа по `can_access_chat` для
-    chat-scope ctx) → тоже None: per-chat настройки чужого чата наружу не
-    отдаются (прецедент `/api/status`)."""
+    Нет контекста → None (глобальный слой). Чужой чат (нет доступа по
+    `can_access_chat`) → тоже None: per-chat данные чужого чата наружу не
+    отдаются (прецедент `/api/status`). Единая реализация для
+    `/api/vision/*`, `/api/experience/pipeline` (EVOL-020) — вторая копия
+    проверки прав не создаётся."""
     scope_chat = chat_id if chat_id is not None \
         else _chat_id_or_none(x_chat_id)
     if scope_chat is None:
         return None
     try:
-        from services import roles as roles_srv
         scoped = await roles_srv.access_for(user.id, scope_chat, cache=cache)
         if scoped is not None and access_srv.can_access_chat(scoped,
                                                              scope_chat):
             return scope_chat
     except Exception:
-        logger.debug("[api] vision chat scope resolve failed | chat=%s",
+        logger.debug("[api] chat scope resolve failed | chat=%s",
                      scope_chat, exc_info=True)
     return None
+
+
+async def _vision_chat_scope(cache: ConfigCache, user: WebAppUser,
+                             chat_id: int | None,
+                             x_chat_id: str | None) -> int | None:
+    """Контекст ЧАТА для `/api/vision/*` (FIX2 + NF-1).
+
+    Тонкая обёртка над `_scoped_chat_or_none` (имя сохранено: его используют
+    vision-эндпоинты и существующие тесты)."""
+    return await _scoped_chat_or_none(cache, user, chat_id, x_chat_id)
 
 
 @api_router.post("/vision/test")
@@ -3600,3 +3610,480 @@ async def post_prompt_activate(
     result["reason_text"] = _prompt_reason_text(result)
     result["active_unchanged"] = not bool(result.get("applied"))
     return result
+
+
+# ═══ EVOL-019/020/021/014 (Wave 4 UI wiring) ═══════════════════════════════
+# HTTP-слой над УЖЕ принятыми сервисами; новых store/агрегаторов и второй
+# конфигурации нет:
+#   * EVOL-019 — `POST /api/vision/recognition-check` поверх
+#     `mca_vision.recognition_check()` (структурированные состояния вместо
+#     одного «ок» по HTTP 200; проверка делает ОДИН реальный запрос — платный
+#     вызов, о чём ответ говорит явно через `paid_call`/`budget_note`);
+#   * EVOL-020 — `GET /api/experience/pipeline` поверх
+#     `experience_diagnostics` (8 стадий, реальные отметки времени, окна
+#     24ч/7д/30д, причины пропусков, классификатор состояния);
+#   * EVOL-021 — `GET /api/episodes/feed|recovery|{episode_id}` поверх
+#     `episode_diagnostics` (смысловые эпизоды + группа восстановления +
+#     карточка РОВНО выбранного эпизода разрешённого чата);
+#   * EVOL-014 — `GET/POST /api/initiative/meme-settings` поверх
+#     `meme_initiative` (настройки мемов, квота, аналитика, шаблон промпта).
+# R17: ни ключ Vision, ни base_url, ни сырое тело провайдера в ответ не
+# попадают — только классы/коды/длины; образец содержимого ограничен сервисом.
+
+# ── EVOL-019: «Проверить распознавание» ────────────────────────────────────
+# Отдельный rate-limit от `/api/vision/test`: это ДРУГОЕ действие (не
+# «проверить подключение»), и общий счётчик позволил бы обойти ограничение
+# чередованием кнопок. Политика та же (10 с, платный вызов).
+_VISION_RECOGNITION_MIN_INTERVAL = 10.0
+_VISION_RECOGNITION_LAST: dict[int, float] = {}
+_VISION_RECOGNITION_TTL = 3600.0
+
+
+def reset_vision_recognition_rate_limit() -> None:
+    """Тестовая точка сброса серверного rate-limit проверки распознавания."""
+    _VISION_RECOGNITION_LAST.clear()
+
+
+def _prune_vision_recognition_last(now: float) -> None:
+    if len(_VISION_RECOGNITION_LAST) < 256:
+        return
+    stale = [k for k, ts in _VISION_RECOGNITION_LAST.items()
+             if now - ts > _VISION_RECOGNITION_TTL]
+    for k in stale:
+        _VISION_RECOGNITION_LAST.pop(k, None)
+
+
+@api_router.post("/vision/recognition-check")
+async def post_vision_recognition_check(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: int | None = Query(default=None),
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-019: «Проверить распознавание» — структурированный результат.
+
+    В отличие от `POST /api/vision/test` («Проверить подключение»), проверяет
+    ВЕСЬ путь: конфигурация → доступность провайдера → принятие медиа →
+    завершённость распознавания → полученное содержимое → производная
+    готовность pipeline. HTTP 200 с не-JSON/неверной схемой/пустым
+    содержимым НЕ считается работающим распознаванием — ответ приходит с
+    `state` (`schema_invalid`/`content_empty`/...) и `terminal_reason`.
+
+    Права — как у `/api/vision/test` (global admin ИЛИ право на
+    `keys.vision_api_key`); 429 — повтор чаще 10 секунд; 503 — проверка
+    недоступна (сервис бросил исключение). Ответ всегда 200 с честными
+    полями: `config_ok`/`provider_reachable`/`media_accepted`/
+    `recognition_completed`/`content_received`/`duration_ms`/`model`/
+    `timestamp`/`terminal_reason`/`pipeline`/`media_coverage`/`paid_call`.
+    """
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not (ctx.is_global_admin or can_view_key_value(
+            cache, user.id, "keys.vision_api_key")):
+        raise HTTPException(status_code=403,
+                            detail="нет прав на управление ключом vision")
+    now = time.monotonic()
+    _prune_vision_recognition_last(now)
+    if now - _VISION_RECOGNITION_LAST.get(user.id, 0.0) \
+            < _VISION_RECOGNITION_MIN_INTERVAL:
+        raise HTTPException(status_code=429,
+                            detail="повтор проверки чаще 10 секунд")
+    _VISION_RECOGNITION_LAST[user.id] = now
+    scope_chat = await _vision_chat_scope(cache, user, chat_id, x_chat_id)
+    from services import mca_vision
+    try:
+        result = await mca_vision.recognition_check(chat_id=scope_chat)
+    except Exception:
+        logger.warning("[api] vision recognition check failed", exc_info=True)
+        raise HTTPException(status_code=503,
+                            detail="проверка распознавания недоступна")
+    out = dict(result)
+    # Чат-скоуп, в котором считались модуль/типы медиа: без него UI не может
+    # отличить «модуль выключен глобально» от «выключен в этом чате».
+    out["chat_id"] = scope_chat
+    return out
+
+
+# ── EVOL-020: цепочка опыта (8 стадий) ─────────────────────────────────────
+
+@api_router.get("/experience/pipeline")
+async def get_experience_pipeline(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    chat_id: int | None = Query(default=None),
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-020: состояние цепочки опыта по ФАКТИЧЕСКИМ отметкам.
+
+    Источник — `services.experience_diagnostics` (те же таблицы/события, что
+    у витрины «Опыт»): 8 стадий (`order`), счётчики за 24ч/7д/30д, реальные
+    `last_run_at`/`last_success_at`, причины пропусков, классификатор
+    (`working`/`idle`/`broken`/`disabled`/`stale`/`never_run`) и словарь
+    определений. `reason_details` — причины по стадиям за 7 дней (типизированные
+    события; пусто — честно пусто). Ничего не пишет, внешних вызовов нет.
+
+    RBAC — прецедент `/api/oversight/experience/funnel`: global admin.
+    `chat_id`/`X-Chat-Id` сужает срез до РАЗРЕШЁННОГО чата; чужой чат → None
+    (глобальный срез, без утечки per-chat данных).
+    """
+    cache: ConfigCache = get_cache(request)
+    ctx = await _ctx_global_admin(cache, user)
+    if not ctx.is_global_admin:
+        raise HTTPException(status_code=403,
+                            detail="нет прав на диагностику цепочки опыта")
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="локальная БД недоступна")
+    scope_chat = await _scoped_chat_or_none(cache, user, chat_id, x_chat_id)
+    from services import experience_diagnostics as exp_diag
+    snapshot = await exp_diag.experience_pipeline_snapshot(db,
+                                                          chat_id=scope_chat)
+    try:
+        reasons = await exp_diag.experience_pipeline_reasons(
+            db, chat_id=scope_chat)
+    except Exception:
+        logger.warning("[api] experience reasons failed — fail-open",
+                       exc_info=True)
+        reasons = {"items": [], "window_seconds": None}
+    snapshot["reason_details"] = reasons.get("items") or []
+    snapshot["reasons_window_seconds"] = reasons.get("window_seconds")
+    return snapshot
+
+
+# ── EVOL-021: смысловые эпизоды (лента/восстановление/карточка) ─────────────
+
+async def _require_chat_access(request: Request, user: WebAppUser,
+                               chat_id: int) -> None:
+    """Чат-скоуп (TH-1): доступ к чату проверяется ДО чтения; чужой → 403
+    без раскрытия существования (прецедент `web/api/stories.py`)."""
+    cache = get_cache(request)
+    try:
+        ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    except Exception:
+        raise HTTPException(status_code=403,
+                            detail="permission denied") from None
+    if not access_srv.can_access_chat(ctx, chat_id):
+        raise HTTPException(status_code=403, detail="permission denied")
+
+
+def _episodes_no_chat() -> dict:
+    """Честное «выберите чат»: эпизоды живут в конкретном чате."""
+    return {"enabled": True, "state": "no_chat", "chat_id": None,
+            "generated_at": int(time.time()), "items": [],
+            "requires_recovery": None, "last_build": None,
+            "message": "Выберите чат — эпизоды показываются для выбранного чата"}
+
+
+def _episodes_db_unavailable() -> dict:
+    return {"enabled": True, "state": "unavailable", "chat_id": None,
+            "generated_at": int(time.time()), "items": [],
+            "requires_recovery": None, "last_build": None,
+            "message": "Эпизоды недоступны: локальная БД не открыта"}
+
+
+@api_router.get("/episodes/feed")
+async def get_episodes_feed(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-021: лента смысловых эпизодов разрешённого чата.
+
+    В ленту попадают ТОЛЬКО эпизоды с восстановленным описанием (пустые
+    технические записи не выдаются за «новые истории»); незавершённые
+    сгруппированы в `requires_recovery` с реальной причиной и числом.
+    `last_build` — последняя сборка из существующего прогресса витрины.
+    Пустой архив → честный `state=empty`, без выдуманных заголовков.
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        return _episodes_no_chat()
+    await _require_chat_access(request, user, chat_id)
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        return _episodes_db_unavailable()
+    from services import episode_diagnostics as ed
+    return await ed.episode_feed(db, chat_id, limit=limit)
+
+
+@api_router.get("/episodes/recovery")
+async def get_episodes_recovery(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-021: группа «Требуют восстановления» (свёрнутая по умолчанию).
+
+    Каждый элемент несёт реальную причину (`no_source_messages`/
+    `no_substantive_text`/`summary_not_built`/`title_stub_only`) и статус
+    (`unrecoverable`/`pending_rebuild`). Архив не удаляется, новые сюжеты
+    не генерируются.
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        return {"enabled": True, "state": "no_chat", "chat_id": None,
+                "generated_at": int(time.time()), "count": 0, "items": [],
+                "by_reason": [], "truncated": False,
+                "group": "requires_recovery",
+                "group_label": "Требуют восстановления",
+                "message": "Выберите чат — группа считается для выбранного чата"}
+    await _require_chat_access(request, user, chat_id)
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        return {"enabled": True, "state": "unavailable", "chat_id": chat_id,
+                "generated_at": int(time.time()), "count": 0, "items": [],
+                "by_reason": [], "truncated": False,
+                "group": "requires_recovery",
+                "group_label": "Требуют восстановления",
+                "message": "Эпизоды недоступны: локальная БД не открыта"}
+    from services import episode_diagnostics as ed
+    return await ed.recovery_group(db, chat_id, limit=limit)
+
+
+@api_router.get("/episodes/{episode_id}")
+async def get_episode_card(
+    request: Request,
+    episode_id: str,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-021: карточка РОВНО выбранного эпизода (не «общий каталог»).
+
+    Изоляция чатов проверяется ДО чтения: эпизод чужого чата и
+    несуществующий одинаково дают 404 без раскрытия существования
+    (сервис тоже возвращает None при чужом `chat_id`).
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    await _require_chat_access(request, user, chat_id)
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    if db is None:
+        raise HTTPException(status_code=503, detail="локальная БД недоступна")
+    from services import episode_diagnostics as ed
+    card = await ed.episode_card(db, chat_id, str(episode_id))
+    if card is None:
+        raise HTTPException(status_code=404, detail="эпизод не найден")
+    return card
+
+
+# ── EVOL-014: настройки мемов внутри модуля «Инициатива» ───────────────────
+# Мастер модуля (`flags.initiative_enabled`) НЕ дублируется: мемы имеют свой
+# ключ (`flags.meme_initiative_enabled`), отдельный от текстовой инициативы.
+# Запись идёт тем же per-chat override-путём, что и остальные настройки чата
+# (POST /api/config не подходит: `initiative.meme_*` — не ключи каталога).
+_MEME_QUIET_HOURS_RE = r"^(?:[0-2]?\d:[0-5]\d-[0-2]?\d:[0-5]\d)?$"
+
+
+class MemeSettingsUpdate(BaseModel):
+    """Частичная правка настроек мемов (все поля опциональны).
+
+    Границы совпадают с валидацией сервиса (`meme_initiative.load_settings`):
+    квота `0` = выключено, окно ≥ 1, вероятность 0..1, тихие часы
+    `HH:MM-HH:MM` (пусто = не заданы). `summarizer_model` пустой = наследовать
+    общий суммаризатор. Мастер модуля здесь отсутствует намеренно.
+    """
+    enabled: bool | None = None
+    window_messages: int | None = Field(default=None, ge=1, le=5000)
+    daily_limit: int | None = Field(default=None, ge=0, le=50)
+    cooldown_seconds: int | None = Field(default=None, ge=0, le=604800)
+    min_messages: int | None = Field(default=None, ge=0, le=500)
+    trigger_probability: float | None = Field(default=None, ge=0, le=1)
+    summarizer_model: str | None = Field(default=None, max_length=120)
+    quiet_hours: str | None = Field(default=None, max_length=11)
+    length_limit: int | None = Field(default=None, ge=0, le=8000)
+    length_override: int | None = Field(default=None, ge=0, le=8000)
+    updated_at: str | None = None
+
+
+def _meme_payload_field_map() -> dict[str, str]:
+    """Поле API → ключ параметра чата (единый источник соответствия)."""
+    from services import meme_initiative as mi
+    return {
+        "enabled": mi.KEY_ENABLED,
+        "window_messages": mi.KEY_WINDOW,
+        "daily_limit": mi.KEY_DAILY_LIMIT,
+        "cooldown_seconds": mi.KEY_COOLDOWN,
+        "min_messages": mi.KEY_MIN_MESSAGES,
+        "trigger_probability": mi.KEY_PROBABILITY,
+        "summarizer_model": mi.KEY_SUMMARIZER_MODEL,
+        "quiet_hours": mi.KEY_QUIET_HOURS,
+        "length_limit": mi.KEY_LENGTH_ADMIN,
+        "length_override": mi.KEY_LENGTH_OVERRIDE,
+    }
+
+
+async def _meme_settings_payload(chat_id: int, db) -> dict:
+    """Полный срез настроек мемов для витрины модуля «Инициатива».
+
+    Всё читается существующими функциями сервиса; витрина не считает
+    собственных квот/счётчиков. `availability.reason` — конкретная причина
+    недоступности (инициатива выключена / мемы выключены / image-провайдер не
+    настроен / схема квоты отсутствует), а не общее «не работает».
+    """
+    from services import meme_initiative as mi
+    cfg = await mi.load_settings(chat_id)
+    ledger = mi.open_ledger(db) if db is not None else None
+    day = mi.day_window(chat_id)
+    quota = mi.quota_view(ledger, chat_id=chat_id, day=day,
+                          limit=cfg.daily_limit)
+    analytics = mi.analytics_snapshot(ledger, chat_id=chat_id, day=day,
+                                      limit=cfg.daily_limit)
+    availability = await mi.availability(chat_id, settings=cfg, ledger=ledger)
+    try:
+        model_chars = await mi.model_prompt_chars()
+    except Exception:
+        model_chars = None
+    length = mi.resolve_length_limit(
+        model_chars=model_chars, admin=cfg.length_admin,
+        explicit=cfg.length_override, prefix=mi.MEME_IMAGE_PROMPT)
+    prompts: dict[str, Any] = {}
+    for name, block_id in (("image", mi.IMAGE_PROMPT_BLOCK_ID),
+                           ("summary", mi.SUMMARY_PROMPT_BLOCK_ID)):
+        try:
+            prompts[name] = mi.active_prompt_view(block_id)
+        except Exception:
+            logger.debug("[api] meme prompt view failed | block=%s", block_id,
+                         exc_info=True)
+            prompts[name] = {"block_id": block_id, "text": "",
+                             "source": "unavailable",
+                             "differs_from_factory": False,
+                             "factory_revision": "", "revision": 0}
+    skip_reasons = dict(analytics.get("skip_reasons") or {})
+    return {
+        "chat_id": int(chat_id),
+        "generated_at": int(time.time()),
+        "settings": cfg.as_dict(),
+        "availability": availability,
+        "quota": quota,
+        "analytics": analytics,
+        "day": {"bucket": day.bucket,
+                "timezone_name": day.timezone_name,
+                "timezone_source": day.timezone_source,
+                "next_reset": day.next_reset_iso},
+        "length_limit": length.as_dict(),
+        "image_prefix": mi.MEME_IMAGE_PROMPT,
+        "prompts": prompts,
+        "delivery": {
+            "output_kind": mi.OUTPUT_KIND,
+            "blocks_text_initiative": mi.blocks_text_initiative(),
+            "publish_blocked_count": int(skip_reasons.get(mi.SKIP_PUBLISH, 0)),
+            "skip_reasons": skip_reasons,
+            "stages": list(mi.STAGES),
+        },
+        "schema_present": bool(ledger is not None and ledger.table_present()),
+        "defaults": {
+            "enabled": mi.DEFAULT_ENABLED,
+            "window_messages": mi.DEFAULT_WINDOW_MESSAGES,
+            "daily_limit": mi.DEFAULT_DAILY_LIMIT,
+            "cooldown_seconds": mi.DEFAULT_COOLDOWN_SECONDS,
+            "min_messages": mi.DEFAULT_MIN_MESSAGES,
+            "trigger_probability": mi.DEFAULT_TRIGGER_PROBABILITY,
+        },
+        "master_key": "flags.initiative_enabled",
+        "own_key": mi.KEY_ENABLED,
+    }
+
+
+@api_router.get("/initiative/meme-settings")
+async def get_meme_settings(
+    request: Request,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-014: настройки мемов + квота дня + аналитика по стадиям.
+
+    Права — доступ к чату (чтение). Без `X-Chat-Id` → 422: мемы включаются
+    и квотируются ПО ЧАТУ, глобального «включено для всех» здесь нет.
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    await _require_chat_access(request, user, chat_id)
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    return await _meme_settings_payload(chat_id, db)
+
+
+@api_router.post("/initiative/meme-settings")
+async def post_meme_settings(
+    request: Request,
+    payload: MemeSettingsUpdate,
+    user: Annotated[WebAppUser, Depends(get_tma_user)],
+    x_chat_id: Annotated[str | None, Header()] = None,
+):
+    """EVOL-014: правка настроек мемов (per-chat override).
+
+    Гейт прав — прецедент `DELETE /api/config/chat/{key}`: в ЛС — владелец,
+    в группе — global/local admin. Мастер модуля «Инициатива» НЕ меняется
+    (ключ `flags.initiative_enabled` в этом теле отсутствует). Ответ — свежий
+    срез (тот же, что GET), чтобы витрина показывала фактическое состояние,
+    а не эхо запроса. 409 — оптимистичный конфликт, 422 — недопустимое
+    значение, 503 — PostgreSQL недоступен.
+    """
+    chat_id = _chat_id_or_none(x_chat_id)
+    if chat_id is None:
+        raise HTTPException(status_code=422, detail="нужен X-Chat-Id")
+    cache: ConfigCache = get_cache(request)
+    ctx = await roles_srv.access_for(user.id, chat_id, cache=cache)
+    if chat_params.is_dm_scope(chat_id):
+        allowed = bool(ctx.is_dm_owner)
+    else:
+        allowed = bool(ctx.is_global_admin or ctx.is_local_admin)
+    if not allowed:
+        raise HTTPException(status_code=403, detail="нет доступа к чату")
+    if not cache.pg_available:
+        raise HTTPException(status_code=503,
+                            detail="PostgreSQL недоступен (R6)")
+    if payload.quiet_hours is not None:
+        import re as _re
+        if not _re.match(_MEME_QUIET_HOURS_RE, str(payload.quiet_hours)):
+            raise HTTPException(
+                status_code=422,
+                detail="тихие часы: формат HH:MM-HH:MM или пусто")
+    field_map = _meme_payload_field_map()
+    patch: dict[str, Any] = {}
+    for field, key in field_map.items():
+        value = getattr(payload, field)
+        if value is None:
+            continue
+        if field in ("summarizer_model", "quiet_hours"):
+            patch[key] = str(value).strip()
+        elif field == "enabled":
+            patch[key] = bool(value)
+        elif field in ("length_limit", "length_override"):
+            # 0 = «не задано» (снять ограничение), а не «нулевой потолок».
+            patch[key] = int(value) if int(value) > 0 else None
+        else:
+            patch[key] = value
+    if not patch:
+        raise HTTPException(status_code=422, detail="нет изменений")
+    if ctx.is_dm_owner:
+        await chat_params.ensure_scope_profile(chat_id, dm=True, pg=cache.pg)
+    root = await chat_params.get_all_chat_params(chat_id, pg=cache.pg)
+    overrides = dict(root.get("overrides") or {})
+    overrides.update(patch)
+    meta = dict(root.get("meta") or {})
+    meta["updated_by"] = user.id
+    try:
+        await _write_chat_overrides_with_retry(
+            chat_id, overrides, meta, cache,
+            expected_updated_at=payload.updated_at)
+    except chat_params.ChatParamsConflict as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": "conflict",
+                    "current_updated_at": exc.current_updated_at,
+                    "conflicting": getattr(exc, "conflicting", []) or [],
+                    "applied": []})
+    logger.info("[api] meme settings updated | chat=%s | keys=%s | by=%s",
+                chat_id, sorted(patch), user.id)
+    from services import lore_runtime
+    db = lore_runtime.get_lore_db()
+    return await _meme_settings_payload(chat_id, db)

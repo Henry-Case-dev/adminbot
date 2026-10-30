@@ -31,6 +31,12 @@
 * «отбор запускался, но ничего не прошло» НЕ равен «отбор ни разу не
   запускался»: пустая попытка отбора — тоже прогон (событие `retrieved`,
   `outcome=skipped`);
+* «ни разу не запускался» решается по счётчику ЗА ВСЁ ВРЕМЯ: прогон 10 дней
+  назад — это «были раньше, в окне новых нет» (`selection_not_in_window`),
+  а не «не запускался»;
+* «урок активен» НЕ равен «активация была в окне»: активация берётся только
+  из события `activated`; `updated_at` урока (его двигает `recheck_required`
+  или рост `applications_count`) доказательством активации не является;
 * причина применения считается по ОКНУ, а `total` объясняет разницу отдельной
   причиной, а не выдаётся за свежее применение;
 * R17: наружу — id/коды/числа/enum, без текста уроков и приватных данных.
@@ -119,6 +125,8 @@ REASON_APPLICATIONS_NOT_IN_WINDOW = "applications_not_in_window"
 REASON_OUTCOME_NOT_MEASURED = "outcome_not_measured"
 #: Отбор запускался, но ни один урок не прошёл (≠ «не запускался»).
 REASON_SELECTION_EMPTY = "selection_empty"
+#: Прогоны отбора были, но ни одного в окне (окно ≠ всё время).
+REASON_SELECTION_NOT_IN_WINDOW = "selection_not_in_window"
 #: Отбор падал (чтение кандидатов/БД), а не «ничего не прошло».
 REASON_SELECTION_FAILED = "selection_failed"
 
@@ -156,6 +164,9 @@ REASON_LABELS = {
         "Применения есть, но исход ещё не измерен — полезность не считается"),
     REASON_SELECTION_EMPTY: (
         "Отбор уроков запускался, но ни один урок не прошёл по релевантности"),
+    REASON_SELECTION_NOT_IN_WINDOW: (
+        "Отбор уроков запускался раньше, но в этом окне (7 дней) новых "
+        "прогонов нет"),
     REASON_SELECTION_FAILED: (
         "Отбор уроков падал: последняя попытка завершилась ошибкой чтения"),
 }
@@ -303,6 +314,8 @@ async def _experience_events(db, *, chat_id: int | None,
                 "last_outcome": row.get("outcome"),
                 "last_reason": row.get("reason_code"),
                 "last_payload": _json_payload(row.get("usage_json")),
+                # total — за всё время (решение «ни разу»), count_window — 7д.
+                "total": _int(windows.get("c")),
                 "count_window": _int(windows.get("w7")),
                 "windows": {"24h": _int(windows.get("w24")),
                             "7d": _int(windows.get("w7")),
@@ -432,13 +445,18 @@ def classify_experience_state(*, enabled: bool, cadence_seconds: int,
     Одни лишь кандидаты — это `idle` с честной причиной «проверка ещё не
     проходила», иначе мёртвая проверка выглядела бы зелёной.
     «Ноль применений» само по себе НЕ делает цепочку сломанной: причины
-    разбираются на уровне этапов."""
+    разбираются на уровне этапов.
+
+    Все `*_in_window` здесь — окно 24 часа (свежесть «работает сейчас»);
+    причины этапов используют 7 дней (см. `_application_reason`). Разные окна
+    названы в `evidence` и `definitions`, а не выдаются за одно и то же."""
     stale_after = max(2 * max(1, int(cadence_seconds)), 2 * 3600)
     last_run = _opt_ts(last_run_at)
     last_ok = _opt_ts(last_success_at)
     last_err = _opt_ts(last_error_at)
     evidence = {"last_run_at": last_run, "last_success_at": last_ok,
                 "last_error_at": last_err, "stale_after_seconds": stale_after,
+                "window_seconds": WINDOW_24H,
                 "proposed_in_window": int(proposed_in_window),
                 "validated_in_window": int(validated_in_window),
                 "activated_in_window": int(activated_in_window),
@@ -484,7 +502,15 @@ def _application_reason(*, active_lessons: int, context_enabled: bool,
 
     «Применяется» — только по окну: старые строки в `total` не делают этап
     живым, но и не превращаются в «применений не было» — для них отдельная
-    причина `applications_not_in_window`."""
+    причина `applications_not_in_window`.
+
+    Окна у этапа и у цепочки разные и это осознанный выбор: причина ЭТАПА
+    смотрит 7 дней (устойчивое «применения идут», а не один всплеск за сутки),
+    состояние ЦЕПОЧКИ — 24 часа (свежесть «работает прямо сейчас»). Оба окна
+    отдаются наружу явно (`applications_in_window_7d`,
+    `evidence.applied_in_window`), поэтому разница объяснима, а не скрыта.
+    `selection_runs` — счётчик за ВСЁ время: «ни разу не запускался» только
+    при полном отсутствии прогонов."""
     if applications_in_window > 0:
         return REASON_APPLICATIONS_FLOWING
     if not context_enabled:
@@ -596,13 +622,20 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
                                                    "suspended")]
     active_rows = [r for r in lesson_rows
                    if str(r.get("status")) == "active"]
-    activation_ts = [_opt_ts(r.get("updated_at")) for r in active_rows]
-    activation_ts = [t for t in activation_ts if t]
+    # `updated_at` — время ЛЮБОЙ правки строки урока (recheck_required=1,
+    # рост applications_count), а не доказательство активации. Активация
+    # берётся только из события `activated` (см. ниже, после `events`).
     application_windows = _windows(applied_ts)
 
     jobs = await _review_jobs(db)
     job_info = _review_job_info(jobs)
     events = await _experience_events(db, chat_id=chat_id, now=ts)
+    activation_events = events.get("activated") or {}
+    activated_ts = _opt_ts(activation_events.get("last_ts"))
+    # Нет события `activated` вовсе → нули по окнам (как у остальных этапов),
+    # а не пустой словарь: витрине не нужно защищаться от отсутствия ключей.
+    activated_windows = dict(activation_events.get("windows") or {}) or {
+        "24h": 0, "7d": 0, "30d": 0}
 
     def _event_ts(name: str):
         return _opt_ts((events.get(name) or {}).get("last_ts"))
@@ -644,6 +677,10 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
 
     # «Отбор запускался» — любая попытка (успешная ИЛИ честно пустая/сбойная);
     # «отобрал» — только успешные. Иначе пустой отбор выдавался за «ни разу».
+    # Решение «ни разу не запускался» принимается по СЧЁТЧИКУ ЗА ВСЁ ВРЕМЯ:
+    # тихий чат с одним прогоном 10 дней назад — это «прогоны были, в окне
+    # новых нет», а не «не запускался». Окно ниже — только для «работает».
+    selection_total = _int(selection_events.get("total"))
     selection_runs = _int(selection_events.get("count_window"))
     selected_runs = _int(_selection_out("success").get("count_window"))
     empty_runs = _int(_selection_out("skipped").get("count_window"))
@@ -654,9 +691,12 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
     if not retrieval_enabled:
         retrieval_state = STATE_DISABLED
         retrieval_reason = REASON_CONTEXT_OFF
-    elif selection_runs <= 0:
+    elif selection_total <= 0:
         retrieval_state = STATE_NEVER_RUN
         retrieval_reason = REASON_NO_SELECTION_RUN
+    elif selection_runs <= 0:
+        retrieval_state = STATE_IDLE
+        retrieval_reason = REASON_SELECTION_NOT_IN_WINDOW
     elif selected_runs > 0:
         retrieval_state = STATE_WORKING
         retrieval_reason = ""
@@ -667,10 +707,12 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
         retrieval_state = STATE_IDLE
         retrieval_reason = REASON_SELECTION_EMPTY
 
+    # Окно причины применения — 7 дней (как у этапа), тогда как состояние
+    # цепочки считает применения за 24ч: разные окна названы явно в `extra`.
     application_reason = _application_reason(
         active_lessons=len(active_rows),
         context_enabled=context_on,
-        selection_runs=selection_runs,
+        selection_runs=selection_total,
         applications_in_window=application_windows["7d"],
         applications_total=len(application_rows))
 
@@ -727,16 +769,16 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
         "activation": _stage(
             key="activation", enabled=enabled,
             counters={"total": status_counts.get("active", 0),
-                      "windows": _windows(activation_ts)},
+                      "windows": activated_windows},
             last_run_at=_event_ts("activated"),
-            last_success_at=max(activation_ts, default=None),
+            last_success_at=activated_ts,
             extra={"suspended": status_counts.get("suspended", 0),
                    "recheck_required": sum(
                        1 for r in lesson_rows
                        if _int(r.get("recheck_required")))}),
         "retrieval": _stage(
             key="retrieval", enabled=retrieval_enabled,
-            counters={"total": selection_runs,
+            counters={"total": selection_total,
                       "windows": dict(selection_events.get("windows") or {})},
             last_run_at=_event_ts("retrieved"),
             last_success_at=selection_last_success,
@@ -759,6 +801,7 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
                                           for r in application_rows}),
                    "active_lessons": len(active_rows),
                    "selection_runs_7d": selection_runs,
+                   "selection_runs_total": selection_total,
                    "applications_in_window_7d": application_windows["7d"]}),
         "outcome": _stage(
             key="outcome", enabled=enabled,
@@ -795,8 +838,9 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
                                if t >= ts - WINDOW_24H),
         validated_in_window=sum(1 for t in validated_ts
                                 if t >= ts - WINDOW_24H),
-        activated_in_window=sum(1 for t in activation_ts
-                                if t >= ts - WINDOW_24H),
+        # Активация — по фактическим событиям `activated` в окне 24ч,
+        # а не по `updated_at` урока (его двигает recheck/рост применений).
+        activated_in_window=_int(activated_windows.get("24h")),
         applied_in_window=sum(1 for t in applied_ts if t >= ts - WINDOW_24H),
         captured_in_window=(episodes["windows"]["24h"]
                             + feedback["windows"]["24h"]),
@@ -823,9 +867,15 @@ async def experience_pipeline_snapshot(db, *, now: int | None = None,
             "reasons": dict(REASON_LABELS),
             "windows_seconds": {"24h": WINDOW_24H, "7d": WINDOW_7D,
                                 "30d": WINDOW_30D},
+            # Разные окна этапа и цепочки — осознанно и явно: причина этапа
+            # «применяется» смотрит 7 дней, состояние цепочки — 24 часа.
+            "stage_reason_window_seconds": WINDOW_7D,
+            "chain_state_window_seconds": WINDOW_24H,
             "note": ("total — все строки за всё время; windows — только "
                      "строки с отметкой времени в окне. Разные классы "
-                     "(candidate/validated/active) не обязаны совпадать."),
+                     "(candidate/validated/active) не обязаны совпадать. "
+                     "Состояние цепочки считает результаты за 24ч, причины "
+                     "этапов — за 7д; оба числа отдаются отдельно."),
         },
         "counters": {"lessons": status_counts,
                      "lesson_counters": counters_sums,
